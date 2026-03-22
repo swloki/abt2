@@ -1,0 +1,73 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "google/protobuf/timestamp.proto";
+
+service UserService {
+    rpc CreateUser(CreateUserRequest) returns (UserResponse);
+    rpc UpdateUser(UpdateUserRequest) returns (UserResponse);
+    rpc DeleteUser(DeleteUserRequest) returns (Empty);
+    rpc GetUser(GetUserRequest) returns (UserResponse);
+    rpc ListUsers(Empty) returns (UserListResponse);
+    rpc AssignRoles(AssignRolesRequest) returns (Empty);
+    rpc RemoveRoles(RemoveRolesRequest) returns (Empty);
+    rpc BatchAssignRoles(BatchAssignRolesRequest) returns (Empty);
+}
+
+message CreateUserRequest {
+    string username = 1;
+    string password = 2;
+    string display_name = 3;
+    bool is_super_admin = 4;
+}
+
+message UpdateUserRequest {
+    int64 user_id = 1;
+    string display_name = 2;
+    bool is_active = 3;
+}
+
+message DeleteUserRequest {
+    int64 user_id = 1;
+}
+
+message GetUserRequest {
+    int64 user_id = 1;
+}
+
+message UserResponse {
+    int64 user_id = 1;
+    string username = 2;
+    string display_name = 3;
+    bool is_active = 4;
+    bool is_super_admin = 5;
+    repeated RoleInfo roles = 6;
+    int64 created_at = 7;
+}
+
+message UserListResponse {
+    repeated UserResponse users = 1;
+}
+
+message AssignRolesRequest {
+    int64 user_id = 1;
+    repeated int64 role_ids = 2;
+}
+
+message RemoveRolesRequest {
+    int64 user_id = 1;
+    repeated int64 role_ids = 2;
+}
+
+message BatchAssignRolesRequest {
+    repeated int64 user_ids = 1;
+    repeated int64 role_ids = 2;
+}
+
+message RoleInfo {
+    int64 role_id = 1;
+    string role_name = 2;
+    string role_code = 3;
+}

@@ -6,18 +6,24 @@ mod bom_repo;
 mod inventory_repo;
 mod labor_process_repo;
 mod location_repo;
+mod permission_repo;
 mod product_price_repo;
 mod product_repo;
+mod role_repo;
 mod term_repo;
+mod user_repo;
 mod warehouse_repo;
 
 pub use bom_repo::BomRepo;
 pub use inventory_repo::InventoryRepo;
 pub use labor_process_repo::LaborProcessRepo;
 pub use location_repo::LocationRepo;
+pub use permission_repo::PermissionRepo;
 pub use product_price_repo::ProductPriceRepo;
 pub use product_repo::ProductRepo;
+pub use role_repo::RoleRepo;
 pub use term_repo::TermRepo;
+pub use user_repo::UserRepo;
 pub use warehouse_repo::WarehouseRepo;
 
 // Re-export Executor from common

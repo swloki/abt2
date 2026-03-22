@@ -1,5 +1,6 @@
 //! User gRPC Handler
 
+use prost_types::Empty;
 use tonic::{Request, Response, Status};
 use crate::generated::abt::v1::{
     user_service_server::UserService as GrpcUserService,

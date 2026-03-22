@@ -1,5 +1,6 @@
 //! Warehouse gRPC Handler
 
+use prost_types::Empty;
 use tonic::{Request, Response, Status};
 use crate::generated::abt::v1::{
     abt_warehouse_service_server::AbtWarehouseService as GrpcWarehouseService,

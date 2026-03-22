@@ -82,6 +82,18 @@ impl AppState {
         abt::get_labor_process_service(self.abt_context)
     }
 
+    pub fn user_service(&self) -> impl abt::UserService {
+        abt::get_user_service(self.abt_context)
+    }
+
+    pub fn role_service(&self) -> impl abt::RoleService {
+        abt::get_role_service(self.abt_context)
+    }
+
+    pub fn permission_service(&self) -> impl abt::PermissionService {
+        abt::get_permission_service(self.abt_context)
+    }
+
     pub async fn begin_transaction(&self) -> anyhow::Result<sqlx::Transaction<'static, sqlx::Postgres>> {
         self.abt_context.begin_transaction().await
     }

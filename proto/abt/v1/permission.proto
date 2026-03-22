@@ -3,6 +3,8 @@ package abt.v1;
 
 option go_package = "abt/v1";
 
+import "abt/v1/base.proto";
+
 service PermissionService {
     rpc GetUserPermissions(GetUserPermissionsRequest) returns (UserPermissionsResponse);
     rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);

@@ -3,7 +3,7 @@ package abt.v1;
 
 option go_package = "abt/v1";
 
-import "google/protobuf/timestamp.proto";
+import "abt/v1/base.proto";
 
 service UserService {
     rpc CreateUser(CreateUserRequest) returns (UserResponse);

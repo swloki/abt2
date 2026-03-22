@@ -15,6 +15,9 @@ pub mod models;
 pub mod repositories;
 pub mod service;
 
+#[cfg(test)]
+mod tests;
+
 // Public API (models and service traits)
 pub use models::*;
 pub use service::*;
@@ -135,4 +138,19 @@ pub fn get_product_price_service(ctx: &AppContext) -> impl crate::service::Produ
 /// 获取人工工序服务
 pub fn get_labor_process_service(ctx: &AppContext) -> impl crate::service::LaborProcessService {
     crate::implt::LaborProcessServiceImpl::new(ctx.pool().clone())
+}
+
+/// 获取用户服务
+pub fn get_user_service(ctx: &AppContext) -> impl crate::service::UserService {
+    crate::implt::UserServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取角色服务
+pub fn get_role_service(ctx: &AppContext) -> impl crate::service::RoleService {
+    crate::implt::RoleServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取权限服务
+pub fn get_permission_service(ctx: &AppContext) -> impl crate::service::PermissionService {
+    crate::implt::PermissionServiceImpl::new(Arc::new(ctx.pool().clone()))
 }

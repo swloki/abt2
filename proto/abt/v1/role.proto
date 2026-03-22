@@ -3,6 +3,9 @@ package abt.v1;
 
 option go_package = "abt/v1";
 
+import "abt/v1/base.proto";
+import "abt/v1/permission.proto";
+
 service RoleService {
     rpc CreateRole(CreateRoleRequest) returns (RoleResponse);
     rpc UpdateRole(UpdateRoleRequest) returns (RoleResponse);
@@ -62,19 +65,4 @@ message AssignPermissionsRequest {
 message RemovePermissionsRequest {
     int64 role_id = 1;
     repeated int64 permission_ids = 2;
-}
-
-message PermissionInfo {
-    int64 permission_id = 1;
-    string permission_name = 2;
-    ResourceInfo resource = 3;
-    string action_code = 4;
-    string action_name = 5;
-}
-
-message ResourceInfo {
-    int64 resource_id = 1;
-    string resource_name = 2;
-    string resource_code = 3;
-    string group_name = 4;
 }

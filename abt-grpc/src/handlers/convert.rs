@@ -218,3 +218,130 @@ impl From<abt::LocationInventoryStats> for LocationInventoryStatsResponse {
         }
     }
 }
+
+// ========== User conversions ==========
+
+use crate::generated::abt::v1::{RoleInfo as ProtoRoleInfo, UserResponse as ProtoUserResponse};
+
+impl From<abt::RoleInfo> for ProtoRoleInfo {
+    fn from(role: abt::RoleInfo) -> Self {
+        ProtoRoleInfo {
+            role_id: role.role_id,
+            role_name: role.role_name,
+            role_code: role.role_code,
+        }
+    }
+}
+
+impl From<abt::UserWithRoles> for ProtoUserResponse {
+    fn from(u: abt::UserWithRoles) -> Self {
+        ProtoUserResponse {
+            user_id: u.user.user_id,
+            username: u.user.username,
+            display_name: u.user.display_name.unwrap_or_default(),
+            is_active: u.user.is_active,
+            is_super_admin: u.user.is_super_admin,
+            roles: u.roles.into_iter().map(|r| r.into()).collect(),
+            created_at: u.user.created_at.timestamp(),
+        }
+    }
+}
+
+// ========== Role conversions ==========
+
+use crate::generated::abt::v1::{
+    PermissionInfo as ProtoPermissionInfo, ResourceInfo as ProtoResourceInfo,
+    RoleListItem as ProtoRoleListItem, RoleResponse as ProtoRoleResponse,
+};
+
+impl From<abt::Role> for ProtoRoleListItem {
+    fn from(role: abt::Role) -> Self {
+        ProtoRoleListItem {
+            role_id: role.role_id,
+            role_name: role.role_name,
+            role_code: role.role_code,
+            is_system_role: role.is_system_role,
+            description: role.description.unwrap_or_default(),
+        }
+    }
+}
+
+impl From<abt::Resource> for ProtoResourceInfo {
+    fn from(r: abt::Resource) -> Self {
+        ProtoResourceInfo {
+            resource_id: r.resource_id,
+            resource_name: r.resource_name,
+            resource_code: r.resource_code,
+            group_name: r.group_name.unwrap_or_default(),
+        }
+    }
+}
+
+impl From<abt::PermissionInfo> for ProtoPermissionInfo {
+    fn from(p: abt::PermissionInfo) -> Self {
+        ProtoPermissionInfo {
+            permission_id: p.permission_id,
+            permission_name: p.permission_name,
+            resource: Some(ProtoResourceInfo {
+                resource_id: p.resource_id,
+                resource_name: p.resource_name,
+                resource_code: p.resource_code,
+                group_name: p.group_name,
+            }),
+            action_code: p.action_code,
+            action_name: p.action_name,
+        }
+    }
+}
+
+impl From<abt::RoleWithPermissions> for ProtoRoleResponse {
+    fn from(r: abt::RoleWithPermissions) -> Self {
+        ProtoRoleResponse {
+            role_id: r.role.role_id,
+            role_name: r.role.role_name,
+            role_code: r.role.role_code,
+            is_system_role: r.role.is_system_role,
+            description: r.role.description.unwrap_or_default(),
+            permissions: r.permissions.into_iter().map(|p| p.into()).collect(),
+        }
+    }
+}
+
+// ========== Permission conversions ==========
+
+use crate::generated::abt::v1::{
+    AuditLogInfo as ProtoAuditLogInfo, PermissionGroup as ProtoPermissionGroup,
+    ResourceGroup as ProtoResourceGroup,
+};
+
+impl From<abt::ResourceGroup> for ProtoResourceGroup {
+    fn from(g: abt::ResourceGroup) -> Self {
+        ProtoResourceGroup {
+            group_name: g.group_name,
+            resources: g.resources.into_iter().map(|r| r.into()).collect(),
+        }
+    }
+}
+
+impl From<abt::PermissionGroup> for ProtoPermissionGroup {
+    fn from(g: abt::PermissionGroup) -> Self {
+        ProtoPermissionGroup {
+            group_name: g.group_name,
+            permissions: g.permissions.into_iter().map(|p| p.into()).collect(),
+        }
+    }
+}
+
+impl From<abt::AuditLog> for ProtoAuditLogInfo {
+    fn from(l: abt::AuditLog) -> Self {
+        ProtoAuditLogInfo {
+            log_id: l.log_id,
+            operator_id: l.operator_id,
+            operator_name: l.operator_name.unwrap_or_default(),
+            target_type: l.target_type,
+            target_id: l.target_id,
+            action: l.action,
+            created_at: l.created_at.timestamp(),
+        }
+    }
+}

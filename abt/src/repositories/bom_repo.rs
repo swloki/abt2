@@ -200,5 +200,12 @@ impl BomRepo {
             query.push_bind(product_id);
             query.push(")");
         }
+        if let Some(product_code) = &bom_query.product_code
+            && !product_code.is_empty()
+        {
+            query.push(" AND EXISTS (SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node JOIN products p ON (node->>'product_id')::bigint = p.product_id WHERE (node->>'parent_id')::bigint = 0 AND p.meta->>'product_code' ILIKE ");
+            query.push_bind(format!("%{}%", product_code));
+            query.push(")");
+        }
     }
 }

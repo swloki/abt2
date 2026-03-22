@@ -99,6 +99,8 @@ pub struct BomQuery {
     /// 产品 ID（筛选包含该产品的 BOM）
     #[serde(default, deserialize_with = "deserialize_null_i64")]
     pub product_id: Option<i64>,
+    /// 产品编码（筛选 BOM 第一个节点的产品编码）
+    pub product_code: Option<String>,
     /// 返回 URL
     pub back_url: Option<String>,
     /// 页码
@@ -116,6 +118,7 @@ impl Default for BomQuery {
             date_from: None,
             date_to: None,
             product_id: None,
+            product_code: None,
             back_url: None,
             page: Some(1),
             page_size: Some(12),

@@ -86,6 +86,9 @@ message ListBomsRequest {
   optional uint32 page = 1;
   optional uint32 page_size = 2;
   optional string keyword = 3;
+  optional string product_code = 4;
+  optional string date_from = 5;
+  optional string date_to = 6;
 }
 
 message GetBomRequest {

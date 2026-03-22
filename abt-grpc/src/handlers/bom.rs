@@ -34,6 +34,9 @@ impl GrpcBomService for BomHandler {
             page: req.page.map(|p| p as i64),
             page_size: req.page_size.map(|p| p as i64),
             bom_name: req.keyword,
+            product_code: req.product_code,
+            date_from: req.date_from,
+            date_to: req.date_to,
             ..Default::default()
         };
 

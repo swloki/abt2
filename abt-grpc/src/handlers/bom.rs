@@ -1,13 +1,10 @@
 //! BOM gRPC Handler
 
-use std::path::Path;
-use tonic::{Request, Response, Status};
-use crate::generated::abt::v1::{
-    abt_bom_service_server::AbtBomService as GrpcBomService,
-    *,
-};
+use crate::generated::abt::v1::{abt_bom_service_server::AbtBomService as GrpcBomService, *};
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
+use std::path::Path;
+use tonic::{Request, Response, Status};
 
 // Import trait to bring methods into scope
 use abt::BomService;
@@ -28,10 +25,7 @@ impl Default for BomHandler {
 
 #[tonic::async_trait]
 impl GrpcBomService for BomHandler {
-    async fn list_boms(
-        &self,
-        request: Request<ListBomsRequest>,
-    ) -> GrpcResult<BomListResponse> {
+    async fn list_boms(&self, request: Request<ListBomsRequest>) -> GrpcResult<BomListResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -43,7 +37,9 @@ impl GrpcBomService for BomHandler {
             ..Default::default()
         };
 
-        let (items, total) = srv.query(query).await
+        let (items, total) = srv
+            .query(query)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(BomListResponse {
@@ -52,115 +48,146 @@ impl GrpcBomService for BomHandler {
         }))
     }
 
-    async fn get_bom(
-        &self,
-        request: Request<GetBomRequest>,
-    ) -> GrpcResult<BomResponse> {
+    async fn get_bom(&self, request: Request<GetBomRequest>) -> GrpcResult<BomResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_transaction()
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        let bom = srv.find(req.bom_id, &mut tx).await
+        let bom = srv
+            .find(req.bom_id, &mut tx)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?
             .ok_or_else(|| Status::not_found("BOM not found"))?;
 
         Ok(Response::new(bom.into()))
     }
 
-    async fn create_bom(
-        &self,
-        request: Request<CreateBomRequest>,
-    ) -> GrpcResult<U64Response> {
+    async fn create_bom(&self, request: Request<CreateBomRequest>) -> GrpcResult<U64Response> {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_transaction()
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        let id = srv.create(&req.name, &req.created_by, &mut tx).await
+        let id = srv
+            .create(&req.name, &req.created_by, &mut tx)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit()
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
-    async fn update_bom(
-        &self,
-        request: Request<UpdateBomRequest>,
-    ) -> GrpcResult<BoolResponse> {
+    async fn update_bom(&self, request: Request<UpdateBomRequest>) -> GrpcResult<BoolResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_transaction()
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        srv.update_name(req.bom_id, &req.name, &mut tx).await
+        srv.update_name(req.bom_id, &req.name, &mut tx)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit()
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
 
-    async fn delete_bom(
-        &self,
-        request: Request<DeleteBomRequest>,
-    ) -> GrpcResult<BoolResponse> {
+    async fn delete_bom(&self, request: Request<DeleteBomRequest>) -> GrpcResult<BoolResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_transaction()
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        srv.delete(req.bom_id, &mut tx).await
+        srv.delete(req.bom_id, &mut tx)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit()
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
 
-    async fn save_as_bom(
-        &self,
-        request: Request<SaveAsBomRequest>,
-    ) -> GrpcResult<U64Response> {
+    async fn save_as_bom(&self, request: Request<SaveAsBomRequest>) -> GrpcResult<U64Response> {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_transaction()
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        let new_id = srv.save_as(
-            req.source_bom_id,
-            &req.new_name,
-            &req.created_by,
-            &mut tx,
-        ).await
+        let new_id = srv
+            .save_as(req.source_bom_id, &req.new_name, &req.created_by, &mut tx)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit()
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
 
-        Ok(Response::new(U64Response { value: new_id as u64 }))
+        Ok(Response::new(U64Response {
+            value: new_id as u64,
+        }))
     }
 
-    async fn export_bom(
+    async fn get_product_code(
         &self,
-        request: Request<ExportBomRequest>,
-    ) -> GrpcResult<BoolResponse> {
+        request: Request<GetProductCodeRequest>,
+    ) -> GrpcResult<StringResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.bom_service();
+
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        let code = srv
+            .get_product_code(req.bom_id, &mut tx)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        tx.commit()
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        Ok(Response::new(StringResponse { value: code }))
+    }
+
+    async fn export_bom(&self, request: Request<ExportBomRequest>) -> GrpcResult<BoolResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
 
         let path = Path::new(&req.file_path);
-        srv.export_to_excel(req.bom_id, path).await
+        srv.export_to_excel(req.bom_id, path)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(BoolResponse { value: true }))
@@ -174,10 +201,14 @@ impl GrpcBomService for BomHandler {
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_transaction()
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        let nodes = srv.get_leaf_nodes(req.bom_id, &mut tx).await
+        let nodes = srv
+            .get_leaf_nodes(req.bom_id, &mut tx)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(BomNodesResponse {
@@ -185,15 +216,14 @@ impl GrpcBomService for BomHandler {
         }))
     }
 
-    async fn add_bom_node(
-        &self,
-        request: Request<AddBomNodeRequest>,
-    ) -> GrpcResult<U64Response> {
+    async fn add_bom_node(&self, request: Request<AddBomNodeRequest>) -> GrpcResult<U64Response> {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_transaction()
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         let node = abt::BomNode {
@@ -211,10 +241,14 @@ impl GrpcBomService for BomHandler {
             order: 0,
         };
 
-        let id = srv.add_node(req.bom_id, node, &mut tx).await
+        let id = srv
+            .add_node(req.bom_id, node, &mut tx)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit()
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(U64Response { value: id as u64 }))
     }
@@ -227,7 +261,9 @@ impl GrpcBomService for BomHandler {
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_transaction()
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         let node = abt::BomNode {
@@ -242,10 +278,13 @@ impl GrpcBomService for BomHandler {
             ..Default::default()
         };
 
-        srv.update_node(req.bom_id, node, &mut tx).await
+        srv.update_node(req.bom_id, node, &mut tx)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit()
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -258,15 +297,23 @@ impl GrpcBomService for BomHandler {
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_transaction()
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        let deleted_count = srv.delete_node(req.bom_id, req.node_id, &mut tx).await
+        let deleted_count = srv
+            .delete_node(req.bom_id, req.node_id, &mut tx)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit()
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
 
-        Ok(Response::new(U64Response { value: deleted_count as u64 }))
+        Ok(Response::new(U64Response {
+            value: deleted_count as u64,
+        }))
     }
 
     async fn swap_bom_node(
@@ -277,13 +324,18 @@ impl GrpcBomService for BomHandler {
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_transaction()
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        srv.swap_node_position(req.bom_id, req.node_id_1, req.node_id_2, &mut tx).await
+        srv.swap_node_position(req.bom_id, req.node_id_1, req.node_id_2, &mut tx)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit()
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -295,7 +347,9 @@ impl GrpcBomService for BomHandler {
         let req = request.into_inner();
         let srv = AppState::get().await.bom_service();
 
-        let exists = srv.exists_name(&req.name).await
+        let exists = srv
+            .exists_name(&req.name)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(BoolResponse { value: exists }))

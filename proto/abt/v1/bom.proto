@@ -1,9 +1,9 @@
 syntax = "proto3";
 package abt.v1;
 
-option go_package = "abt/v1";
-
 import "abt/v1/base.proto";
+
+option go_package = "abt/v1";
 
 service AbtBomService {
   rpc ListBoms(ListBomsRequest) returns (BomListResponse);
@@ -24,6 +24,7 @@ service AbtBomService {
   rpc UpdateLaborProcess(UpdateLaborProcessRequest) returns (BoolResponse);
   rpc DeleteLaborProcess(DeleteLaborProcessRequest) returns (U64Response);
   rpc ImportLaborProcesses(ImportLaborProcessRequest) returns (ImportLaborProcessResponse);
+  rpc GetProductCode(GetProductCodeRequest) returns (StringResponse);
 }
 
 message BomNodeProto {
@@ -160,10 +161,14 @@ message ExistsBomNameRequest {
   string name = 1;
 }
 
+message GetProductCodeRequest {
+  int64 bom_id = 1;
+}
+
 // 人工工序
 message BomLaborProcessProto {
   int64 id = 1;
-  string product_code = 2;  // 产品编码，用于关联 BOM
+  string product_code = 2; // 产品编码，用于关联 BOM
   string name = 3;
   string unit_price = 4;
   string quantity = 5;
@@ -177,7 +182,7 @@ message BomLaborProcessListResponse {
 }
 
 message CreateLaborProcessRequest {
-  string product_code = 1;  // 使用产品编码关联
+  string product_code = 1; // 使用产品编码关联
   string name = 2;
   string unit_price = 3;
   string quantity = 4;
@@ -187,7 +192,7 @@ message CreateLaborProcessRequest {
 
 message UpdateLaborProcessRequest {
   int64 id = 1;
-  string product_code = 2;  // 使用产品编码关联
+  string product_code = 2; // 使用产品编码关联
   string name = 3;
   string unit_price = 4;
   string quantity = 5;
@@ -197,17 +202,17 @@ message UpdateLaborProcessRequest {
 
 message DeleteLaborProcessRequest {
   int64 id = 1;
-  string product_code = 2;  // 使用产品编码关联
+  string product_code = 2; // 使用产品编码关联
 }
 
 message ListLaborProcessesRequest {
-  string product_code = 1;  // 按产品编码查询
+  string product_code = 1; // 按产品编码查询
   optional uint32 page = 2;
   optional uint32 page_size = 3;
 }
 
 message ImportLaborProcessRequest {
-  string file_path = 1;  // Excel 文件路径（包含产品编码列）
+  string file_path = 1; // Excel 文件路径（包含产品编码列）
 }
 
 message ImportLaborProcessResponse {

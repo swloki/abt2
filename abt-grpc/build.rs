@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let proto_root = "E:/work/backend5/proto";
+    let proto_root = "E:/work/abt/proto";
     let out_dir = "src/generated";
 
     if !std::path::Path::new(out_dir).exists() {

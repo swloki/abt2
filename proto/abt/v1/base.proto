@@ -9,6 +9,7 @@ message Empty {}
 // Simple responses
 message U64Response { uint64 value = 1; }
 message BoolResponse { bool value = 1; }
+message StringResponse { optional string value = 1; }
 
 // Pagination
 message PaginationParams {

@@ -1,6 +1,6 @@
 # ABT 多阶段构建
 # Stage 1: 构建阶段 - 编译 Rust 项目
-# Stage 2: 运行阶段 - 轻量 Alpine 镜像
+# Stage 2: 运行阶段 - Debian slim 镜像
 
 # ============================================
 # Stage 1: Builder
@@ -23,7 +23,6 @@ RUN apt-get update && apt-get install -y \
     git \
     openssh-client \
     rsync \
-    musl-tools \
     && rm -rf /var/lib/apt/lists/*
 
 # SSH 配置
@@ -40,45 +39,33 @@ WORKDIR /app
 # 克隆代码
 RUN git clone git@github.com:swloki/abt2.git .
 RUN git config --local user.email "lokisw@gmail.com" && git config --local user.name "weichen"
-RUN git checkout master
+RUN git fetch origin && git reset --hard origin/master && git pull origin master
 
-# 安装 cargo-chef (增量编译)
-RUN cargo install cargo-chef
-
-# 安装 musl 目标
-RUN rustup target add x86_64-unknown-linux-musl
-
-# 烹饪依赖
-RUN cargo chef prepare --recipe-path recipe.json
-
-# 编译 (仅 abt-grpc 二进制，musl 静态链接)
-RUN cargo chef cook --recipe-path recipe.json --release
-RUN cargo build --release -p abt-grpc --target x86_64-unknown-linux-musl
+# RUN cargo build --release
 
 # 保持容器运行
 CMD ["tail", "-f", "/dev/null"]
 
 # ============================================
-# Stage 2: Runtime (Alpine)
+# Stage 2: Runtime (Ubuntu latest)
 # ============================================
-FROM alpine:latest AS runtime
+FROM ubuntu:latest AS runtime
 
 LABEL maintainer="weichen"
 LABEL description="ABT gRPC Server"
 
-# 安装运行时依赖 (musl 静态链接，只需基本库)
-RUN apk add --no-cache \
+# 安装运行时依赖
+RUN apt-get update && apt-get install -y \
     ca-certificates \
-    tzdata
-
-# 创建非 root 用户
-RUN addgroup -g 1000 appgroup && adduser -u 1000 -G appgroup -s /bin/sh -D appuser
+    libgcc-s1 \
+    libstdc++6 \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 从 builder 复制 musl 静态链接的二进制
-COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/abt-grpc /app/abt-grpc
-
-USER appuser
-
-ENTRYPOINT ["/app/abt-grpc"]
+# 从 builder 复制二进制
+COPY --from=builder /app/target/release/abt-grpc /app/abt-grpc
+COPY abt-grpc/config.toml /app/config.toml
+RUN chmod u+x ./abt-grpc
+CMD ["tail", "-f", "/dev/null"]

@@ -1,0 +1,109 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service AbtLocationService {
+  rpc ListLocationsByWarehouse(ListLocationsByWarehouseRequest) returns (LocationListResponse);
+  rpc ListAllLocations(Empty) returns (LocationWithWarehouseListResponse);
+  rpc GetLocation(GetLocationRequest) returns (LocationResponse);
+  rpc CreateLocation(CreateLocationRequest) returns (U64Response);
+  rpc UpdateLocation(UpdateLocationRequest) returns (BoolResponse);
+  rpc DeleteLocation(DeleteLocationRequest) returns (BoolResponse);
+  rpc GetWarehouseInventoryStats(GetWarehouseInventoryStatsRequest) returns (WarehouseInventoryStatsResponse);
+  rpc GetLocationInventoryStats(GetLocationInventoryStatsRequest) returns (LocationInventoryStatsResponse);
+  rpc ListLocationStatsByWarehouse(ListLocationStatsByWarehouseRequest) returns (LocationStatsListResponse);
+}
+
+message LocationResponse {
+  int64 location_id = 1;
+  int64 warehouse_id = 2;
+  string location_code = 3;
+  string location_name = 4;
+  string location_type = 5;
+  bool is_active = 6;
+  int64 created_at = 7;
+  int64 updated_at = 8;
+}
+
+message LocationWithWarehouseResponse {
+  int64 location_id = 1;
+  int64 warehouse_id = 2;
+  string warehouse_name = 3;
+  string location_code = 4;
+  string location_name = 5;
+  string location_type = 6;
+  bool is_active = 7;
+}
+
+message LocationListResponse {
+  repeated LocationResponse items = 1;
+}
+
+message LocationWithWarehouseListResponse {
+  repeated LocationWithWarehouseResponse items = 1;
+}
+
+message WarehouseInventoryStatsResponse {
+  int64 warehouse_id = 1;
+  int64 total_locations = 2;
+  int64 total_products = 3;
+  double total_quantity = 4;
+  double total_value = 5;
+}
+
+message LocationInventoryStatsResponse {
+  int64 location_id = 1;
+  int64 total_products = 2;
+  double total_quantity = 3;
+  double total_value = 4;
+}
+
+message LocationStatsListResponse {
+  repeated LocationInventoryStatsResponse items = 1;
+  uint64 total = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
+}
+
+message ListLocationsByWarehouseRequest {
+  int64 warehouse_id = 1;
+}
+
+message GetLocationRequest {
+  int64 location_id = 1;
+}
+
+message CreateLocationRequest {
+  int64 warehouse_id = 1;
+  string location_code = 2;
+  string location_name = 3;
+  string location_type = 4;
+}
+
+message UpdateLocationRequest {
+  int64 location_id = 1;
+  string location_name = 2;
+  string location_type = 3;
+}
+
+message DeleteLocationRequest {
+  int64 location_id = 1;
+  bool hard_delete = 2;
+}
+
+message GetWarehouseInventoryStatsRequest {
+  int64 warehouse_id = 1;
+}
+
+message GetLocationInventoryStatsRequest {
+  int64 location_id = 1;
+}
+
+message ListLocationStatsByWarehouseRequest {
+  int64 warehouse_id = 1;
+  optional uint32 page = 2;
+  optional uint32 page_size = 3;
+}

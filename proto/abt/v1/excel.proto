@@ -1,0 +1,32 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service AbtExcelService {
+  rpc ImportExcel(ImportExcelRequest) returns (ImportResultResponse);
+  rpc ExportExcel(ExportExcelRequest) returns (Empty);
+  rpc GetProgress(Empty) returns (ExcelProgressResponse);
+}
+
+message ImportResultResponse {
+  int32 success_count = 1;
+  int32 failed_count = 2;
+  repeated string errors = 3;
+}
+
+message ExcelProgressResponse {
+  int32 current = 1;
+  int32 total = 2;
+}
+
+message ImportExcelRequest {
+  string file_path = 1;
+  optional int64 operator_id = 2;
+}
+
+message ExportExcelRequest {
+  string file_path = 1;
+}

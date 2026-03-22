@@ -1,0 +1,170 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service AbtInventoryService {
+  // Stock operations
+  rpc StockIn(StockChangeRequest) returns (InventoryLogResponse);
+  rpc StockOut(StockChangeRequest) returns (InventoryLogResponse);
+  rpc AdjustStock(StockChangeRequest) returns (InventoryLogResponse);
+  rpc SetQuantity(StockChangeRequest) returns (InventoryLogResponse);
+  rpc TransferStock(StockTransferRequest) returns (InventoryLogListResponse);
+
+  // Queries
+  rpc QueryInventory(InventoryQueryRequest) returns (InventoryListResponse);
+  rpc GetInventoryByProduct(GetInventoryByProductRequest) returns (InventoryDetailListResponse);
+  rpc GetInventoryByLocation(GetInventoryByLocationRequest) returns (InventoryDetailListResponse);
+  rpc GetLowStockAlert(Empty) returns (InventoryDetailListResponse);
+  rpc SetSafetyStock(SetSafetyStockRequest) returns (BoolResponse);
+
+  // Logs
+  rpc QueryInventoryLogs(InventoryLogQueryRequest) returns (InventoryLogListResponse);
+  rpc GetLogsByProduct(GetLogsByProductRequest) returns (InventoryLogDetailListResponse);
+  rpc GetLogsByLocation(GetLogsByLocationRequest) returns (InventoryLogDetailListResponse);
+  rpc GetLogsByWarehouse(GetLogsByWarehouseRequest) returns (InventoryLogDetailListResponse);
+}
+
+message InventoryResponse {
+  int64 inventory_id = 1;
+  int64 product_id = 2;
+  int64 location_id = 3;
+  double quantity = 4;
+  double safety_stock = 5;
+}
+
+message InventoryDetailResponse {
+  int64 inventory_id = 1;
+  int64 product_id = 2;
+  string product_name = 3;
+  string product_code = 4;
+  int64 location_id = 5;
+  string location_name = 6;
+  int64 warehouse_id = 7;
+  string warehouse_name = 8;
+  double quantity = 9;
+  double safety_stock = 10;
+}
+
+message InventoryLogResponse {
+  int64 log_id = 1;
+  int64 inventory_id = 2;
+  int64 product_id = 3;
+  int64 location_id = 4;
+  double change_qty = 5;
+  double before_qty = 6;
+  double after_qty = 7;
+  string operation_type = 8;
+  string ref_order_type = 9;
+  string ref_order_id = 10;
+  string operator = 11;
+  string remark = 12;
+  int64 created_at = 13;
+}
+
+message InventoryLogDetailResponse {
+  int64 log_id = 1;
+  int64 inventory_id = 2;
+  int64 product_id = 3;
+  string product_name = 4;
+  string product_code = 5;
+  int64 location_id = 6;
+  string location_name = 7;
+  int64 warehouse_id = 8;
+  string warehouse_name = 9;
+  double change_qty = 10;
+  double before_qty = 11;
+  double after_qty = 12;
+  string operation_type = 13;
+  string ref_order_type = 14;
+  string ref_order_id = 15;
+  string operator = 16;
+  string remark = 17;
+  int64 created_at = 18;
+}
+
+message InventoryListResponse {
+  repeated InventoryDetailResponse items = 1;
+  uint64 total = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
+}
+
+message InventoryDetailListResponse {
+  repeated InventoryDetailResponse items = 1;
+}
+
+message InventoryLogListResponse {
+  repeated InventoryLogResponse items = 1;
+}
+
+message InventoryLogDetailListResponse {
+  repeated InventoryLogDetailResponse items = 1;
+}
+
+message StockChangeRequest {
+  int64 product_id = 1;
+  int64 location_id = 2;
+  double quantity = 3;
+  string ref_order_type = 4;
+  string ref_order_id = 5;
+  string operator = 6;
+  string remark = 7;
+}
+
+message StockTransferRequest {
+  int64 product_id = 1;
+  int64 from_location_id = 2;
+  int64 to_location_id = 3;
+  double quantity = 4;
+  string operator = 5;
+  string remark = 6;
+}
+
+message InventoryQueryRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional int64 product_id = 3;
+  optional int64 location_id = 4;
+  optional int64 warehouse_id = 5;
+  optional string keyword = 6;
+}
+
+message GetInventoryByProductRequest {
+  int64 product_id = 1;
+}
+
+message GetInventoryByLocationRequest {
+  int64 location_id = 1;
+}
+
+message SetSafetyStockRequest {
+  int64 product_id = 1;
+  int64 location_id = 2;
+  double safety_stock = 3;
+}
+
+message InventoryLogQueryRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional int64 product_id = 3;
+  optional int64 location_id = 4;
+  optional int64 warehouse_id = 5;
+  optional string operation_type = 6;
+  optional int64 start_time = 7;
+  optional int64 end_time = 8;
+}
+
+message GetLogsByProductRequest {
+  int64 product_id = 1;
+}
+
+message GetLogsByLocationRequest {
+  int64 location_id = 1;
+}
+
+message GetLogsByWarehouseRequest {
+  int64 warehouse_id = 1;
+}

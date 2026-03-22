@@ -1,0 +1,204 @@
+//! BOM 数据访问层
+//!
+//! 提供 BOM 的数据库 CRUD 操作。
+
+use anyhow::Result;
+use chrono::NaiveDate;
+use serde_json::json;
+use sqlx::PgPool;
+
+use crate::models::{Bom, BomDetail, BomQuery};
+use crate::repositories::Executor;
+
+/// BOM 数据仓库
+pub struct BomRepo;
+
+impl BomRepo {
+    /// 创建新的 BOM
+    pub async fn insert(
+        executor: Executor<'_>,
+        bom_name: &str,
+        bom_detail: &BomDetail,
+    ) -> Result<i64> {
+        let bom_id: i64 = sqlx::query_scalar!(
+            r#"
+            INSERT INTO bom (bom_name, create_at, bom_detail)
+            VALUES ($1, NOW(), $2::jsonb)
+            RETURNING bom_id
+            "#,
+            bom_name,
+            json!(bom_detail)
+        )
+        .fetch_one(executor)
+        .await?;
+
+        Ok(bom_id)
+    }
+
+    /// 更新 BOM
+    pub async fn update(
+        executor: Executor<'_>,
+        bom_id: i64,
+        bom_name: &str,
+        bom_detail: &BomDetail,
+    ) -> Result<()> {
+        sqlx::query!(
+            r#"
+            UPDATE bom
+            SET bom_name = $1, bom_detail = $2::jsonb, update_at = NOW()
+            WHERE bom_id = $3
+            "#,
+            bom_name,
+            json!(bom_detail),
+            bom_id
+        )
+        .execute(executor)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 更新 BOM 名称
+    pub async fn update_name(executor: Executor<'_>, bom_id: i64, new_name: &str) -> Result<()> {
+        sqlx::query!(
+            r#"
+            UPDATE bom
+            SET bom_name = $1, update_at = NOW()
+            WHERE bom_id = $2
+            "#,
+            new_name,
+            bom_id
+        )
+        .execute(executor)
+        .await?;
+
+        Ok(())
+    }
+
+    /// 删除 BOM
+    pub async fn delete(executor: Executor<'_>, bom_id: i64) -> Result<()> {
+        sqlx::query!("DELETE FROM bom WHERE bom_id = $1", bom_id)
+            .execute(executor)
+            .await?;
+
+        Ok(())
+    }
+
+    /// 根据 ID 查找 BOM
+    /// 注意：Bom 有自定义 FromRow impl，需要用 runtime query
+    pub async fn find_by_id(executor: Executor<'_>, bom_id: i64) -> Result<Option<Bom>> {
+        let row = sqlx::query_as::<_, Bom>(
+            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text FROM bom WHERE bom_id = $1",
+        )
+        .bind(bom_id)
+        .fetch_optional(executor)
+        .await?;
+
+        Ok(row)
+    }
+
+    /// 使用连接池查找 BOM（用于只读操作）
+    /// 注意：Bom 有自定义 FromRow impl，需要用 runtime query
+    #[allow(dead_code)]
+    pub async fn find_by_id_pool(pool: &PgPool, bom_id: i64) -> Result<Option<Bom>> {
+        let row = sqlx::query_as::<_, Bom>(
+            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text FROM bom WHERE bom_id = $1",
+        )
+        .bind(bom_id)
+        .fetch_optional(pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    /// 检查 BOM 名称是否存在
+    #[allow(dead_code)]
+    pub async fn exists_name(pool: &PgPool, name: &str) -> Result<bool> {
+        let exists: Option<bool> = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM bom WHERE bom_name = $1)",
+        )
+        .bind(name)
+        .fetch_one(pool)
+        .await?;
+
+        Ok(exists.unwrap_or(false))
+    }
+
+    /// 查询 BOM 列表
+    #[allow(dead_code)]
+    pub async fn query(pool: &PgPool, bom_query: &BomQuery) -> Result<Vec<Bom>> {
+        let mut query = sqlx::QueryBuilder::new(
+            r#"
+            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text
+            FROM bom
+            WHERE 1=1
+            "#,
+        );
+
+        Self::build_query_filter(&mut query, bom_query);
+
+        let page = bom_query.page.unwrap_or(1).max(1);
+        let page_size = bom_query.page_size.unwrap_or(12).clamp(1, 100);
+
+        query.push(" ORDER BY bom_id DESC");
+        query.push(" LIMIT ");
+        query.push_bind(page_size as i32);
+        query.push(" OFFSET ");
+        query.push_bind(((page - 1) * page_size) as i32);
+
+        let result = query.build_query_as::<Bom>().fetch_all(pool).await?;
+        Ok(result)
+    }
+
+    /// 查询 BOM 总数
+    #[allow(dead_code)]
+    pub async fn query_count(pool: &PgPool, bom_query: &BomQuery) -> Result<i64> {
+        let mut query = sqlx::QueryBuilder::new("SELECT count(*) FROM bom WHERE 1=1");
+
+        Self::build_query_filter(&mut query, bom_query);
+
+        let count: i64 = query.build_query_scalar().fetch_one(pool).await?;
+        Ok(count)
+    }
+
+    /// 构建查询过滤条件
+    #[allow(dead_code)]
+    fn build_query_filter(
+        query: &mut sqlx::QueryBuilder<'_, sqlx::Postgres>,
+        bom_query: &BomQuery,
+    ) {
+        if let Some(bom_name) = &bom_query.bom_name
+            && !bom_name.is_empty()
+        {
+            query.push(" AND bom_name ILIKE ");
+            query.push_bind(format!("%{}%", bom_name));
+        }
+        if let Some(create_by) = &bom_query.create_by
+            && !create_by.is_empty()
+        {
+            query.push(" AND bom_detail ->> 'created_by' ILIKE ");
+            query.push_bind(format!("%{}%", create_by));
+        }
+        if let Some(date_from) = &bom_query.date_from
+            && let Ok(date) = NaiveDate::parse_from_str(date_from, "%Y-%m-%d")
+        {
+            let naive_dt = date.and_hms_opt(0, 0, 0).unwrap_or_default();
+            let utc_datetime = naive_dt.and_utc();
+            query.push(" AND create_at >= ");
+            query.push_bind(utc_datetime);
+        }
+        if let Some(date_to) = &bom_query.date_to
+            && let Ok(date) = NaiveDate::parse_from_str(date_to, "%Y-%m-%d")
+        {
+            let naive_dt = date.and_hms_opt(23, 59, 59).unwrap_or_default();
+            let utc_datetime = naive_dt.and_utc();
+            query.push(" AND create_at <= ");
+            query.push_bind(utc_datetime);
+        }
+        if let Some(product_id) = bom_query.product_id {
+            query.push(" AND EXISTS (SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node WHERE (node->>'product_id')::bigint = ");
+            query.push_bind(product_id);
+            query.push(")");
+        }
+    }
+}

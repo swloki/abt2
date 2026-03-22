@@ -1,0 +1,7 @@
+{
+  "host": "0.0.0.0:3001",
+  "postgres": {
+    "url": "postgresql://postgres:123456@127.0.0.1/abt",
+    "max_connection": 10
+  }
+}

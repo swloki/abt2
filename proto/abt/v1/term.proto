@@ -1,0 +1,71 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service AbtTermService {
+  rpc GetTermTree(GetTermTreeRequest) returns (TermTreeListResponse);
+  rpc ListTerms(ListTermsRequest) returns (TermListResponse);
+  rpc GetTermChildren(GetTermChildrenRequest) returns (TermListResponse);
+  rpc CreateTerm(CreateTermRequest) returns (U64Response);
+  rpc UpdateTerm(UpdateTermRequest) returns (BoolResponse);
+  rpc DeleteTerm(DeleteTermRequest) returns (BoolResponse);
+}
+
+message TermMeta {
+  int64 count = 1;
+}
+
+message TermResponse {
+  int64 term_id = 1;
+  string term_name = 2;
+  int64 term_parent = 3;
+  string taxonomy = 4;
+  TermMeta term_meta = 5;
+}
+
+message TermTreeResponse {
+  int64 term_id = 1;
+  string term_name = 2;
+  int64 term_parent = 3;
+  string taxonomy = 4;
+  TermMeta term_meta = 5;
+  repeated TermTreeResponse children = 6;
+}
+
+message TermListResponse {
+  repeated TermResponse items = 1;
+}
+
+message TermTreeListResponse {
+  repeated TermTreeResponse items = 1;
+}
+
+message GetTermTreeRequest {
+  string taxonomy = 1;
+}
+
+message ListTermsRequest {
+  string taxonomy = 1;
+}
+
+message GetTermChildrenRequest {
+  int64 parent_id = 1;
+}
+
+message CreateTermRequest {
+  string term_name = 1;
+  int64 term_parent = 2;
+  string taxonomy = 3;
+}
+
+message UpdateTermRequest {
+  int64 term_id = 1;
+  string term_name = 2;
+}
+
+message DeleteTermRequest {
+  int64 term_id = 1;
+}

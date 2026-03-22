@@ -1,0 +1,69 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service AbtPriceService {
+  rpc GetPriceHistory(GetPriceHistoryRequest) returns (PriceHistoryResponse);
+  rpc UpdatePrice(UpdatePriceRequest) returns (BoolResponse);
+  rpc ListAllPriceHistory(ListAllPriceHistoryRequest) returns (AllPriceHistoryResponse);
+}
+
+message PriceLogEntryResponse {
+  int64 log_id = 1;
+  int64 product_id = 2;
+  string old_price = 3;
+  string new_price = 4;
+  optional int64 operator_id = 5;
+  optional string remark = 6;
+  int64 created_at = 7;
+}
+
+message PriceLogWithProductResponse {
+  int64 log_id = 1;
+  int64 product_id = 2;
+  string product_name = 3;
+  optional string product_code = 4;
+  string old_price = 5;
+  string new_price = 6;
+  optional int64 operator_id = 7;
+  optional string remark = 8;
+  int64 created_at = 9;
+}
+
+message PriceHistoryResponse {
+  repeated PriceLogEntryResponse items = 1;
+  uint64 total = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
+}
+
+message AllPriceHistoryResponse {
+  repeated PriceLogWithProductResponse items = 1;
+  uint64 total = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
+}
+
+message GetPriceHistoryRequest {
+  int64 product_id = 1;
+  optional uint32 page = 2;
+  optional uint32 page_size = 3;
+}
+
+message UpdatePriceRequest {
+  int64 product_id = 1;
+  string new_price = 2;
+  optional int64 operator_id = 3;
+  optional string remark = 4;
+}
+
+message ListAllPriceHistoryRequest {
+  optional int64 product_id = 1;
+  optional uint32 page = 2;
+  optional uint32 page_size = 3;
+  optional string product_name = 4;
+  optional string product_code = 5;
+}

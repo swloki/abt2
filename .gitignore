@@ -1,0 +1,8 @@
+*.lock
+openspec
+*.node
+node_modules
+.worktrees
+.ssh_build
+target/
+generated

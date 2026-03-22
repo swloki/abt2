@@ -1,0 +1,24 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+// Empty request
+message Empty {}
+
+// Simple responses
+message U64Response { uint64 value = 1; }
+message BoolResponse { bool value = 1; }
+
+// Pagination
+message PaginationParams {
+  uint32 page = 1;
+  uint32 page_size = 2;
+}
+
+message PaginationInfo {
+  uint64 total = 1;
+  uint32 page = 2;
+  uint32 page_size = 3;
+  uint32 total_pages = 4;
+}

@@ -1,0 +1,58 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service AbtWarehouseService {
+  rpc ListWarehouses(Empty) returns (WarehouseListResponse);
+  rpc GetWarehouse(GetWarehouseRequest) returns (WarehouseResponse);
+  rpc CreateWarehouse(CreateWarehouseRequest) returns (U64Response);
+  rpc UpdateWarehouse(UpdateWarehouseRequest) returns (BoolResponse);
+  rpc UpdateWarehouseStatus(UpdateWarehouseStatusRequest) returns (BoolResponse);
+  rpc DeleteWarehouse(DeleteWarehouseRequest) returns (BoolResponse);
+}
+
+message WarehouseResponse {
+  int64 warehouse_id = 1;
+  string warehouse_code = 2;
+  string warehouse_name = 3;
+  string address = 4;
+  string contact = 5;
+  bool is_active = 6;
+  int64 created_at = 7;
+  int64 updated_at = 8;
+}
+
+message WarehouseListResponse {
+  repeated WarehouseResponse items = 1;
+}
+
+message GetWarehouseRequest {
+  int64 warehouse_id = 1;
+}
+
+message CreateWarehouseRequest {
+  string warehouse_code = 1;
+  string warehouse_name = 2;
+  string address = 3;
+  string contact = 4;
+}
+
+message UpdateWarehouseRequest {
+  int64 warehouse_id = 1;
+  string warehouse_name = 2;
+  string address = 3;
+  string contact = 4;
+}
+
+message UpdateWarehouseStatusRequest {
+  int64 warehouse_id = 1;
+  bool is_active = 2;
+}
+
+message DeleteWarehouseRequest {
+  int64 warehouse_id = 1;
+  bool hard_delete = 2;
+}

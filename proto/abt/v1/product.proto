@@ -1,0 +1,74 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service AbtProductService {
+  rpc ListProducts(ListProductsRequest) returns (ProductListResponse);
+  rpc GetProduct(GetProductRequest) returns (ProductResponse);
+  rpc GetProductsByIds(GetProductsByIdsRequest) returns (ProductsResponse);
+  rpc CreateProduct(CreateProductRequest) returns (U64Response);
+  rpc UpdateProduct(UpdateProductRequest) returns (BoolResponse);
+  rpc DeleteProduct(DeleteProductRequest) returns (BoolResponse);
+}
+
+message ProductMeta {
+  string category = 1;
+  string subcategory = 2;
+  string product_code = 3;
+  string specification = 4;
+  string unit = 5;
+  string acquire_channel = 6;
+  double loss_rate = 7;
+  optional string old_code = 8;
+}
+
+message ProductResponse {
+  int64 product_id = 1;
+  string pdt_name = 2;
+  ProductMeta meta = 3;
+}
+
+message ProductsResponse {
+  repeated ProductResponse items = 1;
+}
+
+message ProductListResponse {
+  repeated ProductResponse items = 1;
+  uint64 total = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
+}
+
+message ListProductsRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional string keyword = 3;
+  optional int64 term_id = 4;
+  optional string product_code = 5;
+}
+
+message GetProductRequest {
+  int64 product_id = 1;
+}
+
+message GetProductsByIdsRequest {
+  repeated int64 product_ids = 1;
+}
+
+message CreateProductRequest {
+  string pdt_name = 1;
+  ProductMeta meta = 2;
+}
+
+message UpdateProductRequest {
+  int64 product_id = 1;
+  string pdt_name = 2;
+  ProductMeta meta = 3;
+}
+
+message DeleteProductRequest {
+  int64 product_id = 1;
+}

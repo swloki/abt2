@@ -521,18 +521,16 @@ impl BomService for BomServiceImpl {
             }
         }
 
-        // 4. 过滤叶子节点（不在任何 parent_id 集合中，且产品存在）
+        // 4. 过滤叶子节点（不在任何 parent_id 集合中）
         let mut leaf_nodes: Vec<BomNode> = bom
             .bom_detail
             .nodes
             .into_iter()
             .filter(|node| !parent_ids.contains(&node.id))
-            .filter_map(|mut node| {
-                // 填充 product_code，如果产品不存在则过滤掉
-                product_code_map.get(&node.product_id).map(|code| {
-                    node.product_code = Some(code.clone());
-                    node
-                })
+            .map(|mut node| {
+                // 填充 product_code（如果产品存在）
+                node.product_code = product_code_map.get(&node.product_id).cloned();
+                node
             })
             .collect();
 

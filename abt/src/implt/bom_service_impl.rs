@@ -507,6 +507,9 @@ impl BomService for BomServiceImpl {
         let product_ids: Vec<i64> = bom.bom_detail.nodes.iter().map(|n| n.product_id).collect();
         let products = ProductRepo::find_by_ids(&self.pool, &product_ids).await?;
 
+        // 构建 product_id 存在的集合
+        let valid_product_ids: HashSet<i64> = products.iter().map(|p| p.product_id).collect();
+
         // 构建 product_id -> product_code 映射
         let product_code_map: HashMap<i64, String> = products
             .iter()
@@ -521,20 +524,56 @@ impl BomService for BomServiceImpl {
             }
         }
 
-        // 4. 过滤叶子节点（不在任何 parent_id 集合中）
-        let mut leaf_nodes: Vec<BomNode> = bom
+        // 4. 找出所有无效节点（产品不存在的节点）及其后代
+        // 构建 parent_id -> children 映射
+        let mut children_map: HashMap<i64, Vec<i64>> = HashMap::new();
+        for node in &bom.bom_detail.nodes {
+            children_map
+                .entry(node.parent_id)
+                .or_default()
+                .push(node.id);
+        }
+
+        // 递归获取所有后代节点 ID
+        fn get_all_descendants(node_id: i64, children_map: &HashMap<i64, Vec<i64>>) -> Vec<i64> {
+            let mut descendants = Vec::new();
+            if let Some(children) = children_map.get(&node_id) {
+                for &child_id in children {
+                    descendants.push(child_id);
+                    descendants.extend(get_all_descendants(child_id, children_map));
+                }
+            }
+            descendants
+        }
+
+        // 找出所有无效节点 ID（产品不存在 + 后代）
+        let mut invalid_node_ids: HashSet<i64> = HashSet::new();
+        for node in &bom.bom_detail.nodes {
+            if !valid_product_ids.contains(&node.product_id) {
+                invalid_node_ids.insert(node.id);
+                // 添加所有后代
+                for descendant in get_all_descendants(node.id, &children_map) {
+                    invalid_node_ids.insert(descendant);
+                }
+            }
+        }
+
+        // 5. 过滤叶子节点（不在任何 parent_id 集合中，且不在无效节点集合中）
+        let leaf_nodes: Vec<BomNode> = bom
             .bom_detail
             .nodes
             .into_iter()
             .filter(|node| !parent_ids.contains(&node.id))
+            .filter(|node| !invalid_node_ids.contains(&node.id))
             .map(|mut node| {
-                // 填充 product_code（如果产品存在）
+                // 填充 product_code
                 node.product_code = product_code_map.get(&node.product_id).cloned();
                 node
             })
             .collect();
 
         // 按 order 排序
+        let mut leaf_nodes = leaf_nodes;
         leaf_nodes.sort_by_key(|n| n.order);
 
         Ok(leaf_nodes)

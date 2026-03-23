@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
     pkg-config \
+    protobuf-compiler \
     libprotobuf-dev \
     git \
     openssh-client \

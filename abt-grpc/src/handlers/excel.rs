@@ -29,8 +29,7 @@ impl GrpcExcelService for ExcelHandler {
         &self,
         request: Request<Streaming<UploadFileRequest>>,
     ) -> Result<Response<UploadFileResponse>, Status> {
-        let config = crate::server::get_config();
-        let upload_dir = Path::new(&config.upload_temp_dir);
+        let upload_dir = Path::new("/tmp");
 
         // 确保上传目录存在
         tokio::fs::create_dir_all(upload_dir)

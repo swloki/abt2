@@ -8,7 +8,6 @@ pub struct Config {
     pub grpc_port: u16,
     pub database_url: String,
     pub max_connection: u32,
-    pub upload_temp_dir: String,
 }
 
 static CONFIG: LazyLock<Config> = LazyLock::new(|| Config {
@@ -22,7 +21,6 @@ static CONFIG: LazyLock<Config> = LazyLock::new(|| Config {
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(20),
-    upload_temp_dir: std::env::var("UPLOAD_TEMP_DIR").expect("UPLOAD_TEMP_DIR must be set"),
 });
 
 pub fn get_config() -> &'static Config {

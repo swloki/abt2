@@ -36,7 +36,6 @@ WORKDIR /app
 
 # 克隆代码
 RUN git clone git@github.com:swloki/abt2.git .
-RUN git checkout -f master
 RUN git config --local user.email "lokisw@gmail.com" && git config --local user.name "weichen"
 RUN git fetch origin && git reset --hard origin/master && git pull origin master
 

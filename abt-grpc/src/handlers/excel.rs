@@ -169,7 +169,7 @@ impl GrpcExcelService for ExcelHandler {
             let metadata = FileMetadata {
                 file_name,
                 file_size,
-                content_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".to_string(),
+                content_type: super::EXCEL_MIME_TYPE.to_string(),
             };
             let first_msg = DownloadFileResponse {
                 data: Some(download_file_response::Data::Metadata(metadata)),
@@ -179,8 +179,7 @@ impl GrpcExcelService for ExcelHandler {
             }
 
             // 分块发送文件内容
-            const CHUNK_SIZE: usize = 64 * 1024; // 64KB chunks
-            for chunk in bytes.chunks(CHUNK_SIZE) {
+            for chunk in bytes.chunks(super::STREAM_CHUNK_SIZE) {
                 let chunk_msg = DownloadFileResponse {
                     data: Some(download_file_response::Data::Chunk(chunk.to_vec())),
                 };

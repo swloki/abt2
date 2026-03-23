@@ -78,6 +78,111 @@ impl BomServiceImpl {
         Self { pool }
     }
 
+    /// 构建导出的 Excel 工作簿
+    async fn build_export_workbook(&self, bom_id: i64) -> Result<Workbook> {
+        // 加载 BOM 和产品数据
+        let (_bom, list) = match self.load_bom_with_products(bom_id).await? {
+            Some(data) => data,
+            None => return Err(anyhow::anyhow!("BOM not found")),
+        };
+
+        // 预计算所有索引（一次性计算，O(n) 复杂度）
+        let indices = Self::build_export_indices(&list);
+
+        // 按层级排序（使用预计算的索引）
+        let ordered_indices = Self::sort_by_hierarchy_with_indices(&list, &indices);
+
+        // 创建 Excel 工作簿
+        let mut workbook = Workbook::new();
+        let worksheet = workbook.add_worksheet();
+
+        // 设置列宽
+        const COLUMN_WIDTHS: [f64; 10] = [8.0, 8.0, 15.0, 25.0, 8.0, 10.0, 10.0, 15.0, 15.0, 15.0];
+        for (col, &width) in COLUMN_WIDTHS.iter().enumerate() {
+            worksheet.set_column_width(col as u16, width)?;
+        }
+
+        // 写入表头
+        const HEADERS: [&str; 10] = [
+            "序号",
+            "阶层",
+            "物料编码",
+            "产品名称",
+            "用量",
+            "位置",
+            "耗损率",
+            "备注",
+            "物料属性",
+            "工作中心",
+        ];
+        worksheet.set_row_height(0, 25.0)?;
+        for (col, header) in HEADERS.iter().enumerate() {
+            worksheet.write_string_with_format(0, col as u16, *header, header_format())?;
+        }
+
+        // 写入数据行
+        for (row_num, &idx) in ordered_indices.iter().enumerate() {
+            let row = (row_num + 1) as u32;
+            let node = &list[idx];
+
+            // 使用预计算的值
+            let cell_format = if indices.is_top_level[idx] {
+                top_level_format()
+            } else if indices.has_children[idx] {
+                parent_format()
+            } else {
+                normal_format()
+            };
+            let level = indices.levels[idx];
+
+            worksheet.set_row_height(row, 20.0)?;
+            worksheet.write_number_with_format(row, 0, (row_num + 1) as f64, cell_format)?;
+            worksheet.write_number_with_format(row, 1, level as f64, cell_format)?;
+            worksheet.write_string_with_format(
+                row,
+                2,
+                &node.product.meta.product_code,
+                cell_format,
+            )?;
+            worksheet.write_string_with_format(row, 3, &node.product.pdt_name, cell_format)?;
+            worksheet.write_number_with_format(row, 4, node.node.quantity, cell_format)?;
+
+            // 位置（可选字段）
+            write_optional_string(
+                worksheet,
+                row,
+                5,
+                node.node.position.as_deref(),
+                cell_format,
+            )?;
+
+            // 耗损率
+            worksheet.write_number_with_format(row, 6, node.node.loss_rate, cell_format)?;
+
+            // 备注（可选字段）
+            write_optional_string(worksheet, row, 7, node.node.remark.as_deref(), cell_format)?;
+
+            // 物料属性（获取途径）
+            worksheet.write_string_with_format(
+                row,
+                8,
+                &node.product.meta.acquire_channel,
+                cell_format,
+            )?;
+
+            // 工作中心（可选字段）
+            write_optional_string(
+                worksheet,
+                row,
+                9,
+                node.node.work_center.as_deref(),
+                cell_format,
+            )?;
+        }
+
+        Ok(workbook)
+    }
+
     /// 加载 BOM 数据并关联产品信息
     async fn load_bom_with_products(
         &self,
@@ -372,110 +477,23 @@ impl BomService for BomServiceImpl {
     }
 
     async fn export_to_excel(&self, bom_id: i64, path: &Path) -> Result<()> {
-        // 加载 BOM 和产品数据
-        let (_bom, list) = match self.load_bom_with_products(bom_id).await? {
+        let mut workbook = self.build_export_workbook(bom_id).await?;
+        workbook.save(path)?;
+        Ok(())
+    }
+
+    async fn export_to_bytes(&self, bom_id: i64) -> Result<(Vec<u8>, String)> {
+        // 加载 BOM 数据获取名称
+        let (bom, _) = match self.load_bom_with_products(bom_id).await? {
             Some(data) => data,
             None => return Err(anyhow::anyhow!("BOM not found")),
         };
+        let bom_name = bom.bom_name.clone();
 
-        // 预计算所有索引（一次性计算，O(n) 复杂度）
-        let indices = Self::build_export_indices(&list);
-
-        // 按层级排序（使用预计算的索引）
-        let ordered_indices = Self::sort_by_hierarchy_with_indices(&list, &indices);
-
-        // 创建 Excel 工作簿
-        let mut workbook = Workbook::new();
-        let worksheet = workbook.add_worksheet();
-
-        // 设置列宽
-        const COLUMN_WIDTHS: [f64; 10] = [8.0, 8.0, 15.0, 25.0, 8.0, 10.0, 10.0, 15.0, 15.0, 15.0];
-        for (col, &width) in COLUMN_WIDTHS.iter().enumerate() {
-            worksheet.set_column_width(col as u16, width)?;
-        }
-
-        // 写入表头
-        const HEADERS: [&str; 10] = [
-            "序号",
-            "阶层",
-            "物料编码",
-            "产品名称",
-            "用量",
-            "位置",
-            "耗损率",
-            "备注",
-            "物料属性",
-            "工作中心",
-        ];
-        worksheet.set_row_height(0, 25.0)?;
-        for (col, header) in HEADERS.iter().enumerate() {
-            worksheet.write_string_with_format(0, col as u16, *header, header_format())?;
-        }
-
-        // 写入数据行
-        for (row_num, &idx) in ordered_indices.iter().enumerate() {
-            let row = (row_num + 1) as u32;
-            let node = &list[idx];
-
-            // 使用预计算的值
-            let cell_format = if indices.is_top_level[idx] {
-                top_level_format()
-            } else if indices.has_children[idx] {
-                parent_format()
-            } else {
-                normal_format()
-            };
-            let level = indices.levels[idx];
-
-            worksheet.set_row_height(row, 20.0)?;
-            worksheet.write_number_with_format(row, 0, (row_num + 1) as f64, cell_format)?;
-            worksheet.write_number_with_format(row, 1, level as f64, cell_format)?;
-            worksheet.write_string_with_format(
-                row,
-                2,
-                &node.product.meta.product_code,
-                cell_format,
-            )?;
-            worksheet.write_string_with_format(row, 3, &node.product.pdt_name, cell_format)?;
-            worksheet.write_number_with_format(row, 4, node.node.quantity, cell_format)?;
-
-            // 位置（可选字段）
-            write_optional_string(
-                worksheet,
-                row,
-                5,
-                node.node.position.as_deref(),
-                cell_format,
-            )?;
-
-            // 耗损率
-            worksheet.write_number_with_format(row, 6, node.node.loss_rate, cell_format)?;
-
-            // 备注（可选字段）
-            write_optional_string(worksheet, row, 7, node.node.remark.as_deref(), cell_format)?;
-
-            // 物料属性（获取途径）
-            worksheet.write_string_with_format(
-                row,
-                8,
-                &node.product.meta.acquire_channel,
-                cell_format,
-            )?;
-
-            // 工作中心（可选字段）
-            write_optional_string(
-                worksheet,
-                row,
-                9,
-                node.node.work_center.as_deref(),
-                cell_format,
-            )?;
-        }
-
-        // 保存文件
-        workbook.save(path)?;
-
-        Ok(())
+        // 构建工作簿并导出
+        let mut workbook = self.build_export_workbook(bom_id).await?;
+        let bytes = workbook.save_to_buffer()?;
+        Ok((bytes, bom_name))
     }
 
     async fn get_leaf_nodes(&self, bom_id: i64, executor: Executor<'_>) -> Result<Vec<BomNode>> {

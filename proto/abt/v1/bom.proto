@@ -2,6 +2,7 @@ syntax = "proto3";
 package abt.v1;
 
 import "abt/v1/base.proto";
+import "abt/v1/excel.proto";
 
 option go_package = "abt/v1";
 
@@ -25,6 +26,8 @@ service AbtBomService {
   rpc DeleteLaborProcess(DeleteLaborProcessRequest) returns (U64Response);
   rpc ImportLaborProcesses(ImportLaborProcessRequest) returns (ImportLaborProcessResponse);
   rpc GetProductCode(GetProductCodeRequest) returns (StringResponse);
+  // 流式下载 BOM 导出文件
+  rpc DownloadBom(DownloadBomRequest) returns (stream DownloadFileResponse);
 }
 
 message BomNodeProto {
@@ -222,4 +225,9 @@ message ImportLaborProcessResponse {
   uint64 success_count = 1;
   uint64 fail_count = 2;
   repeated string errors = 3;
+}
+
+// 流式下载 BOM 请求
+message DownloadBomRequest {
+  int64 bom_id = 1;
 }

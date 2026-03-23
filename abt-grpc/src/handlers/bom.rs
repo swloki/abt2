@@ -4,6 +4,7 @@ use crate::generated::abt::v1::{abt_bom_service_server::AbtBomService as GrpcBom
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
 use std::path::Path;
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
 // Import trait to bring methods into scope
@@ -391,5 +392,59 @@ impl GrpcBomService for BomHandler {
         request: Request<ImportLaborProcessRequest>,
     ) -> GrpcResult<ImportLaborProcessResponse> {
         crate::handlers::labor_process::import_labor_processes_internal(request.into_inner()).await
+    }
+
+    type DownloadBomStream = ReceiverStream<Result<DownloadFileResponse, Status>>;
+
+    async fn download_bom(
+        &self,
+        request: Request<DownloadBomRequest>,
+    ) -> Result<Response<Self::DownloadBomStream>, Status> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.bom_service();
+
+        // 生成 Excel 到内存，同时获取 BOM 名称
+        let (bytes, bom_name) = srv
+            .export_to_bytes(req.bom_id)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        let file_name = format!(
+            "BOM_{}_{}.xlsx",
+            bom_name,
+            chrono::Utc::now().format("%Y%m%d%H%M%S")
+        );
+        let file_size = bytes.len() as i64;
+
+        // 创建流式响应
+        let (tx, rx) = tokio::sync::mpsc::channel(32);
+
+        tokio::spawn(async move {
+            // 发送元数据
+            let metadata = FileMetadata {
+                file_name,
+                file_size,
+                content_type: crate::handlers::EXCEL_MIME_TYPE.to_string(),
+            };
+            let first_msg = DownloadFileResponse {
+                data: Some(download_file_response::Data::Metadata(metadata)),
+            };
+            if tx.send(Ok(first_msg)).await.is_err() {
+                return;
+            }
+
+            // 分块发送文件内容
+            for chunk in bytes.chunks(crate::handlers::STREAM_CHUNK_SIZE) {
+                let chunk_msg = DownloadFileResponse {
+                    data: Some(download_file_response::Data::Chunk(chunk.to_vec())),
+                };
+                if tx.send(Ok(chunk_msg)).await.is_err() {
+                    return;
+                }
+            }
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
     }
 }

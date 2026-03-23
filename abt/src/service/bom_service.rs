@@ -54,6 +54,9 @@ pub trait BomService: Send + Sync {
     /// 导出 BOM 到 Excel 文件
     async fn export_to_excel(&self, bom_id: i64, path: &Path) -> Result<()>;
 
+    /// 导出 BOM 到 Excel（返回字节数据和 BOM 名称，用于流式下载）
+    async fn export_to_bytes(&self, bom_id: i64) -> Result<(Vec<u8>, String)>;
+
     /// 获取 BOM 叶子节点（用于出库）
     /// 只返回没有子节点的节点
     async fn get_leaf_nodes(&self, bom_id: i64, executor: Executor<'_>) -> Result<Vec<BomNode>>;

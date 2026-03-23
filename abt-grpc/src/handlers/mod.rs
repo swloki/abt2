@@ -29,3 +29,13 @@ pub use crate::generated::abt::v1::{
 };
 
 pub type GrpcResult<T> = Result<tonic::Response<T>, tonic::Status>;
+
+// ============================================================================
+// 流式下载共享常量和工具函数
+// ============================================================================
+
+/// Excel 文件的 MIME 类型
+pub const EXCEL_MIME_TYPE: &str = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+/// 流式传输的块大小 (64KB)
+pub const STREAM_CHUNK_SIZE: usize = 64 * 1024;

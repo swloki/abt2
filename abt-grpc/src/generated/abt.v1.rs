@@ -1989,6 +1989,44 @@ pub struct UploadFileResponse {
     #[prost(int64, tag = "2")]
     pub file_size: i64,
 }
+/// 流式下载请求
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DownloadExportFileRequest {
+    /// 导出类型: "products"
+    #[prost(string, tag = "1")]
+    pub export_type: ::prost::alloc::string::String,
+}
+/// 流式下载响应
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DownloadFileResponse {
+    #[prost(oneof = "download_file_response::Data", tags = "1, 2")]
+    pub data: ::core::option::Option<download_file_response::Data>,
+}
+/// Nested message and enum types in `DownloadFileResponse`.
+pub mod download_file_response {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Data {
+        /// 文件元数据（第一个消息）
+        #[prost(message, tag = "1")]
+        Metadata(super::FileMetadata),
+        /// 文件内容块
+        #[prost(bytes, tag = "2")]
+        Chunk(::prost::alloc::vec::Vec<u8>),
+    }
+}
+/// 文件元数据
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FileMetadata {
+    /// 文件名
+    #[prost(string, tag = "1")]
+    pub file_name: ::prost::alloc::string::String,
+    /// 文件大小
+    #[prost(int64, tag = "2")]
+    pub file_size: i64,
+    /// MIME 类型
+    #[prost(string, tag = "3")]
+    pub content_type: ::prost::alloc::string::String,
+}
 /// Generated client implementations.
 pub mod abt_excel_service_client {
     #![allow(
@@ -2173,6 +2211,31 @@ pub mod abt_excel_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtExcelService", "GetProgress"));
             self.inner.unary(req, path, codec).await
         }
+        /// 流式下载导出文件
+        pub async fn download_export_file(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DownloadExportFileRequest>,
+        ) -> std::result::Result<
+            tonic::Response<tonic::codec::Streaming<super::DownloadFileResponse>>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtExcelService/DownloadExportFile",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtExcelService", "DownloadExportFile"));
+            self.inner.server_streaming(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -2211,6 +2274,20 @@ pub mod abt_excel_service_server {
             request: tonic::Request<super::Empty>,
         ) -> std::result::Result<
             tonic::Response<super::ExcelProgressResponse>,
+            tonic::Status,
+        >;
+        /// Server streaming response type for the DownloadExportFile method.
+        type DownloadExportFileStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::DownloadFileResponse, tonic::Status>,
+            >
+            + std::marker::Send
+            + 'static;
+        /// 流式下载导出文件
+        async fn download_export_file(
+            &self,
+            request: tonic::Request<super::DownloadExportFileRequest>,
+        ) -> std::result::Result<
+            tonic::Response<Self::DownloadExportFileStream>,
             tonic::Status,
         >;
     }
@@ -2466,6 +2543,57 @@ pub mod abt_excel_service_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtExcelService/DownloadExportFile" => {
+                    #[allow(non_camel_case_types)]
+                    struct DownloadExportFileSvc<T: AbtExcelService>(pub Arc<T>);
+                    impl<
+                        T: AbtExcelService,
+                    > tonic::server::ServerStreamingService<
+                        super::DownloadExportFileRequest,
+                    > for DownloadExportFileSvc<T> {
+                        type Response = super::DownloadFileResponse;
+                        type ResponseStream = T::DownloadExportFileStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DownloadExportFileRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtExcelService>::download_export_file(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DownloadExportFileSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)

@@ -179,6 +179,10 @@ impl<S: service::ProductExcelService + ?Sized + Sync> service::ProductExcelServi
         (**self).export_products_to_excel(pool, path).await
     }
 
+    async fn export_products_to_bytes(&self, pool: &sqlx::PgPool) -> anyhow::Result<Vec<u8>> {
+        (**self).export_products_to_bytes(pool).await
+    }
+
     fn get_progress(&self) -> service::ExcelProgress {
         (**self).get_progress()
     }

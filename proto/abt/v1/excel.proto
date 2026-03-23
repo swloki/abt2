@@ -10,6 +10,8 @@ service AbtExcelService {
   rpc ImportExcel(ImportExcelRequest) returns (ImportResultResponse);
   rpc ExportExcel(ExportExcelRequest) returns (Empty);
   rpc GetProgress(Empty) returns (ExcelProgressResponse);
+  // 流式下载导出文件
+  rpc DownloadExportFile(DownloadExportFileRequest) returns (stream DownloadFileResponse);
 }
 
 message ImportResultResponse {
@@ -42,4 +44,24 @@ message UploadFileRequest {
 message UploadFileResponse {
   string file_path = 1;    // 上传后的文件路径（相对路径）
   int64 file_size = 2;     // 文件大小（字节）
+}
+
+// 流式下载请求
+message DownloadExportFileRequest {
+  string export_type = 1;  // 导出类型: "products"
+}
+
+// 流式下载响应
+message DownloadFileResponse {
+  oneof data {
+    FileMetadata metadata = 1;  // 文件元数据（第一个消息）
+    bytes chunk = 2;             // 文件内容块
+  }
+}
+
+// 文件元数据
+message FileMetadata {
+  string file_name = 1;     // 文件名
+  int64 file_size = 2;      // 文件大小
+  string content_type = 3;  // MIME 类型
 }

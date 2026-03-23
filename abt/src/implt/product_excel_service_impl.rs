@@ -275,6 +275,40 @@ impl ProductExcelService for ProductExcelServiceImpl {
         Ok(())
     }
 
+    /// 导出产品到 Excel（返回字节数据，用于流式下载）
+    async fn export_products_to_bytes(&self, pool: &PgPool) -> Result<Vec<u8>> {
+        let rows = InventoryRepo::list_for_export(pool).await?;
+
+        let mut workbook = Workbook::new();
+        let worksheet = workbook.add_worksheet();
+
+        let headers = [
+            "产品ID", "产品名称", "产品编码", "规格", "单位", "仓库名称", "库位编码",
+            "库存数量", "安全库存", "价格",
+        ];
+        for (col, header) in headers.iter().enumerate() {
+            worksheet.write_string(0, col as u16, *header)?;
+        }
+
+        for (row_idx, row) in rows.iter().enumerate() {
+            let row_num = row_idx + 1;
+            worksheet.write_number(row_num as u32, 0, row.product_id as f64)?;
+            worksheet.write_string(row_num as u32, 1, &row.pdt_name)?;
+            worksheet.write_string(row_num as u32, 2, &row.product_code)?;
+            worksheet.write_string(row_num as u32, 3, &row.specification)?;
+            worksheet.write_string(row_num as u32, 4, &row.unit)?;
+            worksheet.write_string(row_num as u32, 5, &row.warehouse_name)?;
+            worksheet.write_string(row_num as u32, 6, &row.location_code)?;
+            worksheet.write_number(row_num as u32, 7, row.quantity.to_f64().unwrap_or(0.0))?;
+            worksheet.write_number(row_num as u32, 8, row.safety_stock.to_f64().unwrap_or(0.0))?;
+            worksheet.write_number(row_num as u32, 9, row.price.to_f64().unwrap_or(0.0))?;
+        }
+
+        // 保存到内存缓冲区
+        let bytes = workbook.save_to_buffer()?;
+        Ok(bytes)
+    }
+
     /// 获取处理进度
     fn get_progress(&self) -> ExcelProgress {
         ExcelProgress {

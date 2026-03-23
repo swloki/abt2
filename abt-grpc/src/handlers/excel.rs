@@ -1,6 +1,7 @@
 //! Excel gRPC Handler
 
 use std::path::Path;
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status, Streaming};
 use crate::generated::abt::v1::{abt_excel_service_server::AbtExcelService as GrpcExcelService, *};
 use crate::handlers::GrpcResult;
@@ -136,5 +137,59 @@ impl GrpcExcelService for ExcelHandler {
             current: progress.current as i32,
             total: progress.total as i32,
         }))
+    }
+
+    type DownloadExportFileStream = ReceiverStream<Result<DownloadFileResponse, Status>>;
+
+    async fn download_export_file(
+        &self,
+        request: Request<DownloadExportFileRequest>,
+    ) -> Result<Response<Self::DownloadExportFileStream>, Status> {
+        let _req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.excel_service();
+
+        // 生成 Excel 到内存
+        let bytes = srv
+            .export_products_to_bytes(&state.pool())
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        let file_name = format!(
+            "products_export_{}.xlsx",
+            chrono::Utc::now().format("%Y%m%d%H%M%S")
+        );
+        let file_size = bytes.len() as i64;
+
+        // 创建流式响应
+        let (tx, rx) = tokio::sync::mpsc::channel(32);
+
+        tokio::spawn(async move {
+            // 发送元数据
+            let metadata = FileMetadata {
+                file_name,
+                file_size,
+                content_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".to_string(),
+            };
+            let first_msg = DownloadFileResponse {
+                data: Some(download_file_response::Data::Metadata(metadata)),
+            };
+            if tx.send(Ok(first_msg)).await.is_err() {
+                return;
+            }
+
+            // 分块发送文件内容
+            const CHUNK_SIZE: usize = 64 * 1024; // 64KB chunks
+            for chunk in bytes.chunks(CHUNK_SIZE) {
+                let chunk_msg = DownloadFileResponse {
+                    data: Some(download_file_response::Data::Chunk(chunk.to_vec())),
+                };
+                if tx.send(Ok(chunk_msg)).await.is_err() {
+                    return;
+                }
+            }
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
     }
 }

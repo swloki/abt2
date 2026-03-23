@@ -85,14 +85,11 @@ impl GrpcExcelService for ExcelHandler {
 
         let file_path = file_path.ok_or_else(|| Status::invalid_argument("No file uploaded"))?;
 
-        // 返回相对路径
-        let relative_path = file_path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or(&file_name)
-            .to_string();
+        // 返回绝对路径
+        let absolute_path = file_path.to_string_lossy().to_string();
 
         Ok(Response::new(UploadFileResponse {
-            file_path: relative_path,
+            file_path: absolute_path,
             file_size: total_size,
         }))
     }

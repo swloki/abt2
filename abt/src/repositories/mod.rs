@@ -14,7 +14,7 @@ mod term_repo;
 mod user_repo;
 mod warehouse_repo;
 
-pub use bom_repo::BomRepo;
+pub use bom_repo::{BomReference, BomRepo};
 pub use inventory_repo::InventoryRepo;
 pub use labor_process_repo::LaborProcessRepo;
 pub use location_repo::LocationRepo;

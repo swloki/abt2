@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 use crate::models::{Product, ProductQuery};
-use crate::repositories::Executor;
+use crate::repositories::{BomReference, Executor};
 
 /// 产品服务接口
 #[async_trait]
@@ -37,4 +37,8 @@ pub trait ProductService: Send + Sync {
     /// 生成唯一的产品编码
     /// 使用时间戳格式: x{timestamp}
     async fn generate_product_code(&self, pool: &PgPool) -> Result<String>;
+
+    /// 检查产品是否被 BOM 使用
+    /// 返回 (是否被使用, 使用的 BOM 列表)
+    async fn check_product_usage(&self, product_id: i64) -> Result<(bool, Vec<BomReference>)>;
 }

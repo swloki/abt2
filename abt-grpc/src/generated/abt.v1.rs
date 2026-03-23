@@ -6744,6 +6744,26 @@ pub struct DeleteProductRequest {
     #[prost(int64, tag = "1")]
     pub product_id: i64,
 }
+/// BOM 简要引用信息
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct BomReference {
+    #[prost(int64, tag = "1")]
+    pub bom_id: i64,
+    #[prost(string, tag = "2")]
+    pub bom_name: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CheckProductUsageRequest {
+    #[prost(int64, tag = "1")]
+    pub product_id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CheckProductUsageResponse {
+    #[prost(bool, tag = "1")]
+    pub is_used: bool,
+    #[prost(message, repeated, tag = "2")]
+    pub used_in_boms: ::prost::alloc::vec::Vec<BomReference>,
+}
 /// Generated client implementations.
 pub mod abt_product_service_client {
     #![allow(
@@ -6970,6 +6990,32 @@ pub mod abt_product_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtProductService", "DeleteProduct"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn check_product_usage(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CheckProductUsageRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CheckProductUsageResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtProductService/CheckProductUsage",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.AbtProductService", "CheckProductUsage"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -7015,6 +7061,13 @@ pub mod abt_product_service_server {
             &self,
             request: tonic::Request<super::DeleteProductRequest>,
         ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn check_product_usage(
+            &self,
+            request: tonic::Request<super::CheckProductUsageRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CheckProductUsageResponse>,
+            tonic::Status,
+        >;
     }
     #[derive(Debug)]
     pub struct AbtProductServiceServer<T> {
@@ -7355,6 +7408,55 @@ pub mod abt_product_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = DeleteProductSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtProductService/CheckProductUsage" => {
+                    #[allow(non_camel_case_types)]
+                    struct CheckProductUsageSvc<T: AbtProductService>(pub Arc<T>);
+                    impl<
+                        T: AbtProductService,
+                    > tonic::server::UnaryService<super::CheckProductUsageRequest>
+                    for CheckProductUsageSvc<T> {
+                        type Response = super::CheckProductUsageResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CheckProductUsageRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtProductService>::check_product_usage(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CheckProductUsageSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

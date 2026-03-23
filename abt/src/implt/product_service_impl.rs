@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 use crate::models::{Product, ProductQuery};
-use crate::repositories::{Executor, ProductRepo};
+use crate::repositories::{BomRepo, BomReference, Executor, ProductRepo};
 use crate::service::ProductService;
 
 /// 产品服务实现
@@ -77,5 +77,11 @@ impl ProductService for ProductServiceImpl {
             }
             sleep(Duration::from_secs(1));
         }
+    }
+
+    async fn check_product_usage(&self, product_id: i64) -> Result<(bool, Vec<BomReference>)> {
+        let boms = BomRepo::find_boms_using_product(&self.pool, product_id).await?;
+        let is_used = !boms.is_empty();
+        Ok((is_used, boms))
     }
 }

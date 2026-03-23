@@ -143,6 +143,17 @@ impl GrpcProductService for ProductHandler {
         let state = AppState::get().await;
         let srv = state.product_service();
 
+        // 先检查产品是否被 BOM 使用
+        let (is_used, boms) = srv.check_product_usage(req.product_id).await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        if is_used {
+            let bom_names: Vec<String> = boms.iter().map(|b| b.bom_name.clone()).collect();
+            return Err(Status::failed_precondition(
+                format!("产品正在以下 BOM 中使用，无法删除: {}", bom_names.join(", "))
+            ));
+        }
+
         let mut tx = state.begin_transaction().await
             .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -152,5 +163,25 @@ impl GrpcProductService for ProductHandler {
         tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(BoolResponse { value: true }))
+    }
+
+    async fn check_product_usage(
+        &self,
+        request: Request<CheckProductUsageRequest>,
+    ) -> GrpcResult<CheckProductUsageResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.product_service();
+
+        let (is_used, boms) = srv.check_product_usage(req.product_id).await
+            .map_err(|e| Status::internal(e.to_string()))?;
+
+        Ok(Response::new(CheckProductUsageResponse {
+            is_used,
+            used_in_boms: boms.into_iter().map(|b| BomReference {
+                bom_id: b.bom_id,
+                bom_name: b.bom_name,
+            }).collect(),
+        }))
     }
 }

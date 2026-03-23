@@ -12,6 +12,7 @@ service AbtProductService {
   rpc CreateProduct(CreateProductRequest) returns (U64Response);
   rpc UpdateProduct(UpdateProductRequest) returns (BoolResponse);
   rpc DeleteProduct(DeleteProductRequest) returns (BoolResponse);
+  rpc CheckProductUsage(CheckProductUsageRequest) returns (CheckProductUsageResponse);
 }
 
 message ProductMeta {
@@ -71,4 +72,19 @@ message UpdateProductRequest {
 
 message DeleteProductRequest {
   int64 product_id = 1;
+}
+
+// BOM 简要引用信息
+message BomReference {
+  int64 bom_id = 1;
+  string bom_name = 2;
+}
+
+message CheckProductUsageRequest {
+  int64 product_id = 1;
+}
+
+message CheckProductUsageResponse {
+  bool is_used = 1;
+  repeated BomReference used_in_boms = 2;
 }

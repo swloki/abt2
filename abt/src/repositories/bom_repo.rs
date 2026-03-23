@@ -10,6 +10,13 @@ use sqlx::PgPool;
 use crate::models::{Bom, BomDetail, BomQuery};
 use crate::repositories::Executor;
 
+/// BOM 简要信息（用于引用显示）
+#[derive(Debug, Clone)]
+pub struct BomReference {
+    pub bom_id: i64,
+    pub bom_name: String,
+}
+
 /// BOM 数据仓库
 pub struct BomRepo;
 
@@ -207,5 +214,30 @@ impl BomRepo {
             query.push_bind(format!("%{}%", product_code));
             query.push(")");
         }
+    }
+
+    /// 查询使用指定产品的 BOM 列表
+    /// 返回包含该产品的所有 BOM 的简要信息
+    pub async fn find_boms_using_product(
+        pool: &PgPool,
+        product_id: i64,
+    ) -> Result<Vec<BomReference>> {
+        let rows = sqlx::query_as!(
+            BomReference,
+            r#"
+            SELECT bom_id, bom_name
+            FROM bom
+            WHERE EXISTS (
+                SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node
+                WHERE (node->>'product_id')::bigint = $1
+            )
+            ORDER BY bom_name
+            "#,
+            product_id
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
     }
 }

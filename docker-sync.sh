@@ -14,4 +14,4 @@ cargo build --release -p abt-grpc
 echo ">>> 构建完成！"
 ls -la target/release/abt-grpc 2>/dev/null || true
 
-cp target/release/abt-grpc /app/bin
+cp target/release/abt-grpc /app/bin/abt-grpc

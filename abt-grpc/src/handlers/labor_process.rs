@@ -1,7 +1,5 @@
 //! BOM 人工工序 gRPC Handler
 
-use std::path::Path;
-
 use crate::generated::abt::v1::*;
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
@@ -178,9 +176,6 @@ pub async fn import_labor_processes_internal(
 ) -> GrpcResult<ImportLaborProcessResponse> {
     let state = AppState::get().await;
     let service = state.labor_process_service();
-    let config = crate::server::get_config();
-
-    let path = Path::new(&config.upload_temp_dir).join(&req.file_path);
 
     let mut tx = state
         .begin_transaction()
@@ -188,7 +183,7 @@ pub async fn import_labor_processes_internal(
         .map_err(|e| Status::internal(e.to_string()))?;
 
     let result = service
-        .import(path.to_str().unwrap(), &mut tx)
+        .import(&req.file_path, &mut tx)
         .await
         .map_err(|e| Status::internal(e.to_string()))?;
 

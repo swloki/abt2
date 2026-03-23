@@ -41,10 +41,11 @@ RUN git clone git@github.com:swloki/abt2.git .
 RUN git config --local user.email "lokisw@gmail.com" && git config --local user.name "weichen"
 RUN git fetch origin && git reset --hard origin/master && git pull origin master
 
-# RUN cargo build --release
+ENV DATABASE_URL="postgres://postgres:123456@172.17.0.1:5432/abt"
+RUN cargo build --release
 
 # 保持容器运行
-CMD ["tail", "-f", "/dev/null"]
+CMD ["bash", "./docker-sync.sh"]
 
 # ============================================
 # Stage 2: Runtime (Ubuntu latest)
@@ -67,5 +68,4 @@ WORKDIR /app
 # 从 builder 复制二进制
 COPY --from=builder /app/target/release/abt-grpc /app/abt-grpc
 COPY abt-grpc/config.toml /app/config.toml
-RUN chmod u+x ./abt-grpc
-CMD ["tail", "-f", "/dev/null"]
+CMD ["./abt-grpc"]

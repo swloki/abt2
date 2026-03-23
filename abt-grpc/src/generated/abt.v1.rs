@@ -1963,6 +1963,32 @@ pub struct ExportExcelRequest {
     #[prost(string, tag = "1")]
     pub file_path: ::prost::alloc::string::String,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UploadFileRequest {
+    #[prost(oneof = "upload_file_request::Data", tags = "1, 2")]
+    pub data: ::core::option::Option<upload_file_request::Data>,
+}
+/// Nested message and enum types in `UploadFileRequest`.
+pub mod upload_file_request {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum Data {
+        /// 文件名（第一个消息发送）
+        #[prost(string, tag = "1")]
+        FileName(::prost::alloc::string::String),
+        /// 文件内容块
+        #[prost(bytes, tag = "2")]
+        Chunk(::prost::alloc::vec::Vec<u8>),
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UploadFileResponse {
+    /// 上传后的文件路径（相对路径）
+    #[prost(string, tag = "1")]
+    pub file_path: ::prost::alloc::string::String,
+    /// 文件大小（字节）
+    #[prost(int64, tag = "2")]
+    pub file_size: i64,
+}
 /// Generated client implementations.
 pub mod abt_excel_service_client {
     #![allow(
@@ -2054,6 +2080,30 @@ pub mod abt_excel_service_client {
             self.inner = self.inner.max_encoding_message_size(limit);
             self
         }
+        pub async fn upload_file(
+            &mut self,
+            request: impl tonic::IntoStreamingRequest<Message = super::UploadFileRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UploadFileResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtExcelService/UploadFile",
+            );
+            let mut req = request.into_streaming_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtExcelService", "UploadFile"));
+            self.inner.client_streaming(req, path, codec).await
+        }
         pub async fn import_excel(
             &mut self,
             request: impl tonic::IntoRequest<super::ImportExcelRequest>,
@@ -2138,6 +2188,13 @@ pub mod abt_excel_service_server {
     /// Generated trait containing gRPC methods that should be implemented for use with AbtExcelServiceServer.
     #[async_trait]
     pub trait AbtExcelService: std::marker::Send + std::marker::Sync + 'static {
+        async fn upload_file(
+            &self,
+            request: tonic::Request<tonic::Streaming<super::UploadFileRequest>>,
+        ) -> std::result::Result<
+            tonic::Response<super::UploadFileResponse>,
+            tonic::Status,
+        >;
         async fn import_excel(
             &self,
             request: tonic::Request<super::ImportExcelRequest>,
@@ -2233,6 +2290,53 @@ pub mod abt_excel_service_server {
         }
         fn call(&mut self, req: http::Request<B>) -> Self::Future {
             match req.uri().path() {
+                "/abt.v1.AbtExcelService/UploadFile" => {
+                    #[allow(non_camel_case_types)]
+                    struct UploadFileSvc<T: AbtExcelService>(pub Arc<T>);
+                    impl<
+                        T: AbtExcelService,
+                    > tonic::server::ClientStreamingService<super::UploadFileRequest>
+                    for UploadFileSvc<T> {
+                        type Response = super::UploadFileResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                tonic::Streaming<super::UploadFileRequest>,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtExcelService>::upload_file(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UploadFileSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.client_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 "/abt.v1.AbtExcelService/ImportExcel" => {
                     #[allow(non_camel_case_types)]
                     struct ImportExcelSvc<T: AbtExcelService>(pub Arc<T>);

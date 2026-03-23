@@ -17,6 +17,7 @@ prost = "0.14"
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
+tokio-stream = "0.1"
 
 # 项目内部
 abt = { path = "../abt" }

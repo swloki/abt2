@@ -6,6 +6,7 @@ option go_package = "abt/v1";
 import "abt/v1/base.proto";
 
 service AbtExcelService {
+  rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse);
   rpc ImportExcel(ImportExcelRequest) returns (ImportResultResponse);
   rpc ExportExcel(ExportExcelRequest) returns (Empty);
   rpc GetProgress(Empty) returns (ExcelProgressResponse);
@@ -29,4 +30,16 @@ message ImportExcelRequest {
 
 message ExportExcelRequest {
   string file_path = 1;
+}
+
+message UploadFileRequest {
+  oneof data {
+    string file_name = 1;  // 文件名（第一个消息发送）
+    bytes chunk = 2;       // 文件内容块
+  }
+}
+
+message UploadFileResponse {
+  string file_path = 1;    // 上传后的文件路径（相对路径）
+  int64 file_size = 2;     // 文件大小（字节）
 }

@@ -98,6 +98,9 @@ message InventoryDetailListResponse {
 
 message InventoryLogListResponse {
   repeated InventoryLogResponse items = 1;
+  uint64 total = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
 }
 
 message InventoryLogDetailListResponse {
@@ -155,6 +158,8 @@ message InventoryLogQueryRequest {
   optional string operation_type = 6;
   optional int64 start_time = 7;
   optional int64 end_time = 8;
+  optional string product_name = 9;
+  optional string product_code = 10;
 }
 
 message GetLogsByProductRequest {

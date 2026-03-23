@@ -2634,6 +2634,12 @@ pub struct InventoryDetailListResponse {
 pub struct InventoryLogListResponse {
     #[prost(message, repeated, tag = "1")]
     pub items: ::prost::alloc::vec::Vec<InventoryLogResponse>,
+    #[prost(uint64, tag = "2")]
+    pub total: u64,
+    #[prost(uint32, tag = "3")]
+    pub page: u32,
+    #[prost(uint32, tag = "4")]
+    pub page_size: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct InventoryLogDetailListResponse {
@@ -2724,6 +2730,10 @@ pub struct InventoryLogQueryRequest {
     pub start_time: ::core::option::Option<i64>,
     #[prost(int64, optional, tag = "8")]
     pub end_time: ::core::option::Option<i64>,
+    #[prost(string, optional, tag = "9")]
+    pub product_name: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "10")]
+    pub product_code: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetLogsByProductRequest {

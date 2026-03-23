@@ -246,6 +246,9 @@ impl GrpcInventoryService for InventoryHandler {
                 to_proto_log_response(out_log),
                 to_proto_log_response(in_log),
             ],
+            total: 2,
+            page: 1,
+            page_size: 2,
         }))
     }
 
@@ -426,8 +429,8 @@ impl GrpcInventoryService for InventoryHandler {
 
         let query = AbtInventoryLogQuery {
             product_id: req.product_id,
-            product_name: None,
-            product_code: None,
+            product_name: req.product_name,
+            product_code: req.product_code,
             location_id: req.location_id,
             warehouse_id: req.warehouse_id,
             operation_type: req.operation_type.and_then(|s| s.parse().ok()),
@@ -467,6 +470,9 @@ impl GrpcInventoryService for InventoryHandler {
                     created_at: detail.created_at.timestamp(),
                 })
                 .collect(),
+            total: result.total as u64,
+            page: result.page,
+            page_size: result.page_size,
         }))
     }
 

@@ -13,5 +13,4 @@ cargo build --release -p abt-grpc
 echo ">>> 构建完成！"
 ls -la target/release/abt-grpc 2>/dev/null || true
 
-echo ">>> 保持容器运行..."
-tail -f /dev/null
+cp target/release/abt-grpc /data/target/abt-grpc

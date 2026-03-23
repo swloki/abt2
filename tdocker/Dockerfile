@@ -34,10 +34,13 @@ RUN chmod 600 /root/.ssh/id_rsa 2>/dev/null || true \
 
 WORKDIR /app
 
-# 克隆代码
+# 缓存破坏参数（确保拉取最新代码）
+ARG CACHE_BUST=1
+
+# 克隆代码并拉取最新版本
 RUN git clone git@github.com:swloki/abt2.git .
 RUN git config --local user.email "lokisw@gmail.com" && git config --local user.name "weichen"
-RUN git fetch origin && git reset --hard origin/master && git pull origin master
+RUN git fetch origin && git reset --hard origin/master
 
 # RUN cargo build --release
 

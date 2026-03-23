@@ -144,7 +144,7 @@ impl GrpcProductService for ProductHandler {
         let srv = state.product_service();
 
         // 先检查产品是否被 BOM 使用
-        let (is_used, boms) = srv.check_product_usage(req.product_id).await
+        let (is_used, boms, _total) = srv.check_product_usage(req.product_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         if is_used {
@@ -173,7 +173,7 @@ impl GrpcProductService for ProductHandler {
         let state = AppState::get().await;
         let srv = state.product_service();
 
-        let (is_used, boms) = srv.check_product_usage(req.product_id).await
+        let (is_used, boms, total) = srv.check_product_usage(req.product_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(CheckProductUsageResponse {
@@ -182,6 +182,7 @@ impl GrpcProductService for ProductHandler {
                 bom_id: b.bom_id,
                 bom_name: b.bom_name,
             }).collect(),
+            total_boms: total,
         }))
     }
 }

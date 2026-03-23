@@ -17,6 +17,13 @@ pub struct BomReference {
     pub bom_name: String,
 }
 
+/// 产品使用情况（包含 BOM 列表和总数）
+#[derive(Debug, Clone)]
+pub struct ProductUsageResult {
+    pub boms: Vec<BomReference>,
+    pub total: i64,
+}
+
 /// BOM 数据仓库
 pub struct BomRepo;
 
@@ -217,12 +224,29 @@ impl BomRepo {
     }
 
     /// 查询使用指定产品的 BOM 列表
-    /// 返回包含该产品的所有 BOM 的简要信息
+    /// 返回包含该产品的 BOM 的简要信息（最多 10 条）和总数
     pub async fn find_boms_using_product(
         pool: &PgPool,
         product_id: i64,
-    ) -> Result<Vec<BomReference>> {
-        let rows = sqlx::query_as!(
+    ) -> Result<ProductUsageResult> {
+        // 查询总数
+        let total: i64 = sqlx::query_scalar!(
+            r#"
+            SELECT COUNT(*)
+            FROM bom
+            WHERE EXISTS (
+                SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node
+                WHERE (node->>'product_id')::bigint = $1
+            )
+            "#,
+            product_id
+        )
+        .fetch_one(pool)
+        .await?
+        .unwrap_or(0);
+
+        // 查询前 10 条 BOM 信息
+        let boms = sqlx::query_as!(
             BomReference,
             r#"
             SELECT bom_id, bom_name
@@ -232,12 +256,13 @@ impl BomRepo {
                 WHERE (node->>'product_id')::bigint = $1
             )
             ORDER BY bom_name
+            LIMIT 10
             "#,
             product_id
         )
         .fetch_all(pool)
         .await?;
 
-        Ok(rows)
+        Ok(ProductUsageResult { boms, total })
     }
 }

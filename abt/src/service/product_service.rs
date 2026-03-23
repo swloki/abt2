@@ -39,6 +39,6 @@ pub trait ProductService: Send + Sync {
     async fn generate_product_code(&self, pool: &PgPool) -> Result<String>;
 
     /// 检查产品是否被 BOM 使用
-    /// 返回 (是否被使用, 使用的 BOM 列表)
-    async fn check_product_usage(&self, product_id: i64) -> Result<(bool, Vec<BomReference>)>;
+    /// 返回 (是否被使用, 使用的 BOM 列表, 总数)
+    async fn check_product_usage(&self, product_id: i64) -> Result<(bool, Vec<BomReference>, i64)>;
 }

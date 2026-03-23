@@ -87,4 +87,5 @@ message CheckProductUsageRequest {
 message CheckProductUsageResponse {
   bool is_used = 1;
   repeated BomReference used_in_boms = 2;
+  int64 total_boms = 3;  // 总共使用的 BOM 数量（可能多于返回的列表）
 }

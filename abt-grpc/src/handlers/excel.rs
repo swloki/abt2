@@ -32,11 +32,12 @@ impl GrpcExcelService for ExcelHandler {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();
+        let config = crate::server::get_config();
 
-        let path = Path::new(&req.file_path);
+        let path = Path::new(&config.upload_temp_dir).join(&req.file_path);
         let operator_id = req.operator_id;
 
-        let result = srv.import_quantity_from_excel(&state.pool(), path, operator_id).await
+        let result = srv.import_quantity_from_excel(&state.pool(), &path, operator_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         Ok(Response::new(ImportResultResponse {

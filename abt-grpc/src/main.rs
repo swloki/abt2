@@ -7,7 +7,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt::init();
 
     let config = get_config();
-    let addr: std::net::SocketAddr = format!("{}:{}", config.grpc.host, config.grpc.port)
+    let addr: std::net::SocketAddr = format!("{}:{}", config.grpc_host, config.grpc_port)
         .parse()?;
 
     tracing::info!("Starting ABT gRPC server on {}", addr);

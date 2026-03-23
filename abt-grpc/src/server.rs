@@ -21,7 +21,7 @@ impl AppState {
     pub async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let config = get_config();
 
-        // Create database pool from TOML config
+        // Create database pool from config
         let pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(config.max_connection)
             .connect(&config.database_url)

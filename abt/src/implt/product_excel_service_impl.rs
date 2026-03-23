@@ -1,10 +1,10 @@
 //! 产品 Excel 服务实现
 //!
 //! 实现产品 Excel 导入导出的业务逻辑。
-//! 使用新的 InventoryService 和 ProductPriceService。
+//! 使用批量操作优化导入性能。
 
+use std::collections::HashMap;
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::{Context, Result, anyhow};
@@ -13,14 +13,26 @@ use calamine::{RangeDeserializerBuilder, Reader, Xlsx, open_workbook};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use rust_xlsxwriter::Workbook;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use sqlx::PgPool;
 
-use crate::models::{Location, OperationType, SetSafetyStockRequest, StockChangeRequest};
-use crate::repositories::{Executor, InventoryRepo, LocationRepo, ProductRepo};
-use crate::service::{
-    ExcelProgress, ImportResult, InventoryService, ProductExcelService, ProductPriceService,
-};
+use crate::repositories::{InventoryRepo, LocationRepo, ProductRepo};
+use crate::service::{ExcelProgress, ImportResult, ProductExcelService};
+
+/// 反序列化 Decimal，空字符串转为 None
+fn deserialize_empty_decimal<'de, D>(deserializer: D) -> Result<Option<Decimal>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt: Option<String> = Option::deserialize(deserializer)?;
+    match opt {
+        None => Ok(None),
+        Some(s) if s.is_empty() => Ok(None),
+        Some(s) => Decimal::from_str_exact(&s)
+            .map(Some)
+            .map_err(serde::de::Error::custom),
+    }
+}
 
 /// Excel 行数据结构
 #[derive(Debug, Deserialize)]
@@ -32,14 +44,23 @@ struct ExcelRow {
     #[serde(rename = "物料名称")]
     _product_name: String,
     #[serde(rename = "仓库名称")]
-    warehouse_name: String,
+    warehouse_name: Option<String>,
     #[serde(rename = "库位名称", alias = "库位")]
     storage: Option<String>,
-    #[serde(rename = "库存数量")]
-    quantity: Decimal,
-    #[serde(rename = "价格")]
+    #[serde(rename = "库存数量", deserialize_with = "deserialize_empty_decimal")]
+    quantity: Option<Decimal>,
+    #[serde(rename = "价格", deserialize_with = "deserialize_empty_decimal")]
     price: Option<Decimal>,
-    #[serde(rename = "安全库存")]
+    #[serde(rename = "安全库存", deserialize_with = "deserialize_empty_decimal")]
+    safety_stock: Option<Decimal>,
+}
+
+/// 待处理的数据项
+struct PendingItem {
+    product_id: i64,
+    location_id: Option<i64>,
+    quantity: Option<Decimal>,
+    price: Option<Decimal>,
     safety_stock: Option<Decimal>,
 }
 
@@ -47,194 +68,195 @@ struct ExcelRow {
 pub struct ProductExcelServiceImpl {
     total_count: AtomicUsize,
     current_count: AtomicUsize,
-    price_service: Arc<dyn ProductPriceService>,
-    inventory_service: Arc<dyn InventoryService>,
 }
 
 impl ProductExcelServiceImpl {
-    pub fn new(
-        price_service: Arc<dyn ProductPriceService>,
-        inventory_service: Arc<dyn InventoryService>,
-    ) -> Self {
+    pub fn new() -> Self {
         Self {
             total_count: AtomicUsize::new(0),
             current_count: AtomicUsize::new(0),
-            price_service,
-            inventory_service,
         }
-    }
-
-    /// 处理单行 Excel 数据
-    async fn process_excel_row(
-        &self,
-        pool: &PgPool,
-        row: ExcelRow,
-        operator_id: Option<i64>,
-    ) -> Result<()> {
-        // 1. 查找产品（先按新编码，再按旧编码）
-        let mut product = ProductRepo::find_by_code(pool, &row.new_code).await?;
-
-        // 如果没找到且有旧编码，再按旧编码查找
-        if product.is_none()
-            && let Some(old_code) = &row.old_code
-        {
-            product = ProductRepo::find_by_code(pool, old_code).await?;
-        }
-
-        let product = product.ok_or_else(|| {
-            anyhow!(
-                "产品未找到: 新编码={}, 旧编码={}",
-                row.new_code,
-                row.old_code.as_deref().unwrap_or_default()
-            )
-        })?;
-
-        // 2. 查找库位（使用 Repository）
-        let location = find_location(pool, &row.warehouse_name, &row.storage).await?;
-
-        // 3. 开启事务
-        let mut tx = pool.begin().await?;
-
-        // 4. 更新价格（如果有）
-        if let Some(price) = row.price {
-            self.price_service
-                .update_price(
-                    product.product_id,
-                    price,
-                    operator_id,
-                    Some("Excel 导入更新"),
-                    Executor::from(&mut *tx),
-                )
-                .await?;
-        }
-
-        // 5. 盘点设置库存（直接设置为 Excel 中的数量）
-        let req = StockChangeRequest {
-            product_id: product.product_id,
-            location_id: location.location_id,
-            quantity: row.quantity,
-            operation_type: OperationType::Adjust,
-            operator: operator_id.map(|id| id.to_string()),
-            remark: Some("Excel 盘点导入".to_string()),
-            ..Default::default()
-        };
-        self.inventory_service
-            .set_quantity(req, Executor::from(&mut *tx))
-            .await?;
-
-        // 6. 设置安全库存（如果有）
-        if let Some(safety_stock) = row.safety_stock {
-            let req = SetSafetyStockRequest {
-                product_id: product.product_id,
-                location_id: location.location_id,
-                safety_stock,
-            };
-            self.inventory_service
-                .set_safety_stock(req, Executor::from(&mut *tx))
-                .await?;
-        }
-
-        // 7. 提交事务
-        tx.commit().await?;
-
-        Ok(())
     }
 }
 
 #[async_trait]
 impl ProductExcelService for ProductExcelServiceImpl {
-    /// 从 Excel 导入库存数据
+    /// 从 Excel 导入库存数据（批量优化版本）
     async fn import_quantity_from_excel(
         &self,
         pool: &PgPool,
         path: &Path,
-        operator_id: Option<i64>,
+        _operator_id: Option<i64>,
     ) -> Result<ImportResult> {
         let mut result = ImportResult::default();
 
-        // 打开 Excel 文件
+        // 1. 打开 Excel 文件并解析所有行
         let mut excel: Xlsx<_> = open_workbook(path).context("无法打开 Excel 文件")?;
-
         let range = excel
             .worksheet_range_at(0)
             .ok_or_else(|| anyhow!("找不到第一个工作表"))?
             .context("无法读取工作表")?;
 
-        // 定义表头（支持价格和安全库存列）
         let headers = [
-            "新编码",
-            "旧编码",
-            "物料名称",
-            "仓库名称",
-            "库位名称",
-            "库存数量",
-            "价格",
-            "安全库存",
+            "新编码", "旧编码", "物料名称", "仓库名称", "库位名称", "库存数量", "价格", "安全库存",
         ];
-
         let iter_results = RangeDeserializerBuilder::with_headers(&headers).from_range(&range)?;
 
-        // 统计总数（减去表头）
         let total = range.rows().count().saturating_sub(1);
         self.total_count.store(total, Ordering::SeqCst);
         self.current_count.store(0, Ordering::SeqCst);
 
-        // 处理每一行
+        // 2. 解析所有行
+        let mut rows: Vec<ExcelRow> = Vec::with_capacity(total);
         for row_result in iter_results {
-            let row: ExcelRow = match row_result {
-                Ok(r) => r,
+            match row_result {
+                Ok(r) => rows.push(r),
                 Err(e) => {
                     result.failed_count += 1;
                     result.errors.push(format!("解析 Excel 行失败: {}", e));
-                    self.current_count.fetch_add(1, Ordering::SeqCst);
+                }
+            }
+        }
+
+        // 3. 收集所有产品编码
+        let mut all_codes: Vec<String> = Vec::new();
+        for row in &rows {
+            if !row.new_code.is_empty() {
+                all_codes.push(row.new_code.clone());
+            }
+            if let Some(ref old_code) = row.old_code {
+                if !old_code.is_empty() {
+                    all_codes.push(old_code.clone());
+                }
+            }
+        }
+        all_codes.sort();
+        all_codes.dedup();
+
+        // 4. 批量查询产品
+        let products = ProductRepo::find_by_codes(pool, &all_codes).await?;
+        let product_map: HashMap<String, i64> = products
+            .iter()
+            .filter(|p| !p.meta.product_code.is_empty())
+            .map(|p| (p.meta.product_code.clone(), p.product_id))
+            .collect();
+
+        // 5. 批量查询库位
+        let location_map = LocationRepo::list_all_with_warehouse(pool).await?;
+
+        // 6. 构建待处理数据
+        let mut pending_items: Vec<PendingItem> = Vec::with_capacity(rows.len());
+        for row in &rows {
+            // 查找产品
+            let product_id = if let Some(&id) = product_map.get(&row.new_code) {
+                id
+            } else if let Some(ref old_code) = row.old_code {
+                if let Some(&id) = product_map.get(old_code) {
+                    id
+                } else {
+                    result.failed_count += 1;
+                    result.errors.push(format!(
+                        "产品未找到: 新编码={}, 旧编码={}",
+                        row.new_code,
+                        row.old_code.as_deref().unwrap_or_default()
+                    ));
                     continue;
                 }
+            } else {
+                result.failed_count += 1;
+                result.errors.push(format!("产品未找到: 新编码={}", row.new_code));
+                continue;
             };
 
-            match self.process_excel_row(pool, row, operator_id).await {
-                Ok(_) => {
-                    result.success_count += 1;
+            // 查找库位
+            let location_id = match &row.warehouse_name {
+                Some(wh) if !wh.is_empty() => {
+                    if let Some(ref loc_name) = row.storage {
+                        if !loc_name.is_empty() {
+                            location_map
+                                .get(&(wh.clone(), loc_name.clone()))
+                                .map(|loc| loc.location_id)
+                        } else {
+                            location_map
+                                .iter()
+                                .find(|((w, _), _)| w == wh)
+                                .map(|(_, loc)| loc.location_id)
+                        }
+                    } else {
+                        location_map
+                            .iter()
+                            .find(|((w, _), _)| w == wh)
+                            .map(|(_, loc)| loc.location_id)
+                    }
                 }
-                Err(e) => {
+                _ => None,
+            };
+
+            pending_items.push(PendingItem {
+                product_id,
+                location_id,
+                quantity: row.quantity,
+                price: row.price,
+                safety_stock: row.safety_stock,
+            });
+        }
+
+        // 7. 批量执行数据库操作
+        let mut tx = pool.begin().await?;
+
+        for item in &pending_items {
+            // 更新价格
+            if let Some(price) = item.price {
+                if let Err(e) = update_price_batch(&mut tx, item.product_id, price).await {
                     result.failed_count += 1;
-                    result.errors.push(e.to_string());
+                    result.errors.push(format!("更新价格失败 product_id={}: {}", item.product_id, e));
+                    continue;
                 }
             }
 
-            // 更新进度
+            // 更新库存和安全库存
+            if let Some(location_id) = item.location_id {
+                if let Some(quantity) = item.quantity {
+                    if let Err(e) = upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity).await {
+                        result.failed_count += 1;
+                        result.errors.push(format!("更新库存失败: {}", e));
+                        continue;
+                    }
+                }
+
+                if let Some(safety_stock) = item.safety_stock {
+                    if let Err(e) = upsert_inventory_safety_stock(&mut tx, item.product_id, location_id, safety_stock).await {
+                        result.failed_count += 1;
+                        result.errors.push(format!("更新安全库存失败: {}", e));
+                        continue;
+                    }
+                }
+            }
+
+            result.success_count += 1;
             self.current_count.fetch_add(1, Ordering::SeqCst);
         }
+
+        tx.commit().await?;
 
         Ok(result)
     }
 
     /// 导出产品到 Excel（详细格式，每行一个库位）
     async fn export_products_to_excel(&self, pool: &PgPool, path: &Path) -> Result<()> {
-        // 使用 Repository 查询库存数据
         let rows = InventoryRepo::list_for_export(pool).await?;
 
-        // 创建 Excel 工作簿
         let mut workbook = Workbook::new();
         let worksheet = workbook.add_worksheet();
 
-        // 写入表头
         let headers = [
-            "产品ID",
-            "产品名称",
-            "产品编码",
-            "规格",
-            "单位",
-            "仓库名称",
-            "库位编码",
-            "库存数量",
-            "安全库存",
-            "价格",
+            "产品ID", "产品名称", "产品编码", "规格", "单位", "仓库名称", "库位编码",
+            "库存数量", "安全库存", "价格",
         ];
         for (col, header) in headers.iter().enumerate() {
             worksheet.write_string(0, col as u16, *header)?;
         }
 
-        // 写入数据
         for (row_idx, row) in rows.iter().enumerate() {
             let row_num = row_idx + 1;
             worksheet.write_number(row_num as u32, 0, row.product_id as f64)?;
@@ -249,9 +271,7 @@ impl ProductExcelService for ProductExcelServiceImpl {
             worksheet.write_number(row_num as u32, 9, row.price.to_f64().unwrap_or(0.0))?;
         }
 
-        // 保存文件
         workbook.save(path)?;
-
         Ok(())
     }
 
@@ -265,27 +285,110 @@ impl ProductExcelService for ProductExcelServiceImpl {
 }
 
 // ============================================================================
-// 辅助函数
+// 批量操作辅助函数
 // ============================================================================
 
-/// 查找库位（使用 Repository）
-async fn find_location(
-    pool: &PgPool,
-    warehouse_name: &str,
-    location_name: &Option<String>,
-) -> Result<Location> {
-    match location_name {
-        Some(loc_name) if !loc_name.is_empty() => {
-            // 有库位名称时，严格匹配仓库+库位
-            LocationRepo::find_by_warehouse_name_and_code(pool, warehouse_name, loc_name)
-                .await?
-                .ok_or_else(|| anyhow!("库位未找到: 仓库={}, 库位={}", warehouse_name, loc_name))
-        }
-        _ => {
-            // 无库位名称时，使用仓库的默认库位（第一个库位）
-            LocationRepo::find_default_by_warehouse_name(pool, warehouse_name)
-                .await?
-                .ok_or_else(|| anyhow!("仓库未找到或无默认库位: {}", warehouse_name))
-        }
-    }
+/// 批量更新价格
+async fn update_price_batch(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    product_id: i64,
+    price: Decimal,
+) -> Result<()> {
+    sqlx::query!(
+        r#"
+        UPDATE products
+        SET meta = jsonb_set(
+            COALESCE(meta, '{}'::jsonb),
+            '{price}',
+            to_jsonb($2::numeric)
+        )
+        WHERE product_id = $1
+        "#,
+        product_id,
+        price
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        INSERT INTO product_price_log (product_id, old_price, new_price, remark, created_at)
+        SELECT $1,
+               (SELECT meta->>'price' FROM products WHERE product_id = $1)::numeric,
+               $2,
+               'Excel 批量导入更新',
+               NOW()
+        "#,
+        product_id,
+        price
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// 批量更新库存数量（UPSERT）
+async fn upsert_inventory_quantity(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    product_id: i64,
+    location_id: i64,
+    quantity: Decimal,
+) -> Result<()> {
+    sqlx::query!(
+        r#"
+        INSERT INTO inventory (product_id, location_id, quantity, safety_stock)
+        VALUES ($1, $2, $3, 0)
+        ON CONFLICT (product_id, location_id)
+        DO UPDATE SET quantity = $3, updated_at = NOW()
+        "#,
+        product_id,
+        location_id,
+        quantity
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    sqlx::query!(
+        r#"
+        INSERT INTO inventory_log (product_id, location_id, change_qty, before_qty, after_qty, operation_type, remark, created_at)
+        SELECT $1, $2, $3,
+               COALESCE((SELECT quantity FROM inventory WHERE product_id = $1 AND location_id = $2), 0),
+               $3,
+               'adjust',
+               'Excel 批量盘点导入',
+               NOW()
+        "#,
+        product_id,
+        location_id,
+        quantity
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
+}
+
+/// 批量更新安全库存（UPSERT）
+async fn upsert_inventory_safety_stock(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    product_id: i64,
+    location_id: i64,
+    safety_stock: Decimal,
+) -> Result<()> {
+    sqlx::query!(
+        r#"
+        INSERT INTO inventory (product_id, location_id, quantity, safety_stock)
+        VALUES ($1, $2, 0, $3)
+        ON CONFLICT (product_id, location_id)
+        DO UPDATE SET safety_stock = $3, updated_at = NOW()
+        "#,
+        product_id,
+        location_id,
+        safety_stock
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    Ok(())
 }

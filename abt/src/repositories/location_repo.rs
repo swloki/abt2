@@ -332,4 +332,44 @@ impl LocationRepo {
 
         Ok(row)
     }
+
+    /// 批量获取所有库位（带仓库名称），用于 Excel 导入
+    /// 返回 HashMap: (warehouse_name, location_code) -> Location
+    pub async fn list_all_with_warehouse(pool: &PgPool) -> Result<std::collections::HashMap<(String, String), Location>> {
+        let rows = sqlx::query_as!(
+            Location,
+            "SELECT l.location_id, l.warehouse_id, l.location_code, l.location_name, l.capacity, l.created_at, l.deleted_at
+             FROM location l
+             JOIN warehouse w ON l.warehouse_id = w.warehouse_id
+             WHERE l.deleted_at IS NULL AND w.deleted_at IS NULL"
+        )
+        .fetch_all(pool)
+        .await?;
+
+        // 获取仓库名称映射
+        let warehouse_ids: Vec<i64> = rows.iter().map(|l| l.warehouse_id).collect();
+        let warehouses = sqlx::query!(
+            "SELECT warehouse_id, warehouse_name FROM warehouse WHERE warehouse_id = ANY($1) AND deleted_at IS NULL",
+            &warehouse_ids
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let warehouse_map: std::collections::HashMap<i64, String> = warehouses
+            .into_iter()
+            .map(|w| (w.warehouse_id, w.warehouse_name))
+            .collect();
+
+        let mut map = std::collections::HashMap::new();
+        for location in rows {
+            if let Some(warehouse_name) = warehouse_map.get(&location.warehouse_id) {
+                map.insert(
+                    (warehouse_name.clone(), location.location_code.clone()),
+                    location,
+                );
+            }
+        }
+
+        Ok(map)
+    }
 }

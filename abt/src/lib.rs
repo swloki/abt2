@@ -6,8 +6,12 @@
 #![allow(ambiguous_glob_reexports)]
 
 use sqlx::postgres::PgPool;
+use std::path::Path;
 use std::sync::Arc;
+use std::sync::OnceLock;
 use tokio::sync::{Mutex, OnceCell};
+
+use async_trait::async_trait;
 
 // Internal modules
 mod implt;
@@ -58,6 +62,9 @@ impl AppContext {
 
 static CONTEXT: OnceCell<AppContext> = OnceCell::const_new();
 static INIT_LOCK: Mutex<()> = Mutex::const_new(());
+
+// Excel 服务单例（需要持有进度状态）
+static EXCEL_SERVICE: OnceLock<implt::ProductExcelServiceImpl> = OnceLock::new();
 
 /// 获取全局应用上下文
 pub async fn get_context() -> &'static AppContext {
@@ -122,12 +129,9 @@ pub fn get_inventory_service(ctx: &AppContext) -> impl crate::service::Inventory
     crate::implt::InventoryServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
 
-/// 获取产品 Excel 服务
-pub fn get_product_excel_service(ctx: &AppContext) -> impl crate::service::ProductExcelService {
-    let pool = Arc::new(ctx.pool().clone());
-    let price_service = Arc::new(crate::implt::ProductPriceServiceImpl::new(pool.clone()));
-    let inventory_service = Arc::new(crate::implt::InventoryServiceImpl::new(pool));
-    crate::implt::ProductExcelServiceImpl::new(price_service, inventory_service)
+/// 获取产品 Excel 服务（单例模式，保持进度状态）
+pub fn get_product_excel_service(_ctx: &AppContext) -> impl service::ProductExcelService {
+    EXCEL_SERVICE.get_or_init(implt::ProductExcelServiceImpl::new)
 }
 
 /// 获取产品价格服务
@@ -153,4 +157,29 @@ pub fn get_role_service(ctx: &AppContext) -> impl crate::service::RoleService {
 /// 获取权限服务
 pub fn get_permission_service(ctx: &AppContext) -> impl crate::service::PermissionService {
     crate::implt::PermissionServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+// ============================================================================
+// Trait 实现：为引用提供 trait 支持
+// ============================================================================
+
+/// 为 &T 实现 ProductExcelService，允许返回单例引用
+#[async_trait]
+impl<S: service::ProductExcelService + ?Sized + Sync> service::ProductExcelService for &S {
+    async fn import_quantity_from_excel(
+        &self,
+        pool: &sqlx::PgPool,
+        path: &Path,
+        operator_id: Option<i64>,
+    ) -> anyhow::Result<service::ImportResult> {
+        (**self).import_quantity_from_excel(pool, path, operator_id).await
+    }
+
+    async fn export_products_to_excel(&self, pool: &sqlx::PgPool, path: &Path) -> anyhow::Result<()> {
+        (**self).export_products_to_excel(pool, path).await
+    }
+
+    fn get_progress(&self) -> service::ExcelProgress {
+        (**self).get_progress()
+    }
 }

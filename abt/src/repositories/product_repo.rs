@@ -192,6 +192,22 @@ impl ProductRepo {
         Ok(rows)
     }
 
+    /// 根据产品编码列表批量查询产品
+    pub async fn find_by_codes(pool: &PgPool, codes: &[String]) -> Result<Vec<Product>> {
+        if codes.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let rows = sqlx::query_as::<_, Product>(
+            "SELECT product_id, pdt_name, meta FROM products WHERE meta->>'product_code' = ANY($1)",
+        )
+        .bind(codes)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
+    }
+
     /// 更新产品（使用 Executor）
     #[allow(dead_code)]
     pub async fn update_with_tx(

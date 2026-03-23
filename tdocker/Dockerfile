@@ -43,4 +43,4 @@ RUN git fetch origin && git reset --hard origin/master && git pull origin master
 # RUN cargo build --release
 
 # 保持容器运行
-CMD ["bash", "./tdocker/docker-sync.sh"]
+CMD ["bash", "./docker-sync.sh"]

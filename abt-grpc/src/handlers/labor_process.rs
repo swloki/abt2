@@ -181,7 +181,6 @@ pub async fn import_labor_processes_internal(
     let config = crate::server::get_config();
 
     let path = Path::new(&config.upload_temp_dir).join(&req.file_path);
-    dbg!(&path);
 
     let mut tx = state
         .begin_transaction()

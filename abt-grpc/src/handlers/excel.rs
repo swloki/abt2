@@ -38,7 +38,7 @@ impl GrpcExcelService for ExcelHandler {
             .map_err(|e| Status::internal(format!("Failed to create upload dir: {}", e)))?;
 
         let mut stream = request.into_inner();
-        let mut file_name = String::new();
+        let mut file_name: String;
         let mut file_path: Option<std::path::PathBuf> = None;
         let mut file: Option<tokio::fs::File> = None;
         let mut total_size: i64 = 0;
@@ -145,20 +145,47 @@ impl GrpcExcelService for ExcelHandler {
         &self,
         request: Request<DownloadExportFileRequest>,
     ) -> Result<Response<Self::DownloadExportFileStream>, Status> {
-        let _req = request.into_inner();
+        let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();
 
-        // 生成 Excel 到内存
-        let bytes = srv
-            .export_products_to_bytes(&state.pool())
-            .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+        let (bytes, file_name) = match req.export_type.as_str() {
+            "products_without_price" => {
+                let b = srv
+                    .export_products_without_price_to_bytes(&state.pool())
+                    .await
+                    .map_err(|e| Status::internal(e.to_string()))?;
+                let name = format!(
+                    "products_without_price_{}.xlsx",
+                    chrono::Utc::now().format("%Y%m%d%H%M%S")
+                );
+                (b, name)
+            }
+            "boms_without_labor_cost" => {
+                let b = srv
+                    .export_boms_without_labor_cost_to_bytes(&state.pool())
+                    .await
+                    .map_err(|e| Status::internal(e.to_string()))?;
+                let name = format!(
+                    "boms_without_labor_cost_{}.xlsx",
+                    chrono::Utc::now().format("%Y%m%d%H%M%S")
+                );
+                (b, name)
+            }
+            _ => {
+                // 默认导出所有产品
+                let b = srv
+                    .export_products_to_bytes(&state.pool())
+                    .await
+                    .map_err(|e| Status::internal(e.to_string()))?;
+                let name = format!(
+                    "products_export_{}.xlsx",
+                    chrono::Utc::now().format("%Y%m%d%H%M%S")
+                );
+                (b, name)
+            }
+        };
 
-        let file_name = format!(
-            "products_export_{}.xlsx",
-            chrono::Utc::now().format("%Y%m%d%H%M%S")
-        );
         let file_size = bytes.len() as i64;
 
         // 创建流式响应

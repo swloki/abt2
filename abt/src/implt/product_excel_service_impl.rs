@@ -16,6 +16,8 @@ use rust_xlsxwriter::Workbook;
 use serde::{Deserialize, Deserializer};
 use sqlx::PgPool;
 
+use sqlx::FromRow;
+
 use crate::repositories::{InventoryRepo, LocationRepo, ProductRepo};
 use crate::service::{ExcelProgress, ImportResult, ProductExcelService};
 
@@ -316,6 +318,105 @@ impl ProductExcelService for ProductExcelServiceImpl {
             total: self.total_count.load(Ordering::SeqCst),
         }
     }
+
+    /// 导出没有价格的产品（导入格式）
+    async fn export_products_without_price_to_bytes(&self, pool: &PgPool) -> Result<Vec<u8>> {
+        let rows = sqlx::query_as::<_, ProductWithoutPriceRow>(
+            r#"
+            SELECT
+                p.pdt_name,
+                COALESCE(p.meta->>'product_code', '') as product_code,
+                COALESCE(p.meta->>'old_code', '') as old_code
+            FROM products p
+            WHERE (p.meta->>'price') IS NULL
+               OR (p.meta->>'price') = ''
+               OR (p.meta->>'price')::decimal = 0
+            ORDER BY p.pdt_name
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut workbook = Workbook::new();
+        let worksheet = workbook.add_worksheet();
+
+        // 导入格式表头
+        let headers = ["新编码", "旧编码", "物料名称", "仓库名称", "库位名称", "库存数量", "价格", "安全库存"];
+        for (col, header) in headers.iter().enumerate() {
+            worksheet.write_string(0, col as u16, *header)?;
+        }
+
+        for (row_idx, row) in rows.iter().enumerate() {
+            let row_num = (row_idx + 1) as u32;
+            worksheet.write_string(row_num, 0, &row.product_code)?;
+            if !row.old_code.is_empty() {
+                worksheet.write_string(row_num, 1, &row.old_code)?;
+            }
+            worksheet.write_string(row_num, 2, &row.pdt_name)?;
+            // 仓库名称、库位名称、库存数量、价格、安全库存 留空
+        }
+
+        let bytes = workbook.save_to_buffer()?;
+        Ok(bytes)
+    }
+
+    /// 导出没有人工成本的BOM
+    async fn export_boms_without_labor_cost_to_bytes(&self, pool: &PgPool) -> Result<Vec<u8>> {
+        let rows = sqlx::query_as::<_, BomWithoutLaborCostRow>(
+            r#"
+            SELECT b.bom_name, p.meta->>'product_code' as product_code, p.pdt_name
+            FROM bom b
+            CROSS JOIN LATERAL jsonb_array_elements(b.bom_detail->'nodes') AS node
+            JOIN products p ON (node->>'product_id')::bigint = p.product_id
+            WHERE (node->>'parent_id')::bigint = 0
+              AND NOT EXISTS (
+                  SELECT 1 FROM bom_labor_process lp
+                  WHERE lp.product_code = p.meta->>'product_code'
+              )
+            ORDER BY b.bom_name
+            "#,
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut workbook = Workbook::new();
+        let worksheet = workbook.add_worksheet();
+
+        let headers = ["BOM名称", "产品编码", "产品名称"];
+        for (col, header) in headers.iter().enumerate() {
+            worksheet.write_string(0, col as u16, *header)?;
+        }
+
+        for (row_idx, row) in rows.iter().enumerate() {
+            let row_num = (row_idx + 1) as u32;
+            worksheet.write_string(row_num, 0, &row.bom_name)?;
+            worksheet.write_string(row_num, 1, &row.product_code)?;
+            worksheet.write_string(row_num, 2, &row.pdt_name)?;
+        }
+
+        let bytes = workbook.save_to_buffer()?;
+        Ok(bytes)
+    }
+}
+
+// ============================================================================
+// 导出查询行结构
+// ============================================================================
+
+/// 没有价格的产品行
+#[derive(Debug, FromRow)]
+struct ProductWithoutPriceRow {
+    pdt_name: String,
+    product_code: String,
+    old_code: String,
+}
+
+/// 没有人工成本的BOM行
+#[derive(Debug, FromRow)]
+struct BomWithoutLaborCostRow {
+    bom_name: String,
+    product_code: String,
+    pdt_name: String,
 }
 
 // ============================================================================

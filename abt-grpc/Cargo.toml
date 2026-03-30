@@ -39,8 +39,5 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rust_decimal = "1"
 chrono = "0.4"
 
-# Excel handling
-calamine = { workspace = true }
-
 [build-dependencies]
 tonic-prost-build = "0.14"

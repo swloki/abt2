@@ -6763,6 +6763,9 @@ pub struct CheckProductUsageResponse {
     pub is_used: bool,
     #[prost(message, repeated, tag = "2")]
     pub used_in_boms: ::prost::alloc::vec::Vec<BomReference>,
+    /// 总共使用的 BOM 数量（可能多于返回的列表）
+    #[prost(int64, tag = "3")]
+    pub total_boms: i64,
 }
 /// Generated client implementations.
 pub mod abt_product_service_client {

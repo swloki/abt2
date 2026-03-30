@@ -12,7 +12,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 
 use crate::models::{Product, ProductQuery};
-use crate::repositories::{BomRepo, BomReference, Executor, ProductRepo, ProductUsageResult};
+use crate::repositories::{BomRepo, BomReference, Executor, ProductRepo};
 use crate::service::ProductService;
 
 /// 产品服务实现

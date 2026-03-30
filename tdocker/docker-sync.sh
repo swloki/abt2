@@ -3,6 +3,8 @@ set -e
 
 cd /app
 echo ">>> 强制更新到最新版本..."
+export RUSTUP_DIST_SERVER="https://rsproxy.cn"
+export RUSTUP_UPDATE_ROOT="https://rsproxy.cn/rustup"
 git fetch origin
 git checkout -f .
 git reset --hard origin/master

@@ -19,6 +19,7 @@ RUN apt-get update && apt-get install -y \
     protobuf-compiler \
     libprotobuf-dev \
     git \
+    sshpass \
     openssh-client \
     rsync \
     && rm -rf /var/lib/apt/lists/*

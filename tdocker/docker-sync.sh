@@ -16,12 +16,8 @@ cargo build --release -p abt-grpc
 echo ">>> 构建完成！"
 ls -la target/release/abt-grpc 2>/dev/null || true
 
-cp target/release/abt-grpc /app/bin/abt-grpc
 
-
-
-
-MONITOR_DIR="./tdocker/abt-grpc"
+MONITOR_DIR="./target/release/abt-grpc"
 TARGET_USER="weichen"
 TARGET_HOST="119.29.23.115"
 TARGET_DIR="/data/abt2"

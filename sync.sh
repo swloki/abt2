@@ -6,7 +6,7 @@ TARGET_HOST="119.29.23.115"
 TARGET_DIR="/data/abt2"
 SSH_PASSWORD="chenxi,,0514"
 
-echo "开始"
+echo "开始上传"
 ssh-keyscan -H $TARGET_HOST >> ~/.ssh/known_hosts
 
 #sshpass -p $SSH_PASSWORD rsync -avz $MONITOR_DIR "$TARGET_USER@$TARGET_HOST:$TARGET_DIR"

@@ -37,6 +37,11 @@ rust_xlsxwriter = { workspace = true }
 # Decimal numbers
 rust_decimal = { workspace = true }
 
+# Auth
+argon2 = "0.5"
+jsonwebtoken = "9"
+rand = "0.8"
+
 
 
 [build-dependencies]

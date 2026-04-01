@@ -94,6 +94,21 @@ impl AppState {
         abt::get_permission_service(self.abt_context)
     }
 
+    pub fn department_service(&self) -> impl abt::DepartmentService {
+        abt::get_department_service(self.abt_context)
+    }
+
+    pub fn auth_service(&self) -> impl abt::AuthService {
+        let config = get_config();
+        let resources = abt::collect_all_resources();
+        abt::get_auth_service(
+            self.pool(),
+            config.jwt_secret.clone(),
+            config.jwt_expiration_hours,
+            resources,
+        )
+    }
+
     pub async fn begin_transaction(&self) -> anyhow::Result<sqlx::Transaction<'static, sqlx::Postgres>> {
         self.abt_context.begin_transaction().await
     }
@@ -113,34 +128,53 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
     use crate::handlers::{
         AbtBomServiceServer, AbtExcelServiceServer, AbtInventoryServiceServer,
         AbtLocationServiceServer, AbtPriceServiceServer, AbtProductServiceServer,
-        AbtTermServiceServer, AbtWarehouseServiceServer,
+        AbtTermServiceServer, AbtWarehouseServiceServer, AuthServiceServer,
+        DepartmentServiceServer, PermissionServiceServer, RoleServiceServer,
+        UserServiceServer,
     };
+    use crate::interceptors::auth_interceptor;
 
+    // AuthService 不加 interceptor (Login 不需要 JWT)
     Server::builder()
         .add_service(reflection_service)
-        .add_service(AbtProductServiceServer::new(
-            crate::handlers::product::ProductHandler::new(),
+        .add_service(AuthServiceServer::new(
+            crate::handlers::auth::AuthHandler::new(),
         ))
-        .add_service(AbtTermServiceServer::new(
-            crate::handlers::term::TermHandler::new(),
+        .add_service(AbtProductServiceServer::with_interceptor(
+            crate::handlers::product::ProductHandler::new(), auth_interceptor,
         ))
-        .add_service(AbtBomServiceServer::new(
-            crate::handlers::bom::BomHandler::new(),
+        .add_service(AbtTermServiceServer::with_interceptor(
+            crate::handlers::term::TermHandler::new(), auth_interceptor,
         ))
-        .add_service(AbtWarehouseServiceServer::new(
-            crate::handlers::warehouse::WarehouseHandler::new(),
+        .add_service(AbtBomServiceServer::with_interceptor(
+            crate::handlers::bom::BomHandler::new(), auth_interceptor,
         ))
-        .add_service(AbtLocationServiceServer::new(
-            crate::handlers::location::LocationHandler::new(),
+        .add_service(AbtWarehouseServiceServer::with_interceptor(
+            crate::handlers::warehouse::WarehouseHandler::new(), auth_interceptor,
         ))
-        .add_service(AbtInventoryServiceServer::new(
-            crate::handlers::inventory::InventoryHandler::new(),
+        .add_service(AbtLocationServiceServer::with_interceptor(
+            crate::handlers::location::LocationHandler::new(), auth_interceptor,
         ))
-        .add_service(AbtExcelServiceServer::new(
-            crate::handlers::excel::ExcelHandler::new(),
+        .add_service(AbtInventoryServiceServer::with_interceptor(
+            crate::handlers::inventory::InventoryHandler::new(), auth_interceptor,
         ))
-        .add_service(AbtPriceServiceServer::new(
-            crate::handlers::price::PriceHandler::new(),
+        .add_service(AbtExcelServiceServer::with_interceptor(
+            crate::handlers::excel::ExcelHandler::new(), auth_interceptor,
+        ))
+        .add_service(AbtPriceServiceServer::with_interceptor(
+            crate::handlers::price::PriceHandler::new(), auth_interceptor,
+        ))
+        .add_service(UserServiceServer::with_interceptor(
+            crate::handlers::user::UserHandler::new(), auth_interceptor,
+        ))
+        .add_service(RoleServiceServer::with_interceptor(
+            crate::handlers::role::RoleHandler::new(), auth_interceptor,
+        ))
+        .add_service(PermissionServiceServer::with_interceptor(
+            crate::handlers::permission::PermissionHandler::new(), auth_interceptor,
+        ))
+        .add_service(DepartmentServiceServer::with_interceptor(
+            crate::handlers::department::DepartmentHandler::new(), auth_interceptor,
         ))
         .serve(addr)
         .await?;

@@ -6,6 +6,7 @@ use crate::generated::abt::v1::{
     *,
 };
 use crate::handlers::GrpcResult;
+use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 
 // Import trait to bring methods into scope
@@ -31,6 +32,8 @@ impl GrpcTermService for TermHandler {
         &self,
         request: Request<GetTermTreeRequest>,
     ) -> GrpcResult<TermTreeListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("term", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();
@@ -47,6 +50,8 @@ impl GrpcTermService for TermHandler {
         &self,
         request: Request<ListTermsRequest>,
     ) -> GrpcResult<TermListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("term", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();
@@ -63,6 +68,8 @@ impl GrpcTermService for TermHandler {
         &self,
         request: Request<GetTermChildrenRequest>,
     ) -> GrpcResult<TermListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("term", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();
@@ -79,6 +86,8 @@ impl GrpcTermService for TermHandler {
         &self,
         request: Request<CreateTermRequest>,
     ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("term", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();
@@ -104,6 +113,8 @@ impl GrpcTermService for TermHandler {
         &self,
         request: Request<UpdateTermRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("term", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();
@@ -127,6 +138,8 @@ impl GrpcTermService for TermHandler {
         &self,
         request: Request<DeleteTermRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("term", "delete").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();

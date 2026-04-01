@@ -6,6 +6,7 @@ use crate::generated::abt::v1::{
     *,
 };
 use crate::handlers::GrpcResult;
+use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 
 use abt::{AllPriceHistoryQuery, PriceHistoryQuery, ProductPriceService};
@@ -24,6 +25,8 @@ impl Default for PriceHandler {
 #[tonic::async_trait]
 impl GrpcPriceService for PriceHandler {
     async fn get_price_history(&self, request: Request<GetPriceHistoryRequest>) -> GrpcResult<PriceHistoryResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("price", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.price_service();
@@ -54,6 +57,8 @@ impl GrpcPriceService for PriceHandler {
     }
 
     async fn update_price(&self, request: Request<UpdatePriceRequest>) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("price", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.price_service();
@@ -78,6 +83,8 @@ impl GrpcPriceService for PriceHandler {
     }
 
     async fn list_all_price_history(&self, request: Request<ListAllPriceHistoryRequest>) -> GrpcResult<AllPriceHistoryResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("price", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.price_service();

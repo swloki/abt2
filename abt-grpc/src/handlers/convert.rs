@@ -286,7 +286,7 @@ impl From<abt::PermissionInfo> for ProtoPermissionInfo {
                 resource_id: p.resource_id,
                 resource_name: p.resource_name,
                 resource_code: p.resource_code,
-                group_name: p.group_name,
+                group_name: p.group_name.unwrap_or_default(),
             }),
             action_code: p.action_code,
             action_name: p.action_name,
@@ -302,7 +302,7 @@ impl From<abt::RoleWithPermissions> for ProtoRoleResponse {
             role_code: r.role.role_code,
             is_system_role: r.role.is_system_role,
             description: r.role.description.unwrap_or_default(),
-            permissions: r.permissions.into_iter().map(|p| p.into()).collect(),
+            permission_codes: r.permissions,
         }
     }
 }
@@ -336,12 +336,28 @@ impl From<abt::AuditLog> for ProtoAuditLogInfo {
     fn from(l: abt::AuditLog) -> Self {
         ProtoAuditLogInfo {
             log_id: l.log_id,
-            operator_id: l.operator_id,
+            operator_id: l.operator_id.unwrap_or(0),
             operator_name: l.operator_name.unwrap_or_default(),
             target_type: l.target_type,
             target_id: l.target_id,
             action: l.action,
             created_at: l.created_at.timestamp(),
+        }
+    }
+}
+
+// ========== Department conversions ==========
+
+use crate::generated::abt::v1::DepartmentResponse as ProtoDepartmentResponse;
+
+impl From<abt::Department> for ProtoDepartmentResponse {
+    fn from(d: abt::Department) -> Self {
+        ProtoDepartmentResponse {
+            department_id: d.department_id,
+            department_name: d.department_name,
+            department_code: d.department_code,
+            description: d.description.unwrap_or_default(),
+            is_active: d.is_active,
         }
     }
 }

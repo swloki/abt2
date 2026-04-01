@@ -10,14 +10,14 @@ use crate::repositories::Executor;
 pub trait RoleService: Send + Sync {
     async fn create(
         &self,
-        operator_id: i64,
+        operator_id: Option<i64>,
         req: CreateRoleRequest,
         executor: Executor<'_>,
     ) -> Result<i64>;
 
     async fn update(
         &self,
-        operator_id: i64,
+        operator_id: Option<i64>,
         role_id: i64,
         req: UpdateRoleRequest,
         executor: Executor<'_>,
@@ -25,7 +25,7 @@ pub trait RoleService: Send + Sync {
 
     async fn delete(
         &self,
-        operator_id: i64,
+        operator_id: Option<i64>,
         role_id: i64,
         executor: Executor<'_>,
     ) -> Result<()>;
@@ -36,17 +36,17 @@ pub trait RoleService: Send + Sync {
 
     async fn assign_permissions(
         &self,
-        operator_id: i64,
+        operator_id: Option<i64>,
         role_id: i64,
-        permission_ids: Vec<i64>,
+        resource_actions: Vec<(String, String)>,
         executor: Executor<'_>,
     ) -> Result<()>;
 
     async fn remove_permissions(
         &self,
-        operator_id: i64,
+        operator_id: Option<i64>,
         role_id: i64,
-        permission_ids: Vec<i64>,
+        resource_actions: Vec<(String, String)>,
         executor: Executor<'_>,
     ) -> Result<()>;
 }

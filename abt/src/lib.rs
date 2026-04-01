@@ -159,6 +159,26 @@ pub fn get_permission_service(ctx: &AppContext) -> impl crate::service::Permissi
     crate::implt::PermissionServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
 
+/// 获取部门服务
+pub fn get_department_service(ctx: &AppContext) -> impl crate::service::DepartmentService {
+    crate::implt::DepartmentServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取认证服务
+pub fn get_auth_service(
+    pool: sqlx::PgPool,
+    jwt_secret: String,
+    jwt_expiration_hours: u64,
+    resource_actions: Vec<crate::models::ResourceActionDef>,
+) -> impl crate::service::AuthService {
+    crate::implt::AuthServiceImpl::new(
+        Arc::new(pool),
+        jwt_secret,
+        jwt_expiration_hours,
+        resource_actions,
+    )
+}
+
 // ============================================================================
 // Trait 实现：为引用提供 trait 支持
 // ============================================================================

@@ -2,7 +2,9 @@
 //!
 //! 定义业务服务的 trait 接口。
 
+mod auth_service;
 mod bom_service;
+mod department_service;
 mod inventory_service;
 mod labor_process_service;
 mod location_service;
@@ -15,7 +17,9 @@ mod term_service;
 mod user_service;
 mod warehouse_service;
 
+pub use auth_service::AuthService;
 pub use bom_service::BomService;
+pub use department_service::DepartmentService;
 pub use labor_process_service::LaborProcessService;
 pub use inventory_service::{InventoryLog, InventoryService};
 pub use location_service::LocationService;

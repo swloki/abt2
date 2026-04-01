@@ -9,6 +9,7 @@ use crate::handlers::GrpcResult;
 use crate::server::AppState;
 
 use abt::RoleService;
+use crate::interceptors::auth::extract_auth;
 
 pub struct RoleHandler;
 
@@ -30,6 +31,8 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<CreateRoleRequest>,
     ) -> GrpcResult<RoleResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("role", "write").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -43,7 +46,7 @@ impl GrpcRoleService for RoleHandler {
             description: if req.description.is_empty() { None } else { Some(req.description) },
         };
 
-        let role_id = srv.create(1, create_req, &mut tx).await
+        let role_id = srv.create(Some(auth.user_id), create_req, &mut tx).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
@@ -60,6 +63,8 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<UpdateRoleRequest>,
     ) -> GrpcResult<RoleResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("role", "write").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -72,7 +77,7 @@ impl GrpcRoleService for RoleHandler {
             description: if req.description.is_empty() { None } else { Some(req.description) },
         };
 
-        srv.update(1, req.role_id, update_req, &mut tx).await
+        srv.update(Some(auth.user_id), req.role_id, update_req, &mut tx).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
@@ -89,6 +94,8 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<DeleteRoleRequest>,
     ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("role", "delete").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -96,7 +103,7 @@ impl GrpcRoleService for RoleHandler {
         let mut tx = state.begin_transaction().await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        srv.delete(1, req.role_id, &mut tx).await
+        srv.delete(Some(auth.user_id), req.role_id, &mut tx).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
@@ -108,6 +115,8 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<GetRoleRequest>,
     ) -> GrpcResult<RoleResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("role", "read").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -121,8 +130,11 @@ impl GrpcRoleService for RoleHandler {
 
     async fn list_roles(
         &self,
-        _request: Request<Empty>,
+        request: Request<Empty>,
     ) -> GrpcResult<RoleListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("role", "read").map_err(|e| Status::permission_denied(e))?;
+        let _req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
 
@@ -138,6 +150,8 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<AssignPermissionsRequest>,
     ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("role", "write").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -145,7 +159,10 @@ impl GrpcRoleService for RoleHandler {
         let mut tx = state.begin_transaction().await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        srv.assign_permissions(1, req.role_id, req.permission_ids, &mut tx).await
+        let resource_actions: Vec<(String, String)> = req.permissions.iter()
+            .map(|p| (p.resource_code.clone(), p.action_code.clone()))
+            .collect();
+        srv.assign_permissions(Some(auth.user_id), req.role_id, resource_actions, &mut tx).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
@@ -157,6 +174,8 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<RemovePermissionsRequest>,
     ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("role", "write").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -164,7 +183,10 @@ impl GrpcRoleService for RoleHandler {
         let mut tx = state.begin_transaction().await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        srv.remove_permissions(1, req.role_id, req.permission_ids, &mut tx).await
+        let resource_actions: Vec<(String, String)> = req.permissions.iter()
+            .map(|p| (p.resource_code.clone(), p.action_code.clone()))
+            .collect();
+        srv.remove_permissions(Some(auth.user_id), req.role_id, resource_actions, &mut tx).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;

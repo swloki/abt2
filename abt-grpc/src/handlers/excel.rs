@@ -5,6 +5,7 @@ use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status, Streaming};
 use crate::generated::abt::v1::{abt_excel_service_server::AbtExcelService as GrpcExcelService, *};
 use crate::handlers::GrpcResult;
+use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 
 // Import trait to bring methods into scope
@@ -30,6 +31,9 @@ impl GrpcExcelService for ExcelHandler {
         &self,
         request: Request<Streaming<UploadFileRequest>>,
     ) -> Result<Response<UploadFileResponse>, Status> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("excel", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+
         let upload_dir = Path::new("/tmp");
 
         // 确保上传目录存在
@@ -98,6 +102,8 @@ impl GrpcExcelService for ExcelHandler {
         &self,
         request: Request<ImportExcelRequest>,
     ) -> GrpcResult<ImportResultResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("excel", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();
@@ -116,6 +122,8 @@ impl GrpcExcelService for ExcelHandler {
     }
 
     async fn export_excel(&self, request: Request<ExportExcelRequest>) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("excel", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();
@@ -127,7 +135,9 @@ impl GrpcExcelService for ExcelHandler {
         Ok(Response::new(Empty {}))
     }
 
-    async fn get_progress(&self, _request: Request<Empty>) -> GrpcResult<ExcelProgressResponse> {
+    async fn get_progress(&self, request: Request<Empty>) -> GrpcResult<ExcelProgressResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("excel", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let state = AppState::get().await;
         let srv = state.excel_service();
 
@@ -145,6 +155,8 @@ impl GrpcExcelService for ExcelHandler {
         &self,
         request: Request<DownloadExportFileRequest>,
     ) -> Result<Response<Self::DownloadExportFileStream>, Status> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("excel", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();

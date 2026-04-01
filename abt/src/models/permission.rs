@@ -10,6 +10,7 @@ pub struct Resource {
     pub group_name: Option<String>,
     pub sort_order: Option<i32>,
     pub description: Option<String>,
+    pub department_id: Option<i64>,
 }
 
 impl<'r> FromRow<'r, sqlx::postgres::PgRow> for Resource {
@@ -21,6 +22,7 @@ impl<'r> FromRow<'r, sqlx::postgres::PgRow> for Resource {
             group_name: row.try_get("group_name")?,
             sort_order: row.try_get("sort_order")?,
             description: row.try_get("description")?,
+            department_id: row.try_get("department_id")?,
         })
     }
 }
@@ -74,7 +76,7 @@ pub struct PermissionInfo {
     pub resource_id: i64,
     pub resource_name: String,
     pub resource_code: String,
-    pub group_name: String,
+    pub group_name: Option<String>,
     pub resource_sort_order: Option<i32>,
     pub resource_description: Option<String>,
     pub action_code: String,
@@ -101,7 +103,7 @@ impl<'r> FromRow<'r, sqlx::postgres::PgRow> for PermissionInfo {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditLog {
     pub log_id: i64,
-    pub operator_id: i64,
+    pub operator_id: Option<i64>,
     pub operator_name: Option<String>,
     pub target_type: String,
     pub target_id: i64,

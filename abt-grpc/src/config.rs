@@ -8,6 +8,8 @@ pub struct Config {
     pub grpc_port: u16,
     pub database_url: String,
     pub max_connection: u32,
+    pub jwt_secret: String,
+    pub jwt_expiration_hours: u64,
 }
 
 static CONFIG: LazyLock<Config> = LazyLock::new(|| Config {
@@ -21,6 +23,11 @@ static CONFIG: LazyLock<Config> = LazyLock::new(|| Config {
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(20),
+    jwt_secret: std::env::var("JWT_SECRET").expect("JWT_SECRET must be set"),
+    jwt_expiration_hours: std::env::var("JWT_EXPIRATION_HOURS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(72),
 });
 
 pub fn get_config() -> &'static Config {

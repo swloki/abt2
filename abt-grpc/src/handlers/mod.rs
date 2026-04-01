@@ -1,7 +1,9 @@
 //! gRPC Handlers
 
+pub mod auth;
 pub mod bom;
 pub mod convert;
+pub mod department;
 pub mod excel;
 pub mod inventory;
 pub mod labor_process;
@@ -23,6 +25,8 @@ pub use crate::generated::abt::v1::{
     abt_product_service_server::AbtProductServiceServer,
     abt_term_service_server::AbtTermServiceServer,
     abt_warehouse_service_server::AbtWarehouseServiceServer,
+    auth_service_server::AuthServiceServer,
+    department_service_server::DepartmentServiceServer,
     permission_service_server::PermissionServiceServer,
     role_service_server::RoleServiceServer,
     user_service_server::UserServiceServer,

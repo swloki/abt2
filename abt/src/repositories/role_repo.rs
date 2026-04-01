@@ -1,7 +1,7 @@
 use anyhow::Result;
 use sqlx::{PgPool, QueryBuilder, Postgres};
 
-use crate::models::{CreateRoleRequest, PermissionInfo, Role, UpdateRoleRequest};
+use crate::models::{CreateRoleRequest, Role, UpdateRoleRequest};
 use crate::repositories::Executor;
 
 pub struct RoleRepo;
@@ -125,53 +125,40 @@ impl RoleRepo {
         Ok(roles)
     }
 
-    pub async fn get_role_permissions(
+    /// Get role permissions as resource_code:action_code pairs
+    pub async fn get_role_permission_codes(
         pool: &PgPool,
         role_id: i64,
-    ) -> Result<Vec<PermissionInfo>> {
-        let permissions = sqlx::query_as!(
-            PermissionInfo,
+    ) -> Result<Vec<String>> {
+        let codes: Vec<(String,)> = sqlx::query_as(
             r#"
-            SELECT
-                p.permission_id,
-                p.permission_name,
-                r.resource_id as "resource_id!",
-                r.resource_name as "resource_name!",
-                r.resource_code as "resource_code!",
-                r.group_name as "group_name!",
-                r.sort_order as "resource_sort_order!",
-                r.description as "resource_description!",
-                p.action_code,
-                a.action_name
-            FROM permissions p
-            JOIN role_permissions rp ON p.permission_id = rp.permission_id
-            JOIN resources r ON p.resource_id = r.resource_id
-            JOIN actions a ON p.action_code = a.action_code
+            SELECT CONCAT(rp.resource_code, ':', rp.action_code) as "code"
+            FROM role_permissions rp
             WHERE rp.role_id = $1
-            ORDER BY p.sort_order
             "#,
-            role_id
         )
+        .bind(role_id)
         .fetch_all(pool)
         .await?;
 
-        Ok(permissions)
+        Ok(codes.into_iter().map(|(c,)| c).collect())
     }
 
+    /// Assign permissions using new (resource_code, action_code) schema
     pub async fn assign_permissions(
         executor: Executor<'_>,
         role_id: i64,
-        permission_ids: &[i64],
+        resource_actions: &[(String, String)],
     ) -> Result<()> {
-        if permission_ids.is_empty() {
+        if resource_actions.is_empty() {
             return Ok(());
         }
 
         let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
-            "INSERT INTO role_permissions (role_id, permission_id) "
+            "INSERT INTO role_permissions (role_id, resource_code, action_code) "
         );
-        builder.push_values(permission_ids.iter(), |mut b, pid| {
-            b.push_bind(role_id).push_bind(*pid);
+        builder.push_values(resource_actions.iter(), |mut b, (resource, action)| {
+            b.push_bind(role_id).push_bind(resource.clone()).push_bind(action.clone());
         });
         builder.push(" ON CONFLICT DO NOTHING");
 
@@ -180,22 +167,26 @@ impl RoleRepo {
         Ok(())
     }
 
+    /// Remove specific permissions from a role
     pub async fn remove_permissions(
         executor: Executor<'_>,
         role_id: i64,
-        permission_ids: &[i64],
+        resource_actions: &[(String, String)],
     ) -> Result<()> {
-        if permission_ids.is_empty() {
+        if resource_actions.is_empty() {
             return Ok(());
         }
 
-        sqlx::query!(
-            "DELETE FROM role_permissions WHERE role_id = $1 AND permission_id = ANY($2)",
-            role_id,
-            permission_ids
-        )
-        .execute(executor)
-        .await?;
+        for (resource_code, action_code) in resource_actions {
+            sqlx::query!(
+                "DELETE FROM role_permissions WHERE role_id = $1 AND resource_code = $2 AND action_code = $3",
+                role_id,
+                resource_code,
+                action_code
+            )
+            .execute(&mut *executor)
+            .await?;
+        }
 
         Ok(())
     }

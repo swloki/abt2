@@ -1,6 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::Arc;
+
 use crate::models::*;
 use crate::repositories::PermissionRepo;
 use crate::service::PermissionService;
@@ -17,53 +18,30 @@ impl PermissionServiceImpl {
 
 #[async_trait]
 impl PermissionService for PermissionServiceImpl {
-    async fn get_user_permissions(&self, user_id: i64) -> Result<Vec<PermissionInfo>> {
-        let permissions = PermissionRepo::get_user_permissions(self.pool.as_ref(), user_id).await?;
-        Ok(permissions)
-    }
-
-    async fn check_permission(&self, user_id: i64, resource_code: &str, action_code: &str) -> Result<bool> {
-        let has_permission = PermissionRepo::check_permission(self.pool.as_ref(), user_id, resource_code, action_code).await?;
-        Ok(has_permission)
-    }
-
-    async fn list_resources(&self) -> Result<Vec<ResourceGroup>> {
-        let resources = PermissionRepo::list_resources(self.pool.as_ref()).await?;
-
-        // Group resources by group_name
-        let mut groups: std::collections::HashMap<String, Vec<Resource>> = std::collections::HashMap::new();
-        for resource in resources {
-            let group_name = resource.group_name.clone().unwrap_or_default();
-            groups.entry(group_name).or_default().push(resource);
+    /// 获取用户的所有权限 (新 schema: resource_code:action_code)
+    async fn get_user_permissions(&self, user_id: i64) -> Result<Vec<String>> {
+        if PermissionRepo::is_super_admin(self.pool.as_ref(), user_id).await? {
+            return Ok(crate::collect_all_resources()
+                .iter()
+                .map(|r| format!("{}:{}", r.resource_code, r.action))
+                .collect());
         }
-
-        let result: Vec<ResourceGroup> = groups
-            .into_iter()
-            .map(|(group_name, resources)| ResourceGroup { group_name, resources })
-            .collect();
-
-        Ok(result)
+        let codes = PermissionRepo::get_user_permission_codes(self.pool.as_ref(), user_id).await?;
+        Ok(codes)
     }
 
-    async fn list_permissions(&self) -> Result<Vec<PermissionGroup>> {
-        let permissions = PermissionRepo::list_permissions(self.pool.as_ref()).await?;
-
-        // Group permissions by group_name
-        let mut groups: std::collections::HashMap<String, Vec<PermissionInfo>> = std::collections::HashMap::new();
-        for permission in permissions {
-            groups.entry(permission.group_name.clone()).or_default().push(permission);
-        }
-
-        let result: Vec<PermissionGroup> = groups
-            .into_iter()
-            .map(|(group_name, permissions)| PermissionGroup { group_name, permissions })
-            .collect();
-
-        Ok(result)
+    /// 检查用户是否有某个权限
+    async fn check_permission(
+        &self,
+        user_id: i64,
+        resource_code: &str,
+        action_code: &str,
+    ) -> Result<bool> {
+        PermissionRepo::check_permission(self.pool.as_ref(), user_id, resource_code, action_code).await
     }
 
+    /// 获取审计日志
     async fn list_audit_logs(&self, limit: i64, offset: i64) -> Result<Vec<AuditLog>> {
-        let logs = PermissionRepo::list_audit_logs(self.pool.as_ref(), limit, offset).await?;
-        Ok(logs)
+        PermissionRepo::list_audit_logs(self.pool.as_ref(), limit, offset).await
     }
 }

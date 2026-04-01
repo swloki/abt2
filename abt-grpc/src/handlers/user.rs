@@ -6,6 +6,7 @@ use crate::server::AppState;
 use tonic::{Request, Response, Status};
 
 use abt::UserService;
+use crate::interceptors::auth::extract_auth;
 
 pub struct UserHandler;
 
@@ -24,6 +25,8 @@ impl Default for UserHandler {
 #[tonic::async_trait]
 impl GrpcUserService for UserHandler {
     async fn create_user(&self, request: Request<CreateUserRequest>) -> GrpcResult<UserResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("user", "write").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -45,7 +48,7 @@ impl GrpcUserService for UserHandler {
         };
 
         let user_id = srv
-            .create(1, create_req, &mut tx)
+            .create(Some(auth.user_id), create_req, &mut tx)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -64,6 +67,8 @@ impl GrpcUserService for UserHandler {
     }
 
     async fn update_user(&self, request: Request<UpdateUserRequest>) -> GrpcResult<UserResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("user", "write").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -82,7 +87,7 @@ impl GrpcUserService for UserHandler {
             is_active: Some(req.is_active),
         };
 
-        srv.update(1, req.user_id, update_req, &mut tx)
+        srv.update(Some(auth.user_id), req.user_id, update_req, &mut tx)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -101,6 +106,8 @@ impl GrpcUserService for UserHandler {
     }
 
     async fn delete_user(&self, request: Request<DeleteUserRequest>) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("user", "delete").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -110,7 +117,7 @@ impl GrpcUserService for UserHandler {
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        srv.delete(1, req.user_id, &mut tx)
+        srv.delete(Some(auth.user_id), req.user_id, &mut tx)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -122,6 +129,8 @@ impl GrpcUserService for UserHandler {
     }
 
     async fn get_user(&self, request: Request<GetUserRequest>) -> GrpcResult<UserResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("user", "read").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -135,7 +144,9 @@ impl GrpcUserService for UserHandler {
         Ok(Response::new(user_with_roles.into()))
     }
 
-    async fn list_users(&self, _request: Request<Empty>) -> GrpcResult<UserListResponse> {
+    async fn list_users(&self, request: Request<Empty>) -> GrpcResult<UserListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("user", "read").map_err(|e| Status::permission_denied(e))?;
         let state = AppState::get().await;
         let srv = state.user_service();
 
@@ -150,6 +161,8 @@ impl GrpcUserService for UserHandler {
     }
 
     async fn assign_roles(&self, request: Request<AssignRolesRequest>) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("user", "write").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -159,7 +172,7 @@ impl GrpcUserService for UserHandler {
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        srv.assign_roles(1, req.user_id, req.role_ids, &mut tx)
+        srv.assign_roles(Some(auth.user_id), req.user_id, req.role_ids, &mut tx)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -171,6 +184,8 @@ impl GrpcUserService for UserHandler {
     }
 
     async fn remove_roles(&self, request: Request<RemoveRolesRequest>) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("user", "write").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -180,7 +195,7 @@ impl GrpcUserService for UserHandler {
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        srv.remove_roles(1, req.user_id, req.role_ids, &mut tx)
+        srv.remove_roles(Some(auth.user_id), req.user_id, req.role_ids, &mut tx)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
@@ -195,6 +210,8 @@ impl GrpcUserService for UserHandler {
         &self,
         request: Request<BatchAssignRolesRequest>,
     ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("user", "write").map_err(|e| Status::permission_denied(e))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -204,7 +221,7 @@ impl GrpcUserService for UserHandler {
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        srv.batch_assign_roles(1, req.user_ids, req.role_ids, &mut tx)
+        srv.batch_assign_roles(Some(auth.user_id), req.user_ids, req.role_ids, &mut tx)
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
 

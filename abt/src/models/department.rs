@@ -3,24 +3,24 @@ use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Row};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct Role {
-    pub role_id: i64,
-    pub role_name: String,
-    pub role_code: String,
-    pub is_system_role: bool,
+pub struct Department {
+    pub department_id: i64,
+    pub department_name: String,
+    pub department_code: String,
     pub description: Option<String>,
+    pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-impl<'r> FromRow<'r, sqlx::postgres::PgRow> for Role {
+impl<'r> FromRow<'r, sqlx::postgres::PgRow> for Department {
     fn from_row(row: &'r sqlx::postgres::PgRow) -> Result<Self, sqlx::Error> {
-        Ok(Role {
-            role_id: row.try_get("role_id")?,
-            role_name: row.try_get("role_name")?,
-            role_code: row.try_get("role_code")?,
-            is_system_role: row.try_get("is_system_role")?,
+        Ok(Department {
+            department_id: row.try_get("department_id")?,
+            department_name: row.try_get("department_name")?,
+            department_code: row.try_get("department_code")?,
             description: row.try_get("description")?,
+            is_active: row.try_get("is_active")?,
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
         })
@@ -28,20 +28,15 @@ impl<'r> FromRow<'r, sqlx::postgres::PgRow> for Role {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RoleWithPermissions {
-    pub role: Role,
-    pub permissions: Vec<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CreateRoleRequest {
-    pub role_name: String,
-    pub role_code: String,
+pub struct CreateDepartmentRequest {
+    pub department_name: String,
+    pub department_code: String,
     pub description: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct UpdateRoleRequest {
-    pub role_name: Option<String>,
+pub struct UpdateDepartmentRequest {
+    pub department_name: Option<String>,
     pub description: Option<String>,
+    pub is_active: Option<bool>,
 }

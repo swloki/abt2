@@ -6,6 +6,7 @@ use crate::generated::abt::v1::{
     *,
 };
 use crate::handlers::GrpcResult;
+use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 
 // Import trait to bring methods into scope
@@ -31,6 +32,9 @@ impl GrpcProductService for ProductHandler {
         &self,
         request: Request<ListProductsRequest>,
     ) -> GrpcResult<ProductListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("product", "read").map_err(|e| Status::permission_denied(e))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -58,6 +62,9 @@ impl GrpcProductService for ProductHandler {
         &self,
         request: Request<GetProductRequest>,
     ) -> GrpcResult<ProductResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("product", "read").map_err(|e| Status::permission_denied(e))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -73,6 +80,9 @@ impl GrpcProductService for ProductHandler {
         &self,
         request: Request<GetProductsByIdsRequest>,
     ) -> GrpcResult<ProductsResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("product", "read").map_err(|e| Status::permission_denied(e))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -89,6 +99,9 @@ impl GrpcProductService for ProductHandler {
         &self,
         request: Request<CreateProductRequest>,
     ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("product", "write").map_err(|e| Status::permission_denied(e))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -114,6 +127,9 @@ impl GrpcProductService for ProductHandler {
         &self,
         request: Request<UpdateProductRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("product", "write").map_err(|e| Status::permission_denied(e))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -139,6 +155,9 @@ impl GrpcProductService for ProductHandler {
         &self,
         request: Request<DeleteProductRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("product", "delete").map_err(|e| Status::permission_denied(e))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -169,6 +188,9 @@ impl GrpcProductService for ProductHandler {
         &self,
         request: Request<CheckProductUsageRequest>,
     ) -> GrpcResult<CheckProductUsageResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("product", "read").map_err(|e| Status::permission_denied(e))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();

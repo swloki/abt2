@@ -1,0 +1,71 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service DepartmentService {
+    rpc CreateDepartment(CreateDepartmentRequest) returns (DepartmentResponse);
+    rpc UpdateDepartment(UpdateDepartmentRequest) returns (DepartmentResponse);
+    rpc DeleteDepartment(DeleteDepartmentRequest) returns (Empty);
+    rpc GetDepartment(GetDepartmentRequest) returns (DepartmentResponse);
+    rpc ListDepartments(ListDepartmentsRequest) returns (DepartmentListResponse);
+
+    // 用户部门管理
+    rpc AssignDepartments(AssignDepartmentsRequest) returns (Empty);
+    rpc RemoveDepartments(RemoveDepartmentsRequest) returns (Empty);
+    rpc GetUserDepartments(GetUserDepartmentsRequest) returns (DepartmentListResponse);
+}
+
+message CreateDepartmentRequest {
+    string department_name = 1;
+    string department_code = 2;
+    string description = 3;
+}
+
+message UpdateDepartmentRequest {
+    int64 department_id = 1;
+    string department_name = 2;
+    string description = 3;
+    bool is_active = 4;
+}
+
+message DeleteDepartmentRequest {
+    int64 department_id = 1;
+}
+
+message GetDepartmentRequest {
+    int64 department_id = 1;
+}
+
+message ListDepartmentsRequest {
+    bool include_inactive = 1;
+}
+
+message DepartmentResponse {
+    int64 department_id = 1;
+    string department_name = 2;
+    string department_code = 3;
+    string description = 4;
+    bool is_active = 5;
+}
+
+message DepartmentListResponse {
+    repeated DepartmentResponse departments = 1;
+}
+
+// 用户部门管理
+message AssignDepartmentsRequest {
+    int64 user_id = 1;
+    repeated int64 department_ids = 2;
+}
+
+message RemoveDepartmentsRequest {
+    int64 user_id = 1;
+    repeated int64 department_ids = 2;
+}
+
+message GetUserDepartmentsRequest {
+    int64 user_id = 1;
+}

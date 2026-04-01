@@ -6,6 +6,7 @@ use crate::generated::abt::v1::{
     *,
 };
 use crate::handlers::GrpcResult;
+use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 
 // Import trait to bring methods into scope
@@ -32,6 +33,8 @@ impl GrpcLocationService for LocationHandler {
         &self,
         request: Request<ListLocationsByWarehouseRequest>,
     ) -> GrpcResult<LocationListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -46,8 +49,10 @@ impl GrpcLocationService for LocationHandler {
 
     async fn list_all_locations(
         &self,
-        _request: Request<Empty>,
+        request: Request<Empty>,
     ) -> GrpcResult<LocationWithWarehouseListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let state = AppState::get().await;
         let warehouse_srv = state.warehouse_service();
 
@@ -103,6 +108,8 @@ impl GrpcLocationService for LocationHandler {
         &self,
         request: Request<GetLocationRequest>,
     ) -> GrpcResult<LocationResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -118,6 +125,8 @@ impl GrpcLocationService for LocationHandler {
         &self,
         request: Request<CreateLocationRequest>,
     ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("location", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -144,6 +153,8 @@ impl GrpcLocationService for LocationHandler {
         &self,
         request: Request<UpdateLocationRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("location", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -169,6 +180,8 @@ impl GrpcLocationService for LocationHandler {
         &self,
         request: Request<DeleteLocationRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("location", "delete").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -188,6 +201,8 @@ impl GrpcLocationService for LocationHandler {
         &self,
         request: Request<GetWarehouseInventoryStatsRequest>,
     ) -> GrpcResult<WarehouseInventoryStatsResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -202,6 +217,8 @@ impl GrpcLocationService for LocationHandler {
         &self,
         request: Request<GetLocationInventoryStatsRequest>,
     ) -> GrpcResult<LocationInventoryStatsResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -216,6 +233,8 @@ impl GrpcLocationService for LocationHandler {
         &self,
         request: Request<ListLocationStatsByWarehouseRequest>,
     ) -> GrpcResult<LocationStatsListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();

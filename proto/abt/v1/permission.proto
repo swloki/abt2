@@ -9,6 +9,7 @@ service PermissionService {
     rpc GetUserPermissions(GetUserPermissionsRequest) returns (UserPermissionsResponse);
     rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
     rpc ListResources(Empty) returns (ResourceListResponse);
+    rpc ListUserResources(ListUserResourcesRequest) returns (ResourceListResponse);
     rpc ListPermissions(Empty) returns (PermissionListResponse);
     rpc ListAuditLogs(ListAuditLogsRequest) returns (AuditLogListResponse);
 }
@@ -33,6 +34,10 @@ message CheckPermissionResponse {
 
 message ResourceListResponse {
     repeated ResourceGroup groups = 1;
+}
+
+message ListUserResourcesRequest {
+    int64 user_id = 1;
 }
 
 message ResourceGroup {

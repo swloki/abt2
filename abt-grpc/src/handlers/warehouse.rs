@@ -4,6 +4,7 @@ use crate::generated::abt::v1::{
 };
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
+use crate::interceptors::auth::extract_auth;
 use tonic::{Request, Response, Status};
 
 // Import trait to bring methods into scope
@@ -25,7 +26,10 @@ impl Default for WarehouseHandler {
 
 #[tonic::async_trait]
 impl GrpcWarehouseService for WarehouseHandler {
-    async fn list_warehouses(&self, _request: Request<Empty>) -> GrpcResult<WarehouseListResponse> {
+    async fn list_warehouses(&self, request: Request<Empty>) -> GrpcResult<WarehouseListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("warehouse", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+
         let state = AppState::get().await;
         let srv = state.warehouse_service();
 
@@ -43,6 +47,9 @@ impl GrpcWarehouseService for WarehouseHandler {
         &self,
         request: Request<GetWarehouseRequest>,
     ) -> GrpcResult<WarehouseResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("warehouse", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.warehouse_service();
@@ -60,6 +67,9 @@ impl GrpcWarehouseService for WarehouseHandler {
         &self,
         request: Request<CreateWarehouseRequest>,
     ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("warehouse", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.warehouse_service();
@@ -90,6 +100,9 @@ impl GrpcWarehouseService for WarehouseHandler {
         &self,
         request: Request<UpdateWarehouseRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("warehouse", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.warehouse_service();
@@ -120,6 +133,9 @@ impl GrpcWarehouseService for WarehouseHandler {
         &self,
         request: Request<UpdateWarehouseStatusRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("warehouse", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.warehouse_service();
@@ -156,6 +172,9 @@ impl GrpcWarehouseService for WarehouseHandler {
         &self,
         request: Request<DeleteWarehouseRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("warehouse", "delete").map_err(|e| Status::permission_denied(e.to_string()))?;
+
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.warehouse_service();

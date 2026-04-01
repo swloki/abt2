@@ -1,6 +1,11 @@
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use std::sync::Arc;
+
+use argon2::password_hash::rand_core::OsRng;
+use argon2::password_hash::SaltString;
+use argon2::{Argon2, PasswordHasher};
+
 use crate::models::*;
 use crate::repositories::{Executor, PermissionRepo, UserRepo};
 use crate::service::UserService;
@@ -15,13 +20,18 @@ impl UserServiceImpl {
     }
 
     fn hash_password(password: &str) -> Result<String> {
-        Ok(format!("hashed:{}", password))
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        let hash = argon2
+            .hash_password(password.as_bytes(), &salt)
+            .map_err(|e| anyhow!("Failed to hash password: {}", e))?;
+        Ok(hash.to_string())
     }
 
     async fn log_audit(
         &self,
         executor: Executor<'_>,
-        operator_id: i64,
+        operator_id: Option<i64>,
         target_type: &str,
         target_id: i64,
         action: &str,
@@ -37,21 +47,21 @@ impl UserServiceImpl {
 
 #[async_trait]
 impl UserService for UserServiceImpl {
-    async fn create(&self, operator_id: i64, req: CreateUserRequest, executor: Executor<'_>) -> Result<i64> {
+    async fn create(&self, operator_id: Option<i64>, req: CreateUserRequest, executor: Executor<'_>) -> Result<i64> {
         let password_hash = Self::hash_password(&req.password)?;
         let user_id = UserRepo::insert(executor, &req, &password_hash).await?;
         self.log_audit(executor, operator_id, "user", user_id, "create", None, Some(serde_json::to_value(&req)?)).await?;
         Ok(user_id)
     }
 
-    async fn update(&self, operator_id: i64, user_id: i64, req: UpdateUserRequest, executor: Executor<'_>) -> Result<()> {
+    async fn update(&self, operator_id: Option<i64>, user_id: i64, req: UpdateUserRequest, executor: Executor<'_>) -> Result<()> {
         let old_user = UserRepo::find_by_id_with_executor(executor, user_id).await?.ok_or_else(|| anyhow!("User not found"))?;
         UserRepo::update(executor, user_id, &req).await?;
         self.log_audit(executor, operator_id, "user", user_id, "update", Some(serde_json::to_value(&old_user)?), Some(serde_json::to_value(&req)?)).await?;
         Ok(())
     }
 
-    async fn delete(&self, operator_id: i64, user_id: i64, executor: Executor<'_>) -> Result<()> {
+    async fn delete(&self, operator_id: Option<i64>, user_id: i64, executor: Executor<'_>) -> Result<()> {
         let old_user = UserRepo::find_by_id_with_executor(executor, user_id).await?.ok_or_else(|| anyhow!("User not found"))?;
         UserRepo::delete(executor, user_id).await?;
         self.log_audit(executor, operator_id, "user", user_id, "delete", Some(serde_json::to_value(&old_user)?), None).await?;
@@ -79,19 +89,19 @@ impl UserService for UserServiceImpl {
         Ok(result)
     }
 
-    async fn assign_roles(&self, operator_id: i64, user_id: i64, role_ids: Vec<i64>, executor: Executor<'_>) -> Result<()> {
+    async fn assign_roles(&self, operator_id: Option<i64>, user_id: i64, role_ids: Vec<i64>, executor: Executor<'_>) -> Result<()> {
         UserRepo::assign_roles(executor, user_id, &role_ids).await?;
         self.log_audit(executor, operator_id, "user", user_id, "assign_roles", None, Some(serde_json::to_value(&role_ids)?)).await?;
         Ok(())
     }
 
-    async fn remove_roles(&self, operator_id: i64, user_id: i64, role_ids: Vec<i64>, executor: Executor<'_>) -> Result<()> {
+    async fn remove_roles(&self, operator_id: Option<i64>, user_id: i64, role_ids: Vec<i64>, executor: Executor<'_>) -> Result<()> {
         UserRepo::remove_roles(executor, user_id, &role_ids).await?;
         self.log_audit(executor, operator_id, "user", user_id, "remove_roles", Some(serde_json::to_value(&role_ids)?), None).await?;
         Ok(())
     }
 
-    async fn batch_assign_roles(&self, operator_id: i64, user_ids: Vec<i64>, role_ids: Vec<i64>, executor: Executor<'_>) -> Result<()> {
+    async fn batch_assign_roles(&self, operator_id: Option<i64>, user_ids: Vec<i64>, role_ids: Vec<i64>, executor: Executor<'_>) -> Result<()> {
         UserRepo::batch_assign_roles(executor, &user_ids, &role_ids).await?;
         self.log_audit(executor, operator_id, "user", 0, "batch_assign_roles", None, serde_json::json!({"user_ids": user_ids, "role_ids": role_ids}).into()).await?;
         Ok(())

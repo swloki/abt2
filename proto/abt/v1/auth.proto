@@ -1,0 +1,47 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+import "abt/v1/user.proto";
+
+service AuthService {
+    rpc Login(LoginRequest) returns (LoginResponse);
+    rpc RefreshToken(RefreshTokenRequest) returns (TokenResponse);
+    rpc Logout(Empty) returns (Empty);
+    rpc GetCurrentUser(Empty) returns (UserResponse);
+    rpc ListResources(Empty) returns (AuthResourceListResponse);
+}
+
+message LoginRequest {
+    string username = 1;
+    string password = 2;
+}
+
+message LoginResponse {
+    string token = 1;
+    int64 expires_at = 2;
+    UserResponse user = 3;
+}
+
+message RefreshTokenRequest {
+    string token = 1;
+}
+
+message TokenResponse {
+    string token = 1;
+    int64 expires_at = 2;
+}
+
+message AuthResourceAction {
+    string resource_code = 1;
+    string resource_name = 2;
+    string description = 3;
+    string action = 4;
+    string action_name = 5;
+}
+
+message AuthResourceListResponse {
+    repeated AuthResourceAction resources = 1;
+}

@@ -1,11 +1,11 @@
-//! Permission gRPC Handler
-
 use tonic::{Request, Response, Status};
+
 use crate::generated::abt::v1::{
     permission_service_server::PermissionService as GrpcPermissionService,
     *,
 };
 use crate::handlers::GrpcResult;
+use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 
 use abt::PermissionService;
@@ -30,22 +30,42 @@ impl GrpcPermissionService for PermissionHandler {
         &self,
         request: Request<GetUserPermissionsRequest>,
     ) -> GrpcResult<UserPermissionsResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
 
-        let permissions = srv.get_user_permissions(req.user_id).await
+        let codes = srv.get_user_permissions(req.user_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        Ok(Response::new(UserPermissionsResponse {
-            permissions: permissions.into_iter().map(|p| p.into()).collect(),
-        }))
+        let all_resources = abt::collect_all_resources();
+        let permissions: Vec<PermissionInfo> = codes.iter().filter_map(|code| {
+            let (resource_code, action_code) = code.split_once(':')?;
+            all_resources.iter().find(|r| r.resource_code == resource_code && r.action == action_code)
+                .map(|r| PermissionInfo {
+                    permission_id: 0,
+                    permission_name: format!("{}-{}", r.resource_name, r.action_name),
+                    resource: Some(ResourceInfo {
+                        resource_id: 0,
+                        resource_name: r.resource_name.to_string(),
+                        resource_code: r.resource_code.to_string(),
+                        group_name: r.resource_name.to_string(),
+                    }),
+                    action_code: r.action.to_string(),
+                    action_name: r.action_name.to_string(),
+                })
+        }).collect();
+
+        Ok(Response::new(UserPermissionsResponse { permissions }))
     }
 
     async fn check_permission(
         &self,
         request: Request<CheckPermissionRequest>,
     ) -> GrpcResult<CheckPermissionResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
@@ -57,45 +77,67 @@ impl GrpcPermissionService for PermissionHandler {
         ).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        Ok(Response::new(CheckPermissionResponse {
-            has_permission,
-        }))
+        Ok(Response::new(CheckPermissionResponse { has_permission }))
     }
 
     async fn list_resources(
         &self,
         _request: Request<Empty>,
     ) -> GrpcResult<ResourceListResponse> {
+        let auth = extract_auth(&_request)?;
+        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+
+        let all_resources = abt::collect_all_resources();
+        let groups = group_resources(&all_resources);
+
+        Ok(Response::new(ResourceListResponse { groups }))
+    }
+
+    async fn list_user_resources(
+        &self,
+        request: Request<ListUserResourcesRequest>,
+    ) -> GrpcResult<ResourceListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
 
-        let resource_groups = srv.list_resources().await
+        let user_codes = srv.get_user_permissions(req.user_id).await
             .map_err(|e| Status::internal(e.to_string()))?;
 
-        Ok(Response::new(ResourceListResponse {
-            groups: resource_groups.into_iter().map(|g| g.into()).collect(),
-        }))
+        let all_resources = abt::collect_all_resources();
+        let user_resources: Vec<_> = all_resources.iter()
+            .filter(|r| {
+                let code = format!("{}:{}", r.resource_code, r.action);
+                user_codes.contains(&code)
+            })
+            .collect();
+
+        let groups = group_resources_by_refs(&user_resources);
+
+        Ok(Response::new(ResourceListResponse { groups }))
     }
 
     async fn list_permissions(
         &self,
         _request: Request<Empty>,
     ) -> GrpcResult<PermissionListResponse> {
-        let state = AppState::get().await;
-        let srv = state.permission_service();
+        let auth = extract_auth(&_request)?;
+        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
 
-        let permission_groups = srv.list_permissions().await
-            .map_err(|e| Status::internal(e.to_string()))?;
+        let all_resources = abt::collect_all_resources();
+        let groups = group_permissions(&all_resources);
 
-        Ok(Response::new(PermissionListResponse {
-            groups: permission_groups.into_iter().map(|g| g.into()).collect(),
-        }))
+        Ok(Response::new(PermissionListResponse { groups }))
     }
 
     async fn list_audit_logs(
         &self,
         request: Request<ListAuditLogsRequest>,
     ) -> GrpcResult<AuditLogListResponse> {
+        let auth = extract_auth(&request)?;
+        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
@@ -107,4 +149,58 @@ impl GrpcPermissionService for PermissionHandler {
             logs: logs.into_iter().map(|l| l.into()).collect(),
         }))
     }
+}
+
+fn group_resources(resources: &[abt::ResourceActionDef]) -> Vec<ResourceGroup> {
+    let mut groups: std::collections::HashMap<&str, Vec<ResourceInfo>> = std::collections::HashMap::new();
+    for r in resources {
+        groups.entry(r.resource_name).or_default().push(ResourceInfo {
+            resource_id: 0,
+            resource_name: r.resource_name.to_string(),
+            resource_code: r.resource_code.to_string(),
+            group_name: r.resource_name.to_string(),
+        });
+    }
+    groups.into_iter().map(|(name, resources)| ResourceGroup {
+        group_name: name.to_string(),
+        resources,
+    }).collect()
+}
+
+fn group_resources_by_refs(resources: &[&abt::ResourceActionDef]) -> Vec<ResourceGroup> {
+    let mut groups: std::collections::HashMap<&str, Vec<ResourceInfo>> = std::collections::HashMap::new();
+    for r in resources {
+        groups.entry(r.resource_name).or_default().push(ResourceInfo {
+            resource_id: 0,
+            resource_name: r.resource_name.to_string(),
+            resource_code: r.resource_code.to_string(),
+            group_name: r.resource_name.to_string(),
+        });
+    }
+    groups.into_iter().map(|(name, resources)| ResourceGroup {
+        group_name: name.to_string(),
+        resources,
+    }).collect()
+}
+
+fn group_permissions(resources: &[abt::ResourceActionDef]) -> Vec<PermissionGroup> {
+    let mut groups: std::collections::HashMap<&str, Vec<PermissionInfo>> = std::collections::HashMap::new();
+    for r in resources {
+        groups.entry(r.resource_name).or_default().push(PermissionInfo {
+            permission_id: 0,
+            permission_name: format!("{}-{}", r.resource_name, r.action_name),
+            resource: Some(ResourceInfo {
+                resource_id: 0,
+                resource_name: r.resource_name.to_string(),
+                resource_code: r.resource_code.to_string(),
+                group_name: r.resource_name.to_string(),
+            }),
+            action_code: r.action.to_string(),
+            action_name: r.action_name.to_string(),
+        });
+    }
+    groups.into_iter().map(|(name, permissions)| PermissionGroup {
+        group_name: name.to_string(),
+        permissions,
+    }).collect()
 }

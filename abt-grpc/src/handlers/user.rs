@@ -3,7 +3,8 @@
 use crate::generated::abt::v1::{user_service_server::UserService as GrpcUserService, *};
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
-use tonic::{Request, Response, Status};
+use common::error;
+use tonic::{Request, Response};
 
 use abt::UserService;
 use crate::interceptors::auth::extract_auth;
@@ -26,7 +27,7 @@ impl Default for UserHandler {
 impl GrpcUserService for UserHandler {
     async fn create_user(&self, request: Request<CreateUserRequest>) -> GrpcResult<UserResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("user", "write").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("user", "write").map_err(|_e| error::forbidden("user", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -34,7 +35,7 @@ impl GrpcUserService for UserHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let create_req = abt::CreateUserRequest {
             username: req.username,
@@ -50,25 +51,25 @@ impl GrpcUserService for UserHandler {
         let user_id = srv
             .create(Some(auth.user_id), create_req, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         // Fetch the created user to return
         let user_with_roles = srv
             .get(user_id)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?
-            .ok_or_else(|| Status::not_found("User not found"))?;
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("User", &user_id.to_string()))?;
 
         Ok(Response::new(user_with_roles.into()))
     }
 
     async fn update_user(&self, request: Request<UpdateUserRequest>) -> GrpcResult<UserResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("user", "write").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("user", "write").map_err(|_e| error::forbidden("user", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -76,7 +77,7 @@ impl GrpcUserService for UserHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let update_req = abt::UpdateUserRequest {
             display_name: if req.display_name.is_empty() {
@@ -89,25 +90,25 @@ impl GrpcUserService for UserHandler {
 
         srv.update(Some(auth.user_id), req.user_id, update_req, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         // Fetch the updated user to return
         let user_with_roles = srv
             .get(req.user_id)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?
-            .ok_or_else(|| Status::not_found("User not found"))?;
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("User", &req.user_id.to_string()))?;
 
         Ok(Response::new(user_with_roles.into()))
     }
 
     async fn delete_user(&self, request: Request<DeleteUserRequest>) -> GrpcResult<Empty> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("user", "delete").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("user", "delete").map_err(|_e| error::forbidden("user", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -115,22 +116,22 @@ impl GrpcUserService for UserHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         srv.delete(Some(auth.user_id), req.user_id, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(Empty {}))
     }
 
     async fn get_user(&self, request: Request<GetUserRequest>) -> GrpcResult<UserResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("user", "read").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("user", "read").map_err(|_e| error::forbidden("user", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -138,22 +139,22 @@ impl GrpcUserService for UserHandler {
         let user_with_roles = srv
             .get(req.user_id)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?
-            .ok_or_else(|| Status::not_found("User not found"))?;
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("User", &req.user_id.to_string()))?;
 
         Ok(Response::new(user_with_roles.into()))
     }
 
     async fn list_users(&self, request: Request<Empty>) -> GrpcResult<UserListResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("user", "read").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("user", "read").map_err(|_e| error::forbidden("user", "read"))?;
         let state = AppState::get().await;
         let srv = state.user_service();
 
         let users = srv
             .list()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(UserListResponse {
             users: users.into_iter().map(|u| u.into()).collect(),
@@ -162,7 +163,7 @@ impl GrpcUserService for UserHandler {
 
     async fn assign_roles(&self, request: Request<AssignRolesRequest>) -> GrpcResult<Empty> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("user", "write").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("user", "write").map_err(|_e| error::forbidden("user", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -170,22 +171,22 @@ impl GrpcUserService for UserHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         srv.assign_roles(Some(auth.user_id), req.user_id, req.role_ids, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(Empty {}))
     }
 
     async fn remove_roles(&self, request: Request<RemoveRolesRequest>) -> GrpcResult<Empty> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("user", "write").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("user", "write").map_err(|_e| error::forbidden("user", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -193,15 +194,15 @@ impl GrpcUserService for UserHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         srv.remove_roles(Some(auth.user_id), req.user_id, req.role_ids, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(Empty {}))
     }
@@ -211,7 +212,7 @@ impl GrpcUserService for UserHandler {
         request: Request<BatchAssignRolesRequest>,
     ) -> GrpcResult<Empty> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("user", "write").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("user", "write").map_err(|_e| error::forbidden("user", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -219,15 +220,15 @@ impl GrpcUserService for UserHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         srv.batch_assign_roles(Some(auth.user_id), req.user_ids, req.role_ids, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(Empty {}))
     }

@@ -5,7 +5,8 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
 use crate::interceptors::auth::extract_auth;
-use tonic::{Request, Response, Status};
+use common::error;
+use tonic::{Request, Response};
 
 // Import trait to bring methods into scope
 use abt::WarehouseService;
@@ -28,7 +29,7 @@ impl Default for WarehouseHandler {
 impl GrpcWarehouseService for WarehouseHandler {
     async fn list_warehouses(&self, request: Request<Empty>) -> GrpcResult<WarehouseListResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("warehouse", "read").map_err(|_e| error::forbidden("warehouse", "read"))?;
 
         let state = AppState::get().await;
         let srv = state.warehouse_service();
@@ -36,7 +37,7 @@ impl GrpcWarehouseService for WarehouseHandler {
         let warehouses = srv
             .list_all()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(WarehouseListResponse {
             items: warehouses.into_iter().map(|w| w.into()).collect(),
@@ -48,7 +49,7 @@ impl GrpcWarehouseService for WarehouseHandler {
         request: Request<GetWarehouseRequest>,
     ) -> GrpcResult<WarehouseResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("warehouse", "read").map_err(|_e| error::forbidden("warehouse", "read"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -57,8 +58,8 @@ impl GrpcWarehouseService for WarehouseHandler {
         let warehouse = srv
             .get_by_id(req.warehouse_id)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?
-            .ok_or_else(|| Status::not_found("Warehouse not found"))?;
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("Warehouse", &req.warehouse_id.to_string()))?;
 
         Ok(Response::new(warehouse.into()))
     }
@@ -68,7 +69,7 @@ impl GrpcWarehouseService for WarehouseHandler {
         request: Request<CreateWarehouseRequest>,
     ) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("warehouse", "write").map_err(|_e| error::forbidden("warehouse", "write"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -77,7 +78,7 @@ impl GrpcWarehouseService for WarehouseHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let create_req = abt::CreateWarehouseRequest {
             warehouse_name: req.warehouse_name,
@@ -87,11 +88,11 @@ impl GrpcWarehouseService for WarehouseHandler {
         let id = srv
             .create(create_req, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(U64Response { value: id as u64 }))
     }
@@ -101,7 +102,7 @@ impl GrpcWarehouseService for WarehouseHandler {
         request: Request<UpdateWarehouseRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("warehouse", "write").map_err(|_e| error::forbidden("warehouse", "write"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -110,7 +111,7 @@ impl GrpcWarehouseService for WarehouseHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let update_req = abt::UpdateWarehouseRequest {
             warehouse_name: req.warehouse_name,
@@ -120,11 +121,11 @@ impl GrpcWarehouseService for WarehouseHandler {
 
         srv.update(req.warehouse_id, update_req, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -134,7 +135,7 @@ impl GrpcWarehouseService for WarehouseHandler {
         request: Request<UpdateWarehouseStatusRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("warehouse", "write").map_err(|_e| error::forbidden("warehouse", "write"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -143,7 +144,7 @@ impl GrpcWarehouseService for WarehouseHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let status = if req.is_active {
             abt::WarehouseStatus::Active
@@ -159,11 +160,11 @@ impl GrpcWarehouseService for WarehouseHandler {
 
         srv.update(req.warehouse_id, update_req, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -173,7 +174,7 @@ impl GrpcWarehouseService for WarehouseHandler {
         request: Request<DeleteWarehouseRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "delete").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("warehouse", "delete").map_err(|_e| error::forbidden("warehouse", "delete"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -182,16 +183,16 @@ impl GrpcWarehouseService for WarehouseHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let deleted = srv
             .delete(req.warehouse_id, req.hard_delete, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: deleted }))
     }

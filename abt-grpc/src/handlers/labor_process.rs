@@ -4,8 +4,9 @@ use crate::generated::abt::v1::*;
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
 use abt::LaborProcessService;
+use common::error;
 use rust_decimal::Decimal;
-use tonic::{Response, Status};
+use tonic::Response;
 
 /// 辅助函数：列出人工工序（按产品编码查询）
 pub async fn list_labor_processes_internal(
@@ -24,7 +25,7 @@ pub async fn list_labor_processes_internal(
             page_size: Some(page_size),
         })
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::err_to_status)?;
 
     let items = items
         .into_iter()
@@ -55,14 +56,14 @@ pub async fn create_labor_process_internal(
     let mut tx = state
         .begin_transaction()
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::err_to_status)?;
 
     let unit_price: Decimal = req.unit_price
         .parse()
-        .map_err(|e| Status::invalid_argument(format!("invalid unit_price: {}", e)))?;
+        .map_err(|_e| error::validation("unit_price", "Invalid unit_price format"))?;
     let quantity: Decimal = req.quantity
         .parse()
-        .map_err(|e| Status::invalid_argument(format!("invalid quantity: {}", e)))?;
+        .map_err(|_e| error::validation("quantity", "Invalid quantity format"))?;
 
     let id = service
         .create(
@@ -81,11 +82,11 @@ pub async fn create_labor_process_internal(
             &mut tx,
         )
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::err_to_status)?;
 
     tx.commit()
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::sqlx_err_to_status)?;
 
     Ok(Response::new(U64Response { value: id as u64 }))
 }
@@ -100,14 +101,14 @@ pub async fn update_labor_process_internal(
     let mut tx = state
         .begin_transaction()
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::err_to_status)?;
 
     let unit_price: Decimal = req.unit_price
         .parse()
-        .map_err(|e| Status::invalid_argument(format!("invalid unit_price: {}", e)))?;
+        .map_err(|_e| error::validation("unit_price", "Invalid unit_price format"))?;
     let quantity: Decimal = req.quantity
         .parse()
-        .map_err(|e| Status::invalid_argument(format!("invalid quantity: {}", e)))?;
+        .map_err(|_e| error::validation("quantity", "Invalid quantity format"))?;
 
     service
         .update(
@@ -127,11 +128,11 @@ pub async fn update_labor_process_internal(
             &mut tx,
         )
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::err_to_status)?;
 
     tx.commit()
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::sqlx_err_to_status)?;
 
     Ok(Response::new(BoolResponse { value: true }))
 }
@@ -146,16 +147,16 @@ pub async fn delete_labor_process_internal(
     let mut tx = state
         .begin_transaction()
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::err_to_status)?;
 
     let deleted = service
         .delete(req.id, &req.product_code, &mut tx)
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::err_to_status)?;
 
     tx.commit()
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::sqlx_err_to_status)?;
 
     Ok(Response::new(U64Response { value: deleted }))
 }
@@ -180,16 +181,16 @@ pub async fn import_labor_processes_internal(
     let mut tx = state
         .begin_transaction()
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::err_to_status)?;
 
     let result = service
         .import(&req.file_path, &mut tx)
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::err_to_status)?;
 
     tx.commit()
         .await
-        .map_err(|e| Status::internal(e.to_string()))?;
+        .map_err(error::sqlx_err_to_status)?;
 
     Ok(Response::new(ImportLaborProcessResponse {
         success_count: result.success_count,

@@ -2,7 +2,8 @@
 
 use std::path::Path;
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::{Request, Response, Status, Streaming};
+use common::error;
+use tonic::{Request, Response, Streaming};
 use crate::generated::abt::v1::{abt_excel_service_server::AbtExcelService as GrpcExcelService, *};
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
@@ -30,16 +31,16 @@ impl GrpcExcelService for ExcelHandler {
     async fn upload_file(
         &self,
         request: Request<Streaming<UploadFileRequest>>,
-    ) -> Result<Response<UploadFileResponse>, Status> {
+    ) -> Result<Response<UploadFileResponse>, tonic::Status> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("excel", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("excel", "write").map_err(|_e| error::forbidden("excel", "write"))?;
 
         let upload_dir = Path::new("/tmp");
 
         // 确保上传目录存在
         tokio::fs::create_dir_all(upload_dir)
             .await
-            .map_err(|e| Status::internal(format!("Failed to create upload dir: {}", e)))?;
+            .map_err(|e| error::err_to_status(anyhow::anyhow!("Failed to create upload dir: {}", e)))?;
 
         let mut stream = request.into_inner();
         let mut file_name: String;
@@ -50,7 +51,7 @@ impl GrpcExcelService for ExcelHandler {
         use futures::StreamExt;
 
         while let Some(message) = stream.next().await {
-            let msg = message.map_err(|e| Status::internal(format!("Stream error: {}", e)))?;
+            let msg = message.map_err(|e| error::err_to_status(anyhow::anyhow!("Stream error: {}", e)))?;
 
             match msg.data {
                 Some(upload_file_request::Data::FileName(name)) => {
@@ -62,17 +63,17 @@ impl GrpcExcelService for ExcelHandler {
 
                     file = Some(tokio::fs::File::create(&path)
                         .await
-                        .map_err(|e| Status::internal(format!("Failed to create file: {}", e)))?);
+                        .map_err(|e| error::err_to_status(anyhow::anyhow!("Failed to create file: {}", e)))?);
                 }
                 Some(upload_file_request::Data::Chunk(chunk)) => {
                     if let Some(ref mut f) = file {
                         use tokio::io::AsyncWriteExt;
                         f.write_all(&chunk)
                             .await
-                            .map_err(|e| Status::internal(format!("Failed to write chunk: {}", e)))?;
+                            .map_err(|e| error::err_to_status(anyhow::anyhow!("Failed to write chunk: {}", e)))?;
                         total_size += chunk.len() as i64;
                     } else {
-                        return Err(Status::failed_precondition("File name must be sent first"));
+                        return Err(tonic::Status::failed_precondition("File name must be sent first"));
                     }
                 }
                 None => {}
@@ -84,10 +85,10 @@ impl GrpcExcelService for ExcelHandler {
             use tokio::io::AsyncWriteExt;
             f.flush()
                 .await
-                .map_err(|e| Status::internal(format!("Failed to flush file: {}", e)))?;
+                .map_err(|e| error::err_to_status(anyhow::anyhow!("Failed to flush file: {}", e)))?;
         }
 
-        let file_path = file_path.ok_or_else(|| Status::invalid_argument("No file uploaded"))?;
+        let file_path = file_path.ok_or_else(|| error::validation("file", "No file uploaded"))?;
 
         // 返回绝对路径
         let absolute_path = file_path.to_string_lossy().to_string();
@@ -103,7 +104,7 @@ impl GrpcExcelService for ExcelHandler {
         request: Request<ImportExcelRequest>,
     ) -> GrpcResult<ImportResultResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("excel", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("excel", "write").map_err(|_e| error::forbidden("excel", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();
@@ -112,7 +113,7 @@ impl GrpcExcelService for ExcelHandler {
         let operator_id = req.operator_id;
 
         let result = srv.import_quantity_from_excel(&state.pool(), path, operator_id).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(ImportResultResponse {
             success_count: result.success_count as i32,
@@ -123,21 +124,21 @@ impl GrpcExcelService for ExcelHandler {
 
     async fn export_excel(&self, request: Request<ExportExcelRequest>) -> GrpcResult<Empty> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("excel", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("excel", "read").map_err(|_e| error::forbidden("excel", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();
 
         let path = Path::new(&req.file_path);
         srv.export_products_to_excel(&state.pool(), path).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(Empty {}))
     }
 
     async fn get_progress(&self, request: Request<Empty>) -> GrpcResult<ExcelProgressResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("excel", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("excel", "read").map_err(|_e| error::forbidden("excel", "read"))?;
         let state = AppState::get().await;
         let srv = state.excel_service();
 
@@ -149,14 +150,14 @@ impl GrpcExcelService for ExcelHandler {
         }))
     }
 
-    type DownloadExportFileStream = ReceiverStream<Result<DownloadFileResponse, Status>>;
+    type DownloadExportFileStream = ReceiverStream<Result<DownloadFileResponse, tonic::Status>>;
 
     async fn download_export_file(
         &self,
         request: Request<DownloadExportFileRequest>,
-    ) -> Result<Response<Self::DownloadExportFileStream>, Status> {
+    ) -> Result<Response<Self::DownloadExportFileStream>, tonic::Status> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("excel", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("excel", "read").map_err(|_e| error::forbidden("excel", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();
@@ -166,7 +167,7 @@ impl GrpcExcelService for ExcelHandler {
                 let b = srv
                     .export_products_without_price_to_bytes(&state.pool())
                     .await
-                    .map_err(|e| Status::internal(e.to_string()))?;
+                    .map_err(error::err_to_status)?;
                 let name = format!(
                     "products_without_price_{}.xlsx",
                     chrono::Utc::now().format("%Y%m%d%H%M%S")
@@ -177,7 +178,7 @@ impl GrpcExcelService for ExcelHandler {
                 let b = srv
                     .export_boms_without_labor_cost_to_bytes(&state.pool())
                     .await
-                    .map_err(|e| Status::internal(e.to_string()))?;
+                    .map_err(error::err_to_status)?;
                 let name = format!(
                     "boms_without_labor_cost_{}.xlsx",
                     chrono::Utc::now().format("%Y%m%d%H%M%S")
@@ -189,7 +190,7 @@ impl GrpcExcelService for ExcelHandler {
                 let b = srv
                     .export_products_to_bytes(&state.pool())
                     .await
-                    .map_err(|e| Status::internal(e.to_string()))?;
+                    .map_err(error::err_to_status)?;
                 let name = format!(
                     "products_export_{}.xlsx",
                     chrono::Utc::now().format("%Y%m%d%H%M%S")

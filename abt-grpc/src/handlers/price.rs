@@ -1,6 +1,7 @@
 //! Price gRPC Handler
 
-use tonic::{Request, Response, Status};
+use common::error;
+use tonic::{Request, Response};
 use crate::generated::abt::v1::{
     abt_price_service_server::AbtPriceService as GrpcPriceService,
     *,
@@ -26,7 +27,7 @@ impl Default for PriceHandler {
 impl GrpcPriceService for PriceHandler {
     async fn get_price_history(&self, request: Request<GetPriceHistoryRequest>) -> GrpcResult<PriceHistoryResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("price", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("price", "read").map_err(|_e| error::forbidden("price", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.price_service();
@@ -38,7 +39,7 @@ impl GrpcPriceService for PriceHandler {
         };
 
         let result = srv.get_price_history(query, &state.pool()).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(PriceHistoryResponse {
             items: result.items.into_iter().map(|entry| PriceLogEntryResponse {
@@ -58,15 +59,15 @@ impl GrpcPriceService for PriceHandler {
 
     async fn update_price(&self, request: Request<UpdatePriceRequest>) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("price", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("price", "write").map_err(|_e| error::forbidden("price", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.price_service();
         let mut tx = state.begin_transaction().await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let new_price: Decimal = req.new_price.parse()
-            .map_err(|e| Status::invalid_argument(format!("Invalid price: {}", e)))?;
+            .map_err(|_e| error::validation("new_price", "Invalid price format"))?;
 
         srv.update_price(
             req.product_id,
@@ -75,16 +76,16 @@ impl GrpcPriceService for PriceHandler {
             req.remark.as_deref(),
             &mut tx,
         ).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
 
     async fn list_all_price_history(&self, request: Request<ListAllPriceHistoryRequest>) -> GrpcResult<AllPriceHistoryResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("price", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("price", "read").map_err(|_e| error::forbidden("price", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.price_service();
@@ -98,7 +99,7 @@ impl GrpcPriceService for PriceHandler {
         };
 
         let result = srv.list_all_price_history(query, &state.pool()).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(AllPriceHistoryResponse {
             items: result.items.into_iter().map(|entry| PriceLogWithProductResponse {

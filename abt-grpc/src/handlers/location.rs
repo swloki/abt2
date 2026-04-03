@@ -1,6 +1,7 @@
 //! Location gRPC Handler
 
-use tonic::{Request, Response, Status};
+use common::error;
+use tonic::{Request, Response};
 use crate::generated::abt::v1::{
     abt_location_service_server::AbtLocationService as GrpcLocationService,
     *,
@@ -34,13 +35,13 @@ impl GrpcLocationService for LocationHandler {
         request: Request<ListLocationsByWarehouseRequest>,
     ) -> GrpcResult<LocationListResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
 
         let locations = srv.list_by_warehouse(req.warehouse_id).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(LocationListResponse {
             items: locations.into_iter().map(|l| l.into()).collect(),
@@ -52,13 +53,13 @@ impl GrpcLocationService for LocationHandler {
         request: Request<Empty>,
     ) -> GrpcResult<LocationWithWarehouseListResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let state = AppState::get().await;
         let warehouse_srv = state.warehouse_service();
 
         // Get all warehouses
         let warehouses = warehouse_srv.list_all().await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         // Build warehouse map for lookup
         let warehouse_map: std::collections::HashMap<i64, String> = warehouses
@@ -80,7 +81,7 @@ impl GrpcLocationService for LocationHandler {
 
         let results = futures::future::try_join_all(futures)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         // Flatten and convert to response
         let all_locations: Vec<LocationWithWarehouseResponse> = results
@@ -109,14 +110,14 @@ impl GrpcLocationService for LocationHandler {
         request: Request<GetLocationRequest>,
     ) -> GrpcResult<LocationResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
 
         let location = srv.get_by_id(req.location_id).await
-            .map_err(|e| Status::internal(e.to_string()))?
-            .ok_or_else(|| Status::not_found("Location not found"))?;
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("Location", &req.location_id.to_string()))?;
 
         Ok(Response::new(location.into()))
     }
@@ -126,13 +127,13 @@ impl GrpcLocationService for LocationHandler {
         request: Request<CreateLocationRequest>,
     ) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("location", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("location", "write").map_err(|_e| error::forbidden("location", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
 
         let mut tx = state.begin_transaction().await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let create_req = abt::CreateLocationRequest {
             warehouse_id: req.warehouse_id,
@@ -142,9 +143,9 @@ impl GrpcLocationService for LocationHandler {
         };
 
         let id = srv.create(create_req, &mut tx).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(U64Response { value: id as u64 }))
     }
@@ -154,13 +155,13 @@ impl GrpcLocationService for LocationHandler {
         request: Request<UpdateLocationRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("location", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("location", "write").map_err(|_e| error::forbidden("location", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
 
         let mut tx = state.begin_transaction().await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let update_req = abt::UpdateLocationRequest {
             location_code: String::new(),
@@ -169,9 +170,9 @@ impl GrpcLocationService for LocationHandler {
         };
 
         srv.update(req.location_id, update_req, &mut tx).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -181,18 +182,18 @@ impl GrpcLocationService for LocationHandler {
         request: Request<DeleteLocationRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("location", "delete").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("location", "delete").map_err(|_e| error::forbidden("location", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
 
         let mut tx = state.begin_transaction().await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let deleted = srv.delete(req.location_id, req.hard_delete, &mut tx).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: deleted }))
     }
@@ -202,13 +203,13 @@ impl GrpcLocationService for LocationHandler {
         request: Request<GetWarehouseInventoryStatsRequest>,
     ) -> GrpcResult<WarehouseInventoryStatsResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
 
         let stats = srv.get_warehouse_inventory_stats(req.warehouse_id).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(stats.into()))
     }
@@ -218,13 +219,13 @@ impl GrpcLocationService for LocationHandler {
         request: Request<GetLocationInventoryStatsRequest>,
     ) -> GrpcResult<LocationInventoryStatsResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
 
         let stats = srv.get_location_inventory_stats(req.location_id).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(stats.into()))
     }
@@ -234,7 +235,7 @@ impl GrpcLocationService for LocationHandler {
         request: Request<ListLocationStatsByWarehouseRequest>,
     ) -> GrpcResult<LocationStatsListResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -244,7 +245,7 @@ impl GrpcLocationService for LocationHandler {
             req.page,
             req.page_size,
         ).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(LocationStatsListResponse {
             items: result.items.into_iter().map(|s| s.into()).collect(),

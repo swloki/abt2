@@ -1,6 +1,6 @@
 //! Auth gRPC Handler
 
-use tonic::{Request, Response, Status};
+use tonic::{Request, Response};
 
 use crate::generated::abt::v1::{
     auth_service_server::AuthService as GrpcAuthService,
@@ -9,6 +9,7 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_user_id_from_header;
 use crate::server::AppState;
+use common::error;
 
 use abt::{AuthService, UserService};
 
@@ -36,15 +37,15 @@ impl GrpcAuthService for AuthHandler {
         let (token, expires_at, claims) = srv
             .login(&req.username, &req.password)
             .await
-            .map_err(|_| Status::unauthenticated("Invalid username or password"))?;
+            .map_err(|_| error::unauthorized("Invalid username or password"))?;
 
         // 获取用户详情
         let user_srv = state.user_service();
         let user_with_roles = user_srv
             .get(claims.sub)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?
-            .ok_or_else(|| Status::not_found("User not found"))?;
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("User", &claims.sub.to_string()))?;
 
         Ok(Response::new(LoginResponse {
             token,
@@ -64,7 +65,7 @@ impl GrpcAuthService for AuthHandler {
         let (token, expires_at, _claims) = srv
             .refresh_token(&req.token)
             .await
-            .map_err(|e| Status::unauthenticated(e.to_string()))?;
+            .map_err(|e| error::unauthorized(&e.to_string()))?;
 
         Ok(Response::new(TokenResponse { token, expires_at }))
     }
@@ -83,8 +84,8 @@ impl GrpcAuthService for AuthHandler {
         let user_with_roles = user_srv
             .get(user_id)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?
-            .ok_or_else(|| Status::not_found("User not found"))?;
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("User", &user_id.to_string()))?;
 
         Ok(Response::new(user_with_roles.into()))
     }

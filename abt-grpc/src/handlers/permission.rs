@@ -1,4 +1,5 @@
-use tonic::{Request, Response, Status};
+use common::error;
+use tonic::{Request, Response};
 
 use crate::generated::abt::v1::{
     permission_service_server::PermissionService as GrpcPermissionService,
@@ -31,13 +32,13 @@ impl GrpcPermissionService for PermissionHandler {
         request: Request<GetUserPermissionsRequest>,
     ) -> GrpcResult<UserPermissionsResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
 
         let codes = srv.get_user_permissions(req.user_id).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let all_resources = abt::collect_all_resources();
         let permissions: Vec<PermissionInfo> = codes.iter().filter_map(|code| {
@@ -65,7 +66,7 @@ impl GrpcPermissionService for PermissionHandler {
         request: Request<CheckPermissionRequest>,
     ) -> GrpcResult<CheckPermissionResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
@@ -75,7 +76,7 @@ impl GrpcPermissionService for PermissionHandler {
             &req.resource_code,
             &req.action_code,
         ).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(CheckPermissionResponse { has_permission }))
     }
@@ -85,7 +86,7 @@ impl GrpcPermissionService for PermissionHandler {
         _request: Request<Empty>,
     ) -> GrpcResult<ResourceListResponse> {
         let auth = extract_auth(&_request)?;
-        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
 
         let all_resources = abt::collect_all_resources();
         let groups = group_resources(&all_resources);
@@ -98,13 +99,13 @@ impl GrpcPermissionService for PermissionHandler {
         request: Request<ListUserResourcesRequest>,
     ) -> GrpcResult<ResourceListResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
 
         let user_codes = srv.get_user_permissions(req.user_id).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let all_resources = abt::collect_all_resources();
         let user_resources: Vec<_> = all_resources.iter()
@@ -124,7 +125,7 @@ impl GrpcPermissionService for PermissionHandler {
         _request: Request<Empty>,
     ) -> GrpcResult<PermissionListResponse> {
         let auth = extract_auth(&_request)?;
-        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
 
         let all_resources = abt::collect_all_resources();
         let groups = group_permissions(&all_resources);
@@ -137,13 +138,13 @@ impl GrpcPermissionService for PermissionHandler {
         request: Request<ListAuditLogsRequest>,
     ) -> GrpcResult<AuditLogListResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("permission", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
 
         let logs = srv.list_audit_logs(req.limit, req.offset).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(AuditLogListResponse {
             logs: logs.into_iter().map(|l| l.into()).collect(),

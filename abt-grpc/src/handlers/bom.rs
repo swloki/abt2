@@ -4,9 +4,10 @@ use crate::generated::abt::v1::{abt_bom_service_server::AbtBomService as GrpcBom
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
+use common::error;
 use std::path::Path;
 use tokio_stream::wrappers::ReceiverStream;
-use tonic::{Request, Response, Status};
+use tonic::{Request, Response};
 
 // Import trait to bring methods into scope
 use abt::BomService;
@@ -29,7 +30,7 @@ impl Default for BomHandler {
 impl GrpcBomService for BomHandler {
     async fn list_boms(&self, request: Request<ListBomsRequest>) -> GrpcResult<BomListResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -47,7 +48,7 @@ impl GrpcBomService for BomHandler {
         let (items, total) = srv
             .query(query)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(BomListResponse {
             items: items.into_iter().map(|b| b.into()).collect(),
@@ -57,7 +58,7 @@ impl GrpcBomService for BomHandler {
 
     async fn get_bom(&self, request: Request<GetBomRequest>) -> GrpcResult<BomResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -65,20 +66,20 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let bom = srv
             .find(req.bom_id, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?
-            .ok_or_else(|| Status::not_found("BOM not found"))?;
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
 
         Ok(Response::new(bom.into()))
     }
 
     async fn create_bom(&self, request: Request<CreateBomRequest>) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -86,23 +87,23 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let id = srv
             .create(&req.name, &req.created_by, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
     async fn update_bom(&self, request: Request<UpdateBomRequest>) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -110,22 +111,22 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         srv.update_name(req.bom_id, &req.name, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
 
     async fn delete_bom(&self, request: Request<DeleteBomRequest>) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "delete").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "delete").map_err(|_e| error::forbidden("bom", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -133,22 +134,22 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         srv.delete(req.bom_id, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
 
     async fn save_as_bom(&self, request: Request<SaveAsBomRequest>) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -156,16 +157,16 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let new_id = srv
             .save_as(req.source_bom_id, &req.new_name, &req.created_by, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(U64Response {
             value: new_id as u64,
@@ -177,7 +178,7 @@ impl GrpcBomService for BomHandler {
         request: Request<GetProductCodeRequest>,
     ) -> GrpcResult<StringResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -185,23 +186,23 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let code = srv
             .get_product_code(req.bom_id, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(StringResponse { value: code }))
     }
 
     async fn export_bom(&self, request: Request<ExportBomRequest>) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -209,7 +210,7 @@ impl GrpcBomService for BomHandler {
         let path = Path::new(&req.file_path);
         srv.export_to_excel(req.bom_id, path)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -219,7 +220,7 @@ impl GrpcBomService for BomHandler {
         request: Request<GetLeafNodesRequest>,
     ) -> GrpcResult<BomNodesResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -227,12 +228,12 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let nodes = srv
             .get_leaf_nodes(req.bom_id, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(BomNodesResponse {
             items: nodes.into_iter().map(|n| n.into()).collect(),
@@ -241,7 +242,7 @@ impl GrpcBomService for BomHandler {
 
     async fn add_bom_node(&self, request: Request<AddBomNodeRequest>) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -249,7 +250,7 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let node = abt::BomNode {
             id: 0,
@@ -269,11 +270,11 @@ impl GrpcBomService for BomHandler {
         let id = srv
             .add_node(req.bom_id, node, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(U64Response { value: id as u64 }))
     }
@@ -283,7 +284,7 @@ impl GrpcBomService for BomHandler {
         request: Request<UpdateBomNodeRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -291,7 +292,7 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let node = abt::BomNode {
             id: req.node_id,
@@ -307,11 +308,11 @@ impl GrpcBomService for BomHandler {
 
         srv.update_node(req.bom_id, node, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -321,7 +322,7 @@ impl GrpcBomService for BomHandler {
         request: Request<DeleteBomNodeRequest>,
     ) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "delete").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "delete").map_err(|_e| error::forbidden("bom", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -329,16 +330,16 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let deleted_count = srv
             .delete_node(req.bom_id, req.node_id, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(U64Response {
             value: deleted_count as u64,
@@ -350,7 +351,7 @@ impl GrpcBomService for BomHandler {
         request: Request<SwapBomNodeRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -358,15 +359,15 @@ impl GrpcBomService for BomHandler {
         let mut tx = state
             .begin_transaction()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         srv.swap_node_position(req.bom_id, req.node_id_1, req.node_id_2, &mut tx)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         tx.commit()
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -376,14 +377,14 @@ impl GrpcBomService for BomHandler {
         request: Request<ExistsBomNameRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let srv = AppState::get().await.bom_service();
 
         let exists = srv
             .exists_name(&req.name)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: exists }))
     }
@@ -393,7 +394,7 @@ impl GrpcBomService for BomHandler {
         request: Request<ListLaborProcessesRequest>,
     ) -> GrpcResult<BomLaborProcessListResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("labor_process", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("labor_process", "read").map_err(|_e| error::forbidden("labor_process", "read"))?;
         crate::handlers::labor_process::list_labor_processes_internal(request.into_inner()).await
     }
 
@@ -402,7 +403,7 @@ impl GrpcBomService for BomHandler {
         request: Request<CreateLaborProcessRequest>,
     ) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("labor_process", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("labor_process", "write").map_err(|_e| error::forbidden("labor_process", "write"))?;
         crate::handlers::labor_process::create_labor_process_internal(request.into_inner()).await
     }
 
@@ -411,7 +412,7 @@ impl GrpcBomService for BomHandler {
         request: Request<UpdateLaborProcessRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("labor_process", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("labor_process", "write").map_err(|_e| error::forbidden("labor_process", "write"))?;
         crate::handlers::labor_process::update_labor_process_internal(request.into_inner()).await
     }
 
@@ -420,7 +421,7 @@ impl GrpcBomService for BomHandler {
         request: Request<DeleteLaborProcessRequest>,
     ) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("labor_process", "delete").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("labor_process", "delete").map_err(|_e| error::forbidden("labor_process", "delete"))?;
         crate::handlers::labor_process::delete_labor_process_internal(request.into_inner()).await
     }
 
@@ -429,18 +430,18 @@ impl GrpcBomService for BomHandler {
         request: Request<ImportLaborProcessRequest>,
     ) -> GrpcResult<ImportLaborProcessResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("labor_process", "write").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("labor_process", "write").map_err(|_e| error::forbidden("labor_process", "write"))?;
         crate::handlers::labor_process::import_labor_processes_internal(request.into_inner()).await
     }
 
-    type DownloadBomStream = ReceiverStream<Result<DownloadFileResponse, Status>>;
+    type DownloadBomStream = ReceiverStream<Result<DownloadFileResponse, tonic::Status>>;
 
     async fn download_bom(
         &self,
         request: Request<DownloadBomRequest>,
-    ) -> Result<Response<Self::DownloadBomStream>, Status> {
+    ) -> Result<Response<Self::DownloadBomStream>, tonic::Status> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|e| Status::permission_denied(e.to_string()))?;
+        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -449,7 +450,7 @@ impl GrpcBomService for BomHandler {
         let (bytes, bom_name) = srv
             .export_to_bytes(req.bom_id)
             .await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let file_name = format!(
             "BOM_{}_{}.xlsx",

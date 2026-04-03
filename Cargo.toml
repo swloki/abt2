@@ -18,6 +18,7 @@ calamine = "0.32"
 rust_xlsxwriter = { version = "0.92", features = ["serde"] }
 
 tonic = "0.14"
+tonic-types = "0.14"
 
 
 [profile.release]

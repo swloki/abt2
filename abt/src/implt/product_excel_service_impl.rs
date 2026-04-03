@@ -126,11 +126,10 @@ impl ProductExcelService for ProductExcelServiceImpl {
             if !row.new_code.is_empty() {
                 all_codes.push(row.new_code.clone());
             }
-            if let Some(ref old_code) = row.old_code {
-                if !old_code.is_empty() {
+            if let Some(ref old_code) = row.old_code
+                && !old_code.is_empty() {
                     all_codes.push(old_code.clone());
                 }
-            }
         }
         all_codes.sort();
         all_codes.dedup();
@@ -208,31 +207,28 @@ impl ProductExcelService for ProductExcelServiceImpl {
 
         for item in &pending_items {
             // 更新价格
-            if let Some(price) = item.price {
-                if let Err(e) = update_price_batch(&mut tx, item.product_id, price).await {
+            if let Some(price) = item.price
+                && let Err(e) = update_price_batch(&mut tx, item.product_id, price).await {
                     result.failed_count += 1;
                     result.errors.push(format!("更新价格失败 product_id={}: {}", item.product_id, e));
                     continue;
                 }
-            }
 
             // 更新库存和安全库存
             if let Some(location_id) = item.location_id {
-                if let Some(quantity) = item.quantity {
-                    if let Err(e) = upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity).await {
+                if let Some(quantity) = item.quantity
+                    && let Err(e) = upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity).await {
                         result.failed_count += 1;
                         result.errors.push(format!("更新库存失败: {}", e));
                         continue;
                     }
-                }
 
-                if let Some(safety_stock) = item.safety_stock {
-                    if let Err(e) = upsert_inventory_safety_stock(&mut tx, item.product_id, location_id, safety_stock).await {
+                if let Some(safety_stock) = item.safety_stock
+                    && let Err(e) = upsert_inventory_safety_stock(&mut tx, item.product_id, location_id, safety_stock).await {
                         result.failed_count += 1;
                         result.errors.push(format!("更新安全库存失败: {}", e));
                         continue;
                     }
-                }
             }
 
             result.success_count += 1;

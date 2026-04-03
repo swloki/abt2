@@ -1,6 +1,7 @@
 //! Product gRPC Handler
 
-use tonic::{Request, Response, Status};
+use common::error;
+use tonic::{Request, Response};
 use crate::generated::abt::v1::{
     abt_product_service_server::AbtProductService as GrpcProductService,
     *,
@@ -33,7 +34,7 @@ impl GrpcProductService for ProductHandler {
         request: Request<ListProductsRequest>,
     ) -> GrpcResult<ProductListResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("product", "read").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("product", "read").map_err(|_e| error::forbidden("product", "read"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -48,7 +49,7 @@ impl GrpcProductService for ProductHandler {
         };
 
         let (items, total) = srv.query(query).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(ProductListResponse {
             items: items.into_iter().map(|p| p.into()).collect(),
@@ -63,15 +64,15 @@ impl GrpcProductService for ProductHandler {
         request: Request<GetProductRequest>,
     ) -> GrpcResult<ProductResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("product", "read").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("product", "read").map_err(|_e| error::forbidden("product", "read"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
 
         let product = srv.find(req.product_id).await
-            .map_err(|e| Status::internal(e.to_string()))?
-            .ok_or_else(|| Status::not_found("Product not found"))?;
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("Product", &req.product_id.to_string()))?;
 
         Ok(Response::new(product.into()))
     }
@@ -81,14 +82,14 @@ impl GrpcProductService for ProductHandler {
         request: Request<GetProductsByIdsRequest>,
     ) -> GrpcResult<ProductsResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("product", "read").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("product", "read").map_err(|_e| error::forbidden("product", "read"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
 
         let products = srv.find_by_ids(&req.product_ids).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(ProductsResponse {
             items: products.into_iter().map(|p| p.into()).collect(),
@@ -100,14 +101,14 @@ impl GrpcProductService for ProductHandler {
         request: Request<CreateProductRequest>,
     ) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("product", "write").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("product", "write").map_err(|_e| error::forbidden("product", "write"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
 
         let mut tx = state.begin_transaction().await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let product = abt::Product {
             product_id: 0,
@@ -116,9 +117,9 @@ impl GrpcProductService for ProductHandler {
         };
 
         let id = srv.create(product, &mut tx).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(U64Response { value: id as u64 }))
     }
@@ -128,14 +129,14 @@ impl GrpcProductService for ProductHandler {
         request: Request<UpdateProductRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("product", "write").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("product", "write").map_err(|_e| error::forbidden("product", "write"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
 
         let mut tx = state.begin_transaction().await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         let product = abt::Product {
             product_id: req.product_id,
@@ -144,9 +145,9 @@ impl GrpcProductService for ProductHandler {
         };
 
         srv.update(req.product_id, product, &mut tx).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -156,7 +157,7 @@ impl GrpcProductService for ProductHandler {
         request: Request<DeleteProductRequest>,
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("product", "delete").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("product", "delete").map_err(|_e| error::forbidden("product", "delete"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -164,22 +165,22 @@ impl GrpcProductService for ProductHandler {
 
         // 先检查产品是否被 BOM 使用
         let (is_used, boms, _total) = srv.check_product_usage(req.product_id).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         if is_used {
             let bom_names: Vec<String> = boms.iter().map(|b| b.bom_name.clone()).collect();
-            return Err(Status::failed_precondition(
+            return Err(tonic::Status::failed_precondition(
                 format!("产品正在以下 BOM 中使用，无法删除: {}", bom_names.join(", "))
             ));
         }
 
         let mut tx = state.begin_transaction().await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         srv.delete(req.product_id, &mut tx).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
-        tx.commit().await.map_err(|e| Status::internal(e.to_string()))?;
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -189,14 +190,14 @@ impl GrpcProductService for ProductHandler {
         request: Request<CheckProductUsageRequest>,
     ) -> GrpcResult<CheckProductUsageResponse> {
         let auth = extract_auth(&request)?;
-        auth.check_permission("product", "read").map_err(|e| Status::permission_denied(e))?;
+        auth.check_permission("product", "read").map_err(|_e| error::forbidden("product", "read"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
 
         let (is_used, boms, total) = srv.check_product_usage(req.product_id).await
-            .map_err(|e| Status::internal(e.to_string()))?;
+            .map_err(error::err_to_status)?;
 
         Ok(Response::new(CheckProductUsageResponse {
             is_used,

@@ -9,6 +9,7 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
+use abt_macros::require_permission;
 
 // Import trait to bring methods into scope
 use abt::TermService;
@@ -29,12 +30,11 @@ impl Default for TermHandler {
 
 #[tonic::async_trait]
 impl GrpcTermService for TermHandler {
+    #[require_permission("term", "read")]
     async fn get_term_tree(
         &self,
         request: Request<GetTermTreeRequest>,
     ) -> GrpcResult<TermTreeListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("term", "read").map_err(|_e| error::forbidden("term", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();
@@ -47,12 +47,11 @@ impl GrpcTermService for TermHandler {
         }))
     }
 
+    #[require_permission("term", "read")]
     async fn list_terms(
         &self,
         request: Request<ListTermsRequest>,
     ) -> GrpcResult<TermListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("term", "read").map_err(|_e| error::forbidden("term", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();
@@ -65,12 +64,11 @@ impl GrpcTermService for TermHandler {
         }))
     }
 
+    #[require_permission("term", "read")]
     async fn get_term_children(
         &self,
         request: Request<GetTermChildrenRequest>,
     ) -> GrpcResult<TermListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("term", "read").map_err(|_e| error::forbidden("term", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();
@@ -83,12 +81,11 @@ impl GrpcTermService for TermHandler {
         }))
     }
 
+    #[require_permission("term", "write")]
     async fn create_term(
         &self,
         request: Request<CreateTermRequest>,
     ) -> GrpcResult<U64Response> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("term", "write").map_err(|_e| error::forbidden("term", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();
@@ -110,12 +107,11 @@ impl GrpcTermService for TermHandler {
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
+    #[require_permission("term", "write")]
     async fn update_term(
         &self,
         request: Request<UpdateTermRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("term", "write").map_err(|_e| error::forbidden("term", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();
@@ -135,12 +131,11 @@ impl GrpcTermService for TermHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("term", "delete")]
     async fn delete_term(
         &self,
         request: Request<DeleteTermRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("term", "delete").map_err(|_e| error::forbidden("term", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.term_service();

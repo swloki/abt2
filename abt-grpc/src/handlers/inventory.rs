@@ -6,6 +6,7 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
+use abt_macros::require_permission;
 use common::error;
 use tonic::{Request, Response};
 
@@ -112,12 +113,11 @@ fn to_abt_safety_stock_req(req: SetSafetyStockRequest) -> AbtSetSafetyStockReque
 
 #[tonic::async_trait]
 impl GrpcInventoryService for InventoryHandler {
+    #[require_permission("inventory", "write")]
     async fn stock_in(
         &self,
         request: Request<StockChangeRequest>,
     ) -> GrpcResult<InventoryLogResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "write").map_err(|_e| error::forbidden("inventory", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -141,12 +141,11 @@ impl GrpcInventoryService for InventoryHandler {
         Ok(Response::new(to_proto_log_response(log)))
     }
 
+    #[require_permission("inventory", "write")]
     async fn stock_out(
         &self,
         request: Request<StockChangeRequest>,
     ) -> GrpcResult<InventoryLogResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "write").map_err(|_e| error::forbidden("inventory", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -170,12 +169,11 @@ impl GrpcInventoryService for InventoryHandler {
         Ok(Response::new(to_proto_log_response(log)))
     }
 
+    #[require_permission("inventory", "write")]
     async fn adjust_stock(
         &self,
         request: Request<StockChangeRequest>,
     ) -> GrpcResult<InventoryLogResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "write").map_err(|_e| error::forbidden("inventory", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -199,12 +197,11 @@ impl GrpcInventoryService for InventoryHandler {
         Ok(Response::new(to_proto_log_response(log)))
     }
 
+    #[require_permission("inventory", "write")]
     async fn set_quantity(
         &self,
         request: Request<StockChangeRequest>,
     ) -> GrpcResult<InventoryLogResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "write").map_err(|_e| error::forbidden("inventory", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -228,12 +225,11 @@ impl GrpcInventoryService for InventoryHandler {
         Ok(Response::new(to_proto_log_response(log)))
     }
 
+    #[require_permission("inventory", "write")]
     async fn transfer_stock(
         &self,
         request: Request<StockTransferRequest>,
     ) -> GrpcResult<InventoryLogListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "write").map_err(|_e| error::forbidden("inventory", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -264,12 +260,11 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
+    #[require_permission("inventory", "read")]
     async fn query_inventory(
         &self,
         request: Request<InventoryQueryRequest>,
     ) -> GrpcResult<InventoryListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "read").map_err(|_e| error::forbidden("inventory", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -313,12 +308,11 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
+    #[require_permission("inventory", "read")]
     async fn get_inventory_by_product(
         &self,
         request: Request<GetInventoryByProductRequest>,
     ) -> GrpcResult<InventoryDetailListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "read").map_err(|_e| error::forbidden("inventory", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -347,12 +341,11 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
+    #[require_permission("inventory", "read")]
     async fn get_inventory_by_location(
         &self,
         request: Request<GetInventoryByLocationRequest>,
     ) -> GrpcResult<InventoryDetailListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "read").map_err(|_e| error::forbidden("inventory", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -381,12 +374,11 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
+    #[require_permission("inventory", "read")]
     async fn get_low_stock_alert(
         &self,
         request: Request<Empty>,
     ) -> GrpcResult<InventoryDetailListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "read").map_err(|_e| error::forbidden("inventory", "read"))?;
         let state = AppState::get().await;
         let srv = state.inventory_service();
 
@@ -414,12 +406,11 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
+    #[require_permission("inventory", "write")]
     async fn set_safety_stock(
         &self,
         request: Request<SetSafetyStockRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "write").map_err(|_e| error::forbidden("inventory", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -441,12 +432,11 @@ impl GrpcInventoryService for InventoryHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("inventory", "read")]
     async fn query_inventory_logs(
         &self,
         request: Request<InventoryLogQueryRequest>,
     ) -> GrpcResult<InventoryLogListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "read").map_err(|_e| error::forbidden("inventory", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -500,12 +490,11 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
+    #[require_permission("inventory", "read")]
     async fn get_logs_by_product(
         &self,
         request: Request<GetLogsByProductRequest>,
     ) -> GrpcResult<InventoryLogDetailListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "read").map_err(|_e| error::forbidden("inventory", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -542,12 +531,11 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
+    #[require_permission("inventory", "read")]
     async fn get_logs_by_location(
         &self,
         request: Request<GetLogsByLocationRequest>,
     ) -> GrpcResult<InventoryLogDetailListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "read").map_err(|_e| error::forbidden("inventory", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -584,12 +572,11 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
+    #[require_permission("inventory", "read")]
     async fn get_logs_by_warehouse(
         &self,
         request: Request<GetLogsByWarehouseRequest>,
     ) -> GrpcResult<InventoryLogDetailListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("inventory", "read").map_err(|_e| error::forbidden("inventory", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.inventory_service();

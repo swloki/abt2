@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["common", "abt", "abt-grpc"]
+members = ["common", "abt", "abt-grpc", "abt-macros"]
 
 [workspace.dependencies]
 tokio = { version = "1.4", features = ["full"] }

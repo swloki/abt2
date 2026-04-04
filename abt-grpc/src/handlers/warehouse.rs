@@ -4,6 +4,7 @@ use crate::generated::abt::v1::{
 };
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
+use abt_macros::require_permission;
 use crate::interceptors::auth::extract_auth;
 use common::error;
 use tonic::{Request, Response};
@@ -27,9 +28,8 @@ impl Default for WarehouseHandler {
 
 #[tonic::async_trait]
 impl GrpcWarehouseService for WarehouseHandler {
+    #[require_permission("warehouse", "read")]
     async fn list_warehouses(&self, request: Request<Empty>) -> GrpcResult<WarehouseListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "read").map_err(|_e| error::forbidden("warehouse", "read"))?;
 
         let state = AppState::get().await;
         let srv = state.warehouse_service();
@@ -44,12 +44,11 @@ impl GrpcWarehouseService for WarehouseHandler {
         }))
     }
 
+    #[require_permission("warehouse", "read")]
     async fn get_warehouse(
         &self,
         request: Request<GetWarehouseRequest>,
     ) -> GrpcResult<WarehouseResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "read").map_err(|_e| error::forbidden("warehouse", "read"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -64,12 +63,11 @@ impl GrpcWarehouseService for WarehouseHandler {
         Ok(Response::new(warehouse.into()))
     }
 
+    #[require_permission("warehouse", "write")]
     async fn create_warehouse(
         &self,
         request: Request<CreateWarehouseRequest>,
     ) -> GrpcResult<U64Response> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "write").map_err(|_e| error::forbidden("warehouse", "write"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -97,12 +95,11 @@ impl GrpcWarehouseService for WarehouseHandler {
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
+    #[require_permission("warehouse", "write")]
     async fn update_warehouse(
         &self,
         request: Request<UpdateWarehouseRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "write").map_err(|_e| error::forbidden("warehouse", "write"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -130,12 +127,11 @@ impl GrpcWarehouseService for WarehouseHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("warehouse", "write")]
     async fn update_warehouse_status(
         &self,
         request: Request<UpdateWarehouseStatusRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "write").map_err(|_e| error::forbidden("warehouse", "write"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -169,12 +165,11 @@ impl GrpcWarehouseService for WarehouseHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("warehouse", "delete")]
     async fn delete_warehouse(
         &self,
         request: Request<DeleteWarehouseRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("warehouse", "delete").map_err(|_e| error::forbidden("warehouse", "delete"))?;
 
         let req = request.into_inner();
         let state = AppState::get().await;

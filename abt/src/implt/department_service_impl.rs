@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use crate::models::*;
-use crate::repositories::{DepartmentRepo, Executor};
+use crate::repositories::{DepartmentRepo, DepartmentResourceAccessRepo, Executor};
 use crate::service::DepartmentService;
 
 pub struct DepartmentServiceImpl {
@@ -86,6 +86,9 @@ impl DepartmentService for DepartmentServiceImpl {
         let old_dept = DepartmentRepo::find_by_id(self.pool.as_ref(), department_id)
             .await?
             .ok_or_else(|| anyhow!("Department not found"))?;
+        if old_dept.is_default {
+            return Err(anyhow!("Cannot delete the default department"));
+        }
         DepartmentRepo::delete(executor, department_id).await?;
         self.log_audit(
             executor,
@@ -155,5 +158,37 @@ impl DepartmentService for DepartmentServiceImpl {
         )
         .await?;
         Ok(())
+    }
+
+    async fn set_department_resources(
+        &self,
+        _operator_id: Option<i64>,
+        department_id: i64,
+        resource_codes: Vec<String>,
+        executor: Executor<'_>,
+    ) -> Result<Vec<String>> {
+        // Validate department exists and is active (R11c)
+        let dept = DepartmentRepo::find_by_id(self.pool.as_ref(), department_id)
+            .await?
+            .ok_or_else(|| anyhow!("Department not found"))?;
+        if !dept.is_active {
+            return Err(anyhow!("Department is inactive"));
+        }
+
+        // Validate and filter resource codes (R11b)
+        let business_codes = DepartmentResourceAccessRepo::validate_resource_codes(&resource_codes)?;
+
+        // Full overwrite (R11)
+        DepartmentResourceAccessRepo::set_department_resources(executor, department_id, &business_codes).await?;
+
+        Ok(business_codes)
+    }
+
+    async fn get_department_resources(
+        &self,
+        department_id: i64,
+    ) -> Result<Vec<String>> {
+        let codes = DepartmentResourceAccessRepo::get_department_resources(self.pool.as_ref(), department_id).await?;
+        Ok(codes)
     }
 }

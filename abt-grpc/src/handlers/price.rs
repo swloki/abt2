@@ -9,6 +9,7 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
+use abt_macros::require_permission;
 
 use abt::{AllPriceHistoryQuery, PriceHistoryQuery, ProductPriceService};
 use rust_decimal::Decimal;
@@ -25,9 +26,8 @@ impl Default for PriceHandler {
 
 #[tonic::async_trait]
 impl GrpcPriceService for PriceHandler {
+    #[require_permission("price", "read")]
     async fn get_price_history(&self, request: Request<GetPriceHistoryRequest>) -> GrpcResult<PriceHistoryResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("price", "read").map_err(|_e| error::forbidden("price", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.price_service();
@@ -57,9 +57,8 @@ impl GrpcPriceService for PriceHandler {
         }))
     }
 
+    #[require_permission("price", "write")]
     async fn update_price(&self, request: Request<UpdatePriceRequest>) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("price", "write").map_err(|_e| error::forbidden("price", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.price_service();
@@ -83,9 +82,8 @@ impl GrpcPriceService for PriceHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("price", "read")]
     async fn list_all_price_history(&self, request: Request<ListAllPriceHistoryRequest>) -> GrpcResult<AllPriceHistoryResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("price", "read").map_err(|_e| error::forbidden("price", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.price_service();

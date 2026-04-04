@@ -4259,6 +4259,8 @@ pub struct DepartmentResponse {
     pub description: ::prost::alloc::string::String,
     #[prost(bool, tag = "5")]
     pub is_active: bool,
+    #[prost(bool, tag = "6")]
+    pub is_default: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DepartmentListResponse {
@@ -4284,6 +4286,29 @@ pub struct RemoveDepartmentsRequest {
 pub struct GetUserDepartmentsRequest {
     #[prost(int64, tag = "1")]
     pub user_id: i64,
+}
+/// 部门资源访问管理
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SetDepartmentResourcesRequest {
+    #[prost(int64, tag = "1")]
+    pub department_id: i64,
+    #[prost(string, repeated, tag = "2")]
+    pub resource_codes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SetDepartmentResourcesResponse {
+    #[prost(string, repeated, tag = "1")]
+    pub resource_codes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetDepartmentResourcesRequest {
+    #[prost(int64, tag = "1")]
+    pub department_id: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetDepartmentResourcesResponse {
+    #[prost(string, repeated, tag = "1")]
+    pub resource_codes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 /// Generated client implementations.
 pub mod department_service_client {
@@ -4566,6 +4591,59 @@ pub mod department_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// 部门资源访问管理
+        pub async fn set_department_resources(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SetDepartmentResourcesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SetDepartmentResourcesResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.DepartmentService/SetDepartmentResources",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.DepartmentService", "SetDepartmentResources"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_department_resources(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetDepartmentResourcesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetDepartmentResourcesResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.DepartmentService/GetDepartmentResources",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.DepartmentService", "GetDepartmentResources"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -4627,6 +4705,21 @@ pub mod department_service_server {
             request: tonic::Request<super::GetUserDepartmentsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::DepartmentListResponse>,
+            tonic::Status,
+        >;
+        /// 部门资源访问管理
+        async fn set_department_resources(
+            &self,
+            request: tonic::Request<super::SetDepartmentResourcesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SetDepartmentResourcesResponse>,
+            tonic::Status,
+        >;
+        async fn get_department_resources(
+            &self,
+            request: tonic::Request<super::GetDepartmentResourcesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetDepartmentResourcesResponse>,
             tonic::Status,
         >;
     }
@@ -5068,6 +5161,104 @@ pub mod department_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetUserDepartmentsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.DepartmentService/SetDepartmentResources" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetDepartmentResourcesSvc<T: DepartmentService>(pub Arc<T>);
+                    impl<
+                        T: DepartmentService,
+                    > tonic::server::UnaryService<super::SetDepartmentResourcesRequest>
+                    for SetDepartmentResourcesSvc<T> {
+                        type Response = super::SetDepartmentResourcesResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetDepartmentResourcesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as DepartmentService>::set_department_resources(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SetDepartmentResourcesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.DepartmentService/GetDepartmentResources" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetDepartmentResourcesSvc<T: DepartmentService>(pub Arc<T>);
+                    impl<
+                        T: DepartmentService,
+                    > tonic::server::UnaryService<super::GetDepartmentResourcesRequest>
+                    for GetDepartmentResourcesSvc<T> {
+                        type Response = super::GetDepartmentResourcesResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetDepartmentResourcesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as DepartmentService>::get_department_resources(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetDepartmentResourcesSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

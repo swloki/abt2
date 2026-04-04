@@ -65,7 +65,7 @@ impl DepartmentRepo {
             Department,
             r#"
             SELECT department_id, department_name, department_code,
-                   description, is_active, created_at, updated_at
+                   description, is_active, is_default, created_at, updated_at
             FROM departments
             WHERE department_id = $1
             "#,
@@ -82,7 +82,7 @@ impl DepartmentRepo {
             Department,
             r#"
             SELECT department_id, department_name, department_code,
-                   description, is_active, created_at, updated_at
+                   description, is_active, is_default, created_at, updated_at
             FROM departments
             WHERE department_code = $1
             "#,
@@ -100,7 +100,7 @@ impl DepartmentRepo {
                 Department,
                 r#"
                 SELECT department_id, department_name, department_code,
-                       description, is_active, created_at, updated_at
+                       description, is_active, is_default, created_at, updated_at
                 FROM departments
                 ORDER BY department_id
                 "#
@@ -112,7 +112,7 @@ impl DepartmentRepo {
                 Department,
                 r#"
                 SELECT department_id, department_name, department_code,
-                       description, is_active, created_at, updated_at
+                       description, is_active, is_default, created_at, updated_at
                 FROM departments
                 WHERE is_active = true
                 ORDER BY department_id
@@ -130,7 +130,7 @@ impl DepartmentRepo {
             Department,
             r#"
             SELECT d.department_id, d.department_name, d.department_code,
-                   d.description, d.is_active, d.created_at, d.updated_at
+                   d.description, d.is_active, d.is_default, d.created_at, d.updated_at
             FROM departments d
             JOIN user_departments ud ON d.department_id = ud.department_id
             WHERE ud.user_id = $1

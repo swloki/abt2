@@ -49,4 +49,17 @@ pub trait DepartmentService: Send + Sync {
         department_ids: Vec<i64>,
         executor: Executor<'_>,
     ) -> Result<()>;
+
+    async fn set_department_resources(
+        &self,
+        operator_id: Option<i64>,
+        department_id: i64,
+        resource_codes: Vec<String>,
+        executor: Executor<'_>,
+    ) -> Result<Vec<String>>;
+
+    async fn get_department_resources(
+        &self,
+        department_id: i64,
+    ) -> Result<Vec<String>>;
 }

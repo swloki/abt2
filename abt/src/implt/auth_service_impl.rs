@@ -6,7 +6,7 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 
 use crate::models::{Claims, ResourceActionDef};
-use crate::repositories::AuthRepo;
+use crate::repositories::{AuthRepo, DepartmentResourceAccessRepo};
 use crate::service::AuthService;
 
 const SECONDS_PER_HOUR: u64 = 3600;
@@ -95,11 +95,15 @@ impl AuthService for AuthServiceImpl {
             .verify_password(password.as_bytes(), &parsed_hash)
             .map_err(|_| anyhow!("Invalid username or password"))?;
 
-        // 4. 获取权限
+        // 4. 获取权限 (with department filtering)
         let permissions = if user.is_super_admin {
             vec![] // super_admin 不需要 permissions 列表
         } else {
-            AuthRepo::get_user_permission_codes(self.pool.as_ref(), user.user_id).await?
+            let role_perms = AuthRepo::get_user_permission_codes(self.pool.as_ref(), user.user_id).await?;
+            let accessible = DepartmentResourceAccessRepo::resolve_user_accessible_resources(
+                self.pool.as_ref(), user.user_id,
+            ).await.unwrap_or_default();
+            DepartmentResourceAccessRepo::filter_permissions_by_department(role_perms, &accessible)
         };
 
         // 5. 签发 JWT
@@ -137,11 +141,15 @@ impl AuthService for AuthServiceImpl {
             return Err(anyhow!("User account is disabled"));
         }
 
-        // 获取最新权限
+        // 获取最新权限 (with department filtering)
         let permissions = if user.is_super_admin {
             vec![]
         } else {
-            AuthRepo::get_user_permission_codes(self.pool.as_ref(), user.user_id).await?
+            let role_perms = AuthRepo::get_user_permission_codes(self.pool.as_ref(), user.user_id).await?;
+            let accessible = DepartmentResourceAccessRepo::resolve_user_accessible_resources(
+                self.pool.as_ref(), user.user_id,
+            ).await.unwrap_or_default();
+            DepartmentResourceAccessRepo::filter_permissions_by_department(role_perms, &accessible)
         };
 
         // 签发新 token
@@ -174,7 +182,11 @@ impl AuthService for AuthServiceImpl {
         let permissions = if user.is_super_admin {
             vec![]
         } else {
-            AuthRepo::get_user_permission_codes(self.pool.as_ref(), user.user_id).await?
+            let role_perms = AuthRepo::get_user_permission_codes(self.pool.as_ref(), user.user_id).await?;
+            let accessible = DepartmentResourceAccessRepo::resolve_user_accessible_resources(
+                self.pool.as_ref(), user.user_id,
+            ).await.unwrap_or_default();
+            DepartmentResourceAccessRepo::filter_permissions_by_department(role_perms, &accessible)
         };
 
         let display_name = user.display_name.clone().unwrap_or_default();

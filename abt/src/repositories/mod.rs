@@ -5,6 +5,7 @@
 mod auth_repo;
 mod bom_repo;
 mod department_repo;
+mod department_resource_access_repo;
 mod inventory_repo;
 mod labor_process_repo;
 mod location_repo;
@@ -19,6 +20,7 @@ mod warehouse_repo;
 pub use auth_repo::AuthRepo;
 pub use bom_repo::{BomReference, BomRepo, ProductUsageResult};
 pub use department_repo::DepartmentRepo;
+pub use department_resource_access_repo::DepartmentResourceAccessRepo;
 pub use inventory_repo::InventoryRepo;
 pub use labor_process_repo::LaborProcessRepo;
 pub use location_repo::LocationRepo;

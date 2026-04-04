@@ -21,6 +21,7 @@ tokio-stream = "0.1"
 
 # 项目内部
 abt = { path = "../abt" }
+abt-macros = { path = "../abt-macros" }
 common = { path = "../common" }
 
 # Database

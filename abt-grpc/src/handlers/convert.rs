@@ -358,6 +358,7 @@ impl From<abt::Department> for ProtoDepartmentResponse {
             department_code: d.department_code,
             description: d.description.unwrap_or_default(),
             is_active: d.is_active,
+            is_default: d.is_default,
         }
     }
 }

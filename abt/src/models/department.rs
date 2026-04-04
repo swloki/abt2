@@ -9,6 +9,7 @@ pub struct Department {
     pub department_code: String,
     pub description: Option<String>,
     pub is_active: bool,
+    pub is_default: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -21,6 +22,7 @@ impl<'r> FromRow<'r, sqlx::postgres::PgRow> for Department {
             department_code: row.try_get("department_code")?,
             description: row.try_get("description")?,
             is_active: row.try_get("is_active")?,
+            is_default: row.try_get("is_default")?,
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
         })

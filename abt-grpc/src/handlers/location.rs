@@ -9,6 +9,7 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
+use abt_macros::require_permission;
 
 // Import trait to bring methods into scope
 use abt::LocationService;
@@ -30,12 +31,11 @@ impl Default for LocationHandler {
 
 #[tonic::async_trait]
 impl GrpcLocationService for LocationHandler {
+    #[require_permission("location", "read")]
     async fn list_locations_by_warehouse(
         &self,
         request: Request<ListLocationsByWarehouseRequest>,
     ) -> GrpcResult<LocationListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -48,12 +48,11 @@ impl GrpcLocationService for LocationHandler {
         }))
     }
 
+    #[require_permission("location", "read")]
     async fn list_all_locations(
         &self,
         request: Request<Empty>,
     ) -> GrpcResult<LocationWithWarehouseListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let state = AppState::get().await;
         let warehouse_srv = state.warehouse_service();
 
@@ -105,12 +104,11 @@ impl GrpcLocationService for LocationHandler {
         }))
     }
 
+    #[require_permission("location", "read")]
     async fn get_location(
         &self,
         request: Request<GetLocationRequest>,
     ) -> GrpcResult<LocationResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -122,12 +120,11 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(location.into()))
     }
 
+    #[require_permission("location", "write")]
     async fn create_location(
         &self,
         request: Request<CreateLocationRequest>,
     ) -> GrpcResult<U64Response> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("location", "write").map_err(|_e| error::forbidden("location", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -150,12 +147,11 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
+    #[require_permission("location", "write")]
     async fn update_location(
         &self,
         request: Request<UpdateLocationRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("location", "write").map_err(|_e| error::forbidden("location", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -177,12 +173,11 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("location", "delete")]
     async fn delete_location(
         &self,
         request: Request<DeleteLocationRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("location", "delete").map_err(|_e| error::forbidden("location", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -198,12 +193,11 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(BoolResponse { value: deleted }))
     }
 
+    #[require_permission("location", "read")]
     async fn get_warehouse_inventory_stats(
         &self,
         request: Request<GetWarehouseInventoryStatsRequest>,
     ) -> GrpcResult<WarehouseInventoryStatsResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -214,12 +208,11 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(stats.into()))
     }
 
+    #[require_permission("location", "read")]
     async fn get_location_inventory_stats(
         &self,
         request: Request<GetLocationInventoryStatsRequest>,
     ) -> GrpcResult<LocationInventoryStatsResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();
@@ -230,12 +223,11 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(stats.into()))
     }
 
+    #[require_permission("location", "read")]
     async fn list_location_stats_by_warehouse(
         &self,
         request: Request<ListLocationStatsByWarehouseRequest>,
     ) -> GrpcResult<LocationStatsListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("location", "read").map_err(|_e| error::forbidden("location", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.location_service();

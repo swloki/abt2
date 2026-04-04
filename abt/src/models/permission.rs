@@ -10,7 +10,6 @@ pub struct Resource {
     pub group_name: Option<String>,
     pub sort_order: Option<i32>,
     pub description: Option<String>,
-    pub department_id: Option<i64>,
 }
 
 impl<'r> FromRow<'r, sqlx::postgres::PgRow> for Resource {
@@ -22,7 +21,6 @@ impl<'r> FromRow<'r, sqlx::postgres::PgRow> for Resource {
             group_name: row.try_get("group_name")?,
             sort_order: row.try_get("sort_order")?,
             description: row.try_get("description")?,
-            department_id: row.try_get("department_id")?,
         })
     }
 }

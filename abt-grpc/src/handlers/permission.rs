@@ -8,6 +8,7 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
+use abt_macros::require_permission;
 
 use abt::PermissionService;
 
@@ -27,12 +28,11 @@ impl Default for PermissionHandler {
 
 #[tonic::async_trait]
 impl GrpcPermissionService for PermissionHandler {
+    #[require_permission("permission", "read")]
     async fn get_user_permissions(
         &self,
         request: Request<GetUserPermissionsRequest>,
     ) -> GrpcResult<UserPermissionsResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
@@ -61,12 +61,11 @@ impl GrpcPermissionService for PermissionHandler {
         Ok(Response::new(UserPermissionsResponse { permissions }))
     }
 
+    #[require_permission("permission", "read")]
     async fn check_permission(
         &self,
         request: Request<CheckPermissionRequest>,
     ) -> GrpcResult<CheckPermissionResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
@@ -81,12 +80,11 @@ impl GrpcPermissionService for PermissionHandler {
         Ok(Response::new(CheckPermissionResponse { has_permission }))
     }
 
+    #[require_permission("permission", "read")]
     async fn list_resources(
         &self,
         _request: Request<Empty>,
     ) -> GrpcResult<ResourceListResponse> {
-        let auth = extract_auth(&_request)?;
-        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
 
         let all_resources = abt::collect_all_resources();
         let groups = group_resources(&all_resources);
@@ -94,12 +92,11 @@ impl GrpcPermissionService for PermissionHandler {
         Ok(Response::new(ResourceListResponse { groups }))
     }
 
+    #[require_permission("permission", "read")]
     async fn list_user_resources(
         &self,
         request: Request<ListUserResourcesRequest>,
     ) -> GrpcResult<ResourceListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
@@ -120,12 +117,11 @@ impl GrpcPermissionService for PermissionHandler {
         Ok(Response::new(ResourceListResponse { groups }))
     }
 
+    #[require_permission("permission", "read")]
     async fn list_permissions(
         &self,
         _request: Request<Empty>,
     ) -> GrpcResult<PermissionListResponse> {
-        let auth = extract_auth(&_request)?;
-        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
 
         let all_resources = abt::collect_all_resources();
         let groups = group_permissions(&all_resources);
@@ -133,12 +129,11 @@ impl GrpcPermissionService for PermissionHandler {
         Ok(Response::new(PermissionListResponse { groups }))
     }
 
+    #[require_permission("permission", "read")]
     async fn list_audit_logs(
         &self,
         request: Request<ListAuditLogsRequest>,
     ) -> GrpcResult<AuditLogListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("permission", "read").map_err(|_e| error::forbidden("permission", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();

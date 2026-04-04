@@ -8,6 +8,7 @@ use crate::generated::abt::v1::{abt_excel_service_server::AbtExcelService as Grp
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
+use abt_macros::require_permission;
 
 // Import trait to bring methods into scope
 use abt::ProductExcelService;
@@ -28,13 +29,11 @@ impl Default for ExcelHandler {
 
 #[tonic::async_trait]
 impl GrpcExcelService for ExcelHandler {
+    #[require_permission("excel", "write")]
     async fn upload_file(
         &self,
         request: Request<Streaming<UploadFileRequest>>,
     ) -> Result<Response<UploadFileResponse>, tonic::Status> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("excel", "write").map_err(|_e| error::forbidden("excel", "write"))?;
-
         let upload_dir = Path::new("/tmp");
 
         // 确保上传目录存在
@@ -99,12 +98,11 @@ impl GrpcExcelService for ExcelHandler {
         }))
     }
 
+    #[require_permission("excel", "write")]
     async fn import_excel(
         &self,
         request: Request<ImportExcelRequest>,
     ) -> GrpcResult<ImportResultResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("excel", "write").map_err(|_e| error::forbidden("excel", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();
@@ -122,9 +120,8 @@ impl GrpcExcelService for ExcelHandler {
         }))
     }
 
+    #[require_permission("excel", "read")]
     async fn export_excel(&self, request: Request<ExportExcelRequest>) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("excel", "read").map_err(|_e| error::forbidden("excel", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();
@@ -136,9 +133,8 @@ impl GrpcExcelService for ExcelHandler {
         Ok(Response::new(Empty {}))
     }
 
+    #[require_permission("excel", "read")]
     async fn get_progress(&self, request: Request<Empty>) -> GrpcResult<ExcelProgressResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("excel", "read").map_err(|_e| error::forbidden("excel", "read"))?;
         let state = AppState::get().await;
         let srv = state.excel_service();
 
@@ -152,12 +148,11 @@ impl GrpcExcelService for ExcelHandler {
 
     type DownloadExportFileStream = ReceiverStream<Result<DownloadFileResponse, tonic::Status>>;
 
+    #[require_permission("excel", "read")]
     async fn download_export_file(
         &self,
         request: Request<DownloadExportFileRequest>,
     ) -> Result<Response<Self::DownloadExportFileStream>, tonic::Status> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("excel", "read").map_err(|_e| error::forbidden("excel", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.excel_service();

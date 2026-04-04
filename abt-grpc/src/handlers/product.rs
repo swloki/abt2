@@ -2,6 +2,7 @@
 
 use common::error;
 use tonic::{Request, Response};
+use abt_macros::require_permission;
 use crate::generated::abt::v1::{
     abt_product_service_server::AbtProductService as GrpcProductService,
     *,
@@ -29,13 +30,11 @@ impl Default for ProductHandler {
 
 #[tonic::async_trait]
 impl GrpcProductService for ProductHandler {
+    #[require_permission("product", "read")]
     async fn list_products(
         &self,
         request: Request<ListProductsRequest>,
     ) -> GrpcResult<ProductListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("product", "read").map_err(|_e| error::forbidden("product", "read"))?;
-
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -59,13 +58,11 @@ impl GrpcProductService for ProductHandler {
         }))
     }
 
+    #[require_permission("product", "read")]
     async fn get_product(
         &self,
         request: Request<GetProductRequest>,
     ) -> GrpcResult<ProductResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("product", "read").map_err(|_e| error::forbidden("product", "read"))?;
-
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -77,13 +74,11 @@ impl GrpcProductService for ProductHandler {
         Ok(Response::new(product.into()))
     }
 
+    #[require_permission("product", "read")]
     async fn get_products_by_ids(
         &self,
         request: Request<GetProductsByIdsRequest>,
     ) -> GrpcResult<ProductsResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("product", "read").map_err(|_e| error::forbidden("product", "read"))?;
-
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -96,13 +91,11 @@ impl GrpcProductService for ProductHandler {
         }))
     }
 
+    #[require_permission("product", "write")]
     async fn create_product(
         &self,
         request: Request<CreateProductRequest>,
     ) -> GrpcResult<U64Response> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("product", "write").map_err(|_e| error::forbidden("product", "write"))?;
-
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -124,13 +117,11 @@ impl GrpcProductService for ProductHandler {
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
+    #[require_permission("product", "write")]
     async fn update_product(
         &self,
         request: Request<UpdateProductRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("product", "write").map_err(|_e| error::forbidden("product", "write"))?;
-
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -152,13 +143,11 @@ impl GrpcProductService for ProductHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("product", "delete")]
     async fn delete_product(
         &self,
         request: Request<DeleteProductRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("product", "delete").map_err(|_e| error::forbidden("product", "delete"))?;
-
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
@@ -185,13 +174,11 @@ impl GrpcProductService for ProductHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("product", "read")]
     async fn check_product_usage(
         &self,
         request: Request<CheckProductUsageRequest>,
     ) -> GrpcResult<CheckProductUsageResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("product", "read").map_err(|_e| error::forbidden("product", "read"))?;
-
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();

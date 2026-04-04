@@ -4,6 +4,7 @@ use crate::generated::abt::v1::{abt_bom_service_server::AbtBomService as GrpcBom
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
+use abt_macros::require_permission;
 use common::error;
 use std::path::Path;
 use tokio_stream::wrappers::ReceiverStream;
@@ -28,9 +29,8 @@ impl Default for BomHandler {
 
 #[tonic::async_trait]
 impl GrpcBomService for BomHandler {
+    #[require_permission("bom", "read")]
     async fn list_boms(&self, request: Request<ListBomsRequest>) -> GrpcResult<BomListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -56,9 +56,8 @@ impl GrpcBomService for BomHandler {
         }))
     }
 
+    #[require_permission("bom", "read")]
     async fn get_bom(&self, request: Request<GetBomRequest>) -> GrpcResult<BomResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -77,9 +76,8 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(bom.into()))
     }
 
+    #[require_permission("bom", "write")]
     async fn create_bom(&self, request: Request<CreateBomRequest>) -> GrpcResult<U64Response> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -101,9 +99,8 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
+    #[require_permission("bom", "write")]
     async fn update_bom(&self, request: Request<UpdateBomRequest>) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -124,9 +121,8 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("bom", "delete")]
     async fn delete_bom(&self, request: Request<DeleteBomRequest>) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "delete").map_err(|_e| error::forbidden("bom", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -147,9 +143,8 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("bom", "write")]
     async fn save_as_bom(&self, request: Request<SaveAsBomRequest>) -> GrpcResult<U64Response> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -173,12 +168,11 @@ impl GrpcBomService for BomHandler {
         }))
     }
 
+    #[require_permission("bom", "read")]
     async fn get_product_code(
         &self,
         request: Request<GetProductCodeRequest>,
     ) -> GrpcResult<StringResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -200,9 +194,8 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(StringResponse { value: code }))
     }
 
+    #[require_permission("bom", "read")]
     async fn export_bom(&self, request: Request<ExportBomRequest>) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -215,12 +208,11 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("bom", "read")]
     async fn get_leaf_nodes(
         &self,
         request: Request<GetLeafNodesRequest>,
     ) -> GrpcResult<BomNodesResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -240,9 +232,8 @@ impl GrpcBomService for BomHandler {
         }))
     }
 
+    #[require_permission("bom", "write")]
     async fn add_bom_node(&self, request: Request<AddBomNodeRequest>) -> GrpcResult<U64Response> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -279,12 +270,11 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
+    #[require_permission("bom", "write")]
     async fn update_bom_node(
         &self,
         request: Request<UpdateBomNodeRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -317,12 +307,11 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("bom", "delete")]
     async fn delete_bom_node(
         &self,
         request: Request<DeleteBomNodeRequest>,
     ) -> GrpcResult<U64Response> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "delete").map_err(|_e| error::forbidden("bom", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -346,12 +335,11 @@ impl GrpcBomService for BomHandler {
         }))
     }
 
+    #[require_permission("bom", "write")]
     async fn swap_bom_node(
         &self,
         request: Request<SwapBomNodeRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "write").map_err(|_e| error::forbidden("bom", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -372,12 +360,11 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
+    #[require_permission("bom", "read")]
     async fn exists_bom_name(
         &self,
         request: Request<ExistsBomNameRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let srv = AppState::get().await.bom_service();
 
@@ -389,59 +376,53 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(BoolResponse { value: exists }))
     }
 
+    #[require_permission("labor_process", "read")]
     async fn list_labor_processes(
         &self,
         request: Request<ListLaborProcessesRequest>,
     ) -> GrpcResult<BomLaborProcessListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("labor_process", "read").map_err(|_e| error::forbidden("labor_process", "read"))?;
         crate::handlers::labor_process::list_labor_processes_internal(request.into_inner()).await
     }
 
+    #[require_permission("labor_process", "write")]
     async fn create_labor_process(
         &self,
         request: Request<CreateLaborProcessRequest>,
     ) -> GrpcResult<U64Response> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("labor_process", "write").map_err(|_e| error::forbidden("labor_process", "write"))?;
         crate::handlers::labor_process::create_labor_process_internal(request.into_inner()).await
     }
 
+    #[require_permission("labor_process", "write")]
     async fn update_labor_process(
         &self,
         request: Request<UpdateLaborProcessRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("labor_process", "write").map_err(|_e| error::forbidden("labor_process", "write"))?;
         crate::handlers::labor_process::update_labor_process_internal(request.into_inner()).await
     }
 
+    #[require_permission("labor_process", "delete")]
     async fn delete_labor_process(
         &self,
         request: Request<DeleteLaborProcessRequest>,
     ) -> GrpcResult<U64Response> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("labor_process", "delete").map_err(|_e| error::forbidden("labor_process", "delete"))?;
         crate::handlers::labor_process::delete_labor_process_internal(request.into_inner()).await
     }
 
+    #[require_permission("labor_process", "write")]
     async fn import_labor_processes(
         &self,
         request: Request<ImportLaborProcessRequest>,
     ) -> GrpcResult<ImportLaborProcessResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("labor_process", "write").map_err(|_e| error::forbidden("labor_process", "write"))?;
         crate::handlers::labor_process::import_labor_processes_internal(request.into_inner()).await
     }
 
     type DownloadBomStream = ReceiverStream<Result<DownloadFileResponse, tonic::Status>>;
 
+    #[require_permission("bom", "read")]
     async fn download_bom(
         &self,
         request: Request<DownloadBomRequest>,
     ) -> Result<Response<Self::DownloadBomStream>, tonic::Status> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("bom", "read").map_err(|_e| error::forbidden("bom", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();

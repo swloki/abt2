@@ -8,6 +8,7 @@ use crate::generated::abt::v1::{
 };
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
+use abt_macros::require_permission;
 
 use abt::RoleService;
 use crate::interceptors::auth::extract_auth;
@@ -28,12 +29,11 @@ impl Default for RoleHandler {
 
 #[tonic::async_trait]
 impl GrpcRoleService for RoleHandler {
+    #[require_permission("role", "write")]
     async fn create_role(
         &self,
         request: Request<CreateRoleRequest>,
     ) -> GrpcResult<RoleResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("role", "write").map_err(|_e| error::forbidden("role", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -60,12 +60,11 @@ impl GrpcRoleService for RoleHandler {
         Ok(Response::new(role_with_perms.into()))
     }
 
+    #[require_permission("role", "write")]
     async fn update_role(
         &self,
         request: Request<UpdateRoleRequest>,
     ) -> GrpcResult<RoleResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("role", "write").map_err(|_e| error::forbidden("role", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -91,12 +90,11 @@ impl GrpcRoleService for RoleHandler {
         Ok(Response::new(role_with_perms.into()))
     }
 
+    #[require_permission("role", "delete")]
     async fn delete_role(
         &self,
         request: Request<DeleteRoleRequest>,
     ) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("role", "delete").map_err(|_e| error::forbidden("role", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -112,12 +110,11 @@ impl GrpcRoleService for RoleHandler {
         Ok(Response::new(Empty {}))
     }
 
+    #[require_permission("role", "read")]
     async fn get_role(
         &self,
         request: Request<GetRoleRequest>,
     ) -> GrpcResult<RoleResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("role", "read").map_err(|_e| error::forbidden("role", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -129,12 +126,11 @@ impl GrpcRoleService for RoleHandler {
         Ok(Response::new(role_with_perms.into()))
     }
 
+    #[require_permission("role", "read")]
     async fn list_roles(
         &self,
         request: Request<Empty>,
     ) -> GrpcResult<RoleListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("role", "read").map_err(|_e| error::forbidden("role", "read"))?;
         let _req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -147,12 +143,11 @@ impl GrpcRoleService for RoleHandler {
         }))
     }
 
+    #[require_permission("role", "write")]
     async fn assign_permissions(
         &self,
         request: Request<AssignPermissionsRequest>,
     ) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("role", "write").map_err(|_e| error::forbidden("role", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
@@ -171,12 +166,11 @@ impl GrpcRoleService for RoleHandler {
         Ok(Response::new(Empty {}))
     }
 
+    #[require_permission("role", "write")]
     async fn remove_permissions(
         &self,
         request: Request<RemovePermissionsRequest>,
     ) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("role", "write").map_err(|_e| error::forbidden("role", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();

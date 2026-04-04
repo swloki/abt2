@@ -8,6 +8,7 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
+use abt_macros::require_permission;
 use common::error;
 
 use abt::DepartmentService;
@@ -28,12 +29,11 @@ impl Default for DepartmentHandler {
 
 #[tonic::async_trait]
 impl GrpcDepartmentService for DepartmentHandler {
+    #[require_permission("department", "write")]
     async fn create_department(
         &self,
         request: Request<CreateDepartmentRequest>,
     ) -> GrpcResult<DepartmentResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("department", "write").map_err(|_| error::forbidden("department", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
@@ -60,12 +60,11 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(department.into()))
     }
 
+    #[require_permission("department", "write")]
     async fn update_department(
         &self,
         request: Request<UpdateDepartmentRequest>,
     ) -> GrpcResult<DepartmentResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("department", "write").map_err(|_| error::forbidden("department", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
@@ -92,12 +91,11 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(department.into()))
     }
 
+    #[require_permission("department", "delete")]
     async fn delete_department(
         &self,
         request: Request<DeleteDepartmentRequest>,
     ) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("department", "delete").map_err(|_| error::forbidden("department", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
@@ -113,12 +111,11 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(Empty {}))
     }
 
+    #[require_permission("department", "read")]
     async fn get_department(
         &self,
         request: Request<GetDepartmentRequest>,
     ) -> GrpcResult<DepartmentResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("department", "read").map_err(|_| error::forbidden("department", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
@@ -130,12 +127,11 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(department.into()))
     }
 
+    #[require_permission("department", "read")]
     async fn list_departments(
         &self,
         request: Request<ListDepartmentsRequest>,
     ) -> GrpcResult<DepartmentListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("department", "read").map_err(|_| error::forbidden("department", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
@@ -148,12 +144,11 @@ impl GrpcDepartmentService for DepartmentHandler {
         }))
     }
 
+    #[require_permission("department", "write")]
     async fn assign_departments(
         &self,
         request: Request<AssignDepartmentsRequest>,
     ) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("department", "write").map_err(|_| error::forbidden("department", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
@@ -169,12 +164,11 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(Empty {}))
     }
 
+    #[require_permission("department", "write")]
     async fn remove_departments(
         &self,
         request: Request<RemoveDepartmentsRequest>,
     ) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("department", "write").map_err(|_| error::forbidden("department", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
@@ -190,12 +184,11 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(Empty {}))
     }
 
+    #[require_permission("department", "read")]
     async fn get_user_departments(
         &self,
         request: Request<GetUserDepartmentsRequest>,
     ) -> GrpcResult<DepartmentListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("department", "read").map_err(|_| error::forbidden("department", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
@@ -205,6 +198,52 @@ impl GrpcDepartmentService for DepartmentHandler {
 
         Ok(Response::new(DepartmentListResponse {
             departments: departments.into_iter().map(|d| d.into()).collect(),
+        }))
+    }
+
+    #[require_permission("department", "write")]
+    async fn set_department_resources(
+        &self,
+        request: Request<SetDepartmentResourcesRequest>,
+    ) -> GrpcResult<SetDepartmentResourcesResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.department_service();
+
+        let mut tx = state.begin_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let stored_codes = srv.set_department_resources(
+            Some(auth.user_id),
+            req.department_id,
+            req.resource_codes,
+            &mut tx,
+        )
+        .await
+        .map_err(error::err_to_status)?;
+
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+
+        Ok(Response::new(SetDepartmentResourcesResponse {
+            resource_codes: stored_codes,
+        }))
+    }
+
+    #[require_permission("department", "read")]
+    async fn get_department_resources(
+        &self,
+        request: Request<GetDepartmentResourcesRequest>,
+    ) -> GrpcResult<GetDepartmentResourcesResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.department_service();
+
+        let codes = srv.get_department_resources(req.department_id)
+            .await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(GetDepartmentResourcesResponse {
+            resource_codes: codes,
         }))
     }
 }

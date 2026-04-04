@@ -3,6 +3,7 @@
 use crate::generated::abt::v1::{user_service_server::UserService as GrpcUserService, *};
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
+use abt_macros::require_permission;
 use common::error;
 use tonic::{Request, Response};
 
@@ -25,9 +26,8 @@ impl Default for UserHandler {
 
 #[tonic::async_trait]
 impl GrpcUserService for UserHandler {
+    #[require_permission("user", "write")]
     async fn create_user(&self, request: Request<CreateUserRequest>) -> GrpcResult<UserResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("user", "write").map_err(|_e| error::forbidden("user", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -67,9 +67,8 @@ impl GrpcUserService for UserHandler {
         Ok(Response::new(user_with_roles.into()))
     }
 
+    #[require_permission("user", "write")]
     async fn update_user(&self, request: Request<UpdateUserRequest>) -> GrpcResult<UserResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("user", "write").map_err(|_e| error::forbidden("user", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -106,9 +105,8 @@ impl GrpcUserService for UserHandler {
         Ok(Response::new(user_with_roles.into()))
     }
 
+    #[require_permission("user", "delete")]
     async fn delete_user(&self, request: Request<DeleteUserRequest>) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("user", "delete").map_err(|_e| error::forbidden("user", "delete"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -129,9 +127,8 @@ impl GrpcUserService for UserHandler {
         Ok(Response::new(Empty {}))
     }
 
+    #[require_permission("user", "read")]
     async fn get_user(&self, request: Request<GetUserRequest>) -> GrpcResult<UserResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("user", "read").map_err(|_e| error::forbidden("user", "read"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -145,9 +142,8 @@ impl GrpcUserService for UserHandler {
         Ok(Response::new(user_with_roles.into()))
     }
 
+    #[require_permission("user", "read")]
     async fn list_users(&self, request: Request<Empty>) -> GrpcResult<UserListResponse> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("user", "read").map_err(|_e| error::forbidden("user", "read"))?;
         let state = AppState::get().await;
         let srv = state.user_service();
 
@@ -161,9 +157,8 @@ impl GrpcUserService for UserHandler {
         }))
     }
 
+    #[require_permission("user", "write")]
     async fn assign_roles(&self, request: Request<AssignRolesRequest>) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("user", "write").map_err(|_e| error::forbidden("user", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -184,9 +179,8 @@ impl GrpcUserService for UserHandler {
         Ok(Response::new(Empty {}))
     }
 
+    #[require_permission("user", "write")]
     async fn remove_roles(&self, request: Request<RemoveRolesRequest>) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("user", "write").map_err(|_e| error::forbidden("user", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();
@@ -207,12 +201,11 @@ impl GrpcUserService for UserHandler {
         Ok(Response::new(Empty {}))
     }
 
+    #[require_permission("user", "write")]
     async fn batch_assign_roles(
         &self,
         request: Request<BatchAssignRolesRequest>,
     ) -> GrpcResult<Empty> {
-        let auth = extract_auth(&request)?;
-        auth.check_permission("user", "write").map_err(|_e| error::forbidden("user", "write"))?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.user_service();

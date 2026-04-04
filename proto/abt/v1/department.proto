@@ -16,6 +16,10 @@ service DepartmentService {
     rpc AssignDepartments(AssignDepartmentsRequest) returns (Empty);
     rpc RemoveDepartments(RemoveDepartmentsRequest) returns (Empty);
     rpc GetUserDepartments(GetUserDepartmentsRequest) returns (DepartmentListResponse);
+
+    // 部门资源访问管理
+    rpc SetDepartmentResources(SetDepartmentResourcesRequest) returns (SetDepartmentResourcesResponse);
+    rpc GetDepartmentResources(GetDepartmentResourcesRequest) returns (GetDepartmentResourcesResponse);
 }
 
 message CreateDepartmentRequest {
@@ -49,6 +53,7 @@ message DepartmentResponse {
     string department_code = 3;
     string description = 4;
     bool is_active = 5;
+    bool is_default = 6;
 }
 
 message DepartmentListResponse {
@@ -68,4 +73,22 @@ message RemoveDepartmentsRequest {
 
 message GetUserDepartmentsRequest {
     int64 user_id = 1;
+}
+
+// 部门资源访问管理
+message SetDepartmentResourcesRequest {
+    int64 department_id = 1;
+    repeated string resource_codes = 2;
+}
+
+message SetDepartmentResourcesResponse {
+    repeated string resource_codes = 1;
+}
+
+message GetDepartmentResourcesRequest {
+    int64 department_id = 1;
+}
+
+message GetDepartmentResourcesResponse {
+    repeated string resource_codes = 1;
 }

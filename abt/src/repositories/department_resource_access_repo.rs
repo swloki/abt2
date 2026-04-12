@@ -110,11 +110,10 @@ impl DepartmentResourceAccessRepo {
         let mut dept_ids = DepartmentRepo::get_user_department_ids(pool, user_id).await?;
 
         // 2. Fallback to default department if no memberships (R6)
-        if dept_ids.is_empty() {
-            if let Some(default_id) = Self::get_default_department_id(pool).await? {
+        if dept_ids.is_empty()
+            && let Some(default_id) = Self::get_default_department_id(pool).await? {
                 dept_ids = vec![default_id];
             }
-        }
 
         // 3. Fail-closed if still no departments (R5b)
         if dept_ids.is_empty() {

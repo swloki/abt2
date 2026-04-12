@@ -35,6 +35,4 @@ sshpass -p $SSH_PASSWORD  rsync -avz  $MONITOR_DIR "$TARGET_USER@$TARGET_HOST:$T
 # TARGET_DIR="/data/cnstrip/dist/"
 # sshpass -p $SSH_PASSWORD  rsync -avz  $MONITOR_DIR "$TARGET_USER@$TARGET_HOST:$TARGET_DIR"
 
-
-
 sshpass -p $SSH_PASSWORD ssh $TARGET_USER@$TARGET_HOST "sshpass -p chenxi,,0514 sudo docker restart abt2-grpc"

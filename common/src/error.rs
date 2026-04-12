@@ -85,7 +85,7 @@ pub fn not_found(resource_type: &str, resource_name: &str) -> tonic::Status {
     tracing::warn!("Not found: {} {}", resource_type, resource_name);
     tonic::Status::with_error_details(
         Code::NotFound,
-        &format!("{} not found", resource_type),
+        format!("{} not found", resource_type),
         details,
     )
 }
@@ -109,7 +109,7 @@ pub fn conflict(resource: &str, field: &str, value: &str) -> tonic::Status {
     tracing::warn!("Conflict: {} {}='{}'", resource, field, value);
     tonic::Status::with_error_details(
         Code::AlreadyExists,
-        &format!("{} already exists", resource),
+        format!("{} already exists", resource),
         details,
     )
 }
@@ -132,7 +132,7 @@ pub fn forbidden(resource: &str, action: &str) -> tonic::Status {
     tracing::warn!("Forbidden: {} {}", resource, action);
     tonic::Status::with_error_details(
         Code::PermissionDenied,
-        &format!("No permission to {} {}", action, resource),
+        format!("No permission to {} {}", action, resource),
         details,
     )
 }

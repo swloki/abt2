@@ -5,6 +5,30 @@ option go_package = "abt/v1";
 
 import "abt/v1/base.proto";
 
+// 权限资源枚举
+enum Resource {
+  PRODUCT = 0;
+  TERM = 1;
+  BOM = 2;
+  WAREHOUSE = 3;
+  LOCATION = 4;
+  INVENTORY = 5;
+  PRICE = 6;
+  LABOR_PROCESS = 7;
+  USER = 8;
+  ROLE = 9;
+  PERMISSION = 10;
+  DEPARTMENT = 11;
+  EXCEL = 12;
+}
+
+// 权限操作枚举
+enum Action {
+  READ = 0;
+  WRITE = 1;
+  DELETE = 2;
+}
+
 service PermissionService {
     rpc GetUserPermissions(GetUserPermissionsRequest) returns (UserPermissionsResponse);
     rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);

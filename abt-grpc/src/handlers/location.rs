@@ -10,6 +10,7 @@ use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
+use crate::permissions::PermissionCode;
 
 // Import trait to bring methods into scope
 use abt::LocationService;
@@ -31,7 +32,7 @@ impl Default for LocationHandler {
 
 #[tonic::async_trait]
 impl GrpcLocationService for LocationHandler {
-    #[require_permission("location", "read")]
+    #[require_permission(Resource::Location, Action::Read)]
     async fn list_locations_by_warehouse(
         &self,
         request: Request<ListLocationsByWarehouseRequest>,
@@ -48,10 +49,10 @@ impl GrpcLocationService for LocationHandler {
         }))
     }
 
-    #[require_permission("location", "read")]
+    #[require_permission(Resource::Location, Action::Read)]
     async fn list_all_locations(
         &self,
-        request: Request<Empty>,
+        _request: Request<Empty>,
     ) -> GrpcResult<LocationWithWarehouseListResponse> {
         let state = AppState::get().await;
         let warehouse_srv = state.warehouse_service();
@@ -104,7 +105,7 @@ impl GrpcLocationService for LocationHandler {
         }))
     }
 
-    #[require_permission("location", "read")]
+    #[require_permission(Resource::Location, Action::Read)]
     async fn get_location(
         &self,
         request: Request<GetLocationRequest>,
@@ -120,7 +121,7 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(location.into()))
     }
 
-    #[require_permission("location", "write")]
+    #[require_permission(Resource::Location, Action::Write)]
     async fn create_location(
         &self,
         request: Request<CreateLocationRequest>,
@@ -147,7 +148,7 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
-    #[require_permission("location", "write")]
+    #[require_permission(Resource::Location, Action::Write)]
     async fn update_location(
         &self,
         request: Request<UpdateLocationRequest>,
@@ -173,7 +174,7 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
-    #[require_permission("location", "delete")]
+    #[require_permission(Resource::Location, Action::Delete)]
     async fn delete_location(
         &self,
         request: Request<DeleteLocationRequest>,
@@ -193,7 +194,7 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(BoolResponse { value: deleted }))
     }
 
-    #[require_permission("location", "read")]
+    #[require_permission(Resource::Location, Action::Read)]
     async fn get_warehouse_inventory_stats(
         &self,
         request: Request<GetWarehouseInventoryStatsRequest>,
@@ -208,7 +209,7 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(stats.into()))
     }
 
-    #[require_permission("location", "read")]
+    #[require_permission(Resource::Location, Action::Read)]
     async fn get_location_inventory_stats(
         &self,
         request: Request<GetLocationInventoryStatsRequest>,
@@ -223,7 +224,7 @@ impl GrpcLocationService for LocationHandler {
         Ok(Response::new(stats.into()))
     }
 
-    #[require_permission("location", "read")]
+    #[require_permission(Resource::Location, Action::Read)]
     async fn list_location_stats_by_warehouse(
         &self,
         request: Request<ListLocationStatsByWarehouseRequest>,

@@ -3,6 +3,7 @@
 use common::error;
 use tonic::{Request, Response};
 use abt_macros::require_permission;
+use crate::permissions::PermissionCode;
 use crate::generated::abt::v1::{
     abt_product_service_server::AbtProductService as GrpcProductService,
     *,
@@ -30,7 +31,7 @@ impl Default for ProductHandler {
 
 #[tonic::async_trait]
 impl GrpcProductService for ProductHandler {
-    #[require_permission("product", "read")]
+    #[require_permission(Resource::Product, Action::Read)]
     async fn list_products(
         &self,
         request: Request<ListProductsRequest>,
@@ -58,7 +59,7 @@ impl GrpcProductService for ProductHandler {
         }))
     }
 
-    #[require_permission("product", "read")]
+    #[require_permission(Resource::Product, Action::Read)]
     async fn get_product(
         &self,
         request: Request<GetProductRequest>,
@@ -74,7 +75,7 @@ impl GrpcProductService for ProductHandler {
         Ok(Response::new(product.into()))
     }
 
-    #[require_permission("product", "read")]
+    #[require_permission(Resource::Product, Action::Read)]
     async fn get_products_by_ids(
         &self,
         request: Request<GetProductsByIdsRequest>,
@@ -91,7 +92,7 @@ impl GrpcProductService for ProductHandler {
         }))
     }
 
-    #[require_permission("product", "write")]
+    #[require_permission(Resource::Product, Action::Write)]
     async fn create_product(
         &self,
         request: Request<CreateProductRequest>,
@@ -117,7 +118,7 @@ impl GrpcProductService for ProductHandler {
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
-    #[require_permission("product", "write")]
+    #[require_permission(Resource::Product, Action::Write)]
     async fn update_product(
         &self,
         request: Request<UpdateProductRequest>,
@@ -143,7 +144,7 @@ impl GrpcProductService for ProductHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
-    #[require_permission("product", "delete")]
+    #[require_permission(Resource::Product, Action::Delete)]
     async fn delete_product(
         &self,
         request: Request<DeleteProductRequest>,
@@ -174,7 +175,7 @@ impl GrpcProductService for ProductHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
-    #[require_permission("product", "read")]
+    #[require_permission(Resource::Product, Action::Read)]
     async fn check_product_usage(
         &self,
         request: Request<CheckProductUsageRequest>,

@@ -9,6 +9,7 @@ use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
+use crate::permissions::PermissionCode;
 
 // Import trait to bring methods into scope
 use abt::ProductExcelService;
@@ -29,7 +30,7 @@ impl Default for ExcelHandler {
 
 #[tonic::async_trait]
 impl GrpcExcelService for ExcelHandler {
-    #[require_permission("excel", "write")]
+    #[require_permission(Resource::Excel, Action::Write)]
     async fn upload_file(
         &self,
         request: Request<Streaming<UploadFileRequest>>,
@@ -98,7 +99,7 @@ impl GrpcExcelService for ExcelHandler {
         }))
     }
 
-    #[require_permission("excel", "write")]
+    #[require_permission(Resource::Excel, Action::Write)]
     async fn import_excel(
         &self,
         request: Request<ImportExcelRequest>,
@@ -120,7 +121,7 @@ impl GrpcExcelService for ExcelHandler {
         }))
     }
 
-    #[require_permission("excel", "read")]
+    #[require_permission(Resource::Excel, Action::Read)]
     async fn export_excel(&self, request: Request<ExportExcelRequest>) -> GrpcResult<Empty> {
         let req = request.into_inner();
         let state = AppState::get().await;
@@ -133,8 +134,8 @@ impl GrpcExcelService for ExcelHandler {
         Ok(Response::new(Empty {}))
     }
 
-    #[require_permission("excel", "read")]
-    async fn get_progress(&self, request: Request<Empty>) -> GrpcResult<ExcelProgressResponse> {
+    #[require_permission(Resource::Excel, Action::Read)]
+    async fn get_progress(&self, _request: Request<Empty>) -> GrpcResult<ExcelProgressResponse> {
         let state = AppState::get().await;
         let srv = state.excel_service();
 
@@ -148,7 +149,7 @@ impl GrpcExcelService for ExcelHandler {
 
     type DownloadExportFileStream = ReceiverStream<Result<DownloadFileResponse, tonic::Status>>;
 
-    #[require_permission("excel", "read")]
+    #[require_permission(Resource::Excel, Action::Read)]
     async fn download_export_file(
         &self,
         request: Request<DownloadExportFileRequest>,

@@ -11,7 +11,7 @@ mod labor_process;
 mod location;
 mod permission;
 mod product;
-mod resources;
+pub mod resources;
 mod role;
 mod term;
 mod user;

@@ -7,6 +7,7 @@ use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
+use crate::permissions::PermissionCode;
 use common::error;
 use tonic::{Request, Response};
 
@@ -113,7 +114,7 @@ fn to_abt_safety_stock_req(req: SetSafetyStockRequest) -> AbtSetSafetyStockReque
 
 #[tonic::async_trait]
 impl GrpcInventoryService for InventoryHandler {
-    #[require_permission("inventory", "write")]
+    #[require_permission(Resource::Inventory, Action::Write)]
     async fn stock_in(
         &self,
         request: Request<StockChangeRequest>,
@@ -141,7 +142,7 @@ impl GrpcInventoryService for InventoryHandler {
         Ok(Response::new(to_proto_log_response(log)))
     }
 
-    #[require_permission("inventory", "write")]
+    #[require_permission(Resource::Inventory, Action::Write)]
     async fn stock_out(
         &self,
         request: Request<StockChangeRequest>,
@@ -169,7 +170,7 @@ impl GrpcInventoryService for InventoryHandler {
         Ok(Response::new(to_proto_log_response(log)))
     }
 
-    #[require_permission("inventory", "write")]
+    #[require_permission(Resource::Inventory, Action::Write)]
     async fn adjust_stock(
         &self,
         request: Request<StockChangeRequest>,
@@ -197,7 +198,7 @@ impl GrpcInventoryService for InventoryHandler {
         Ok(Response::new(to_proto_log_response(log)))
     }
 
-    #[require_permission("inventory", "write")]
+    #[require_permission(Resource::Inventory, Action::Write)]
     async fn set_quantity(
         &self,
         request: Request<StockChangeRequest>,
@@ -225,7 +226,7 @@ impl GrpcInventoryService for InventoryHandler {
         Ok(Response::new(to_proto_log_response(log)))
     }
 
-    #[require_permission("inventory", "write")]
+    #[require_permission(Resource::Inventory, Action::Write)]
     async fn transfer_stock(
         &self,
         request: Request<StockTransferRequest>,
@@ -260,7 +261,7 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
-    #[require_permission("inventory", "read")]
+    #[require_permission(Resource::Inventory, Action::Read)]
     async fn query_inventory(
         &self,
         request: Request<InventoryQueryRequest>,
@@ -308,7 +309,7 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
-    #[require_permission("inventory", "read")]
+    #[require_permission(Resource::Inventory, Action::Read)]
     async fn get_inventory_by_product(
         &self,
         request: Request<GetInventoryByProductRequest>,
@@ -341,7 +342,7 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
-    #[require_permission("inventory", "read")]
+    #[require_permission(Resource::Inventory, Action::Read)]
     async fn get_inventory_by_location(
         &self,
         request: Request<GetInventoryByLocationRequest>,
@@ -374,10 +375,10 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
-    #[require_permission("inventory", "read")]
+    #[require_permission(Resource::Inventory, Action::Read)]
     async fn get_low_stock_alert(
         &self,
-        request: Request<Empty>,
+        _request: Request<Empty>,
     ) -> GrpcResult<InventoryDetailListResponse> {
         let state = AppState::get().await;
         let srv = state.inventory_service();
@@ -406,7 +407,7 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
-    #[require_permission("inventory", "write")]
+    #[require_permission(Resource::Inventory, Action::Write)]
     async fn set_safety_stock(
         &self,
         request: Request<SetSafetyStockRequest>,
@@ -432,7 +433,7 @@ impl GrpcInventoryService for InventoryHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
-    #[require_permission("inventory", "read")]
+    #[require_permission(Resource::Inventory, Action::Read)]
     async fn query_inventory_logs(
         &self,
         request: Request<InventoryLogQueryRequest>,
@@ -490,7 +491,7 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
-    #[require_permission("inventory", "read")]
+    #[require_permission(Resource::Inventory, Action::Read)]
     async fn get_logs_by_product(
         &self,
         request: Request<GetLogsByProductRequest>,
@@ -531,7 +532,7 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
-    #[require_permission("inventory", "read")]
+    #[require_permission(Resource::Inventory, Action::Read)]
     async fn get_logs_by_location(
         &self,
         request: Request<GetLogsByLocationRequest>,
@@ -572,7 +573,7 @@ impl GrpcInventoryService for InventoryHandler {
         }))
     }
 
-    #[require_permission("inventory", "read")]
+    #[require_permission(Resource::Inventory, Action::Read)]
     async fn get_logs_by_warehouse(
         &self,
         request: Request<GetLogsByWarehouseRequest>,

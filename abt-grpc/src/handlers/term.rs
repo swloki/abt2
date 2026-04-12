@@ -10,6 +10,7 @@ use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
+use crate::permissions::PermissionCode;
 
 // Import trait to bring methods into scope
 use abt::TermService;
@@ -30,7 +31,7 @@ impl Default for TermHandler {
 
 #[tonic::async_trait]
 impl GrpcTermService for TermHandler {
-    #[require_permission("term", "read")]
+    #[require_permission(Resource::Term, Action::Read)]
     async fn get_term_tree(
         &self,
         request: Request<GetTermTreeRequest>,
@@ -47,7 +48,7 @@ impl GrpcTermService for TermHandler {
         }))
     }
 
-    #[require_permission("term", "read")]
+    #[require_permission(Resource::Term, Action::Read)]
     async fn list_terms(
         &self,
         request: Request<ListTermsRequest>,
@@ -64,7 +65,7 @@ impl GrpcTermService for TermHandler {
         }))
     }
 
-    #[require_permission("term", "read")]
+    #[require_permission(Resource::Term, Action::Read)]
     async fn get_term_children(
         &self,
         request: Request<GetTermChildrenRequest>,
@@ -81,7 +82,7 @@ impl GrpcTermService for TermHandler {
         }))
     }
 
-    #[require_permission("term", "write")]
+    #[require_permission(Resource::Term, Action::Write)]
     async fn create_term(
         &self,
         request: Request<CreateTermRequest>,
@@ -107,7 +108,7 @@ impl GrpcTermService for TermHandler {
         Ok(Response::new(U64Response { value: id as u64 }))
     }
 
-    #[require_permission("term", "write")]
+    #[require_permission(Resource::Term, Action::Write)]
     async fn update_term(
         &self,
         request: Request<UpdateTermRequest>,
@@ -131,7 +132,7 @@ impl GrpcTermService for TermHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
-    #[require_permission("term", "delete")]
+    #[require_permission(Resource::Term, Action::Delete)]
     async fn delete_term(
         &self,
         request: Request<DeleteTermRequest>,

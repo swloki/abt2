@@ -8092,6 +8092,96 @@ pub struct ResourceInfo {
     #[prost(string, tag = "4")]
     pub group_name: ::prost::alloc::string::String,
 }
+/// 权限资源枚举
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Resource {
+    Product = 0,
+    Term = 1,
+    Bom = 2,
+    Warehouse = 3,
+    Location = 4,
+    Inventory = 5,
+    Price = 6,
+    LaborProcess = 7,
+    User = 8,
+    Role = 9,
+    Permission = 10,
+    Department = 11,
+    Excel = 12,
+}
+impl Resource {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Product => "PRODUCT",
+            Self::Term => "TERM",
+            Self::Bom => "BOM",
+            Self::Warehouse => "WAREHOUSE",
+            Self::Location => "LOCATION",
+            Self::Inventory => "INVENTORY",
+            Self::Price => "PRICE",
+            Self::LaborProcess => "LABOR_PROCESS",
+            Self::User => "USER",
+            Self::Role => "ROLE",
+            Self::Permission => "PERMISSION",
+            Self::Department => "DEPARTMENT",
+            Self::Excel => "EXCEL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PRODUCT" => Some(Self::Product),
+            "TERM" => Some(Self::Term),
+            "BOM" => Some(Self::Bom),
+            "WAREHOUSE" => Some(Self::Warehouse),
+            "LOCATION" => Some(Self::Location),
+            "INVENTORY" => Some(Self::Inventory),
+            "PRICE" => Some(Self::Price),
+            "LABOR_PROCESS" => Some(Self::LaborProcess),
+            "USER" => Some(Self::User),
+            "ROLE" => Some(Self::Role),
+            "PERMISSION" => Some(Self::Permission),
+            "DEPARTMENT" => Some(Self::Department),
+            "EXCEL" => Some(Self::Excel),
+            _ => None,
+        }
+    }
+}
+/// 权限操作枚举
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Action {
+    Read = 0,
+    Write = 1,
+    Delete = 2,
+}
+impl Action {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Read => "READ",
+            Self::Write => "WRITE",
+            Self::Delete => "DELETE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "READ" => Some(Self::Read),
+            "WRITE" => Some(Self::Write),
+            "DELETE" => Some(Self::Delete),
+            _ => None,
+        }
+    }
+}
 /// Generated client implementations.
 pub mod permission_service_client {
     #![allow(

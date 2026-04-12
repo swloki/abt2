@@ -2,29 +2,32 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse::Parser, parse_macro_input, parse_quote, Expr, ExprCall, FnArg, ItemFn, LitStr, PatType, Stmt};
+use syn::{parse::Parser, parse_macro_input, parse_quote, Expr, ExprCall, FnArg, ItemFn, PatType, Stmt};
 
 /// Attribute macro that generates auth extraction and permission check boilerplate.
+///
+/// Accepts two enum path arguments: `#[require_permission(Resource::Warehouse, Action::Read)]`
+/// The compiler validates that the enum variants exist at the call site.
 ///
 /// Works correctly with `#[tonic::async_trait]` on the impl block by detecting
 /// the `Box::pin(async move { ... })` transformation and prepending inside the async block.
 #[proc_macro_attribute]
 pub fn require_permission(attr: TokenStream, item: TokenStream) -> TokenStream {
-    // Parse two comma-separated string literal arguments
-    let args_parsed = syn::punctuated::Punctuated::<LitStr, syn::Token![,]>::parse_terminated
+    // Parse two comma-separated path expressions (enum variants)
+    let args_parsed = syn::punctuated::Punctuated::<Expr, syn::Token![,]>::parse_terminated
         .parse2(attr.into())
         .unwrap_or_else(|e| {
             panic!(
-                "#[require_permission] expects two string literal arguments: \"resource\", \"action\".\nError: {}",
+                "#[require_permission] expects two enum path arguments: Resource::X, Action::Y.\nError: {}",
                 e
             )
         });
 
-    let args: Vec<LitStr> = args_parsed.into_iter().collect();
+    let args: Vec<Expr> = args_parsed.into_iter().collect();
 
     if args.len() != 2 {
         panic!(
-            "#[require_permission] expects exactly two string literal arguments (resource, action), got {}",
+            "#[require_permission] expects exactly two arguments (Resource::X, Action::Y), got {}",
             args.len()
         );
     }
@@ -45,15 +48,12 @@ pub fn require_permission(attr: TokenStream, item: TokenStream) -> TokenStream {
             )
         });
 
-    let resource_val = resource.value();
-    let action_val = action.value();
-
     let auth_stmt: Stmt = parse_quote! {
         #[allow(unused_variables)]
         let auth = extract_auth(&#request_ident)?;
     };
     let check_stmt: Stmt = parse_quote! {
-        auth.check_permission(#resource_val, #action_val).map_err(|_e| error::forbidden(#resource_val, #action_val))?;
+        auth.check_permission(#resource.code(), #action.code()).map_err(|_e| error::forbidden(#resource.code(), #action.code()))?;
     };
 
     let stmts_to_prepend = vec![auth_stmt, check_stmt];
@@ -64,7 +64,7 @@ pub fn require_permission(attr: TokenStream, item: TokenStream) -> TokenStream {
     } else {
         // Normal case: prepend directly to function body (original async fn)
         let mut new_stmts = stmts_to_prepend;
-        new_stmts.extend(func.block.stmts.drain(..));
+        new_stmts.append(&mut func.block.stmts);
         func.block.stmts = new_stmts;
     }
 
@@ -100,7 +100,7 @@ fn prepend_inside_async_block(stmts: &mut Vec<Stmt>, to_prepend: Vec<Stmt>) -> b
 
     // Prepend statements to the async block
     let mut new_stmts = to_prepend;
-    new_stmts.extend(async_expr.block.stmts.drain(..));
+    new_stmts.append(&mut async_expr.block.stmts);
     async_expr.block.stmts = new_stmts;
 
     true

@@ -9,6 +9,7 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
 use abt_macros::require_permission;
+use crate::permissions::PermissionCode;
 
 use abt::RoleService;
 use crate::interceptors::auth::extract_auth;
@@ -29,7 +30,7 @@ impl Default for RoleHandler {
 
 #[tonic::async_trait]
 impl GrpcRoleService for RoleHandler {
-    #[require_permission("role", "write")]
+    #[require_permission(Resource::Role, Action::Write)]
     async fn create_role(
         &self,
         request: Request<CreateRoleRequest>,
@@ -60,7 +61,7 @@ impl GrpcRoleService for RoleHandler {
         Ok(Response::new(role_with_perms.into()))
     }
 
-    #[require_permission("role", "write")]
+    #[require_permission(Resource::Role, Action::Write)]
     async fn update_role(
         &self,
         request: Request<UpdateRoleRequest>,
@@ -90,7 +91,7 @@ impl GrpcRoleService for RoleHandler {
         Ok(Response::new(role_with_perms.into()))
     }
 
-    #[require_permission("role", "delete")]
+    #[require_permission(Resource::Role, Action::Delete)]
     async fn delete_role(
         &self,
         request: Request<DeleteRoleRequest>,
@@ -110,7 +111,7 @@ impl GrpcRoleService for RoleHandler {
         Ok(Response::new(Empty {}))
     }
 
-    #[require_permission("role", "read")]
+    #[require_permission(Resource::Role, Action::Read)]
     async fn get_role(
         &self,
         request: Request<GetRoleRequest>,
@@ -126,7 +127,7 @@ impl GrpcRoleService for RoleHandler {
         Ok(Response::new(role_with_perms.into()))
     }
 
-    #[require_permission("role", "read")]
+    #[require_permission(Resource::Role, Action::Read)]
     async fn list_roles(
         &self,
         request: Request<Empty>,
@@ -143,7 +144,7 @@ impl GrpcRoleService for RoleHandler {
         }))
     }
 
-    #[require_permission("role", "write")]
+    #[require_permission(Resource::Role, Action::Write)]
     async fn assign_permissions(
         &self,
         request: Request<AssignPermissionsRequest>,
@@ -166,7 +167,7 @@ impl GrpcRoleService for RoleHandler {
         Ok(Response::new(Empty {}))
     }
 
-    #[require_permission("role", "write")]
+    #[require_permission(Resource::Role, Action::Write)]
     async fn remove_permissions(
         &self,
         request: Request<RemovePermissionsRequest>,

@@ -9,6 +9,7 @@ use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
+use crate::permissions::PermissionCode;
 use common::error;
 
 use abt::DepartmentService;
@@ -29,7 +30,7 @@ impl Default for DepartmentHandler {
 
 #[tonic::async_trait]
 impl GrpcDepartmentService for DepartmentHandler {
-    #[require_permission("department", "write")]
+    #[require_permission(Resource::Department, Action::Write)]
     async fn create_department(
         &self,
         request: Request<CreateDepartmentRequest>,
@@ -60,7 +61,7 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(department.into()))
     }
 
-    #[require_permission("department", "write")]
+    #[require_permission(Resource::Department, Action::Write)]
     async fn update_department(
         &self,
         request: Request<UpdateDepartmentRequest>,
@@ -91,7 +92,7 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(department.into()))
     }
 
-    #[require_permission("department", "delete")]
+    #[require_permission(Resource::Department, Action::Delete)]
     async fn delete_department(
         &self,
         request: Request<DeleteDepartmentRequest>,
@@ -111,7 +112,7 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(Empty {}))
     }
 
-    #[require_permission("department", "read")]
+    #[require_permission(Resource::Department, Action::Read)]
     async fn get_department(
         &self,
         request: Request<GetDepartmentRequest>,
@@ -127,7 +128,7 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(department.into()))
     }
 
-    #[require_permission("department", "read")]
+    #[require_permission(Resource::Department, Action::Read)]
     async fn list_departments(
         &self,
         request: Request<ListDepartmentsRequest>,
@@ -144,7 +145,7 @@ impl GrpcDepartmentService for DepartmentHandler {
         }))
     }
 
-    #[require_permission("department", "write")]
+    #[require_permission(Resource::Department, Action::Write)]
     async fn assign_departments(
         &self,
         request: Request<AssignDepartmentsRequest>,
@@ -164,7 +165,7 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(Empty {}))
     }
 
-    #[require_permission("department", "write")]
+    #[require_permission(Resource::Department, Action::Write)]
     async fn remove_departments(
         &self,
         request: Request<RemoveDepartmentsRequest>,
@@ -184,7 +185,7 @@ impl GrpcDepartmentService for DepartmentHandler {
         Ok(Response::new(Empty {}))
     }
 
-    #[require_permission("department", "read")]
+    #[require_permission(Resource::Department, Action::Read)]
     async fn get_user_departments(
         &self,
         request: Request<GetUserDepartmentsRequest>,
@@ -201,7 +202,7 @@ impl GrpcDepartmentService for DepartmentHandler {
         }))
     }
 
-    #[require_permission("department", "write")]
+    #[require_permission(Resource::Department, Action::Write)]
     async fn set_department_resources(
         &self,
         request: Request<SetDepartmentResourcesRequest>,
@@ -229,7 +230,7 @@ impl GrpcDepartmentService for DepartmentHandler {
         }))
     }
 
-    #[require_permission("department", "read")]
+    #[require_permission(Resource::Department, Action::Read)]
     async fn get_department_resources(
         &self,
         request: Request<GetDepartmentResourcesRequest>,

@@ -953,6 +953,11 @@ pub struct AuthResourceListResponse {
     #[prost(message, repeated, tag = "1")]
     pub resources: ::prost::alloc::vec::Vec<AuthResourceAction>,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SwitchDepartmentRequest {
+    #[prost(int64, tag = "1")]
+    pub department_id: i64,
+}
 /// Generated client implementations.
 pub mod auth_service_client {
     #![allow(
@@ -1148,6 +1153,27 @@ pub mod auth_service_client {
                 .insert(GrpcMethod::new("abt.v1.AuthService", "ListResources"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn switch_department(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SwitchDepartmentRequest>,
+        ) -> std::result::Result<tonic::Response<super::LoginResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AuthService/SwitchDepartment",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AuthService", "SwitchDepartment"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -1186,6 +1212,10 @@ pub mod auth_service_server {
             tonic::Response<super::AuthResourceListResponse>,
             tonic::Status,
         >;
+        async fn switch_department(
+            &self,
+            request: tonic::Request<super::SwitchDepartmentRequest>,
+        ) -> std::result::Result<tonic::Response<super::LoginResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct AuthServiceServer<T> {
@@ -1465,6 +1495,51 @@ pub mod auth_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListResourcesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AuthService/SwitchDepartment" => {
+                    #[allow(non_camel_case_types)]
+                    struct SwitchDepartmentSvc<T: AuthService>(pub Arc<T>);
+                    impl<
+                        T: AuthService,
+                    > tonic::server::UnaryService<super::SwitchDepartmentRequest>
+                    for SwitchDepartmentSvc<T> {
+                        type Response = super::LoginResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SwitchDepartmentRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AuthService>::switch_department(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SwitchDepartmentSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -4212,6 +4287,893 @@ pub mod abt_bom_service_server {
         const NAME: &'static str = SERVICE_NAME;
     }
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetUserPermissionsRequest {
+    #[prost(int64, tag = "1")]
+    pub user_id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UserPermissionsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub permissions: ::prost::alloc::vec::Vec<PermissionInfo>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CheckPermissionRequest {
+    #[prost(int64, tag = "1")]
+    pub user_id: i64,
+    #[prost(string, tag = "2")]
+    pub resource_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub action_code: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CheckPermissionResponse {
+    #[prost(bool, tag = "1")]
+    pub has_permission: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResourceListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub groups: ::prost::alloc::vec::Vec<ResourceGroup>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListUserResourcesRequest {
+    #[prost(int64, tag = "1")]
+    pub user_id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ResourceGroup {
+    #[prost(string, tag = "1")]
+    pub group_name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub resources: ::prost::alloc::vec::Vec<ResourceInfo>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PermissionListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub groups: ::prost::alloc::vec::Vec<PermissionGroup>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PermissionGroup {
+    #[prost(string, tag = "1")]
+    pub group_name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "2")]
+    pub permissions: ::prost::alloc::vec::Vec<PermissionInfo>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListAuditLogsRequest {
+    #[prost(int64, tag = "1")]
+    pub limit: i64,
+    #[prost(int64, tag = "2")]
+    pub offset: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AuditLogListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub logs: ::prost::alloc::vec::Vec<AuditLogInfo>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct AuditLogInfo {
+    #[prost(int64, tag = "1")]
+    pub log_id: i64,
+    #[prost(int64, tag = "2")]
+    pub operator_id: i64,
+    #[prost(string, tag = "3")]
+    pub operator_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub target_type: ::prost::alloc::string::String,
+    #[prost(int64, tag = "5")]
+    pub target_id: i64,
+    #[prost(string, tag = "6")]
+    pub action: ::prost::alloc::string::String,
+    #[prost(int64, tag = "7")]
+    pub created_at: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PermissionInfo {
+    #[prost(int64, tag = "1")]
+    pub permission_id: i64,
+    #[prost(string, tag = "2")]
+    pub permission_name: ::prost::alloc::string::String,
+    #[prost(message, optional, tag = "3")]
+    pub resource: ::core::option::Option<ResourceInfo>,
+    #[prost(string, tag = "4")]
+    pub action_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub action_name: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ResourceInfo {
+    #[prost(int64, tag = "1")]
+    pub resource_id: i64,
+    #[prost(string, tag = "2")]
+    pub resource_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub resource_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub group_name: ::prost::alloc::string::String,
+}
+/// 权限资源枚举
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Resource {
+    Product = 0,
+    Term = 1,
+    Bom = 2,
+    Warehouse = 3,
+    Location = 4,
+    Inventory = 5,
+    Price = 6,
+    LaborProcess = 7,
+    User = 8,
+    Role = 9,
+    Permission = 10,
+    Department = 11,
+    Excel = 12,
+}
+impl Resource {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Product => "PRODUCT",
+            Self::Term => "TERM",
+            Self::Bom => "BOM",
+            Self::Warehouse => "WAREHOUSE",
+            Self::Location => "LOCATION",
+            Self::Inventory => "INVENTORY",
+            Self::Price => "PRICE",
+            Self::LaborProcess => "LABOR_PROCESS",
+            Self::User => "USER",
+            Self::Role => "ROLE",
+            Self::Permission => "PERMISSION",
+            Self::Department => "DEPARTMENT",
+            Self::Excel => "EXCEL",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PRODUCT" => Some(Self::Product),
+            "TERM" => Some(Self::Term),
+            "BOM" => Some(Self::Bom),
+            "WAREHOUSE" => Some(Self::Warehouse),
+            "LOCATION" => Some(Self::Location),
+            "INVENTORY" => Some(Self::Inventory),
+            "PRICE" => Some(Self::Price),
+            "LABOR_PROCESS" => Some(Self::LaborProcess),
+            "USER" => Some(Self::User),
+            "ROLE" => Some(Self::Role),
+            "PERMISSION" => Some(Self::Permission),
+            "DEPARTMENT" => Some(Self::Department),
+            "EXCEL" => Some(Self::Excel),
+            _ => None,
+        }
+    }
+}
+/// 权限操作枚举
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum Action {
+    Read = 0,
+    Write = 1,
+    Delete = 2,
+}
+impl Action {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Read => "READ",
+            Self::Write => "WRITE",
+            Self::Delete => "DELETE",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "READ" => Some(Self::Read),
+            "WRITE" => Some(Self::Write),
+            "DELETE" => Some(Self::Delete),
+            _ => None,
+        }
+    }
+}
+/// Generated client implementations.
+pub mod permission_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    #[derive(Debug, Clone)]
+    pub struct PermissionServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl PermissionServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> PermissionServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> PermissionServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            PermissionServiceClient::new(InterceptedService::new(inner, interceptor))
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        pub async fn get_user_permissions(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetUserPermissionsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UserPermissionsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.PermissionService/GetUserPermissions",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.PermissionService", "GetUserPermissions"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn check_permission(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CheckPermissionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CheckPermissionResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.PermissionService/CheckPermission",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.PermissionService", "CheckPermission"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_resources(
+            &mut self,
+            request: impl tonic::IntoRequest<super::Empty>,
+        ) -> std::result::Result<
+            tonic::Response<super::ResourceListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.PermissionService/ListResources",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.PermissionService", "ListResources"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_user_resources(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListUserResourcesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ResourceListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.PermissionService/ListUserResources",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.PermissionService", "ListUserResources"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_permissions(
+            &mut self,
+            request: impl tonic::IntoRequest<super::Empty>,
+        ) -> std::result::Result<
+            tonic::Response<super::PermissionListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.PermissionService/ListPermissions",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.PermissionService", "ListPermissions"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_audit_logs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListAuditLogsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::AuditLogListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.PermissionService/ListAuditLogs",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.PermissionService", "ListAuditLogs"));
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod permission_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with PermissionServiceServer.
+    #[async_trait]
+    pub trait PermissionService: std::marker::Send + std::marker::Sync + 'static {
+        async fn get_user_permissions(
+            &self,
+            request: tonic::Request<super::GetUserPermissionsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UserPermissionsResponse>,
+            tonic::Status,
+        >;
+        async fn check_permission(
+            &self,
+            request: tonic::Request<super::CheckPermissionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CheckPermissionResponse>,
+            tonic::Status,
+        >;
+        async fn list_resources(
+            &self,
+            request: tonic::Request<super::Empty>,
+        ) -> std::result::Result<
+            tonic::Response<super::ResourceListResponse>,
+            tonic::Status,
+        >;
+        async fn list_user_resources(
+            &self,
+            request: tonic::Request<super::ListUserResourcesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ResourceListResponse>,
+            tonic::Status,
+        >;
+        async fn list_permissions(
+            &self,
+            request: tonic::Request<super::Empty>,
+        ) -> std::result::Result<
+            tonic::Response<super::PermissionListResponse>,
+            tonic::Status,
+        >;
+        async fn list_audit_logs(
+            &self,
+            request: tonic::Request<super::ListAuditLogsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::AuditLogListResponse>,
+            tonic::Status,
+        >;
+    }
+    #[derive(Debug)]
+    pub struct PermissionServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> PermissionServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for PermissionServiceServer<T>
+    where
+        T: PermissionService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/abt.v1.PermissionService/GetUserPermissions" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetUserPermissionsSvc<T: PermissionService>(pub Arc<T>);
+                    impl<
+                        T: PermissionService,
+                    > tonic::server::UnaryService<super::GetUserPermissionsRequest>
+                    for GetUserPermissionsSvc<T> {
+                        type Response = super::UserPermissionsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetUserPermissionsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PermissionService>::get_user_permissions(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetUserPermissionsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.PermissionService/CheckPermission" => {
+                    #[allow(non_camel_case_types)]
+                    struct CheckPermissionSvc<T: PermissionService>(pub Arc<T>);
+                    impl<
+                        T: PermissionService,
+                    > tonic::server::UnaryService<super::CheckPermissionRequest>
+                    for CheckPermissionSvc<T> {
+                        type Response = super::CheckPermissionResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CheckPermissionRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PermissionService>::check_permission(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CheckPermissionSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.PermissionService/ListResources" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListResourcesSvc<T: PermissionService>(pub Arc<T>);
+                    impl<T: PermissionService> tonic::server::UnaryService<super::Empty>
+                    for ListResourcesSvc<T> {
+                        type Response = super::ResourceListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::Empty>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PermissionService>::list_resources(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListResourcesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.PermissionService/ListUserResources" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListUserResourcesSvc<T: PermissionService>(pub Arc<T>);
+                    impl<
+                        T: PermissionService,
+                    > tonic::server::UnaryService<super::ListUserResourcesRequest>
+                    for ListUserResourcesSvc<T> {
+                        type Response = super::ResourceListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListUserResourcesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PermissionService>::list_user_resources(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListUserResourcesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.PermissionService/ListPermissions" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListPermissionsSvc<T: PermissionService>(pub Arc<T>);
+                    impl<T: PermissionService> tonic::server::UnaryService<super::Empty>
+                    for ListPermissionsSvc<T> {
+                        type Response = super::PermissionListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::Empty>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PermissionService>::list_permissions(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListPermissionsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.PermissionService/ListAuditLogs" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListAuditLogsSvc<T: PermissionService>(pub Arc<T>);
+                    impl<
+                        T: PermissionService,
+                    > tonic::server::UnaryService<super::ListAuditLogsRequest>
+                    for ListAuditLogsSvc<T> {
+                        type Response = super::AuditLogListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListAuditLogsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as PermissionService>::list_audit_logs(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListAuditLogsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for PermissionServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "abt.v1.PermissionService";
+    impl<T> tonic::server::NamedService for PermissionServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateDepartmentRequest {
     #[prost(string, tag = "1")]
@@ -4292,13 +5254,13 @@ pub struct GetUserDepartmentsRequest {
 pub struct SetDepartmentResourcesRequest {
     #[prost(int64, tag = "1")]
     pub department_id: i64,
-    #[prost(string, repeated, tag = "2")]
-    pub resource_codes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(enumeration = "Resource", repeated, tag = "2")]
+    pub resources: ::prost::alloc::vec::Vec<i32>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct SetDepartmentResourcesResponse {
-    #[prost(string, repeated, tag = "1")]
-    pub resource_codes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(enumeration = "Resource", repeated, tag = "1")]
+    pub resources: ::prost::alloc::vec::Vec<i32>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetDepartmentResourcesRequest {
@@ -4307,8 +5269,51 @@ pub struct GetDepartmentResourcesRequest {
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetDepartmentResourcesResponse {
-    #[prost(string, repeated, tag = "1")]
-    pub resource_codes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(enumeration = "Resource", repeated, tag = "1")]
+    pub resources: ::prost::alloc::vec::Vec<i32>,
+}
+/// 用户部门角色管理
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeptRoleAssignment {
+    #[prost(int64, tag = "1")]
+    pub department_id: i64,
+    #[prost(int64, tag = "2")]
+    pub role_id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AssignUserDepartmentRolesRequest {
+    #[prost(int64, tag = "1")]
+    pub user_id: i64,
+    #[prost(message, repeated, tag = "2")]
+    pub assignments: ::prost::alloc::vec::Vec<DeptRoleAssignment>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RemoveUserDepartmentRolesRequest {
+    #[prost(int64, tag = "1")]
+    pub user_id: i64,
+    #[prost(message, repeated, tag = "2")]
+    pub assignments: ::prost::alloc::vec::Vec<DeptRoleAssignment>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetUserDepartmentRolesRequest {
+    #[prost(int64, tag = "1")]
+    pub user_id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UserDepartmentRolesResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub roles: ::prost::alloc::vec::Vec<DeptRoleDetail>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeptRoleDetail {
+    #[prost(int64, tag = "1")]
+    pub department_id: i64,
+    #[prost(string, tag = "2")]
+    pub department_name: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub role_id: i64,
+    #[prost(string, tag = "4")]
+    pub role_name: ::prost::alloc::string::String,
 }
 /// Generated client implementations.
 pub mod department_service_client {
@@ -4644,6 +5649,85 @@ pub mod department_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// 用户部门角色管理
+        pub async fn assign_user_department_roles(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AssignUserDepartmentRolesRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.DepartmentService/AssignUserDepartmentRoles",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.DepartmentService",
+                        "AssignUserDepartmentRoles",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn remove_user_department_roles(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RemoveUserDepartmentRolesRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.DepartmentService/RemoveUserDepartmentRoles",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.DepartmentService",
+                        "RemoveUserDepartmentRoles",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_user_department_roles(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetUserDepartmentRolesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UserDepartmentRolesResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.DepartmentService/GetUserDepartmentRoles",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.DepartmentService", "GetUserDepartmentRoles"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -4720,6 +5804,22 @@ pub mod department_service_server {
             request: tonic::Request<super::GetDepartmentResourcesRequest>,
         ) -> std::result::Result<
             tonic::Response<super::GetDepartmentResourcesResponse>,
+            tonic::Status,
+        >;
+        /// 用户部门角色管理
+        async fn assign_user_department_roles(
+            &self,
+            request: tonic::Request<super::AssignUserDepartmentRolesRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn remove_user_department_roles(
+            &self,
+            request: tonic::Request<super::RemoveUserDepartmentRolesRequest>,
+        ) -> std::result::Result<tonic::Response<super::Empty>, tonic::Status>;
+        async fn get_user_department_roles(
+            &self,
+            request: tonic::Request<super::GetUserDepartmentRolesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UserDepartmentRolesResponse>,
             tonic::Status,
         >;
     }
@@ -5259,6 +6359,163 @@ pub mod department_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetDepartmentResourcesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.DepartmentService/AssignUserDepartmentRoles" => {
+                    #[allow(non_camel_case_types)]
+                    struct AssignUserDepartmentRolesSvc<T: DepartmentService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: DepartmentService,
+                    > tonic::server::UnaryService<
+                        super::AssignUserDepartmentRolesRequest,
+                    > for AssignUserDepartmentRolesSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::AssignUserDepartmentRolesRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as DepartmentService>::assign_user_department_roles(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = AssignUserDepartmentRolesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.DepartmentService/RemoveUserDepartmentRoles" => {
+                    #[allow(non_camel_case_types)]
+                    struct RemoveUserDepartmentRolesSvc<T: DepartmentService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: DepartmentService,
+                    > tonic::server::UnaryService<
+                        super::RemoveUserDepartmentRolesRequest,
+                    > for RemoveUserDepartmentRolesSvc<T> {
+                        type Response = super::Empty;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::RemoveUserDepartmentRolesRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as DepartmentService>::remove_user_department_roles(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RemoveUserDepartmentRolesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.DepartmentService/GetUserDepartmentRoles" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetUserDepartmentRolesSvc<T: DepartmentService>(pub Arc<T>);
+                    impl<
+                        T: DepartmentService,
+                    > tonic::server::UnaryService<super::GetUserDepartmentRolesRequest>
+                    for GetUserDepartmentRolesSvc<T> {
+                        type Response = super::UserDepartmentRolesResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetUserDepartmentRolesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as DepartmentService>::get_user_department_roles(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetUserDepartmentRolesSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -7983,893 +9240,6 @@ pub mod abt_location_service_server {
     /// Generated gRPC service name
     pub const SERVICE_NAME: &str = "abt.v1.AbtLocationService";
     impl<T> tonic::server::NamedService for AbtLocationServiceServer<T> {
-        const NAME: &'static str = SERVICE_NAME;
-    }
-}
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct GetUserPermissionsRequest {
-    #[prost(int64, tag = "1")]
-    pub user_id: i64,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct UserPermissionsResponse {
-    #[prost(message, repeated, tag = "1")]
-    pub permissions: ::prost::alloc::vec::Vec<PermissionInfo>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct CheckPermissionRequest {
-    #[prost(int64, tag = "1")]
-    pub user_id: i64,
-    #[prost(string, tag = "2")]
-    pub resource_code: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub action_code: ::prost::alloc::string::String,
-}
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct CheckPermissionResponse {
-    #[prost(bool, tag = "1")]
-    pub has_permission: bool,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ResourceListResponse {
-    #[prost(message, repeated, tag = "1")]
-    pub groups: ::prost::alloc::vec::Vec<ResourceGroup>,
-}
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct ListUserResourcesRequest {
-    #[prost(int64, tag = "1")]
-    pub user_id: i64,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ResourceGroup {
-    #[prost(string, tag = "1")]
-    pub group_name: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag = "2")]
-    pub resources: ::prost::alloc::vec::Vec<ResourceInfo>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct PermissionListResponse {
-    #[prost(message, repeated, tag = "1")]
-    pub groups: ::prost::alloc::vec::Vec<PermissionGroup>,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct PermissionGroup {
-    #[prost(string, tag = "1")]
-    pub group_name: ::prost::alloc::string::String,
-    #[prost(message, repeated, tag = "2")]
-    pub permissions: ::prost::alloc::vec::Vec<PermissionInfo>,
-}
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct ListAuditLogsRequest {
-    #[prost(int64, tag = "1")]
-    pub limit: i64,
-    #[prost(int64, tag = "2")]
-    pub offset: i64,
-}
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct AuditLogListResponse {
-    #[prost(message, repeated, tag = "1")]
-    pub logs: ::prost::alloc::vec::Vec<AuditLogInfo>,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct AuditLogInfo {
-    #[prost(int64, tag = "1")]
-    pub log_id: i64,
-    #[prost(int64, tag = "2")]
-    pub operator_id: i64,
-    #[prost(string, tag = "3")]
-    pub operator_name: ::prost::alloc::string::String,
-    #[prost(string, tag = "4")]
-    pub target_type: ::prost::alloc::string::String,
-    #[prost(int64, tag = "5")]
-    pub target_id: i64,
-    #[prost(string, tag = "6")]
-    pub action: ::prost::alloc::string::String,
-    #[prost(int64, tag = "7")]
-    pub created_at: i64,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct PermissionInfo {
-    #[prost(int64, tag = "1")]
-    pub permission_id: i64,
-    #[prost(string, tag = "2")]
-    pub permission_name: ::prost::alloc::string::String,
-    #[prost(message, optional, tag = "3")]
-    pub resource: ::core::option::Option<ResourceInfo>,
-    #[prost(string, tag = "4")]
-    pub action_code: ::prost::alloc::string::String,
-    #[prost(string, tag = "5")]
-    pub action_name: ::prost::alloc::string::String,
-}
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
-pub struct ResourceInfo {
-    #[prost(int64, tag = "1")]
-    pub resource_id: i64,
-    #[prost(string, tag = "2")]
-    pub resource_name: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub resource_code: ::prost::alloc::string::String,
-    #[prost(string, tag = "4")]
-    pub group_name: ::prost::alloc::string::String,
-}
-/// 权限资源枚举
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum Resource {
-    Product = 0,
-    Term = 1,
-    Bom = 2,
-    Warehouse = 3,
-    Location = 4,
-    Inventory = 5,
-    Price = 6,
-    LaborProcess = 7,
-    User = 8,
-    Role = 9,
-    Permission = 10,
-    Department = 11,
-    Excel = 12,
-}
-impl Resource {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::Product => "PRODUCT",
-            Self::Term => "TERM",
-            Self::Bom => "BOM",
-            Self::Warehouse => "WAREHOUSE",
-            Self::Location => "LOCATION",
-            Self::Inventory => "INVENTORY",
-            Self::Price => "PRICE",
-            Self::LaborProcess => "LABOR_PROCESS",
-            Self::User => "USER",
-            Self::Role => "ROLE",
-            Self::Permission => "PERMISSION",
-            Self::Department => "DEPARTMENT",
-            Self::Excel => "EXCEL",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "PRODUCT" => Some(Self::Product),
-            "TERM" => Some(Self::Term),
-            "BOM" => Some(Self::Bom),
-            "WAREHOUSE" => Some(Self::Warehouse),
-            "LOCATION" => Some(Self::Location),
-            "INVENTORY" => Some(Self::Inventory),
-            "PRICE" => Some(Self::Price),
-            "LABOR_PROCESS" => Some(Self::LaborProcess),
-            "USER" => Some(Self::User),
-            "ROLE" => Some(Self::Role),
-            "PERMISSION" => Some(Self::Permission),
-            "DEPARTMENT" => Some(Self::Department),
-            "EXCEL" => Some(Self::Excel),
-            _ => None,
-        }
-    }
-}
-/// 权限操作枚举
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
-#[repr(i32)]
-pub enum Action {
-    Read = 0,
-    Write = 1,
-    Delete = 2,
-}
-impl Action {
-    /// String value of the enum field names used in the ProtoBuf definition.
-    ///
-    /// The values are not transformed in any way and thus are considered stable
-    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
-    pub fn as_str_name(&self) -> &'static str {
-        match self {
-            Self::Read => "READ",
-            Self::Write => "WRITE",
-            Self::Delete => "DELETE",
-        }
-    }
-    /// Creates an enum from field names used in the ProtoBuf definition.
-    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
-        match value {
-            "READ" => Some(Self::Read),
-            "WRITE" => Some(Self::Write),
-            "DELETE" => Some(Self::Delete),
-            _ => None,
-        }
-    }
-}
-/// Generated client implementations.
-pub mod permission_service_client {
-    #![allow(
-        unused_variables,
-        dead_code,
-        missing_docs,
-        clippy::wildcard_imports,
-        clippy::let_unit_value,
-    )]
-    use tonic::codegen::*;
-    use tonic::codegen::http::Uri;
-    #[derive(Debug, Clone)]
-    pub struct PermissionServiceClient<T> {
-        inner: tonic::client::Grpc<T>,
-    }
-    impl PermissionServiceClient<tonic::transport::Channel> {
-        /// Attempt to create a new client by connecting to a given endpoint.
-        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
-        where
-            D: TryInto<tonic::transport::Endpoint>,
-            D::Error: Into<StdError>,
-        {
-            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
-            Ok(Self::new(conn))
-        }
-    }
-    impl<T> PermissionServiceClient<T>
-    where
-        T: tonic::client::GrpcService<tonic::body::Body>,
-        T::Error: Into<StdError>,
-        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
-        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
-    {
-        pub fn new(inner: T) -> Self {
-            let inner = tonic::client::Grpc::new(inner);
-            Self { inner }
-        }
-        pub fn with_origin(inner: T, origin: Uri) -> Self {
-            let inner = tonic::client::Grpc::with_origin(inner, origin);
-            Self { inner }
-        }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> PermissionServiceClient<InterceptedService<T, F>>
-        where
-            F: tonic::service::Interceptor,
-            T::ResponseBody: Default,
-            T: tonic::codegen::Service<
-                http::Request<tonic::body::Body>,
-                Response = http::Response<
-                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
-                >,
-            >,
-            <T as tonic::codegen::Service<
-                http::Request<tonic::body::Body>,
-            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
-        {
-            PermissionServiceClient::new(InterceptedService::new(inner, interceptor))
-        }
-        /// Compress requests with the given encoding.
-        ///
-        /// This requires the server to support it otherwise it might respond with an
-        /// error.
-        #[must_use]
-        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
-            self.inner = self.inner.send_compressed(encoding);
-            self
-        }
-        /// Enable decompressing responses.
-        #[must_use]
-        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
-            self.inner = self.inner.accept_compressed(encoding);
-            self
-        }
-        /// Limits the maximum size of a decoded message.
-        ///
-        /// Default: `4MB`
-        #[must_use]
-        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
-            self.inner = self.inner.max_decoding_message_size(limit);
-            self
-        }
-        /// Limits the maximum size of an encoded message.
-        ///
-        /// Default: `usize::MAX`
-        #[must_use]
-        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
-            self.inner = self.inner.max_encoding_message_size(limit);
-            self
-        }
-        pub async fn get_user_permissions(
-            &mut self,
-            request: impl tonic::IntoRequest<super::GetUserPermissionsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::UserPermissionsResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic_prost::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/abt.v1.PermissionService/GetUserPermissions",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("abt.v1.PermissionService", "GetUserPermissions"),
-                );
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn check_permission(
-            &mut self,
-            request: impl tonic::IntoRequest<super::CheckPermissionRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::CheckPermissionResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic_prost::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/abt.v1.PermissionService/CheckPermission",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("abt.v1.PermissionService", "CheckPermission"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn list_resources(
-            &mut self,
-            request: impl tonic::IntoRequest<super::Empty>,
-        ) -> std::result::Result<
-            tonic::Response<super::ResourceListResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic_prost::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/abt.v1.PermissionService/ListResources",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("abt.v1.PermissionService", "ListResources"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn list_user_resources(
-            &mut self,
-            request: impl tonic::IntoRequest<super::ListUserResourcesRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::ResourceListResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic_prost::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/abt.v1.PermissionService/ListUserResources",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(
-                    GrpcMethod::new("abt.v1.PermissionService", "ListUserResources"),
-                );
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn list_permissions(
-            &mut self,
-            request: impl tonic::IntoRequest<super::Empty>,
-        ) -> std::result::Result<
-            tonic::Response<super::PermissionListResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic_prost::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/abt.v1.PermissionService/ListPermissions",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("abt.v1.PermissionService", "ListPermissions"));
-            self.inner.unary(req, path, codec).await
-        }
-        pub async fn list_audit_logs(
-            &mut self,
-            request: impl tonic::IntoRequest<super::ListAuditLogsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::AuditLogListResponse>,
-            tonic::Status,
-        > {
-            self.inner
-                .ready()
-                .await
-                .map_err(|e| {
-                    tonic::Status::unknown(
-                        format!("Service was not ready: {}", e.into()),
-                    )
-                })?;
-            let codec = tonic_prost::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static(
-                "/abt.v1.PermissionService/ListAuditLogs",
-            );
-            let mut req = request.into_request();
-            req.extensions_mut()
-                .insert(GrpcMethod::new("abt.v1.PermissionService", "ListAuditLogs"));
-            self.inner.unary(req, path, codec).await
-        }
-    }
-}
-/// Generated server implementations.
-pub mod permission_service_server {
-    #![allow(
-        unused_variables,
-        dead_code,
-        missing_docs,
-        clippy::wildcard_imports,
-        clippy::let_unit_value,
-    )]
-    use tonic::codegen::*;
-    /// Generated trait containing gRPC methods that should be implemented for use with PermissionServiceServer.
-    #[async_trait]
-    pub trait PermissionService: std::marker::Send + std::marker::Sync + 'static {
-        async fn get_user_permissions(
-            &self,
-            request: tonic::Request<super::GetUserPermissionsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::UserPermissionsResponse>,
-            tonic::Status,
-        >;
-        async fn check_permission(
-            &self,
-            request: tonic::Request<super::CheckPermissionRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::CheckPermissionResponse>,
-            tonic::Status,
-        >;
-        async fn list_resources(
-            &self,
-            request: tonic::Request<super::Empty>,
-        ) -> std::result::Result<
-            tonic::Response<super::ResourceListResponse>,
-            tonic::Status,
-        >;
-        async fn list_user_resources(
-            &self,
-            request: tonic::Request<super::ListUserResourcesRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::ResourceListResponse>,
-            tonic::Status,
-        >;
-        async fn list_permissions(
-            &self,
-            request: tonic::Request<super::Empty>,
-        ) -> std::result::Result<
-            tonic::Response<super::PermissionListResponse>,
-            tonic::Status,
-        >;
-        async fn list_audit_logs(
-            &self,
-            request: tonic::Request<super::ListAuditLogsRequest>,
-        ) -> std::result::Result<
-            tonic::Response<super::AuditLogListResponse>,
-            tonic::Status,
-        >;
-    }
-    #[derive(Debug)]
-    pub struct PermissionServiceServer<T> {
-        inner: Arc<T>,
-        accept_compression_encodings: EnabledCompressionEncodings,
-        send_compression_encodings: EnabledCompressionEncodings,
-        max_decoding_message_size: Option<usize>,
-        max_encoding_message_size: Option<usize>,
-    }
-    impl<T> PermissionServiceServer<T> {
-        pub fn new(inner: T) -> Self {
-            Self::from_arc(Arc::new(inner))
-        }
-        pub fn from_arc(inner: Arc<T>) -> Self {
-            Self {
-                inner,
-                accept_compression_encodings: Default::default(),
-                send_compression_encodings: Default::default(),
-                max_decoding_message_size: None,
-                max_encoding_message_size: None,
-            }
-        }
-        pub fn with_interceptor<F>(
-            inner: T,
-            interceptor: F,
-        ) -> InterceptedService<Self, F>
-        where
-            F: tonic::service::Interceptor,
-        {
-            InterceptedService::new(Self::new(inner), interceptor)
-        }
-        /// Enable decompressing requests with the given encoding.
-        #[must_use]
-        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
-            self.accept_compression_encodings.enable(encoding);
-            self
-        }
-        /// Compress responses with the given encoding, if the client supports it.
-        #[must_use]
-        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
-            self.send_compression_encodings.enable(encoding);
-            self
-        }
-        /// Limits the maximum size of a decoded message.
-        ///
-        /// Default: `4MB`
-        #[must_use]
-        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
-            self.max_decoding_message_size = Some(limit);
-            self
-        }
-        /// Limits the maximum size of an encoded message.
-        ///
-        /// Default: `usize::MAX`
-        #[must_use]
-        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
-            self.max_encoding_message_size = Some(limit);
-            self
-        }
-    }
-    impl<T, B> tonic::codegen::Service<http::Request<B>> for PermissionServiceServer<T>
-    where
-        T: PermissionService,
-        B: Body + std::marker::Send + 'static,
-        B::Error: Into<StdError> + std::marker::Send + 'static,
-    {
-        type Response = http::Response<tonic::body::Body>;
-        type Error = std::convert::Infallible;
-        type Future = BoxFuture<Self::Response, Self::Error>;
-        fn poll_ready(
-            &mut self,
-            _cx: &mut Context<'_>,
-        ) -> Poll<std::result::Result<(), Self::Error>> {
-            Poll::Ready(Ok(()))
-        }
-        fn call(&mut self, req: http::Request<B>) -> Self::Future {
-            match req.uri().path() {
-                "/abt.v1.PermissionService/GetUserPermissions" => {
-                    #[allow(non_camel_case_types)]
-                    struct GetUserPermissionsSvc<T: PermissionService>(pub Arc<T>);
-                    impl<
-                        T: PermissionService,
-                    > tonic::server::UnaryService<super::GetUserPermissionsRequest>
-                    for GetUserPermissionsSvc<T> {
-                        type Response = super::UserPermissionsResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::GetUserPermissionsRequest>,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as PermissionService>::get_user_permissions(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = GetUserPermissionsSvc(inner);
-                        let codec = tonic_prost::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/abt.v1.PermissionService/CheckPermission" => {
-                    #[allow(non_camel_case_types)]
-                    struct CheckPermissionSvc<T: PermissionService>(pub Arc<T>);
-                    impl<
-                        T: PermissionService,
-                    > tonic::server::UnaryService<super::CheckPermissionRequest>
-                    for CheckPermissionSvc<T> {
-                        type Response = super::CheckPermissionResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::CheckPermissionRequest>,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as PermissionService>::check_permission(&inner, request)
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = CheckPermissionSvc(inner);
-                        let codec = tonic_prost::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/abt.v1.PermissionService/ListResources" => {
-                    #[allow(non_camel_case_types)]
-                    struct ListResourcesSvc<T: PermissionService>(pub Arc<T>);
-                    impl<T: PermissionService> tonic::server::UnaryService<super::Empty>
-                    for ListResourcesSvc<T> {
-                        type Response = super::ResourceListResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::Empty>,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as PermissionService>::list_resources(&inner, request)
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = ListResourcesSvc(inner);
-                        let codec = tonic_prost::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/abt.v1.PermissionService/ListUserResources" => {
-                    #[allow(non_camel_case_types)]
-                    struct ListUserResourcesSvc<T: PermissionService>(pub Arc<T>);
-                    impl<
-                        T: PermissionService,
-                    > tonic::server::UnaryService<super::ListUserResourcesRequest>
-                    for ListUserResourcesSvc<T> {
-                        type Response = super::ResourceListResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::ListUserResourcesRequest>,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as PermissionService>::list_user_resources(
-                                        &inner,
-                                        request,
-                                    )
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = ListUserResourcesSvc(inner);
-                        let codec = tonic_prost::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/abt.v1.PermissionService/ListPermissions" => {
-                    #[allow(non_camel_case_types)]
-                    struct ListPermissionsSvc<T: PermissionService>(pub Arc<T>);
-                    impl<T: PermissionService> tonic::server::UnaryService<super::Empty>
-                    for ListPermissionsSvc<T> {
-                        type Response = super::PermissionListResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::Empty>,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as PermissionService>::list_permissions(&inner, request)
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = ListPermissionsSvc(inner);
-                        let codec = tonic_prost::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                "/abt.v1.PermissionService/ListAuditLogs" => {
-                    #[allow(non_camel_case_types)]
-                    struct ListAuditLogsSvc<T: PermissionService>(pub Arc<T>);
-                    impl<
-                        T: PermissionService,
-                    > tonic::server::UnaryService<super::ListAuditLogsRequest>
-                    for ListAuditLogsSvc<T> {
-                        type Response = super::AuditLogListResponse;
-                        type Future = BoxFuture<
-                            tonic::Response<Self::Response>,
-                            tonic::Status,
-                        >;
-                        fn call(
-                            &mut self,
-                            request: tonic::Request<super::ListAuditLogsRequest>,
-                        ) -> Self::Future {
-                            let inner = Arc::clone(&self.0);
-                            let fut = async move {
-                                <T as PermissionService>::list_audit_logs(&inner, request)
-                                    .await
-                            };
-                            Box::pin(fut)
-                        }
-                    }
-                    let accept_compression_encodings = self.accept_compression_encodings;
-                    let send_compression_encodings = self.send_compression_encodings;
-                    let max_decoding_message_size = self.max_decoding_message_size;
-                    let max_encoding_message_size = self.max_encoding_message_size;
-                    let inner = self.inner.clone();
-                    let fut = async move {
-                        let method = ListAuditLogsSvc(inner);
-                        let codec = tonic_prost::ProstCodec::default();
-                        let mut grpc = tonic::server::Grpc::new(codec)
-                            .apply_compression_config(
-                                accept_compression_encodings,
-                                send_compression_encodings,
-                            )
-                            .apply_max_message_size_config(
-                                max_decoding_message_size,
-                                max_encoding_message_size,
-                            );
-                        let res = grpc.unary(method, req).await;
-                        Ok(res)
-                    };
-                    Box::pin(fut)
-                }
-                _ => {
-                    Box::pin(async move {
-                        let mut response = http::Response::new(
-                            tonic::body::Body::default(),
-                        );
-                        let headers = response.headers_mut();
-                        headers
-                            .insert(
-                                tonic::Status::GRPC_STATUS,
-                                (tonic::Code::Unimplemented as i32).into(),
-                            );
-                        headers
-                            .insert(
-                                http::header::CONTENT_TYPE,
-                                tonic::metadata::GRPC_CONTENT_TYPE,
-                            );
-                        Ok(response)
-                    })
-                }
-            }
-        }
-    }
-    impl<T> Clone for PermissionServiceServer<T> {
-        fn clone(&self) -> Self {
-            let inner = self.inner.clone();
-            Self {
-                inner,
-                accept_compression_encodings: self.accept_compression_encodings,
-                send_compression_encodings: self.send_compression_encodings,
-                max_decoding_message_size: self.max_decoding_message_size,
-                max_encoding_message_size: self.max_encoding_message_size,
-            }
-        }
-    }
-    /// Generated gRPC service name
-    pub const SERVICE_NAME: &str = "abt.v1.PermissionService";
-    impl<T> tonic::server::NamedService for PermissionServiceServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
 }

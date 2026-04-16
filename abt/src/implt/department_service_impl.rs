@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use crate::models::*;
-use crate::repositories::{DepartmentRepo, DepartmentResourceAccessRepo, Executor};
+use crate::repositories::{DepartmentRepo, DepartmentResourceAccessRepo, Executor, UserDepartmentRoleRepo};
 use crate::service::DepartmentService;
 
 pub struct DepartmentServiceImpl {
@@ -190,5 +190,32 @@ impl DepartmentService for DepartmentServiceImpl {
     ) -> Result<Vec<String>> {
         let codes = DepartmentResourceAccessRepo::get_department_resources(self.pool.as_ref(), department_id).await?;
         Ok(codes)
+    }
+
+    async fn assign_user_dept_roles(
+        &self,
+        _operator_id: Option<i64>,
+        user_id: i64,
+        assignments: Vec<DeptRole>,
+        executor: Executor<'_>,
+    ) -> Result<()> {
+        UserDepartmentRoleRepo::assign(executor, user_id, &assignments).await
+    }
+
+    async fn remove_user_dept_roles(
+        &self,
+        _operator_id: Option<i64>,
+        user_id: i64,
+        assignments: Vec<DeptRole>,
+        executor: Executor<'_>,
+    ) -> Result<()> {
+        UserDepartmentRoleRepo::remove(executor, user_id, &assignments).await
+    }
+
+    async fn get_user_dept_roles(
+        &self,
+        user_id: i64,
+    ) -> Result<Vec<DeptRoleDetail>> {
+        UserDepartmentRoleRepo::get_user_dept_role_details(self.pool.as_ref(), user_id).await
     }
 }

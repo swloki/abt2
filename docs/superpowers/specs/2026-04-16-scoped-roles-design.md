@@ -32,6 +32,10 @@ status: draft
 | 6 | 业务数据是否加 department_id | 不加 | 数据全部可见，部门只控制资源类型可见性和操作权限 |
 | 7 | 权限检查的部门上下文 | 前端请求中传入 department_id | 宏从请求中提取 department_id，确定权限检查的作用域 |
 | 8 | require_permission 宏写法 | 不变 | 内部实现改为两步检查（部门可见性 + 角色权限），对外透明 |
+| 9 | 每个部门的角色数量 | 允许 1 User : 1 Department : N Roles | 支持角色组合，如"既是经理又是专项负责人"，实现成本极低 |
+| 10 | 角色继承 | 单继承（parent_role_id），运行时自动合并权限 | 避免权限重复配置，如 staff → senior_staff → manager |
+| 11 | 默认部门上下文 | JWT 存 current_department_id，登录时自动确定 | 单部门自动选，多部门弹出选择器，切换部门时刷新 token |
+| 12 | 安全校验 | 强制校验 department_id 归属，super_admin 也不例外 | 防止前端传错或恶意伪造部门上下文 |
 
 ## 权限检查流程
 
@@ -42,11 +46,19 @@ status: draft
   require_permission(Resource::Product, Action::Write)
          |
          v
-  [第一步] 部门资源可见性检查
+  [第零步] 部门归属校验
          |
          |-- 从请求获取 department_id
-         |-- 从 JWT 获取用户的 dept_roles
+         |-- 从 JWT dept_roles 查找该 department_id
+         |
+         |-- 不存在 --> 拒绝（用户不属于该部门，含 super_admin）
+         |-- 存在 --> 继续
+         |
+         v
+  [第一步] 部门资源可见性检查
+         |
          |-- 该部门是否关联了 Product 资源？（查 department_resource_access）
+         |-- super_admin 跳过此步，直接允许
          |
          |-- 否 --> 拒绝（该部门不可见此资源）
          |-- 是 --> 继续
@@ -54,11 +66,12 @@ status: draft
          v
   [第二步] 角色操作权限检查
          |
-         |-- 用户在该部门的 role_id 是什么？（从 JWT dept_roles 查找）
-         |-- 该 role_id 有没有 product:write 权限？（从内存缓存查找）
+         |-- 用户在该部门的所有角色是什么？（从 JWT dept_roles 查找，支持多角色）
+         |-- 合并所有角色的权限（含继承的权限），从内存缓存查找
          |
-         |-- 否 --> 拒绝
-         |-- 是 --> 允许
+         |-- super_admin --> 直接允许
+         |-- 合并权限包含 product:write --> 允许
+         |-- 否则 --> 拒绝
          |
          v
       执行业务逻辑
@@ -89,14 +102,16 @@ require_permission(Resource::User, Action::Read)
 |---|---|---|
 | user_id | BIGINT | 用户 ID |
 | department_id | BIGINT | 部门 ID |
-| role_id | BIGINT | 角色ID |
+| role_id | BIGINT | 角色 ID |
 
-- 联合主键：(user_id, department_id)，每个用户在每个部门只能有一个角色
-- 用户可以属于多个部门，每个部门分配不同角色
+- 联合主键：(user_id, department_id, role_id)，支持同一用户在同一部门拥有多个角色
+- 用户可以属于多个部门，每个部门可分配多个角色
+- 权限取该部门下所有角色权限的并集
 
-### 废弃
+### 变更
 
-- **user_roles 表** — 被 user_department_roles 替代
+- **roles 表** — 新增 `parent_role_id` 字段（可空，指向父角色），支持单继承
+- **user_roles 表** — 废弃，被 user_department_roles 替代
 
 ### 保留不变
 
@@ -128,10 +143,12 @@ require_permission(Resource::User, Action::Read)
     username: "...",
     display_name: "...",
     system_role: "user",                          // 系统角色: "super_admin" | "user"
-    dept_roles: [                                  // 部门-角色映射
+    dept_roles: [                                  // 部门-角色映射（支持多角色）
       { department_id: 1, role_id: 2 },           // 部门1 -> 经理角色
+      { department_id: 1, role_id: 4 },           // 部门1 -> 专项负责人角色
       { department_id: 2, role_id: 3 }            // 部门2 -> 职员角色
     ],
+    current_department_id: 1,                      // 当前部门上下文（登录时自动确定）
     exp: ...,
     iat: ...
   }
@@ -141,8 +158,55 @@ require_permission(Resource::User, Action::Read)
 
 - 移除 `permissions` 扁平列表和 `is_super_admin` 标志
 - 新增 `system_role`：标识系统角色
-- 新增 `dept_roles`：部门-角色映射列表
+- 新增 `dept_roles`：部门-角色映射列表（支持同一部门多个角色）
+- 新增 `current_department_id`：当前部门上下文，登录时自动确定
 - 角色的具体权限不在 JWT 中，由运行时内存缓存提供
+
+### 默认部门上下文规则
+
+登录成功后确定 `current_department_id`：
+
+1. 用户只属于 1 个部门 → 自动设置
+2. 用户属于多个部门 → 返回所有 dept_roles，前端弹出部门选择器（或记住上次选择）
+3. 用户不属于任何部门 → 分配到默认部门
+
+前端切换部门后，调用接口刷新 token（仅更新 current_department_id，无需重新登录认证）。
+
+## 角色继承
+
+roles 表新增 `parent_role_id` 字段，支持单继承链：
+
+```
+staff (base)
+  └── senior_staff (继承 staff，额外增加部分 write)
+        └── manager (继承 senior_staff，增加全部 write + delete)
+```
+
+### 继承规则
+
+- 子角色自动继承父角色的所有权限
+- 子角色可以新增权限（扩展），不能移除父角色权限（只增不减）
+- 继承深度不限，运行时递归合并
+- parent_role_id 为空表示根角色，无继承
+
+### 运行时权限合并
+
+缓存加载时，自动递归合并继承链上的所有权限：
+
+```
+加载 role_permissions 时：
+  senior_staff 的权限 = 自身权限 ∪ parent(staff) 的权限
+  manager 的权限 = 自身权限 ∪ parent(senior_staff) 的权限 ∪ parent(staff) 的权限
+```
+
+### 权限检查时的多角色合并
+
+用户在同一部门拥有多个角色时，取所有角色权限（含继承）的并集：
+
+```
+用户在部门1: [经理角色, 专项负责人角色]
+最终权限 = 经理权限(含继承) ∪ 专项负责人权限(含继承)
+```
 
 ## 角色体系
 
@@ -157,10 +221,10 @@ require_permission(Resource::User, Action::Read)
 
 ### 业务角色（预置，可修改，可新建）
 
-| 角色 | 说明 | 权限 |
-|---|---|---|
-| manager | 经理 | 所有业务资源的 read + write + delete |
-| staff | 职员 | 所有业务资源的 read |
+| 角色 | 说明 | 权限 | 继承 |
+|---|---|---|---|
+| manager | 经理 | 所有业务资源的 read + write + delete | 无（根角色） |
+| staff | 职员 | 所有业务资源的 read | 无（根角色） |
 
 业务角色在分配给用户时绑定部门作用域，控制业务资源（product、bom、warehouse 等）的操作权限。
 
@@ -190,7 +254,7 @@ require_permission(Resource::User, Action::Read)
 
 | 用户 | 部门 | 角色 | 部门可见资源 | 最终权限 |
 |---|---|---|---|---|
-| 张三 | A 部门 | manager | product, bom, warehouse | product:RWD, bom:RWD, warehouse:RWD |
+| 张三 | A 部门 | manager + 专项负责人 | product, bom, warehouse | product:RWD, bom:RWD, warehouse:RWD + 专项权限 |
 | 张三 | B 部门 | staff | product, bom | product:R, bom:R |
 | 李四 | A 部门 | staff | product, bom, warehouse | product:R, bom:R, warehouse:R |
 
@@ -199,15 +263,26 @@ require_permission(Resource::User, Action::Read)
 角色权限变更不频繁，启动时加载到内存缓存：
 
 ```
-启动时: 从 role_permissions 表加载所有角色的权限到 HashMap<role_id, Vec<String>>
-运行时: 权限检查从缓存查找，不查数据库
-更新时: 角色/权限变更时刷新缓存（可接受短暂延迟）
+启动时:
+  1. 从 role_permissions 表加载所有角色的直接权限
+  2. 从 roles 表读取继承关系（parent_role_id）
+  3. 递归合并继承链，生成每个角色的完整权限集
+  4. 存入 HashMap<role_id, Vec<String>>
+
+运行时:
+  - 权限检查从缓存查找，不查数据库
+  - 多角色时取并集
+
+更新时:
+  - 角色/权限变更时刷新缓存（可接受短暂延迟）
+  - 无需所有用户重新登录
 ```
 
 好处：
 - JWT 保持精小（只存角色映射，不存权限详情）
 - 修改角色权限只需刷新缓存，不需要所有用户重新登录
 - 新建部门、分配角色后用户重新登录即可
+- 继承关系在缓存加载时一次性展开，运行时无递归开销
 
 ## gRPC API 影响
 
@@ -223,8 +298,20 @@ require_permission(Resource::User, Action::Read)
 - 部门管理接口（创建/编辑/删除部门、配置资源可见性）
 - 所有业务资源的 CRUD 接口（handler 层的 require_permission 写法不变）
 
+## 安全设计
+
+### 部门归属强制校验
+
+所有业务资源操作必须先校验部门归属，super_admin 也不例外：
+
+1. 请求携带 department_id
+2. 检查 JWT dept_roles 中是否存在该 department_id
+3. 不存在 → 直接拒绝（防止前端传错或恶意伪造）
+
+super_admin 跳过后续的资源可见性和角色权限检查，但必须通过部门归属校验。
+
 ## 待后续讨论的问题
 
-- 用户登录时只有一个部门，是否自动选择该部门作为默认上下文？
 - 用户被移除某部门后，该部门下的未完成操作如何处理？
 - 是否需要一个"获取我所有部门及角色"的接口供前端初始化部门选择器？
+- 继承链中是否需要防环检测（防止 A → B → A 的循环继承）？

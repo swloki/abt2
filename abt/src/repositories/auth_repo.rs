@@ -1,5 +1,6 @@
 use anyhow::Result;
 use sqlx::PgPool;
+use std::collections::HashMap;
 
 use crate::models::User;
 use crate::repositories::UserRepo;
@@ -17,21 +18,26 @@ impl AuthRepo {
         UserRepo::find_by_id(pool, user_id).await
     }
 
-    /// 获取用户的所有权限 (resource_code:action_code 列表)
-    /// 从新的 role_permissions 表直接读取
-    pub async fn get_user_permission_codes(pool: &PgPool, user_id: i64) -> Result<Vec<String>> {
-        let rows: Vec<(String,)> = sqlx::query_as(
+    /// Get user's department-role mappings as a nested map:
+    /// { department_id_string => [role_id, ...] }
+    pub async fn get_user_dept_roles(pool: &PgPool, user_id: i64) -> Result<HashMap<String, Vec<i64>>> {
+        let rows: Vec<(i64, i64)> = sqlx::query_as(
             r#"
-            SELECT DISTINCT CONCAT(rp.resource_code, ':', rp.action_code) as "permission"
-            FROM user_roles ur
-            JOIN role_permissions rp ON ur.role_id = rp.role_id
-            WHERE ur.user_id = $1
+            SELECT department_id, role_id
+            FROM user_department_roles
+            WHERE user_id = $1
             "#,
         )
         .bind(user_id)
         .fetch_all(pool)
         .await?;
 
-        Ok(rows.into_iter().map(|(p,)| p).collect())
+        let mut map: HashMap<String, Vec<i64>> = HashMap::new();
+        for (dept_id, role_id) in rows {
+            map.entry(dept_id.to_string())
+                .or_default()
+                .push(role_id);
+        }
+        Ok(map)
     }
 }

@@ -1,8 +1,9 @@
-use anyhow::{anyhow, Result};
-use async_trait::async_trait;
+use std::collections::HashMap;
 use std::sync::Arc;
 
+use anyhow::{anyhow, Result};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use async_trait::async_trait;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 
 use crate::models::{Claims, ResourceActionDef};
@@ -58,8 +59,9 @@ impl AuthServiceImpl {
         user_id: i64,
         username: String,
         display_name: String,
-        is_super_admin: bool,
-        permissions: Vec<String>,
+        system_role: String,
+        dept_roles: HashMap<String, Vec<i64>>,
+        current_department_id: Option<i64>,
         now: u64,
         expiration_hours: u64,
     ) -> Claims {
@@ -67,11 +69,37 @@ impl AuthServiceImpl {
             sub: user_id,
             username,
             display_name,
-            is_super_admin,
-            permissions,
+            system_role,
+            dept_roles,
+            current_department_id,
             iat: now,
             exp: now + expiration_hours * SECONDS_PER_HOUR,
         }
+    }
+
+    /// Resolve default department: if only one dept, auto-select; else None (frontend chooses).
+    async fn resolve_default_department(
+        &self,
+        dept_roles: &HashMap<String, Vec<i64>>,
+    ) -> Result<Option<i64>> {
+        let dept_ids: Vec<i64> = dept_roles.keys()
+            .filter_map(|k| k.parse::<i64>().ok())
+            .collect();
+
+        if dept_ids.len() == 1 {
+            return Ok(Some(dept_ids[0]));
+        }
+
+        // Multiple or zero departments — use default department if no assignments
+        if dept_ids.is_empty() {
+            let default_id = DepartmentResourceAccessRepo::get_default_department_id(
+                self.pool.as_ref(),
+            ).await?;
+            return Ok(default_id);
+        }
+
+        // Multiple departments — frontend will choose
+        Ok(None)
     }
 }
 
@@ -95,36 +123,37 @@ impl AuthService for AuthServiceImpl {
             .verify_password(password.as_bytes(), &parsed_hash)
             .map_err(|_| anyhow!("Invalid username or password"))?;
 
-        // 4. 获取权限 (with department filtering)
-        let permissions = if user.is_super_admin {
-            vec![] // super_admin 不需要 permissions 列表
+        // 4. Determine system_role
+        let system_role = if user.is_super_admin {
+            "super_admin".to_string()
         } else {
-            let role_perms = AuthRepo::get_user_permission_codes(self.pool.as_ref(), user.user_id).await?;
-            let accessible = DepartmentResourceAccessRepo::resolve_user_accessible_resources(
-                self.pool.as_ref(), user.user_id,
-            ).await.unwrap_or_default();
-            DepartmentResourceAccessRepo::filter_permissions_by_department(role_perms, &accessible)
+            "user".to_string()
         };
 
-        // 5. 签发 JWT
+        // 5. Get dept_roles from user_department_roles
+        let dept_roles = AuthRepo::get_user_dept_roles(self.pool.as_ref(), user.user_id).await?;
+
+        // 6. Determine current_department_id
+        let current_department_id = self.resolve_default_department(&dept_roles).await?;
+
+        // 7. Build and sign JWT
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
-
         let display_name = user.display_name.clone().unwrap_or_default();
         let claims = Self::build_claims(
             user.user_id,
             user.username.clone(),
             display_name,
-            user.is_super_admin,
-            permissions,
+            system_role,
+            dept_roles,
+            current_department_id,
             now,
             self.jwt_expiration_hours,
         );
 
         let expires_at = claims.exp as i64;
         let token = self.sign_jwt(&claims)?;
-
         Ok((token, expires_at, claims))
     }
 
@@ -141,15 +170,21 @@ impl AuthService for AuthServiceImpl {
             return Err(anyhow!("User account is disabled"));
         }
 
-        // 获取最新权限 (with department filtering)
-        let permissions = if user.is_super_admin {
-            vec![]
+        // Determine system_role
+        let system_role = if user.is_super_admin {
+            "super_admin".to_string()
         } else {
-            let role_perms = AuthRepo::get_user_permission_codes(self.pool.as_ref(), user.user_id).await?;
-            let accessible = DepartmentResourceAccessRepo::resolve_user_accessible_resources(
-                self.pool.as_ref(), user.user_id,
-            ).await.unwrap_or_default();
-            DepartmentResourceAccessRepo::filter_permissions_by_department(role_perms, &accessible)
+            "user".to_string()
+        };
+
+        // Get dept_roles
+        let dept_roles = AuthRepo::get_user_dept_roles(self.pool.as_ref(), user.user_id).await?;
+
+        // Preserve the current_department_id from old token, or resolve if missing
+        let current_department_id = if old_claims.current_department_id.is_some() {
+            old_claims.current_department_id
+        } else {
+            self.resolve_default_department(&dept_roles).await?
         };
 
         // 签发新 token
@@ -162,8 +197,9 @@ impl AuthService for AuthServiceImpl {
             user.user_id,
             user.username.clone(),
             display_name,
-            user.is_super_admin,
-            permissions,
+            system_role,
+            dept_roles,
+            current_department_id,
             now,
             self.jwt_expiration_hours,
         );
@@ -179,23 +215,23 @@ impl AuthService for AuthServiceImpl {
             .await?
             .ok_or_else(|| anyhow!("User not found"))?;
 
-        let permissions = if user.is_super_admin {
-            vec![]
+        let system_role = if user.is_super_admin {
+            "super_admin".to_string()
         } else {
-            let role_perms = AuthRepo::get_user_permission_codes(self.pool.as_ref(), user.user_id).await?;
-            let accessible = DepartmentResourceAccessRepo::resolve_user_accessible_resources(
-                self.pool.as_ref(), user.user_id,
-            ).await.unwrap_or_default();
-            DepartmentResourceAccessRepo::filter_permissions_by_department(role_perms, &accessible)
+            "user".to_string()
         };
+
+        let dept_roles = AuthRepo::get_user_dept_roles(self.pool.as_ref(), user.user_id).await?;
+        let current_department_id = self.resolve_default_department(&dept_roles).await?;
 
         let display_name = user.display_name.clone().unwrap_or_default();
         Ok(Claims {
             sub: user.user_id,
             username: user.username,
             display_name,
-            is_super_admin: user.is_super_admin,
-            permissions,
+            system_role,
+            dept_roles,
+            current_department_id,
             exp: 0,
             iat: 0,
         })
@@ -203,5 +239,42 @@ impl AuthService for AuthServiceImpl {
 
     fn list_resources(&self) -> Vec<ResourceActionDef> {
         self.resource_actions.clone()
+    }
+
+    async fn switch_department(&self, user_id: i64, department_id: i64) -> Result<(String, i64, Claims)> {
+        // 1. Verify user exists and is active
+        let user = AuthRepo::find_user_by_id(self.pool.as_ref(), user_id)
+            .await?
+            .ok_or_else(|| anyhow!("User not found"))?;
+        if !user.is_active {
+            return Err(anyhow!("User account is disabled"));
+        }
+
+        // 2. Verify user belongs to this department
+        let dept_roles = AuthRepo::get_user_dept_roles(self.pool.as_ref(), user_id).await?;
+        if !dept_roles.contains_key(&department_id.to_string()) {
+            return Err(anyhow!("User does not belong to department {}", department_id));
+        }
+
+        // 3. Build new claims with updated current_department_id
+        let system_role = if user.is_super_admin { "super_admin" } else { "user" }.to_string();
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)?
+            .as_secs();
+        let display_name = user.display_name.clone().unwrap_or_default();
+        let claims = Self::build_claims(
+            user.user_id,
+            user.username.clone(),
+            display_name,
+            system_role,
+            dept_roles,
+            Some(department_id),
+            now,
+            self.jwt_expiration_hours,
+        );
+
+        let expires_at = claims.exp as i64;
+        let token = self.sign_jwt(&claims)?;
+        Ok((token, expires_at, claims))
     }
 }

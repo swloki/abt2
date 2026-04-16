@@ -29,8 +29,9 @@ pub fn auth_interceptor(mut request: Request<()>) -> Result<Request<()>, Status>
     let auth_ctx = abt::AuthContext {
         user_id: claims.sub,
         username: claims.username,
-        is_super_admin: claims.is_super_admin,
-        permissions: claims.permissions,
+        system_role: claims.system_role,
+        dept_roles: claims.dept_roles,
+        current_department_id: claims.current_department_id,
     };
 
     request.extensions_mut().insert(auth_ctx);

@@ -8,14 +8,12 @@ use crate::repositories::Executor;
 pub trait DepartmentService: Send + Sync {
     async fn create(
         &self,
-        operator_id: Option<i64>,
         req: CreateDepartmentRequest,
         executor: Executor<'_>,
     ) -> Result<i64>;
 
     async fn update(
         &self,
-        operator_id: Option<i64>,
         department_id: i64,
         req: UpdateDepartmentRequest,
         executor: Executor<'_>,
@@ -23,7 +21,6 @@ pub trait DepartmentService: Send + Sync {
 
     async fn delete(
         &self,
-        operator_id: Option<i64>,
         department_id: i64,
         executor: Executor<'_>,
     ) -> Result<()>;
@@ -36,7 +33,6 @@ pub trait DepartmentService: Send + Sync {
 
     async fn assign_departments(
         &self,
-        operator_id: Option<i64>,
         user_id: i64,
         department_ids: Vec<i64>,
         executor: Executor<'_>,
@@ -44,7 +40,6 @@ pub trait DepartmentService: Send + Sync {
 
     async fn remove_departments(
         &self,
-        operator_id: Option<i64>,
         user_id: i64,
         department_ids: Vec<i64>,
         executor: Executor<'_>,
@@ -52,7 +47,6 @@ pub trait DepartmentService: Send + Sync {
 
     async fn set_department_resources(
         &self,
-        operator_id: Option<i64>,
         department_id: i64,
         resource_codes: Vec<String>,
         executor: Executor<'_>,
@@ -66,7 +60,6 @@ pub trait DepartmentService: Send + Sync {
     // 用户部门角色管理
     async fn assign_user_dept_roles(
         &self,
-        operator_id: Option<i64>,
         user_id: i64,
         assignments: Vec<DeptRole>,
         executor: Executor<'_>,
@@ -74,7 +67,6 @@ pub trait DepartmentService: Send + Sync {
 
     async fn remove_user_dept_roles(
         &self,
-        operator_id: Option<i64>,
         user_id: i64,
         assignments: Vec<DeptRole>,
         executor: Executor<'_>,

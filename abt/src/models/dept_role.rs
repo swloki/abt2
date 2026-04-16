@@ -15,9 +15,3 @@ pub struct DeptRoleDetail {
     pub role_id: i64,
     pub role_name: String,
 }
-
-/// 分配用户部门角色的请求
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AssignDeptRolesRequest {
-    pub assignments: Vec<DeptRole>,
-}

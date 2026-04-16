@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 
 use anyhow::Result;
+use parking_lot::RwLock;
 use sqlx::PgPool;
-use tokio::sync::RwLock;
 
 /// In-memory cache of role permissions with inheritance resolution.
 ///
@@ -59,19 +59,14 @@ impl RolePermissionCache {
         }
 
         // 7. Swap cache
-        *self.cache.write().await = resolved;
+        *self.cache.write() = resolved;
 
         Ok(())
     }
 
-    /// Get the resolved permissions for a role (includes inherited).
-    pub async fn get_permissions(&self, role_id: i64) -> HashSet<String> {
-        self.cache.read().await.get(&role_id).cloned().unwrap_or_default()
-    }
-
     /// Get merged permissions for multiple roles (union).
-    pub async fn get_merged_permissions(&self, role_ids: &[i64]) -> HashSet<String> {
-        let cache = self.cache.read().await;
+    pub fn get_merged_permissions(&self, role_ids: &[i64]) -> HashSet<String> {
+        let cache = self.cache.read();
         let mut merged = HashSet::new();
         for &role_id in role_ids {
             if let Some(perms) = cache.get(&role_id) {
@@ -82,9 +77,9 @@ impl RolePermissionCache {
     }
 
     /// Check if any of the given roles has a specific permission.
-    pub async fn has_permission(&self, role_ids: &[i64], resource: &str, action: &str) -> bool {
+    pub fn has_permission(&self, role_ids: &[i64], resource: &str, action: &str) -> bool {
         let required = format!("{}:{}", resource, action);
-        let cache = self.cache.read().await;
+        let cache = self.cache.read();
         for &role_id in role_ids {
             if let Some(perms) = cache.get(&role_id) {
                 if perms.contains(&required) {
@@ -189,25 +184,13 @@ impl DeptResourceAccessCache {
             map.entry(dept_id).or_default().insert(code);
         }
 
-        *self.cache.write().await = map;
+        *self.cache.write() = map;
         Ok(())
     }
 
-    /// Get the snapshot of the entire cache as a HashMap<i64, Vec<String>>.
-    /// Intended for use in synchronous permission-check contexts where the
-    /// caller needs a one-time snapshot (avoids holding the read lock across
-    /// an await point).
-    pub async fn get_all(&self) -> HashMap<i64, Vec<String>> {
-        let cache = self.cache.read().await;
-        cache
-            .iter()
-            .map(|(k, v)| (*k, v.iter().cloned().collect()))
-            .collect()
-    }
-
     /// Check whether a department has access to a given resource.
-    pub async fn has_resource(&self, department_id: i64, resource_code: &str) -> bool {
-        let cache = self.cache.read().await;
+    pub fn has_resource(&self, department_id: i64, resource_code: &str) -> bool {
+        let cache = self.cache.read();
         cache
             .get(&department_id)
             .map_or(false, |resources| resources.contains(resource_code))

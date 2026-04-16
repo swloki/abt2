@@ -23,6 +23,17 @@ fn strings_to_resources(codes: &[String]) -> Vec<i32> {
         .collect()
 }
 
+/// Convert proto DeptRoleAssignment to model DeptRole.
+fn to_dept_roles(assignments: Vec<DeptRoleAssignment>) -> Vec<abt::DeptRole> {
+    assignments
+        .into_iter()
+        .map(|a| abt::DeptRole {
+            department_id: a.department_id,
+            role_id: a.role_id,
+        })
+        .collect()
+}
+
 pub struct DepartmentHandler;
 
 impl DepartmentHandler {
@@ -64,7 +75,7 @@ impl GrpcDepartmentService for DepartmentHandler {
         };
 
         let department_id = srv
-            .create(Some(auth.user_id), create_req, &mut tx)
+            .create(create_req, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 
@@ -108,7 +119,7 @@ impl GrpcDepartmentService for DepartmentHandler {
             is_active: Some(req.is_active),
         };
 
-        srv.update(Some(auth.user_id), req.department_id, update_req, &mut tx)
+        srv.update(req.department_id, update_req, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 
@@ -138,7 +149,7 @@ impl GrpcDepartmentService for DepartmentHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        srv.delete(Some(auth.user_id), req.department_id, &mut tx)
+        srv.delete(req.department_id, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 
@@ -198,7 +209,7 @@ impl GrpcDepartmentService for DepartmentHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        srv.assign_departments(Some(auth.user_id), req.user_id, req.department_ids, &mut tx)
+        srv.assign_departments(req.user_id, req.department_ids, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 
@@ -221,7 +232,7 @@ impl GrpcDepartmentService for DepartmentHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        srv.remove_departments(Some(auth.user_id), req.user_id, req.department_ids, &mut tx)
+        srv.remove_departments(req.user_id, req.department_ids, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 
@@ -274,7 +285,6 @@ impl GrpcDepartmentService for DepartmentHandler {
 
         let stored_codes = srv
             .set_department_resources(
-                Some(auth.user_id),
                 req.department_id,
                 resource_codes,
                 &mut tx,
@@ -322,16 +332,9 @@ impl GrpcDepartmentService for DepartmentHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        let assignments: Vec<abt::DeptRole> = req
-            .assignments
-            .into_iter()
-            .map(|a| abt::DeptRole {
-                department_id: a.department_id,
-                role_id: a.role_id,
-            })
-            .collect();
+        let assignments = to_dept_roles(req.assignments);
 
-        srv.assign_user_dept_roles(Some(auth.user_id), req.user_id, assignments, &mut tx)
+        srv.assign_user_dept_roles(req.user_id, assignments, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 
@@ -354,16 +357,9 @@ impl GrpcDepartmentService for DepartmentHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        let assignments: Vec<abt::DeptRole> = req
-            .assignments
-            .into_iter()
-            .map(|a| abt::DeptRole {
-                department_id: a.department_id,
-                role_id: a.role_id,
-            })
-            .collect();
+        let assignments = to_dept_roles(req.assignments);
 
-        srv.remove_user_dept_roles(Some(auth.user_id), req.user_id, assignments, &mut tx)
+        srv.remove_user_dept_roles(req.user_id, assignments, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 

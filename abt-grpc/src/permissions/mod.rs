@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use crate::generated::abt::v1::{Action, Resource};
 
 /// Trait for converting proto-generated permission enums to lowercase runtime strings.
@@ -104,8 +102,12 @@ fn check_business_permission(
     department_id: Option<i64>,
 ) -> Result<(), String> {
     // Super admin with no dept assignments = full access
-    if auth.is_super_admin() && auth.dept_roles.is_empty() {
-        return Ok(());
+    if auth.is_super_admin() {
+        if auth.dept_roles.is_empty() {
+            return Ok(());
+        }
+        // Super admin with dept assignments still needs dept context
+        // but skips role/permission checks after membership verification
     }
 
     // Must have a department context
@@ -115,10 +117,7 @@ fn check_business_permission(
 
     // Step 1: Department membership check
     if !auth.belongs_to_department(dept_id) {
-        return Err(format!(
-            "User does not belong to department {}",
-            dept_id
-        ));
+        return Err("User does not belong to the specified department".to_string());
     }
 
     // Super admin who belongs to the department -> allow
@@ -127,59 +126,31 @@ fn check_business_permission(
     }
 
     // Step 2: Department resource visibility check
-    let dept_access = get_dept_resource_access_snapshot();
-    match dept_access.get(&dept_id) {
-        Some(resources) => {
-            if !resources.contains(&resource_code.to_string()) {
-                return Err(format!(
-                    "Department {} does not have access to resource {}",
-                    dept_id, resource_code
-                ));
-            }
-        }
-        None => {
-            return Err(format!(
-                "Department {} has no resource access configured",
-                dept_id
-            ));
-        }
+    let has_resource = {
+        let cache = abt::get_dept_resource_access_cache();
+        cache.has_resource(dept_id, resource_code)
+    };
+    if !has_resource {
+        return Err("Department does not have access to the specified resource".to_string());
     }
 
     // Step 3: Check role permissions via cache
     let role_ids = auth.get_dept_role_ids(dept_id);
     if role_ids.is_empty() {
-        return Err(format!(
-            "User has no roles in department {}",
-            dept_id
-        ));
+        return Err("User has no roles in the specified department".to_string());
     }
 
     let cache = abt::get_permission_cache();
-    let has_perm = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            cache.has_permission(&role_ids, resource_code, action_code).await
-        })
-    });
+    let has_perm = cache.has_permission(&role_ids, resource_code, action_code);
 
     if has_perm {
         Ok(())
     } else {
         Err(format!(
-            "No permission for {}:{} in department {}",
-            resource_code, action_code, dept_id
+            "No permission for {}:{} in current department",
+            resource_code, action_code
         ))
     }
-}
-
-/// Get a snapshot of the department resource access cache.
-///
-/// Uses `block_in_place` + `block_on` because this is called from a sync context
-/// (the permission check functions), but the cache uses async RwLock.
-fn get_dept_resource_access_snapshot() -> HashMap<i64, Vec<String>> {
-    let cache = abt::get_dept_resource_access_cache();
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async { cache.get_all().await })
-    })
 }
 
 #[cfg(test)]

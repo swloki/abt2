@@ -42,6 +42,9 @@ argon2 = "0.5"
 jsonwebtoken = "9"
 rand = "0.8"
 
+# Concurrency
+parking_lot = "0.12"
+
 
 
 [build-dependencies]

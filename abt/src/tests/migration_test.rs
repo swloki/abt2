@@ -184,7 +184,9 @@ mod tests {
         assert!(role_codes.contains(&"super_admin".to_string()), "super_admin role should exist");
         assert!(role_codes.contains(&"admin".to_string()), "admin role should exist");
         assert!(role_codes.contains(&"user".to_string()), "user role should exist");
-        assert_eq!(role_codes.len(), 3, "Should have exactly 3 preset roles");
+        assert!(role_codes.contains(&"manager".to_string()), "manager role should exist");
+        assert!(role_codes.contains(&"staff".to_string()), "staff role should exist");
+        assert_eq!(role_codes.len(), 5, "Should have exactly 5 preset roles");
     }
 
     /// Step 3 测试: 验证系统角色标记正确

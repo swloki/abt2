@@ -34,6 +34,14 @@ impl AuthServiceImpl {
         }
     }
 
+    fn resolve_system_role(is_super_admin: bool) -> String {
+        if is_super_admin {
+            "super_admin".to_string()
+        } else {
+            "user".to_string()
+        }
+    }
+
     /// 签发 JWT
     fn sign_jwt(&self, claims: &Claims) -> Result<String> {
         let token = encode(
@@ -124,11 +132,7 @@ impl AuthService for AuthServiceImpl {
             .map_err(|_| anyhow!("Invalid username or password"))?;
 
         // 4. Determine system_role
-        let system_role = if user.is_super_admin {
-            "super_admin".to_string()
-        } else {
-            "user".to_string()
-        };
+        let system_role = Self::resolve_system_role(user.is_super_admin);
 
         // 5. Get dept_roles from user_department_roles
         let dept_roles = AuthRepo::get_user_dept_roles(self.pool.as_ref(), user.user_id).await?;
@@ -171,11 +175,7 @@ impl AuthService for AuthServiceImpl {
         }
 
         // Determine system_role
-        let system_role = if user.is_super_admin {
-            "super_admin".to_string()
-        } else {
-            "user".to_string()
-        };
+        let system_role = Self::resolve_system_role(user.is_super_admin);
 
         // Get dept_roles
         let dept_roles = AuthRepo::get_user_dept_roles(self.pool.as_ref(), user.user_id).await?;
@@ -215,11 +215,7 @@ impl AuthService for AuthServiceImpl {
             .await?
             .ok_or_else(|| anyhow!("User not found"))?;
 
-        let system_role = if user.is_super_admin {
-            "super_admin".to_string()
-        } else {
-            "user".to_string()
-        };
+        let system_role = Self::resolve_system_role(user.is_super_admin);
 
         let dept_roles = AuthRepo::get_user_dept_roles(self.pool.as_ref(), user.user_id).await?;
         let current_department_id = self.resolve_default_department(&dept_roles).await?;
@@ -250,14 +246,15 @@ impl AuthService for AuthServiceImpl {
             return Err(anyhow!("User account is disabled"));
         }
 
-        // 2. Verify user belongs to this department
+        // 2. Verify user belongs to this department and has roles
         let dept_roles = AuthRepo::get_user_dept_roles(self.pool.as_ref(), user_id).await?;
-        if !dept_roles.contains_key(&department_id.to_string()) {
-            return Err(anyhow!("User does not belong to department {}", department_id));
+        let role_ids = dept_roles.get(&department_id.to_string());
+        if role_ids.is_none() || role_ids.unwrap().is_empty() {
+            return Err(anyhow!("User does not have access to the specified department"));
         }
 
         // 3. Build new claims with updated current_department_id
-        let system_role = if user.is_super_admin { "super_admin" } else { "user" }.to_string();
+        let system_role = Self::resolve_system_role(user.is_super_admin);
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();

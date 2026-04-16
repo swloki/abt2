@@ -2,68 +2,66 @@
 
 #[cfg(test)]
 mod auth_tests {
+    use std::collections::HashMap;
+
     use crate::models::AuthContext;
 
-    #[test]
-    fn test_check_permission_granted() {
-        let auth = AuthContext {
+    fn make_auth(system_role: &str, dept_roles: HashMap<String, Vec<i64>>) -> AuthContext {
+        AuthContext {
             user_id: 1,
             username: "test".to_string(),
-            is_super_admin: false,
-            permissions: vec![
-                "product:read".to_string(),
-                "product:write".to_string(),
-                "warehouse:read".to_string(),
-            ],
-        };
-
-        assert!(auth.check_permission("product", "read").is_ok());
-        assert!(auth.check_permission("product", "write").is_ok());
-        assert!(auth.check_permission("warehouse", "read").is_ok());
+            system_role: system_role.to_string(),
+            dept_roles,
+            current_department_id: None,
+        }
     }
 
     #[test]
-    fn test_check_permission_denied() {
-        let auth = AuthContext {
-            user_id: 2,
-            username: "limited".to_string(),
-            is_super_admin: false,
-            permissions: vec!["product:read".to_string()],
-        };
+    fn test_is_super_admin() {
+        let admin = make_auth("super_admin", HashMap::new());
+        assert!(admin.is_super_admin());
 
-        assert!(auth.check_permission("product", "read").is_ok());
-        assert!(auth.check_permission("product", "write").is_err());
-        assert!(auth.check_permission("warehouse", "read").is_err());
-        assert!(auth.check_permission("bom", "delete").is_err());
+        let user = make_auth("user", HashMap::new());
+        assert!(!user.is_super_admin());
     }
 
     #[test]
-    fn test_super_admin_bypasses_all() {
-        let auth = AuthContext {
-            user_id: 0,
-            username: "admin".to_string(),
-            is_super_admin: true,
-            permissions: vec![], // super_admin has empty permissions list
-        };
+    fn test_belongs_to_department() {
+        let mut dept_roles = HashMap::new();
+        dept_roles.insert("1".to_string(), vec![10]);
+        dept_roles.insert("2".to_string(), vec![20]);
 
-        assert!(auth.check_permission("product", "read").is_ok());
-        assert!(auth.check_permission("product", "write").is_ok());
-        assert!(auth.check_permission("product", "delete").is_ok());
-        assert!(auth.check_permission("user", "write").is_ok());
-        assert!(auth.check_permission("role", "delete").is_ok());
-        assert!(auth.check_permission("anything", "anyaction").is_ok());
+        let user = make_auth("user", dept_roles);
+
+        assert!(user.belongs_to_department(1));
+        assert!(user.belongs_to_department(2));
+        assert!(!user.belongs_to_department(3));
     }
 
     #[test]
-    fn test_empty_permissions_denies_all() {
-        let auth = AuthContext {
-            user_id: 3,
-            username: "noperm".to_string(),
-            is_super_admin: false,
-            permissions: vec![],
-        };
+    fn test_super_admin_belongs_to_any_department() {
+        let admin = make_auth("super_admin", HashMap::new());
+        assert!(admin.belongs_to_department(999));
+    }
 
-        assert!(auth.check_permission("product", "read").is_err());
-        assert!(auth.check_permission("anything", "read").is_err());
+    #[test]
+    fn test_get_dept_role_ids() {
+        let mut dept_roles = HashMap::new();
+        dept_roles.insert("1".to_string(), vec![10, 20]);
+        dept_roles.insert("2".to_string(), vec![30]);
+
+        let user = make_auth("user", dept_roles);
+
+        assert_eq!(user.get_dept_role_ids(1), vec![10, 20]);
+        assert_eq!(user.get_dept_role_ids(2), vec![30]);
+        assert!(user.get_dept_role_ids(3).is_empty());
+    }
+
+    #[test]
+    fn test_empty_dept_roles() {
+        let user = make_auth("user", HashMap::new());
+        assert!(!user.is_super_admin());
+        assert!(!user.belongs_to_department(1));
+        assert!(user.get_dept_role_ids(1).is_empty());
     }
 }

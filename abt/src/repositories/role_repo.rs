@@ -63,7 +63,7 @@ impl RoleRepo {
             Role,
             r#"
             SELECT role_id, role_name, role_code, is_system_role,
-                   description, created_at, updated_at
+                   parent_role_id, description, created_at, updated_at
             FROM roles
             WHERE role_id = $1
             "#,
@@ -80,7 +80,7 @@ impl RoleRepo {
             Role,
             r#"
             SELECT role_id, role_name, role_code, is_system_role,
-                   description, created_at, updated_at
+                   parent_role_id, description, created_at, updated_at
             FROM roles
             WHERE role_id = $1
             "#,
@@ -97,7 +97,7 @@ impl RoleRepo {
             Role,
             r#"
             SELECT role_id, role_name, role_code, is_system_role,
-                   description, created_at, updated_at
+                   parent_role_id, description, created_at, updated_at
             FROM roles
             WHERE role_code = $1
             "#,
@@ -114,7 +114,7 @@ impl RoleRepo {
             Role,
             r#"
             SELECT role_id, role_name, role_code, is_system_role,
-                   description, created_at, updated_at
+                   parent_role_id, description, created_at, updated_at
             FROM roles
             ORDER BY role_id
             "#

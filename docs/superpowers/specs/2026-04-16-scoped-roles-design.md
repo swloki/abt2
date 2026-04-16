@@ -35,7 +35,8 @@ status: draft
 | 9 | 每个部门的角色数量 | 允许 1 User : 1 Department : N Roles | 支持角色组合，如"既是经理又是专项负责人"，实现成本极低 |
 | 10 | 角色继承 | 单继承（parent_role_id），运行时自动合并权限 | 避免权限重复配置，如 staff → senior_staff → manager |
 | 11 | 默认部门上下文 | JWT 存 current_department_id，登录时自动确定 | 单部门自动选，多部门弹出选择器，切换部门时刷新 token |
-| 12 | 安全校验 | 强制校验 department_id 归属，super_admin 也不例外 | 防止前端传错或恶意伪造部门上下文 |
+| 12 | 安全校验 | 强制校验 department_id 归属 | 防止前端传错或恶意伪造部门上下文。super_admin 若 dept_roles 为空则跳过归属校验 |
+| 13 | 继承链防环检测 | 缓存加载时做拓扑排序 / DFS 检测循环 | 防止管理员误操作导致死循环 |
 
 ## 权限检查流程
 
@@ -143,11 +144,10 @@ require_permission(Resource::User, Action::Read)
     username: "...",
     display_name: "...",
     system_role: "user",                          // 系统角色: "super_admin" | "user"
-    dept_roles: [                                  // 部门-角色映射（支持多角色）
-      { department_id: 1, role_id: 2 },           // 部门1 -> 经理角色
-      { department_id: 1, role_id: 4 },           // 部门1 -> 专项负责人角色
-      { department_id: 2, role_id: 3 }            // 部门2 -> 职员角色
-    ],
+    dept_roles: {                                  // 部门 → 角色列表（嵌套结构，前端解析友好）
+      "1": [2, 4],                                // 部门1 -> 经理角色 + 专项负责人角色
+      "2": [3]                                    // 部门2 -> 职员角色
+    },
     current_department_id: 1,                      // 当前部门上下文（登录时自动确定）
     exp: ...,
     iat: ...
@@ -158,9 +158,16 @@ require_permission(Resource::User, Action::Read)
 
 - 移除 `permissions` 扁平列表和 `is_super_admin` 标志
 - 新增 `system_role`：标识系统角色
-- 新增 `dept_roles`：部门-角色映射列表（支持同一部门多个角色）
+- 新增 `dept_roles`：部门 → 角色列表的嵌套映射（key 为 department_id 字符串，value 为 role_id 数组）
 - 新增 `current_department_id`：当前部门上下文，登录时自动确定
 - 角色的具体权限不在 JWT 中，由运行时内存缓存提供
+
+### super_admin 的特殊处理
+
+super_admin 通常不属于任何业务部门，其 `dept_roles` 为空对象 `{}`。权限检查时：
+
+- 业务资源操作：dept_roles 为空 → 跳过部门归属校验和后续检查，直接允许
+- 系统资源操作：直接允许
 
 ### 默认部门上下文规则
 
@@ -284,12 +291,34 @@ staff (base)
 - 新建部门、分配角色后用户重新登录即可
 - 继承关系在缓存加载时一次性展开，运行时无递归开销
 
+## 安全设计
+
+### 部门归属强制校验
+
+业务资源操作必须校验部门归属：
+
+1. 请求携带 department_id
+2. 检查 JWT dept_roles 中是否存在该 department_id
+3. 不存在 → 直接拒绝（防止前端传错或恶意伪造）
+
+super_admin 的 dept_roles 为空时，跳过归属校验直接允许（超级管理员不属于业务部门是正常情况）。
+
+### 继承链防环检测
+
+缓存加载时通过 DFS 检测循环继承：
+
+1. 遍历所有角色的 parent_role_id 链
+2. 若发现已访问过的角色 ID，抛出错误并拒绝启动
+3. 在角色管理 API 中也应校验：设置 parent_role_id 时检查是否会形成环
+
 ## gRPC API 影响
 
 ### 新增/修改
 
 - 分配用户部门角色：传入 user_id + [(department_id, role_id)] 列表
 - 查询用户部门角色：返回 user_id 对应的 [(department, role)] 列表
+- **获取当前用户部门及角色**：返回当前用户的所有部门、每个部门的角色列表、当前部门 ID（前端初始化部门选择器必备）
+- 切换当前部门：传入 department_id，刷新 token 中的 current_department_id
 - 前端请求业务资源接口时需传入 department_id 参数
 
 ### 不变
@@ -298,20 +327,6 @@ staff (base)
 - 部门管理接口（创建/编辑/删除部门、配置资源可见性）
 - 所有业务资源的 CRUD 接口（handler 层的 require_permission 写法不变）
 
-## 安全设计
-
-### 部门归属强制校验
-
-所有业务资源操作必须先校验部门归属，super_admin 也不例外：
-
-1. 请求携带 department_id
-2. 检查 JWT dept_roles 中是否存在该 department_id
-3. 不存在 → 直接拒绝（防止前端传错或恶意伪造）
-
-super_admin 跳过后续的资源可见性和角色权限检查，但必须通过部门归属校验。
-
 ## 待后续讨论的问题
 
 - 用户被移除某部门后，该部门下的未完成操作如何处理？
-- 是否需要一个"获取我所有部门及角色"的接口供前端初始化部门选择器？
-- 继承链中是否需要防环检测（防止 A → B → A 的循环继承）？

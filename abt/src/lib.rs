@@ -15,9 +15,12 @@ use async_trait::async_trait;
 
 // Internal modules
 mod implt;
+mod permission_cache;
 pub mod models;
 pub mod repositories;
 pub mod service;
+
+pub use permission_cache::RolePermissionCache;
 
 #[cfg(test)]
 mod tests;
@@ -66,6 +69,14 @@ static INIT_LOCK: Mutex<()> = Mutex::const_new(());
 // Excel 服务单例（需要持有进度状态）
 static EXCEL_SERVICE: OnceLock<implt::ProductExcelServiceImpl> = OnceLock::new();
 
+// Permission cache singleton
+static PERMISSION_CACHE: OnceLock<RolePermissionCache> = OnceLock::new();
+
+/// Get the global permission cache
+pub fn get_permission_cache() -> &'static RolePermissionCache {
+    PERMISSION_CACHE.get_or_init(RolePermissionCache::new)
+}
+
 /// 获取全局应用上下文
 pub async fn get_context() -> &'static AppContext {
     if let Some(ctx) = CONTEXT.get() {
@@ -89,6 +100,12 @@ pub async fn init_context_with_pool(pool: PgPool) {
     let _guard = INIT_LOCK.lock().await;
     if CONTEXT.get().is_some() {
         return;
+    }
+
+    // Load permission cache
+    let cache = get_permission_cache();
+    if let Err(e) = cache.load(&pool).await {
+        eprintln!("WARNING: Failed to load permission cache: {}", e);
     }
 
     let ctx = AppContext { pool };

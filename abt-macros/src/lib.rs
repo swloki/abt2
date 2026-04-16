@@ -53,7 +53,14 @@ pub fn require_permission(attr: TokenStream, item: TokenStream) -> TokenStream {
         let auth = extract_auth(&#request_ident)?;
     };
     let check_stmt: Stmt = parse_quote! {
-        auth.check_permission(#resource.code(), #action.code()).map_err(|_e| error::forbidden(#resource.code(), #action.code()))?;
+        crate::permissions::check_permission_for_resource(
+            &auth,
+            #resource.code(),
+            #action.code(),
+            #request_ident.metadata().get("x-department-id")
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.parse::<i64>().ok()),
+        ).map_err(|_e| error::forbidden(#resource.code(), #action.code()))?;
     };
 
     let stmts_to_prepend = vec![auth_stmt, check_stmt];

@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::OnceLock;
 
 use anyhow::Result;
 use sqlx::PgPool;
@@ -152,4 +153,71 @@ impl RolePermissionCache {
         in_stack.remove(&role_id);
         Ok(())
     }
+}
+
+// ============================================================================
+// Department Resource Access Cache
+// ============================================================================
+
+/// In-memory cache of department -> accessible resource codes.
+///
+/// Loaded at startup from the `department_resource_access` table.
+/// When department resource assignments change, call `refresh()` to reload.
+pub struct DeptResourceAccessCache {
+    /// department_id -> set of accessible resource codes
+    cache: RwLock<HashMap<i64, HashSet<String>>>,
+}
+
+impl DeptResourceAccessCache {
+    pub fn new() -> Self {
+        Self {
+            cache: RwLock::new(HashMap::new()),
+        }
+    }
+
+    /// Load department resource access from database.
+    /// Call at startup and after department resource changes.
+    pub async fn load(&self, pool: &PgPool) -> Result<()> {
+        let rows: Vec<(i64, String)> = sqlx::query_as(
+            "SELECT department_id, resource_code FROM department_resource_access",
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut map: HashMap<i64, HashSet<String>> = HashMap::new();
+        for (dept_id, code) in rows {
+            map.entry(dept_id).or_default().insert(code);
+        }
+
+        *self.cache.write().await = map;
+        Ok(())
+    }
+
+    /// Get the snapshot of the entire cache as a HashMap<i64, Vec<String>>.
+    /// Intended for use in synchronous permission-check contexts where the
+    /// caller needs a one-time snapshot (avoids holding the read lock across
+    /// an await point).
+    pub async fn get_all(&self) -> HashMap<i64, Vec<String>> {
+        let cache = self.cache.read().await;
+        cache
+            .iter()
+            .map(|(k, v)| (*k, v.iter().cloned().collect()))
+            .collect()
+    }
+
+    /// Check whether a department has access to a given resource.
+    pub async fn has_resource(&self, department_id: i64, resource_code: &str) -> bool {
+        let cache = self.cache.read().await;
+        cache
+            .get(&department_id)
+            .map_or(false, |resources| resources.contains(resource_code))
+    }
+}
+
+/// Global DeptResourceAccessCache singleton.
+static DEPT_RESOURCE_ACCESS_CACHE: OnceLock<DeptResourceAccessCache> = OnceLock::new();
+
+/// Get the global department resource access cache.
+pub fn get_dept_resource_access_cache() -> &'static DeptResourceAccessCache {
+    DEPT_RESOURCE_ACCESS_CACHE.get_or_init(DeptResourceAccessCache::new)
 }

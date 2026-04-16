@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::generated::abt::v1::{Action, Resource};
 
 /// Trait for converting proto-generated permission enums to lowercase runtime strings.
@@ -37,6 +39,147 @@ impl PermissionCode for Action {
             Self::Delete => "delete",
         }
     }
+}
+
+// ============================================================================
+// Scoped Permission Check Functions
+// ============================================================================
+
+/// Main permission check entry point, called by the `require_permission` macro.
+///
+/// Dispatches to system or business resource check based on resource type.
+pub fn check_permission_for_resource(
+    auth: &abt::AuthContext,
+    resource_code: &str,
+    action_code: &str,
+    department_id: Option<i64>,
+) -> Result<(), String> {
+    if abt::is_system_resource(resource_code) {
+        check_system_permission(auth, resource_code, action_code)
+    } else {
+        check_business_permission(auth, resource_code, action_code, department_id)
+    }
+}
+
+/// Check permission for system resources (user, role, permission, department, excel).
+///
+/// System resources are governed by system_role:
+/// - super_admin: full access to all system resources
+/// - user: read-only access to user, department, permission
+fn check_system_permission(
+    auth: &abt::AuthContext,
+    resource_code: &str,
+    action_code: &str,
+) -> Result<(), String> {
+    if auth.is_super_admin() {
+        return Ok(());
+    }
+
+    // Non-admin users get read-only access to select system resources
+    let user_permissions = ["user:read", "department:read", "permission:read", "role:read"];
+    let required = format!("{}:{}", resource_code, action_code);
+    if user_permissions.contains(&required.as_str()) {
+        Ok(())
+    } else {
+        Err(format!(
+            "No system permission for {}:{}",
+            resource_code, action_code
+        ))
+    }
+}
+
+/// Check permission for business resources (product, term, bom, warehouse, etc.).
+///
+/// Flow:
+/// 1. Super admin with no dept_roles -> full access (system-level admin)
+/// 2. Extract department_id from gRPC metadata (passed as argument)
+/// 3. Check user belongs to this department
+/// 4. Super admin who belongs to the department -> allow
+/// 5. Check department has access to this resource type
+/// 6. Check user's roles in this department have the required permission via cache
+fn check_business_permission(
+    auth: &abt::AuthContext,
+    resource_code: &str,
+    action_code: &str,
+    department_id: Option<i64>,
+) -> Result<(), String> {
+    // Super admin with no dept assignments = full access
+    if auth.is_super_admin() && auth.dept_roles.is_empty() {
+        return Ok(());
+    }
+
+    // Must have a department context
+    let dept_id = department_id.ok_or_else(|| {
+        "department_id is required for business resource operations".to_string()
+    })?;
+
+    // Step 1: Department membership check
+    if !auth.belongs_to_department(dept_id) {
+        return Err(format!(
+            "User does not belong to department {}",
+            dept_id
+        ));
+    }
+
+    // Super admin who belongs to the department -> allow
+    if auth.is_super_admin() {
+        return Ok(());
+    }
+
+    // Step 2: Department resource visibility check
+    let dept_access = get_dept_resource_access_snapshot();
+    match dept_access.get(&dept_id) {
+        Some(resources) => {
+            if !resources.contains(&resource_code.to_string()) {
+                return Err(format!(
+                    "Department {} does not have access to resource {}",
+                    dept_id, resource_code
+                ));
+            }
+        }
+        None => {
+            return Err(format!(
+                "Department {} has no resource access configured",
+                dept_id
+            ));
+        }
+    }
+
+    // Step 3: Check role permissions via cache
+    let role_ids = auth.get_dept_role_ids(dept_id);
+    if role_ids.is_empty() {
+        return Err(format!(
+            "User has no roles in department {}",
+            dept_id
+        ));
+    }
+
+    let cache = abt::get_permission_cache();
+    let has_perm = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async {
+            cache.has_permission(&role_ids, resource_code, action_code).await
+        })
+    });
+
+    if has_perm {
+        Ok(())
+    } else {
+        Err(format!(
+            "No permission for {}:{} in department {}",
+            resource_code, action_code, dept_id
+        ))
+    }
+}
+
+/// Get a snapshot of the department resource access cache.
+///
+/// Uses `block_in_place` + `block_on` because this is called from a sync context
+/// (the permission check functions), but the cache uses async RwLock.
+fn get_dept_resource_access_snapshot() -> HashMap<i64, Vec<String>> {
+    let cache = abt::get_dept_resource_access_cache();
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async { cache.get_all().await })
+    })
 }
 
 #[cfg(test)]

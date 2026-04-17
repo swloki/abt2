@@ -83,36 +83,14 @@ fn all_action_codes_exist_in_resources_rs() {
     }
 }
 
-#[test]
-fn business_system_resource_codes_cover_all_enums() {
-    use abt::models::resources::{is_business_resource, is_system_resource};
-
-    for variant in ALL_RESOURCES {
-        let code = variant.code();
-        let is_business = is_business_resource(code);
-        let is_system = is_system_resource(code);
-        assert!(
-            is_business || is_system,
-            "Resource {:?} (code={:?}) is neither business nor system resource",
-            variant,
-            code
-        );
-        assert!(
-            !(is_business && is_system),
-            "Resource {:?} (code={:?}) is both business and system resource",
-            variant,
-            code
-        );
-    }
-}
-
 // ============================================================================
 // Permission check function tests
 // ============================================================================
 
 #[test]
-fn super_admin_has_full_system_access() {
+fn super_admin_has_full_access() {
     let auth = make_auth("super_admin", vec![]);
+    // super_admin bypasses all permission checks
     assert!(
         check_permission_for_resource(&auth, "user", "write").is_ok(),
         "super_admin should have user:write"
@@ -121,15 +99,6 @@ fn super_admin_has_full_system_access() {
         check_permission_for_resource(&auth, "role", "delete").is_ok(),
         "super_admin should have role:delete"
     );
-    assert!(
-        check_permission_for_resource(&auth, "department", "write").is_ok(),
-        "super_admin should have department:write"
-    );
-}
-
-#[test]
-fn super_admin_has_full_business_access() {
-    let auth = make_auth("super_admin", vec![]);
     assert!(
         check_permission_for_resource(&auth, "product", "write").is_ok(),
         "super_admin should have product:write"
@@ -141,75 +110,36 @@ fn super_admin_has_full_business_access() {
 }
 
 #[test]
-fn normal_user_system_read_access() {
+fn normal_user_denied_without_role_permission() {
+    // All resources (system and business) require role-based permission via cache.
     let auth = make_auth("user", vec![1]);
     assert!(
-        check_permission_for_resource(&auth, "user", "read").is_ok(),
-        "normal user should have user:read"
+        check_permission_for_resource(&auth, "user", "read").is_err(),
+        "normal user without role permission should NOT have user:read"
     );
     assert!(
-        check_permission_for_resource(&auth, "department", "read").is_ok(),
-        "normal user should have department:read"
+        check_permission_for_resource(&auth, "department", "read").is_err(),
+        "normal user without role permission should NOT have department:read"
     );
-    assert!(
-        check_permission_for_resource(&auth, "permission", "read").is_ok(),
-        "normal user should have permission:read"
-    );
-    assert!(
-        check_permission_for_resource(&auth, "role", "read").is_ok(),
-        "normal user should have role:read"
-    );
-}
-
-#[test]
-fn normal_user_system_write_denied() {
-    let auth = make_auth("user", vec![1]);
     assert!(
         check_permission_for_resource(&auth, "user", "write").is_err(),
-        "normal user should NOT have user:write"
+        "normal user without role permission should NOT have user:write"
     );
     assert!(
-        check_permission_for_resource(&auth, "role", "delete").is_err(),
-        "normal user should NOT have role:delete"
-    );
-    assert!(
-        check_permission_for_resource(&auth, "excel", "write").is_err(),
-        "normal user should NOT have excel:write"
+        check_permission_for_resource(&auth, "product", "read").is_err(),
+        "normal user without role permission should NOT have product:read"
     );
 }
 
 #[test]
-fn empty_role_ids_denied_business_resources() {
+fn empty_role_ids_denied() {
     let auth = make_auth("user", vec![]);
     assert!(
         check_permission_for_resource(&auth, "product", "read").is_err(),
         "user with empty role_ids should be denied product:read"
     );
     assert!(
-        check_permission_for_resource(&auth, "bom", "write").is_err(),
-        "user with empty role_ids should be denied bom:write"
+        check_permission_for_resource(&auth, "user", "read").is_err(),
+        "user with empty role_ids should be denied user:read"
     );
-}
-
-#[test]
-fn check_permission_routes_system_vs_business() {
-    // Verify system resources go through check_system_permission
-    let admin = make_auth("super_admin", vec![]);
-    let user = make_auth("user", vec![]);
-
-    // admin can do everything on system resources
-    for res in &["user", "role", "permission", "department", "excel"] {
-        for act in &["read", "write", "delete"] {
-            assert!(
-                check_permission_for_resource(&admin, res, act).is_ok(),
-                "admin should have {}:{}",
-                res,
-                act
-            );
-        }
-    }
-
-    // user can only read certain system resources
-    assert!(check_permission_for_resource(&user, "user", "read").is_ok());
-    assert!(check_permission_for_resource(&user, "user", "write").is_err());
 }

@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ABT is a BOM (Bill of Materials) and Inventory Management System built in Rust. It exposes a gRPC API backed by PostgreSQL, and the core library (`abt`) can also be used as a NAPI module for Node.js.
 
+**注意：使用中文进行沟通**
+
 ## Build & Run Commands
 
 ```bash

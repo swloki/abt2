@@ -20,6 +20,12 @@ impl RoleHandler {
     pub fn new() -> Self {
         Self
     }
+
+    /// 权限变更后刷新缓存
+    async fn refresh_permission_cache(state: &AppState) -> Result<(), tonic::Status> {
+        abt::get_permission_cache().load(&state.pool()).await
+            .map_err(error::err_to_status)
+    }
 }
 
 impl Default for RoleHandler {
@@ -108,6 +114,9 @@ impl GrpcRoleService for RoleHandler {
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
+        // 刷新权限缓存
+        Self::refresh_permission_cache(&state).await?;
+
         Ok(Response::new(Empty {}))
     }
 
@@ -164,6 +173,9 @@ impl GrpcRoleService for RoleHandler {
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
+        // 刷新权限缓存
+        Self::refresh_permission_cache(&state).await?;
+
         Ok(Response::new(Empty {}))
     }
 
@@ -186,6 +198,9 @@ impl GrpcRoleService for RoleHandler {
             .map_err(error::err_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
+
+        // 刷新权限缓存
+        Self::refresh_permission_cache(&state).await?;
 
         Ok(Response::new(Empty {}))
     }

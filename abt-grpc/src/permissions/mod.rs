@@ -45,62 +45,18 @@ impl PermissionCode for Action {
 
 /// Main permission check entry point, called by the `require_permission` macro.
 ///
-/// Dispatches to system or business resource check based on resource type.
+/// Flow:
+/// 1. Super admin → full access
+/// 2. Check user's roles have the required permission via RolePermissionCache
 pub fn check_permission_for_resource(
     auth: &abt::AuthContext,
     resource_code: &str,
     action_code: &str,
 ) -> Result<(), String> {
-    if abt::is_system_resource(resource_code) {
-        check_system_permission(auth, resource_code, action_code)
-    } else {
-        check_business_permission(auth, resource_code, action_code)
-    }
-}
-
-/// Check permission for system resources (user, role, permission, department, excel).
-///
-/// System resources are governed by system_role:
-/// - super_admin: full access to all system resources
-/// - user: read-only access to user, department, permission
-fn check_system_permission(
-    auth: &abt::AuthContext,
-    resource_code: &str,
-    action_code: &str,
-) -> Result<(), String> {
     if auth.is_super_admin() {
         return Ok(());
     }
 
-    // Non-admin users get read-only access to select system resources
-    let user_permissions = ["user:read", "department:read", "permission:read", "role:read"];
-    let required = format!("{}:{}", resource_code, action_code);
-    if user_permissions.contains(&required.as_str()) {
-        Ok(())
-    } else {
-        Err(format!(
-            "No system permission for {}:{}",
-            resource_code, action_code
-        ))
-    }
-}
-
-/// Check permission for business resources (product, term, bom, warehouse, etc.).
-///
-/// Flow:
-/// 1. Super admin → full access
-/// 2. Check user's global roles have the required permission via RolePermissionCache
-fn check_business_permission(
-    auth: &abt::AuthContext,
-    resource_code: &str,
-    action_code: &str,
-) -> Result<(), String> {
-    // Super admin bypasses all business permission checks
-    if auth.is_super_admin() {
-        return Ok(());
-    }
-
-    // Check role permissions via cache
     let role_ids = &auth.role_ids;
     if role_ids.is_empty() {
         return Err(format!("No permission for {}:{}", resource_code, action_code));

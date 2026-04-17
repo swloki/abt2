@@ -13,6 +13,9 @@ pub struct Claims {
     pub system_role: String,
     /// 全局角色 ID 列表
     pub role_ids: Vec<i64>,
+    /// 已解析的权限列表 (大写格式 "PRODUCT:WRITE")
+    #[serde(default)]
+    pub permissions: Vec<String>,
     /// 过期时间 (UNIX timestamp)
     pub exp: u64,
     /// 签发时间 (UNIX timestamp)

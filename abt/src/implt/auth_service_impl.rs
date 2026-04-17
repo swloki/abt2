@@ -8,6 +8,7 @@ use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, 
 use crate::models::{Claims, ResourceActionDef};
 use crate::repositories::AuthRepo;
 use crate::service::AuthService;
+use crate::get_permission_cache;
 
 const SECONDS_PER_HOUR: u64 = 3600;
 
@@ -41,6 +42,16 @@ impl AuthServiceImpl {
         }
     }
 
+    /// 从缓存解析角色对应的权限列表（大写格式）
+    fn resolve_permissions(role_ids: &[i64]) -> Vec<String> {
+        let cache = get_permission_cache();
+        cache
+            .get_merged_permissions(role_ids)
+            .into_iter()
+            .map(|p| p.to_uppercase())
+            .collect()
+    }
+
     /// 签发 JWT
     fn sign_jwt(&self, claims: &Claims) -> Result<String> {
         let token = encode(
@@ -68,6 +79,7 @@ impl AuthServiceImpl {
         display_name: String,
         system_role: String,
         role_ids: Vec<i64>,
+        permissions: Vec<String>,
         now: u64,
         expiration_hours: u64,
     ) -> Claims {
@@ -77,6 +89,7 @@ impl AuthServiceImpl {
             display_name,
             system_role,
             role_ids,
+            permissions,
             iat: now,
             exp: now + expiration_hours * SECONDS_PER_HOUR,
         }
@@ -109,7 +122,10 @@ impl AuthService for AuthServiceImpl {
         // 5. Get role_ids from user_roles table
         let role_ids = AuthRepo::get_user_role_ids(self.pool.as_ref(), user.user_id).await?;
 
-        // 6. Build and sign JWT
+        // 6. Resolve permissions from cache
+        let permissions = Self::resolve_permissions(&role_ids);
+
+        // 7. Build and sign JWT
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
             .as_secs();
@@ -120,6 +136,7 @@ impl AuthService for AuthServiceImpl {
             display_name,
             system_role,
             role_ids,
+            permissions,
             now,
             self.jwt_expiration_hours,
         );
@@ -145,8 +162,9 @@ impl AuthService for AuthServiceImpl {
         // Determine system_role
         let system_role = Self::resolve_system_role(user.is_super_admin);
 
-        // Get role_ids
+        // Get role_ids and resolve permissions
         let role_ids = AuthRepo::get_user_role_ids(self.pool.as_ref(), user.user_id).await?;
+        let permissions = Self::resolve_permissions(&role_ids);
 
         // 签发新 token
         let now = std::time::SystemTime::now()
@@ -160,6 +178,7 @@ impl AuthService for AuthServiceImpl {
             display_name,
             system_role,
             role_ids,
+            permissions,
             now,
             self.jwt_expiration_hours,
         );
@@ -177,6 +196,7 @@ impl AuthService for AuthServiceImpl {
 
         let system_role = Self::resolve_system_role(user.is_super_admin);
         let role_ids = AuthRepo::get_user_role_ids(self.pool.as_ref(), user.user_id).await?;
+        let permissions = Self::resolve_permissions(&role_ids);
 
         let display_name = user.display_name.clone().unwrap_or_default();
         Ok(Claims {
@@ -185,6 +205,7 @@ impl AuthService for AuthServiceImpl {
             display_name,
             system_role,
             role_ids,
+            permissions,
             exp: 0,
             iat: 0,
         })

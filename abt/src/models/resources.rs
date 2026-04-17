@@ -1,25 +1,5 @@
 use crate::models::ResourceActionDef;
 
-/// Business resource codes subject to department isolation (R3)
-pub const BUSINESS_RESOURCE_CODES: &[&str] = &[
-    "product", "term", "bom", "warehouse", "location", "inventory", "price", "labor_process",
-];
-
-/// System resource codes that bypass department filtering (R4)
-pub const SYSTEM_RESOURCE_CODES: &[&str] = &[
-    "user", "role", "permission", "department", "excel",
-];
-
-/// Check if a resource code is a business resource subject to department isolation
-pub fn is_business_resource(code: &str) -> bool {
-    BUSINESS_RESOURCE_CODES.contains(&code)
-}
-
-/// Check if a resource code is a system resource that bypasses department filtering
-pub fn is_system_resource(code: &str) -> bool {
-    SYSTEM_RESOURCE_CODES.contains(&code)
-}
-
 /// 获取所有资源的权限定义
 pub fn collect_all_resources() -> Vec<ResourceActionDef> {
     RESOURCES.to_vec()

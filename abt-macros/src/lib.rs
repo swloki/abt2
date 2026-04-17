@@ -57,9 +57,6 @@ pub fn require_permission(attr: TokenStream, item: TokenStream) -> TokenStream {
             &auth,
             #resource.code(),
             #action.code(),
-            #request_ident.metadata().get("x-department-id")
-                .and_then(|v| v.to_str().ok())
-                .and_then(|v| v.parse::<i64>().ok()),
         ).map_err(|_e| error::forbidden(#resource.code(), #action.code()))?;
     };
 

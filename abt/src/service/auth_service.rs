@@ -16,7 +16,4 @@ pub trait AuthService: Send + Sync {
 
     /// 获取所有资源定义
     fn list_resources(&self) -> Vec<ResourceActionDef>;
-
-    /// Switch current department context, returns updated token
-    async fn switch_department(&self, user_id: i64, department_id: i64) -> Result<(String, i64, Claims)>;
 }

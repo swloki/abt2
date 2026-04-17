@@ -5,7 +5,6 @@
 mod auth_repo;
 mod bom_repo;
 mod department_repo;
-mod department_resource_access_repo;
 mod inventory_repo;
 mod labor_process_repo;
 mod location_repo;
@@ -14,14 +13,12 @@ mod product_price_repo;
 mod product_repo;
 mod role_repo;
 mod term_repo;
-mod user_department_role_repo;
 mod user_repo;
 mod warehouse_repo;
 
 pub use auth_repo::AuthRepo;
 pub use bom_repo::{BomReference, BomRepo, ProductUsageResult};
 pub use department_repo::DepartmentRepo;
-pub use department_resource_access_repo::DepartmentResourceAccessRepo;
 pub use inventory_repo::InventoryRepo;
 pub use labor_process_repo::LaborProcessRepo;
 pub use location_repo::LocationRepo;
@@ -31,7 +28,6 @@ pub use product_repo::ProductRepo;
 pub use role_repo::RoleRepo;
 pub use term_repo::TermRepo;
 pub use user_repo::UserRepo;
-pub use user_department_role_repo::UserDepartmentRoleRepo;
 pub use warehouse_repo::WarehouseRepo;
 
 // Re-export Executor from common

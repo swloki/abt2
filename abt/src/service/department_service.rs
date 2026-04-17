@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::models::{CreateDepartmentRequest, DeptRole, DeptRoleDetail, Department, UpdateDepartmentRequest};
+use crate::models::{CreateDepartmentRequest, Department, UpdateDepartmentRequest};
 use crate::repositories::Executor;
 
 #[async_trait]
@@ -44,36 +44,4 @@ pub trait DepartmentService: Send + Sync {
         department_ids: Vec<i64>,
         executor: Executor<'_>,
     ) -> Result<()>;
-
-    async fn set_department_resources(
-        &self,
-        department_id: i64,
-        resource_codes: Vec<String>,
-        executor: Executor<'_>,
-    ) -> Result<Vec<String>>;
-
-    async fn get_department_resources(
-        &self,
-        department_id: i64,
-    ) -> Result<Vec<String>>;
-
-    // 用户部门角色管理
-    async fn assign_user_dept_roles(
-        &self,
-        user_id: i64,
-        assignments: Vec<DeptRole>,
-        executor: Executor<'_>,
-    ) -> Result<()>;
-
-    async fn remove_user_dept_roles(
-        &self,
-        user_id: i64,
-        assignments: Vec<DeptRole>,
-        executor: Executor<'_>,
-    ) -> Result<()>;
-
-    async fn get_user_dept_roles(
-        &self,
-        user_id: i64,
-    ) -> Result<Vec<DeptRoleDetail>>;
 }

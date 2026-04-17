@@ -112,34 +112,4 @@ impl GrpcAuthService for AuthHandler {
                 .collect(),
         }))
     }
-
-    async fn switch_department(
-        &self,
-        request: Request<SwitchDepartmentRequest>,
-    ) -> GrpcResult<LoginResponse> {
-        let user_id = extract_user_id_from_header(&request)?;
-        let req = request.into_inner();
-
-        let state = AppState::get().await;
-        let srv = state.auth_service();
-
-        let (token, expires_at, _claims) = srv
-            .switch_department(user_id, req.department_id)
-            .await
-            .map_err(|e| error::err_to_status(e))?;
-
-        // Fetch updated user details
-        let user_srv = state.user_service();
-        let user_with_roles = user_srv
-            .get(user_id)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("User", &user_id.to_string()))?;
-
-        Ok(Response::new(LoginResponse {
-            token,
-            expires_at,
-            user: Some(user_with_roles.into()),
-        }))
-    }
 }

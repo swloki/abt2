@@ -17,15 +17,6 @@ service DepartmentService {
     rpc AssignDepartments(AssignDepartmentsRequest) returns (Empty);
     rpc RemoveDepartments(RemoveDepartmentsRequest) returns (Empty);
     rpc GetUserDepartments(GetUserDepartmentsRequest) returns (DepartmentListResponse);
-
-    // 部门资源访问管理
-    rpc SetDepartmentResources(SetDepartmentResourcesRequest) returns (SetDepartmentResourcesResponse);
-    rpc GetDepartmentResources(GetDepartmentResourcesRequest) returns (GetDepartmentResourcesResponse);
-
-    // 用户部门角色管理
-    rpc AssignUserDepartmentRoles(AssignUserDepartmentRolesRequest) returns (Empty);
-    rpc RemoveUserDepartmentRoles(RemoveUserDepartmentRolesRequest) returns (Empty);
-    rpc GetUserDepartmentRoles(GetUserDepartmentRolesRequest) returns (UserDepartmentRolesResponse);
 }
 
 message CreateDepartmentRequest {
@@ -79,53 +70,4 @@ message RemoveDepartmentsRequest {
 
 message GetUserDepartmentsRequest {
     int64 user_id = 1;
-}
-
-// 部门资源访问管理
-message SetDepartmentResourcesRequest {
-    int64 department_id = 1;
-    repeated Resource resources = 2;
-}
-
-message SetDepartmentResourcesResponse {
-    repeated Resource resources = 1;
-}
-
-message GetDepartmentResourcesRequest {
-    int64 department_id = 1;
-}
-
-message GetDepartmentResourcesResponse {
-    repeated Resource resources = 1;
-}
-
-// 用户部门角色管理
-message DeptRoleAssignment {
-    int64 department_id = 1;
-    int64 role_id = 2;
-}
-
-message AssignUserDepartmentRolesRequest {
-    int64 user_id = 1;
-    repeated DeptRoleAssignment assignments = 2;
-}
-
-message RemoveUserDepartmentRolesRequest {
-    int64 user_id = 1;
-    repeated DeptRoleAssignment assignments = 2;
-}
-
-message GetUserDepartmentRolesRequest {
-    int64 user_id = 1;
-}
-
-message UserDepartmentRolesResponse {
-    repeated DeptRoleDetail roles = 1;
-}
-
-message DeptRoleDetail {
-    int64 department_id = 1;
-    string department_name = 2;
-    int64 role_id = 3;
-    string role_name = 4;
 }

@@ -12,7 +12,6 @@ service AuthService {
     rpc Logout(Empty) returns (Empty);
     rpc GetCurrentUser(Empty) returns (UserResponse);
     rpc ListResources(Empty) returns (AuthResourceListResponse);
-    rpc SwitchDepartment(SwitchDepartmentRequest) returns (LoginResponse);
 }
 
 message LoginRequest {
@@ -45,8 +44,4 @@ message AuthResourceAction {
 
 message AuthResourceListResponse {
     repeated AuthResourceAction resources = 1;
-}
-
-message SwitchDepartmentRequest {
-    int64 department_id = 1;
 }

@@ -20,7 +20,7 @@ pub mod models;
 pub mod repositories;
 pub mod service;
 
-pub use permission_cache::{DeptResourceAccessCache, RolePermissionCache};
+pub use permission_cache::RolePermissionCache;
 
 #[cfg(test)]
 mod tests;
@@ -77,11 +77,6 @@ pub fn get_permission_cache() -> &'static RolePermissionCache {
     PERMISSION_CACHE.get_or_init(RolePermissionCache::new)
 }
 
-/// Get the global department resource access cache
-pub fn get_dept_resource_access_cache() -> &'static DeptResourceAccessCache {
-    permission_cache::get_dept_resource_access_cache()
-}
-
 /// 获取全局应用上下文
 pub async fn get_context() -> &'static AppContext {
     if let Some(ctx) = CONTEXT.get() {
@@ -107,17 +102,13 @@ pub async fn init_context_with_pool(pool: PgPool) {
         return;
     }
 
-    // Load permission cache
+    // Load permission cache — hard fail if the cache cannot be loaded.
+    // An empty cache would deny all non-super_admin users permanently.
     let cache = get_permission_cache();
-    if let Err(e) = cache.load(&pool).await {
-        eprintln!("WARNING: Failed to load permission cache: {}", e);
-    }
-
-    // Load department resource access cache
-    let dept_cache = get_dept_resource_access_cache();
-    if let Err(e) = dept_cache.load(&pool).await {
-        eprintln!("WARNING: Failed to load dept resource access cache: {}", e);
-    }
+    cache.load(&pool).await.expect(
+        "FATAL: Failed to load permission cache — refusing to start with empty permissions. \
+         Check database connectivity and role_permissions table.",
+    );
 
     let ctx = AppContext { pool };
     CONTEXT.set(ctx).ok();

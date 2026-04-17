@@ -7,3 +7,5 @@ node_modules
 target/
 /generated
 tdocker/abt-grpc
+.context
+.claude

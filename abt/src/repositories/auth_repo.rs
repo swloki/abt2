@@ -1,6 +1,5 @@
 use anyhow::Result;
 use sqlx::PgPool;
-use std::collections::HashMap;
 
 use crate::models::User;
 use crate::repositories::UserRepo;
@@ -18,13 +17,12 @@ impl AuthRepo {
         UserRepo::find_by_id(pool, user_id).await
     }
 
-    /// Get user's department-role mappings as a nested map:
-    /// { department_id_string => [role_id, ...] }
-    pub async fn get_user_dept_roles(pool: &PgPool, user_id: i64) -> Result<HashMap<String, Vec<i64>>> {
-        let rows: Vec<(i64, i64)> = sqlx::query_as(
+    /// Get user's global role IDs from user_roles table
+    pub async fn get_user_role_ids(pool: &PgPool, user_id: i64) -> Result<Vec<i64>> {
+        let rows: Vec<(i64,)> = sqlx::query_as(
             r#"
-            SELECT department_id, role_id
-            FROM user_department_roles
+            SELECT role_id
+            FROM user_roles
             WHERE user_id = $1
             "#,
         )
@@ -32,12 +30,6 @@ impl AuthRepo {
         .fetch_all(pool)
         .await?;
 
-        let mut map: HashMap<String, Vec<i64>> = HashMap::new();
-        for (dept_id, role_id) in rows {
-            map.entry(dept_id.to_string())
-                .or_default()
-                .push(role_id);
-        }
-        Ok(map)
+        Ok(rows.into_iter().map(|(id,)| id).collect())
     }
 }

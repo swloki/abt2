@@ -308,6 +308,10 @@ impl InventoryRepo {
         if query.low_stock_only.unwrap_or(false) {
             qb.push(" AND i.quantity < i.safety_stock");
         }
+        if let Some(term_id) = query.term_id {
+            qb.push(" AND p.meta->>'category' = ")
+                .push_bind(term_id.to_string());
+        }
     }
 
     /// 分页查询库存变动日志详情

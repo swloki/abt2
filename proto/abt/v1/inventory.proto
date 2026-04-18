@@ -133,6 +133,7 @@ message InventoryQueryRequest {
   optional int64 location_id = 4;
   optional int64 warehouse_id = 5;
   optional string keyword = 6;
+  optional int64 term_id = 7;          // 按产品分类筛选
 }
 
 message GetInventoryByProductRequest {

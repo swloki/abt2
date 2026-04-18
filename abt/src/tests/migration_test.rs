@@ -182,11 +182,8 @@ mod tests {
         .expect("Failed to fetch roles");
 
         assert!(role_codes.contains(&"super_admin".to_string()), "super_admin role should exist");
-        assert!(role_codes.contains(&"admin".to_string()), "admin role should exist");
         assert!(role_codes.contains(&"user".to_string()), "user role should exist");
-        assert!(role_codes.contains(&"manager".to_string()), "manager role should exist");
-        assert!(role_codes.contains(&"staff".to_string()), "staff role should exist");
-        assert_eq!(role_codes.len(), 5, "Should have exactly 5 preset roles");
+        assert_eq!(role_codes.len(), 2, "Should have exactly 2 preset roles");
     }
 
     /// Step 3 测试: 验证系统角色标记正确
@@ -201,6 +198,6 @@ mod tests {
         .await
         .expect("Failed to fetch system roles");
 
-        assert_eq!(system_roles.len(), 3, "All 3 preset roles should be system roles");
+        assert_eq!(system_roles.len(), 2, "Both preset roles should be system roles");
     }
 }

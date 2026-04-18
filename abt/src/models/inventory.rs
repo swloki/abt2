@@ -129,6 +129,7 @@ pub struct InventoryQuery {
     pub product_code: Option<String>,
     pub warehouse_id: Option<i64>,
     pub location_id: Option<i64>,
+    pub term_id: Option<i64>,
     pub low_stock_only: Option<bool>,
     pub page: Option<i64>,
     pub page_size: Option<i64>,

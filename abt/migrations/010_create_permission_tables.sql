@@ -89,7 +89,6 @@ CREATE INDEX IF NOT EXISTS idx_permission_audit_logs_created ON permission_audit
 -- 预置数据：系统角色
 INSERT INTO roles (role_name, role_code, is_system_role, description) VALUES
 ('超级管理员', 'super_admin', true, '拥有所有权限'),
-('管理员', 'admin', true, '管理用户和基础数据'),
 ('普通用户', 'user', true, '基础访问权限')
 ON CONFLICT (role_code) DO NOTHING;
 

@@ -18,7 +18,6 @@ ON CONFLICT (username) DO NOTHING;
 -- 角色数据
 INSERT INTO roles (role_name, role_code, is_system_role, description) VALUES
 ('super_admin', 'super_admin', true, 'all permissions'),
-('admin', 'admin', true, 'admin role'),
 ('user', 'user', true, 'normal user')
 ON CONFLICT (role_code) DO NOTHING;
 

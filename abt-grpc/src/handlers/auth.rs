@@ -37,7 +37,14 @@ impl GrpcAuthService for AuthHandler {
         let (token, expires_at, claims) = srv
             .login(&req.username, &req.password)
             .await
-            .map_err(|_| error::unauthorized("Invalid username or password"))?;
+            .map_err(|e| {
+                let msg = e.to_string();
+                if msg.contains("disabled") {
+                    error::unauthorized("User account is disabled")
+                } else {
+                    error::unauthorized("Invalid username or password")
+                }
+            })?;
 
         // 获取用户详情
         let user_srv = state.user_service();

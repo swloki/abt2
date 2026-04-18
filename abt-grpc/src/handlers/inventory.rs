@@ -276,6 +276,7 @@ impl GrpcInventoryService for InventoryHandler {
             location_id: req.location_id,
             product_name: req.keyword.clone(),
             product_code: None,
+            term_id: req.term_id,
             low_stock_only: None,
             page: req.page.map(|p| p as i64),
             page_size: req.page_size.map(|p| p as i64),

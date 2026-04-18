@@ -50,33 +50,7 @@ CROSS JOIN (
 WHERE r.role_code = 'super_admin'
 ON CONFLICT DO NOTHING;
 
--- 7. Seed admin role with read+write (no delete on user/role)
-INSERT INTO role_permissions (role_id, resource_code, action_code)
-SELECT r.role_id, res.resource_code, a.action_code
-FROM roles r
-CROSS JOIN (
-    SELECT 'product' as resource_code UNION ALL
-    SELECT 'term' UNION ALL
-    SELECT 'bom' UNION ALL
-    SELECT 'warehouse' UNION ALL
-    SELECT 'location' UNION ALL
-    SELECT 'inventory' UNION ALL
-    SELECT 'price' UNION ALL
-    SELECT 'labor_process' UNION ALL
-    SELECT 'excel' UNION ALL
-    SELECT 'user' UNION ALL
-    SELECT 'role' UNION ALL
-    SELECT 'permission' UNION ALL
-    SELECT 'department'
-) res
-CROSS JOIN (
-    SELECT 'read' as action_code UNION ALL
-    SELECT 'write'
-) a
-WHERE r.role_code = 'admin'
-ON CONFLICT DO NOTHING;
-
--- 8. Seed user role with basic read permissions
+-- 7. Seed user role with basic read permissions
 INSERT INTO role_permissions (role_id, resource_code, action_code)
 SELECT r.role_id, res.resource_code, 'read' as action_code
 FROM roles r

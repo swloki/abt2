@@ -6194,6 +6194,9 @@ pub struct InventoryQueryRequest {
     pub warehouse_id: ::core::option::Option<i64>,
     #[prost(string, optional, tag = "6")]
     pub keyword: ::core::option::Option<::prost::alloc::string::String>,
+    /// 按产品分类筛选
+    #[prost(int64, optional, tag = "7")]
+    pub term_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetInventoryByProductRequest {

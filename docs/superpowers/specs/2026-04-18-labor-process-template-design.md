@@ -38,8 +38,8 @@ COMMENT ON COLUMN labor_process_group.created_by IS '创建人';
 ```sql
 CREATE TABLE labor_process_item (
     id BIGSERIAL PRIMARY KEY,
-    group_id BIGINT NOT NULL REFERENCES labor_process_group(id),
-    parent_id BIGINT REFERENCES labor_process_item(id),  -- NULL=分类, 非NULL=步骤(指向分类id)
+    group_id BIGINT NOT NULL,  -- 关联 labor_process_group.id
+    parent_id BIGINT,  -- NULL=分类, 非NULL=步骤(指向分类id)
     name VARCHAR(255) NOT NULL,
     unit_price DECIMAL(18,6),             -- 分类为NULL, 步骤有值
     sort_order INT NOT NULL DEFAULT 0,
@@ -61,18 +61,19 @@ COMMENT ON COLUMN labor_process_item.unit_price IS '分类为NULL, 步骤有值'
 ```
 
 关键设计决策：
-- **parent_id 使用 NULL 而非 0 哨兵值**：NULL 可以建立 `REFERENCES labor_process_item(id)` 外键约束，数据库层面保证步骤的 parent_id 指向有效的分类行，避免孤儿数据。
+- **parent_id 使用 NULL 而非 0 哨兵值**：NULL 语义更清晰地表达"无父节点"，查询条件 `parent_id IS NULL` 比 `parent_id = 0` 更符合 SQL 惯例。引用完整性由应用层保证。
 - **DECIMAL(18,6)** 与项目已有约定一致（migration 011 统一了全系统精度）。
 - **UNIQUE(group_id, parent_id, name)** 防止同组同分类下出现重名步骤。
 - **created_by** 满足项目约定的审计追踪要求（operator_id tracking）。
+- **无外键约束**：不使用 REFERENCES，引用完整性由应用层逻辑保证。
 
 ### `bom_labor_process_ref`（BOM 工序引用）
 
 ```sql
 CREATE TABLE bom_labor_process_ref (
     id BIGSERIAL PRIMARY KEY,
-    bom_id BIGINT NOT NULL REFERENCES bom(bom_id),
-    step_id BIGINT NOT NULL REFERENCES labor_process_item(id),
+    bom_id BIGINT NOT NULL,  -- 关联 bom.bom_id
+    step_id BIGINT NOT NULL,  -- 关联 labor_process_item.id
     quantity DECIMAL(18,6) NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ,

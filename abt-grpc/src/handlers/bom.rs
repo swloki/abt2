@@ -80,6 +80,8 @@ impl GrpcBomService for BomHandler {
 
     #[require_permission(Resource::Bom, Action::Write)]
     async fn create_bom(&self, request: Request<CreateBomRequest>) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
+        let user_id = auth.user_id;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -90,7 +92,7 @@ impl GrpcBomService for BomHandler {
             .map_err(error::err_to_status)?;
 
         let id = srv
-            .create(&req.name, &req.created_by, req.bom_category_id, &mut tx)
+            .create(&req.name, user_id, req.bom_category_id, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 
@@ -147,6 +149,8 @@ impl GrpcBomService for BomHandler {
 
     #[require_permission(Resource::Bom, Action::Write)]
     async fn save_as_bom(&self, request: Request<SaveAsBomRequest>) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
+        let user_id = auth.user_id;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -157,7 +161,7 @@ impl GrpcBomService for BomHandler {
             .map_err(error::err_to_status)?;
 
         let new_id = srv
-            .save_as(req.source_bom_id, &req.new_name, &req.created_by, &mut tx)
+            .save_as(req.source_bom_id, &req.new_name, user_id, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 

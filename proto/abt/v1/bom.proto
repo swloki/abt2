@@ -42,13 +42,13 @@ message BomNodeProto {
 
 message BomDetailProto {
   repeated BomNodeProto nodes = 1;
-  string created_by = 2;
+  int64 created_by = 2;
 }
 
 message BomResponse {
   int64 bom_id = 1;
   string name = 2;
-  string created_by = 3;
+  int64 created_by = 3;
   int64 created_at = 4;
   int64 updated_at = 5;
   BomDetailProto bom_detail = 6;
@@ -97,7 +97,7 @@ message GetBomRequest {
 
 message CreateBomRequest {
   string name = 1;
-  string created_by = 2;
+  reserved 2;
   optional int64 bom_category_id = 3;
 }
 
@@ -114,7 +114,7 @@ message DeleteBomRequest {
 message SaveAsBomRequest {
   int64 source_bom_id = 1;
   string new_name = 2;
-  string created_by = 3;
+  reserved 3;
 }
 
 message ExportBomRequest {

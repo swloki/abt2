@@ -84,12 +84,11 @@ impl BomCategoryRepo {
             "#
         );
 
-        if let Some(keyword) = &query.keyword {
-            if !keyword.is_empty() {
+        if let Some(keyword) = &query.keyword
+            && !keyword.is_empty() {
                 sql_query.push(" AND bom_category_name ILIKE ");
                 sql_query.push_bind(format!("%{}%", keyword));
             }
-        }
 
         sql_query.push(" ORDER BY bom_category_id DESC");
 
@@ -111,12 +110,11 @@ impl BomCategoryRepo {
             "SELECT count(*) FROM bom_category WHERE 1=1"
         );
 
-        if let Some(keyword) = &query.keyword {
-            if !keyword.is_empty() {
+        if let Some(keyword) = &query.keyword
+            && !keyword.is_empty() {
                 sql_query.push(" AND bom_category_name ILIKE ");
                 sql_query.push_bind(format!("%{}%", keyword));
             }
-        }
 
         let count: i64 = sql_query.build_query_scalar().fetch_one(pool).await?;
 

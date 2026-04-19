@@ -2,6 +2,16 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
 
+/// 审计日志写入参数
+pub struct AuditEntry {
+    pub operator_id: Option<i64>,
+    pub target_type: &'static str,
+    pub target_id: i64,
+    pub action: &'static str,
+    pub old_value: Option<serde_json::Value>,
+    pub new_value: Option<serde_json::Value>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditLog {
     pub log_id: i64,

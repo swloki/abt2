@@ -51,8 +51,28 @@ impl<'r> FromRow<'r, PgRow> for Bom {
 pub struct BomDetail {
     /// BOM 节点列表
     pub nodes: Vec<BomNode>,
-    /// 创建者
-    pub created_by: Option<String>,
+    /// 创建者（用户 ID）
+    #[serde(deserialize_with = "deserialize_created_by")]
+    pub created_by: Option<i64>,
+}
+
+/// 兼容旧数据：created_by 可能是字符串或数字
+fn deserialize_created_by<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+
+    let value: Option<serde_json::Value> = Option::deserialize(deserializer)?;
+    match value {
+        None => Ok(None),
+        Some(serde_json::Value::Number(n)) => Ok(n.as_i64()),
+        Some(serde_json::Value::String(_)) => Ok(None), // 旧字符串数据忽略
+        Some(other) => Err(de::Error::custom(format!(
+            "expected number or string for created_by, got {:?}",
+            other
+        ))),
+    }
 }
 
 /// BOM 节点
@@ -160,8 +180,8 @@ where
 pub struct CreateBomRequest {
     /// BOM 名称
     pub bom_name: String,
-    /// 创建者
-    pub created_by: Option<String>,
+    /// 创建者（用户 ID）
+    pub created_by: Option<i64>,
     /// BOM 分类 ID
     #[serde(default, deserialize_with = "deserialize_null_i64")]
     pub bom_category_id: Option<i64>,
@@ -266,16 +286,16 @@ mod tests {
                 work_center: None,
                 properties: None,
             }],
-            created_by: Some("admin".to_string()),
+            created_by: Some(1),
         };
 
         let json = serde_json::to_string(&detail).unwrap();
-        assert!(json.contains(r#""created_by":"admin""#));
+        assert!(json.contains(r#""created_by":1"#));
         assert!(json.contains(r#""nodes""#));
 
         let deserialized: BomDetail = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.nodes.len(), 1);
-        assert_eq!(deserialized.created_by, Some("admin".to_string()));
+        assert_eq!(deserialized.created_by, Some(1));
     }
 
     #[test]
@@ -327,7 +347,7 @@ mod tests {
     fn test_create_bom_request() {
         let request = CreateBomRequest {
             bom_name: "测试BOM".to_string(),
-            created_by: Some("test_user".to_string()),
+            created_by: Some(42),
             bom_category_id: None,
         };
 
@@ -336,7 +356,7 @@ mod tests {
 
         let deserialized: CreateBomRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.bom_name, "测试BOM");
-        assert_eq!(deserialized.created_by, Some("test_user".to_string()));
+        assert_eq!(deserialized.created_by, Some(42));
         assert_eq!(deserialized.bom_category_id, None);
     }
 }

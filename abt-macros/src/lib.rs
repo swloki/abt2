@@ -77,7 +77,7 @@ pub fn require_permission(attr: TokenStream, item: TokenStream) -> TokenStream {
 
 /// Try to find `Box::pin(async move { ... })` as the only statement in the body
 /// and prepend statements inside the async block.
-fn prepend_inside_async_block(stmts: &mut Vec<Stmt>, to_prepend: Vec<Stmt>) -> bool {
+fn prepend_inside_async_block(stmts: &mut [Stmt], to_prepend: Vec<Stmt>) -> bool {
     if stmts.len() != 1 {
         return false;
     }

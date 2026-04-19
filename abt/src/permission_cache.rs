@@ -13,6 +13,12 @@ pub struct RolePermissionCache {
     cache: RwLock<HashMap<i64, HashSet<String>>>,
 }
 
+impl Default for RolePermissionCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RolePermissionCache {
     pub fn new() -> Self {
         Self {
@@ -45,7 +51,7 @@ impl RolePermissionCache {
         }
 
         // 4. Build parent map
-        let parent_map: HashMap<i64, Option<i64>> = roles.into_iter().map(|(id, parent)| (id, parent)).collect();
+        let parent_map: HashMap<i64, Option<i64>> = roles.into_iter().collect();
 
         // 5. Detect cycles via DFS
         Self::detect_cycles(&parent_map)?;
@@ -80,11 +86,10 @@ impl RolePermissionCache {
         let required = format!("{}:{}", resource, action);
         let cache = self.cache.read();
         for &role_id in role_ids {
-            if let Some(perms) = cache.get(&role_id) {
-                if perms.contains(&required) {
+            if let Some(perms) = cache.get(&role_id)
+                && perms.contains(&required) {
                     return true;
                 }
-            }
         }
         false
     }

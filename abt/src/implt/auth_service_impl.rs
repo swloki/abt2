@@ -80,9 +80,12 @@ impl AuthServiceImpl {
         system_role: String,
         role_ids: Vec<i64>,
         permissions: Vec<String>,
-        now: u64,
         expiration_hours: u64,
     ) -> Claims {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
         Claims {
             sub: user_id,
             username,
@@ -126,9 +129,6 @@ impl AuthService for AuthServiceImpl {
         let permissions = Self::resolve_permissions(&role_ids);
 
         // 7. Build and sign JWT
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
         let display_name = user.display_name.clone().unwrap_or_default();
         let claims = Self::build_claims(
             user.user_id,
@@ -137,7 +137,6 @@ impl AuthService for AuthServiceImpl {
             system_role,
             role_ids,
             permissions,
-            now,
             self.jwt_expiration_hours,
         );
 
@@ -167,10 +166,6 @@ impl AuthService for AuthServiceImpl {
         let permissions = Self::resolve_permissions(&role_ids);
 
         // 签发新 token
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_secs();
-
         let display_name = user.display_name.clone().unwrap_or_default();
         let claims = Self::build_claims(
             user.user_id,
@@ -179,7 +174,6 @@ impl AuthService for AuthServiceImpl {
             system_role,
             role_ids,
             permissions,
-            now,
             self.jwt_expiration_hours,
         );
 

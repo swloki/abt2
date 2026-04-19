@@ -316,11 +316,11 @@ struct ExportIndices {
 
 #[async_trait]
 impl BomService for BomServiceImpl {
-    async fn create(&self, name: &str, created_by: &str, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<i64> {
+    async fn create(&self, name: &str, created_by: i64, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<i64> {
         // 检查名称是否已存在 - 这里需要 pool，暂时跳过
         let bom_detail = BomDetail {
             nodes: Vec::new(),
-            created_by: Some(created_by.to_string()),
+            created_by: Some(created_by),
         };
 
         let bom_id = BomRepo::insert(executor, name, &bom_detail, bom_category_id).await?;
@@ -569,7 +569,7 @@ impl BomService for BomServiceImpl {
         &self,
         source_bom_id: i64,
         new_name: &str,
-        created_by: &str,
+        created_by: i64,
         executor: Executor<'_>,
     ) -> Result<i64> {
         // 1. 获取源 BOM
@@ -581,7 +581,7 @@ impl BomService for BomServiceImpl {
         // 2. 创建新的 BomDetail（复制节点）
         let new_detail = BomDetail {
             nodes: source_bom.bom_detail.nodes.clone(),
-            created_by: Some(created_by.to_string()),
+            created_by: Some(created_by),
         };
 
         // 3. 插入新 BOM（不复制分类，保持为空）

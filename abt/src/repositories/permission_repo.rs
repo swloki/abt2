@@ -67,27 +67,19 @@ impl PermissionRepo {
         Ok(has_permission.unwrap_or(false))
     }
 
-    pub async fn insert_audit_log(
-        executor: Executor<'_>,
-        operator_id: Option<i64>,
-        target_type: &str,
-        target_id: i64,
-        action: &str,
-        old_value: Option<serde_json::Value>,
-        new_value: Option<serde_json::Value>,
-    ) -> Result<()> {
+    pub async fn insert_audit_log(executor: Executor<'_>, entry: &crate::models::AuditEntry) -> Result<()> {
         sqlx::query!(
             r#"
             INSERT INTO permission_audit_logs
                 (operator_id, target_type, target_id, action, old_value, new_value)
             VALUES ($1, $2, $3, $4, $5, $6)
             "#,
-            operator_id,
-            target_type,
-            target_id,
-            action,
-            old_value,
-            new_value
+            entry.operator_id,
+            entry.target_type,
+            entry.target_id,
+            entry.action,
+            entry.old_value,
+            entry.new_value
         )
         .execute(executor)
         .await?;

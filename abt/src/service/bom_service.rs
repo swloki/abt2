@@ -13,7 +13,7 @@ use crate::repositories::Executor;
 #[async_trait]
 pub trait BomService: Send + Sync {
     /// 创建新 BOM
-    async fn create(&self, name: &str, created_by: &str, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<i64>;
+    async fn create(&self, name: &str, created_by: i64, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<i64>;
 
     /// 更新 BOM
     async fn update(&self, bom: Bom, executor: Executor<'_>) -> Result<()>;
@@ -66,7 +66,7 @@ pub trait BomService: Send + Sync {
         &self,
         source_bom_id: i64,
         new_name: &str,
-        created_by: &str,
+        created_by: i64,
         executor: Executor<'_>,
     ) -> Result<i64>;
 

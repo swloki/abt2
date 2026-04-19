@@ -48,14 +48,13 @@ impl BomCategoryService for BomCategoryServiceImpl {
                 id: bom_category_id.to_string(),
             })?;
 
-        if req.bom_category_name != _existing.bom_category_name {
-            if BomCategoryRepo::is_name_exists(&mut *executor, &req.bom_category_name).await? {
+        if req.bom_category_name != _existing.bom_category_name
+            && BomCategoryRepo::is_name_exists(&mut *executor, &req.bom_category_name).await? {
                 return Err(ServiceError::Conflict {
                     resource: "BomCategory".into(),
                     message: format!("分类名称 '{}' 已存在", req.bom_category_name),
                 }.into());
             }
-        }
 
         BomCategoryRepo::update(executor, bom_category_id, &req).await?;
         Ok(())

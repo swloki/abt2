@@ -80,7 +80,7 @@ impl From<abt::Bom> for BomResponse {
         BomResponse {
             bom_id: bom.bom_id,
             name: bom.bom_name,
-            created_by: bom.bom_detail.created_by.clone().unwrap_or_default(),
+            created_by: bom.bom_detail.created_by.unwrap_or(0),
             created_at: bom.create_at.timestamp(),
             updated_at: bom.update_at.map(|t| t.timestamp()).unwrap_or(0),
             bom_detail: Some(bom.bom_detail.into()),
@@ -114,7 +114,7 @@ impl From<abt::BomDetail> for BomDetailProto {
     fn from(detail: abt::BomDetail) -> Self {
         BomDetailProto {
             nodes: detail.nodes.into_iter().map(|n| n.into()).collect(),
-            created_by: detail.created_by.unwrap_or_default(),
+            created_by: detail.created_by.unwrap_or(0),
         }
     }
 }

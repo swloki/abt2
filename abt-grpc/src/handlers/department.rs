@@ -3,7 +3,7 @@
 use crate::generated::abt::v1::{
     department_service_server::DepartmentService as GrpcDepartmentService, *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{empty_to_none, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::permissions::PermissionCode;
 use crate::server::AppState;
@@ -85,16 +85,8 @@ impl GrpcDepartmentService for DepartmentHandler {
             .map_err(error::err_to_status)?;
 
         let update_req = abt::UpdateDepartmentRequest {
-            department_name: if req.department_name.is_empty() {
-                None
-            } else {
-                Some(req.department_name)
-            },
-            description: if req.description.is_empty() {
-                None
-            } else {
-                Some(req.description)
-            },
+            department_name: empty_to_none(req.department_name),
+            description: empty_to_none(req.description),
             is_active: Some(req.is_active),
         };
 

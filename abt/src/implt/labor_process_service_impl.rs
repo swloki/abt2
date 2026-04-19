@@ -63,7 +63,7 @@ impl LaborProcessService for LaborProcessServiceImpl {
     }
 
     async fn delete_process(&self, id: i64, executor: Executor<'_>) -> Result<u64> {
-        let referenced = LaborProcessRepo::is_process_referenced(&self.pool, id).await?;
+        let referenced = LaborProcessRepo::is_process_referenced(&mut *executor, id).await?;
         if referenced {
             anyhow::bail!("工序被引用，无法删除");
         }
@@ -129,7 +129,7 @@ impl LaborProcessService for LaborProcessServiceImpl {
     }
 
     async fn delete_group(&self, id: i64, executor: Executor<'_>) -> Result<u64> {
-        let referenced = LaborProcessRepo::is_group_referenced_by_bom(&self.pool, id).await?;
+        let referenced = LaborProcessRepo::is_group_referenced_by_bom(&mut *executor, id).await?;
         if referenced {
             anyhow::bail!("工序组被 BOM 引用，无法删除");
         }
@@ -141,9 +141,14 @@ impl LaborProcessService for LaborProcessServiceImpl {
     // ========================================================================
 
     async fn set_bom_labor_cost(&self, req: SetBomLaborCostReq, executor: Executor<'_>) -> Result<()> {
-        // 锁定工序行防止并发修改价格，然后读取当前单价作为快照
         let process_ids: Vec<i64> = req.items.iter().map(|i| i.process_id).collect();
         let prices = LaborProcessRepo::lock_and_get_unit_prices(executor, &process_ids).await?;
+
+        for item in &req.items {
+            if !prices.contains_key(&item.process_id) {
+                anyhow::bail!("工序 {} 不存在", item.process_id);
+            }
+        }
 
         let cost_items: Vec<(i64, Decimal, Option<Decimal>, Option<&str>)> = req
             .items

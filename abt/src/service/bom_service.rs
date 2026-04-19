@@ -18,8 +18,8 @@ pub trait BomService: Send + Sync {
     /// 更新 BOM
     async fn update(&self, bom: Bom, executor: Executor<'_>) -> Result<()>;
 
-    /// 更新 BOM 名称
-    async fn update_name(&self, bom_id: i64, new_name: &str, executor: Executor<'_>) -> Result<()>;
+    /// 更新 BOM 元数据（名称和分类，不涉及 bom_detail）
+    async fn update_metadata(&self, bom_id: i64, name: &str, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<()>;
 
     /// 删除 BOM
     async fn delete(&self, bom_id: i64, executor: Executor<'_>) -> Result<()>;

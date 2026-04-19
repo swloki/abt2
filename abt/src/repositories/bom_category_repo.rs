@@ -56,7 +56,10 @@ impl BomCategoryRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(pool: &PgPool, bom_category_id: i64) -> Result<Option<BomCategory>> {
+    pub async fn find_by_id<'e, E>(executor: E, bom_category_id: i64) -> Result<Option<BomCategory>>
+    where
+        E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+    {
         let category = sqlx::query_as!(
             BomCategory,
             r#"
@@ -66,23 +69,7 @@ impl BomCategoryRepo {
             "#,
             bom_category_id
         )
-        .fetch_optional(pool)
-        .await?;
-
-        Ok(category)
-    }
-
-    pub async fn find_by_name(pool: &PgPool, name: &str) -> Result<Option<BomCategory>> {
-        let category = sqlx::query_as!(
-            BomCategory,
-            r#"
-            SELECT bom_category_id, bom_category_name, created_at
-            FROM bom_category
-            WHERE bom_category_name = $1
-            "#,
-            name
-        )
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await?;
 
         Ok(category)
@@ -136,23 +123,29 @@ impl BomCategoryRepo {
         Ok(count)
     }
 
-    pub async fn is_name_exists(pool: &PgPool, name: &str) -> Result<bool> {
+    pub async fn is_name_exists<'e, E>(executor: E, name: &str) -> Result<bool>
+    where
+        E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+    {
         let exists: Option<bool> = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM bom_category WHERE bom_category_name = $1)",
         )
         .bind(name)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await?;
 
         Ok(exists.unwrap_or(false))
     }
 
-    pub async fn has_boms(pool: &PgPool, bom_category_id: i64) -> Result<bool> {
+    pub async fn has_boms<'e, E>(executor: E, bom_category_id: i64) -> Result<bool>
+    where
+        E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+    {
         let exists: Option<bool> = sqlx::query_scalar(
             "SELECT EXISTS(SELECT 1 FROM bom WHERE bom_category_id = $1)",
         )
         .bind(bom_category_id)
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await?;
 
         Ok(exists.unwrap_or(false))

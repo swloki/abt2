@@ -112,18 +112,7 @@ impl GrpcBomService for BomHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        // Fetch existing BOM
-        let mut bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        // Update fields
-        bom.bom_name = req.name;
-        bom.bom_category_id = req.bom_category_id;
-
-        srv.update(bom, &mut tx)
+        srv.update_metadata(req.bom_id, &req.name, req.bom_category_id, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 

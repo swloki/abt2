@@ -6,7 +6,7 @@ use crate::generated::abt::v1::{
     role_service_server::RoleService as GrpcRoleService,
     *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{empty_to_none, GrpcResult};
 use crate::server::AppState;
 use abt_macros::require_permission;
 use crate::permissions::PermissionCode;
@@ -51,7 +51,7 @@ impl GrpcRoleService for RoleHandler {
         let create_req = abt::CreateRoleRequest {
             role_name: req.role_name,
             role_code: req.role_code,
-            description: if req.description.is_empty() { None } else { Some(req.description) },
+            description: empty_to_none(req.description),
         };
 
         let role_id = srv.create(Some(auth.user_id), create_req, &mut tx).await
@@ -80,8 +80,8 @@ impl GrpcRoleService for RoleHandler {
             .map_err(error::err_to_status)?;
 
         let update_req = abt::UpdateRoleRequest {
-            role_name: if req.role_name.is_empty() { None } else { Some(req.role_name) },
-            description: if req.description.is_empty() { None } else { Some(req.description) },
+            role_name: empty_to_none(req.role_name),
+            description: empty_to_none(req.description),
         };
 
         srv.update(Some(auth.user_id), req.role_id, update_req, &mut tx).await

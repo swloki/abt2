@@ -331,8 +331,8 @@ impl BomService for BomServiceImpl {
         BomRepo::update(executor, bom.bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await
     }
 
-    async fn update_name(&self, bom_id: i64, new_name: &str, executor: Executor<'_>) -> Result<()> {
-        BomRepo::update_name(executor, bom_id, new_name).await
+    async fn update_metadata(&self, bom_id: i64, name: &str, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<()> {
+        BomRepo::update(executor, bom_id, name, None, bom_category_id).await
     }
 
     async fn delete(&self, bom_id: i64, executor: Executor<'_>) -> Result<()> {

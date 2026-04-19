@@ -12,6 +12,9 @@ use tonic_types::{ErrorDetails, StatusExt};
 /// Used for runtime errors (database, IO, etc.) without structured details.
 /// Frontend receives a generic message and logs to monitoring.
 pub fn err_to_status(e: anyhow::Error) -> tonic::Status {
+    if let Some(se) = e.downcast_ref::<ServiceError>() {
+        return se.to_status();
+    }
     let mut msg = e.to_string();
     let mut source = e.source();
     while let Some(cause) = source {
@@ -175,3 +178,70 @@ fn clean_backtrace(bt: &Backtrace) -> String {
     let lines: Vec<&str> = s.lines().skip(5).collect();
     lines.join("\n")
 }
+
+// ─── Service-layer error types ────────────────────────────────────────────
+
+/// Structured errors from the service layer that map to specific HTTP status codes.
+///
+/// Service implementations return these via `Err(anyhow::Error::from(ServiceError::...))`.
+/// The `err_to_status` function downcasts and converts to the appropriate `tonic::Status`.
+pub enum ServiceError {
+    NotFound { resource: String, id: String },
+    Conflict { resource: String, message: String },
+    BusinessValidation { message: String },
+}
+
+impl ServiceError {
+    fn to_status(&self) -> tonic::Status {
+        match self {
+            Self::NotFound { resource, id } => not_found(resource, id),
+            Self::Conflict { resource, message } => {
+                let mut details = ErrorDetails::new();
+                details.set_error_info(
+                    "ALREADY_EXISTS",
+                    "abt.api",
+                    std::collections::HashMap::from([
+                        ("resource".to_string(), resource.clone()),
+                    ]),
+                );
+                tracing::warn!("Conflict: {} - {}", resource, message);
+                tonic::Status::with_error_details(
+                    Code::AlreadyExists,
+                    message.clone(),
+                    details,
+                )
+            }
+            Self::BusinessValidation { message } => {
+                let mut details = ErrorDetails::new();
+                details.add_bad_request_violation("_business", message);
+                tonic::Status::with_error_details(
+                    Code::FailedPrecondition,
+                    message.clone(),
+                    details,
+                )
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for ServiceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound { resource, id } => write!(f, "{} {} not found", resource, id),
+            Self::Conflict { resource, message } => write!(f, "{}: {}", resource, message),
+            Self::BusinessValidation { message } => write!(f, "{}", message),
+        }
+    }
+}
+
+impl std::fmt::Debug for ServiceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NotFound { resource, id } => f.debug_struct("NotFound").field("resource", resource).field("id", id).finish(),
+            Self::Conflict { resource, message } => f.debug_struct("Conflict").field("resource", resource).field("message", message).finish(),
+            Self::BusinessValidation { message } => f.debug_struct("BusinessValidation").field("message", message).finish(),
+        }
+    }
+}
+
+impl std::error::Error for ServiceError {}

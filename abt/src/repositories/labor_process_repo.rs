@@ -116,28 +116,25 @@ impl LaborProcessRepo {
     }
 
     /// 检查工序是否被引用（组成员或 BOM 劳务成本）
-    pub async fn is_process_referenced(pool: &PgPool, process_id: i64) -> Result<bool> {
-        let in_group: bool = sqlx::query_scalar!(
-            "SELECT EXISTS(SELECT 1 FROM labor_process_group_member WHERE process_id = $1)",
+    pub async fn is_process_referenced<'e, E>(executor: E, process_id: i64) -> Result<bool>
+    where
+        E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+    {
+        let exists: bool = sqlx::query_scalar!(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM labor_process_group_member WHERE process_id = $1
+            ) OR EXISTS(
+                SELECT 1 FROM bom_labor_cost WHERE process_id = $1
+            )
+            "#,
             process_id
         )
-        .fetch_one(pool)
+        .fetch_one(executor)
         .await?
         .unwrap_or(false);
 
-        if in_group {
-            return Ok(true);
-        }
-
-        let in_cost: bool = sqlx::query_scalar!(
-            "SELECT EXISTS(SELECT 1 FROM bom_labor_cost WHERE process_id = $1)",
-            process_id
-        )
-        .fetch_one(pool)
-        .await?
-        .unwrap_or(false);
-
-        Ok(in_cost)
+        Ok(exists)
     }
 
     /// 删除工序（被引用时拒绝）
@@ -261,14 +258,19 @@ impl LaborProcessRepo {
     }
 
     /// 检查工序组是否被 BOM 引用
-    pub async fn is_group_referenced_by_bom(pool: &PgPool, group_id: i64) -> Result<bool> {
-        let count: Option<i64> = sqlx::query_scalar!(
-            "SELECT COUNT(*) FROM bom WHERE process_group_id = $1",
+    pub async fn is_group_referenced_by_bom<'e, E>(executor: E, group_id: i64) -> Result<bool>
+    where
+        E: sqlx::Executor<'e, Database = sqlx::Postgres>,
+    {
+        let exists: bool = sqlx::query_scalar!(
+            "SELECT EXISTS(SELECT 1 FROM bom WHERE process_group_id = $1)",
             group_id
         )
-        .fetch_one(pool)
-        .await?;
-        Ok(count.unwrap_or(0) > 0)
+        .fetch_one(executor)
+        .await?
+        .unwrap_or(false);
+
+        Ok(exists)
     }
 
     // ========================================================================
@@ -419,20 +421,6 @@ impl LaborProcessRepo {
         Ok(members)
     }
 
-    /// 批量获取多个工序的单价
-    pub async fn get_unit_prices(pool: &PgPool, process_ids: &[i64]) -> Result<std::collections::HashMap<i64, Decimal>> {
-        if process_ids.is_empty() {
-            return Ok(std::collections::HashMap::new());
-        }
-        let rows: Vec<(i64, Decimal)> = sqlx::query_as(
-            "SELECT id, unit_price FROM labor_process WHERE id = ANY($1)"
-        )
-        .bind(process_ids)
-        .fetch_all(pool)
-        .await?;
-        Ok(rows.into_iter().collect())
-    }
-
     /// 锁定工序行并获取单价（防止并发修改价格快照）
     pub async fn lock_and_get_unit_prices(
         executor: Executor<'_>,
@@ -474,26 +462,4 @@ impl LaborProcessRepo {
         Ok(Some(LaborProcessGroupWithMembers { group, members }))
     }
 
-    /// 获取 BOM 的 process_group_id
-    pub async fn get_bom_process_group_id(pool: &PgPool, bom_id: i64) -> Result<Option<Option<i64>>> {
-        let result: Option<Option<i64>> = sqlx::query_scalar!(
-            "SELECT process_group_id FROM bom WHERE bom_id = $1",
-            bom_id
-        )
-        .fetch_optional(pool)
-        .await?;
-        Ok(result)
-    }
-
-    /// 获取工序组 by ID
-    pub async fn get_group_by_id(pool: &PgPool, group_id: i64) -> Result<Option<LaborProcessGroup>> {
-        let group = sqlx::query_as!(
-            LaborProcessGroup,
-            r#"SELECT id, name, remark, created_at, updated_at FROM labor_process_group WHERE id = $1"#,
-            group_id
-        )
-        .fetch_optional(pool)
-        .await?;
-        Ok(group)
-    }
 }

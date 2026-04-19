@@ -10,7 +10,7 @@ use tonic::{Request, Response};
 use crate::generated::abt::v1::{
     abt_labor_process_service_server::AbtLaborProcessService as GrpcLaborProcessService, *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{empty_to_none, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 
@@ -26,10 +26,6 @@ impl Default for LaborProcessHandler {
     fn default() -> Self {
         Self::new()
     }
-}
-
-fn empty_to_none(s: String) -> Option<String> {
-    if s.is_empty() { None } else { Some(s) }
 }
 
 fn parse_decimal(value: &str, field: &str) -> Result<Decimal, tonic::Status> {

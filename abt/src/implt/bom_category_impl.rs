@@ -1,10 +1,11 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::Arc;
 
 use crate::models::*;
 use crate::repositories::{BomCategoryRepo, Executor};
 use crate::service::BomCategoryService;
+use common::error::ServiceError;
 
 pub struct BomCategoryServiceImpl {
     pool: Arc<sqlx::PgPool>,
@@ -23,9 +24,11 @@ impl BomCategoryService for BomCategoryServiceImpl {
         req: CreateBomCategoryRequest,
         executor: Executor<'_>,
     ) -> Result<i64> {
-        // Check if name already exists
-        if BomCategoryRepo::is_name_exists(self.pool.as_ref(), &req.bom_category_name).await? {
-            return Err(anyhow!("BOM category name already exists: {}", req.bom_category_name));
+        if BomCategoryRepo::is_name_exists(&mut *executor, &req.bom_category_name).await? {
+            return Err(ServiceError::Conflict {
+                resource: "BomCategory".into(),
+                message: format!("分类名称 '{}' 已存在", req.bom_category_name),
+            }.into());
         }
 
         let bom_category_id = BomCategoryRepo::insert(executor, &req).await?;
@@ -38,15 +41,19 @@ impl BomCategoryService for BomCategoryServiceImpl {
         req: UpdateBomCategoryRequest,
         executor: Executor<'_>,
     ) -> Result<()> {
-        // Check if category exists
-        let existing = BomCategoryRepo::find_by_id(self.pool.as_ref(), bom_category_id)
+        let _existing = BomCategoryRepo::find_by_id(&mut *executor, bom_category_id)
             .await?
-            .ok_or_else(|| anyhow!("BOM category not found"))?;
+            .ok_or_else(|| ServiceError::NotFound {
+                resource: "BomCategory".into(),
+                id: bom_category_id.to_string(),
+            })?;
 
-        // Check if new name conflicts with another category
-        if req.bom_category_name != existing.bom_category_name {
-            if BomCategoryRepo::is_name_exists(self.pool.as_ref(), &req.bom_category_name).await? {
-                return Err(anyhow!("BOM category name already exists: {}", req.bom_category_name));
+        if req.bom_category_name != _existing.bom_category_name {
+            if BomCategoryRepo::is_name_exists(&mut *executor, &req.bom_category_name).await? {
+                return Err(ServiceError::Conflict {
+                    resource: "BomCategory".into(),
+                    message: format!("分类名称 '{}' 已存在", req.bom_category_name),
+                }.into());
             }
         }
 
@@ -59,14 +66,17 @@ impl BomCategoryService for BomCategoryServiceImpl {
         bom_category_id: i64,
         executor: Executor<'_>,
     ) -> Result<()> {
-        // Check if category exists
-        let _existing = BomCategoryRepo::find_by_id(self.pool.as_ref(), bom_category_id)
+        BomCategoryRepo::find_by_id(&mut *executor, bom_category_id)
             .await?
-            .ok_or_else(|| anyhow!("BOM category not found"))?;
+            .ok_or_else(|| ServiceError::NotFound {
+                resource: "BomCategory".into(),
+                id: bom_category_id.to_string(),
+            })?;
 
-        // Check if there are BOMs using this category
-        if BomCategoryRepo::has_boms(self.pool.as_ref(), bom_category_id).await? {
-            return Err(anyhow!("Cannot delete BOM category: there are BOMs using this category"));
+        if BomCategoryRepo::has_boms(&mut *executor, bom_category_id).await? {
+            return Err(ServiceError::BusinessValidation {
+                message: "该分类下存在 BOM，无法删除".into(),
+            }.into());
         }
 
         BomCategoryRepo::delete(executor, bom_category_id).await?;
@@ -82,15 +92,5 @@ impl BomCategoryService for BomCategoryServiceImpl {
         let categories = BomCategoryRepo::query(self.pool.as_ref(), &query).await?;
         let total = BomCategoryRepo::query_count(self.pool.as_ref(), &query).await?;
         Ok((categories, total))
-    }
-
-    async fn exists_name(&self, name: &str) -> Result<bool> {
-        let exists = BomCategoryRepo::is_name_exists(self.pool.as_ref(), name).await?;
-        Ok(exists)
-    }
-
-    async fn has_boms(&self, bom_category_id: i64) -> Result<bool> {
-        let has = BomCategoryRepo::has_boms(self.pool.as_ref(), bom_category_id).await?;
-        Ok(has)
     }
 }

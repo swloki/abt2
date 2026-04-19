@@ -28,8 +28,4 @@ pub trait BomCategoryService: Send + Sync {
     async fn get(&self, bom_category_id: i64) -> Result<Option<BomCategory>>;
 
     async fn list(&self, query: BomCategoryQuery) -> Result<(Vec<BomCategory>, i64)>;
-
-    async fn exists_name(&self, name: &str) -> Result<bool>;
-
-    async fn has_boms(&self, bom_category_id: i64) -> Result<bool>;
 }

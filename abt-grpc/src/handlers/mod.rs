@@ -37,6 +37,11 @@ pub use crate::generated::abt::v1::{
 
 pub type GrpcResult<T> = Result<tonic::Response<T>, tonic::Status>;
 
+/// Convert an empty string to None, non-empty to Some.
+pub fn empty_to_none(s: String) -> Option<String> {
+    if s.is_empty() { None } else { Some(s) }
+}
+
 // ============================================================================
 // 流式下载共享常量和工具函数
 // ============================================================================

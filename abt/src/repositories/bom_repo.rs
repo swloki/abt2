@@ -91,23 +91,6 @@ impl BomRepo {
         Ok(())
     }
 
-    /// 更新 BOM 名称
-    pub async fn update_name(executor: Executor<'_>, bom_id: i64, new_name: &str) -> Result<()> {
-        sqlx::query!(
-            r#"
-            UPDATE bom
-            SET bom_name = $1, update_at = NOW()
-            WHERE bom_id = $2
-            "#,
-            new_name,
-            bom_id
-        )
-        .execute(executor)
-        .await?;
-
-        Ok(())
-    }
-
     /// 删除 BOM
     pub async fn delete(executor: Executor<'_>, bom_id: i64) -> Result<()> {
         sqlx::query!("DELETE FROM bom WHERE bom_id = $1", bom_id)

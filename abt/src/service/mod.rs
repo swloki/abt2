@@ -3,6 +3,7 @@
 //! 定义业务服务的 trait 接口。
 
 mod auth_service;
+mod bom_category_service;
 mod bom_service;
 mod department_service;
 mod inventory_service;
@@ -18,6 +19,7 @@ mod user_service;
 mod warehouse_service;
 
 pub use auth_service::AuthService;
+pub use bom_category_service::BomCategoryService;
 pub use bom_service::BomService;
 pub use department_service::DepartmentService;
 pub use labor_process_service::LaborProcessService;

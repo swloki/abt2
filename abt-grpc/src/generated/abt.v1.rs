@@ -10112,6 +10112,10 @@ pub struct BomReference {
 pub struct CheckProductUsageRequest {
     #[prost(int64, tag = "1")]
     pub product_id: i64,
+    #[prost(uint32, optional, tag = "2")]
+    pub page: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "3")]
+    pub page_size: ::core::option::Option<u32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CheckProductUsageResponse {

@@ -82,6 +82,8 @@ message BomReference {
 
 message CheckProductUsageRequest {
   int64 product_id = 1;
+  optional uint32 page = 2;
+  optional uint32 page_size = 3;
 }
 
 message CheckProductUsageResponse {

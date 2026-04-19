@@ -79,8 +79,8 @@ impl ProductService for ProductServiceImpl {
         }
     }
 
-    async fn check_product_usage(&self, product_id: i64) -> Result<(bool, Vec<BomReference>, i64)> {
-        let result = BomRepo::find_boms_using_product(&self.pool, product_id).await?;
+    async fn check_product_usage(&self, product_id: i64, page: Option<u32>, page_size: Option<u32>) -> Result<(bool, Vec<BomReference>, i64)> {
+        let result = BomRepo::find_boms_using_product(&self.pool, product_id, page, page_size).await?;
         let is_used = result.total > 0;
         Ok((is_used, result.boms, result.total))
     }

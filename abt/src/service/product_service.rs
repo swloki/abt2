@@ -40,5 +40,5 @@ pub trait ProductService: Send + Sync {
 
     /// 检查产品是否被 BOM 使用
     /// 返回 (是否被使用, 使用的 BOM 列表, 总数)
-    async fn check_product_usage(&self, product_id: i64) -> Result<(bool, Vec<BomReference>, i64)>;
+    async fn check_product_usage(&self, product_id: i64, page: Option<u32>, page_size: Option<u32>) -> Result<(bool, Vec<BomReference>, i64)>;
 }

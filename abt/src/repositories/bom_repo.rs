@@ -228,7 +228,12 @@ impl BomRepo {
     pub async fn find_boms_using_product(
         pool: &PgPool,
         product_id: i64,
+        page: Option<u32>,
+        page_size: Option<u32>,
     ) -> Result<ProductUsageResult> {
+        let ps = page_size.unwrap_or(10) as i64;
+        let offset = (page.unwrap_or(1).saturating_sub(1)) as i64 * ps;
+
         // 查询总数
         let total: i64 = sqlx::query_scalar!(
             r#"
@@ -245,7 +250,7 @@ impl BomRepo {
         .await?
         .unwrap_or(0);
 
-        // 查询前 10 条 BOM 信息
+        // 查询分页 BOM 信息
         let boms = sqlx::query_as!(
             BomReference,
             r#"
@@ -256,9 +261,11 @@ impl BomRepo {
                 WHERE (node->>'product_id')::bigint = $1
             )
             ORDER BY bom_name
-            LIMIT 10
+            LIMIT $2 OFFSET $3
             "#,
-            product_id
+            product_id,
+            ps,
+            offset
         )
         .fetch_all(pool)
         .await?;

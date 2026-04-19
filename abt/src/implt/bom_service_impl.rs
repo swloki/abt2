@@ -97,23 +97,21 @@ impl BomServiceImpl {
         let worksheet = workbook.add_worksheet();
 
         // 设置列宽
-        const COLUMN_WIDTHS: [f64; 10] = [8.0, 8.0, 15.0, 25.0, 8.0, 10.0, 10.0, 15.0, 15.0, 15.0];
+        const COLUMN_WIDTHS: [f64; 8] = [8.0, 8.0, 15.0, 25.0, 8.0, 10.0, 15.0, 15.0];
         for (col, &width) in COLUMN_WIDTHS.iter().enumerate() {
             worksheet.set_column_width(col as u16, width)?;
         }
 
         // 写入表头
-        const HEADERS: [&str; 10] = [
+        const HEADERS: [&str; 8] = [
             "序号",
             "阶层",
             "物料编码",
             "产品名称",
             "用量",
             "位置",
-            "耗损率",
             "备注",
             "物料属性",
-            "工作中心",
         ];
         worksheet.set_row_height(0, 25.0)?;
         for (col, header) in HEADERS.iter().enumerate() {
@@ -156,26 +154,14 @@ impl BomServiceImpl {
                 cell_format,
             )?;
 
-            // 耗损率
-            worksheet.write_number_with_format(row, 6, node.node.loss_rate, cell_format)?;
-
             // 备注（可选字段）
-            write_optional_string(worksheet, row, 7, node.node.remark.as_deref(), cell_format)?;
+            write_optional_string(worksheet, row, 6, node.node.remark.as_deref(), cell_format)?;
 
             // 物料属性（获取途径）
             worksheet.write_string_with_format(
                 row,
-                8,
+                7,
                 &node.product.meta.acquire_channel,
-                cell_format,
-            )?;
-
-            // 工作中心（可选字段）
-            write_optional_string(
-                worksheet,
-                row,
-                9,
-                node.node.work_center.as_deref(),
                 cell_format,
             )?;
         }

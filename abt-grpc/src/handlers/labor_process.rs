@@ -334,6 +334,16 @@ impl GrpcLaborProcessService for LaborProcessHandler {
             })
             .collect::<Result<_, tonic::Status>>()?;
 
+        // 业务校验：如果数量为 0，则备注不能为空
+        for item in &items {
+            if item.quantity.is_zero() && item.remark.as_ref().is_none_or(|r| r.is_empty()) {
+                return Err(error::business_error(
+                    "remark",
+                    &format!("工序 {} 的数量为 0，备注不能为空", item.process_id),
+                ));
+            }
+        }
+
         srv.set_bom_labor_cost(
             abt::SetBomLaborCostReq {
                 bom_id: req.bom_id,

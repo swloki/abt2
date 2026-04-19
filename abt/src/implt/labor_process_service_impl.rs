@@ -141,12 +141,6 @@ impl LaborProcessService for LaborProcessServiceImpl {
     // ========================================================================
 
     async fn set_bom_labor_cost(&self, req: SetBomLaborCostReq, executor: Executor<'_>) -> Result<()> {
-        for item in &req.items {
-            if item.quantity.is_zero() && item.remark.as_ref().is_none_or(|r| r.is_empty()) {
-                anyhow::bail!("工序 {} 的数量为 0，备注不能为空", item.process_id);
-            }
-        }
-
         // 锁定工序行防止并发修改价格，然后读取当前单价作为快照
         let process_ids: Vec<i64> = req.items.iter().map(|i| i.process_id).collect();
         let prices = LaborProcessRepo::lock_and_get_unit_prices(executor, &process_ids).await?;

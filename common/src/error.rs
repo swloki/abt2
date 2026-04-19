@@ -152,6 +152,20 @@ pub fn unauthorized(message: &str) -> tonic::Status {
     tonic::Status::with_error_details(Code::Unauthenticated, message, details)
 }
 
+/// Business validation error - returned to frontend without console logging.
+///
+/// Use for expected validation failures (not bugs or infrastructure errors).
+/// Frontend receives a structured error via ConnectRPC's findDetails().
+pub fn business_error(field: &str, message: &str) -> tonic::Status {
+    let mut details = ErrorDetails::new();
+    details.add_bad_request_violation(field, message);
+    tonic::Status::with_error_details(
+        Code::InvalidArgument,
+        message,
+        details,
+    )
+}
+
 // ─── Utility ──────────────────────────────────────────────────────────────
 
 /// Clean up backtrace for logging (removes noisy frames).

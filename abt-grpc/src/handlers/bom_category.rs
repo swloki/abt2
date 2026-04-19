@@ -4,6 +4,8 @@ use crate::generated::abt::v1::{
     abt_bom_category_service_server::AbtBomCategoryService as GrpcBomCategoryService, *,
 };
 use crate::handlers::GrpcResult;
+use crate::interceptors::auth::extract_auth;
+use crate::permissions::PermissionCode;
 use crate::server::AppState;
 use abt_macros::require_permission;
 use common::error;
@@ -133,7 +135,7 @@ impl GrpcBomCategoryService for BomCategoryHandler {
         let srv = state.bom_category_service();
 
         let query = abt::BomCategoryQuery {
-            keyword: if req.keyword.is_empty() { None } else { req.keyword },
+            keyword: req.keyword,
             page: req.page,
             page_size: req.page_size,
         };

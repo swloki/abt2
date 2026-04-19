@@ -127,6 +127,28 @@ impl UserRepo {
         Ok(users)
     }
 
+    pub async fn find_by_ids(pool: &PgPool, user_ids: &[i64]) -> Result<Vec<User>> {
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let users = sqlx::query_as!(
+            User,
+            r#"
+            SELECT user_id, username, password_hash, display_name,
+                   is_active, is_super_admin, created_at, updated_at
+            FROM users
+            WHERE user_id = ANY($1)
+            ORDER BY user_id
+            "#,
+            user_ids
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(users)
+    }
+
     pub async fn get_user_roles(pool: &PgPool, user_id: i64) -> Result<Vec<RoleInfo>> {
         let roles = sqlx::query_as!(
             RoleInfo,

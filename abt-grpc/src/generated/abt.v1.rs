@@ -67,6 +67,11 @@ pub struct GetUserRequest {
     #[prost(int64, tag = "1")]
     pub user_id: i64,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetUsersByIdsRequest {
+    #[prost(int64, repeated, tag = "1")]
+    pub user_ids: ::prost::alloc::vec::Vec<i64>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UserResponse {
     #[prost(int64, tag = "1")]
@@ -318,6 +323,30 @@ pub mod user_service_client {
                 .insert(GrpcMethod::new("abt.v1.UserService", "ListUsers"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn get_users_by_ids(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetUsersByIdsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UserListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.UserService/GetUsersByIds",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.UserService", "GetUsersByIds"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn assign_roles(
             &mut self,
             request: impl tonic::IntoRequest<super::AssignRolesRequest>,
@@ -415,6 +444,13 @@ pub mod user_service_server {
         async fn list_users(
             &self,
             request: tonic::Request<super::Empty>,
+        ) -> std::result::Result<
+            tonic::Response<super::UserListResponse>,
+            tonic::Status,
+        >;
+        async fn get_users_by_ids(
+            &self,
+            request: tonic::Request<super::GetUsersByIdsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::UserListResponse>,
             tonic::Status,
@@ -716,6 +752,51 @@ pub mod user_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListUsersSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.UserService/GetUsersByIds" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetUsersByIdsSvc<T: UserService>(pub Arc<T>);
+                    impl<
+                        T: UserService,
+                    > tonic::server::UnaryService<super::GetUsersByIdsRequest>
+                    for GetUsersByIdsSvc<T> {
+                        type Response = super::UserListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetUsersByIdsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as UserService>::get_users_by_ids(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetUsersByIdsSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -2254,8 +2335,8 @@ pub struct BomNodeProto {
 pub struct BomDetailProto {
     #[prost(message, repeated, tag = "1")]
     pub nodes: ::prost::alloc::vec::Vec<BomNodeProto>,
-    #[prost(string, tag = "2")]
-    pub created_by: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub created_by: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BomResponse {
@@ -2263,8 +2344,8 @@ pub struct BomResponse {
     pub bom_id: i64,
     #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub created_by: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub created_by: i64,
     #[prost(int64, tag = "4")]
     pub created_at: i64,
     #[prost(int64, tag = "5")]
@@ -2343,8 +2424,6 @@ pub struct GetBomRequest {
 pub struct CreateBomRequest {
     #[prost(string, tag = "1")]
     pub name: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub created_by: ::prost::alloc::string::String,
     #[prost(int64, optional, tag = "3")]
     pub bom_category_id: ::core::option::Option<i64>,
 }
@@ -2368,8 +2447,6 @@ pub struct SaveAsBomRequest {
     pub source_bom_id: i64,
     #[prost(string, tag = "2")]
     pub new_name: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub created_by: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExportBomRequest {

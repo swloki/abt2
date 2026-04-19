@@ -158,6 +158,22 @@ impl GrpcUserService for UserHandler {
         }))
     }
 
+    #[require_permission(Resource::User, Action::Read)]
+    async fn get_users_by_ids(&self, request: Request<GetUsersByIdsRequest>) -> GrpcResult<UserListResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.user_service();
+
+        let users = srv
+            .get_users_by_ids(req.user_ids)
+            .await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(UserListResponse {
+            users: users.into_iter().map(|u| u.into()).collect(),
+        }))
+    }
+
     #[require_permission(Resource::User, Action::Write)]
     async fn assign_roles(&self, request: Request<AssignRolesRequest>) -> GrpcResult<Empty> {
         let req = request.into_inner();

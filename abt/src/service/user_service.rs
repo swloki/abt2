@@ -34,6 +34,8 @@ pub trait UserService: Send + Sync {
 
     async fn list(&self) -> Result<Vec<UserWithRoles>>;
 
+    async fn get_users_by_ids(&self, user_ids: Vec<i64>) -> Result<Vec<UserWithRoles>>;
+
     async fn assign_roles(
         &self,
         operator_id: Option<i64>,

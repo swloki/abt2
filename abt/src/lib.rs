@@ -123,6 +123,11 @@ pub fn get_bom_service(ctx: &AppContext) -> impl crate::service::BomService {
     crate::implt::BomServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
 
+/// 获取 BOM 分类服务
+pub fn get_bom_category_service(ctx: &AppContext) -> impl crate::service::BomCategoryService {
+    crate::implt::BomCategoryServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
 /// 获取产品服务
 pub fn get_product_service(ctx: &AppContext) -> impl crate::service::ProductService {
     crate::implt::ProductServiceImpl::new(Arc::new(ctx.pool().clone()))

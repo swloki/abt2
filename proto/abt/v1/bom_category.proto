@@ -1,0 +1,48 @@
+syntax = "proto3";
+package abt.v1;
+
+import "abt/v1/base.proto";
+
+option go_package = "abt/v1";
+
+service AbtBomCategoryService {
+  rpc ListBomCategories(ListBomCategoriesRequest) returns (BomCategoryListResponse);
+  rpc GetBomCategory(GetBomCategoryRequest) returns (BomCategoryResponse);
+  rpc CreateBomCategory(CreateBomCategoryRequest) returns (U64Response);
+  rpc UpdateBomCategory(UpdateBomCategoryRequest) returns (BoolResponse);
+  rpc DeleteBomCategory(DeleteBomCategoryRequest) returns (BoolResponse);
+}
+
+message BomCategoryResponse {
+  int64 bom_category_id = 1;
+  string bom_category_name = 2;
+  int64 created_at = 3;
+}
+
+message BomCategoryListResponse {
+  repeated BomCategoryResponse items = 1;
+  uint64 total = 2;
+}
+
+message ListBomCategoriesRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional string keyword = 3;
+}
+
+message GetBomCategoryRequest {
+  int64 bom_category_id = 1;
+}
+
+message CreateBomCategoryRequest {
+  string bom_category_name = 1;
+}
+
+message UpdateBomCategoryRequest {
+  int64 bom_category_id = 1;
+  string bom_category_name = 2;
+}
+
+message DeleteBomCategoryRequest {
+  int64 bom_category_id = 1;
+}

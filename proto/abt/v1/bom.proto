@@ -87,6 +87,7 @@ message ListBomsRequest {
   optional string product_code = 4;
   optional string date_from = 5;
   optional string date_to = 6;
+  optional int64 bom_category_id = 7;
 }
 
 message GetBomRequest {

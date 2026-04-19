@@ -2329,6 +2329,8 @@ pub struct ListBomsRequest {
     pub date_from: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(string, optional, tag = "6")]
     pub date_to: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int64, optional, tag = "7")]
+    pub bom_category_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetBomRequest {

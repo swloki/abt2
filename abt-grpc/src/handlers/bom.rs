@@ -43,6 +43,7 @@ impl GrpcBomService for BomHandler {
             product_code: req.product_code,
             date_from: req.date_from,
             date_to: req.date_to,
+            bom_category_id: req.bom_category_id,
             ..Default::default()
         };
 

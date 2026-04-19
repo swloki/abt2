@@ -16,6 +16,7 @@ pub struct Bom {
     pub update_at: Option<DateTime<Utc>>,
     pub bom_detail: BomDetail,
     pub process_group_id: Option<i64>,
+    pub bom_category_id: Option<i64>,
 }
 
 impl<'r> FromRow<'r, PgRow> for Bom {
@@ -31,6 +32,7 @@ impl<'r> FromRow<'r, PgRow> for Bom {
                 source: Box::new(e),
             })?;
         let process_group_id: Option<i64> = row.try_get("process_group_id")?;
+        let bom_category_id: Option<i64> = row.try_get("bom_category_id")?;
 
         Ok(Bom {
             bom_id,
@@ -39,6 +41,7 @@ impl<'r> FromRow<'r, PgRow> for Bom {
             update_at,
             bom_detail,
             process_group_id,
+            bom_category_id,
         })
     }
 }
@@ -104,6 +107,9 @@ pub struct BomQuery {
     pub product_id: Option<i64>,
     /// 产品编码（筛选 BOM 第一个节点的产品编码）
     pub product_code: Option<String>,
+    /// BOM 分类 ID
+    #[serde(default, deserialize_with = "deserialize_null_i64")]
+    pub bom_category_id: Option<i64>,
     /// 返回 URL
     pub back_url: Option<String>,
     /// 页码
@@ -122,6 +128,7 @@ impl Default for BomQuery {
             date_to: None,
             product_id: None,
             product_code: None,
+            bom_category_id: None,
             back_url: None,
             page: Some(1),
             page_size: Some(12),

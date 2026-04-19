@@ -102,7 +102,7 @@ impl BomRepo {
     /// 注意：Bom 有自定义 FromRow impl，需要用 runtime query
     pub async fn find_by_id(executor: Executor<'_>, bom_id: i64) -> Result<Option<Bom>> {
         let row = sqlx::query_as::<_, Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, process_group_id FROM bom WHERE bom_id = $1",
+            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, process_group_id, bom_category_id FROM bom WHERE bom_id = $1",
         )
         .bind(bom_id)
         .fetch_optional(executor)
@@ -116,7 +116,7 @@ impl BomRepo {
     #[allow(dead_code)]
     pub async fn find_by_id_pool(pool: &PgPool, bom_id: i64) -> Result<Option<Bom>> {
         let row = sqlx::query_as::<_, Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, process_group_id FROM bom WHERE bom_id = $1",
+            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, process_group_id, bom_category_id FROM bom WHERE bom_id = $1",
         )
         .bind(bom_id)
         .fetch_optional(pool)
@@ -143,7 +143,7 @@ impl BomRepo {
     pub async fn query(pool: &PgPool, bom_query: &BomQuery) -> Result<Vec<Bom>> {
         let mut query = sqlx::QueryBuilder::new(
             r#"
-            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, process_group_id
+            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, process_group_id, bom_category_id
             FROM bom
             WHERE 1=1
             "#,
@@ -220,6 +220,10 @@ impl BomRepo {
             query.push(" AND EXISTS (SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node JOIN products p ON (node->>'product_id')::bigint = p.product_id WHERE (node->>'parent_id')::bigint = 0 AND p.meta->>'product_code' ILIKE ");
             query.push_bind(format!("%{}%", product_code));
             query.push(")");
+        }
+        if let Some(bom_category_id) = bom_query.bom_category_id {
+            query.push(" AND bom_category_id = ");
+            query.push_bind(bom_category_id);
         }
     }
 

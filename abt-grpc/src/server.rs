@@ -98,6 +98,10 @@ impl AppState {
         abt::get_department_service(self.abt_context)
     }
 
+    pub fn bom_category_service(&self) -> impl abt::BomCategoryService {
+        abt::get_bom_category_service(self.abt_context)
+    }
+
     pub fn auth_service(&self) -> impl abt::AuthService {
         let config = get_config();
         let resources = abt::collect_all_resources();
@@ -129,8 +133,8 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         AbtBomServiceServer, AbtExcelServiceServer, AbtInventoryServiceServer,
         AbtLaborProcessServiceServer, AbtLocationServiceServer, AbtPriceServiceServer,
         AbtProductServiceServer, AbtTermServiceServer, AbtWarehouseServiceServer,
-        AuthServiceServer, DepartmentServiceServer, PermissionServiceServer,
-        RoleServiceServer, UserServiceServer,
+        AuthServiceServer, AbtBomCategoryServiceServer, DepartmentServiceServer,
+        PermissionServiceServer, RoleServiceServer, UserServiceServer,
     };
     use crate::interceptors::auth_interceptor;
 
@@ -175,6 +179,9 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(DepartmentServiceServer::with_interceptor(
             crate::handlers::department::DepartmentHandler::new(), auth_interceptor,
+        ))
+        .add_service(AbtBomCategoryServiceServer::with_interceptor(
+            crate::handlers::bom_category::BomCategoryHandler::new(), auth_interceptor,
         ))
         .add_service(AbtLaborProcessServiceServer::with_interceptor(
             crate::handlers::labor_process::LaborProcessHandler::new(), auth_interceptor,

@@ -3,6 +3,7 @@
 pub mod auth;
 pub mod bom;
 pub mod convert;
+pub mod bom_category;
 pub mod department;
 pub mod excel;
 pub mod inventory;
@@ -17,6 +18,7 @@ pub mod user;
 pub mod warehouse;
 
 pub use crate::generated::abt::v1::{
+    abt_bom_category_service_server::AbtBomCategoryServiceServer,
     abt_bom_service_server::AbtBomServiceServer,
     abt_excel_service_server::AbtExcelServiceServer,
     abt_inventory_service_server::AbtInventoryServiceServer,

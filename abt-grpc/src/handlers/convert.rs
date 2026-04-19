@@ -312,3 +312,17 @@ impl From<abt::Department> for ProtoDepartmentResponse {
         }
     }
 }
+
+// ========== BomCategory conversions ==========
+
+use crate::generated::abt::v1::BomCategoryResponse as ProtoBomCategoryResponse;
+
+impl From<abt::BomCategory> for ProtoBomCategoryResponse {
+    fn from(c: abt::BomCategory) -> Self {
+        ProtoBomCategoryResponse {
+            bom_category_id: c.bom_category_id,
+            bom_category_name: c.bom_category_name,
+            created_at: c.created_at.timestamp(),
+        }
+    }
+}

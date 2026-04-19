@@ -84,6 +84,7 @@ impl From<abt::Bom> for BomResponse {
             created_at: bom.create_at.timestamp(),
             updated_at: bom.update_at.map(|t| t.timestamp()).unwrap_or(0),
             bom_detail: Some(bom.bom_detail.into()),
+            bom_category_id: bom.bom_category_id,
         }
     }
 }

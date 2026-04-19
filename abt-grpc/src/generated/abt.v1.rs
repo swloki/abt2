@@ -2271,6 +2271,8 @@ pub struct BomResponse {
     pub updated_at: i64,
     #[prost(message, optional, tag = "6")]
     pub bom_detail: ::core::option::Option<BomDetailProto>,
+    #[prost(int64, optional, tag = "7")]
+    pub bom_category_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BomListResponse {
@@ -2343,6 +2345,8 @@ pub struct CreateBomRequest {
     pub name: ::prost::alloc::string::String,
     #[prost(string, tag = "2")]
     pub created_by: ::prost::alloc::string::String,
+    #[prost(int64, optional, tag = "3")]
+    pub bom_category_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UpdateBomRequest {
@@ -2350,6 +2354,8 @@ pub struct UpdateBomRequest {
     pub bom_id: i64,
     #[prost(string, tag = "2")]
     pub name: ::prost::alloc::string::String,
+    #[prost(int64, optional, tag = "3")]
+    pub bom_category_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DeleteBomRequest {

@@ -316,19 +316,19 @@ struct ExportIndices {
 
 #[async_trait]
 impl BomService for BomServiceImpl {
-    async fn create(&self, name: &str, created_by: &str, executor: Executor<'_>) -> Result<i64> {
+    async fn create(&self, name: &str, created_by: &str, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<i64> {
         // 检查名称是否已存在 - 这里需要 pool，暂时跳过
         let bom_detail = BomDetail {
             nodes: Vec::new(),
             created_by: Some(created_by.to_string()),
         };
 
-        let bom_id = BomRepo::insert(executor, name, &bom_detail).await?;
+        let bom_id = BomRepo::insert(executor, name, &bom_detail, bom_category_id).await?;
         Ok(bom_id)
     }
 
     async fn update(&self, bom: Bom, executor: Executor<'_>) -> Result<()> {
-        BomRepo::update(executor, bom.bom_id, &bom.bom_name, &bom.bom_detail).await
+        BomRepo::update(executor, bom.bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await
     }
 
     async fn update_name(&self, bom_id: i64, new_name: &str, executor: Executor<'_>) -> Result<()> {
@@ -368,7 +368,7 @@ impl BomService for BomServiceImpl {
 
         bom.bom_detail.nodes.push(node);
 
-        BomRepo::update(executor, bom_id, &bom.bom_name, &bom.bom_detail).await?;
+        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await?;
 
         Ok(new_id)
     }
@@ -384,7 +384,7 @@ impl BomService for BomServiceImpl {
             *existing_node = node;
         }
 
-        BomRepo::update(executor, bom_id, &bom.bom_name, &bom.bom_detail).await
+        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await
     }
 
     async fn delete_node(&self, bom_id: i64, node_id: i64, executor: Executor<'_>) -> Result<i64> {
@@ -415,7 +415,7 @@ impl BomService for BomServiceImpl {
             .nodes
             .retain(|node| !nodes_to_delete.contains(&node.id));
 
-        BomRepo::update(executor, bom_id, &bom.bom_name, &bom.bom_detail).await?;
+        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await?;
 
         Ok(node_id)
     }
@@ -455,7 +455,7 @@ impl BomService for BomServiceImpl {
             }
         }
 
-        BomRepo::update(executor, bom_id, &bom.bom_name, &bom.bom_detail).await
+        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await
     }
 
     async fn exists_name(&self, name: &str) -> Result<bool> {
@@ -584,8 +584,8 @@ impl BomService for BomServiceImpl {
             created_by: Some(created_by.to_string()),
         };
 
-        // 3. 插入新 BOM
-        let new_bom_id = BomRepo::insert(executor, new_name, &new_detail).await?;
+        // 3. 插入新 BOM（不复制分类，保持为空）
+        let new_bom_id = BomRepo::insert(executor, new_name, &new_detail, None).await?;
 
         Ok(new_bom_id)
     }

@@ -52,6 +52,7 @@ message BomResponse {
   int64 created_at = 4;
   int64 updated_at = 5;
   BomDetailProto bom_detail = 6;
+  optional int64 bom_category_id = 7;
 }
 
 message BomListResponse {
@@ -97,11 +98,13 @@ message GetBomRequest {
 message CreateBomRequest {
   string name = 1;
   string created_by = 2;
+  optional int64 bom_category_id = 3;
 }
 
 message UpdateBomRequest {
   int64 bom_id = 1;
   string name = 2;
+  optional int64 bom_category_id = 3;
 }
 
 message DeleteBomRequest {

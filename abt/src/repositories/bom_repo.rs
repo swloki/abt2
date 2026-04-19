@@ -33,15 +33,17 @@ impl BomRepo {
         executor: Executor<'_>,
         bom_name: &str,
         bom_detail: &BomDetail,
+        bom_category_id: Option<i64>,
     ) -> Result<i64> {
         let bom_id: i64 = sqlx::query_scalar!(
             r#"
-            INSERT INTO bom (bom_name, create_at, bom_detail)
-            VALUES ($1, NOW(), $2::jsonb)
+            INSERT INTO bom (bom_name, create_at, bom_detail, bom_category_id)
+            VALUES ($1, NOW(), $2::jsonb, $3)
             RETURNING bom_id
             "#,
             bom_name,
-            json!(bom_detail)
+            json!(bom_detail),
+            bom_category_id
         )
         .fetch_one(executor)
         .await?;
@@ -54,20 +56,37 @@ impl BomRepo {
         executor: Executor<'_>,
         bom_id: i64,
         bom_name: &str,
-        bom_detail: &BomDetail,
+        bom_detail: Option<&BomDetail>,
+        bom_category_id: Option<i64>,
     ) -> Result<()> {
-        sqlx::query!(
-            r#"
-            UPDATE bom
-            SET bom_name = $1, bom_detail = $2::jsonb, update_at = NOW()
-            WHERE bom_id = $3
-            "#,
-            bom_name,
-            json!(bom_detail),
-            bom_id
-        )
-        .execute(executor)
-        .await?;
+        if let Some(detail) = bom_detail {
+            sqlx::query!(
+                r#"
+                UPDATE bom
+                SET bom_name = $1, bom_detail = $2::jsonb, bom_category_id = $3, update_at = NOW()
+                WHERE bom_id = $4
+                "#,
+                bom_name,
+                json!(detail),
+                bom_category_id,
+                bom_id
+            )
+            .execute(executor)
+            .await?;
+        } else {
+            sqlx::query!(
+                r#"
+                UPDATE bom
+                SET bom_name = $1, bom_category_id = $2, update_at = NOW()
+                WHERE bom_id = $3
+                "#,
+                bom_name,
+                bom_category_id,
+                bom_id
+            )
+            .execute(executor)
+            .await?;
+        }
 
         Ok(())
     }

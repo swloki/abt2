@@ -162,6 +162,9 @@ pub struct CreateBomRequest {
     pub bom_name: String,
     /// 创建者
     pub created_by: Option<String>,
+    /// BOM 分类 ID
+    #[serde(default, deserialize_with = "deserialize_null_i64")]
+    pub bom_category_id: Option<i64>,
 }
 
 /// 更新 BOM 请求
@@ -170,7 +173,10 @@ pub struct UpdateBomRequest {
     /// BOM 名称
     pub bom_name: String,
     /// BOM 详情
-    pub bom_detail: BomDetail,
+    pub bom_detail: Option<BomDetail>,
+    /// BOM 分类 ID
+    #[serde(default, deserialize_with = "deserialize_null_i64")]
+    pub bom_category_id: Option<i64>,
 }
 
 /// 添加 BOM 节点请求
@@ -322,6 +328,7 @@ mod tests {
         let request = CreateBomRequest {
             bom_name: "测试BOM".to_string(),
             created_by: Some("test_user".to_string()),
+            bom_category_id: None,
         };
 
         let json = serde_json::to_string(&request).unwrap();
@@ -330,5 +337,6 @@ mod tests {
         let deserialized: CreateBomRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.bom_name, "测试BOM");
         assert_eq!(deserialized.created_by, Some("test_user".to_string()));
+        assert_eq!(deserialized.bom_category_id, None);
     }
 }

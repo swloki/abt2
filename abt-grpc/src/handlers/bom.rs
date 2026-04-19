@@ -90,7 +90,7 @@ impl GrpcBomService for BomHandler {
             .map_err(error::err_to_status)?;
 
         let id = srv
-            .create(&req.name, &req.created_by, &mut tx)
+            .create(&req.name, &req.created_by, req.bom_category_id, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 
@@ -112,7 +112,18 @@ impl GrpcBomService for BomHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        srv.update_name(req.bom_id, &req.name, &mut tx)
+        // Fetch existing BOM
+        let mut bom = srv
+            .find(req.bom_id, &mut tx)
+            .await
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
+
+        // Update fields
+        bom.bom_name = req.name;
+        bom.bom_category_id = req.bom_category_id;
+
+        srv.update(bom, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 

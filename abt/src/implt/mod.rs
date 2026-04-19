@@ -4,6 +4,7 @@
 
 mod auth_service_impl;
 mod bom_service_impl;
+mod bom_category_impl;
 mod department_service_impl;
 mod inventory_service_impl;
 mod labor_process_service_impl;
@@ -19,6 +20,7 @@ mod warehouse_service_impl;
 
 pub use auth_service_impl::AuthServiceImpl;
 pub use bom_service_impl::BomServiceImpl;
+pub use bom_category_impl::BomCategoryServiceImpl;
 pub use department_service_impl::DepartmentServiceImpl;
 pub use inventory_service_impl::InventoryServiceImpl;
 pub use labor_process_service_impl::LaborProcessServiceImpl;

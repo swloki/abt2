@@ -15,6 +15,7 @@ pub struct Bom {
     pub create_at: DateTime<Utc>,
     pub update_at: Option<DateTime<Utc>>,
     pub bom_detail: BomDetail,
+    pub process_group_id: Option<i64>,
 }
 
 impl<'r> FromRow<'r, PgRow> for Bom {
@@ -29,6 +30,7 @@ impl<'r> FromRow<'r, PgRow> for Bom {
                 index: "bom_detail".to_string(),
                 source: Box::new(e),
             })?;
+        let process_group_id: Option<i64> = row.try_get("process_group_id")?;
 
         Ok(Bom {
             bom_id,
@@ -36,6 +38,7 @@ impl<'r> FromRow<'r, PgRow> for Bom {
             create_at,
             update_at,
             bom_detail,
+            process_group_id,
         })
     }
 }

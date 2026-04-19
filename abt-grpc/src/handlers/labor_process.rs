@@ -1,200 +1,414 @@
-//! BOM 人工工序 gRPC Handler
+//! 劳务工序 gRPC Handler
 
-use crate::generated::abt::v1::*;
-use crate::handlers::GrpcResult;
-use crate::server::AppState;
 use abt::LaborProcessService;
+use abt_macros::require_permission;
 use common::error;
+use crate::permissions::PermissionCode;
 use rust_decimal::Decimal;
-use tonic::Response;
+use tonic::{Request, Response};
 
-/// 辅助函数：列出人工工序（按产品编码查询）
-pub async fn list_labor_processes_internal(
-    req: ListLaborProcessesRequest,
-) -> GrpcResult<BomLaborProcessListResponse> {
-    let state = AppState::get().await;
-    let service = state.labor_process_service();
+use crate::generated::abt::v1::{
+    abt_labor_process_service_server::AbtLaborProcessService as GrpcLaborProcessService, *,
+};
+use crate::handlers::GrpcResult;
+use crate::interceptors::auth::extract_auth;
+use crate::server::AppState;
 
-    let page = req.page.unwrap_or(1).max(1);
-    let page_size = req.page_size.unwrap_or(50).clamp(1, 100);
+pub struct LaborProcessHandler;
 
-    let (items, total) = service
-        .list(abt::ListLaborProcessRequest {
-            product_code: req.product_code,
-            page: Some(page),
-            page_size: Some(page_size),
-        })
-        .await
-        .map_err(error::err_to_status)?;
+impl LaborProcessHandler {
+    pub fn new() -> Self {
+        Self
+    }
+}
 
-    let items = items
+impl Default for LaborProcessHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+fn empty_to_none(s: String) -> Option<String> {
+    if s.is_empty() { None } else { Some(s) }
+}
+
+fn parse_decimal(value: &str, field: &str) -> Result<Decimal, tonic::Status> {
+    value.parse().map_err(|_| error::validation(field, "Invalid decimal format"))
+}
+
+fn group_with_members_to_proto(g: abt::LaborProcessGroupWithMembers) -> LaborProcessGroupProto {
+    LaborProcessGroupProto {
+        id: g.group.id,
+        name: g.group.name,
+        remark: g.group.remark.unwrap_or_default(),
+        members: g
+            .members
+            .into_iter()
+            .map(|m| ProcessGroupMemberProto {
+                process_id: m.process_id,
+                sort_order: m.sort_order,
+            })
+            .collect(),
+        created_at: g.group.created_at.timestamp(),
+        updated_at: g.group.updated_at.map(|t| t.timestamp()).unwrap_or(0),
+    }
+}
+
+fn proto_members_to_inputs(members: Vec<ProcessGroupMemberProto>) -> Vec<abt::LaborProcessGroupMemberInput> {
+    members
         .into_iter()
-        .map(|p| BomLaborProcessProto {
-            id: p.id,
-            product_code: p.product_code,
-            name: p.name,
-            unit_price: p.unit_price.to_string(),
-            quantity: p.quantity.to_string(),
-            sort_order: p.sort_order,
-            remark: p.remark.unwrap_or_default(),
+        .map(|m| abt::LaborProcessGroupMemberInput {
+            process_id: m.process_id,
+            sort_order: m.sort_order,
         })
-        .collect();
-
-    Ok(Response::new(BomLaborProcessListResponse {
-        items,
-        total: total as u64,
-    }))
+        .collect()
 }
 
-/// 辅助函数：创建人工工序
-pub async fn create_labor_process_internal(
-    req: CreateLaborProcessRequest,
-) -> GrpcResult<U64Response> {
-    let state = AppState::get().await;
-    let service = state.labor_process_service();
+#[tonic::async_trait]
+impl GrpcLaborProcessService for LaborProcessHandler {
+    #[require_permission(Resource::LaborProcess, Action::Read)]
+    async fn list_labor_processes(
+        &self,
+        request: Request<ListLaborProcessesRequest>,
+    ) -> GrpcResult<LaborProcessListResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
 
-    let mut tx = state
-        .begin_transaction()
-        .await
-        .map_err(error::err_to_status)?;
+        let query = abt::LaborProcessQuery {
+            keyword: req.keyword,
+            page: req.page.unwrap_or(1),
+            page_size: req.page_size.unwrap_or(50),
+        };
 
-    let unit_price: Decimal = req.unit_price
-        .parse()
-        .map_err(|_e| error::validation("unit_price", "Invalid unit_price format"))?;
-    let quantity: Decimal = req.quantity
-        .parse()
-        .map_err(|_e| error::validation("quantity", "Invalid quantity format"))?;
+        let (items, total) = srv
+            .list_processes(query)
+            .await
+            .map_err(error::err_to_status)?;
 
-    let id = service
-        .create(
-            abt::CreateLaborProcessRequest {
-                product_code: req.product_code,
-                name: req.name,
-                unit_price,
-                quantity,
-                sort_order: req.sort_order,
-                remark: if req.remark.is_empty() {
-                    None
-                } else {
-                    Some(req.remark)
+        Ok(Response::new(LaborProcessListResponse {
+            items: items
+                .into_iter()
+                .map(|p| LaborProcessProto {
+                    id: p.id,
+                    name: p.name,
+                    unit_price: p.unit_price.to_string(),
+                    remark: p.remark.unwrap_or_default(),
+                    created_at: p.created_at.timestamp(),
+                    updated_at: p.updated_at.map(|t| t.timestamp()).unwrap_or(0),
+                })
+                .collect(),
+            total: total as u64,
+        }))
+    }
+
+    #[require_permission(Resource::LaborProcess, Action::Write)]
+    async fn create_labor_process(
+        &self,
+        request: Request<CreateLaborProcessRequest>,
+    ) -> GrpcResult<U64Response> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
+
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+
+        let unit_price = parse_decimal(&req.unit_price, "unit_price")?;
+
+        let id = srv
+            .create_process(
+                abt::CreateLaborProcessReq {
+                    name: req.name,
+                    unit_price,
+                    remark: empty_to_none(req.remark),
                 },
-            },
-            &mut tx,
-        )
-        .await
-        .map_err(error::err_to_status)?;
+                &mut tx,
+            )
+            .await
+            .map_err(error::err_to_status)?;
 
-    tx.commit()
-        .await
-        .map_err(error::sqlx_err_to_status)?;
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
-    Ok(Response::new(U64Response { value: id as u64 }))
-}
+        Ok(Response::new(U64Response { value: id as u64 }))
+    }
 
-/// 辅助函数：更新人工工序
-pub async fn update_labor_process_internal(
-    req: UpdateLaborProcessRequest,
-) -> GrpcResult<BoolResponse> {
-    let state = AppState::get().await;
-    let service = state.labor_process_service();
+    #[require_permission(Resource::LaborProcess, Action::Write)]
+    async fn update_labor_process(
+        &self,
+        request: Request<UpdateLaborProcessRequest>,
+    ) -> GrpcResult<UpdateLaborProcessResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
 
-    let mut tx = state
-        .begin_transaction()
-        .await
-        .map_err(error::err_to_status)?;
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(error::err_to_status)?;
 
-    let unit_price: Decimal = req.unit_price
-        .parse()
-        .map_err(|_e| error::validation("unit_price", "Invalid unit_price format"))?;
-    let quantity: Decimal = req.quantity
-        .parse()
-        .map_err(|_e| error::validation("quantity", "Invalid quantity format"))?;
+        let unit_price = parse_decimal(&req.unit_price, "unit_price")?;
 
-    service
-        .update(
-            abt::UpdateLaborProcessRequest {
+        let impact = srv
+            .update_process(
+                abt::UpdateLaborProcessReq {
+                    id: req.id,
+                    name: req.name,
+                    unit_price,
+                    remark: empty_to_none(req.remark),
+                },
+                &mut tx,
+            )
+            .await
+            .map_err(error::err_to_status)?;
+
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+
+        Ok(Response::new(UpdateLaborProcessResponse {
+            success: true,
+            affected_bom_count: impact.as_ref().map(|i| i.affected_bom_count).unwrap_or(0),
+            affected_item_count: impact.as_ref().map(|i| i.affected_item_count).unwrap_or(0),
+        }))
+    }
+
+    #[require_permission(Resource::LaborProcess, Action::Delete)]
+    async fn delete_labor_process(
+        &self,
+        request: Request<DeleteLaborProcessRequest>,
+    ) -> GrpcResult<BoolResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
+
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+
+        srv.delete_process(req.id, &mut tx)
+            .await
+            .map_err(error::err_to_status)?;
+
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+
+        Ok(Response::new(BoolResponse { value: true }))
+    }
+
+    #[require_permission(Resource::LaborProcess, Action::Read)]
+    async fn list_labor_process_groups(
+        &self,
+        request: Request<ListLaborProcessGroupsRequest>,
+    ) -> GrpcResult<LaborProcessGroupListResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
+
+        let query = abt::LaborProcessGroupQuery {
+            keyword: req.keyword,
+            page: req.page.unwrap_or(1),
+            page_size: req.page_size.unwrap_or(50),
+        };
+
+        let (groups, total) = srv
+            .list_groups(query)
+            .await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(LaborProcessGroupListResponse {
+            items: groups.into_iter().map(group_with_members_to_proto).collect(),
+            total: total as u64,
+        }))
+    }
+
+    #[require_permission(Resource::LaborProcess, Action::Write)]
+    async fn create_labor_process_group(
+        &self,
+        request: Request<CreateLaborProcessGroupRequest>,
+    ) -> GrpcResult<U64Response> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
+
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+
+        let id = srv
+            .create_group(
+                abt::CreateLaborProcessGroupReq {
+                    name: req.name,
+                    remark: empty_to_none(req.remark),
+                    members: proto_members_to_inputs(req.members),
+                },
+                &mut tx,
+            )
+            .await
+            .map_err(error::err_to_status)?;
+
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+
+        Ok(Response::new(U64Response { value: id as u64 }))
+    }
+
+    #[require_permission(Resource::LaborProcess, Action::Write)]
+    async fn update_labor_process_group(
+        &self,
+        request: Request<UpdateLaborProcessGroupRequest>,
+    ) -> GrpcResult<BoolResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
+
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+
+        srv.update_group(
+            abt::UpdateLaborProcessGroupReq {
                 id: req.id,
-                product_code: req.product_code,
                 name: req.name,
-                unit_price,
-                quantity,
-                sort_order: req.sort_order,
-                remark: if req.remark.is_empty() {
-                    None
-                } else {
-                    Some(req.remark)
-                },
+                remark: empty_to_none(req.remark),
+                members: proto_members_to_inputs(req.members),
             },
             &mut tx,
         )
         .await
         .map_err(error::err_to_status)?;
 
-    tx.commit()
-        .await
-        .map_err(error::sqlx_err_to_status)?;
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
-    Ok(Response::new(BoolResponse { value: true }))
-}
+        Ok(Response::new(BoolResponse { value: true }))
+    }
 
-/// 辅助函数：删除人工工序
-pub async fn delete_labor_process_internal(
-    req: DeleteLaborProcessRequest,
-) -> GrpcResult<U64Response> {
-    let state = AppState::get().await;
-    let service = state.labor_process_service();
+    #[require_permission(Resource::LaborProcess, Action::Delete)]
+    async fn delete_labor_process_group(
+        &self,
+        request: Request<DeleteLaborProcessGroupRequest>,
+    ) -> GrpcResult<BoolResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
 
-    let mut tx = state
-        .begin_transaction()
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+
+        srv.delete_group(req.id, &mut tx)
+            .await
+            .map_err(error::err_to_status)?;
+
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+
+        Ok(Response::new(BoolResponse { value: true }))
+    }
+
+    #[require_permission(Resource::LaborProcess, Action::Write)]
+    async fn set_bom_labor_cost(
+        &self,
+        request: Request<SetBomLaborCostRequest>,
+    ) -> GrpcResult<BoolResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
+
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+
+        let items: Vec<abt::BomLaborCostItemInput> = req
+            .items
+            .into_iter()
+            .map(|item| {
+                let quantity = parse_decimal(&item.quantity, "quantity")?;
+                Ok(abt::BomLaborCostItemInput {
+                    process_id: item.process_id,
+                    quantity,
+                    remark: empty_to_none(item.remark),
+                })
+            })
+            .collect::<Result<_, tonic::Status>>()?;
+
+        srv.set_bom_labor_cost(
+            abt::SetBomLaborCostReq {
+                bom_id: req.bom_id,
+                process_group_id: req.process_group_id,
+                items,
+            },
+            &mut tx,
+        )
         .await
         .map_err(error::err_to_status)?;
 
-    let deleted = service
-        .delete(req.id, &req.product_code, &mut tx)
-        .await
-        .map_err(error::err_to_status)?;
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
-    tx.commit()
-        .await
-        .map_err(error::sqlx_err_to_status)?;
+        Ok(Response::new(BoolResponse { value: true }))
+    }
 
-    Ok(Response::new(U64Response { value: deleted }))
-}
+    #[require_permission(Resource::LaborProcess, Action::Read)]
+    async fn get_bom_labor_cost(
+        &self,
+        request: Request<GetBomLaborCostRequest>,
+    ) -> GrpcResult<BomLaborCostResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
 
-/// 辅助函数：导入人工工序
-///
-/// Excel 格式：
-/// - 第一列 (A): 产品编码 (product_code) - 用于匹配 BOM
-/// - 第二列 (B): 工序名称 (name)
-/// - 第三列 (C): 单价 (unit_price)
-/// - 第四列 (D): 数量 (quantity)
-/// - 第五列 (E): 排序 (sort_order)
-/// - 第六列 (F): 备注 (remark)
-///
-/// 导入策略：按产品编码分组，每个产品编码对应一个 BOM，先删除该产品编码的所有现有工序，再批量插入新工序
-pub async fn import_labor_processes_internal(
-    req: ImportLaborProcessRequest,
-) -> GrpcResult<ImportLaborProcessResponse> {
-    let state = AppState::get().await;
-    let service = state.labor_process_service();
+        let result = srv
+            .get_bom_labor_cost(req.bom_id)
+            .await
+            .map_err(error::err_to_status)?;
 
-    let mut tx = state
-        .begin_transaction()
-        .await
-        .map_err(error::err_to_status)?;
+        let (group_with_members, cost_items) = match result {
+            Some(r) => r,
+            None => {
+                return Ok(Response::new(BomLaborCostResponse {
+                    bom_id: req.bom_id,
+                    process_group: None,
+                    items: vec![],
+                    total_cost: "0".to_string(),
+                    snapshot_total_cost: "0".to_string(),
+                }));
+            }
+        };
 
-    let result = service
-        .import(&req.file_path, &mut tx)
-        .await
-        .map_err(error::err_to_status)?;
+        let mut total_cost = Decimal::ZERO;
+        let mut snapshot_total_cost = Decimal::ZERO;
 
-    tx.commit()
-        .await
-        .map_err(error::sqlx_err_to_status)?;
+        let items: Vec<BomLaborCostItemProto> = cost_items
+            .into_iter()
+            .map(|item| {
+                let subtotal = item.subtotal();
+                let snapshot_subtotal = item.snapshot_subtotal().unwrap_or(Decimal::ZERO);
 
-    Ok(Response::new(ImportLaborProcessResponse {
-        success_count: result.success_count,
-        fail_count: result.fail_count,
-        errors: result.errors,
-    }))
+                total_cost += subtotal;
+                snapshot_total_cost += snapshot_subtotal;
+
+                BomLaborCostItemProto {
+                    id: item.id,
+                    process_id: item.process_id,
+                    process_name: item.process_name,
+                    current_unit_price: item.current_unit_price.to_string(),
+                    snapshot_unit_price: item.snapshot_unit_price.map(|p| p.to_string()).unwrap_or_default(),
+                    quantity: item.quantity.to_string(),
+                    subtotal: subtotal.to_string(),
+                    snapshot_subtotal: snapshot_subtotal.to_string(),
+                    remark: item.remark.unwrap_or_default(),
+                }
+            })
+            .collect();
+
+        Ok(Response::new(BomLaborCostResponse {
+            bom_id: req.bom_id,
+            process_group: Some(group_with_members_to_proto(group_with_members)),
+            items,
+            total_cost: total_cost.to_string(),
+            snapshot_total_cost: snapshot_total_cost.to_string(),
+        }))
+    }
 }

@@ -127,10 +127,10 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
 
     use crate::handlers::{
         AbtBomServiceServer, AbtExcelServiceServer, AbtInventoryServiceServer,
-        AbtLocationServiceServer, AbtPriceServiceServer, AbtProductServiceServer,
-        AbtTermServiceServer, AbtWarehouseServiceServer, AuthServiceServer,
-        DepartmentServiceServer, PermissionServiceServer, RoleServiceServer,
-        UserServiceServer,
+        AbtLaborProcessServiceServer, AbtLocationServiceServer, AbtPriceServiceServer,
+        AbtProductServiceServer, AbtTermServiceServer, AbtWarehouseServiceServer,
+        AuthServiceServer, DepartmentServiceServer, PermissionServiceServer,
+        RoleServiceServer, UserServiceServer,
     };
     use crate::interceptors::auth_interceptor;
 
@@ -175,6 +175,9 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(DepartmentServiceServer::with_interceptor(
             crate::handlers::department::DepartmentHandler::new(), auth_interceptor,
+        ))
+        .add_service(AbtLaborProcessServiceServer::with_interceptor(
+            crate::handlers::labor_process::LaborProcessHandler::new(), auth_interceptor,
         ))
         .serve(addr)
         .await?;

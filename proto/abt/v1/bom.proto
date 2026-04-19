@@ -20,11 +20,6 @@ service AbtBomService {
   rpc DeleteBomNode(DeleteBomNodeRequest) returns (U64Response);
   rpc SwapBomNode(SwapBomNodeRequest) returns (BoolResponse);
   rpc ExistsBomName(ExistsBomNameRequest) returns (BoolResponse);
-  rpc ListLaborProcesses(ListLaborProcessesRequest) returns (BomLaborProcessListResponse);
-  rpc CreateLaborProcess(CreateLaborProcessRequest) returns (U64Response);
-  rpc UpdateLaborProcess(UpdateLaborProcessRequest) returns (BoolResponse);
-  rpc DeleteLaborProcess(DeleteLaborProcessRequest) returns (U64Response);
-  rpc ImportLaborProcesses(ImportLaborProcessRequest) returns (ImportLaborProcessResponse);
   rpc GetProductCode(GetProductCodeRequest) returns (StringResponse);
   // 流式下载 BOM 导出文件
   rpc DownloadBom(DownloadBomRequest) returns (stream DownloadFileResponse);
@@ -169,62 +164,6 @@ message ExistsBomNameRequest {
 
 message GetProductCodeRequest {
   int64 bom_id = 1;
-}
-
-// 人工工序
-message BomLaborProcessProto {
-  int64 id = 1;
-  string product_code = 2; // 产品编码，用于关联 BOM
-  string name = 3;
-  string unit_price = 4;
-  string quantity = 5;
-  int32 sort_order = 6;
-  string remark = 7;
-}
-
-message BomLaborProcessListResponse {
-  repeated BomLaborProcessProto items = 1;
-  uint64 total = 2;
-}
-
-message CreateLaborProcessRequest {
-  string product_code = 1; // 使用产品编码关联
-  string name = 2;
-  string unit_price = 3;
-  string quantity = 4;
-  int32 sort_order = 5;
-  string remark = 6;
-}
-
-message UpdateLaborProcessRequest {
-  int64 id = 1;
-  string product_code = 2; // 使用产品编码关联
-  string name = 3;
-  string unit_price = 4;
-  string quantity = 5;
-  int32 sort_order = 6;
-  string remark = 7;
-}
-
-message DeleteLaborProcessRequest {
-  int64 id = 1;
-  string product_code = 2; // 使用产品编码关联
-}
-
-message ListLaborProcessesRequest {
-  string product_code = 1; // 按产品编码查询
-  optional uint32 page = 2;
-  optional uint32 page_size = 3;
-}
-
-message ImportLaborProcessRequest {
-  string file_path = 1; // Excel 文件路径（包含产品编码列）
-}
-
-message ImportLaborProcessResponse {
-  uint64 success_count = 1;
-  uint64 fail_count = 2;
-  repeated string errors = 3;
 }
 
 // 流式下载 BOM 请求

@@ -20,6 +20,7 @@ pub use crate::generated::abt::v1::{
     abt_bom_service_server::AbtBomServiceServer,
     abt_excel_service_server::AbtExcelServiceServer,
     abt_inventory_service_server::AbtInventoryServiceServer,
+    abt_labor_process_service_server::AbtLaborProcessServiceServer,
     abt_location_service_server::AbtLocationServiceServer,
     abt_price_service_server::AbtPriceServiceServer,
     abt_product_service_server::AbtProductServiceServer,

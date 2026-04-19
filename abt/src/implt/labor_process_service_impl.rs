@@ -1,17 +1,15 @@
-//! BOM 人工工序服务实现
+//! 劳务工序服务实现
+
+use std::collections::HashMap;
 
 use anyhow::Result;
 use async_trait::async_trait;
-use calamine::{Data, Reader, Xlsx, open_workbook};
 use rust_decimal::Decimal;
 use sqlx::PgPool;
 
-use crate::LaborProcessService;
-use crate::models::{
-    BomLaborProcess, CreateLaborProcessRequest, ImportResult, ListLaborProcessRequest,
-    UpdateLaborProcessRequest,
-};
+use crate::models::*;
 use crate::repositories::{Executor, LaborProcessRepo};
+use crate::service::LaborProcessService;
 
 pub struct LaborProcessServiceImpl {
     pool: PgPool,
@@ -23,149 +21,164 @@ impl LaborProcessServiceImpl {
     }
 }
 
-/// 从 Excel Cell 获取字符串值
-fn get_cell_string(cell: Option<&Data>) -> String {
-    match cell {
-        Some(Data::String(s)) => s.trim().to_string(),
-        Some(Data::Int(i)) => i.to_string(),
-        Some(Data::Float(f)) => f.to_string(),
-        Some(Data::Bool(b)) => b.to_string(),
-        _ => String::new(),
-    }
-}
-
-/// 从 Excel Cell 获取浮点数值
-fn get_cell_float(cell: Option<&Data>) -> f64 {
-    match cell {
-        Some(Data::Float(f)) => *f,
-        Some(Data::Int(i)) => *i as f64,
-        _ => 0.0,
-    }
-}
-
 #[async_trait]
 impl LaborProcessService for LaborProcessServiceImpl {
-    async fn create(&self, req: CreateLaborProcessRequest, executor: Executor<'_>) -> Result<i64> {
-        LaborProcessRepo::insert(executor, &req).await
-    }
+    // ========================================================================
+    // 工序 CRUD
+    // ========================================================================
 
-    async fn update(&self, req: UpdateLaborProcessRequest, executor: Executor<'_>) -> Result<()> {
-        LaborProcessRepo::update(executor, &req).await
-    }
-
-    async fn delete(&self, id: i64, product_code: &str, executor: Executor<'_>) -> Result<u64> {
-        LaborProcessRepo::delete(executor, id, product_code).await
-    }
-
-    async fn list(&self, req: ListLaborProcessRequest) -> Result<(Vec<BomLaborProcess>, i64)> {
-        let page = req.page.unwrap_or(1).max(1);
-        let page_size = req.page_size.unwrap_or(50).clamp(1, 100);
-
-        let items =
-            LaborProcessRepo::find_by_product_code(&self.pool, &req.product_code, page, page_size)
-                .await?;
-        let total = LaborProcessRepo::count_by_product_code(&self.pool, &req.product_code).await?;
-
+    async fn list_processes(&self, query: LaborProcessQuery) -> Result<(Vec<LaborProcess>, i64)> {
+        let page = query.page.max(1);
+        let page_size = query.page_size.clamp(1, 100);
+        let kw = query.keyword.as_deref();
+        let items = LaborProcessRepo::list(&self.pool, page, page_size, kw).await?;
+        let total = LaborProcessRepo::count(&self.pool, kw).await?;
         Ok((items, total))
     }
 
-    async fn import(&self, file_path: &str, executor: Executor<'_>) -> Result<ImportResult> {
-        // 尝试直接打开文件，让 open_workbook 处理不存在的错误
-        let mut workbook: Xlsx<_> =
-            open_workbook(file_path).map_err(|e| anyhow::anyhow!("Failed to open Excel: {}", e))?;
-
-        let sheet_names = workbook.sheet_names().to_vec();
-        if sheet_names.is_empty() {
-            return Ok(ImportResult {
-                success_count: 0,
-                fail_count: 1,
-                errors: vec!["Excel has no sheets".to_string()],
-            });
-        }
-
-        let range = workbook
-            .worksheet_range(&sheet_names[0])
-            .map_err(|e| anyhow::anyhow!("Failed to read sheet: {}", e))?;
-
-        // 按产品编码分组：(product_code) -> Vec<(name, unit_price, quantity, sort_order, remark)>
-        let mut process_map: std::collections::HashMap<
-            String,
-            Vec<(String, Decimal, Decimal, i32, Option<String>)>,
-        > = std::collections::HashMap::new();
-        let mut row_errors: Vec<String> = Vec::new();
-
-        // 跳过第一行（表头），从第二行开始
-        for (idx, row) in range.rows().enumerate().skip(1) {
-            let row_num = idx + 1;
-
-            // 解析各列
-            let product_code = get_cell_string(row.first());
-            let name = get_cell_string(row.get(1));
-            let unit_price_str = get_cell_string(row.get(2));
-            let quantity_str = get_cell_string(row.get(3));
-            let sort_order = get_cell_float(row.get(4)) as i32;
-            let remark = if let Some(cell) = row.get(5) {
-                let s = get_cell_string(Some(cell));
-                if s.is_empty() { None } else { Some(s) }
-            } else {
-                None
-            };
-
-            // 校验必填字段
-            if product_code.is_empty() {
-                row_errors.push(format!("Row {}: product_code is required", row_num));
-                continue;
-            }
-            if name.is_empty() {
-                row_errors.push(format!("Row {}: name is required", row_num));
-                continue;
-            }
-            let Ok(unit_price) = unit_price_str.parse::<Decimal>() else {
-                row_errors.push(format!("Row {}: invalid unit_price", row_num));
-                continue;
-            };
-            let Ok(quantity) = quantity_str.parse::<Decimal>() else {
-                row_errors.push(format!("Row {}: invalid quantity", row_num));
-                continue;
-            };
-
-            process_map
-                .entry(product_code)
-                .or_default()
-                .push((name, unit_price, quantity, sort_order, remark));
-        }
-
-        // 如果有行解析错误，返回但不继续（数据可能不完整）
-        if !row_errors.is_empty() {
-            return Ok(ImportResult {
-                success_count: 0,
-                fail_count: row_errors.len() as u64,
-                errors: row_errors,
-            });
-        }
-
-        // 执行导入（按产品编码分组导入）
-        // 注意：如果任何产品编码的删除或插入失败，整个事务将回滚
-        let mut total_success = 0u64;
-
-        for (product_code, items) in process_map {
-            if items.is_empty() {
-                continue;
-            }
-
-            // 先删除该产品编码的所有现有工序
-            LaborProcessRepo::delete_by_product_code(executor, &product_code).await?;
-
-            // 批量插入新工序
-            LaborProcessRepo::batch_insert(executor, &product_code, &items).await?;
-
-            total_success += items.len() as u64;
-        }
-
-        Ok(ImportResult {
-            success_count: total_success,
-            fail_count: 0,
-            errors: vec![],
-        })
+    async fn create_process(&self, req: CreateLaborProcessReq, executor: Executor<'_>) -> Result<i64> {
+        LaborProcessRepo::insert(executor, &req.name, req.unit_price, req.remark.as_deref()).await
     }
+
+    async fn update_process(
+        &self,
+        req: UpdateLaborProcessReq,
+        executor: Executor<'_>,
+    ) -> Result<Option<PriceChangeImpact>> {
+        let old_price = LaborProcessRepo::get_unit_price(&self.pool, req.id).await?;
+        let price_changed = old_price.is_some_and(|p| p != req.unit_price);
+
+        LaborProcessRepo::update(executor, req.id, &req.name, req.unit_price, req.remark.as_deref()).await?;
+
+        if price_changed {
+            let (affected_bom_count, affected_item_count) =
+                LaborProcessRepo::price_change_impact(&self.pool, req.id).await?;
+            Ok(Some(PriceChangeImpact {
+                affected_bom_count,
+                affected_item_count,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn delete_process(&self, id: i64, executor: Executor<'_>) -> Result<u64> {
+        let referenced = LaborProcessRepo::is_process_referenced(&self.pool, id).await?;
+        if referenced {
+            anyhow::bail!("工序被引用，无法删除");
+        }
+        LaborProcessRepo::delete(executor, id).await
+    }
+
+    // ========================================================================
+    // 工序组 CRUD
+    // ========================================================================
+
+    async fn list_groups(&self, query: LaborProcessGroupQuery) -> Result<(Vec<LaborProcessGroupWithMembers>, i64)> {
+        let page = query.page.max(1);
+        let page_size = query.page_size.clamp(1, 100);
+        let kw = query.keyword.as_deref();
+
+        let groups = LaborProcessRepo::list_groups(&self.pool, page, page_size, kw).await?;
+        let total = LaborProcessRepo::count_groups(&self.pool, kw).await?;
+
+        let group_ids: Vec<i64> = groups.iter().map(|g| g.id).collect();
+        let all_members = LaborProcessRepo::list_group_members_batch(&self.pool, &group_ids).await?;
+
+        let mut members_map: HashMap<i64, Vec<LaborProcessGroupMember>> = HashMap::new();
+        for member in all_members {
+            members_map.entry(member.group_id).or_default().push(member);
+        }
+
+        let result = groups
+            .into_iter()
+            .map(|group| {
+                let members = members_map.remove(&group.id).unwrap_or_default();
+                LaborProcessGroupWithMembers { group, members }
+            })
+            .collect();
+
+        Ok((result, total))
+    }
+
+    async fn create_group(&self, req: CreateLaborProcessGroupReq, executor: Executor<'_>) -> Result<i64> {
+        if req.members.is_empty() {
+            anyhow::bail!("工序组至少需要一个成员");
+        }
+
+        let group_id = LaborProcessRepo::insert_group(
+            executor,
+            &req.name,
+            req.remark.as_deref(),
+        )
+        .await?;
+
+        let members = to_member_tuples(&req.members);
+        LaborProcessRepo::set_group_members(executor, group_id, &members).await?;
+
+        Ok(group_id)
+    }
+
+    async fn update_group(&self, req: UpdateLaborProcessGroupReq, executor: Executor<'_>) -> Result<()> {
+        LaborProcessRepo::update_group(executor, req.id, &req.name, req.remark.as_deref()).await?;
+
+        let members = to_member_tuples(&req.members);
+        LaborProcessRepo::set_group_members(executor, req.id, &members).await?;
+
+        Ok(())
+    }
+
+    async fn delete_group(&self, id: i64, executor: Executor<'_>) -> Result<u64> {
+        let referenced = LaborProcessRepo::is_group_referenced_by_bom(&self.pool, id).await?;
+        if referenced {
+            anyhow::bail!("工序组被 BOM 引用，无法删除");
+        }
+        LaborProcessRepo::delete_group(executor, id).await
+    }
+
+    // ========================================================================
+    // BOM 劳务成本
+    // ========================================================================
+
+    async fn set_bom_labor_cost(&self, req: SetBomLaborCostReq, executor: Executor<'_>) -> Result<()> {
+        for item in &req.items {
+            if item.quantity.is_zero() && item.remark.as_ref().is_none_or(|r| r.is_empty()) {
+                anyhow::bail!("工序 {} 的数量为 0，备注不能为空", item.process_id);
+            }
+        }
+
+        // 锁定工序行防止并发修改价格，然后读取当前单价作为快照
+        let process_ids: Vec<i64> = req.items.iter().map(|i| i.process_id).collect();
+        let prices = LaborProcessRepo::lock_and_get_unit_prices(executor, &process_ids).await?;
+
+        let cost_items: Vec<(i64, Decimal, Option<Decimal>, Option<&str>)> = req
+            .items
+            .iter()
+            .map(|item| {
+                let snapshot = prices.get(&item.process_id).copied();
+                (item.process_id, item.quantity, snapshot, item.remark.as_deref())
+            })
+            .collect();
+
+        LaborProcessRepo::clear_bom_labor_cost(executor, req.bom_id).await?;
+        LaborProcessRepo::batch_insert_bom_labor_cost(executor, req.bom_id, &cost_items).await?;
+        LaborProcessRepo::set_bom_process_group(executor, req.bom_id, req.process_group_id).await?;
+
+        Ok(())
+    }
+
+    async fn get_bom_labor_cost(&self, bom_id: i64) -> Result<Option<(LaborProcessGroupWithMembers, Vec<BomLaborCostItem>)>> {
+        let group_with_members = LaborProcessRepo::get_bom_group_with_members(&self.pool, bom_id).await?;
+        if group_with_members.is_none() {
+            return Ok(None);
+        }
+
+        let items = LaborProcessRepo::get_bom_labor_cost(&self.pool, bom_id).await?;
+
+        Ok(Some((group_with_members.unwrap(), items)))
+    }
+}
+
+fn to_member_tuples(members: &[LaborProcessGroupMemberInput]) -> Vec<(i64, i32)> {
+    members.iter().map(|m| (m.process_id, m.sort_order)).collect()
 }

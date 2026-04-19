@@ -377,46 +377,6 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(BoolResponse { value: exists }))
     }
 
-    #[require_permission(Resource::LaborProcess, Action::Read)]
-    async fn list_labor_processes(
-        &self,
-        request: Request<ListLaborProcessesRequest>,
-    ) -> GrpcResult<BomLaborProcessListResponse> {
-        crate::handlers::labor_process::list_labor_processes_internal(request.into_inner()).await
-    }
-
-    #[require_permission(Resource::LaborProcess, Action::Write)]
-    async fn create_labor_process(
-        &self,
-        request: Request<CreateLaborProcessRequest>,
-    ) -> GrpcResult<U64Response> {
-        crate::handlers::labor_process::create_labor_process_internal(request.into_inner()).await
-    }
-
-    #[require_permission(Resource::LaborProcess, Action::Write)]
-    async fn update_labor_process(
-        &self,
-        request: Request<UpdateLaborProcessRequest>,
-    ) -> GrpcResult<BoolResponse> {
-        crate::handlers::labor_process::update_labor_process_internal(request.into_inner()).await
-    }
-
-    #[require_permission(Resource::LaborProcess, Action::Delete)]
-    async fn delete_labor_process(
-        &self,
-        request: Request<DeleteLaborProcessRequest>,
-    ) -> GrpcResult<U64Response> {
-        crate::handlers::labor_process::delete_labor_process_internal(request.into_inner()).await
-    }
-
-    #[require_permission(Resource::LaborProcess, Action::Write)]
-    async fn import_labor_processes(
-        &self,
-        request: Request<ImportLaborProcessRequest>,
-    ) -> GrpcResult<ImportLaborProcessResponse> {
-        crate::handlers::labor_process::import_labor_processes_internal(request.into_inner()).await
-    }
-
     type DownloadBomStream = ReceiverStream<Result<DownloadFileResponse, tonic::Status>>;
 
     #[require_permission(Resource::Bom, Action::Read)]

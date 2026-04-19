@@ -1,0 +1,157 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service AbtLaborProcessService {
+  // 工序 CRUD
+  rpc ListLaborProcesses(ListLaborProcessesRequest) returns (LaborProcessListResponse);
+  rpc CreateLaborProcess(CreateLaborProcessRequest) returns (U64Response);
+  rpc UpdateLaborProcess(UpdateLaborProcessRequest) returns (UpdateLaborProcessResponse);
+  rpc DeleteLaborProcess(DeleteLaborProcessRequest) returns (BoolResponse);
+
+  // 工序组 CRUD
+  rpc ListLaborProcessGroups(ListLaborProcessGroupsRequest) returns (LaborProcessGroupListResponse);
+  rpc CreateLaborProcessGroup(CreateLaborProcessGroupRequest) returns (U64Response);
+  rpc UpdateLaborProcessGroup(UpdateLaborProcessGroupRequest) returns (BoolResponse);
+  rpc DeleteLaborProcessGroup(DeleteLaborProcessGroupRequest) returns (BoolResponse);
+
+  // BOM 劳务成本
+  rpc SetBomLaborCost(SetBomLaborCostRequest) returns (BoolResponse);
+  rpc GetBomLaborCost(GetBomLaborCostRequest) returns (BomLaborCostResponse);
+}
+
+// ============================================================================
+// 工序
+// ============================================================================
+
+message LaborProcessProto {
+  int64 id = 1;
+  string name = 2;
+  string unit_price = 3;
+  string remark = 4;
+  int64 created_at = 5;
+  int64 updated_at = 6;
+}
+
+message ListLaborProcessesRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional string keyword = 3;
+}
+
+message LaborProcessListResponse {
+  repeated LaborProcessProto items = 1;
+  uint64 total = 2;
+}
+
+message CreateLaborProcessRequest {
+  string name = 1;
+  string unit_price = 2;
+  string remark = 3;
+}
+
+message UpdateLaborProcessRequest {
+  int64 id = 1;
+  string name = 2;
+  string unit_price = 3;
+  string remark = 4;
+}
+
+message UpdateLaborProcessResponse {
+  bool success = 1;
+  int64 affected_bom_count = 2;
+  int64 affected_item_count = 3;
+}
+
+message DeleteLaborProcessRequest {
+  int64 id = 1;
+}
+
+// ============================================================================
+// 工序组
+// ============================================================================
+
+message ProcessGroupMemberProto {
+  int64 process_id = 1;
+  int32 sort_order = 2;
+}
+
+message LaborProcessGroupProto {
+  int64 id = 1;
+  string name = 2;
+  string remark = 3;
+  repeated ProcessGroupMemberProto members = 4;
+  int64 created_at = 5;
+  int64 updated_at = 6;
+}
+
+message ListLaborProcessGroupsRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional string keyword = 3;
+}
+
+message LaborProcessGroupListResponse {
+  repeated LaborProcessGroupProto items = 1;
+  uint64 total = 2;
+}
+
+message CreateLaborProcessGroupRequest {
+  string name = 1;
+  string remark = 2;
+  repeated ProcessGroupMemberProto members = 3;
+}
+
+message UpdateLaborProcessGroupRequest {
+  int64 id = 1;
+  string name = 2;
+  string remark = 3;
+  repeated ProcessGroupMemberProto members = 4;
+}
+
+message DeleteLaborProcessGroupRequest {
+  int64 id = 1;
+}
+
+// ============================================================================
+// BOM 劳务成本
+// ============================================================================
+
+message BomLaborCostItemProto {
+  int64 id = 1;
+  int64 process_id = 2;
+  string process_name = 3;
+  string current_unit_price = 4;
+  string snapshot_unit_price = 5;
+  string quantity = 6;
+  string subtotal = 7;           // current_unit_price * quantity
+  string snapshot_subtotal = 8;  // snapshot_unit_price * quantity
+  string remark = 9;
+}
+
+message SetBomLaborCostRequest {
+  int64 bom_id = 1;
+  int64 process_group_id = 2;
+  repeated BomLaborCostItemInput items = 3;
+}
+
+message BomLaborCostItemInput {
+  int64 process_id = 1;
+  string quantity = 2;
+  string remark = 3;
+}
+
+message GetBomLaborCostRequest {
+  int64 bom_id = 1;
+}
+
+message BomLaborCostResponse {
+  int64 bom_id = 1;
+  LaborProcessGroupProto process_group = 2;
+  repeated BomLaborCostItemProto items = 3;
+  string total_cost = 4;              // sum of subtotals (current prices)
+  string snapshot_total_cost = 5;     // sum of snapshot_subtotals
+}

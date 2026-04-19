@@ -1,28 +1,57 @@
-//! BOM 人工工序服务接口
+//! 劳务工序服务接口
 
 use anyhow::Result;
 use async_trait::async_trait;
 
-use crate::models::{BomLaborProcess, CreateLaborProcessRequest, ImportResult, ListLaborProcessRequest, UpdateLaborProcessRequest};
+use crate::models::*;
 use crate::repositories::Executor;
 
-/// 人工工序服务接口
+/// 劳务工序服务接口
 #[async_trait]
 pub trait LaborProcessService: Send + Sync {
-    /// 创建人工工序
-    async fn create(&self, req: CreateLaborProcessRequest, executor: Executor<'_>) -> Result<i64>;
+    // ========================================================================
+    // 工序 CRUD
+    // ========================================================================
 
-    /// 更新人工工序
-    async fn update(&self, req: UpdateLaborProcessRequest, executor: Executor<'_>) -> Result<()>;
+    /// 搜索工序
+    async fn list_processes(&self, query: LaborProcessQuery) -> Result<(Vec<LaborProcess>, i64)>;
 
-    /// 删除人工工序
-    async fn delete(&self, id: i64, product_code: &str, executor: Executor<'_>) -> Result<u64>;
+    /// 创建工序
+    async fn create_process(&self, req: CreateLaborProcessReq, executor: Executor<'_>) -> Result<i64>;
 
-    /// 查询人工工序列表
-    async fn list(&self, req: ListLaborProcessRequest) -> Result<(Vec<BomLaborProcess>, i64)>;
+    /// 更新工序（返回价格变更影响统计）
+    async fn update_process(
+        &self,
+        req: UpdateLaborProcessReq,
+        executor: Executor<'_>,
+    ) -> Result<Option<PriceChangeImpact>>;
 
-    /// 批量导入人工工序（覆盖模式）
-    /// 从 Excel 文件导入，先删除该产品编码的所有现有工序，再批量插入新工序
-    /// Excel 格式：产品编码, 工序名称, 单价, 数量, 排序, 备注
-    async fn import(&self, file_path: &str, executor: Executor<'_>) -> Result<ImportResult>;
+    /// 删除工序（被组引用时由 FK RESTRICT 拒绝）
+    async fn delete_process(&self, id: i64, executor: Executor<'_>) -> Result<u64>;
+
+    // ========================================================================
+    // 工序组 CRUD
+    // ========================================================================
+
+    /// 搜索工序组（含成员列表）
+    async fn list_groups(&self, query: LaborProcessGroupQuery) -> Result<(Vec<LaborProcessGroupWithMembers>, i64)>;
+
+    /// 创建工序组
+    async fn create_group(&self, req: CreateLaborProcessGroupReq, executor: Executor<'_>) -> Result<i64>;
+
+    /// 更新工序组
+    async fn update_group(&self, req: UpdateLaborProcessGroupReq, executor: Executor<'_>) -> Result<()>;
+
+    /// 删除工序组（被 BOM 引用时拒绝）
+    async fn delete_group(&self, id: i64, executor: Executor<'_>) -> Result<u64>;
+
+    // ========================================================================
+    // BOM 劳务成本
+    // ========================================================================
+
+    /// 设置 BOM 劳务成本（清除旧的，批量插入新的，冻结当前价格到快照）
+    async fn set_bom_labor_cost(&self, req: SetBomLaborCostReq, executor: Executor<'_>) -> Result<()>;
+
+    /// 获取 BOM 劳务成本（含工序信息和价格快照对比）
+    async fn get_bom_labor_cost(&self, bom_id: i64) -> Result<Option<(LaborProcessGroupWithMembers, Vec<BomLaborCostItem>)>>;
 }

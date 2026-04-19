@@ -366,8 +366,8 @@ impl ProductExcelService for ProductExcelServiceImpl {
             JOIN products p ON (node->>'product_id')::bigint = p.product_id
             WHERE (node->>'parent_id')::bigint = 0
               AND NOT EXISTS (
-                  SELECT 1 FROM bom_labor_process lp
-                  WHERE lp.product_code = p.meta->>'product_code'
+                  SELECT 1 FROM bom_labor_cost blc
+                  WHERE blc.bom_id = b.bom_id
               )
             ORDER BY b.bom_name
             "#,

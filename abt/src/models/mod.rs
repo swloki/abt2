@@ -5,6 +5,7 @@
 mod api;
 mod auth;
 mod bom;
+mod bom_category;
 mod department;
 mod inventory;
 mod labor_process;
@@ -21,6 +22,7 @@ pub use api::*;
 pub use auth::*;
 pub use bom::*;
 pub use department::*;
+pub use bom_category::*;
 pub use inventory::*;
 pub use labor_process::*;
 pub use location::*;

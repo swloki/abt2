@@ -503,6 +503,20 @@ impl LaborProcessRepo {
         Ok(result.rows_affected())
     }
 
+    /// 批量统计价格变更影响的 BOM 数量
+    pub async fn count_affected_boms_batch(pool: &PgPool, process_ids: &[i64]) -> Result<i64> {
+        if process_ids.is_empty() {
+            return Ok(0);
+        }
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(DISTINCT bom_id)::bigint FROM bom_labor_cost WHERE process_id = ANY($1)"
+        )
+        .bind(process_ids)
+        .fetch_one(pool)
+        .await?;
+        Ok(count)
+    }
+
     /// 按名称批量查询工序
     pub async fn find_by_names(pool: &PgPool, names: &[String]) -> Result<Vec<LaborProcess>> {
         if names.is_empty() {

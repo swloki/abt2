@@ -9,3 +9,4 @@ target/
 tdocker/abt-grpc
 .context
 .claude
+sql/

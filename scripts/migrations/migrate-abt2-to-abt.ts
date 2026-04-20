@@ -105,7 +105,10 @@ async function migrateTable(
   target: Client,
   config: (typeof MIGRATION_TABLES)[number],
 ): Promise<{ table: string; count: number }> {
-  const { table, columns, targetExtraNulls } = config;
+  const { table, columns } = config;
+  const targetExtraNulls = "targetExtraNulls" in config
+    ? (config as unknown as { targetExtraNulls: string[] }).targetExtraNulls
+    : undefined;
   const colList = columns.join(", ");
   const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
 

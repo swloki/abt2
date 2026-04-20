@@ -430,7 +430,7 @@ impl GrpcLaborProcessService for LaborProcessHandler {
         let srv = state.labor_process_service();
 
         let bytes = srv
-            .export_processes_to_bytes(&state.pool())
+            .export_processes_to_bytes()
             .await
             .map_err(error::err_to_status)?;
 
@@ -443,18 +443,24 @@ impl GrpcLaborProcessService for LaborProcessHandler {
                 file_size,
                 content_type: crate::handlers::EXCEL_MIME_TYPE.to_string(),
             };
-            tx.send(Ok(DownloadFileResponse {
+            if tx.send(Ok(DownloadFileResponse {
                 data: Some(download_file_response::Data::Metadata(metadata)),
             }))
             .await
-            .ok();
+            .is_err()
+            {
+                return;
+            }
 
             for chunk in bytes.chunks(crate::handlers::STREAM_CHUNK_SIZE) {
-                tx.send(Ok(DownloadFileResponse {
+                if tx.send(Ok(DownloadFileResponse {
                     data: Some(download_file_response::Data::Chunk(chunk.to_vec())),
                 }))
                 .await
-                .ok();
+                .is_err()
+                {
+                    break;
+                }
             }
         });
 
@@ -472,7 +478,6 @@ impl GrpcLaborProcessService for LaborProcessHandler {
 
         let result = srv
             .import_processes_from_excel(
-                &state.pool(),
                 &req.file_path,
                 req.dry_run.unwrap_or(false),
             )

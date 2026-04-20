@@ -462,4 +462,58 @@ impl LaborProcessRepo {
         Ok(Some(LaborProcessGroupWithMembers { group, members }))
     }
 
+    // ========================================================================
+    // Excel 导入导出
+    // ========================================================================
+
+    /// 查询所有工序（用于导出）
+    pub async fn list_all(pool: &PgPool) -> Result<Vec<LaborProcess>> {
+        let items = sqlx::query_as(
+            "SELECT id, name, unit_price, remark, created_at, updated_at FROM labor_process ORDER BY name ASC"
+        )
+        .fetch_all(pool)
+        .await?;
+        Ok(items)
+    }
+
+    /// 批量 upsert 工序（ON CONFLICT by name）
+    /// items: (name, unit_price, remark)
+    /// 返回受影响的行数
+    pub async fn batch_upsert(
+        executor: Executor<'_>,
+        items: &[(String, Decimal, Option<String>)],
+    ) -> Result<u64> {
+        if items.is_empty() {
+            return Ok(0);
+        }
+
+        let mut builder: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+            "INSERT INTO labor_process (name, unit_price, remark) "
+        );
+        builder.push_values(items.iter(), |mut b, (name, unit_price, remark)| {
+            b.push_bind(name);
+            b.push_bind(*unit_price);
+            b.push_bind(remark);
+        });
+        builder.push(
+            " ON CONFLICT (name) DO UPDATE SET unit_price = EXCLUDED.unit_price, remark = EXCLUDED.remark, updated_at = NOW()"
+        );
+
+        let result = builder.build().execute(executor).await?;
+        Ok(result.rows_affected())
+    }
+
+    /// 按名称批量查询工序
+    pub async fn find_by_names(pool: &PgPool, names: &[String]) -> Result<Vec<LaborProcess>> {
+        if names.is_empty() {
+            return Ok(vec![]);
+        }
+        let items = sqlx::query_as(
+            "SELECT id, name, unit_price, remark, created_at, updated_at FROM labor_process WHERE name = ANY($1)"
+        )
+        .bind(names)
+        .fetch_all(pool)
+        .await?;
+        Ok(items)
+    }
 }

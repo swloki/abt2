@@ -5,6 +5,7 @@ use abt_macros::require_permission;
 use common::error;
 use crate::permissions::PermissionCode;
 use rust_decimal::Decimal;
+use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response};
 
 use crate::generated::abt::v1::{
@@ -415,6 +416,84 @@ impl GrpcLaborProcessService for LaborProcessHandler {
             items,
             total_cost: total_cost.to_string(),
             snapshot_total_cost: snapshot_total_cost.to_string(),
+        }))
+    }
+
+    type ExportLaborProcessesStream = ReceiverStream<Result<DownloadFileResponse, tonic::Status>>;
+
+    #[require_permission(Resource::LaborProcess, Action::Read)]
+    async fn export_labor_processes(
+        &self,
+        _request: Request<ExportLaborProcessesRequest>,
+    ) -> Result<Response<Self::ExportLaborProcessesStream>, tonic::Status> {
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
+
+        let bytes = srv
+            .export_processes_to_bytes(&state.pool())
+            .await
+            .map_err(error::err_to_status)?;
+
+        let file_size = bytes.len() as i64;
+        let (tx, rx) = tokio::sync::mpsc::channel(32);
+
+        tokio::spawn(async move {
+            let metadata = FileMetadata {
+                file_name: "labor_processes.xlsx".to_string(),
+                file_size,
+                content_type: crate::handlers::EXCEL_MIME_TYPE.to_string(),
+            };
+            tx.send(Ok(DownloadFileResponse {
+                data: Some(download_file_response::Data::Metadata(metadata)),
+            }))
+            .await
+            .ok();
+
+            for chunk in bytes.chunks(crate::handlers::STREAM_CHUNK_SIZE) {
+                tx.send(Ok(DownloadFileResponse {
+                    data: Some(download_file_response::Data::Chunk(chunk.to_vec())),
+                }))
+                .await
+                .ok();
+            }
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
+    }
+
+    #[require_permission(Resource::LaborProcess, Action::Write)]
+    async fn import_labor_processes(
+        &self,
+        request: Request<ImportLaborProcessesRequest>,
+    ) -> GrpcResult<ImportLaborProcessesResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.labor_process_service();
+
+        let result = srv
+            .import_processes_from_excel(
+                &state.pool(),
+                &req.file_path,
+                req.dry_run.unwrap_or(false),
+            )
+            .await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(ImportLaborProcessesResponse {
+            success_count: result.success_count,
+            failure_count: result.failure_count,
+            skip_count: result.skip_count,
+            results: result
+                .results
+                .into_iter()
+                .map(|r| ImportLaborProcessResult {
+                    row_number: r.row_number,
+                    process_name: r.process_name,
+                    operation: r.operation,
+                    error_message: r.error_message,
+                })
+                .collect(),
+            affected_bom_count: result.affected_bom_count,
         }))
     }
 }

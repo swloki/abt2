@@ -181,3 +181,29 @@ pub struct PriceChangeImpact {
     pub affected_bom_count: i64,
     pub affected_item_count: i64,
 }
+
+// ============================================================================
+// Excel 导入导出
+// ============================================================================
+
+/// Excel 列定义常量（导入和导出共用，保证 round-trip 兼容）
+pub const LABOR_PROCESS_EXCEL_COLUMNS: &[&str] = &["工序名称", "单价", "备注"];
+
+/// 工序 Excel 导入结果
+#[derive(Debug, Clone)]
+pub struct LaborProcessImportResult {
+    pub success_count: i32,
+    pub failure_count: i32,
+    pub skip_count: i32,
+    pub results: Vec<LaborProcessImportRowResult>,
+    pub affected_bom_count: i64,
+}
+
+/// 工序 Excel 导入单行结果
+#[derive(Debug, Clone)]
+pub struct LaborProcessImportRowResult {
+    pub row_number: i32,
+    pub process_name: String,
+    pub operation: String, // "created", "updated", "unchanged", "error"
+    pub error_message: String,
+}

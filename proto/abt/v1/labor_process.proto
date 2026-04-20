@@ -4,6 +4,7 @@ package abt.v1;
 option go_package = "abt/v1";
 
 import "abt/v1/base.proto";
+import "abt/v1/excel.proto";
 
 service AbtLaborProcessService {
   // 工序 CRUD
@@ -21,6 +22,10 @@ service AbtLaborProcessService {
   // BOM 劳务成本
   rpc SetBomLaborCost(SetBomLaborCostRequest) returns (BoolResponse);
   rpc GetBomLaborCost(GetBomLaborCostRequest) returns (BomLaborCostResponse);
+
+  // 工序 Excel 导入导出
+  rpc ImportLaborProcesses(ImportLaborProcessesRequest) returns (ImportLaborProcessesResponse);
+  rpc ExportLaborProcesses(ExportLaborProcessesRequest) returns (stream DownloadFileResponse);
 }
 
 // ============================================================================
@@ -154,4 +159,31 @@ message BomLaborCostResponse {
   repeated BomLaborCostItemProto items = 3;
   string total_cost = 4;              // sum of subtotals (current prices)
   string snapshot_total_cost = 5;     // sum of snapshot_subtotals
+}
+
+// ============================================================================
+// 工序 Excel 导入导出
+// ============================================================================
+
+message ImportLaborProcessesRequest {
+  string file_path = 1;
+  optional bool dry_run = 2;
+}
+
+message ImportLaborProcessesResponse {
+  int32 success_count = 1;
+  int32 failure_count = 2;
+  int32 skip_count = 3;
+  repeated ImportLaborProcessResult results = 4;
+  int64 affected_bom_count = 5;
+}
+
+message ImportLaborProcessResult {
+  int32 row_number = 1;
+  string process_name = 2;
+  string operation = 3;  // "created", "updated", "unchanged", "error"
+  string error_message = 4;
+}
+
+message ExportLaborProcessesRequest {
 }

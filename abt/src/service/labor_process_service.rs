@@ -54,4 +54,19 @@ pub trait LaborProcessService: Send + Sync {
 
     /// 获取 BOM 劳务成本（含工序信息和价格快照对比）
     async fn get_bom_labor_cost(&self, bom_id: i64) -> Result<Option<(LaborProcessGroupWithMembers, Vec<BomLaborCostItem>)>>;
+
+    // ========================================================================
+    // Excel 导入导出
+    // ========================================================================
+
+    /// 从 Excel 导入工序（upsert by name，支持 dry-run）
+    async fn import_processes_from_excel(
+        &self,
+        pool: &sqlx::PgPool,
+        file_path: &str,
+        dry_run: bool,
+    ) -> Result<LaborProcessImportResult>;
+
+    /// 导出工序到 Excel 字节流
+    async fn export_processes_to_bytes(&self, pool: &sqlx::PgPool) -> Result<Vec<u8>>;
 }

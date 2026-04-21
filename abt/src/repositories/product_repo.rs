@@ -208,6 +208,27 @@ impl ProductRepo {
         Ok(rows)
     }
 
+    /// 更新产品名称
+    pub async fn update_name(
+        executor: Executor<'_>,
+        product_id: i64,
+        pdt_name: &str,
+    ) -> Result<()> {
+        sqlx::query!(
+            r#"
+            UPDATE products
+            SET pdt_name = $1
+            WHERE product_id = $2
+            "#,
+            pdt_name,
+            product_id
+        )
+        .execute(executor)
+        .await?;
+
+        Ok(())
+    }
+
     /// 更新产品（使用 Executor）
     #[allow(dead_code)]
     pub async fn update_with_tx(

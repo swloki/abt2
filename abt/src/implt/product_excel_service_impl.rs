@@ -44,7 +44,7 @@ struct ExcelRow {
     #[serde(rename = "旧编码")]
     old_code: Option<String>,
     #[serde(rename = "物料名称")]
-    _product_name: String,
+    product_name: Option<String>,
     #[serde(rename = "仓库名称")]
     warehouse_name: Option<String>,
     #[serde(rename = "库位名称", alias = "库位")]
@@ -64,6 +64,7 @@ struct PendingItem {
     quantity: Option<Decimal>,
     price: Option<Decimal>,
     safety_stock: Option<Decimal>,
+    new_name: Option<String>,
 }
 
 /// 产品 Excel 服务实现
@@ -136,10 +137,10 @@ impl ProductExcelService for ProductExcelServiceImpl {
 
         // 4. 批量查询产品
         let products = ProductRepo::find_by_codes(pool, &all_codes).await?;
-        let product_map: HashMap<String, i64> = products
+        let product_map: HashMap<String, (i64, String)> = products
             .iter()
             .filter(|p| !p.meta.product_code.is_empty())
-            .map(|p| (p.meta.product_code.clone(), p.product_id))
+            .map(|p| (p.meta.product_code.clone(), (p.product_id, p.pdt_name.clone())))
             .collect();
 
         // 5. 批量查询库位
@@ -149,11 +150,11 @@ impl ProductExcelService for ProductExcelServiceImpl {
         let mut pending_items: Vec<PendingItem> = Vec::with_capacity(rows.len());
         for row in &rows {
             // 查找产品
-            let product_id = if let Some(&id) = product_map.get(&row.new_code) {
-                id
+            let (product_id, db_name) = if let Some(&(id, ref name)) = product_map.get(&row.new_code) {
+                (id, name.clone())
             } else if let Some(ref old_code) = row.old_code {
-                if let Some(&id) = product_map.get(old_code) {
-                    id
+                if let Some(&(id, ref name)) = product_map.get(old_code) {
+                    (id, name.clone())
                 } else {
                     result.failed_count += 1;
                     result.errors.push(format!(
@@ -193,12 +194,20 @@ impl ProductExcelService for ProductExcelServiceImpl {
                 _ => None,
             };
 
+            // 仅当 Excel 中的名称非空且与数据库不同时才更新产品名称
+            let new_name = row
+                .product_name
+                .as_ref()
+                .filter(|n| !n.is_empty() && **n != db_name)
+                .cloned();
+
             pending_items.push(PendingItem {
                 product_id,
                 location_id,
                 quantity: row.quantity,
                 price: row.price,
                 safety_stock: row.safety_stock,
+                new_name,
             });
         }
 
@@ -206,6 +215,17 @@ impl ProductExcelService for ProductExcelServiceImpl {
         let mut tx = pool.begin().await?;
 
         for item in &pending_items {
+            // 每处理一条记录都更新进度，确保进度始终达到 100%
+            self.current_count.fetch_add(1, Ordering::SeqCst);
+
+            // 更新产品名称
+            if let Some(ref name) = item.new_name
+                && let Err(e) = ProductRepo::update_name(&mut *tx, item.product_id, name).await {
+                    result.failed_count += 1;
+                    result.errors.push(format!("更新产品名称失败 product_id={}: {}", item.product_id, e));
+                    continue;
+                }
+
             // 更新价格
             if let Some(price) = item.price
                 && let Err(e) = update_price_batch(&mut tx, item.product_id, price).await {
@@ -232,7 +252,6 @@ impl ProductExcelService for ProductExcelServiceImpl {
             }
 
             result.success_count += 1;
-            self.current_count.fetch_add(1, Ordering::SeqCst);
         }
 
         tx.commit().await?;
@@ -356,43 +375,6 @@ impl ProductExcelService for ProductExcelServiceImpl {
         Ok(bytes)
     }
 
-    /// 导出没有人工成本的BOM
-    async fn export_boms_without_labor_cost_to_bytes(&self, pool: &PgPool) -> Result<Vec<u8>> {
-        let rows = sqlx::query_as::<_, BomWithoutLaborCostRow>(
-            r#"
-            SELECT b.bom_name, p.meta->>'product_code' as product_code, p.pdt_name
-            FROM bom b
-            CROSS JOIN LATERAL jsonb_array_elements(b.bom_detail->'nodes') AS node
-            JOIN products p ON (node->>'product_id')::bigint = p.product_id
-            WHERE (node->>'parent_id')::bigint = 0
-              AND NOT EXISTS (
-                  SELECT 1 FROM bom_labor_cost blc
-                  WHERE blc.bom_id = b.bom_id
-              )
-            ORDER BY b.bom_name
-            "#,
-        )
-        .fetch_all(pool)
-        .await?;
-
-        let mut workbook = Workbook::new();
-        let worksheet = workbook.add_worksheet();
-
-        let headers = ["BOM名称", "产品编码", "产品名称"];
-        for (col, header) in headers.iter().enumerate() {
-            worksheet.write_string(0, col as u16, *header)?;
-        }
-
-        for (row_idx, row) in rows.iter().enumerate() {
-            let row_num = (row_idx + 1) as u32;
-            worksheet.write_string(row_num, 0, &row.bom_name)?;
-            worksheet.write_string(row_num, 1, &row.product_code)?;
-            worksheet.write_string(row_num, 2, &row.pdt_name)?;
-        }
-
-        let bytes = workbook.save_to_buffer()?;
-        Ok(bytes)
-    }
 }
 
 // ============================================================================
@@ -405,14 +387,6 @@ struct ProductWithoutPriceRow {
     pdt_name: String,
     product_code: String,
     old_code: String,
-}
-
-/// 没有人工成本的BOM行
-#[derive(Debug, FromRow)]
-struct BomWithoutLaborCostRow {
-    bom_name: String,
-    product_code: String,
-    pdt_name: String,
 }
 
 // ============================================================================

@@ -189,14 +189,13 @@ impl LaborProcessService for LaborProcessServiceImpl {
     async fn import_processes_from_excel(
         &self,
         file_path: &str,
-        dry_run: bool,
     ) -> Result<LaborProcessImportResult> {
         let path = Path::new(file_path);
 
-        // 安全校验：只允许 /tmp 目录下的文件，防止路径遍历
+        // 安全校验：只允许上传目录下的文件，防止路径遍历
+        let upload_dir = std::env::temp_dir().canonicalize().context("无法解析上传目录")?;
         let canonical = path.canonicalize().context("无法解析文件路径")?;
-        let canonical_str = canonical.to_string_lossy();
-        if !canonical_str.starts_with("/tmp/") && !canonical_str.starts_with("\\tmp\\") {
+        if !canonical.starts_with(&upload_dir) {
             anyhow::bail!("只允许导入上传目录中的文件");
         }
 
@@ -270,8 +269,10 @@ impl LaborProcessService for LaborProcessServiceImpl {
 
         let names: Vec<String> = valid_rows.iter().map(|(n, _, _)| n.clone()).collect();
         let existing = LaborProcessRepo::find_by_names(&self.pool, &names).await?;
-        let existing_map: HashMap<String, &LaborProcess> =
-            existing.iter().map(|p| (p.name.clone(), p)).collect();
+
+        // 标准化数据库名称作为 key，确保全角/半角差异不影响匹配
+        let existing_map: HashMap<String, LaborProcess> =
+            existing.into_iter().map(|p| (normalize_process_name(&p.name), p)).collect();
 
         let mut to_upsert: Vec<(String, Decimal, Option<String>)> = Vec::new();
         let mut updated_price_process_ids: Vec<i64> = Vec::new();
@@ -281,7 +282,8 @@ impl LaborProcessService for LaborProcessServiceImpl {
                 let price_changed = existing_p.unit_price != *unit_price;
                 let remark_changed = existing_p.remark != *remark;
                 if price_changed || remark_changed {
-                    to_upsert.push((name.clone(), *unit_price, remark.clone()));
+                    // 使用数据库中的原始名称，确保 ON CONFLICT (name) 能正确匹配
+                    to_upsert.push((existing_p.name.clone(), *unit_price, remark.clone()));
                     if price_changed {
                         updated_price_process_ids.push(existing_p.id);
                     }
@@ -295,25 +297,23 @@ impl LaborProcessService for LaborProcessServiceImpl {
 
         let affected_bom_count = LaborProcessRepo::count_affected_boms_batch(&self.pool, &updated_price_process_ids).await?;
 
-        if !dry_run && !to_upsert.is_empty() {
+        if !to_upsert.is_empty() {
             let mut tx = self.pool.begin().await?;
             LaborProcessRepo::batch_upsert(&mut tx, &to_upsert).await?;
             tx.commit().await?;
         }
 
-        let upsert_names: HashSet<&str> = to_upsert.iter().map(|(n, _, _)| n.as_str()).collect();
+        // 构建已 upsert 的标准化名称集合，用于结果报告
+        let upserted_normalized: HashSet<String> = to_upsert.iter()
+            .map(|(db_name, _, _)| normalize_process_name(db_name))
+            .collect();
+
         for (name, _, _) in &valid_rows {
             let is_existing = existing_map.contains_key(name);
-            let is_upserted = upsert_names.contains(name.as_str());
+            let is_upserted = upserted_normalized.contains(name.as_str());
 
             let operation = if is_upserted {
-                if dry_run {
-                    if is_existing { "updated (dry-run)" } else { "created (dry-run)" }
-                } else if is_existing {
-                    "updated"
-                } else {
-                    "created"
-                }
+                if is_existing { "updated" } else { "created" }
             } else {
                 "unchanged"
             };

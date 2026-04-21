@@ -62,9 +62,6 @@ pub trait ProductExcelService: Send + Sync {
     /// 导出没有价格的产品（导入格式，用于填写价格后重新导入）
     async fn export_products_without_price_to_bytes(&self, pool: &PgPool) -> Result<Vec<u8>>;
 
-    /// 导出没有人工成本的BOM（BOM编码 + BOM名称）
-    async fn export_boms_without_labor_cost_to_bytes(&self, pool: &PgPool) -> Result<Vec<u8>>;
-
     /// 获取处理进度
     fn get_progress(&self) -> ExcelProgress;
 }

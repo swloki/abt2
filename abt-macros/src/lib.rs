@@ -2,7 +2,9 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse::Parser, parse_macro_input, parse_quote, Expr, ExprCall, FnArg, ItemFn, PatType, Stmt};
+use syn::{
+    parse::Parser, parse_macro_input, parse_quote, Expr, ExprCall, FnArg, ItemFn, PatType, Stmt,
+};
 
 /// Attribute macro that generates auth extraction and permission check boilerplate.
 ///
@@ -39,14 +41,13 @@ pub fn require_permission(attr: TokenStream, item: TokenStream) -> TokenStream {
     let mut func = parse_macro_input!(item as ItemFn);
 
     // Find the request parameter name (second parameter after &self)
-    let request_ident = extract_request_ident(&func)
-        .unwrap_or_else(|| {
-            panic!(
-                "#[require_permission] could not find a typed parameter in function `{}`. \
+    let request_ident = extract_request_ident(&func).unwrap_or_else(|| {
+        panic!(
+            "#[require_permission] could not find a typed parameter in function `{}`. \
                  Expected signature: `fn name(&self, request: Request<T>) -> ...`",
-                func.sig.ident
-            )
-        });
+            func.sig.ident
+        )
+    });
 
     let auth_stmt: Stmt = parse_quote! {
         #[allow(unused_variables)]

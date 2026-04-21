@@ -35,10 +35,10 @@ impl GrpcExcelService for ExcelHandler {
         &self,
         request: Request<Streaming<UploadFileRequest>>,
     ) -> Result<Response<UploadFileResponse>, tonic::Status> {
-        let upload_dir = Path::new("/tmp");
+        let upload_dir = std::env::temp_dir();
 
         // 确保上传目录存在
-        tokio::fs::create_dir_all(upload_dir)
+        tokio::fs::create_dir_all(&upload_dir)
             .await
             .map_err(|e| error::err_to_status(anyhow::anyhow!("Failed to create upload dir: {}", e)))?;
 
@@ -111,6 +111,15 @@ impl GrpcExcelService for ExcelHandler {
         let path = Path::new(&req.file_path);
         let operator_id = req.operator_id;
 
+        // 安全校验：只允许导入上传目录下的文件
+        let upload_dir = std::env::temp_dir().canonicalize()
+            .map_err(|e| error::err_to_status(anyhow::anyhow!("无法解析上传目录: {}", e)))?;
+        let canonical = path.canonicalize()
+            .map_err(|e| error::err_to_status(anyhow::anyhow!("无法解析文件路径: {}", e)))?;
+        if !canonical.starts_with(&upload_dir) {
+            return Err(error::validation("file_path", "只允许导入上传目录中的文件"));
+        }
+
         let result = srv.import_quantity_from_excel(&state.pool(), path, operator_id).await
             .map_err(error::err_to_status)?;
 
@@ -166,17 +175,6 @@ impl GrpcExcelService for ExcelHandler {
                     .map_err(error::err_to_status)?;
                 let name = format!(
                     "products_without_price_{}.xlsx",
-                    chrono::Utc::now().format("%Y%m%d%H%M%S")
-                );
-                (b, name)
-            }
-            "boms_without_labor_cost" => {
-                let b = srv
-                    .export_boms_without_labor_cost_to_bytes(&state.pool())
-                    .await
-                    .map_err(error::err_to_status)?;
-                let name = format!(
-                    "boms_without_labor_cost_{}.xlsx",
                     chrono::Utc::now().format("%Y%m%d%H%M%S")
                 );
                 (b, name)

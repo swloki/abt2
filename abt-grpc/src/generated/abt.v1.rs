@@ -8076,8 +8076,6 @@ pub struct BomLaborCostResponse {
 pub struct ImportLaborProcessesRequest {
     #[prost(string, tag = "1")]
     pub file_path: ::prost::alloc::string::String,
-    #[prost(bool, optional, tag = "2")]
-    pub dry_run: ::core::option::Option<bool>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ImportLaborProcessesResponse {

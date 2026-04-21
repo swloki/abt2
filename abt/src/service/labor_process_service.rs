@@ -59,11 +59,10 @@ pub trait LaborProcessService: Send + Sync {
     // Excel 导入导出
     // ========================================================================
 
-    /// 从 Excel 导入工序（upsert by name，支持 dry-run）
+    /// 从 Excel 导入工序（upsert by name）
     async fn import_processes_from_excel(
         &self,
         file_path: &str,
-        dry_run: bool,
     ) -> Result<LaborProcessImportResult>;
 
     /// 导出工序到 Excel 字节流

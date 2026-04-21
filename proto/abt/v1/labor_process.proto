@@ -167,7 +167,6 @@ message BomLaborCostResponse {
 
 message ImportLaborProcessesRequest {
   string file_path = 1;
-  optional bool dry_run = 2;
 }
 
 message ImportLaborProcessesResponse {

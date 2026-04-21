@@ -231,10 +231,6 @@ impl<S: service::ProductExcelService + ?Sized + Sync> service::ProductExcelServi
         (**self).export_products_without_price_to_bytes(pool).await
     }
 
-    async fn export_boms_without_labor_cost_to_bytes(&self, pool: &sqlx::PgPool) -> anyhow::Result<Vec<u8>> {
-        (**self).export_boms_without_labor_cost_to_bytes(pool).await
-    }
-
     fn get_progress(&self) -> service::ExcelProgress {
         (**self).get_progress()
     }

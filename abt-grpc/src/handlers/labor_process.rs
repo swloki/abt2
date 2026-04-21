@@ -479,7 +479,6 @@ impl GrpcLaborProcessService for LaborProcessHandler {
         let result = srv
             .import_processes_from_excel(
                 &req.file_path,
-                req.dry_run.unwrap_or(false),
             )
             .await
             .map_err(error::err_to_status)?;

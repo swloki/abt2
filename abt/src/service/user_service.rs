@@ -59,4 +59,12 @@ pub trait UserService: Send + Sync {
         role_ids: Vec<i64>,
         executor: Executor<'_>,
     ) -> Result<()>;
+
+    /// 用户修改自己的密码（验证旧密码后更新）
+    async fn change_password(
+        &self,
+        user_id: i64,
+        old_password: &str,
+        new_password: &str,
+    ) -> Result<()>;
 }

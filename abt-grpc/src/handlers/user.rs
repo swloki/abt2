@@ -242,4 +242,20 @@ impl GrpcUserService for UserHandler {
 
         Ok(Response::new(Empty {}))
     }
+
+    async fn change_password(
+        &self,
+        request: Request<ChangePasswordRequest>,
+    ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.user_service();
+
+        srv.change_password(auth.user_id, &req.old_password, &req.new_password)
+            .await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(Empty {}))
+    }
 }

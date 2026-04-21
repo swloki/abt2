@@ -209,6 +209,26 @@ impl UserRepo {
         Ok(())
     }
 
+    pub async fn update_password(
+        executor: Executor<'_>,
+        user_id: i64,
+        password_hash: &str,
+    ) -> Result<()> {
+        sqlx::query!(
+            r#"
+            UPDATE users
+            SET password_hash = $1, updated_at = NOW()
+            WHERE user_id = $2
+            "#,
+            password_hash,
+            user_id
+        )
+        .execute(executor)
+        .await?;
+
+        Ok(())
+    }
+
     pub async fn batch_assign_roles(
         executor: Executor<'_>,
         user_ids: &[i64],

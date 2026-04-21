@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
-use argon2::{Argon2, PasswordHasher};
+use argon2::{Argon2, PasswordHasher, PasswordHash, PasswordVerifier};
 
 use crate::models::*;
 use crate::repositories::{Executor, PermissionRepo, UserRepo};
@@ -144,6 +144,27 @@ impl UserService for UserServiceImpl {
             old_value: None,
             new_value: Some(serde_json::json!({"user_ids": user_ids, "role_ids": role_ids})),
         }).await?;
+        Ok(())
+    }
+
+    async fn change_password(&self, user_id: i64, old_password: &str, new_password: &str) -> Result<()> {
+        let user = UserRepo::find_by_id(self.pool.as_ref(), user_id)
+            .await?
+            .ok_or_else(|| anyhow!("用户不存在"))?;
+
+        // 验证旧密码
+        let parsed_hash = PasswordHash::new(&user.password_hash)
+            .map_err(|_| anyhow!("密码格式错误"))?;
+        Argon2::default()
+            .verify_password(old_password.as_bytes(), &parsed_hash)
+            .map_err(|_| anyhow!("旧密码不正确"))?;
+
+        // 生成新密码哈希并更新
+        let new_hash = Self::hash_password(new_password)?;
+        let mut tx = self.pool.begin().await?;
+        UserRepo::update_password(&mut *tx, user_id, &new_hash).await?;
+        tx.commit().await?;
+
         Ok(())
     }
 }

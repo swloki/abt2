@@ -11,6 +11,8 @@ use crate::generated::abt::v1::{
     abt_labor_process_service_server::AbtLaborProcessService as GrpcLaborProcessService, *,
 };
 use crate::handlers::{empty_to_none, GrpcResult};
+use crate::interceptors::auth::extract_auth;
+use crate::permissions::PermissionCode;
 use crate::server::AppState;
 
 pub struct LaborProcessHandler;

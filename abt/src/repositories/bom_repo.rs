@@ -104,7 +104,7 @@ impl BomRepo {
     /// 注意：Bom 有自定义 FromRow impl，需要用 runtime query
     pub async fn find_by_id(executor: Executor<'_>, bom_id: i64) -> Result<Option<Bom>> {
         let row = sqlx::query_as::<_, Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, process_group_id, bom_category_id FROM bom WHERE bom_id = $1",
+            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id FROM bom WHERE bom_id = $1",
         )
         .bind(bom_id)
         .fetch_optional(executor)
@@ -118,7 +118,7 @@ impl BomRepo {
     #[allow(dead_code)]
     pub async fn find_by_id_pool(pool: &PgPool, bom_id: i64) -> Result<Option<Bom>> {
         let row = sqlx::query_as::<_, Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, process_group_id, bom_category_id FROM bom WHERE bom_id = $1",
+            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id FROM bom WHERE bom_id = $1",
         )
         .bind(bom_id)
         .fetch_optional(pool)
@@ -145,7 +145,7 @@ impl BomRepo {
     pub async fn query(pool: &PgPool, bom_query: &BomQuery) -> Result<Vec<Bom>> {
         let mut query = sqlx::QueryBuilder::new(
             r#"
-            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, process_group_id, bom_category_id
+            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id
             FROM bom
             WHERE 1=1
             "#,

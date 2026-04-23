@@ -20,6 +20,8 @@ enum Resource {
   PERMISSION = 10;
   DEPARTMENT = 11;
   EXCEL = 12;
+  LABOR_PROCESS_DICT = 13;
+  ROUTING = 14;
 }
 
 // 权限操作枚举

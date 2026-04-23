@@ -168,6 +168,16 @@ pub fn get_labor_process_service(ctx: &AppContext) -> impl crate::service::Labor
     crate::implt::LaborProcessServiceImpl::new(ctx.pool().clone())
 }
 
+/// 获取工序字典服务
+pub fn get_labor_process_dict_service(ctx: &AppContext) -> impl crate::service::LaborProcessDictService {
+    crate::implt::LaborProcessDictServiceImpl::new(ctx.pool().clone())
+}
+
+/// 获取工艺路线服务
+pub fn get_routing_service(ctx: &AppContext) -> impl crate::service::RoutingService {
+    crate::implt::RoutingServiceImpl::new(ctx.pool().clone())
+}
+
 /// 获取用户服务
 pub fn get_user_service(ctx: &AppContext) -> impl crate::service::UserService {
     crate::implt::UserServiceImpl::new(Arc::new(ctx.pool().clone()))

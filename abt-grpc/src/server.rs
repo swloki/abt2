@@ -82,6 +82,14 @@ impl AppState {
         abt::get_labor_process_service(self.abt_context)
     }
 
+    pub fn labor_process_dict_service(&self) -> impl abt::LaborProcessDictService {
+        abt::get_labor_process_dict_service(self.abt_context)
+    }
+
+    pub fn routing_service(&self) -> impl abt::RoutingService {
+        abt::get_routing_service(self.abt_context)
+    }
+
     pub fn user_service(&self) -> impl abt::UserService {
         abt::get_user_service(self.abt_context)
     }
@@ -131,8 +139,8 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
 
     use crate::handlers::{
         AbtBomServiceServer, AbtExcelServiceServer, AbtInventoryServiceServer,
-        AbtLaborProcessServiceServer, AbtLocationServiceServer, AbtPriceServiceServer,
-        AbtProductServiceServer, AbtTermServiceServer, AbtWarehouseServiceServer,
+        AbtLaborProcessServiceServer, AbtLaborProcessDictServiceServer, AbtLocationServiceServer, AbtPriceServiceServer,
+        AbtProductServiceServer, AbtRoutingServiceServer, AbtTermServiceServer, AbtWarehouseServiceServer,
         AuthServiceServer, AbtBomCategoryServiceServer, DepartmentServiceServer,
         PermissionServiceServer, RoleServiceServer, UserServiceServer,
     };
@@ -185,6 +193,12 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(AbtLaborProcessServiceServer::with_interceptor(
             crate::handlers::labor_process::LaborProcessHandler::new(), auth_interceptor,
+        ))
+        .add_service(AbtLaborProcessDictServiceServer::with_interceptor(
+            crate::handlers::labor_process_dict::LaborProcessDictHandler::new(), auth_interceptor,
+        ))
+        .add_service(AbtRoutingServiceServer::with_interceptor(
+            crate::handlers::routing::RoutingHandler::new(), auth_interceptor,
         ))
         .serve(addr)
         .await?;

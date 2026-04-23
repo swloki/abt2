@@ -1,3 +1,23 @@
+# abt2 数据迁移实现计划
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** 编写 TypeScript + Bun 脚本，将 abt2 数据库的业务数据迁移到 abt 数据库。
+
+**Architecture:** 单文件脚本 `scripts/migrations/migrate-abt2-to-abt.ts`，使用 `pg` 库（项目已有依赖）连接两个数据库。流程：清空 abt 业务表 → 从 abt2 批量读取 → 写入 abt → 重置序列 → 校验行数。
+
+**Tech Stack:** TypeScript, Bun, pg (postgresql 客户端)
+
+---
+
+### Task 1: 创建迁移脚本
+
+**Files:**
+- Create: `scripts/migrations/migrate-abt2-to-abt.ts`
+
+- [ ] **Step 1: 创建完整的迁移脚本**
+
+```typescript
 /**
  * 数据迁移脚本：从 abt2 迁移到 abt
  *
@@ -44,10 +64,6 @@ const MIGRATION_TABLES = [
     columns: ["product_id", "pdt_name", "meta"],
   },
   {
-    table: "product_price_log",
-    columns: ["log_id", "product_id", "old_price", "new_price", "operator_id", "remark", "created_at"],
-  },
-  {
     table: "terms",
     columns: ["term_id", "term_name", "term_parent", "term_meta", "taxonomy"],
   },
@@ -84,7 +100,6 @@ const TRUNCATE_ORDER = [
   "term_relation",
   "location",
   "bom",
-  "product_price_log",
   "products",
   "terms",
   "warehouse",
@@ -101,7 +116,6 @@ const SEQUENCE_TABLES = [
   { table: "inventory", pk: "inventory_id" },
   { table: "inventory_log", pk: "log_id" },
   { table: "bom", pk: "bom_id" },
-  { table: "product_price_log", pk: "log_id" },
 ];
 
 const BATCH_SIZE = 500;
@@ -111,10 +125,7 @@ async function migrateTable(
   target: Client,
   config: (typeof MIGRATION_TABLES)[number],
 ): Promise<{ table: string; count: number }> {
-  const { table, columns } = config;
-  const targetExtraNulls = "targetExtraNulls" in config
-    ? (config as unknown as { targetExtraNulls: string[] }).targetExtraNulls
-    : undefined;
+  const { table, columns, targetExtraNulls } = config;
   const colList = columns.join(", ");
   const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
 
@@ -265,3 +276,35 @@ async function main() {
 }
 
 main();
+```
+
+- [ ] **Step 2: 运行脚本**
+
+Run: `cd E:/work/abt && bun run scripts/migrations/migrate-abt2-to-abt.ts`
+
+Expected: 所有 8 张表成功迁移，行数校验通过，输出类似：
+
+```
+🚀 数据迁移：abt2 → abt
+✅ 已连接 abt2（只读）
+✅ 已连接 abt（读写）
+🗑️ 清空 abt 业务表...
+  ✅ TRUNCATE inventory_log
+  ...
+📦 导入数据...
+  warehouse: 读取 10 行
+  products: 读取 11982 行
+  ...
+✅ 校验行数...
+  ✅ warehouse: abt2=10, abt=10
+  ✅ products: abt2=11982, abt=11982
+  ...
+✅ 迁移完成！耗时: Xs
+```
+
+- [ ] **Step 3: 提交**
+
+```bash
+git add scripts/migrations/migrate-abt2-to-abt.ts
+git commit -m "feat: add abt2 to abt data migration script"
+```

@@ -162,7 +162,7 @@ impl UserService for UserServiceImpl {
         // 生成新密码哈希并更新
         let new_hash = Self::hash_password(new_password)?;
         let mut tx = self.pool.begin().await?;
-        UserRepo::update_password(&mut *tx, user_id, &new_hash).await?;
+        UserRepo::update_password(&mut tx, user_id, &new_hash).await?;
         tx.commit().await?;
 
         Ok(())

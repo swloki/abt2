@@ -1,0 +1,58 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+import "abt/v1/excel.proto";
+
+service AbtLaborProcessDictService {
+  rpc ListLaborProcessDicts(ListLaborProcessDictsRequest) returns (LaborProcessDictListResponse);
+  rpc CreateLaborProcessDict(CreateLaborProcessDictRequest) returns (U64Response);
+  rpc UpdateLaborProcessDict(UpdateLaborProcessDictRequest) returns (BoolResponse);
+  rpc DeleteLaborProcessDict(DeleteLaborProcessDictRequest) returns (U64Response);
+  rpc ExportLaborProcessDicts(ExportLaborProcessDictsRequest) returns (stream DownloadFileResponse);
+}
+
+// ============================================================================
+// 工序字典消息
+// ============================================================================
+
+message LaborProcessDictProto {
+  int64 id = 1;
+  string code = 2;
+  string name = 3;
+  string description = 4;
+  int32 sort_order = 5;
+}
+
+message ListLaborProcessDictsRequest {
+  optional string keyword = 1;
+  optional uint32 page = 2;
+  optional uint32 page_size = 3;
+}
+
+message LaborProcessDictListResponse {
+  repeated LaborProcessDictProto items = 1;
+  uint64 total = 2;
+}
+
+message CreateLaborProcessDictRequest {
+  string name = 2;
+  string description = 3;
+  int32 sort_order = 4;
+}
+
+message UpdateLaborProcessDictRequest {
+  int64 id = 1;
+  string name = 3;
+  string description = 4;
+  int32 sort_order = 5;
+}
+
+message DeleteLaborProcessDictRequest {
+  int64 id = 1;
+}
+
+message ExportLaborProcessDictsRequest {
+}

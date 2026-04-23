@@ -9,6 +9,16 @@ use sqlx::PgPool;
 use crate::models::*;
 use crate::repositories::Executor;
 
+/// 无人工成本的 BOM 信息
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct BomWithoutLaborCost {
+    pub bom_id: i64,
+    pub bom_name: String,
+    pub product_code: Option<String>,
+    pub product_name: Option<String>,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
 /// 劳务工序仓库
 pub struct LaborProcessRepo;
 
@@ -29,7 +39,7 @@ impl LaborProcessRepo {
         let items: Vec<BomLaborProcess> = if let Some(kw) = keyword {
             let pattern = format!("%{kw}%");
             sqlx::query_as(
-                "SELECT id, product_code, name, unit_price, quantity, sort_order, remark, created_at, updated_at \
+                "SELECT id, product_code, process_code, name, unit_price, quantity, sort_order, remark, created_at, updated_at \
                  FROM bom_labor_process \
                  WHERE product_code = $1 AND name ILIKE $2 \
                  ORDER BY sort_order ASC, id ASC \
@@ -43,7 +53,7 @@ impl LaborProcessRepo {
             .await?
         } else {
             sqlx::query_as(
-                "SELECT id, product_code, name, unit_price, quantity, sort_order, remark, created_at, updated_at \
+                "SELECT id, product_code, process_code, name, unit_price, quantity, sort_order, remark, created_at, updated_at \
                  FROM bom_labor_process \
                  WHERE product_code = $1 \
                  ORDER BY sort_order ASC, id ASC \
@@ -89,9 +99,11 @@ impl LaborProcessRepo {
     // ========================================================================
 
     /// 创建工序
+    #[allow(clippy::too_many_arguments)]
     pub async fn insert(
         executor: Executor<'_>,
         product_code: &str,
+        process_code: Option<&str>,
         name: &str,
         unit_price: Decimal,
         quantity: Decimal,
@@ -100,12 +112,13 @@ impl LaborProcessRepo {
     ) -> Result<i64> {
         let id: i64 = sqlx::query_scalar(
             r#"
-            INSERT INTO bom_labor_process (product_code, name, unit_price, quantity, sort_order, remark)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO bom_labor_process (product_code, process_code, name, unit_price, quantity, sort_order, remark)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
             "#
         )
         .bind(product_code)
+        .bind(process_code)
         .bind(name)
         .bind(unit_price)
         .bind(quantity)
@@ -117,24 +130,27 @@ impl LaborProcessRepo {
     }
 
     /// 更新工序
+    #[allow(clippy::too_many_arguments)]
     pub async fn update(
         executor: Executor<'_>,
         id: i64,
         product_code: &str,
+        process_code: Option<&str>,
         name: &str,
         unit_price: Decimal,
         quantity: Decimal,
         sort_order: i32,
         remark: Option<&str>,
     ) -> Result<()> {
-        sqlx::query(
+        let result = sqlx::query(
             r#"
             UPDATE bom_labor_process
-            SET product_code = $1, name = $2, unit_price = $3, quantity = $4, sort_order = $5, remark = $6, updated_at = NOW()
-            WHERE id = $7
+            SET product_code = $1, process_code = $2, name = $3, unit_price = $4, quantity = $5, sort_order = $6, remark = $7, updated_at = NOW()
+            WHERE id = $8
             "#
         )
         .bind(product_code)
+        .bind(process_code)
         .bind(name)
         .bind(unit_price)
         .bind(quantity)
@@ -143,6 +159,12 @@ impl LaborProcessRepo {
         .bind(id)
         .execute(executor)
         .await?;
+        if result.rows_affected() == 0 {
+            return Err(common::error::ServiceError::NotFound {
+                resource: "劳务工序".to_string(),
+                id: id.to_string(),
+            }.into());
+        }
         Ok(())
     }
 
@@ -177,26 +199,26 @@ impl LaborProcessRepo {
     }
 
     /// 批量插入工序（用于导入）
-    /// items: (name, unit_price, quantity, sort_order, remark)
     pub async fn batch_insert(
         executor: Executor<'_>,
         product_code: &str,
-        items: &[(String, Decimal, Decimal, i32, Option<String>)],
+        items: &[crate::models::ValidLaborProcessRow],
     ) -> Result<()> {
         if items.is_empty() {
             return Ok(());
         }
 
         let mut builder: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
-            "INSERT INTO bom_labor_process (product_code, name, unit_price, quantity, sort_order, remark) "
+            "INSERT INTO bom_labor_process (product_code, process_code, name, unit_price, quantity, sort_order, remark) "
         );
-        builder.push_values(items.iter(), |mut b, (name, unit_price, quantity, sort_order, remark)| {
+        builder.push_values(items.iter(), |mut b, row| {
             b.push_bind(product_code);
-            b.push_bind(name);
-            b.push_bind(*unit_price);
-            b.push_bind(*quantity);
-            b.push_bind(*sort_order);
-            b.push_bind(remark);
+            b.push_bind(&row.process_code);
+            b.push_bind(&row.name);
+            b.push_bind(row.unit_price);
+            b.push_bind(row.quantity);
+            b.push_bind(row.sort_order);
+            b.push_bind(&row.remark);
         });
         builder.build().execute(executor).await?;
         Ok(())
@@ -208,12 +230,36 @@ impl LaborProcessRepo {
         product_code: &str,
     ) -> Result<Vec<BomLaborProcess>> {
         let items = sqlx::query_as(
-            "SELECT id, product_code, name, unit_price, quantity, sort_order, remark, created_at, updated_at \
+            "SELECT id, product_code, process_code, name, unit_price, quantity, sort_order, remark, created_at, updated_at \
              FROM bom_labor_process \
              WHERE product_code = $1 \
              ORDER BY sort_order ASC, id ASC"
         )
         .bind(product_code)
+        .fetch_all(pool)
+        .await?;
+        Ok(items)
+    }
+
+    /// 查询没有录入人工成本的 BOM 列表
+    pub async fn find_boms_without_labor_cost(pool: &PgPool) -> Result<Vec<BomWithoutLaborCost>> {
+        let items = sqlx::query_as::<_, BomWithoutLaborCost>(
+            r#"
+            SELECT b.bom_id, b.bom_name,
+                   p.meta->>'product_code' AS product_code,
+                   p.pdt_name AS product_name,
+                   b.create_at AS created_at
+            FROM bom b
+            CROSS JOIN LATERAL jsonb_array_elements(b.bom_detail->'nodes') AS node
+            JOIN products p ON (node->>'product_id')::bigint = p.product_id
+            WHERE (node->>'parent_id')::bigint = 0
+              AND NOT EXISTS (
+                  SELECT 1 FROM bom_labor_process blp
+                  WHERE blp.product_code = p.meta->>'product_code'
+              )
+            ORDER BY b.bom_id DESC
+            "#,
+        )
         .fetch_all(pool)
         .await?;
         Ok(items)

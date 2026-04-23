@@ -8,7 +8,7 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use crate::models::{Bom, BomDetail, BomQuery};
-use crate::repositories::Executor;
+use crate::repositories::{build_fuzzy_pattern, Executor};
 
 /// BOM 简要信息（用于引用显示）
 #[derive(Debug, Clone)]
@@ -186,8 +186,10 @@ impl BomRepo {
         if let Some(bom_name) = &bom_query.bom_name
             && !bom_name.is_empty()
         {
-            query.push(" AND bom_name ILIKE ");
-            query.push_bind(format!("%{}%", bom_name));
+            if let Some(pattern) = build_fuzzy_pattern(bom_name) {
+                query.push(" AND bom_name ILIKE ");
+                query.push_bind(pattern);
+            }
         }
         if let Some(create_by) = &bom_query.create_by
             && !create_by.is_empty()
@@ -277,5 +279,34 @@ impl BomRepo {
         .await?;
 
         Ok(ProductUsageResult { boms, total })
+    }
+
+    /// 批量查询哪些 product_code 有对应的 BOM（根节点）
+    /// 返回有 BOM 的 product_code 集合
+    pub async fn find_product_codes_with_bom(
+        pool: &PgPool,
+        product_codes: &[String],
+    ) -> Result<Vec<String>> {
+        if product_codes.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let codes: Vec<String> = sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT p.meta->>'product_code'
+            FROM products p
+            JOIN bom b ON EXISTS (
+                SELECT 1 FROM jsonb_array_elements(b.bom_detail->'nodes') AS node
+                WHERE (node->>'product_id')::bigint = p.product_id
+                AND (node->>'parent_id')::bigint = 0
+            )
+            WHERE p.meta->>'product_code' = ANY($1)
+            "#,
+        )
+        .bind(product_codes)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(codes)
     }
 }

@@ -220,7 +220,7 @@ impl ProductExcelService for ProductExcelServiceImpl {
 
             // 更新产品名称
             if let Some(ref name) = item.new_name
-                && let Err(e) = ProductRepo::update_name(&mut *tx, item.product_id, name).await {
+                && let Err(e) = ProductRepo::update_name(&mut tx, item.product_id, name).await {
                     result.failed_count += 1;
                     result.errors.push(format!("更新产品名称失败 product_id={}: {}", item.product_id, e));
                     continue;

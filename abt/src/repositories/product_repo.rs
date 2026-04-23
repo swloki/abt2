@@ -6,7 +6,7 @@ use anyhow::Result;
 use sqlx::PgPool;
 
 use crate::models::{Product, ProductQuery};
-use crate::repositories::Executor;
+use crate::repositories::{build_fuzzy_pattern, Executor};
 
 /// 产品数据仓库
 pub struct ProductRepo;
@@ -96,8 +96,10 @@ impl ProductRepo {
         if let Some(pdt_name) = &query.pdt_name
             && !pdt_name.is_empty()
         {
-            qb.push(" AND p.pdt_name ILIKE ");
-            qb.push_bind(format!("%{}%", pdt_name));
+            if let Some(pattern) = build_fuzzy_pattern(pdt_name) {
+                qb.push(" AND p.pdt_name ILIKE ");
+                qb.push_bind(pattern);
+            }
         }
 
         if let Some(product_code) = &query.product_code
@@ -128,8 +130,12 @@ impl ProductRepo {
         if let Some(pdt_name) = &query.pdt_name
             && !pdt_name.is_empty()
         {
-            qb.push(" WHERE p.pdt_name ILIKE ");
-            qb.push_bind(format!("%{}%", pdt_name));
+            if let Some(pattern) = build_fuzzy_pattern(pdt_name) {
+                qb.push(" WHERE p.pdt_name ILIKE ");
+                qb.push_bind(pattern);
+            } else {
+                qb.push(" WHERE 1=1");
+            }
         } else {
             qb.push(" WHERE 1=1");
         }

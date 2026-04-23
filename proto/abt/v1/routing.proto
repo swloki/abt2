@@ -1,0 +1,120 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service AbtRoutingService {
+  rpc ListRoutings(ListRoutingsRequest) returns (RoutingListResponse);
+  rpc GetRoutingDetail(GetRoutingDetailRequest) returns (RoutingDetailResponse);
+  rpc CreateRouting(CreateRoutingRequest) returns (U64Response);
+  rpc UpdateRouting(UpdateRoutingRequest) returns (BoolResponse);
+  rpc DeleteRouting(DeleteRoutingRequest) returns (U64Response);
+  rpc SetBomRouting(SetBomRoutingRequest) returns (BoolResponse);
+  rpc GetBomRouting(GetBomRoutingRequest) returns (GetBomRoutingResponse);
+  rpc GetBomsByRouting(GetBomsByRoutingRequest) returns (BomListByRoutingResponse);
+}
+
+// ============================================================================
+// 路线消息
+// ============================================================================
+
+message RoutingProto {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+}
+
+message RoutingStepProto {
+  int64 id = 1;
+  int64 routing_id = 2;
+  string process_code = 3;
+  int32 step_order = 4;
+  bool is_required = 5;
+  string remark = 6;
+}
+
+message ListRoutingsRequest {
+  optional string keyword = 1;
+  optional uint32 page = 2;
+  optional uint32 page_size = 3;
+}
+
+message RoutingListResponse {
+  repeated RoutingProto items = 1;
+  uint64 total = 2;
+}
+
+message GetRoutingDetailRequest {
+  int64 id = 1;
+}
+
+message RoutingDetailResponse {
+  RoutingProto routing = 1;
+  repeated RoutingStepProto steps = 2;
+}
+
+message CreateRoutingRequest {
+  string name = 1;
+  string description = 2;
+  repeated RoutingStepInput steps = 3;
+}
+
+message UpdateRoutingRequest {
+  int64 id = 1;
+  string name = 2;
+  string description = 3;
+  repeated RoutingStepInput steps = 4;
+}
+
+message RoutingStepInput {
+  string process_code = 1;
+  int32 step_order = 2;
+  bool is_required = 3;
+  string remark = 4;
+}
+
+message DeleteRoutingRequest {
+  int64 id = 1;
+}
+
+// ============================================================================
+// BOM 路线绑定
+// ============================================================================
+
+message SetBomRoutingRequest {
+  string product_code = 1;
+  int64 routing_id = 2;
+}
+
+message GetBomRoutingRequest {
+  string product_code = 1;
+}
+
+message GetBomRoutingResponse {
+  optional int64 routing_id = 1;
+  optional string routing_name = 2;
+  repeated RoutingStepProto steps = 3;
+}
+
+// ============================================================================
+// 根据路线查询引用的 BOM 列表
+// ============================================================================
+
+message GetBomsByRoutingRequest {
+  int64 routing_id = 1;
+  optional uint32 page = 2;
+  optional uint32 page_size = 3;
+}
+
+message BomBriefProto {
+  int64 bom_id = 1;
+  string bom_name = 2;
+  string created_at = 3;
+}
+
+message BomListByRoutingResponse {
+  repeated BomBriefProto items = 1;
+  uint64 total = 2;
+}

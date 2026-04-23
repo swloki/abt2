@@ -1,3 +1,19 @@
+# Labor Process Flat Model Restore — Implementation Plan (Part 3)
+
+Continued from `docs/superpowers/plans/2026-04-22-labor-process-flat-restore-2.md` (Tasks 4-6)
+
+---
+
+## Task 7: gRPC Handler
+
+**Files:**
+- Rewrite: `abt-grpc/src/handlers/labor_process.rs`
+
+- [ ] **Step 1: Write the new handler**
+
+Replace the entire content of `abt-grpc/src/handlers/labor_process.rs` with:
+
+```rust
 //! 劳务工序 gRPC Handler
 
 use abt::LaborProcessService;
@@ -11,8 +27,6 @@ use crate::generated::abt::v1::{
     abt_labor_process_service_server::AbtLaborProcessService as GrpcLaborProcessService, *,
 };
 use crate::handlers::{empty_to_none, GrpcResult};
-use crate::interceptors::auth::extract_auth;
-use crate::permissions::PermissionCode;
 use crate::server::AppState;
 
 pub struct LaborProcessHandler;
@@ -67,7 +81,6 @@ impl GrpcLaborProcessService for LaborProcessHandler {
                     quantity: p.quantity.to_string(),
                     sort_order: p.sort_order,
                     remark: p.remark.unwrap_or_default(),
-                    process_code: p.process_code,
                 })
                 .collect(),
             total: total as u64,
@@ -80,14 +93,6 @@ impl GrpcLaborProcessService for LaborProcessHandler {
         request: Request<CreateLaborProcessRequest>,
     ) -> GrpcResult<U64Response> {
         let req = request.into_inner();
-
-        if req.product_code.is_empty() {
-            return Err(error::validation("product_code", "产品编码不能为空"));
-        }
-        if req.name.is_empty() {
-            return Err(error::validation("name", "工序名称不能为空"));
-        }
-
         let state = AppState::get().await;
         let srv = state.labor_process_service();
 
@@ -103,7 +108,6 @@ impl GrpcLaborProcessService for LaborProcessHandler {
             .create(
                 abt::CreateLaborProcessReq {
                     product_code: req.product_code,
-                    process_code: req.process_code,
                     name: req.name,
                     unit_price,
                     quantity,
@@ -126,17 +130,6 @@ impl GrpcLaborProcessService for LaborProcessHandler {
         request: Request<UpdateLaborProcessRequest>,
     ) -> GrpcResult<BoolResponse> {
         let req = request.into_inner();
-
-        if req.id <= 0 {
-            return Err(error::validation("id", "ID 无效"));
-        }
-        if req.product_code.is_empty() {
-            return Err(error::validation("product_code", "产品编码不能为空"));
-        }
-        if req.name.is_empty() {
-            return Err(error::validation("name", "工序名称不能为空"));
-        }
-
         let state = AppState::get().await;
         let srv = state.labor_process_service();
 
@@ -152,7 +145,6 @@ impl GrpcLaborProcessService for LaborProcessHandler {
             abt::UpdateLaborProcessReq {
                 id: req.id,
                 product_code: req.product_code,
-                process_code: req.process_code,
                 name: req.name,
                 unit_price,
                 quantity,
@@ -169,17 +161,12 @@ impl GrpcLaborProcessService for LaborProcessHandler {
         Ok(Response::new(BoolResponse { value: true }))
     }
 
-    #[require_permission(Resource::LaborProcess, Action::Delete)]
+    #[require_permission(Resource::LaborProcess, Action::Write)]
     async fn delete_labor_process(
         &self,
         request: Request<DeleteLaborProcessRequest>,
     ) -> GrpcResult<U64Response> {
         let req = request.into_inner();
-
-        if req.id <= 0 {
-            return Err(error::validation("id", "ID 无效"));
-        }
-
         let state = AppState::get().await;
         let srv = state.labor_process_service();
 
@@ -214,31 +201,37 @@ impl GrpcLaborProcessService for LaborProcessHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        Ok(Response::new(crate::handlers::stream_excel_bytes(
-            format!("{}_labor_processes.xlsx", req.product_code),
-            bytes,
-        )))
-    }
+        let file_size = bytes.len() as i64;
+        let (tx, rx) = tokio::sync::mpsc::channel(32);
 
-    type ExportBomsWithoutLaborCostStream = ReceiverStream<Result<DownloadFileResponse, tonic::Status>>;
-
-    #[require_permission(Resource::LaborProcess, Action::Read)]
-    async fn export_boms_without_labor_cost(
-        &self,
-        _request: Request<ExportBomsWithoutLaborCostRequest>,
-    ) -> Result<Response<Self::ExportBomsWithoutLaborCostStream>, tonic::Status> {
-        let state = AppState::get().await;
-        let srv = state.labor_process_service();
-
-        let bytes = srv
-            .export_boms_without_labor_cost()
+        tokio::spawn(async move {
+            let metadata = FileMetadata {
+                file_name: format!("{}_labor_processes.xlsx", req.product_code),
+                file_size,
+                content_type: crate::handlers::EXCEL_MIME_TYPE.to_string(),
+            };
+            if tx.send(Ok(DownloadFileResponse {
+                data: Some(download_file_response::Data::Metadata(metadata)),
+            }))
             .await
-            .map_err(error::err_to_status)?;
+            .is_err()
+            {
+                return;
+            }
 
-        Ok(Response::new(crate::handlers::stream_excel_bytes(
-            "boms_without_labor_cost.xlsx",
-            bytes,
-        )))
+            for chunk in bytes.chunks(crate::handlers::STREAM_CHUNK_SIZE) {
+                if tx.send(Ok(DownloadFileResponse {
+                    data: Some(download_file_response::Data::Chunk(chunk.to_vec())),
+                }))
+                .await
+                .is_err()
+                {
+                    break;
+                }
+            }
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
     }
 
     #[require_permission(Resource::LaborProcess, Action::Write)]
@@ -249,10 +242,9 @@ impl GrpcLaborProcessService for LaborProcessHandler {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.labor_process_service();
-        let routing_srv = state.routing_service();
 
         let result = srv
-            .import_from_excel(&req.file_path, &routing_srv)
+            .import_from_excel(&req.product_code, &req.file_path)
             .await
             .map_err(error::err_to_status)?;
 
@@ -269,17 +261,58 @@ impl GrpcLaborProcessService for LaborProcessHandler {
                     error_message: r.error_message,
                 })
                 .collect(),
-            routing_results: result
-                .routing_results
-                .into_iter()
-                .map(|r| ProductRoutingInfo {
-                    product_code: r.product_code,
-                    auto_created_routing: r.auto_created_routing,
-                    matched_existing_routing: r.matched_existing_routing,
-                    routing_name: r.routing_name,
-                    routing_id: r.routing_id,
-                })
-                .collect(),
         }))
     }
 }
+```
+
+- [ ] **Step 2: Verify full workspace compilation**
+
+Run: `cargo build`
+Expected: Full workspace builds without errors
+
+- [ ] **Step 3: Run tests**
+
+Run: `cargo test`
+Expected: All tests pass (including normalize_process_name tests)
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add abt-grpc/src/handlers/labor_process.rs
+git commit -m "refactor: rewrite labor process handler for flat model"
+```
+
+---
+
+## Task 8: Final Verification
+
+- [ ] **Step 1: Verify module registrations are intact**
+
+The following files should NOT need changes (module names unchanged):
+- `abt/src/models/mod.rs` — `mod labor_process;` + `pub use labor_process::*;`
+- `abt/src/repositories/mod.rs` — `mod labor_process_repo;` + `pub use labor_process_repo::LaborProcessRepo;`
+- `abt/src/service/mod.rs` — `mod labor_process_service;` + `pub use labor_process_service::LaborProcessService;`
+- `abt/src/implt/mod.rs` — `mod labor_process_service_impl;` + `pub use labor_process_service_impl::LaborProcessServiceImpl;`
+- `abt/src/lib.rs` — `pub fn get_labor_process_service(ctx: &AppContext) -> impl crate::service::LaborProcessService`
+- `abt-grpc/src/server.rs` — `AbtLaborProcessServiceServer` registration
+- `abt-grpc/src/handlers/mod.rs` — `pub mod labor_process;` + re-export
+
+Run: `cargo build` to confirm all registrations work.
+
+- [ ] **Step 2: Verify migration can apply**
+
+Run: `sqlx migrate run -p abt` (if database available)
+Or manually verify the SQL syntax.
+
+- [ ] **Step 3: Run full test suite**
+
+Run: `cargo test`
+Expected: All tests pass
+
+- [ ] **Step 4: Commit all remaining changes (if any)**
+
+```bash
+git add -A
+git commit -m "feat: complete labor process flat model restore"
+```

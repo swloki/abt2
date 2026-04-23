@@ -25,6 +25,8 @@ impl PermissionCode for Resource {
             Self::Permission => "permission",
             Self::Department => "department",
             Self::Excel => "excel",
+            Self::LaborProcessDict => "labor_process_dict",
+            Self::Routing => "routing",
         }
     }
 }

@@ -39,6 +39,14 @@ static RESOURCES: &[ResourceActionDef] = &[
     // Excel 导入导出
     ResourceActionDef { resource_code: "excel", resource_name: "Excel导入导出", description: "Excel数据导入导出", action: "read", action_name: "导出" },
     ResourceActionDef { resource_code: "excel", resource_name: "Excel导入导出", description: "Excel数据导入导出", action: "write", action_name: "导入" },
+    // 工序字典
+    ResourceActionDef { resource_code: "labor_process_dict", resource_name: "工序字典", description: "工序字典管理", action: "read", action_name: "查看" },
+    ResourceActionDef { resource_code: "labor_process_dict", resource_name: "工序字典", description: "工序字典管理", action: "write", action_name: "编辑" },
+    ResourceActionDef { resource_code: "labor_process_dict", resource_name: "工序字典", description: "工序字典管理", action: "delete", action_name: "删除" },
+    // 工艺路线
+    ResourceActionDef { resource_code: "routing", resource_name: "工艺路线", description: "工艺路线管理", action: "read", action_name: "查看" },
+    ResourceActionDef { resource_code: "routing", resource_name: "工艺路线", description: "工艺路线管理", action: "write", action_name: "编辑" },
+    ResourceActionDef { resource_code: "routing", resource_name: "工艺路线", description: "工艺路线管理", action: "delete", action_name: "删除" },
     // 用户管理
     ResourceActionDef { resource_code: "user", resource_name: "用户管理", description: "系统用户", action: "read", action_name: "查看" },
     ResourceActionDef { resource_code: "user", resource_name: "用户管理", description: "系统用户", action: "write", action_name: "编辑" },

@@ -16,6 +16,7 @@ service AbtLaborProcessService {
   // Excel 导入导出
   rpc ImportLaborProcesses(ImportLaborProcessesRequest) returns (ImportLaborProcessesResponse);
   rpc ExportLaborProcesses(ExportLaborProcessesRequest) returns (stream DownloadFileResponse);
+  rpc ExportBomsWithoutLaborCost(ExportBomsWithoutLaborCostRequest) returns (stream DownloadFileResponse);
 }
 
 // ============================================================================
@@ -30,6 +31,7 @@ message BomLaborProcessProto {
   string quantity = 5;
   int32 sort_order = 6;
   string remark = 7;
+  optional string process_code = 8;
 }
 
 message ListLaborProcessesRequest {
@@ -51,6 +53,7 @@ message CreateLaborProcessRequest {
   string quantity = 4;
   int32 sort_order = 5;
   string remark = 6;
+  optional string process_code = 7;
 }
 
 message UpdateLaborProcessRequest {
@@ -61,6 +64,7 @@ message UpdateLaborProcessRequest {
   string quantity = 5;
   int32 sort_order = 6;
   string remark = 7;
+  optional string process_code = 8;
 }
 
 message DeleteLaborProcessRequest {
@@ -74,13 +78,22 @@ message DeleteLaborProcessRequest {
 
 message ImportLaborProcessesRequest {
   string file_path = 1;
-  string product_code = 2;
 }
 
 message ImportLaborProcessesResponse {
   int32 success_count = 1;
   int32 failure_count = 2;
   repeated ImportLaborProcessResult results = 3;
+  // 每个产品的工艺路线信息
+  repeated ProductRoutingInfo routing_results = 4;
+}
+
+message ProductRoutingInfo {
+  string product_code = 1;
+  bool auto_created_routing = 2;
+  bool matched_existing_routing = 3;
+  optional string routing_name = 4;
+  optional int64 routing_id = 5;
 }
 
 message ImportLaborProcessResult {
@@ -92,4 +105,7 @@ message ImportLaborProcessResult {
 
 message ExportLaborProcessesRequest {
   string product_code = 1;
+}
+
+message ExportBomsWithoutLaborCostRequest {
 }

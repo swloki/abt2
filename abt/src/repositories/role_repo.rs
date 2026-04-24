@@ -144,12 +144,18 @@ impl RoleRepo {
         Ok(codes.into_iter().map(|(c,)| c).collect())
     }
 
-    /// Assign permissions using new (resource_code, action_code) schema
+    /// Assign permissions — full replacement semantics.
+    /// Deletes all existing permissions for the role, then inserts the new set.
     pub async fn assign_permissions(
         executor: Executor<'_>,
         role_id: i64,
         resource_actions: &[(String, String)],
     ) -> Result<()> {
+        sqlx::query("DELETE FROM role_permissions WHERE role_id = $1")
+            .bind(role_id)
+            .execute(executor.as_mut())
+            .await?;
+
         if resource_actions.is_empty() {
             return Ok(());
         }
@@ -160,7 +166,6 @@ impl RoleRepo {
         builder.push_values(resource_actions.iter(), |mut b, (resource, action)| {
             b.push_bind(role_id).push_bind(resource.clone()).push_bind(action.clone());
         });
-        builder.push(" ON CONFLICT DO NOTHING");
 
         builder.build().execute(executor).await?;
 

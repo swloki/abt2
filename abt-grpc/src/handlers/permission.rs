@@ -56,10 +56,10 @@ impl GrpcPermissionService for PermissionHandler {
                         resource: Some(ResourceInfo {
                             resource_id: 0,
                             resource_name: r.resource_name.to_string(),
-                            resource_code: r.resource_code.to_string(),
+                            resource_code: to_proto_code(r.resource_code),
                             group_name: r.resource_name.to_string(),
                         }),
-                        action_code: r.action.to_string(),
+                        action_code: to_proto_code(r.action),
                         action_name: r.action_name.to_string(),
                     })
             })
@@ -78,7 +78,7 @@ impl GrpcPermissionService for PermissionHandler {
         let srv = state.permission_service();
 
         let has_permission = srv
-            .check_permission(req.user_id, &req.resource_code, &req.action_code)
+            .check_permission(req.user_id, &normalize_code(&req.resource_code), &normalize_code(&req.action_code))
             .await
             .map_err(error::err_to_status)?;
 
@@ -152,6 +152,16 @@ impl GrpcPermissionService for PermissionHandler {
     }
 }
 
+/// Convert internal lowercase codes to SCREAMING_SNAKE_CASE to match proto enum names.
+fn to_proto_code(code: &str) -> String {
+    code.to_uppercase()
+}
+
+/// Normalize incoming codes from proto enum names (SCREAMING_SNAKE_CASE) to internal lowercase.
+fn normalize_code(code: &str) -> String {
+    code.to_lowercase()
+}
+
 fn group_resources(resources: &[abt::ResourceActionDef]) -> Vec<ResourceGroup> {
     let mut groups: std::collections::HashMap<&str, Vec<ResourceInfo>> =
         std::collections::HashMap::new();
@@ -162,7 +172,7 @@ fn group_resources(resources: &[abt::ResourceActionDef]) -> Vec<ResourceGroup> {
             .push(ResourceInfo {
                 resource_id: 0,
                 resource_name: r.resource_name.to_string(),
-                resource_code: r.resource_code.to_string(),
+                resource_code: to_proto_code(r.resource_code),
                 group_name: r.resource_name.to_string(),
             });
     }
@@ -185,7 +195,7 @@ fn group_resources_by_refs(resources: &[&abt::ResourceActionDef]) -> Vec<Resourc
             .push(ResourceInfo {
                 resource_id: 0,
                 resource_name: r.resource_name.to_string(),
-                resource_code: r.resource_code.to_string(),
+                resource_code: to_proto_code(r.resource_code),
                 group_name: r.resource_name.to_string(),
             });
     }
@@ -211,10 +221,10 @@ fn group_permissions(resources: &[abt::ResourceActionDef]) -> Vec<PermissionGrou
                 resource: Some(ResourceInfo {
                     resource_id: 0,
                     resource_name: r.resource_name.to_string(),
-                    resource_code: r.resource_code.to_string(),
+                    resource_code: to_proto_code(r.resource_code),
                     group_name: r.resource_name.to_string(),
                 }),
-                action_code: r.action.to_string(),
+                action_code: to_proto_code(r.action),
                 action_name: r.action_name.to_string(),
             });
     }

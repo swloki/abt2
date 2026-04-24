@@ -4584,14 +4584,14 @@ pub struct UserPermissionsResponse {
     #[prost(message, repeated, tag = "1")]
     pub permissions: ::prost::alloc::vec::Vec<PermissionInfo>,
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CheckPermissionRequest {
     #[prost(int64, tag = "1")]
     pub user_id: i64,
-    #[prost(string, tag = "2")]
-    pub resource_code: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub action_code: ::prost::alloc::string::String,
+    #[prost(enumeration = "Resource", tag = "2")]
+    pub resource: i32,
+    #[prost(enumeration = "Action", tag = "3")]
+    pub action: i32,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CheckPermissionResponse {

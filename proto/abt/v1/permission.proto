@@ -50,8 +50,8 @@ message UserPermissionsResponse {
 
 message CheckPermissionRequest {
     int64 user_id = 1;
-    string resource_code = 2;
-    string action_code = 3;
+    Resource resource = 2;
+    Action action = 3;
 }
 
 message CheckPermissionResponse {

@@ -74,11 +74,16 @@ impl GrpcPermissionService for PermissionHandler {
         request: Request<CheckPermissionRequest>,
     ) -> GrpcResult<CheckPermissionResponse> {
         let req = request.into_inner();
+        let resource = Resource::try_from(req.resource)
+            .map_err(|_| error::validation("resource", "Invalid resource value"))?;
+        let action = Action::try_from(req.action)
+            .map_err(|_| error::validation("action", "Invalid action value"))?;
+
         let state = AppState::get().await;
         let srv = state.permission_service();
 
         let has_permission = srv
-            .check_permission(req.user_id, &normalize_code(&req.resource_code), &normalize_code(&req.action_code))
+            .check_permission(req.user_id, &resource.code(), &action.code())
             .await
             .map_err(error::err_to_status)?;
 
@@ -155,11 +160,6 @@ impl GrpcPermissionService for PermissionHandler {
 /// Convert internal lowercase codes to SCREAMING_SNAKE_CASE to match proto enum names.
 fn to_proto_code(code: &str) -> String {
     code.to_uppercase()
-}
-
-/// Normalize incoming codes from proto enum names (SCREAMING_SNAKE_CASE) to internal lowercase.
-fn normalize_code(code: &str) -> String {
-    code.to_lowercase()
 }
 
 fn group_resources(resources: &[abt::ResourceActionDef]) -> Vec<ResourceGroup> {

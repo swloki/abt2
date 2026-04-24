@@ -79,6 +79,7 @@ impl AuthServiceImpl {
         display_name: String,
         system_role: String,
         role_ids: Vec<i64>,
+        role_codes: Vec<String>,
         permissions: Vec<String>,
         expiration_hours: u64,
     ) -> Claims {
@@ -92,6 +93,7 @@ impl AuthServiceImpl {
             display_name,
             system_role,
             role_ids,
+            role_codes,
             permissions,
             iat: now,
             exp: now + expiration_hours * SECONDS_PER_HOUR,
@@ -125,10 +127,13 @@ impl AuthService for AuthServiceImpl {
         // 5. Get role_ids from user_roles table
         let role_ids = AuthRepo::get_user_role_ids(self.pool.as_ref(), user.user_id).await?;
 
-        // 6. Resolve permissions from cache
+        // 6. Get role_codes
+        let role_codes = AuthRepo::get_user_role_codes(self.pool.as_ref(), user.user_id).await?;
+
+        // 7. Resolve permissions from cache
         let permissions = Self::resolve_permissions(&role_ids);
 
-        // 7. Build and sign JWT
+        // 8. Build and sign JWT
         let display_name = user.display_name.clone().unwrap_or_default();
         let claims = Self::build_claims(
             user.user_id,
@@ -136,6 +141,7 @@ impl AuthService for AuthServiceImpl {
             display_name,
             system_role,
             role_ids,
+            role_codes,
             permissions,
             self.jwt_expiration_hours,
         );
@@ -163,6 +169,7 @@ impl AuthService for AuthServiceImpl {
 
         // Get role_ids and resolve permissions
         let role_ids = AuthRepo::get_user_role_ids(self.pool.as_ref(), user.user_id).await?;
+        let role_codes = AuthRepo::get_user_role_codes(self.pool.as_ref(), user.user_id).await?;
         let permissions = Self::resolve_permissions(&role_ids);
 
         // 签发新 token
@@ -173,6 +180,7 @@ impl AuthService for AuthServiceImpl {
             display_name,
             system_role,
             role_ids,
+            role_codes,
             permissions,
             self.jwt_expiration_hours,
         );
@@ -190,6 +198,7 @@ impl AuthService for AuthServiceImpl {
 
         let system_role = Self::resolve_system_role(user.is_super_admin);
         let role_ids = AuthRepo::get_user_role_ids(self.pool.as_ref(), user.user_id).await?;
+        let role_codes = AuthRepo::get_user_role_codes(self.pool.as_ref(), user.user_id).await?;
         let permissions = Self::resolve_permissions(&role_ids);
 
         let display_name = user.display_name.clone().unwrap_or_default();
@@ -199,6 +208,7 @@ impl AuthService for AuthServiceImpl {
             display_name,
             system_role,
             role_ids,
+            role_codes,
             permissions,
             exp: 0,
             iat: 0,

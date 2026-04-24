@@ -25,6 +25,7 @@ fn make_auth(system_role: &str, role_ids: Vec<i64>) -> abt::AuthContext {
         username: "testuser".to_string(),
         system_role: system_role.to_string(),
         role_ids,
+        role_codes: vec![],
     }
 }
 
@@ -141,5 +142,19 @@ fn empty_role_ids_denied() {
     assert!(
         check_permission_for_resource(&auth, "user", "read").is_err(),
         "user with empty role_ids should be denied user:read"
+    );
+}
+
+#[test]
+fn super_admin_role_code_grants_full_access() {
+    let mut auth = make_auth("user", vec![1]);
+    auth.role_codes = vec!["super_admin".to_string()];
+    assert!(
+        check_permission_for_resource(&auth, "product", "write").is_ok(),
+        "user with super_admin role_code should have product:write"
+    );
+    assert!(
+        check_permission_for_resource(&auth, "user", "delete").is_ok(),
+        "user with super_admin role_code should have user:delete"
     );
 }

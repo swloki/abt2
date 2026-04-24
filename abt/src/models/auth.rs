@@ -13,6 +13,9 @@ pub struct Claims {
     pub system_role: String,
     /// 全局角色 ID 列表
     pub role_ids: Vec<i64>,
+    /// 角色代码列表 (e.g., "super_admin", "manager")
+    #[serde(default)]
+    pub role_codes: Vec<String>,
     /// 已解析的权限列表 (大写格式 "PRODUCT:WRITE")
     #[serde(default)]
     pub permissions: Vec<String>,
@@ -30,12 +33,15 @@ pub struct AuthContext {
     pub system_role: String,
     /// 全局角色 ID 列表
     pub role_ids: Vec<i64>,
+    /// 角色代码列表
+    pub role_codes: Vec<String>,
 }
 
 impl AuthContext {
     /// 是否超级管理员
     pub fn is_super_admin(&self) -> bool {
         self.system_role == "super_admin"
+            || self.role_codes.iter().any(|c| c == "super_admin")
     }
 
     /// 检查用户是否拥有指定角色

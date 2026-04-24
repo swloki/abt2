@@ -31,6 +31,7 @@ pub fn auth_interceptor(mut request: Request<()>) -> Result<Request<()>, Status>
         username: claims.username,
         system_role: claims.system_role,
         role_ids: claims.role_ids,
+        role_codes: claims.role_codes,
     };
 
     request.extensions_mut().insert(auth_ctx);

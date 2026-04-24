@@ -32,4 +32,21 @@ impl AuthRepo {
 
         Ok(rows.into_iter().map(|(id,)| id).collect())
     }
+
+    /// Get user's role codes (e.g., "super_admin", "manager") from user_roles + roles
+    pub async fn get_user_role_codes(pool: &PgPool, user_id: i64) -> Result<Vec<String>> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            r#"
+            SELECT r.role_code
+            FROM user_roles ur
+            JOIN roles r ON ur.role_id = r.role_id
+            WHERE ur.user_id = $1
+            "#,
+        )
+        .bind(user_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|(code,)| code).collect())
+    }
 }

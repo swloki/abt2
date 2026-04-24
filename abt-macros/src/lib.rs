@@ -56,9 +56,9 @@ pub fn require_permission(attr: TokenStream, item: TokenStream) -> TokenStream {
     let check_stmt: Stmt = parse_quote! {
         crate::permissions::check_permission_for_resource(
             &auth,
-            #resource.code(),
-            #action.code(),
-        ).map_err(|_e| error::forbidden(#resource.code(), #action.code()))?;
+            &#resource.code(),
+            &#action.code(),
+        ).map_err(|_e| error::forbidden(&#resource.code(), &#action.code()))?;
     };
 
     let stmts_to_prepend = vec![auth_stmt, check_stmt];

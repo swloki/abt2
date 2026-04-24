@@ -55,7 +55,7 @@ fn all_resource_codes_match_resources_rs() {
     for variant in ALL_RESOURCES {
         let code = variant.code();
         assert!(
-            defined_resources.contains(code),
+            defined_resources.contains(code.as_str()),
             "Resource variant {:?} (code={:?}) not found in resources.rs",
             variant,
             code
@@ -75,7 +75,7 @@ fn all_action_codes_exist_in_resources_rs() {
     for variant in ALL_ACTIONS {
         let code = variant.code();
         assert!(
-            defined_actions.contains(code),
+            defined_actions.contains(code.as_str()),
             "Action variant {:?} (code={:?}) not found in resources.rs",
             variant,
             code

@@ -4,40 +4,21 @@ use crate::generated::abt::v1::{Action, Resource};
 ///
 /// The proto enums use SCREAMING_SNAKE_CASE (e.g., `WAREHOUSE`, `READ`), but the
 /// runtime permission system uses lowercase strings (e.g., `"warehouse"`, `"read"`)
-/// for JWT claims and `check_permission` matching. This trait bridges the two.
+/// for JWT claims and `check_permission` matching. This trait bridges the two
+/// by using the proto-generated `as_str_name()` method and converting to lowercase.
 pub trait PermissionCode {
-    fn code(&self) -> &'static str;
+    fn code(&self) -> String;
 }
 
 impl PermissionCode for Resource {
-    fn code(&self) -> &'static str {
-        match self {
-            Self::Product => "product",
-            Self::Term => "term",
-            Self::Bom => "bom",
-            Self::Warehouse => "warehouse",
-            Self::Location => "location",
-            Self::Inventory => "inventory",
-            Self::Price => "price",
-            Self::LaborProcess => "labor_process",
-            Self::User => "user",
-            Self::Role => "role",
-            Self::Permission => "permission",
-            Self::Department => "department",
-            Self::Excel => "excel",
-            Self::LaborProcessDict => "labor_process_dict",
-            Self::Routing => "routing",
-        }
+    fn code(&self) -> String {
+        self.as_str_name().to_lowercase()
     }
 }
 
 impl PermissionCode for Action {
-    fn code(&self) -> &'static str {
-        match self {
-            Self::Read => "read",
-            Self::Write => "write",
-            Self::Delete => "delete",
-        }
+    fn code(&self) -> String {
+        self.as_str_name().to_lowercase()
     }
 }
 

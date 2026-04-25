@@ -30,18 +30,18 @@ fn make_auth(system_role: &str, role_ids: Vec<i64>) -> abt::AuthContext {
 }
 
 #[test]
-fn resource_code_returns_lowercase() {
-    assert_eq!(Resource::Product.code(), "product");
-    assert_eq!(Resource::Warehouse.code(), "warehouse");
-    assert_eq!(Resource::LaborProcess.code(), "labor_process");
-    assert_eq!(Resource::Excel.code(), "excel");
+fn resource_code_returns_uppercase() {
+    assert_eq!(Resource::Product.code(), "PRODUCT");
+    assert_eq!(Resource::Warehouse.code(), "WAREHOUSE");
+    assert_eq!(Resource::LaborProcess.code(), "LABOR_PROCESS");
+    assert_eq!(Resource::Excel.code(), "EXCEL");
 }
 
 #[test]
-fn action_code_returns_lowercase() {
-    assert_eq!(Action::Read.code(), "read");
-    assert_eq!(Action::Write.code(), "write");
-    assert_eq!(Action::Delete.code(), "delete");
+fn action_code_returns_uppercase() {
+    assert_eq!(Action::Read.code(), "READ");
+    assert_eq!(Action::Write.code(), "WRITE");
+    assert_eq!(Action::Delete.code(), "DELETE");
 }
 
 #[test]

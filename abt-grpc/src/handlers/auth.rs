@@ -7,7 +7,7 @@ use crate::generated::abt::v1::{
     *,
 };
 use crate::handlers::GrpcResult;
-use crate::interceptors::auth::extract_user_id_from_header;
+use crate::interceptors::auth::{extract_auth, extract_user_id_from_header};
 use crate::server::AppState;
 use common::error;
 
@@ -118,5 +118,19 @@ impl GrpcAuthService for AuthHandler {
                 })
                 .collect(),
         }))
+    }
+
+    async fn get_permissions_by_roles(
+        &self,
+        request: Request<GetPermissionsByRolesRequest>,
+    ) -> GrpcResult<GetPermissionsByRolesResponse> {
+        let auth = extract_auth(&request)?;
+        let cache = abt::get_permission_cache();
+        let mut permissions: Vec<String> = cache
+            .get_merged_permissions(&auth.role_ids)
+            .into_iter()
+            .collect();
+        permissions.sort();
+        Ok(Response::new(GetPermissionsByRolesResponse { permissions }))
     }
 }

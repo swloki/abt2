@@ -12,6 +12,7 @@ service AuthService {
     rpc Logout(Empty) returns (Empty);
     rpc GetCurrentUser(Empty) returns (UserResponse);
     rpc ListResources(Empty) returns (AuthResourceListResponse);
+    rpc GetPermissionsByRoles(GetPermissionsByRolesRequest) returns (GetPermissionsByRolesResponse);
 }
 
 message LoginRequest {
@@ -44,4 +45,12 @@ message AuthResourceAction {
 
 message AuthResourceListResponse {
     repeated AuthResourceAction resources = 1;
+}
+
+message GetPermissionsByRolesRequest {
+    repeated int64 role_ids = 1;
+}
+
+message GetPermissionsByRolesResponse {
+    repeated string permissions = 1;
 }

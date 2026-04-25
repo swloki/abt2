@@ -88,6 +88,7 @@ impl RoleService for RoleServiceImpl {
             old_value: None,
             new_value: Some(serde_json::to_value(&resource_actions)?),
         }).await?;
+        crate::get_permission_cache().load(self.pool.as_ref()).await?;
         Ok(())
     }
 
@@ -101,6 +102,7 @@ impl RoleService for RoleServiceImpl {
             old_value: Some(serde_json::to_value(&resource_actions)?),
             new_value: None,
         }).await?;
+        crate::get_permission_cache().load(self.pool.as_ref()).await?;
         Ok(())
     }
 }

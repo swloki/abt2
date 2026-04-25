@@ -1111,6 +1111,16 @@ pub struct AuthResourceListResponse {
     #[prost(message, repeated, tag = "1")]
     pub resources: ::prost::alloc::vec::Vec<AuthResourceAction>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetPermissionsByRolesRequest {
+    #[prost(int64, repeated, tag = "1")]
+    pub role_ids: ::prost::alloc::vec::Vec<i64>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetPermissionsByRolesResponse {
+    #[prost(string, repeated, tag = "1")]
+    pub permissions: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 /// Generated client implementations.
 pub mod auth_service_client {
     #![allow(
@@ -1306,6 +1316,30 @@ pub mod auth_service_client {
                 .insert(GrpcMethod::new("abt.v1.AuthService", "ListResources"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn get_permissions_by_roles(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetPermissionsByRolesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetPermissionsByRolesResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AuthService/GetPermissionsByRoles",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AuthService", "GetPermissionsByRoles"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -1342,6 +1376,13 @@ pub mod auth_service_server {
             request: tonic::Request<super::Empty>,
         ) -> std::result::Result<
             tonic::Response<super::AuthResourceListResponse>,
+            tonic::Status,
+        >;
+        async fn get_permissions_by_roles(
+            &self,
+            request: tonic::Request<super::GetPermissionsByRolesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetPermissionsByRolesResponse>,
             tonic::Status,
         >;
     }
@@ -1623,6 +1664,55 @@ pub mod auth_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListResourcesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AuthService/GetPermissionsByRoles" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetPermissionsByRolesSvc<T: AuthService>(pub Arc<T>);
+                    impl<
+                        T: AuthService,
+                    > tonic::server::UnaryService<super::GetPermissionsByRolesRequest>
+                    for GetPermissionsByRolesSvc<T> {
+                        type Response = super::GetPermissionsByRolesResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetPermissionsByRolesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AuthService>::get_permissions_by_roles(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetPermissionsByRolesSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

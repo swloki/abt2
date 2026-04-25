@@ -16,9 +16,6 @@ pub struct Claims {
     /// 角色代码列表 (e.g., "super_admin", "manager")
     #[serde(default)]
     pub role_codes: Vec<String>,
-    /// 已解析的权限列表 (大写格式 "PRODUCT:WRITE")
-    #[serde(default)]
-    pub permissions: Vec<String>,
     /// 过期时间 (UNIX timestamp)
     pub exp: u64,
     /// 签发时间 (UNIX timestamp)

@@ -10,6 +10,7 @@ mod auth_tests {
             username: "test".to_string(),
             system_role: system_role.to_string(),
             role_ids,
+            role_codes: vec![],
         }
     }
 
@@ -52,7 +53,7 @@ mod auth_tests {
             display_name: "Alice".to_string(),
             system_role: "user".to_string(),
             role_ids: vec![1, 5, 10],
-            permissions: vec![],
+            role_codes: vec![],
             exp: 9999999999,
             iat: 1000000000,
         };
@@ -63,7 +64,7 @@ mod auth_tests {
 
     #[test]
     fn test_claims_deserialize_role_ids() {
-        // 旧 JWT 没有 permissions 字段，应能正常反序列化
+        // 旧 JWT 没有 role_codes 字段，应能正常反序列化
         let json = r#"{
             "sub": 42,
             "username": "alice",
@@ -78,7 +79,7 @@ mod auth_tests {
         assert_eq!(claims.role_ids, vec![1, 5, 10]);
         assert_eq!(claims.sub, 42);
         assert_eq!(claims.system_role, "user");
-        assert!(claims.permissions.is_empty(), "missing permissions should default to empty");
+        assert!(claims.role_codes.is_empty(), "missing role_codes should default to empty");
     }
 
     #[test]
@@ -89,7 +90,7 @@ mod auth_tests {
             display_name: "Bob".to_string(),
             system_role: "super_admin".to_string(),
             role_ids: vec![],
-            permissions: vec![],
+            role_codes: vec![],
             exp: 9999999999,
             iat: 1000000000,
         };

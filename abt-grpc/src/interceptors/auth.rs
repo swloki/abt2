@@ -38,13 +38,20 @@ pub fn auth_interceptor(mut request: Request<()>) -> Result<Request<()>, Status>
     Ok(request)
 }
 
-/// 从 gRPC request extensions 中提取 AuthContext
+/// 从 gRPC request extensions 中提取 AuthContext，
+/// 如果不存在则从 JWT Authorization header 直接解析（用于不经 auth_interceptor 的 handler）
 pub fn extract_auth<T>(request: &Request<T>) -> Result<abt::AuthContext, Status> {
-    request
-        .extensions()
-        .get::<abt::AuthContext>()
-        .cloned()
-        .ok_or_else(|| Status::internal("AuthContext not found in request extensions"))
+    if let Some(auth) = request.extensions().get::<abt::AuthContext>().cloned() {
+        return Ok(auth);
+    }
+    let claims = decode_jwt_from_request(request)?;
+    Ok(abt::AuthContext {
+        user_id: claims.sub,
+        username: claims.username,
+        system_role: claims.system_role,
+        role_ids: claims.role_ids,
+        role_codes: claims.role_codes,
+    })
 }
 
 /// 从 request 的 Authorization header 解码 JWT 并返回 user_id

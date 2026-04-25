@@ -80,7 +80,7 @@ pub trait BomService: Send + Sync {
         old_product_id: i64,
         new_product_id: i64,
         bom_id: Option<i64>,
-        overrides: Option<AttributeOverrides>,
+        overrides: AttributeOverrides,
         executor: Executor<'_>,
     ) -> Result<(i64, i64)>;
 }

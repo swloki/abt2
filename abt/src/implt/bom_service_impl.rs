@@ -622,22 +622,29 @@ impl BomService for BomServiceImpl {
         old_product_id: i64,
         new_product_id: i64,
         bom_id: Option<i64>,
-        overrides: Option<AttributeOverrides>,
+        overrides: AttributeOverrides,
         executor: Executor<'_>,
     ) -> Result<(i64, i64)> {
+        if old_product_id == new_product_id {
+            return Ok((0, 0));
+        }
+
         let mut boms = match bom_id {
             Some(id) => {
-                let bom = BomRepo::find_by_id(executor, id).await?;
+                let bom = BomRepo::find_by_id_for_update(executor, id).await?;
                 match bom {
                     Some(b) => vec![b],
                     None => return Err(anyhow::anyhow!("BOM not found")),
                 }
             }
-            None => BomRepo::find_all_boms_using_product(&self.pool, old_product_id).await?,
+            None => BomRepo::find_all_boms_using_product(executor, old_product_id).await?,
         };
 
         let products = ProductRepo::find_by_ids(&self.pool, &[new_product_id]).await?;
-        let new_product_code = products.first().map(|p| p.meta.product_code.clone());
+        let new_product = products
+            .first()
+            .ok_or_else(|| anyhow::anyhow!("替换物料不存在: {}", new_product_id))?;
+        let new_product_code = new_product.meta.product_code.clone();
 
         let mut affected_bom_count: i64 = 0;
         let mut replaced_node_count: i64 = 0;
@@ -648,30 +655,28 @@ impl BomService for BomServiceImpl {
             for node in &mut bom.bom_detail.nodes {
                 if node.product_id == old_product_id {
                     node.product_id = new_product_id;
-                    node.product_code = new_product_code.clone();
+                    node.product_code = Some(new_product_code.clone());
 
-                    if let Some(ref ov) = overrides {
-                        if let Some(q) = ov.quantity {
-                            node.quantity = q;
-                        }
-                        if let Some(lr) = ov.loss_rate {
-                            node.loss_rate = lr;
-                        }
-                        if let Some(ref u) = ov.unit {
-                            node.unit = Some(u.clone());
-                        }
-                        if let Some(ref r) = ov.remark {
-                            node.remark = Some(r.clone());
-                        }
-                        if let Some(ref p) = ov.position {
-                            node.position = Some(p.clone());
-                        }
-                        if let Some(ref w) = ov.work_center {
-                            node.work_center = Some(w.clone());
-                        }
-                        if let Some(ref p) = ov.properties {
-                            node.properties = Some(p.clone());
-                        }
+                    if let Some(q) = overrides.quantity {
+                        node.quantity = q;
+                    }
+                    if let Some(lr) = overrides.loss_rate {
+                        node.loss_rate = lr;
+                    }
+                    if let Some(ref u) = overrides.unit {
+                        node.unit = Some(u.clone());
+                    }
+                    if let Some(ref r) = overrides.remark {
+                        node.remark = Some(r.clone());
+                    }
+                    if let Some(ref p) = overrides.position {
+                        node.position = Some(p.clone());
+                    }
+                    if let Some(ref w) = overrides.work_center {
+                        node.work_center = Some(w.clone());
+                    }
+                    if let Some(ref p) = overrides.properties {
+                        node.properties = Some(p.clone());
                     }
 
                     replaced_node_count += 1;

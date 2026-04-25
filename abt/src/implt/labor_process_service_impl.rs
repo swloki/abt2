@@ -449,7 +449,7 @@ impl LaborProcessService for LaborProcessServiceImpl {
             worksheet.write_string(row_num, 0, &b.bom_name)?;
             worksheet.write_string(row_num, 1, b.product_code.as_deref().unwrap_or(""))?;
             worksheet.write_string(row_num, 2, b.product_name.as_deref().unwrap_or(""))?;
-            worksheet.write_string(row_num, 3, &b.created_at.format("%Y-%m-%d %H:%M").to_string())?;
+            worksheet.write_string(row_num, 3, b.created_at.format("%Y-%m-%d %H:%M").to_string())?;
         }
 
         let bytes = workbook.save_to_buffer()?;

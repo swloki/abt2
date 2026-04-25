@@ -95,12 +95,10 @@ impl ProductRepo {
 
         if let Some(pdt_name) = &query.pdt_name
             && !pdt_name.is_empty()
-        {
-            if let Some(pattern) = build_fuzzy_pattern(pdt_name) {
+            && let Some(pattern) = build_fuzzy_pattern(pdt_name) {
                 qb.push(" AND p.pdt_name ILIKE ");
                 qb.push_bind(pattern);
             }
-        }
 
         if let Some(product_code) = &query.product_code
             && !product_code.is_empty()

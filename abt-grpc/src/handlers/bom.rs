@@ -412,29 +412,19 @@ impl GrpcBomService for BomHandler {
         &self,
         request: Request<SubstituteProductRequest>,
     ) -> GrpcResult<SubstituteProductResponse> {
+        let _auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let overrides = if req.quantity.is_some()
-            || req.loss_rate.is_some()
-            || req.unit.is_some()
-            || req.remark.is_some()
-            || req.position.is_some()
-            || req.work_center.is_some()
-            || req.properties.is_some()
-        {
-            Some(abt::service::AttributeOverrides {
-                quantity: req.quantity,
-                loss_rate: req.loss_rate,
-                unit: req.unit,
-                remark: req.remark,
-                position: req.position,
-                work_center: req.work_center,
-                properties: req.properties,
-            })
-        } else {
-            None
+        let overrides = abt::AttributeOverrides {
+            quantity: req.quantity,
+            loss_rate: req.loss_rate,
+            unit: req.unit,
+            remark: req.remark,
+            position: req.position,
+            work_center: req.work_center,
+            properties: req.properties,
         };
 
         let mut tx = state

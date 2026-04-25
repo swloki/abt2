@@ -113,6 +113,18 @@ impl BomRepo {
         Ok(row)
     }
 
+    /// 查找 BOM 并加行锁（用于先读后写模式，必须在事务内调用）
+    pub async fn find_by_id_for_update(executor: Executor<'_>, bom_id: i64) -> Result<Option<Bom>> {
+        let row = sqlx::query_as::<_, Bom>(
+            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id FROM bom WHERE bom_id = $1 FOR UPDATE",
+        )
+        .bind(bom_id)
+        .fetch_optional(executor)
+        .await?;
+
+        Ok(row)
+    }
+
     /// 使用连接池查找 BOM（用于只读操作）
     /// 注意：Bom 有自定义 FromRow impl，需要用 runtime query
     #[allow(dead_code)]
@@ -185,12 +197,10 @@ impl BomRepo {
     ) {
         if let Some(bom_name) = &bom_query.bom_name
             && !bom_name.is_empty()
-        {
-            if let Some(pattern) = build_fuzzy_pattern(bom_name) {
+            && let Some(pattern) = build_fuzzy_pattern(bom_name) {
                 query.push(" AND bom_name ILIKE ");
                 query.push_bind(pattern);
             }
-        }
         if let Some(create_by) = &bom_query.create_by
             && !create_by.is_empty()
         {
@@ -283,7 +293,7 @@ impl BomRepo {
 
     /// 查询所有包含指定产品的完整 BOM 列表（用于物料替换）
     pub async fn find_all_boms_using_product(
-        pool: &PgPool,
+        executor: Executor<'_>,
         product_id: i64,
     ) -> Result<Vec<Bom>> {
         let rows = sqlx::query_as::<_, Bom>(
@@ -294,10 +304,11 @@ impl BomRepo {
                 SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node
                 WHERE (node->>'product_id')::bigint = $1
             )
+            FOR UPDATE
             "#,
         )
         .bind(product_id)
-        .fetch_all(pool)
+        .fetch_all(executor)
         .await?;
 
         Ok(rows)

@@ -22,7 +22,7 @@ mod warehouse_service;
 
 pub use auth_service::AuthService;
 pub use bom_category_service::BomCategoryService;
-pub use bom_service::BomService;
+pub use bom_service::{AttributeOverrides, BomService};
 pub use department_service::DepartmentService;
 pub use labor_process_service::LaborProcessService;
 pub use labor_process_dict_service::LaborProcessDictService;

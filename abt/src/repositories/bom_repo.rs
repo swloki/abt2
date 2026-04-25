@@ -281,6 +281,28 @@ impl BomRepo {
         Ok(ProductUsageResult { boms, total })
     }
 
+    /// 查询所有包含指定产品的完整 BOM 列表（用于物料替换）
+    pub async fn find_all_boms_using_product(
+        pool: &PgPool,
+        product_id: i64,
+    ) -> Result<Vec<Bom>> {
+        let rows = sqlx::query_as::<_, Bom>(
+            r#"
+            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id
+            FROM bom
+            WHERE EXISTS (
+                SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node
+                WHERE (node->>'product_id')::bigint = $1
+            )
+            "#,
+        )
+        .bind(product_id)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
+    }
+
     /// 批量查询哪些 product_code 有对应的 BOM（根节点）
     /// 返回有 BOM 的 product_code 集合
     pub async fn find_product_codes_with_bom(

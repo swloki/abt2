@@ -2703,6 +2703,38 @@ pub struct DownloadBomRequest {
     #[prost(int64, tag = "1")]
     pub bom_id: i64,
 }
+/// 物料替换请求
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SubstituteProductRequest {
+    #[prost(int64, tag = "1")]
+    pub old_product_id: i64,
+    #[prost(int64, tag = "2")]
+    pub new_product_id: i64,
+    #[prost(int64, optional, tag = "3")]
+    pub bom_id: ::core::option::Option<i64>,
+    #[prost(double, optional, tag = "4")]
+    pub quantity: ::core::option::Option<f64>,
+    #[prost(double, optional, tag = "5")]
+    pub loss_rate: ::core::option::Option<f64>,
+    #[prost(string, optional, tag = "6")]
+    pub unit: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "7")]
+    pub remark: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "8")]
+    pub position: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "9")]
+    pub work_center: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "10")]
+    pub properties: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// 物料替换响应
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SubstituteProductResponse {
+    #[prost(int64, tag = "1")]
+    pub affected_bom_count: i64,
+    #[prost(int64, tag = "2")]
+    pub replaced_node_count: i64,
+}
 /// Generated client implementations.
 pub mod abt_bom_service_client {
     #![allow(
@@ -3119,6 +3151,31 @@ pub mod abt_bom_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtBomService", "DownloadBom"));
             self.inner.server_streaming(req, path, codec).await
         }
+        /// 物料替换
+        pub async fn substitute_product(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SubstituteProductRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SubstituteProductResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtBomService/SubstituteProduct",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtBomService", "SubstituteProduct"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -3205,6 +3262,14 @@ pub mod abt_bom_service_server {
             request: tonic::Request<super::DownloadBomRequest>,
         ) -> std::result::Result<
             tonic::Response<Self::DownloadBomStream>,
+            tonic::Status,
+        >;
+        /// 物料替换
+        async fn substitute_product(
+            &self,
+            request: tonic::Request<super::SubstituteProductRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SubstituteProductResponse>,
             tonic::Status,
         >;
     }
@@ -3957,6 +4022,52 @@ pub mod abt_bom_service_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtBomService/SubstituteProduct" => {
+                    #[allow(non_camel_case_types)]
+                    struct SubstituteProductSvc<T: AbtBomService>(pub Arc<T>);
+                    impl<
+                        T: AbtBomService,
+                    > tonic::server::UnaryService<super::SubstituteProductRequest>
+                    for SubstituteProductSvc<T> {
+                        type Response = super::SubstituteProductResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SubstituteProductRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtBomService>::substitute_product(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SubstituteProductSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)

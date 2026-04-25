@@ -23,6 +23,8 @@ service AbtBomService {
   rpc GetProductCode(GetProductCodeRequest) returns (StringResponse);
   // 流式下载 BOM 导出文件
   rpc DownloadBom(DownloadBomRequest) returns (stream DownloadFileResponse);
+  // 物料替换
+  rpc SubstituteProduct(SubstituteProductRequest) returns (SubstituteProductResponse);
 }
 
 message BomNodeProto {
@@ -173,4 +175,24 @@ message GetProductCodeRequest {
 // 流式下载 BOM 请求
 message DownloadBomRequest {
   int64 bom_id = 1;
+}
+
+// 物料替换请求
+message SubstituteProductRequest {
+  int64 old_product_id = 1;
+  int64 new_product_id = 2;
+  optional int64 bom_id = 3;
+  optional double quantity = 4;
+  optional double loss_rate = 5;
+  optional string unit = 6;
+  optional string remark = 7;
+  optional string position = 8;
+  optional string work_center = 9;
+  optional string properties = 10;
+}
+
+// 物料替换响应
+message SubstituteProductResponse {
+  int64 affected_bom_count = 1;
+  int64 replaced_node_count = 2;
 }

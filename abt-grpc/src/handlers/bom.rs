@@ -406,4 +406,60 @@ impl GrpcBomService for BomHandler {
         );
         Ok(Response::new(crate::handlers::stream_excel_bytes(file_name, bytes)))
     }
+
+    #[require_permission(Resource::Bom, Action::Write)]
+    async fn substitute_product(
+        &self,
+        request: Request<SubstituteProductRequest>,
+    ) -> GrpcResult<SubstituteProductResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.bom_service();
+
+        let overrides = if req.quantity.is_some()
+            || req.loss_rate.is_some()
+            || req.unit.is_some()
+            || req.remark.is_some()
+            || req.position.is_some()
+            || req.work_center.is_some()
+            || req.properties.is_some()
+        {
+            Some(abt::service::AttributeOverrides {
+                quantity: req.quantity,
+                loss_rate: req.loss_rate,
+                unit: req.unit,
+                remark: req.remark,
+                position: req.position,
+                work_center: req.work_center,
+                properties: req.properties,
+            })
+        } else {
+            None
+        };
+
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+
+        let (affected_bom_count, replaced_node_count) = srv
+            .substitute_product(
+                req.old_product_id,
+                req.new_product_id,
+                req.bom_id,
+                overrides,
+                &mut tx,
+            )
+            .await
+            .map_err(error::err_to_status)?;
+
+        tx.commit()
+            .await
+            .map_err(error::sqlx_err_to_status)?;
+
+        Ok(Response::new(SubstituteProductResponse {
+            affected_bom_count,
+            replaced_node_count,
+        }))
+    }
 }

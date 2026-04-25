@@ -12,7 +12,7 @@ use std::sync::{Arc, OnceLock};
 
 use crate::models::{Bom, BomDetail, BomNode, BomQuery, Product};
 use crate::repositories::{BomRepo, Executor, ProductRepo};
-use crate::service::BomService;
+use crate::service::{AttributeOverrides, BomService};
 
 /// BOM 节点与产品的关联结构
 struct NodeWithProduct {
@@ -615,6 +615,89 @@ impl BomService for BomServiceImpl {
         }
 
         Ok(None)
+    }
+
+    async fn substitute_product(
+        &self,
+        old_product_id: i64,
+        new_product_id: i64,
+        bom_id: Option<i64>,
+        overrides: Option<AttributeOverrides>,
+        executor: Executor<'_>,
+    ) -> Result<(i64, i64)> {
+        // 1. 获取新物料的 product_code
+        let products = ProductRepo::find_by_ids(&self.pool, &[new_product_id]).await?;
+        let new_product_code = products
+            .first()
+            .map(|p| p.meta.product_code.clone());
+
+        // 2. 加载需要修改的 BOM
+        let mut boms = match bom_id {
+            Some(id) => {
+                let bom = BomRepo::find_by_id(executor, id).await?;
+                match bom {
+                    Some(b) => vec![b],
+                    None => return Err(anyhow::anyhow!("BOM not found")),
+                }
+            }
+            None => BomRepo::find_all_boms_using_product(&self.pool, old_product_id).await?,
+        };
+
+        // 3. 遍历替换
+        let mut affected_bom_count: i64 = 0;
+        let mut replaced_node_count: i64 = 0;
+
+        for bom in &mut boms {
+            let mut bom_changed = false;
+
+            for node in &mut bom.bom_detail.nodes {
+                if node.product_id == old_product_id {
+                    node.product_id = new_product_id;
+                    node.product_code = new_product_code.clone();
+
+                    if let Some(ref ov) = overrides {
+                        if let Some(q) = ov.quantity {
+                            node.quantity = q;
+                        }
+                        if let Some(lr) = ov.loss_rate {
+                            node.loss_rate = lr;
+                        }
+                        if ov.unit.is_some() {
+                            node.unit.clone_from(&ov.unit);
+                        }
+                        if ov.remark.is_some() {
+                            node.remark.clone_from(&ov.remark);
+                        }
+                        if ov.position.is_some() {
+                            node.position.clone_from(&ov.position);
+                        }
+                        if ov.work_center.is_some() {
+                            node.work_center.clone_from(&ov.work_center);
+                        }
+                        if ov.properties.is_some() {
+                            node.properties.clone_from(&ov.properties);
+                        }
+                    }
+
+                    replaced_node_count += 1;
+                    bom_changed = true;
+                }
+            }
+
+            if bom_changed {
+                BomRepo::update(
+                    executor,
+                    bom.bom_id,
+                    &bom.bom_name,
+                    Some(&bom.bom_detail),
+                    bom.bom_category_id,
+                )
+                .await?;
+                affected_bom_count += 1;
+            }
+        }
+
+        Ok((affected_bom_count, replaced_node_count))
     }
 }
 

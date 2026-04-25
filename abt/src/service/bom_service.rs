@@ -72,4 +72,28 @@ pub trait BomService: Send + Sync {
 
     /// 获取 BOM 的产品编码（BOM 第一个节点的产品编码）
     async fn get_product_code(&self, bom_id: i64, executor: Executor<'_>) -> Result<Option<String>>;
+
+    /// 物料替换
+    /// 将 BOM 中的旧物料替换为新物料，支持属性覆盖
+    async fn substitute_product(
+        &self,
+        old_product_id: i64,
+        new_product_id: i64,
+        bom_id: Option<i64>,
+        overrides: Option<AttributeOverrides>,
+        executor: Executor<'_>,
+    ) -> Result<(i64, i64)>;
+}
+
+/// 属性覆盖结构体
+/// 每个字段为 Option<T>，None 表示保持原值，Some(value) 表示覆盖
+#[derive(Default, Debug, Clone)]
+pub struct AttributeOverrides {
+    pub quantity: Option<f64>,
+    pub loss_rate: Option<f64>,
+    pub unit: Option<String>,
+    pub remark: Option<String>,
+    pub position: Option<String>,
+    pub work_center: Option<String>,
+    pub properties: Option<String>,
 }

@@ -73,17 +73,19 @@ origin: docs/brainstorms/2026-04-25-bom-product-substitution-requirements.md
 
 - `find_boms_using_product` 不满足批量替换需求（只返回 BomReference）→ 新增 `find_all_boms_using_product` 仓库方法
 - 属性覆盖的 proto 表达 → 使用 `optional` 字段，每个属性独立可选
+- product_code 获取方式 → 使用 `ProductRepo::find_by_ids(&self.pool, &[new_product_id])` 查询产品，取出 product.meta.product_code（与现有 `load_bom_with_products` 方法模式一致）
 
 ### Deferred to Implementation
 
-- 新物料的 product_code 查询方式：是否需要新增 repository 方法，还是通过现有 product service 获取
 - 具体的 JSONB 替换 SQL 是否可行（直接在 SQL 层面用 `jsonb_set` 替换，还是保持 load-modify-save 模式）
+- `find_all_boms_using_product` 方法签名：接受 `pool` 还是 `Executor`（影响是否在事务内读取）
+- U4 事务范围：product_code 查询是否应包含在事务内
 
 ---
 
 ## Implementation Units
 
-- [ ] U1. **Proto 定义**
+- [x] U1. **Proto 定义**
 
 **Goal:** 定义 `SubstituteProduct` RPC 及其请求/响应消息
 
@@ -111,7 +113,7 @@ origin: docs/brainstorms/2026-04-25-bom-product-substitution-requirements.md
 
 ---
 
-- [ ] U2. **仓库层：新增查询方法**
+- [x] U2. **仓库层：新增查询方法**
 
 **Goal:** 新增仓库方法，查找所有包含指定 product_id 的完整 BOM 列表
 
@@ -125,6 +127,7 @@ origin: docs/brainstorms/2026-04-25-bom-product-substitution-requirements.md
 **Approach:**
 - 新增 `find_all_boms_using_product(pool, product_id) -> Result<Vec<Bom>>` 方法
 - SQL 使用 `jsonb_array_elements` + `EXISTS` 模式（与现有 `find_boms_using_product` 一致），但返回完整 BOM 行而非仅 bom_id/bom_name
+- 必须使用 `sqlx::query_as::<_, Bom>(...)`（运行时查询），因为 `Bom` 有自定义 `FromRow` impl，需要 `bom_detail::text` 类型转换。不能使用 `sqlx::query_as!` 宏
 - 无分页（物料替换需要获取全部），但可以考虑加 LIMIT 保护
 
 **Patterns to follow:**
@@ -139,7 +142,7 @@ origin: docs/brainstorms/2026-04-25-bom-product-substitution-requirements.md
 
 ---
 
-- [ ] U3. **Service trait 与实现**
+- [x] U3. **Service trait 与实现**
 
 **Goal:** 定义 `substitute_product` 服务接口并实现替换逻辑
 
@@ -157,12 +160,13 @@ origin: docs/brainstorms/2026-04-25-bom-product-substitution-requirements.md
 - 实现逻辑：
   1. 如果指定 `bom_id`：`find_by_id` 加载该 BOM
   2. 如果未指定 `bom_id`：`find_all_boms_using_product` 加载所有匹配 BOM
-  3. 遍历每个 BOM 的 nodes，将匹配 `old_product_id` 的节点替换：
+  3. 使用 `ProductRepo::find_by_ids` 查询新物料的 product_code（与 `load_bom_with_products` 模式一致）
+  4. 遍历每个 BOM 的 nodes，将匹配 `old_product_id` 的节点替换：
      - 更新 `product_id` 为新值
      - 更新 `product_code` 为新物料的 code
-     - 如果有属性覆盖，应用覆盖值
-  4. 对每个修改过的 BOM 调用 `update` 写回
-  5. 统计并返回受影响的 BOM 数和节点数
+     - 属性覆盖逻辑：`AttributeOverrides` 中每个字段为 `Option<T>`，`None` 表示保持原值，`Some(value)` 表示覆盖为 value
+  5. 对每个修改过的 BOM 调用 `update` 写回，同时累计 `affected_bom_count`（有节点被修改的 BOM 数）和 `replaced_node_count`（总替换节点数）
+  6. 返回 `(affected_bom_count, replaced_node_count)`
 
 **Patterns to follow:**
 - `abt/src/implt/bom_service_impl.rs` 中 `update_node` 的 load-modify-save 模式
@@ -176,7 +180,7 @@ origin: docs/brainstorms/2026-04-25-bom-product-substitution-requirements.md
 
 ---
 
-- [ ] U4. **gRPC Handler 与转换**
+- [x] U4. **gRPC Handler 与转换**
 
 **Goal:** 添加 handler 方法，处理 proto 请求/响应转换，连接事务和权限
 

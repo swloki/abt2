@@ -86,7 +86,6 @@ pub trait BomService: Send + Sync {
 }
 
 /// 属性覆盖结构体
-/// 每个字段为 Option<T>，None 表示保持原值，Some(value) 表示覆盖
 #[derive(Default, Debug, Clone)]
 pub struct AttributeOverrides {
     pub quantity: Option<f64>,

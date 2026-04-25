@@ -625,13 +625,6 @@ impl BomService for BomServiceImpl {
         overrides: Option<AttributeOverrides>,
         executor: Executor<'_>,
     ) -> Result<(i64, i64)> {
-        // 1. 获取新物料的 product_code
-        let products = ProductRepo::find_by_ids(&self.pool, &[new_product_id]).await?;
-        let new_product_code = products
-            .first()
-            .map(|p| p.meta.product_code.clone());
-
-        // 2. 加载需要修改的 BOM
         let mut boms = match bom_id {
             Some(id) => {
                 let bom = BomRepo::find_by_id(executor, id).await?;
@@ -643,7 +636,9 @@ impl BomService for BomServiceImpl {
             None => BomRepo::find_all_boms_using_product(&self.pool, old_product_id).await?,
         };
 
-        // 3. 遍历替换
+        let products = ProductRepo::find_by_ids(&self.pool, &[new_product_id]).await?;
+        let new_product_code = products.first().map(|p| p.meta.product_code.clone());
+
         let mut affected_bom_count: i64 = 0;
         let mut replaced_node_count: i64 = 0;
 
@@ -662,20 +657,20 @@ impl BomService for BomServiceImpl {
                         if let Some(lr) = ov.loss_rate {
                             node.loss_rate = lr;
                         }
-                        if ov.unit.is_some() {
-                            node.unit.clone_from(&ov.unit);
+                        if let Some(ref u) = ov.unit {
+                            node.unit = Some(u.clone());
                         }
-                        if ov.remark.is_some() {
-                            node.remark.clone_from(&ov.remark);
+                        if let Some(ref r) = ov.remark {
+                            node.remark = Some(r.clone());
                         }
-                        if ov.position.is_some() {
-                            node.position.clone_from(&ov.position);
+                        if let Some(ref p) = ov.position {
+                            node.position = Some(p.clone());
                         }
-                        if ov.work_center.is_some() {
-                            node.work_center.clone_from(&ov.work_center);
+                        if let Some(ref w) = ov.work_center {
+                            node.work_center = Some(w.clone());
                         }
-                        if ov.properties.is_some() {
-                            node.properties.clone_from(&ov.properties);
+                        if let Some(ref p) = ov.properties {
+                            node.properties = Some(p.clone());
                         }
                     }
 

@@ -377,18 +377,11 @@ impl RoutingRepo {
 
         let total: i64 = sqlx::query_scalar::<_, i64>(
             r#"
-            SELECT COUNT(*)
-            FROM bom b
-            WHERE EXISTS (
-                SELECT 1 FROM bom_routing br
-                JOIN products p ON p.meta->>'product_code' = br.product_code
-                WHERE br.routing_id = $1
-                AND EXISTS (
-                    SELECT 1 FROM jsonb_array_elements(b.bom_detail->'nodes') AS node
-                    WHERE (node->>'product_id')::bigint = p.product_id
-                    AND (node->>'parent_id')::bigint = 0
-                )
-            )
+            SELECT COUNT(DISTINCT b.bom_id)
+            FROM bom_routing br
+            JOIN products p ON p.meta->>'product_code' = br.product_code
+            JOIN bom b ON b.bom_detail @> jsonb_build_object('nodes', jsonb_build_array(jsonb_build_object('product_id', p.product_id, 'parent_id', 0)))
+            WHERE br.routing_id = $1
             "#,
         )
         .bind(routing_id)
@@ -397,18 +390,11 @@ impl RoutingRepo {
 
         let items: Vec<BomBrief> = sqlx::query_as(
             r#"
-            SELECT b.bom_id, b.bom_name, b.create_at as created_at
-            FROM bom b
-            WHERE EXISTS (
-                SELECT 1 FROM bom_routing br
-                JOIN products p ON p.meta->>'product_code' = br.product_code
-                WHERE br.routing_id = $1
-                AND EXISTS (
-                    SELECT 1 FROM jsonb_array_elements(b.bom_detail->'nodes') AS node
-                    WHERE (node->>'product_id')::bigint = p.product_id
-                    AND (node->>'parent_id')::bigint = 0
-                )
-            )
+            SELECT DISTINCT b.bom_id, b.bom_name, b.create_at as created_at
+            FROM bom_routing br
+            JOIN products p ON p.meta->>'product_code' = br.product_code
+            JOIN bom b ON b.bom_detail @> jsonb_build_object('nodes', jsonb_build_array(jsonb_build_object('product_id', p.product_id, 'parent_id', 0)))
+            WHERE br.routing_id = $1
             ORDER BY b.bom_id DESC
             LIMIT $2 OFFSET $3
             "#,

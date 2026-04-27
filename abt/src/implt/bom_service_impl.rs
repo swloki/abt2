@@ -379,9 +379,15 @@ impl BomService for BomServiceImpl {
             None => return Err(anyhow::anyhow!("BOM not found")),
         };
 
-        // 查找并更新节点
+        // 查找并更新节点（只更新可编辑字段，保留 product_id / parent_id / order / product_code）
         if let Some(existing_node) = bom.bom_detail.nodes.iter_mut().find(|n| n.id == node.id) {
-            *existing_node = node;
+            existing_node.quantity = node.quantity;
+            existing_node.loss_rate = node.loss_rate;
+            existing_node.unit = node.unit;
+            existing_node.remark = node.remark;
+            existing_node.position = node.position;
+            existing_node.work_center = node.work_center;
+            existing_node.properties = node.properties;
         }
 
         BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await

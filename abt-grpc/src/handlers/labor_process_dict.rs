@@ -13,6 +13,7 @@ use crate::handlers::{empty_to_none, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::permissions::PermissionCode;
 use crate::server::AppState;
+use abt::{ExcelExportService, ExportRequest};
 
 pub struct LaborProcessDictHandler;
 
@@ -177,10 +178,10 @@ impl GrpcLaborProcessDictService for LaborProcessDictHandler {
         _request: Request<ExportLaborProcessDictsRequest>,
     ) -> Result<Response<Self::ExportLaborProcessDictsStream>, tonic::Status> {
         let state = AppState::get().await;
-        let srv = state.labor_process_dict_service();
 
-        let bytes = srv
-            .export_to_bytes()
+        let exporter = abt::excel::LaborProcessDictExporter::new(state.pool());
+        let bytes = exporter
+            .export(ExportRequest { params: () })
             .await
             .map_err(error::err_to_status)?;
 

@@ -1,24 +1,30 @@
 //! Excel gRPC Handler
 
-use std::path::Path;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 use tokio_stream::wrappers::ReceiverStream;
 use common::error;
 use tonic::{Request, Response, Streaming};
 use crate::generated::abt::v1::{abt_excel_service_server::AbtExcelService as GrpcExcelService, *};
-use crate::handlers::GrpcResult;
+use crate::handlers::{validate_upload_path, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
 use crate::permissions::PermissionCode;
+use abt::{ExcelImportService, ExcelExportService, ImportSource, ExportRequest};
 
-// Import trait to bring methods into scope
-use abt::ProductExcelService;
+const IMPORT_KEY_PRODUCT_INVENTORY: &str = "product_inventory";
+const EXPORT_TYPE_PRODUCTS_WITHOUT_PRICE: &str = "products_without_price";
 
-pub struct ExcelHandler;
+pub struct ExcelHandler {
+    active_imports: Mutex<HashMap<String, Arc<abt::excel::ProgressTracker>>>,
+}
 
 impl ExcelHandler {
     pub fn new() -> Self {
-        Self
+        Self {
+            active_imports: Mutex::new(HashMap::new()),
+        }
     }
 }
 
@@ -37,7 +43,6 @@ impl GrpcExcelService for ExcelHandler {
     ) -> Result<Response<UploadFileResponse>, tonic::Status> {
         let upload_dir = std::env::temp_dir();
 
-        // 确保上传目录存在
         tokio::fs::create_dir_all(&upload_dir)
             .await
             .map_err(|e| error::err_to_status(anyhow::anyhow!("Failed to create upload dir: {}", e)))?;
@@ -56,7 +61,6 @@ impl GrpcExcelService for ExcelHandler {
             match msg.data {
                 Some(upload_file_request::Data::FileName(name)) => {
                     file_name = name;
-                    // 生成唯一文件名
                     let unique_name = format!("{}_{}", chrono::Utc::now().format("%Y%m%d%H%M%S"), file_name);
                     let path = upload_dir.join(&unique_name);
                     file_path = Some(path.clone());
@@ -80,7 +84,6 @@ impl GrpcExcelService for ExcelHandler {
             }
         }
 
-        // 确保文件已刷新到磁盘
         if let Some(ref mut f) = file {
             use tokio::io::AsyncWriteExt;
             f.flush()
@@ -90,7 +93,6 @@ impl GrpcExcelService for ExcelHandler {
 
         let file_path = file_path.ok_or_else(|| error::validation("file", "No file uploaded"))?;
 
-        // 返回绝对路径
         let absolute_path = file_path.to_string_lossy().to_string();
 
         Ok(Response::new(UploadFileResponse {
@@ -106,22 +108,35 @@ impl GrpcExcelService for ExcelHandler {
     ) -> GrpcResult<ImportResultResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.excel_service();
 
-        let path = Path::new(&req.file_path);
-        let operator_id = req.operator_id;
+        let path = std::path::Path::new(&req.file_path);
+        validate_upload_path(&req.file_path)?;
 
-        // 安全校验：只允许导入上传目录下的文件
-        let upload_dir = std::env::temp_dir().canonicalize()
-            .map_err(|e| error::err_to_status(anyhow::anyhow!("无法解析上传目录: {}", e)))?;
-        let canonical = path.canonicalize()
-            .map_err(|e| error::err_to_status(anyhow::anyhow!("无法解析文件路径: {}", e)))?;
-        if !canonical.starts_with(&upload_dir) {
-            return Err(error::validation("file_path", "只允许导入上传目录中的文件"));
+        // 读取文件内容到内存，使用 ImportSource::Bytes 导入
+        let bytes = tokio::fs::read(path)
+            .await
+            .map_err(|e| error::err_to_status(anyhow::anyhow!("无法读取上传文件: {}", e)))?;
+
+        let pool = state.pool();
+        let tracker = abt::excel::ProgressTracker::new();
+        let mut importer = abt::excel::ProductInventoryImporter::new(pool.clone(), tracker.clone());
+        if let Some(operator_id) = req.operator_id {
+            importer = importer.with_operator(operator_id);
         }
 
-        let result = srv.import_quantity_from_excel(&state.pool(), path, operator_id).await
-            .map_err(error::err_to_status)?;
+        {
+            let mut guard = self.active_imports.lock().unwrap_or_else(|e| e.into_inner());
+            guard.insert(IMPORT_KEY_PRODUCT_INVENTORY.to_string(), tracker);
+        }
+
+        let result = importer.import(ImportSource::Bytes(bytes)).await;
+
+        {
+            let mut guard = self.active_imports.lock().unwrap_or_else(|e| e.into_inner());
+            guard.remove(IMPORT_KEY_PRODUCT_INVENTORY);
+        }
+
+        let result = result.map_err(error::err_to_status)?;
 
         Ok(Response::new(ImportResultResponse {
             success_count: result.success_count as i32,
@@ -134,21 +149,28 @@ impl GrpcExcelService for ExcelHandler {
     async fn export_excel(&self, request: Request<ExportExcelRequest>) -> GrpcResult<Empty> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.excel_service();
 
-        let path = Path::new(&req.file_path);
-        srv.export_products_to_excel(&state.pool(), path).await
+        validate_upload_path(&req.file_path)?;
+
+        let exporter = abt::excel::ProductAllExporter::new(state.pool());
+        let bytes = exporter.export(ExportRequest { params: () })
+            .await
             .map_err(error::err_to_status)?;
+
+        tokio::fs::write(&req.file_path, bytes)
+            .await
+            .map_err(|e| error::err_to_status(anyhow::anyhow!("无法写入导出文件: {}", e)))?;
 
         Ok(Response::new(Empty {}))
     }
 
     #[require_permission(Resource::Excel, Action::Read)]
     async fn get_progress(&self, _request: Request<Empty>) -> GrpcResult<ExcelProgressResponse> {
-        let state = AppState::get().await;
-        let srv = state.excel_service();
-
-        let progress = srv.get_progress();
+        let guard = self.active_imports.lock().unwrap_or_else(|e| e.into_inner());
+        let progress = guard
+            .get(IMPORT_KEY_PRODUCT_INVENTORY)
+            .map(|t| t.snapshot())
+            .unwrap_or_default();
 
         Ok(Response::new(ExcelProgressResponse {
             current: progress.current as i32,
@@ -165,12 +187,11 @@ impl GrpcExcelService for ExcelHandler {
     ) -> Result<Response<Self::DownloadExportFileStream>, tonic::Status> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.excel_service();
 
         let (bytes, file_name) = match req.export_type.as_str() {
-            "products_without_price" => {
-                let b = srv
-                    .export_products_without_price_to_bytes(&state.pool())
+            EXPORT_TYPE_PRODUCTS_WITHOUT_PRICE => {
+                let exporter = abt::excel::ProductWithoutPriceExporter::new(state.pool());
+                let b = exporter.export(ExportRequest { params: () })
                     .await
                     .map_err(error::err_to_status)?;
                 let name = format!(
@@ -180,9 +201,8 @@ impl GrpcExcelService for ExcelHandler {
                 (b, name)
             }
             _ => {
-                // 默认导出所有产品
-                let b = srv
-                    .export_products_to_bytes(&state.pool())
+                let exporter = abt::excel::ProductAllExporter::new(state.pool());
+                let b = exporter.export(ExportRequest { params: () })
                     .await
                     .map_err(error::err_to_status)?;
                 let name = format!(

@@ -4,6 +4,7 @@ use abt::LaborProcessService;
 use abt_macros::require_permission;
 use common::error;
 use rust_decimal::Decimal;
+use std::sync::Arc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response};
 
@@ -14,6 +15,7 @@ use crate::handlers::{empty_to_none, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::permissions::PermissionCode;
 use crate::server::AppState;
+use abt::{ExcelExportService, ExportRequest, ImportSource};
 
 pub struct LaborProcessHandler;
 
@@ -207,10 +209,10 @@ impl GrpcLaborProcessService for LaborProcessHandler {
     ) -> Result<Response<Self::ExportLaborProcessesStream>, tonic::Status> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.labor_process_service();
 
-        let bytes = srv
-            .export_to_bytes(&req.product_code)
+        let exporter = abt::excel::LaborProcessExporter::new(state.pool());
+        let bytes = exporter
+            .export(ExportRequest { params: req.product_code.clone() })
             .await
             .map_err(error::err_to_status)?;
 
@@ -228,10 +230,10 @@ impl GrpcLaborProcessService for LaborProcessHandler {
         _request: Request<ExportBomsWithoutLaborCostRequest>,
     ) -> Result<Response<Self::ExportBomsWithoutLaborCostStream>, tonic::Status> {
         let state = AppState::get().await;
-        let srv = state.labor_process_service();
 
-        let bytes = srv
-            .export_boms_without_labor_cost()
+        let exporter = abt::excel::BomsWithoutLaborCostExporter::new(state.pool());
+        let bytes = exporter
+            .export(ExportRequest { params: () })
             .await
             .map_err(error::err_to_status)?;
 
@@ -248,11 +250,31 @@ impl GrpcLaborProcessService for LaborProcessHandler {
     ) -> GrpcResult<ImportLaborProcessesResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.labor_process_service();
-        let routing_srv = state.routing_service();
 
-        let result = srv
-            .import_from_excel(&req.file_path, &routing_srv)
+        // 路径校验：只允许读取上传目录中的文件
+        let path = std::path::Path::new(&req.file_path);
+        let upload_dir = std::env::temp_dir().canonicalize()
+            .map_err(|e| error::err_to_status(anyhow::anyhow!("无法解析上传目录: {}", e)))?;
+        let canonical = path.canonicalize()
+            .map_err(|e| error::err_to_status(anyhow::anyhow!("无法解析文件路径: {}", e)))?;
+        if !canonical.starts_with(&upload_dir) {
+            return Err(error::validation("file_path", "只允许导入上传目录中的文件"));
+        }
+
+        let bytes = tokio::fs::read(path)
+            .await
+            .map_err(|e| error::err_to_status(anyhow::anyhow!("无法读取上传文件: {}", e)))?;
+
+        let routing_srv = state.routing_service();
+        let tracker = abt::excel::ProgressTracker::new();
+        let importer = abt::excel::LaborProcessImporter::new(
+            state.pool(),
+            tracker,
+            Arc::new(routing_srv),
+        );
+
+        let result = importer
+            .import(ImportSource::Bytes(bytes))
             .await
             .map_err(error::err_to_status)?;
 

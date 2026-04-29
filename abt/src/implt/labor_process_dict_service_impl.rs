@@ -2,15 +2,11 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
-use rust_xlsxwriter::Workbook;
 use sqlx::PgPool;
 
 use crate::models::*;
 use crate::repositories::{Executor, LaborProcessDictRepo};
 use crate::service::LaborProcessDictService;
-
-/// 工序字典 Excel 列头
-const DICT_EXCEL_COLUMNS: &[&str] = &["工序编码", "工序名称", "说明", "排序"];
 
 pub struct LaborProcessDictServiceImpl {
     pool: PgPool,
@@ -97,27 +93,5 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
         }
 
         LaborProcessDictRepo::delete(executor, id).await
-    }
-
-    async fn export_to_bytes(&self) -> Result<Vec<u8>> {
-        let items = LaborProcessDictRepo::list_all(&self.pool).await?;
-
-        let mut workbook = Workbook::new();
-        let worksheet = workbook.add_worksheet();
-
-        for (col, header) in DICT_EXCEL_COLUMNS.iter().enumerate() {
-            worksheet.write_string(0, col as u16, *header)?;
-        }
-
-        for (row_idx, d) in items.iter().enumerate() {
-            let row_num = (row_idx + 1) as u32;
-            worksheet.write_string(row_num, 0, &d.code)?;
-            worksheet.write_string(row_num, 1, &d.name)?;
-            worksheet.write_string(row_num, 2, d.description.as_deref().unwrap_or(""))?;
-            worksheet.write_number(row_num, 3, d.sort_order as f64)?;
-        }
-
-        let bytes = workbook.save_to_buffer()?;
-        Ok(bytes)
     }
 }

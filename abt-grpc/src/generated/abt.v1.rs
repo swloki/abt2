@@ -2735,6 +2735,60 @@ pub struct SubstituteProductResponse {
     #[prost(int64, tag = "2")]
     pub replaced_node_count: i64,
 }
+/// 成本报告请求
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetBomCostReportRequest {
+    #[prost(int64, tag = "1")]
+    pub bom_id: i64,
+}
+/// 材料成本项
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MaterialCostItem {
+    #[prost(int64, tag = "1")]
+    pub node_id: i64,
+    #[prost(int64, tag = "2")]
+    pub product_id: i64,
+    #[prost(string, tag = "3")]
+    pub product_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(double, tag = "5")]
+    pub quantity: f64,
+    #[prost(string, optional, tag = "6")]
+    pub unit_price: ::core::option::Option<::prost::alloc::string::String>,
+}
+/// 人工成本项
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct LaborCostItem {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub unit_price: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub quantity: ::prost::alloc::string::String,
+    #[prost(int32, tag = "5")]
+    pub sort_order: i32,
+    #[prost(string, tag = "6")]
+    pub remark: ::prost::alloc::string::String,
+}
+/// 成本报告响应
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BomCostReportResponse {
+    #[prost(int64, tag = "1")]
+    pub bom_id: i64,
+    #[prost(string, tag = "2")]
+    pub bom_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "4")]
+    pub material_costs: ::prost::alloc::vec::Vec<MaterialCostItem>,
+    #[prost(message, repeated, tag = "5")]
+    pub labor_costs: ::prost::alloc::vec::Vec<LaborCostItem>,
+    #[prost(string, repeated, tag = "6")]
+    pub warnings: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 /// Generated client implementations.
 pub mod abt_bom_service_client {
     #![allow(
@@ -3176,6 +3230,31 @@ pub mod abt_bom_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtBomService", "SubstituteProduct"));
             self.inner.unary(req, path, codec).await
         }
+        /// BOM 成本报告
+        pub async fn get_bom_cost_report(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetBomCostReportRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::BomCostReportResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtBomService/GetBomCostReport",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtBomService", "GetBomCostReport"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -3270,6 +3349,14 @@ pub mod abt_bom_service_server {
             request: tonic::Request<super::SubstituteProductRequest>,
         ) -> std::result::Result<
             tonic::Response<super::SubstituteProductResponse>,
+            tonic::Status,
+        >;
+        /// BOM 成本报告
+        async fn get_bom_cost_report(
+            &self,
+            request: tonic::Request<super::GetBomCostReportRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::BomCostReportResponse>,
             tonic::Status,
         >;
     }
@@ -4057,6 +4144,52 @@ pub mod abt_bom_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = SubstituteProductSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtBomService/GetBomCostReport" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetBomCostReportSvc<T: AbtBomService>(pub Arc<T>);
+                    impl<
+                        T: AbtBomService,
+                    > tonic::server::UnaryService<super::GetBomCostReportRequest>
+                    for GetBomCostReportSvc<T> {
+                        type Response = super::BomCostReportResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetBomCostReportRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtBomService>::get_bom_cost_report(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetBomCostReportSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -4900,6 +5033,7 @@ pub enum Resource {
     Excel = 12,
     LaborProcessDict = 13,
     Routing = 14,
+    BomCost = 15,
 }
 impl Resource {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -4923,6 +5057,7 @@ impl Resource {
             Self::Excel => "EXCEL",
             Self::LaborProcessDict => "LABOR_PROCESS_DICT",
             Self::Routing => "ROUTING",
+            Self::BomCost => "BOM_COST",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -4943,6 +5078,7 @@ impl Resource {
             "EXCEL" => Some(Self::Excel),
             "LABOR_PROCESS_DICT" => Some(Self::LaborProcessDict),
             "ROUTING" => Some(Self::Routing),
+            "BOM_COST" => Some(Self::BomCost),
             _ => None,
         }
     }

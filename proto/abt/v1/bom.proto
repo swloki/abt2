@@ -25,6 +25,8 @@ service AbtBomService {
   rpc DownloadBom(DownloadBomRequest) returns (stream DownloadFileResponse);
   // 物料替换
   rpc SubstituteProduct(SubstituteProductRequest) returns (SubstituteProductResponse);
+  // BOM 成本报告
+  rpc GetBomCostReport(GetBomCostReportRequest) returns (BomCostReportResponse);
 }
 
 message BomNodeProto {
@@ -195,4 +197,39 @@ message SubstituteProductRequest {
 message SubstituteProductResponse {
   int64 affected_bom_count = 1;
   int64 replaced_node_count = 2;
+}
+
+// 成本报告请求
+message GetBomCostReportRequest {
+  int64 bom_id = 1;
+}
+
+// 材料成本项
+message MaterialCostItem {
+  int64 node_id = 1;
+  int64 product_id = 2;
+  string product_name = 3;
+  string product_code = 4;
+  double quantity = 5;
+  optional string unit_price = 6;
+}
+
+// 人工成本项
+message LaborCostItem {
+  int64 id = 1;
+  string name = 2;
+  string unit_price = 3;
+  string quantity = 4;
+  int32 sort_order = 5;
+  string remark = 6;
+}
+
+// 成本报告响应
+message BomCostReportResponse {
+  int64 bom_id = 1;
+  string bom_name = 2;
+  string product_code = 3;
+  repeated MaterialCostItem material_costs = 4;
+  repeated LaborCostItem labor_costs = 5;
+  repeated string warnings = 6;
 }

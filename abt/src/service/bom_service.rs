@@ -76,6 +76,9 @@ pub trait BomService: Send + Sync {
         overrides: AttributeOverrides,
         executor: Executor<'_>,
     ) -> Result<(i64, i64)>;
+
+    /// 获取 BOM 成本报告
+    async fn get_bom_cost_report(&self, bom_id: i64, executor: Executor<'_>) -> Result<crate::models::BomCostReport>;
 }
 
 /// 属性覆盖结构体

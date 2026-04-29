@@ -456,4 +456,26 @@ impl GrpcBomService for BomHandler {
             replaced_node_count,
         }))
     }
+
+    #[require_permission(Resource::BomCost, Action::Read)]
+    async fn get_bom_cost_report(
+        &self,
+        request: Request<GetBomCostReportRequest>,
+    ) -> GrpcResult<BomCostReportResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.bom_service();
+
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+
+        let report = srv
+            .get_bom_cost_report(req.bom_id, &mut tx)
+            .await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(report.into()))
+    }
 }

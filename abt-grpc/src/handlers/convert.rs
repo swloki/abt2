@@ -327,3 +327,49 @@ impl From<abt::BomCategory> for ProtoBomCategoryResponse {
         }
     }
 }
+
+// ========== BOM Cost Report conversions ==========
+
+use crate::generated::abt::v1::{
+    BomCostReportResponse, LaborCostItem as ProtoLaborCostItem,
+    MaterialCostItem as ProtoMaterialCostItem,
+};
+
+impl From<abt::BomCostReport> for BomCostReportResponse {
+    fn from(report: abt::BomCostReport) -> Self {
+        BomCostReportResponse {
+            bom_id: report.bom_id,
+            bom_name: report.bom_name,
+            product_code: report.product_code,
+            material_costs: report.material_costs.into_iter().map(|m| m.into()).collect(),
+            labor_costs: report.labor_costs.into_iter().map(|l| l.into()).collect(),
+            warnings: report.warnings,
+        }
+    }
+}
+
+impl From<abt::MaterialCostItem> for ProtoMaterialCostItem {
+    fn from(item: abt::MaterialCostItem) -> Self {
+        ProtoMaterialCostItem {
+            node_id: item.node_id,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            product_code: item.product_code,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+        }
+    }
+}
+
+impl From<abt::LaborCostItem> for ProtoLaborCostItem {
+    fn from(item: abt::LaborCostItem) -> Self {
+        ProtoLaborCostItem {
+            id: item.id,
+            name: item.name,
+            unit_price: item.unit_price,
+            quantity: item.quantity,
+            sort_order: item.sort_order,
+            remark: item.remark,
+        }
+    }
+}

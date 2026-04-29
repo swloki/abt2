@@ -169,6 +169,43 @@ where
 }
 
 // ============================================================================
+// 成本报告
+// ============================================================================
+
+/// BOM 成本报告
+#[derive(Debug, Clone)]
+pub struct BomCostReport {
+    pub bom_id: i64,
+    pub bom_name: String,
+    pub product_code: String,
+    pub material_costs: Vec<MaterialCostItem>,
+    pub labor_costs: Vec<LaborCostItem>,
+    pub warnings: Vec<String>,
+}
+
+/// 材料成本项
+#[derive(Debug, Clone)]
+pub struct MaterialCostItem {
+    pub node_id: i64,
+    pub product_id: i64,
+    pub product_name: String,
+    pub product_code: String,
+    pub quantity: f64,
+    pub unit_price: Option<String>,
+}
+
+/// 人工成本项
+#[derive(Debug, Clone)]
+pub struct LaborCostItem {
+    pub id: i64,
+    pub name: String,
+    pub unit_price: String,
+    pub quantity: String,
+    pub sort_order: i32,
+    pub remark: String,
+}
+
+// ============================================================================
 // 创建/更新请求
 // ============================================================================
 

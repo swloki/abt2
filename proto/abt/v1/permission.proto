@@ -22,6 +22,7 @@ enum Resource {
   EXCEL = 12;
   LABOR_PROCESS_DICT = 13;
   ROUTING = 14;
+  BOM_COST = 15;
 }
 
 // 权限操作枚举

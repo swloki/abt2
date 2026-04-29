@@ -184,4 +184,34 @@ impl ProductPriceRepo {
         let pagination = PaginationParams::new(page, page_size);
         Ok(PaginatedResult::new(items, total as u64, &pagination))
     }
+
+    /// 批量获取多个产品的当前价格
+    pub async fn get_prices_by_ids(
+        pool: &PgPool,
+        product_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, rust_decimal::Decimal>> {
+        use std::collections::HashMap;
+        use rust_decimal::Decimal;
+
+        if product_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        let rows = sqlx::query(
+            "SELECT product_id, (meta->>'price')::decimal AS price \
+             FROM products \
+             WHERE product_id = ANY($1) AND meta->>'price' IS NOT NULL",
+        )
+        .bind(product_ids)
+        .fetch_all(pool)
+        .await?;
+
+        let mut map = HashMap::new();
+        for row in rows {
+            let product_id: i64 = sqlx::Row::try_get(&row, "product_id")?;
+            let price: Decimal = sqlx::Row::try_get(&row, "price")?;
+            map.insert(product_id, price);
+        }
+        Ok(map)
+    }
 }

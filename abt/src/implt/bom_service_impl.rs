@@ -8,8 +8,8 @@ use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::models::{Bom, BomDetail, BomNode, BomQuery};
-use crate::repositories::{BomRepo, Executor, ProductRepo};
+use crate::models::{Bom, BomCostReport, BomDetail, BomNode, BomQuery, LaborCostItem, MaterialCostItem};
+use crate::repositories::{BomRepo, Executor, LaborProcessRepo, ProductPriceRepo, ProductRepo};
 use crate::service::{AttributeOverrides, BomService};
 
 /// BOM 服务实现
@@ -393,5 +393,114 @@ impl BomService for BomServiceImpl {
         }
 
         Ok((affected_bom_count, replaced_node_count))
+    }
+
+    async fn get_bom_cost_report(&self, bom_id: i64, executor: Executor<'_>) -> Result<crate::models::BomCostReport> {
+        // 1. 获取 BOM
+        let bom = BomRepo::find_by_id(executor, bom_id).await?
+            .ok_or_else(|| anyhow::anyhow!("BOM not found"))?;
+
+        // 2. 获取根节点 product_code（第一个节点 = 成品）
+        let root_node = bom.bom_detail.nodes.first()
+            .ok_or_else(|| anyhow::anyhow!("BOM has no nodes"))?;
+        let product_code = if let Some(ref code) = root_node.product_code {
+            code.clone()
+        } else {
+            let products = ProductRepo::find_by_ids(&self.pool, &[root_node.product_id]).await?;
+            products.first()
+                .map(|p| p.meta.product_code.clone())
+                .ok_or_else(|| anyhow::anyhow!("Root product not found"))?
+        };
+
+        // 3. 获取所有节点的产品信息（批量）
+        let all_product_ids: Vec<i64> = bom.bom_detail.nodes.iter().map(|n| n.product_id).collect();
+        let products = ProductRepo::find_by_ids(&self.pool, &all_product_ids).await?;
+        let valid_ids: HashSet<i64> = products.iter().map(|p| p.product_id).collect();
+        let name_map: HashMap<i64, String> = products.iter()
+            .map(|p| (p.product_id, p.pdt_name.clone())).collect();
+        let code_map: HashMap<i64, String> = products.iter()
+            .map(|p| (p.product_id, p.meta.product_code.clone())).collect();
+
+        // 4. 计算叶子节点（非任何节点的 parent，且产品有效）
+        let parent_ids: HashSet<i64> = bom.bom_detail.nodes.iter()
+            .filter(|n| n.parent_id != 0)
+            .map(|n| n.parent_id)
+            .collect();
+
+        // 构建无效节点集合（产品不存在的节点及其所有后代）
+        let mut children_map: HashMap<i64, Vec<i64>> = HashMap::new();
+        for node in &bom.bom_detail.nodes {
+            children_map.entry(node.parent_id).or_default().push(node.id);
+        }
+        fn get_descendants(id: i64, cm: &HashMap<i64, Vec<i64>>) -> Vec<i64> {
+            let mut out = Vec::new();
+            if let Some(children) = cm.get(&id) {
+                for &c in children {
+                    out.push(c);
+                    out.extend(get_descendants(c, cm));
+                }
+            }
+            out
+        }
+        let mut invalid_ids: HashSet<i64> = HashSet::new();
+        for node in &bom.bom_detail.nodes {
+            if !valid_ids.contains(&node.product_id) {
+                invalid_ids.insert(node.id);
+                for d in get_descendants(node.id, &children_map) {
+                    invalid_ids.insert(d);
+                }
+            }
+        }
+
+        let mut leaf_nodes: Vec<&BomNode> = bom.bom_detail.nodes.iter()
+            .filter(|n| !parent_ids.contains(&n.id))
+            .filter(|n| !invalid_ids.contains(&n.id))
+            .collect();
+        leaf_nodes.sort_by_key(|n| n.order);
+
+        // 5. 批量获取价格
+        let leaf_product_ids: Vec<i64> = leaf_nodes.iter().map(|n| n.product_id).collect();
+        let prices = ProductPriceRepo::get_prices_by_ids(&self.pool, &leaf_product_ids).await?;
+
+        // 6. 获取人工工序
+        let labor_processes = LaborProcessRepo::list_all_by_product_code(&self.pool, &product_code).await?;
+
+        // 7. 组装结果
+        let material_costs: Vec<MaterialCostItem> = leaf_nodes.iter().map(|node| {
+            let price = prices.get(&node.product_id);
+            MaterialCostItem {
+                node_id: node.id,
+                product_id: node.product_id,
+                product_name: name_map.get(&node.product_id).cloned().unwrap_or_default(),
+                product_code: code_map.get(&node.product_id).cloned().unwrap_or_default(),
+                quantity: node.quantity,
+                unit_price: price.map(|p| p.to_string()),
+            }
+        }).collect();
+
+        let warnings: Vec<String> = material_costs.iter()
+            .filter(|m| m.unit_price.is_none())
+            .map(|m| m.product_name.clone())
+            .collect();
+
+        let labor_costs: Vec<LaborCostItem> = labor_processes.iter().map(|lp| {
+            LaborCostItem {
+                id: lp.id,
+                name: lp.name.clone(),
+                unit_price: lp.unit_price.to_string(),
+                quantity: lp.quantity.to_string(),
+                sort_order: lp.sort_order,
+                remark: lp.remark.clone().unwrap_or_default(),
+            }
+        }).collect();
+
+        Ok(BomCostReport {
+            bom_id,
+            bom_name: bom.bom_name,
+            product_code,
+            material_costs,
+            labor_costs,
+            warnings,
+        })
     }
 }

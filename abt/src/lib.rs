@@ -6,12 +6,9 @@
 #![allow(ambiguous_glob_reexports)]
 
 use sqlx::postgres::PgPool;
-use std::path::Path;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use tokio::sync::{Mutex, OnceCell};
-
-use async_trait::async_trait;
 
 // Internal modules
 mod implt;
@@ -28,6 +25,9 @@ mod tests;
 // Public API (models and service traits)
 pub use models::*;
 pub use service::*;
+
+// Re-export Excel implementations for gRPC handler use
+pub use implt::excel;
 
 // ============================================================================
 // App Context
@@ -65,9 +65,6 @@ impl AppContext {
 
 static CONTEXT: OnceCell<AppContext> = OnceCell::const_new();
 static INIT_LOCK: Mutex<()> = Mutex::const_new(());
-
-// Excel 服务单例（需要持有进度状态）
-static EXCEL_SERVICE: OnceLock<implt::ProductExcelServiceImpl> = OnceLock::new();
 
 // Permission cache singleton
 static PERMISSION_CACHE: OnceLock<RolePermissionCache> = OnceLock::new();
@@ -153,11 +150,6 @@ pub fn get_inventory_service(ctx: &AppContext) -> impl crate::service::Inventory
     crate::implt::InventoryServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
 
-/// 获取产品 Excel 服务（单例模式，保持进度状态）
-pub fn get_product_excel_service(_ctx: &AppContext) -> impl service::ProductExcelService {
-    EXCEL_SERVICE.get_or_init(implt::ProductExcelServiceImpl::new)
-}
-
 /// 获取产品价格服务
 pub fn get_product_price_service(ctx: &AppContext) -> impl crate::service::ProductPriceService {
     crate::implt::ProductPriceServiceImpl::new(Arc::new(ctx.pool().clone()))
@@ -213,35 +205,3 @@ pub fn get_auth_service(
     )
 }
 
-// ============================================================================
-// Trait 实现：为引用提供 trait 支持
-// ============================================================================
-
-/// 为 &T 实现 ProductExcelService，允许返回单例引用
-#[async_trait]
-impl<S: service::ProductExcelService + ?Sized + Sync> service::ProductExcelService for &S {
-    async fn import_quantity_from_excel(
-        &self,
-        pool: &sqlx::PgPool,
-        path: &Path,
-        operator_id: Option<i64>,
-    ) -> anyhow::Result<service::ImportResult> {
-        (**self).import_quantity_from_excel(pool, path, operator_id).await
-    }
-
-    async fn export_products_to_excel(&self, pool: &sqlx::PgPool, path: &Path) -> anyhow::Result<()> {
-        (**self).export_products_to_excel(pool, path).await
-    }
-
-    async fn export_products_to_bytes(&self, pool: &sqlx::PgPool) -> anyhow::Result<Vec<u8>> {
-        (**self).export_products_to_bytes(pool).await
-    }
-
-    async fn export_products_without_price_to_bytes(&self, pool: &sqlx::PgPool) -> anyhow::Result<Vec<u8>> {
-        (**self).export_products_without_price_to_bytes(pool).await
-    }
-
-    fn get_progress(&self) -> service::ExcelProgress {
-        (**self).get_progress()
-    }
-}

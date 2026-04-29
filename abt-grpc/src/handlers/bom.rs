@@ -1,18 +1,16 @@
 //! BOM gRPC Handler
 
 use crate::generated::abt::v1::{abt_bom_service_server::AbtBomService as GrpcBomService, *};
-use crate::handlers::GrpcResult;
+use crate::handlers::{validate_upload_path, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
 use crate::permissions::PermissionCode;
 use common::error;
-use std::path::Path;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response};
 
-// Import trait to bring methods into scope
-use abt::BomService;
+use abt::{BomService, ExcelExportService, ExportRequest};
 
 pub struct BomHandler;
 
@@ -204,12 +202,18 @@ impl GrpcBomService for BomHandler {
     async fn export_bom(&self, request: Request<ExportBomRequest>) -> GrpcResult<BoolResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
 
-        let path = Path::new(&req.file_path);
-        srv.export_to_excel(req.bom_id, path)
+        validate_upload_path(&req.file_path)?;
+
+        let exporter = abt::excel::BomExporter::new(state.pool());
+        let bytes = exporter
+            .export(ExportRequest { params: req.bom_id })
             .await
             .map_err(error::err_to_status)?;
+
+        tokio::fs::write(&req.file_path, bytes)
+            .await
+            .map_err(|e| error::err_to_status(anyhow::anyhow!("无法写入导出文件: {}", e)))?;
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -391,11 +395,11 @@ impl GrpcBomService for BomHandler {
     ) -> Result<Response<Self::DownloadBomStream>, tonic::Status> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
 
-        // 生成 Excel 到内存，同时获取 BOM 名称
-        let (bytes, bom_name) = srv
-            .export_to_bytes(req.bom_id)
+        // 导出 Excel 同时获取 BOM 名称
+        let exporter = abt::excel::BomExporter::new(state.pool());
+        let (bytes, bom_name) = exporter
+            .export_with_name(req.bom_id)
             .await
             .map_err(error::err_to_status)?;
 

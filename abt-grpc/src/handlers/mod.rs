@@ -46,6 +46,18 @@ pub fn empty_to_none(s: String) -> Option<String> {
     if s.is_empty() { None } else { Some(s) }
 }
 
+/// 验证文件路径在上传目录内，防止路径遍历
+pub fn validate_upload_path(file_path: &str) -> Result<std::path::PathBuf, tonic::Status> {
+    let upload_dir = std::env::temp_dir().canonicalize()
+        .map_err(|e| common::error::err_to_status(anyhow::anyhow!("无法解析上传目录: {}", e)))?;
+    let canonical = std::path::Path::new(file_path).canonicalize()
+        .map_err(|e| common::error::err_to_status(anyhow::anyhow!("无法解析文件路径: {}", e)))?;
+    if !canonical.starts_with(&upload_dir) {
+        return Err(common::error::validation("file_path", "只允许操作上传目录中的文件"));
+    }
+    Ok(canonical)
+}
+
 // ============================================================================
 // 流式下载共享常量和工具函数
 // ============================================================================

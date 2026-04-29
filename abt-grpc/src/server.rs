@@ -70,10 +70,6 @@ impl AppState {
         abt::get_inventory_service(self.abt_context)
     }
 
-    pub fn excel_service(&self) -> impl abt::ProductExcelService {
-        abt::get_product_excel_service(self.abt_context)
-    }
-
     pub fn price_service(&self) -> impl abt::ProductPriceService {
         abt::get_product_price_service(self.abt_context)
     }

@@ -20,7 +20,4 @@ pub trait LaborProcessDictService: Send + Sync {
 
     /// 删除工序字典
     async fn delete(&self, id: i64, executor: Executor<'_>) -> Result<u64>;
-
-    /// 导出工序字典到 Excel 字节流
-    async fn export_to_bytes(&self) -> Result<Vec<u8>>;
 }

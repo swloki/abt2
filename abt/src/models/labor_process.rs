@@ -69,7 +69,8 @@ pub struct ListLaborProcessQuery {
 // ============================================================================
 
 /// Excel 列定义常量（导入和导出共用，保证 round-trip 兼容）
-pub const LABOR_PROCESS_EXCEL_COLUMNS: &[&str] = &["产品编码", "工序编码", "工序名称", "单价", "数量", "排序", "备注"];
+pub const LABOR_PROCESS_EXCEL_COLUMNS: [&str; 7] = ["产品编码", "工序编码", "工序名称", "单价", "数量", "排序", "备注"];
+const _: () = assert!(LABOR_PROCESS_EXCEL_COLUMNS.len() == 7);
 
 /// 工序 Excel 导入结果
 #[derive(Debug, Clone)]

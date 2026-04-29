@@ -4,6 +4,7 @@
 
 mod auth_service_impl;
 mod bom_service_impl;
+pub mod excel;
 mod bom_category_impl;
 mod department_service_impl;
 mod inventory_service_impl;
@@ -11,7 +12,6 @@ mod labor_process_service_impl;
 mod labor_process_dict_service_impl;
 mod location_service_impl;
 mod permission_service_impl;
-mod product_excel_service_impl;
 mod product_price_service_impl;
 mod product_service_impl;
 mod role_service_impl;
@@ -29,7 +29,6 @@ pub use labor_process_service_impl::LaborProcessServiceImpl;
 pub use labor_process_dict_service_impl::LaborProcessDictServiceImpl;
 pub use location_service_impl::LocationServiceImpl;
 pub use permission_service_impl::PermissionServiceImpl;
-pub use product_excel_service_impl::ProductExcelServiceImpl;
 pub use product_price_service_impl::ProductPriceServiceImpl;
 pub use product_service_impl::ProductServiceImpl;
 pub use role_service_impl::RoleServiceImpl;

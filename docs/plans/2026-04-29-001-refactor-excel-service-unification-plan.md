@@ -1,7 +1,7 @@
 ---
 title: "refactor: Unify Excel import/export into shared trait abstraction"
 type: refactor
-status: active
+status: complete
 date: 2026-04-29
 origin: docs/superpowers/specs/2026-04-29-excel-service-unification-design.md
 ideation: docs/ideation/2026-04-29-excel-service-unification-ideation.md
@@ -197,7 +197,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ### Phase 1 — Core Infrastructure
 
-- [ ] U1. **Define `ExcelImportService` and `ExcelExportService` traits with shared types**
+- [x] U1. **Define `ExcelImportService` and `ExcelExportService` traits with shared types**
 
 **Goal:** Create the new trait file with `ImportResult`, `ExcelProgress`, `ImportSource`, `ExportRequest`, and both traits.
 
@@ -232,7 +232,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ---
 
-- [ ] U2. **Create `ProgressTracker` and `implt/excel/` module structure**
+- [x] U2. **Create `ProgressTracker` and `implt/excel/` module structure**
 
 **Goal:** Create the standalone progress tracker and the directory scaffold for per-operation implementations.
 
@@ -268,7 +268,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ### Phase 2 — Product Excel Migration
 
-- [ ] U3. **Extract product import/export implementations**
+- [x] U3. **Extract product import/export implementations**
 
 **Goal:** Create `ProductInventoryImporter`, `ProductAllExporter`, `ProductWithoutPriceExporter` structs by extracting logic from `product_excel_service_impl.rs`.
 
@@ -310,7 +310,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ---
 
-- [ ] U4. **Replace OnceLock singleton with factory functions returning new-style structs**
+- [x] U4. **Replace OnceLock singleton with factory functions returning new-style structs**
 
 **Goal:** Update `lib.rs` to remove `OnceLock<EXCEL_SERVICE>` and add factory functions for the three new product Excel structs.
 
@@ -346,7 +346,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ---
 
-- [ ] U5. **Update `AbtExcelService` gRPC handler to use new traits**
+- [x] U5. **Update `AbtExcelService` gRPC handler to use new traits**
 
 **Goal:** Replace `ProductExcelService` trait usage in `excel.rs` with `ExcelImportService`/`ExcelExportService` and `Arc<ProgressTracker>`.
 
@@ -391,7 +391,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ### Phase 3 — Domain Service Excel Extraction
 
-- [ ] U6. **Extract labor process Excel import/export implementations**
+- [x] U6. **Extract labor process Excel import/export implementations**
 
 **Goal:** Move Excel import/export logic from `labor_process_service_impl.rs` into dedicated `LaborProcessImporter` and `LaborProcessExporter` structs.
 
@@ -432,7 +432,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ---
 
-- [ ] U7. **Extract labor process dict and BOM Excel export implementations**
+- [x] U7. **Extract labor process dict and BOM Excel export implementations**
 
 **Goal:** Create `LaborProcessDictExporter`, `BomsWithoutLaborCostExporter`, and `BomExporter` structs.
 
@@ -473,7 +473,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ---
 
-- [ ] U8. **Remove Excel methods from domain service traits and update gRPC handlers**
+- [x] U8. **Remove Excel methods from domain service traits and update gRPC handlers**
 
 **Goal:** Strip Excel methods from `LaborProcessService`, `LaborProcessDictService`, `BomService` traits and their impls. Update corresponding gRPC handlers to use new Excel structs directly.
 
@@ -521,7 +521,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ### Phase 4 — Cleanup & Hardening
 
-- [ ] U9. **Delete old files and finalize module structure**
+- [x] U9. **Delete old files and finalize module structure**
 
 **Goal:** Remove `product_excel_service.rs`, `product_excel_service_impl.rs`, and clean up re-exports.
 
@@ -552,7 +552,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ---
 
-- [ ] U10. **Add schema-as-code column constants and round-trip consistency**
+- [x] U10. **Add schema-as-code column constants and round-trip consistency**
 
 **Goal:** Ensure every Excel operation defines its column schema as a `const`, and import/export for the same data type share the same column definition.
 
@@ -586,7 +586,7 @@ export_registry: HashMap<ExportType, ExportFn>
 
 ---
 
-- [ ] U11. **Add registry-based dispatch to Excel gRPC handler**
+- [x] U11. **Add registry-based dispatch to Excel gRPC handler**
 
 **Goal:** Replace the `match export_type` in `download_export_file` with a `HashMap<ExportType, ExportFn>` registry populated at handler construction.
 

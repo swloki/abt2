@@ -11,7 +11,7 @@ mod labor_process_service;
 mod labor_process_dict_service;
 mod location_service;
 mod permission_service;
-mod product_excel_service;
+mod excel_service;
 mod product_price_service;
 mod product_service;
 mod role_service;
@@ -29,7 +29,7 @@ pub use labor_process_dict_service::LaborProcessDictService;
 pub use inventory_service::{InventoryLog, InventoryService};
 pub use location_service::LocationService;
 pub use permission_service::PermissionService;
-pub use product_excel_service::{ExcelProgress, ImportResult, ProductExcelService};
+pub use excel_service::{ExcelExportService, ExcelImportService, ExcelProgress, ExportRequest, ImportResult, ImportSource};
 pub use product_price_service::{
     AllPriceHistoryQuery, PriceHistoryQuery, PriceLogEntry, PriceLogWithProduct,
     ProductPriceService,

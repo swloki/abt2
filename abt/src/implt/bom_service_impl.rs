@@ -314,71 +314,56 @@ impl BomService for BomServiceImpl {
             .ok_or_else(|| anyhow::anyhow!("替换物料不存在: {}", new_product_id))?;
         let new_product_code = new_product.meta.product_code.clone();
 
-        let affected_bom_ids: Vec<i64> = match bom_id {
+        let affected_boms: Vec<crate::models::Bom> = match bom_id {
             Some(id) => {
                 let bom = BomRepo::find_by_id_for_update(&mut *executor, id).await?
                     .ok_or_else(|| anyhow::anyhow!("BOM not found"))?;
                 bom.require_creator_or_published(caller_id, true)?;
-                vec![id]
+                vec![bom]
             }
             None => {
-                let all_bom_ids = BomNodeRepo::find_bom_ids_by_product_id(&self.pool, old_product_id).await?;
-                let mut permitted = Vec::new();
-                for bid in &all_bom_ids {
-                    if let Some(bom) = BomRepo::find_by_id(&mut *executor, *bid).await? {
-                        if bom.require_creator_or_published(caller_id, true).is_ok() {
-                            permitted.push(*bid);
-                        }
-                    }
-                }
-                permitted
+                BomRepo::find_accessible_boms_by_product(&mut *executor, old_product_id, caller_id).await?
             }
         };
 
-        let mut affected_bom_count: i64 = 0;
+        let bom_ids: Vec<i64> = affected_boms.iter().map(|b| b.bom_id).collect();
+        let nodes = BomNodeRepo::find_by_bom_ids_and_product(&mut *executor, &bom_ids, old_product_id).await?;
+
         let mut replaced_node_count: i64 = 0;
+        let mut changed_bom_ids: HashSet<i64> = HashSet::new();
 
-        for bid in &affected_bom_ids {
-            let nodes = BomNodeRepo::find_by_bom_id_for_update(&mut *executor, *bid).await?;
-            let mut bom_changed = false;
+        for node in &nodes {
+            let quantity = overrides.quantity
+                .map(f64_to_decimal)
+                .unwrap_or(node.quantity);
+            let loss_rate = overrides.loss_rate
+                .map(f64_to_decimal)
+                .unwrap_or(node.loss_rate);
+            let unit = overrides.unit.as_deref().or(node.unit.as_deref());
+            let remark = overrides.remark.as_deref().or(node.remark.as_deref());
+            let position = overrides.position.as_deref().or(node.position.as_deref());
+            let work_center = overrides.work_center.as_deref().or(node.work_center.as_deref());
+            let properties = overrides.properties.as_deref().or(node.properties.as_deref());
 
-            for node in &nodes {
-                if node.product_id == old_product_id {
-                    let quantity = overrides.quantity
-                        .map(f64_to_decimal)
-                        .unwrap_or(node.quantity);
-                    let loss_rate = overrides.loss_rate
-                        .map(f64_to_decimal)
-                        .unwrap_or(node.loss_rate);
-                    let unit = overrides.unit.as_deref().or(node.unit.as_deref());
-                    let remark = overrides.remark.as_deref().or(node.remark.as_deref());
-                    let position = overrides.position.as_deref().or(node.position.as_deref());
-                    let work_center = overrides.work_center.as_deref().or(node.work_center.as_deref());
-                    let properties = overrides.properties.as_deref().or(node.properties.as_deref());
+            BomNodeRepo::substitute_node_product(
+                &mut *executor,
+                node.id,
+                new_product_id,
+                Some(&new_product_code),
+                quantity,
+                loss_rate,
+                unit,
+                remark,
+                position,
+                work_center,
+                properties,
+            ).await?;
 
-                    BomNodeRepo::substitute_node_product(
-                        &mut *executor,
-                        node.id,
-                        new_product_id,
-                        Some(&new_product_code),
-                        quantity,
-                        loss_rate,
-                        unit,
-                        remark,
-                        position,
-                        work_center,
-                        properties,
-                    ).await?;
-
-                    replaced_node_count += 1;
-                    bom_changed = true;
-                }
-            }
-
-            if bom_changed {
-                affected_bom_count += 1;
-            }
+            replaced_node_count += 1;
+            changed_bom_ids.insert(node.bom_id);
         }
+
+        let affected_bom_count = changed_bom_ids.len() as i64;
 
         Ok((affected_bom_count, replaced_node_count))
     }

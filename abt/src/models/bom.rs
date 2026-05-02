@@ -81,20 +81,10 @@ impl<'r> FromRow<'r, PgRow> for Bom {
         let bom_name: String = row.try_get("bom_name")?;
         let create_at: DateTime<Utc> = row.try_get("create_at")?;
         let update_at: Option<DateTime<Utc>> = row.try_get("update_at")?;
-        let bom_detail: String = row.try_get("bom_detail")?;
-        let bom_detail: BomDetail =
-            serde_json::from_str(&bom_detail).map_err(|e| sqlx::Error::ColumnDecode {
-                index: "bom_detail".to_string(),
-                source: Box::new(e),
-            })?;
         let bom_category_id: Option<i64> = row.try_get("bom_category_id")?;
 
         let status_str: String = row.try_get("status")?;
-        let status = match status_str.as_str() {
-            "draft" => BomStatus::Draft,
-            "published" => BomStatus::Published,
-            _ => BomStatus::Published,
-        };
+        let status = BomStatus::from_str(&status_str).unwrap_or(BomStatus::Draft);
 
         let published_at: Option<DateTime<Utc>> = row.try_get("published_at")?;
         let published_by: Option<i64> = row.try_get("published_by")?;
@@ -105,7 +95,7 @@ impl<'r> FromRow<'r, PgRow> for Bom {
             bom_name,
             create_at,
             update_at,
-            bom_detail,
+            bom_detail: BomDetail::default(),
             bom_category_id,
             status,
             published_at,
@@ -115,33 +105,10 @@ impl<'r> FromRow<'r, PgRow> for Bom {
     }
 }
 
-/// BOM 详情（存储在 JSONB 字段中）
+/// BOM 详情（节点从 bom_nodes 表加载）
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct BomDetail {
-    /// BOM 节点列表
     pub nodes: Vec<BomNode>,
-    /// 创建者（用户 ID）
-    #[serde(deserialize_with = "deserialize_created_by")]
-    pub created_by: Option<i64>,
-}
-
-/// 兼容旧数据：created_by 可能是字符串或数字
-fn deserialize_created_by<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    use serde::de;
-
-    let value: Option<serde_json::Value> = Option::deserialize(deserializer)?;
-    match value {
-        None => Ok(None),
-        Some(serde_json::Value::Number(n)) => Ok(n.as_i64()),
-        Some(serde_json::Value::String(_)) => Ok(None), // 旧字符串数据忽略
-        Some(other) => Err(de::Error::custom(format!(
-            "expected number or string for created_by, got {:?}",
-            other
-        ))),
-    }
 }
 
 /// BOM 节点
@@ -400,16 +367,13 @@ mod tests {
                 work_center: None,
                 properties: None,
             }],
-            created_by: Some(1),
         };
 
         let json = serde_json::to_string(&detail).unwrap();
-        assert!(json.contains(r#""created_by":1"#));
         assert!(json.contains(r#""nodes""#));
 
         let deserialized: BomDetail = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.nodes.len(), 1);
-        assert_eq!(deserialized.created_by, Some(1));
     }
 
     #[test]

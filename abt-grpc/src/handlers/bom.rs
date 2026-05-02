@@ -18,6 +18,51 @@ impl BomHandler {
     pub fn new() -> Self {
         Self
     }
+
+    /// 查找 BOM 并执行可见性授权检查
+    ///
+    /// - `write`: true 表示写操作（授权失败返回具体错误），false 表示读操作（返回 NotFound 隐藏存在）
+    async fn find_and_authorize(
+        srv: &dyn BomService,
+        bom_id: i64,
+        user_id: i64,
+        write: bool,
+        tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    ) -> Result<abt::Bom, tonic::Status> {
+        let bom = srv
+            .find(bom_id, tx)
+            .await
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("BOM", &bom_id.to_string()))?;
+
+        bom.require_creator_or_published(user_id, write)
+            .map_err(|e| {
+                if write {
+                    error::err_to_status(e)
+                } else {
+                    error::not_found("BOM", &bom_id.to_string())
+                }
+            })?;
+
+        Ok(bom)
+    }
+
+    /// 使用连接池查找 BOM 并执行可见性授权检查（用于无事务的操作）
+    async fn find_and_authorize_pool(
+        pool: &sqlx::PgPool,
+        bom_id: i64,
+        user_id: i64,
+    ) -> Result<abt::Bom, tonic::Status> {
+        let bom = abt::repositories::BomRepo::find_by_id_pool(pool, bom_id)
+            .await
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::not_found("BOM", &bom_id.to_string()))?;
+
+        bom.require_creator_or_published(user_id, false)
+            .map_err(|_| error::not_found("BOM", &bom_id.to_string()))?;
+
+        Ok(bom)
+    }
 }
 
 impl Default for BomHandler {
@@ -77,14 +122,7 @@ impl GrpcBomService for BomHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        bom.require_creator_or_published(auth.user_id, false)
-            .map_err(|_| error::not_found("BOM", &req.bom_id.to_string()))?;
+        let bom = Self::find_and_authorize(&srv, req.bom_id, auth.user_id, false, &mut tx).await?;
 
         Ok(Response::new(bom.into()))
     }
@@ -126,16 +164,9 @@ impl GrpcBomService for BomHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
+        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
 
-        bom.require_creator_or_published(auth.user_id, true)
-            .map_err(|e| error::err_to_status(e))?;
-
-        srv.update_metadata(req.bom_id, &req.name, req.bom_category_id, auth.user_id, &mut tx)
+        srv.update_metadata(req.bom_id, &req.name, req.bom_category_id, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 
@@ -158,16 +189,9 @@ impl GrpcBomService for BomHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
+        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
 
-        bom.require_creator_or_published(auth.user_id, true)
-            .map_err(|e| error::err_to_status(e))?;
-
-        srv.delete(req.bom_id, auth.user_id, &mut tx)
+        srv.delete(req.bom_id, &mut tx)
             .await
             .map_err(error::err_to_status)?;
 
@@ -190,6 +214,8 @@ impl GrpcBomService for BomHandler {
             .begin_transaction()
             .await
             .map_err(error::err_to_status)?;
+
+        Self::find_and_authorize(&srv, req.source_bom_id, user_id, false, &mut tx).await?;
 
         let new_id = srv
             .save_as(req.source_bom_id, &req.new_name, user_id, &mut tx)
@@ -215,28 +241,12 @@ impl GrpcBomService for BomHandler {
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state
-            .begin_transaction()
-            .await
-            .map_err(error::err_to_status)?;
-
-        let bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        bom.require_creator_or_published(auth.user_id, false)
-            .map_err(|_| error::not_found("BOM", &req.bom_id.to_string()))?;
+        Self::find_and_authorize_pool(&state.pool(), req.bom_id, auth.user_id).await?;
 
         let code = srv
-            .get_product_code(req.bom_id, &mut tx)
+            .get_product_code(req.bom_id)
             .await
             .map_err(error::err_to_status)?;
-
-        tx.commit()
-            .await
-            .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(StringResponse { value: code }))
     }
@@ -247,13 +257,7 @@ impl GrpcBomService for BomHandler {
         let req = request.into_inner();
         let state = AppState::get().await;
 
-        let bom = abt::repositories::BomRepo::find_by_id_pool(&state.pool(), req.bom_id)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        bom.require_creator_or_published(auth.user_id, false)
-            .map_err(|_| error::not_found("BOM", &req.bom_id.to_string()))?;
+        Self::find_and_authorize_pool(&state.pool(), req.bom_id, auth.user_id).await?;
 
         validate_upload_path(&req.file_path)?;
 
@@ -280,22 +284,10 @@ impl GrpcBomService for BomHandler {
         let state = AppState::get().await;
         let srv = state.bom_service();
 
-        let mut tx = state
-            .begin_transaction()
-            .await
-            .map_err(error::err_to_status)?;
-
-        let bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        bom.require_creator_or_published(auth.user_id, false)
-            .map_err(|_| error::not_found("BOM", &req.bom_id.to_string()))?;
+        Self::find_and_authorize_pool(&state.pool(), req.bom_id, auth.user_id).await?;
 
         let nodes = srv
-            .get_leaf_nodes(req.bom_id, &mut tx)
+            .get_leaf_nodes(req.bom_id)
             .await
             .map_err(error::err_to_status)?;
 
@@ -316,14 +308,7 @@ impl GrpcBomService for BomHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        bom.require_creator_or_published(auth.user_id, true)
-            .map_err(|e| error::err_to_status(e))?;
+        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
 
         let node = abt::BomNode {
             id: 0,
@@ -367,14 +352,7 @@ impl GrpcBomService for BomHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        bom.require_creator_or_published(auth.user_id, true)
-            .map_err(|e| error::err_to_status(e))?;
+        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
 
         let node = abt::BomNode {
             id: req.node_id,
@@ -414,14 +392,7 @@ impl GrpcBomService for BomHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        bom.require_creator_or_published(auth.user_id, true)
-            .map_err(|e| error::err_to_status(e))?;
+        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
 
         let deleted_count = srv
             .delete_node(req.bom_id, req.node_id, &mut tx)
@@ -452,14 +423,7 @@ impl GrpcBomService for BomHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        bom.require_creator_or_published(auth.user_id, true)
-            .map_err(|e| error::err_to_status(e))?;
+        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
 
         srv.swap_node_position(req.bom_id, req.node_id_1, req.node_id_2, &mut tx)
             .await
@@ -500,15 +464,8 @@ impl GrpcBomService for BomHandler {
         let req = request.into_inner();
         let state = AppState::get().await;
 
-        let bom = abt::repositories::BomRepo::find_by_id_pool(&state.pool(), req.bom_id)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
+        Self::find_and_authorize_pool(&state.pool(), req.bom_id, auth.user_id).await?;
 
-        bom.require_creator_or_published(auth.user_id, false)
-            .map_err(|_| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        // 导出 Excel 同时获取 BOM 名称
         let exporter = abt::excel::BomExporter::new(state.pool());
         let (bytes, bom_name) = exporter
             .export_with_name(req.bom_id)
@@ -528,7 +485,7 @@ impl GrpcBomService for BomHandler {
         &self,
         request: Request<SubstituteProductRequest>,
     ) -> GrpcResult<SubstituteProductResponse> {
-        let _auth = extract_auth(&request)?;
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_service();
@@ -554,6 +511,7 @@ impl GrpcBomService for BomHandler {
                 req.new_product_id,
                 req.bom_id,
                 overrides,
+                auth.user_id,
                 &mut tx,
             )
             .await
@@ -584,14 +542,7 @@ impl GrpcBomService for BomHandler {
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = srv
-            .find(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &req.bom_id.to_string()))?;
-
-        bom.require_creator_or_published(auth.user_id, false)
-            .map_err(|_| error::not_found("BOM", &req.bom_id.to_string()))?;
+        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, false, &mut tx).await?;
 
         let report = srv
             .get_bom_cost_report(req.bom_id, &mut tx)
@@ -626,5 +577,32 @@ impl GrpcBomService for BomHandler {
             .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(PublishBomResponse { bom: Some(bom.into()) }))
+    }
+
+    #[require_permission(Resource::Bom, Action::Write)]
+    async fn unpublish_bom(
+        &self,
+        request: Request<UnpublishBomRequest>,
+    ) -> GrpcResult<UnpublishBomResponse> {
+        let auth = extract_auth(&request)?;
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.bom_service();
+
+        let mut tx = state
+            .begin_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+
+        let bom = srv
+            .unpublish(req.bom_id, auth.user_id, &mut tx)
+            .await
+            .map_err(error::err_to_status)?;
+
+        tx.commit()
+            .await
+            .map_err(error::sqlx_err_to_status)?;
+
+        Ok(Response::new(UnpublishBomResponse { bom: Some(bom.into()) }))
     }
 }

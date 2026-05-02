@@ -238,7 +238,7 @@ impl BomService for BomServiceImpl {
         Ok(draft_bom)
     }
 
-    async fn get_leaf_nodes(&self, bom_id: i64, _executor: Executor<'_>) -> Result<Vec<BomNode>> {
+    async fn get_leaf_nodes(&self, bom_id: i64) -> Result<Vec<BomNode>> {
         let analysis = self.analyze_node_tree(bom_id).await?;
 
         if analysis.nodes.is_empty() {
@@ -275,7 +275,7 @@ impl BomService for BomServiceImpl {
         Ok(new_bom_id)
     }
 
-    async fn get_product_code(&self, bom_id: i64, _executor: Executor<'_>) -> Result<Option<String>> {
+    async fn get_product_code(&self, bom_id: i64) -> Result<Option<String>> {
         let root = BomNodeRepo::find_root_by_bom_id(&self.pool, bom_id).await?;
         let Some(root) = root else {
             return Ok(None);

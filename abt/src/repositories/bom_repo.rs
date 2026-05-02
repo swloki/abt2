@@ -1,13 +1,13 @@
 //! BOM 数据访问层
 //!
 //! 提供 BOM 的数据库 CRUD 操作。
+//! 节点数据从 bom_nodes 表读写，不再操作 bom_detail JSONB。
 
 use anyhow::Result;
 use chrono::NaiveDate;
-use serde_json::json;
 use sqlx::PgPool;
 
-use crate::models::{Bom, BomDetail, BomQuery};
+use crate::models::BomQuery;
 use crate::repositories::{build_fuzzy_pattern, Executor};
 
 /// BOM 简要信息（用于引用显示）
@@ -32,16 +32,14 @@ impl BomRepo {
     pub async fn insert(
         executor: Executor<'_>,
         bom_name: &str,
-        bom_detail: &BomDetail,
         bom_category_id: Option<i64>,
         created_by: Option<i64>,
         status: &str,
     ) -> Result<i64> {
         let bom_id: i64 = sqlx::query_scalar(
-            "INSERT INTO bom (bom_name, create_at, bom_detail, bom_category_id, created_by, status) VALUES ($1, NOW(), $2::jsonb, $3, $4, $5) RETURNING bom_id",
+            "INSERT INTO bom (bom_name, create_at, bom_category_id, created_by, status) VALUES ($1, NOW(), $2, $3, $4) RETURNING bom_id",
         )
         .bind(bom_name)
-        .bind(json!(bom_detail))
         .bind(bom_category_id)
         .bind(created_by)
         .bind(status)
@@ -58,13 +56,32 @@ impl BomRepo {
         status: &str,
         published_at: Option<chrono::DateTime<chrono::Utc>>,
         published_by: Option<i64>,
-    ) -> Result<()> {
-        sqlx::query(
-            "UPDATE bom SET status = $1, published_at = $2, published_by = $3, update_at = NOW() WHERE bom_id = $4",
+    ) -> Result<crate::models::Bom> {
+        let bom = sqlx::query_as::<_, crate::models::Bom>(
+            "UPDATE bom SET status = $1, published_at = $2, published_by = $3, update_at = NOW() WHERE bom_id = $4 RETURNING bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by",
         )
         .bind(status)
         .bind(published_at)
         .bind(published_by)
+        .bind(bom_id)
+        .fetch_one(executor)
+        .await?;
+
+        Ok(bom)
+    }
+
+    /// 更新 BOM 元数据（名称和分类）
+    pub async fn update(
+        executor: Executor<'_>,
+        bom_id: i64,
+        bom_name: &str,
+        bom_category_id: Option<i64>,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE bom SET bom_name = $1, bom_category_id = $2, update_at = NOW() WHERE bom_id = $3",
+        )
+        .bind(bom_name)
+        .bind(bom_category_id)
         .bind(bom_id)
         .execute(executor)
         .await?;
@@ -72,46 +89,10 @@ impl BomRepo {
         Ok(())
     }
 
-    /// 更新 BOM
-    pub async fn update(
-        executor: Executor<'_>,
-        bom_id: i64,
-        bom_name: &str,
-        bom_detail: Option<&BomDetail>,
-        bom_category_id: Option<i64>,
-        caller_id: Option<i64>,
-    ) -> Result<()> {
-        if let Some(detail) = bom_detail {
-            sqlx::query(
-                "UPDATE bom SET bom_name = $1, bom_detail = $2::jsonb, bom_category_id = $3, update_at = NOW() WHERE bom_id = $4 AND (status = 'published' OR created_by = $5)",
-            )
-            .bind(bom_name)
-            .bind(json!(detail))
-            .bind(bom_category_id)
-            .bind(bom_id)
-            .bind(caller_id)
-            .execute(executor)
-            .await?;
-        } else {
-            sqlx::query(
-                "UPDATE bom SET bom_name = $1, bom_category_id = $2, update_at = NOW() WHERE bom_id = $3 AND (status = 'published' OR created_by = $4)",
-            )
-            .bind(bom_name)
-            .bind(bom_category_id)
-            .bind(bom_id)
-            .bind(caller_id)
-            .execute(executor)
-            .await?;
-        }
-
-        Ok(())
-    }
-
     /// 删除 BOM
-    pub async fn delete(executor: Executor<'_>, bom_id: i64, caller_id: Option<i64>) -> Result<()> {
-        sqlx::query("DELETE FROM bom WHERE bom_id = $1 AND (status = 'published' OR created_by = $2)")
+    pub async fn delete(executor: Executor<'_>, bom_id: i64) -> Result<()> {
+        sqlx::query("DELETE FROM bom WHERE bom_id = $1")
             .bind(bom_id)
-            .bind(caller_id)
             .execute(executor)
             .await?;
 
@@ -119,10 +100,9 @@ impl BomRepo {
     }
 
     /// 根据 ID 查找 BOM
-    /// 注意：Bom 有自定义 FromRow impl，需要用 runtime query
-    pub async fn find_by_id(executor: Executor<'_>, bom_id: i64) -> Result<Option<Bom>> {
-        let row = sqlx::query_as::<_, Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1",
+    pub async fn find_by_id(executor: Executor<'_>, bom_id: i64) -> Result<Option<crate::models::Bom>> {
+        let row = sqlx::query_as::<_, crate::models::Bom>(
+            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1",
         )
         .bind(bom_id)
         .fetch_optional(executor)
@@ -132,9 +112,9 @@ impl BomRepo {
     }
 
     /// 查找 BOM 并加行锁（用于先读后写模式，必须在事务内调用）
-    pub async fn find_by_id_for_update(executor: Executor<'_>, bom_id: i64) -> Result<Option<Bom>> {
-        let row = sqlx::query_as::<_, Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id FROM bom WHERE bom_id = $1 FOR UPDATE",
+    pub async fn find_by_id_for_update(executor: Executor<'_>, bom_id: i64) -> Result<Option<crate::models::Bom>> {
+        let row = sqlx::query_as::<_, crate::models::Bom>(
+            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1 FOR UPDATE",
         )
         .bind(bom_id)
         .fetch_optional(executor)
@@ -143,12 +123,31 @@ impl BomRepo {
         Ok(row)
     }
 
+    /// 批量查询包含指定产品且用户有权访问的 BOM（带行锁）
+    pub async fn find_accessible_boms_by_product(
+        executor: Executor<'_>,
+        product_id: i64,
+        caller_id: i64,
+    ) -> Result<Vec<crate::models::Bom>> {
+        let rows = sqlx::query_as::<_, crate::models::Bom>(
+            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by
+             FROM bom
+             WHERE EXISTS (SELECT 1 FROM bom_nodes WHERE bom_nodes.bom_id = bom.bom_id AND product_id = $1)
+               AND (status = 'published' OR created_by = $2)
+             FOR UPDATE",
+        )
+        .bind(product_id)
+        .bind(caller_id)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
+    }
+
     /// 使用连接池查找 BOM（用于只读操作）
-    /// 注意：Bom 有自定义 FromRow impl，需要用 runtime query
     #[allow(dead_code)]
-    pub async fn find_by_id_pool(pool: &PgPool, bom_id: i64) -> Result<Option<Bom>> {
-        let row = sqlx::query_as::<_, Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1",
+    pub async fn find_by_id_pool(pool: &PgPool, bom_id: i64) -> Result<Option<crate::models::Bom>> {
+        let row = sqlx::query_as::<_, crate::models::Bom>(
+            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1",
         )
         .bind(bom_id)
         .fetch_optional(pool)
@@ -172,10 +171,10 @@ impl BomRepo {
 
     /// 查询 BOM 列表
     #[allow(dead_code)]
-    pub async fn query(pool: &PgPool, bom_query: &BomQuery) -> Result<Vec<Bom>> {
+    pub async fn query(pool: &PgPool, bom_query: &BomQuery) -> Result<Vec<crate::models::Bom>> {
         let mut query = sqlx::QueryBuilder::new(
             r#"
-            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id, created_by, status, published_at, published_by
+            SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by
             FROM bom
             WHERE 1=1
             "#,
@@ -192,7 +191,7 @@ impl BomRepo {
         query.push(" OFFSET ");
         query.push_bind(((page - 1) * page_size) as i32);
 
-        let result = query.build_query_as::<Bom>().fetch_all(pool).await?;
+        let result = query.build_query_as::<crate::models::Bom>().fetch_all(pool).await?;
         Ok(result)
     }
 
@@ -222,7 +221,7 @@ impl BomRepo {
         if let Some(create_by) = &bom_query.create_by
             && !create_by.is_empty()
         {
-            query.push(" AND bom_detail ->> 'created_by' ILIKE ");
+            query.push(" AND created_by::text ILIKE ");
             query.push_bind(format!("%{}%", create_by));
         }
         if let Some(date_from) = &bom_query.date_from
@@ -242,14 +241,14 @@ impl BomRepo {
             query.push_bind(utc_datetime);
         }
         if let Some(product_id) = bom_query.product_id {
-            query.push(" AND EXISTS (SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node WHERE (node->>'product_id')::bigint = ");
+            query.push(" AND EXISTS (SELECT 1 FROM bom_nodes WHERE bom_nodes.bom_id = bom.bom_id AND product_id = ");
             query.push_bind(product_id);
             query.push(")");
         }
         if let Some(product_code) = &bom_query.product_code
             && !product_code.is_empty()
         {
-            query.push(" AND EXISTS (SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node JOIN products p ON (node->>'product_id')::bigint = p.product_id WHERE (node->>'parent_id')::bigint = 0 AND p.meta->>'product_code' ILIKE ");
+            query.push(" AND EXISTS (SELECT 1 FROM bom_nodes n JOIN products p ON n.product_id = p.product_id WHERE n.bom_id = bom.bom_id AND n.parent_id IS NULL AND p.meta->>'product_code' ILIKE ");
             query.push_bind(format!("%{}%", product_code));
             query.push(")");
         }
@@ -269,7 +268,6 @@ impl BomRepo {
     }
 
     /// 查询使用指定产品的 BOM 列表
-    /// 返回包含该产品的 BOM 的简要信息（最多 10 条）和总数
     pub async fn find_boms_using_product(
         pool: &PgPool,
         product_id: i64,
@@ -279,24 +277,21 @@ impl BomRepo {
         let ps = page_size.unwrap_or(10) as i64;
         let offset = (page.unwrap_or(1).saturating_sub(1)) as i64 * ps;
 
-        // 查询总数（仅已发布的 BOM）
         let total: Option<i64> = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM bom WHERE status = 'published' AND EXISTS (SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node WHERE (node->>'product_id')::bigint = $1)",
+            "SELECT COUNT(*) FROM bom WHERE status = 'published' AND EXISTS (SELECT 1 FROM bom_nodes WHERE bom_nodes.bom_id = bom.bom_id AND product_id = $1)",
         )
         .bind(product_id)
         .fetch_one(pool)
         .await?;
         let total = total.unwrap_or(0);
 
-        // 查询分页 BOM 信息（仅已发布的 BOM）
         let boms: Vec<BomReference> = sqlx::query_as(
             r#"
             SELECT bom_id, bom_name
             FROM bom
             WHERE status = 'published'
             AND EXISTS (
-                SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node
-                WHERE (node->>'product_id')::bigint = $1
+                SELECT 1 FROM bom_nodes WHERE bom_nodes.bom_id = bom.bom_id AND product_id = $1
             )
             ORDER BY bom_name
             LIMIT $2 OFFSET $3
@@ -315,14 +310,13 @@ impl BomRepo {
     pub async fn find_all_boms_using_product(
         executor: Executor<'_>,
         product_id: i64,
-    ) -> Result<Vec<Bom>> {
-        let rows = sqlx::query_as::<_, Bom>(
+    ) -> Result<Vec<crate::models::Bom>> {
+        let rows = sqlx::query_as::<_, crate::models::Bom>(
             r#"
-            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id, created_by, status, published_at, published_by
+            SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by
             FROM bom
             WHERE EXISTS (
-                SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node
-                WHERE (node->>'product_id')::bigint = $1
+                SELECT 1 FROM bom_nodes WHERE bom_nodes.bom_id = bom.bom_id AND product_id = $1
             )
             FOR UPDATE
             "#,
@@ -335,7 +329,6 @@ impl BomRepo {
     }
 
     /// 批量查询哪些 product_code 有对应的 BOM（根节点）
-    /// 返回有 BOM 的 product_code 集合
     pub async fn find_product_codes_with_bom(
         pool: &PgPool,
         product_codes: &[String],
@@ -348,11 +341,8 @@ impl BomRepo {
             r#"
             SELECT DISTINCT p.meta->>'product_code'
             FROM products p
-            JOIN bom b ON EXISTS (
-                SELECT 1 FROM jsonb_array_elements(b.bom_detail->'nodes') AS node
-                WHERE (node->>'product_id')::bigint = p.product_id
-                AND (node->>'parent_id')::bigint = 0
-            )
+            JOIN bom_nodes bn ON bn.product_id = p.product_id AND bn.parent_id IS NULL
+            JOIN bom b ON b.bom_id = bn.bom_id
             WHERE p.meta->>'product_code' = ANY($1)
             "#,
         )

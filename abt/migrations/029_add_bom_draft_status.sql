@@ -16,3 +16,7 @@ ALTER TABLE bom ADD COLUMN published_by BIGINT;
 
 -- 已有数据：published_at 回填为 create_at，published_by 回填为 created_by
 UPDATE bom SET published_at = create_at, published_by = created_by;
+
+-- 索引：支持按状态过滤和可见性查询
+CREATE INDEX idx_bom_status ON bom(status);
+CREATE INDEX idx_bom_created_by ON bom(created_by);

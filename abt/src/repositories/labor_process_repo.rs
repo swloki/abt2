@@ -250,10 +250,9 @@ impl LaborProcessRepo {
                    p.pdt_name AS product_name,
                    b.create_at AS created_at
             FROM bom b
-            CROSS JOIN LATERAL jsonb_array_elements(b.bom_detail->'nodes') AS node
-            JOIN products p ON (node->>'product_id')::bigint = p.product_id
-            WHERE (node->>'parent_id')::bigint = 0
-              AND NOT EXISTS (
+            JOIN bom_nodes bn ON bn.bom_id = b.bom_id AND bn.parent_id IS NULL
+            JOIN products p ON bn.product_id = p.product_id
+            WHERE NOT EXISTS (
                   SELECT 1 FROM bom_labor_process blp
                   WHERE blp.product_code = p.meta->>'product_code'
               )

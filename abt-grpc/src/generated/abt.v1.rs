@@ -2523,8 +2523,6 @@ pub struct BomResponse {
     pub status: i32,
     #[prost(int64, tag = "9")]
     pub published_at: i64,
-    #[prost(int64, tag = "10")]
-    pub published_by: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BomListResponse {

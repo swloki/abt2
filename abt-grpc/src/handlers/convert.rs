@@ -92,7 +92,6 @@ impl From<abt::Bom> for BomResponse {
             bom_category_id: bom.bom_category_id,
             status: status.into(),
             published_at: bom.published_at.map(|t| t.timestamp()).unwrap_or(0),
-            published_by: bom.published_by.unwrap_or(0),
         }
     }
 }

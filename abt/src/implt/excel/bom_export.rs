@@ -9,7 +9,7 @@ use rust_xlsxwriter::{Color, Format, FormatAlign, FormatBorder, Workbook};
 use sqlx::PgPool;
 
 use crate::models::{Bom, BomNode, Product};
-use crate::repositories::{BomRepo, ProductRepo};
+use crate::repositories::{BomNodeRepo, BomRepo, ProductRepo};
 use crate::service::{ExcelExportService, ExportRequest};
 
 /// BOM 导出列定义（schema-as-code）
@@ -129,15 +129,15 @@ impl BomExporter {
             None => return Ok(None),
         };
 
-        let product_ids: Vec<i64> = bom.bom_detail.nodes.iter().map(|n| n.product_id).collect();
+        let nodes = BomNodeRepo::find_bom_nodes_by_bom_id(&self.pool, bom_id).await?;
+
+        let product_ids: Vec<i64> = nodes.iter().map(|n| n.product_id).collect();
         let products = ProductRepo::find_by_ids(&self.pool, &product_ids).await?;
 
         let product_map: HashMap<i64, &Product> =
             products.iter().map(|p| (p.product_id, p)).collect();
 
-        let list: Vec<NodeWithProduct> = bom
-            .bom_detail
-            .nodes
+        let list: Vec<NodeWithProduct> = nodes
             .iter()
             .filter_map(|node| {
                 product_map

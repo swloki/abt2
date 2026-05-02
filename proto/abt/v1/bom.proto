@@ -69,7 +69,7 @@ message BomResponse {
   optional int64 bom_category_id = 7;
   BomStatus status = 8;
   int64 published_at = 9;
-  int64 published_by = 10;
+  reserved 10;
 }
 
 message BomListResponse {

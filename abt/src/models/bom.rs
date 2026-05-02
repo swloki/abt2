@@ -71,7 +71,6 @@ pub struct Bom {
     pub bom_category_id: Option<i64>,
     pub status: BomStatus,
     pub published_at: Option<DateTime<Utc>>,
-    pub published_by: Option<i64>,
     pub created_by: Option<i64>,
 }
 
@@ -87,7 +86,6 @@ impl<'r> FromRow<'r, PgRow> for Bom {
         let status = BomStatus::from_str(&status_str).unwrap_or(BomStatus::Draft);
 
         let published_at: Option<DateTime<Utc>> = row.try_get("published_at")?;
-        let published_by: Option<i64> = row.try_get("published_by")?;
         let created_by: Option<i64> = row.try_get("created_by")?;
 
         Ok(Bom {
@@ -99,7 +97,6 @@ impl<'r> FromRow<'r, PgRow> for Bom {
             bom_category_id,
             status,
             published_at,
-            published_by,
             created_by,
         })
     }

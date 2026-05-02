@@ -55,14 +55,12 @@ impl BomRepo {
         bom_id: i64,
         status: &str,
         published_at: Option<chrono::DateTime<chrono::Utc>>,
-        published_by: Option<i64>,
     ) -> Result<crate::models::Bom> {
         let bom = sqlx::query_as::<_, crate::models::Bom>(
-            "UPDATE bom SET status = $1, published_at = $2, published_by = $3, update_at = NOW() WHERE bom_id = $4 RETURNING bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by",
+            "UPDATE bom SET status = $1, published_at = $2, update_at = NOW() WHERE bom_id = $3 RETURNING bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at",
         )
         .bind(status)
         .bind(published_at)
-        .bind(published_by)
         .bind(bom_id)
         .fetch_one(executor)
         .await?;
@@ -102,7 +100,7 @@ impl BomRepo {
     /// 根据 ID 查找 BOM
     pub async fn find_by_id(executor: Executor<'_>, bom_id: i64) -> Result<Option<crate::models::Bom>> {
         let row = sqlx::query_as::<_, crate::models::Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1",
+            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at FROM bom WHERE bom_id = $1",
         )
         .bind(bom_id)
         .fetch_optional(executor)
@@ -114,7 +112,7 @@ impl BomRepo {
     /// 查找 BOM 并加行锁（用于先读后写模式，必须在事务内调用）
     pub async fn find_by_id_for_update(executor: Executor<'_>, bom_id: i64) -> Result<Option<crate::models::Bom>> {
         let row = sqlx::query_as::<_, crate::models::Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1 FOR UPDATE",
+            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at FROM bom WHERE bom_id = $1 FOR UPDATE",
         )
         .bind(bom_id)
         .fetch_optional(executor)
@@ -130,7 +128,7 @@ impl BomRepo {
         caller_id: i64,
     ) -> Result<Vec<crate::models::Bom>> {
         let rows = sqlx::query_as::<_, crate::models::Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by
+            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at
              FROM bom
              WHERE EXISTS (SELECT 1 FROM bom_nodes WHERE bom_nodes.bom_id = bom.bom_id AND product_id = $1)
                AND (status = 'published' OR created_by = $2)
@@ -146,7 +144,7 @@ impl BomRepo {
     /// 使用连接池查找 BOM（用于只读操作）
     pub async fn find_by_id_pool(pool: &PgPool, bom_id: i64) -> Result<Option<crate::models::Bom>> {
         let row = sqlx::query_as::<_, crate::models::Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1",
+            "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at FROM bom WHERE bom_id = $1",
         )
         .bind(bom_id)
         .fetch_optional(pool)
@@ -172,7 +170,7 @@ impl BomRepo {
     pub async fn query(pool: &PgPool, bom_query: &BomQuery) -> Result<Vec<crate::models::Bom>> {
         let mut query = sqlx::QueryBuilder::new(
             r#"
-            SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by
+            SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at
             FROM bom
             WHERE 1=1
             "#,
@@ -309,7 +307,7 @@ impl BomRepo {
     ) -> Result<Vec<crate::models::Bom>> {
         let rows = sqlx::query_as::<_, crate::models::Bom>(
             r#"
-            SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by
+            SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at
             FROM bom
             WHERE EXISTS (
                 SELECT 1 FROM bom_nodes WHERE bom_nodes.bom_id = bom.bom_id AND product_id = $1

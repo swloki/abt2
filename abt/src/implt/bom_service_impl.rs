@@ -212,7 +212,7 @@ impl BomService for BomServiceImpl {
             return Ok(bom);
         }
 
-        let mut published_bom = BomRepo::update_status(&mut *executor, bom_id, BomStatus::Published.as_str(), Some(Utc::now()), Some(operator_id)).await?;
+        let mut published_bom = BomRepo::update_status(&mut *executor, bom_id, BomStatus::Published.as_str(), Some(Utc::now())).await?;
         published_bom.bom_detail = self.build_bom_detail(bom_id).await?;
         Ok(published_bom)
     }
@@ -233,7 +233,7 @@ impl BomService for BomServiceImpl {
             return Ok(bom);
         }
 
-        let mut draft_bom = BomRepo::update_status(&mut *executor, bom_id, BomStatus::Draft.as_str(), None, None).await?;
+        let mut draft_bom = BomRepo::update_status(&mut *executor, bom_id, BomStatus::Draft.as_str(), None).await?;
         draft_bom.bom_detail = self.build_bom_detail(bom_id).await?;
         Ok(draft_bom)
     }

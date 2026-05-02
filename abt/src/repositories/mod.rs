@@ -4,6 +4,7 @@
 
 mod auth_repo;
 mod bom_category_repo;
+mod bom_node_repo;
 mod bom_repo;
 mod department_repo;
 mod inventory_repo;
@@ -21,6 +22,7 @@ mod warehouse_repo;
 
 pub use auth_repo::AuthRepo;
 pub use bom_category_repo::BomCategoryRepo;
+pub use bom_node_repo::BomNodeRepo;
 pub use bom_repo::{BomReference, BomRepo, ProductUsageResult};
 pub use department_repo::DepartmentRepo;
 pub use inventory_repo::InventoryRepo;

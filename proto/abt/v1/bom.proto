@@ -29,6 +29,8 @@ service AbtBomService {
   rpc GetBomCostReport(GetBomCostReportRequest) returns (BomCostReportResponse);
   // 发布 BOM（草稿 → 已发布）
   rpc PublishBom(PublishBomRequest) returns (PublishBomResponse);
+  // 取消发布 BOM（已发布 → 草稿）
+  rpc UnpublishBom(UnpublishBomRequest) returns (UnpublishBomResponse);
 }
 
 enum BomStatus {
@@ -54,7 +56,7 @@ message BomNodeProto {
 
 message BomDetailProto {
   repeated BomNodeProto nodes = 1;
-  int64 created_by = 2;
+  reserved 2;
 }
 
 message BomResponse {
@@ -218,6 +220,16 @@ message PublishBomRequest {
 
 // 发布 BOM 响应
 message PublishBomResponse {
+  BomResponse bom = 1;
+}
+
+// 取消发布 BOM 请求
+message UnpublishBomRequest {
+  int64 bom_id = 1;
+}
+
+// 取消发布 BOM 响应
+message UnpublishBomResponse {
   BomResponse bom = 1;
 }
 

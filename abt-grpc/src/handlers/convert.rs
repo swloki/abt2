@@ -122,7 +122,6 @@ impl From<abt::BomDetail> for BomDetailProto {
     fn from(detail: abt::BomDetail) -> Self {
         BomDetailProto {
             nodes: detail.nodes.into_iter().map(|n| n.into()).collect(),
-            created_by: detail.created_by.unwrap_or(0),
         }
     }
 }

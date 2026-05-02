@@ -2502,8 +2502,6 @@ pub struct BomNodeProto {
 pub struct BomDetailProto {
     #[prost(message, repeated, tag = "1")]
     pub nodes: ::prost::alloc::vec::Vec<BomNodeProto>,
-    #[prost(int64, tag = "2")]
-    pub created_by: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BomResponse {
@@ -2752,6 +2750,18 @@ pub struct PublishBomRequest {
 /// 发布 BOM 响应
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PublishBomResponse {
+    #[prost(message, optional, tag = "1")]
+    pub bom: ::core::option::Option<BomResponse>,
+}
+/// 取消发布 BOM 请求
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UnpublishBomRequest {
+    #[prost(int64, tag = "1")]
+    pub bom_id: i64,
+}
+/// 取消发布 BOM 响应
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UnpublishBomResponse {
     #[prost(message, optional, tag = "1")]
     pub bom: ::core::option::Option<BomResponse>,
 }
@@ -3329,6 +3339,31 @@ pub mod abt_bom_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtBomService", "PublishBom"));
             self.inner.unary(req, path, codec).await
         }
+        /// 取消发布 BOM（已发布 → 草稿）
+        pub async fn unpublish_bom(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UnpublishBomRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UnpublishBomResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtBomService/UnpublishBom",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtBomService", "UnpublishBom"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -3439,6 +3474,14 @@ pub mod abt_bom_service_server {
             request: tonic::Request<super::PublishBomRequest>,
         ) -> std::result::Result<
             tonic::Response<super::PublishBomResponse>,
+            tonic::Status,
+        >;
+        /// 取消发布 BOM（已发布 → 草稿）
+        async fn unpublish_bom(
+            &self,
+            request: tonic::Request<super::UnpublishBomRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UnpublishBomResponse>,
             tonic::Status,
         >;
     }
@@ -4317,6 +4360,51 @@ pub mod abt_bom_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = PublishBomSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtBomService/UnpublishBom" => {
+                    #[allow(non_camel_case_types)]
+                    struct UnpublishBomSvc<T: AbtBomService>(pub Arc<T>);
+                    impl<
+                        T: AbtBomService,
+                    > tonic::server::UnaryService<super::UnpublishBomRequest>
+                    for UnpublishBomSvc<T> {
+                        type Response = super::UnpublishBomResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UnpublishBomRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtBomService>::unpublish_bom(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UnpublishBomSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

@@ -144,7 +144,6 @@ impl BomRepo {
     }
 
     /// 使用连接池查找 BOM（用于只读操作）
-    #[allow(dead_code)]
     pub async fn find_by_id_pool(pool: &PgPool, bom_id: i64) -> Result<Option<crate::models::Bom>> {
         let row = sqlx::query_as::<_, crate::models::Bom>(
             "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1",
@@ -170,7 +169,6 @@ impl BomRepo {
     }
 
     /// 查询 BOM 列表
-    #[allow(dead_code)]
     pub async fn query(pool: &PgPool, bom_query: &BomQuery) -> Result<Vec<crate::models::Bom>> {
         let mut query = sqlx::QueryBuilder::new(
             r#"
@@ -196,7 +194,6 @@ impl BomRepo {
     }
 
     /// 查询 BOM 总数
-    #[allow(dead_code)]
     pub async fn query_count(pool: &PgPool, bom_query: &BomQuery) -> Result<i64> {
         let mut query = sqlx::QueryBuilder::new("SELECT count(*) FROM bom WHERE 1=1");
 
@@ -207,7 +204,6 @@ impl BomRepo {
     }
 
     /// 构建查询过滤条件
-    #[allow(dead_code)]
     fn build_query_filter(
         query: &mut sqlx::QueryBuilder<'_, sqlx::Postgres>,
         bom_query: &BomQuery,

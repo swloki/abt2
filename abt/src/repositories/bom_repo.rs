@@ -11,7 +11,7 @@ use crate::models::{Bom, BomDetail, BomQuery};
 use crate::repositories::{build_fuzzy_pattern, Executor};
 
 /// BOM 简要信息（用于引用显示）
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct BomReference {
     pub bom_id: i64,
     pub bom_name: String,
@@ -34,21 +34,42 @@ impl BomRepo {
         bom_name: &str,
         bom_detail: &BomDetail,
         bom_category_id: Option<i64>,
+        created_by: Option<i64>,
+        status: &str,
     ) -> Result<i64> {
-        let bom_id: i64 = sqlx::query_scalar!(
-            r#"
-            INSERT INTO bom (bom_name, create_at, bom_detail, bom_category_id)
-            VALUES ($1, NOW(), $2::jsonb, $3)
-            RETURNING bom_id
-            "#,
-            bom_name,
-            json!(bom_detail),
-            bom_category_id
+        let bom_id: i64 = sqlx::query_scalar(
+            "INSERT INTO bom (bom_name, create_at, bom_detail, bom_category_id, created_by, status) VALUES ($1, NOW(), $2::jsonb, $3, $4, $5) RETURNING bom_id",
         )
+        .bind(bom_name)
+        .bind(json!(bom_detail))
+        .bind(bom_category_id)
+        .bind(created_by)
+        .bind(status)
         .fetch_one(executor)
         .await?;
 
         Ok(bom_id)
+    }
+
+    /// 更新 BOM 状态（发布/取消发布）
+    pub async fn update_status(
+        executor: Executor<'_>,
+        bom_id: i64,
+        status: &str,
+        published_at: Option<chrono::DateTime<chrono::Utc>>,
+        published_by: Option<i64>,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE bom SET status = $1, published_at = $2, published_by = $3, update_at = NOW() WHERE bom_id = $4",
+        )
+        .bind(status)
+        .bind(published_at)
+        .bind(published_by)
+        .bind(bom_id)
+        .execute(executor)
+        .await?;
+
+        Ok(())
     }
 
     /// 更新 BOM
@@ -58,32 +79,27 @@ impl BomRepo {
         bom_name: &str,
         bom_detail: Option<&BomDetail>,
         bom_category_id: Option<i64>,
+        caller_id: Option<i64>,
     ) -> Result<()> {
         if let Some(detail) = bom_detail {
-            sqlx::query!(
-                r#"
-                UPDATE bom
-                SET bom_name = $1, bom_detail = $2::jsonb, bom_category_id = $3, update_at = NOW()
-                WHERE bom_id = $4
-                "#,
-                bom_name,
-                json!(detail),
-                bom_category_id,
-                bom_id
+            sqlx::query(
+                "UPDATE bom SET bom_name = $1, bom_detail = $2::jsonb, bom_category_id = $3, update_at = NOW() WHERE bom_id = $4 AND (status = 'published' OR created_by = $5)",
             )
+            .bind(bom_name)
+            .bind(json!(detail))
+            .bind(bom_category_id)
+            .bind(bom_id)
+            .bind(caller_id)
             .execute(executor)
             .await?;
         } else {
-            sqlx::query!(
-                r#"
-                UPDATE bom
-                SET bom_name = $1, bom_category_id = $2, update_at = NOW()
-                WHERE bom_id = $3
-                "#,
-                bom_name,
-                bom_category_id,
-                bom_id
+            sqlx::query(
+                "UPDATE bom SET bom_name = $1, bom_category_id = $2, update_at = NOW() WHERE bom_id = $3 AND (status = 'published' OR created_by = $4)",
             )
+            .bind(bom_name)
+            .bind(bom_category_id)
+            .bind(bom_id)
+            .bind(caller_id)
             .execute(executor)
             .await?;
         }
@@ -92,8 +108,10 @@ impl BomRepo {
     }
 
     /// 删除 BOM
-    pub async fn delete(executor: Executor<'_>, bom_id: i64) -> Result<()> {
-        sqlx::query!("DELETE FROM bom WHERE bom_id = $1", bom_id)
+    pub async fn delete(executor: Executor<'_>, bom_id: i64, caller_id: Option<i64>) -> Result<()> {
+        sqlx::query("DELETE FROM bom WHERE bom_id = $1 AND (status = 'published' OR created_by = $2)")
+            .bind(bom_id)
+            .bind(caller_id)
             .execute(executor)
             .await?;
 
@@ -104,7 +122,7 @@ impl BomRepo {
     /// 注意：Bom 有自定义 FromRow impl，需要用 runtime query
     pub async fn find_by_id(executor: Executor<'_>, bom_id: i64) -> Result<Option<Bom>> {
         let row = sqlx::query_as::<_, Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id FROM bom WHERE bom_id = $1",
+            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1",
         )
         .bind(bom_id)
         .fetch_optional(executor)
@@ -130,7 +148,7 @@ impl BomRepo {
     #[allow(dead_code)]
     pub async fn find_by_id_pool(pool: &PgPool, bom_id: i64) -> Result<Option<Bom>> {
         let row = sqlx::query_as::<_, Bom>(
-            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id FROM bom WHERE bom_id = $1",
+            "SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id, created_by, status, published_at, published_by FROM bom WHERE bom_id = $1",
         )
         .bind(bom_id)
         .fetch_optional(pool)
@@ -139,13 +157,13 @@ impl BomRepo {
         Ok(row)
     }
 
-    /// 检查 BOM 名称是否存在
-    #[allow(dead_code)]
-    pub async fn exists_name(pool: &PgPool, name: &str) -> Result<bool> {
+    /// 检查 BOM 名称是否存在（限定已发布 BOM + 当前用户的草稿）
+    pub async fn exists_name(pool: &PgPool, name: &str, caller_id: Option<i64>) -> Result<bool> {
         let exists: Option<bool> = sqlx::query_scalar(
-            "SELECT EXISTS(SELECT 1 FROM bom WHERE bom_name = $1)",
+            "SELECT EXISTS(SELECT 1 FROM bom WHERE bom_name = $1 AND (status = 'published' OR created_by = $2))",
         )
         .bind(name)
+        .bind(caller_id)
         .fetch_one(pool)
         .await?;
 
@@ -157,7 +175,7 @@ impl BomRepo {
     pub async fn query(pool: &PgPool, bom_query: &BomQuery) -> Result<Vec<Bom>> {
         let mut query = sqlx::QueryBuilder::new(
             r#"
-            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id
+            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id, created_by, status, published_at, published_by
             FROM bom
             WHERE 1=1
             "#,
@@ -239,6 +257,15 @@ impl BomRepo {
             query.push(" AND bom_category_id = ");
             query.push_bind(bom_category_id);
         }
+        if let Some(status) = &bom_query.status {
+            query.push(" AND status = ");
+            query.push_bind(status.as_str());
+        }
+        if let Some(caller_id) = bom_query.caller_id {
+            query.push(" AND (status = 'published' OR created_by = ");
+            query.push_bind(caller_id);
+            query.push(")");
+        }
     }
 
     /// 查询使用指定产品的 BOM 列表
@@ -252,39 +279,32 @@ impl BomRepo {
         let ps = page_size.unwrap_or(10) as i64;
         let offset = (page.unwrap_or(1).saturating_sub(1)) as i64 * ps;
 
-        // 查询总数
-        let total: i64 = sqlx::query_scalar!(
-            r#"
-            SELECT COUNT(*)
-            FROM bom
-            WHERE EXISTS (
-                SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node
-                WHERE (node->>'product_id')::bigint = $1
-            )
-            "#,
-            product_id
+        // 查询总数（仅已发布的 BOM）
+        let total: Option<i64> = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM bom WHERE status = 'published' AND EXISTS (SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node WHERE (node->>'product_id')::bigint = $1)",
         )
+        .bind(product_id)
         .fetch_one(pool)
-        .await?
-        .unwrap_or(0);
+        .await?;
+        let total = total.unwrap_or(0);
 
-        // 查询分页 BOM 信息
-        let boms = sqlx::query_as!(
-            BomReference,
+        // 查询分页 BOM 信息（仅已发布的 BOM）
+        let boms: Vec<BomReference> = sqlx::query_as(
             r#"
             SELECT bom_id, bom_name
             FROM bom
-            WHERE EXISTS (
+            WHERE status = 'published'
+            AND EXISTS (
                 SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node
                 WHERE (node->>'product_id')::bigint = $1
             )
             ORDER BY bom_name
             LIMIT $2 OFFSET $3
             "#,
-            product_id,
-            ps,
-            offset
         )
+        .bind(product_id)
+        .bind(ps)
+        .bind(offset)
         .fetch_all(pool)
         .await?;
 
@@ -298,7 +318,7 @@ impl BomRepo {
     ) -> Result<Vec<Bom>> {
         let rows = sqlx::query_as::<_, Bom>(
             r#"
-            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id
+            SELECT bom_id, bom_name, create_at, update_at, bom_detail::text, bom_category_id, created_by, status, published_at, published_by
             FROM bom
             WHERE EXISTS (
                 SELECT 1 FROM jsonb_array_elements(bom_detail->'nodes') AS node

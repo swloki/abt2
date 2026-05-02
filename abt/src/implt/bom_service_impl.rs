@@ -4,11 +4,12 @@
 
 use anyhow::Result;
 use async_trait::async_trait;
+use chrono::Utc;
 use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::models::{Bom, BomCostReport, BomDetail, BomNode, BomQuery, LaborCostItem, MaterialCostItem};
+use crate::models::{Bom, BomCostReport, BomDetail, BomNode, BomQuery, BomStatus, LaborCostItem, MaterialCostItem};
 use crate::repositories::{BomRepo, Executor, LaborProcessRepo, ProductPriceRepo, ProductRepo};
 use crate::service::{AttributeOverrides, BomService};
 
@@ -26,26 +27,25 @@ impl BomServiceImpl {
 #[async_trait]
 impl BomService for BomServiceImpl {
     async fn create(&self, name: &str, created_by: i64, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<i64> {
-        // 检查名称是否已存在 - 这里需要 pool，暂时跳过
         let bom_detail = BomDetail {
             nodes: Vec::new(),
             created_by: Some(created_by),
         };
 
-        let bom_id = BomRepo::insert(executor, name, &bom_detail, bom_category_id).await?;
+        let bom_id = BomRepo::insert(executor, name, &bom_detail, bom_category_id, Some(created_by), BomStatus::Draft.as_str()).await?;
         Ok(bom_id)
     }
 
-    async fn update(&self, bom: Bom, executor: Executor<'_>) -> Result<()> {
-        BomRepo::update(executor, bom.bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await
+    async fn update(&self, bom: Bom, caller_id: i64, executor: Executor<'_>) -> Result<()> {
+        BomRepo::update(executor, bom.bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id, Some(caller_id)).await
     }
 
-    async fn update_metadata(&self, bom_id: i64, name: &str, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<()> {
-        BomRepo::update(executor, bom_id, name, None, bom_category_id).await
+    async fn update_metadata(&self, bom_id: i64, name: &str, bom_category_id: Option<i64>, caller_id: i64, executor: Executor<'_>) -> Result<()> {
+        BomRepo::update(executor, bom_id, name, None, bom_category_id, Some(caller_id)).await
     }
 
-    async fn delete(&self, bom_id: i64, executor: Executor<'_>) -> Result<()> {
-        BomRepo::delete(executor, bom_id).await
+    async fn delete(&self, bom_id: i64, caller_id: i64, executor: Executor<'_>) -> Result<()> {
+        BomRepo::delete(executor, bom_id, Some(caller_id)).await
     }
 
     async fn find(&self, bom_id: i64, executor: Executor<'_>) -> Result<Option<Bom>> {
@@ -69,6 +69,8 @@ impl BomService for BomServiceImpl {
             None => return Err(anyhow::anyhow!("BOM not found")),
         };
 
+        let caller_id = bom.created_by;
+
         // 生成新节点 ID
         let new_id = bom.bom_detail.nodes.iter().map(|n| n.id).max().unwrap_or(0) + 1;
         let count = bom.bom_detail.nodes.len() as i32;
@@ -77,7 +79,7 @@ impl BomService for BomServiceImpl {
 
         bom.bom_detail.nodes.push(node);
 
-        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await?;
+        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id, caller_id).await?;
 
         Ok(new_id)
     }
@@ -87,6 +89,8 @@ impl BomService for BomServiceImpl {
             Some(bom) => bom,
             None => return Err(anyhow::anyhow!("BOM not found")),
         };
+
+        let caller_id = bom.created_by;
 
         // 查找并更新节点（只更新可编辑字段，保留 product_id / parent_id / order / product_code）
         if let Some(existing_node) = bom.bom_detail.nodes.iter_mut().find(|n| n.id == node.id) {
@@ -99,7 +103,7 @@ impl BomService for BomServiceImpl {
             existing_node.properties = node.properties;
         }
 
-        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await
+        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id, caller_id).await
     }
 
     async fn delete_node(&self, bom_id: i64, node_id: i64, executor: Executor<'_>) -> Result<i64> {
@@ -107,6 +111,8 @@ impl BomService for BomServiceImpl {
             Some(bom) => bom,
             None => return Err(anyhow::anyhow!("BOM not found")),
         };
+
+        let caller_id = bom.created_by;
 
         // 找出所有需要删除的节点 ID（包括子节点）
         let mut nodes_to_delete = Vec::new();
@@ -130,7 +136,7 @@ impl BomService for BomServiceImpl {
             .nodes
             .retain(|node| !nodes_to_delete.contains(&node.id));
 
-        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await?;
+        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id, caller_id).await?;
 
         Ok(node_id)
     }
@@ -146,6 +152,8 @@ impl BomService for BomServiceImpl {
             Some(bom) => bom,
             None => return Err(anyhow::anyhow!("BOM not found")),
         };
+
+        let caller_id = bom.created_by;
 
         // 获取两个节点的 order
         let mut order1 = 0;
@@ -170,11 +178,30 @@ impl BomService for BomServiceImpl {
             }
         }
 
-        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id).await
+        BomRepo::update(executor, bom_id, &bom.bom_name, Some(&bom.bom_detail), bom.bom_category_id, caller_id).await
     }
 
-    async fn exists_name(&self, name: &str) -> Result<bool> {
-        BomRepo::exists_name(&self.pool, name).await
+    async fn exists_name(&self, name: &str, caller_id: Option<i64>) -> Result<bool> {
+        BomRepo::exists_name(&self.pool, name, caller_id).await
+    }
+
+    async fn publish(&self, bom_id: i64, operator_id: i64, executor: Executor<'_>) -> Result<Bom> {
+        let bom = match BomRepo::find_by_id(&mut *executor, bom_id).await? {
+            Some(bom) => bom,
+            None => anyhow::bail!("BOM not found"),
+        };
+
+        bom.require_creator_or_published(operator_id, true)?;
+
+        if bom.status == BomStatus::Published {
+            return Ok(bom);
+        }
+
+        BomRepo::update_status(&mut *executor, bom_id, BomStatus::Published.as_str(), Some(Utc::now()), Some(operator_id)).await?;
+
+        let published_bom = BomRepo::find_by_id(&mut *executor, bom_id).await?
+            .ok_or_else(|| anyhow::anyhow!("BOM not found after publish"))?;
+        Ok(published_bom)
     }
 
     async fn get_leaf_nodes(&self, bom_id: i64, executor: Executor<'_>) -> Result<Vec<BomNode>> {
@@ -279,8 +306,8 @@ impl BomService for BomServiceImpl {
             created_by: Some(created_by),
         };
 
-        // 3. 插入新 BOM（不复制分类，保持为空）
-        let new_bom_id = BomRepo::insert(executor, new_name, &new_detail, None).await?;
+        // 3. 插入新 BOM（不复制分类，保持为空，草稿状态）
+        let new_bom_id = BomRepo::insert(executor, new_name, &new_detail, None, Some(created_by), BomStatus::Draft.as_str()).await?;
 
         Ok(new_bom_id)
     }
@@ -380,12 +407,14 @@ impl BomService for BomServiceImpl {
             }
 
             if bom_changed {
+                let caller_id = bom.created_by;
                 BomRepo::update(
                     executor,
                     bom.bom_id,
                     &bom.bom_name,
                     Some(&bom.bom_detail),
                     bom.bom_category_id,
+                    caller_id,
                 )
                 .await?;
                 affected_bom_count += 1;

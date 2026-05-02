@@ -77,14 +77,22 @@ use crate::generated::abt::v1::{BomDetailProto, BomNodeProto, BomResponse, BomNo
 
 impl From<abt::Bom> for BomResponse {
     fn from(bom: abt::Bom) -> Self {
+        use crate::generated::abt::v1::BomStatus as ProtoBomStatus;
+        let status = match bom.status {
+            abt::BomStatus::Draft => ProtoBomStatus::Draft,
+            abt::BomStatus::Published => ProtoBomStatus::Published,
+        };
         BomResponse {
             bom_id: bom.bom_id,
             name: bom.bom_name,
-            created_by: bom.bom_detail.created_by.unwrap_or(0),
+            created_by: bom.created_by.unwrap_or(0),
             created_at: bom.create_at.timestamp(),
             updated_at: bom.update_at.map(|t| t.timestamp()).unwrap_or(0),
             bom_detail: Some(bom.bom_detail.into()),
             bom_category_id: bom.bom_category_id,
+            status: status.into(),
+            published_at: bom.published_at.map(|t| t.timestamp()).unwrap_or(0),
+            published_by: bom.published_by.unwrap_or(0),
         }
     }
 }

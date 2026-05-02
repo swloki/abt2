@@ -27,6 +27,14 @@ service AbtBomService {
   rpc SubstituteProduct(SubstituteProductRequest) returns (SubstituteProductResponse);
   // BOM 成本报告
   rpc GetBomCostReport(GetBomCostReportRequest) returns (BomCostReportResponse);
+  // 发布 BOM（草稿 → 已发布）
+  rpc PublishBom(PublishBomRequest) returns (PublishBomResponse);
+}
+
+enum BomStatus {
+  BOM_STATUS_UNSPECIFIED = 0;
+  BOM_STATUS_DRAFT = 1;
+  BOM_STATUS_PUBLISHED = 2;
 }
 
 message BomNodeProto {
@@ -57,6 +65,9 @@ message BomResponse {
   int64 updated_at = 5;
   BomDetailProto bom_detail = 6;
   optional int64 bom_category_id = 7;
+  BomStatus status = 8;
+  int64 published_at = 9;
+  int64 published_by = 10;
 }
 
 message BomListResponse {
@@ -93,6 +104,7 @@ message ListBomsRequest {
   optional string date_from = 5;
   optional string date_to = 6;
   optional int64 bom_category_id = 7;
+  optional BomStatus status = 8;
 }
 
 message GetBomRequest {
@@ -197,6 +209,16 @@ message SubstituteProductRequest {
 message SubstituteProductResponse {
   int64 affected_bom_count = 1;
   int64 replaced_node_count = 2;
+}
+
+// 发布 BOM 请求
+message PublishBomRequest {
+  int64 bom_id = 1;
+}
+
+// 发布 BOM 响应
+message PublishBomResponse {
+  BomResponse bom = 1;
 }
 
 // 成本报告请求

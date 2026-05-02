@@ -15,13 +15,13 @@ pub trait BomService: Send + Sync {
     async fn create(&self, name: &str, created_by: i64, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<i64>;
 
     /// 更新 BOM
-    async fn update(&self, bom: Bom, executor: Executor<'_>) -> Result<()>;
+    async fn update(&self, bom: Bom, caller_id: i64, executor: Executor<'_>) -> Result<()>;
 
     /// 更新 BOM 元数据（名称和分类，不涉及 bom_detail）
-    async fn update_metadata(&self, bom_id: i64, name: &str, bom_category_id: Option<i64>, executor: Executor<'_>) -> Result<()>;
+    async fn update_metadata(&self, bom_id: i64, name: &str, bom_category_id: Option<i64>, caller_id: i64, executor: Executor<'_>) -> Result<()>;
 
     /// 删除 BOM
-    async fn delete(&self, bom_id: i64, executor: Executor<'_>) -> Result<()>;
+    async fn delete(&self, bom_id: i64, caller_id: i64, executor: Executor<'_>) -> Result<()>;
 
     /// 根据 ID 查找 BOM
     async fn find(&self, bom_id: i64, executor: Executor<'_>) -> Result<Option<Bom>>;
@@ -47,8 +47,8 @@ pub trait BomService: Send + Sync {
         executor: Executor<'_>,
     ) -> Result<()>;
 
-    /// 检查 BOM 名称是否存在
-    async fn exists_name(&self, name: &str) -> Result<bool>;
+    /// 检查 BOM 名称是否存在（限定已发布 BOM + 当前用户的草稿）
+    async fn exists_name(&self, name: &str, caller_id: Option<i64>) -> Result<bool>;
 
     /// 获取 BOM 叶子节点（用于出库）
     /// 只返回没有子节点的节点
@@ -79,6 +79,9 @@ pub trait BomService: Send + Sync {
 
     /// 获取 BOM 成本报告
     async fn get_bom_cost_report(&self, bom_id: i64, executor: Executor<'_>) -> Result<crate::models::BomCostReport>;
+
+    /// 发布 BOM（草稿 → 已发布）
+    async fn publish(&self, bom_id: i64, operator_id: i64, executor: Executor<'_>) -> Result<Bom>;
 }
 
 /// 属性覆盖结构体

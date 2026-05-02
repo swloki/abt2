@@ -7,6 +7,59 @@ use serde::{Deserialize, Deserializer, Serialize};
 use sqlx::postgres::PgRow;
 use sqlx::{FromRow, Row};
 
+/// BOM 状态
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum BomStatus {
+    #[default]
+    Draft,
+    Published,
+}
+
+impl BomStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            BomStatus::Draft => "draft",
+            BomStatus::Published => "published",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, anyhow::Error> {
+        match s {
+            "draft" => Ok(BomStatus::Draft),
+            "published" => Ok(BomStatus::Published),
+            other => anyhow::bail!("invalid BomStatus: {}", other),
+        }
+    }
+}
+
+impl std::fmt::Display for BomStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
+impl Bom {
+    /// 检查用户是否有权访问此 BOM
+    /// - 已发布 → 放行
+    /// - 草稿 + 是创建者 → 放行
+    /// - 否则 → Err（fail-closed: created_by 为 None 时拒绝）
+    /// `reveal_existence`: false 用于读操作（NotFound），true 用于写操作（PermissionDenied）
+    pub fn require_creator_or_published(&self, user_id: i64, reveal_existence: bool) -> Result<(), anyhow::Error> {
+        if self.status == BomStatus::Published {
+            return Ok(());
+        }
+        if self.created_by == Some(user_id) {
+            return Ok(());
+        }
+        if reveal_existence {
+            anyhow::bail!("Permission denied: only the creator can modify a draft BOM");
+        } else {
+            anyhow::bail!("BOM not found");
+        }
+    }
+}
+
 /// BOM 实体
 #[derive(Default, Debug, Serialize)]
 pub struct Bom {
@@ -16,6 +69,10 @@ pub struct Bom {
     pub update_at: Option<DateTime<Utc>>,
     pub bom_detail: BomDetail,
     pub bom_category_id: Option<i64>,
+    pub status: BomStatus,
+    pub published_at: Option<DateTime<Utc>>,
+    pub published_by: Option<i64>,
+    pub created_by: Option<i64>,
 }
 
 impl<'r> FromRow<'r, PgRow> for Bom {
@@ -32,6 +89,17 @@ impl<'r> FromRow<'r, PgRow> for Bom {
             })?;
         let bom_category_id: Option<i64> = row.try_get("bom_category_id")?;
 
+        let status_str: String = row.try_get("status")?;
+        let status = match status_str.as_str() {
+            "draft" => BomStatus::Draft,
+            "published" => BomStatus::Published,
+            _ => BomStatus::Published,
+        };
+
+        let published_at: Option<DateTime<Utc>> = row.try_get("published_at")?;
+        let published_by: Option<i64> = row.try_get("published_by")?;
+        let created_by: Option<i64> = row.try_get("created_by")?;
+
         Ok(Bom {
             bom_id,
             bom_name,
@@ -39,6 +107,10 @@ impl<'r> FromRow<'r, PgRow> for Bom {
             update_at,
             bom_detail,
             bom_category_id,
+            status,
+            published_at,
+            published_by,
+            created_by,
         })
     }
 }
@@ -133,6 +205,12 @@ pub struct BomQuery {
     pub page: Option<i64>,
     /// 每页数量
     pub page_size: Option<i64>,
+    /// BOM 状态过滤（由 handler 从 proto 转换）
+    #[serde(skip)]
+    pub status: Option<BomStatus>,
+    /// 调用者 ID（由 handler 注入，用于可见性过滤）
+    #[serde(skip)]
+    pub caller_id: Option<i64>,
 }
 
 impl Default for BomQuery {
@@ -149,6 +227,8 @@ impl Default for BomQuery {
             back_url: None,
             page: Some(1),
             page_size: Some(12),
+            status: None,
+            caller_id: None,
         }
     }
 }

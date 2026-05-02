@@ -2521,6 +2521,12 @@ pub struct BomResponse {
     pub bom_detail: ::core::option::Option<BomDetailProto>,
     #[prost(int64, optional, tag = "7")]
     pub bom_category_id: ::core::option::Option<i64>,
+    #[prost(enumeration = "BomStatus", tag = "8")]
+    pub status: i32,
+    #[prost(int64, tag = "9")]
+    pub published_at: i64,
+    #[prost(int64, tag = "10")]
+    pub published_by: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct BomListResponse {
@@ -2581,6 +2587,8 @@ pub struct ListBomsRequest {
     pub date_to: ::core::option::Option<::prost::alloc::string::String>,
     #[prost(int64, optional, tag = "7")]
     pub bom_category_id: ::core::option::Option<i64>,
+    #[prost(enumeration = "BomStatus", optional, tag = "8")]
+    pub status: ::core::option::Option<i32>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetBomRequest {
@@ -2735,6 +2743,18 @@ pub struct SubstituteProductResponse {
     #[prost(int64, tag = "2")]
     pub replaced_node_count: i64,
 }
+/// 发布 BOM 请求
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PublishBomRequest {
+    #[prost(int64, tag = "1")]
+    pub bom_id: i64,
+}
+/// 发布 BOM 响应
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PublishBomResponse {
+    #[prost(message, optional, tag = "1")]
+    pub bom: ::core::option::Option<BomResponse>,
+}
 /// 成本报告请求
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetBomCostReportRequest {
@@ -2788,6 +2808,35 @@ pub struct BomCostReportResponse {
     pub labor_costs: ::prost::alloc::vec::Vec<LaborCostItem>,
     #[prost(string, repeated, tag = "6")]
     pub warnings: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum BomStatus {
+    Unspecified = 0,
+    Draft = 1,
+    Published = 2,
+}
+impl BomStatus {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "BOM_STATUS_UNSPECIFIED",
+            Self::Draft => "BOM_STATUS_DRAFT",
+            Self::Published => "BOM_STATUS_PUBLISHED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "BOM_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
+            "BOM_STATUS_DRAFT" => Some(Self::Draft),
+            "BOM_STATUS_PUBLISHED" => Some(Self::Published),
+            _ => None,
+        }
+    }
 }
 /// Generated client implementations.
 pub mod abt_bom_service_client {
@@ -3255,6 +3304,31 @@ pub mod abt_bom_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtBomService", "GetBomCostReport"));
             self.inner.unary(req, path, codec).await
         }
+        /// 发布 BOM（草稿 → 已发布）
+        pub async fn publish_bom(
+            &mut self,
+            request: impl tonic::IntoRequest<super::PublishBomRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::PublishBomResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtBomService/PublishBom",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtBomService", "PublishBom"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -3357,6 +3431,14 @@ pub mod abt_bom_service_server {
             request: tonic::Request<super::GetBomCostReportRequest>,
         ) -> std::result::Result<
             tonic::Response<super::BomCostReportResponse>,
+            tonic::Status,
+        >;
+        /// 发布 BOM（草稿 → 已发布）
+        async fn publish_bom(
+            &self,
+            request: tonic::Request<super::PublishBomRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::PublishBomResponse>,
             tonic::Status,
         >;
     }
@@ -4190,6 +4272,51 @@ pub mod abt_bom_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetBomCostReportSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtBomService/PublishBom" => {
+                    #[allow(non_camel_case_types)]
+                    struct PublishBomSvc<T: AbtBomService>(pub Arc<T>);
+                    impl<
+                        T: AbtBomService,
+                    > tonic::server::UnaryService<super::PublishBomRequest>
+                    for PublishBomSvc<T> {
+                        type Response = super::PublishBomResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PublishBomRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtBomService>::publish_bom(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = PublishBomSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

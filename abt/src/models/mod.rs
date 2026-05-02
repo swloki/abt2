@@ -8,6 +8,7 @@ mod bom;
 mod bom_category;
 mod bom_node;
 mod department;
+pub use department::*;
 mod inventory;
 mod labor_process;
 mod labor_process_dict;

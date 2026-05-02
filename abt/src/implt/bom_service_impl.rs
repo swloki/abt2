@@ -29,7 +29,6 @@ fn collect_descendants(id: i64, children_map: &HashMap<i64, Vec<i64>>) -> Vec<i6
 /// 节点树分析结果
 struct NodeTreeAnalysis {
     nodes: Vec<BomNode>,
-    valid_product_ids: HashSet<i64>,
     parent_ids: HashSet<i64>,
     invalid_ids: HashSet<i64>,
     product_code_map: HashMap<i64, String>,
@@ -86,7 +85,6 @@ impl BomServiceImpl {
 
         Ok(NodeTreeAnalysis {
             nodes,
-            valid_product_ids,
             parent_ids,
             invalid_ids,
             product_code_map,

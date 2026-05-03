@@ -23,6 +23,7 @@ enum Resource {
   LABOR_PROCESS_DICT = 13;
   ROUTING = 14;
   BOM_COST = 15;
+  BOM_LABOR_COST = 16;
 }
 
 // 权限操作枚举

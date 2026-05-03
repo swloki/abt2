@@ -41,11 +41,20 @@ impl GrpcLocationService for LocationHandler {
         let state = AppState::get().await;
         let srv = state.location_service();
 
-        let locations = srv.list_by_warehouse(req.warehouse_id).await
+        let result = srv.list_by_warehouse_paginated(
+            req.warehouse_id,
+            req.keyword,
+            req.is_active,
+            req.page,
+            req.page_size,
+        ).await
             .map_err(error::err_to_status)?;
 
         Ok(Response::new(LocationListResponse {
-            items: locations.into_iter().map(|l| l.into()).collect(),
+            items: result.items.into_iter().map(|l| l.into()).collect(),
+            total: result.total,
+            page: result.page,
+            page_size: result.page_size,
         }))
     }
 
@@ -88,14 +97,17 @@ impl GrpcLocationService for LocationHandler {
             .into_iter()
             .flat_map(|(warehouse_id, locations)| {
                 let warehouse_name = warehouse_map.get(&warehouse_id).cloned().unwrap_or_default();
-                locations.into_iter().map(move |loc| LocationWithWarehouseResponse {
-                    location_id: loc.location_id,
-                    warehouse_id: loc.warehouse_id,
-                    warehouse_name: warehouse_name.clone(),
-                    location_code: loc.location_code,
-                    location_name: loc.location_name.unwrap_or_default(),
-                    location_type: String::new(),
-                    is_active: loc.deleted_at.is_none(),
+                locations.into_iter().map(move |loc| {
+                    let is_active = loc.is_active();
+                    LocationWithWarehouseResponse {
+                        location_id: loc.location_id,
+                        warehouse_id: loc.warehouse_id,
+                        warehouse_name: warehouse_name.clone(),
+                        location_code: loc.location_code,
+                        is_active,
+                        location_name: loc.location_name.unwrap_or_default(),
+                        location_type: String::new(),
+                    }
                 })
             })
             .collect();
@@ -146,6 +158,26 @@ impl GrpcLocationService for LocationHandler {
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(U64Response { value: id as u64 }))
+    }
+
+    #[require_permission(Resource::Location, Action::Write)]
+    async fn update_location_status(
+        &self,
+        request: Request<UpdateLocationStatusRequest>,
+    ) -> GrpcResult<BoolResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.location_service();
+
+        let mut tx = state.begin_transaction().await
+            .map_err(error::err_to_status)?;
+
+        srv.update_status(req.location_id, req.is_active, &mut tx).await
+            .map_err(error::err_to_status)?;
+
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+
+        Ok(Response::new(BoolResponse { value: true }))
     }
 
     #[require_permission(Resource::Location, Action::Write)]

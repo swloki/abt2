@@ -579,6 +579,26 @@ impl GrpcBomService for BomHandler {
         Ok(Response::new(PublishBomResponse { bom: Some(bom.into()) }))
     }
 
+    #[require_permission(Resource::BomLaborCost, Action::Read)]
+    async fn get_bom_labor_cost(
+        &self,
+        request: Request<GetBomLaborCostRequest>,
+    ) -> GrpcResult<BomLaborCostResponse> {
+        let auth = extract_auth(&request)?;
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.bom_service();
+
+        Self::find_and_authorize_pool(&state.pool(), req.bom_id, auth.user_id).await?;
+
+        let report = srv
+            .get_bom_labor_cost(req.bom_id)
+            .await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(report.into()))
+    }
+
     #[require_permission(Resource::Bom, Action::Write)]
     async fn unpublish_bom(
         &self,

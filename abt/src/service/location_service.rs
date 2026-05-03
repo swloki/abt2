@@ -25,6 +25,14 @@ pub trait LocationService: Send + Sync {
         executor: Executor<'_>,
     ) -> Result<()>;
 
+    /// 更新库位状态（启用/停用）
+    async fn update_status(
+        &self,
+        location_id: i64,
+        is_active: bool,
+        executor: Executor<'_>,
+    ) -> Result<()>;
+
     /// 删除库位（软删除或硬删除）
     async fn delete(
         &self,
@@ -41,6 +49,16 @@ pub trait LocationService: Send + Sync {
 
     /// 获取仓库下所有库位
     async fn list_by_warehouse(&self, warehouse_id: i64) -> Result<Vec<Location>>;
+
+    /// 分页搜索仓库下的库位（支持关键词、状态筛选）
+    async fn list_by_warehouse_paginated(
+        &self,
+        warehouse_id: i64,
+        keyword: Option<String>,
+        is_active: Option<bool>,
+        page: Option<u32>,
+        page_size: Option<u32>,
+    ) -> Result<PaginatedResult<Location>>;
 
     /// 按编码查找库位
     async fn find_by_code(

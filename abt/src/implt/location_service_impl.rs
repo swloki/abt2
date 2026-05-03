@@ -8,7 +8,7 @@ use sqlx::PgPool;
 use std::sync::Arc;
 
 use crate::models::{
-    CreateLocationRequest, Location, LocationInventoryStats, LocationWithWarehouse,
+    CreateLocationRequest, Location, LocationInventoryStats, LocationStatus, LocationWithWarehouse,
     UpdateLocationRequest, WarehouseInventoryStats,
 };
 use crate::repositories::{
@@ -90,6 +90,24 @@ impl LocationService for LocationServiceImpl {
         .await
     }
 
+    async fn update_status(
+        &self,
+        location_id: i64,
+        is_active: bool,
+        executor: Executor<'_>,
+    ) -> Result<()> {
+        // 检查库位是否存在
+        if LocationRepo::find_by_id(&self.pool, location_id)
+            .await?
+            .is_none()
+        {
+            return Err(anyhow::anyhow!("库位不存在: {}", location_id));
+        }
+
+        let status = if is_active { LocationStatus::Active } else { LocationStatus::Inactive };
+        LocationRepo::update_status(executor, location_id, &status.to_string()).await
+    }
+
     async fn delete(
         &self,
         location_id: i64,
@@ -128,6 +146,31 @@ impl LocationService for LocationServiceImpl {
 
     async fn list_by_warehouse(&self, warehouse_id: i64) -> Result<Vec<Location>> {
         LocationRepo::list_by_warehouse(&self.pool, warehouse_id).await
+    }
+
+    async fn list_by_warehouse_paginated(
+        &self,
+        warehouse_id: i64,
+        keyword: Option<String>,
+        is_active: Option<bool>,
+        page: Option<u32>,
+        page_size: Option<u32>,
+    ) -> Result<PaginatedResult<Location>> {
+        let page = page.unwrap_or(1);
+        let page_size = page_size.unwrap_or(20);
+
+        let (items, total) = LocationRepo::list_by_warehouse_paginated(
+            &self.pool,
+            warehouse_id,
+            keyword.as_deref(),
+            is_active,
+            page,
+            page_size,
+        )
+        .await?;
+
+        let pagination = PaginationParams::new(page, page_size);
+        Ok(PaginatedResult::new(items, total, &pagination))
     }
 
     async fn find_by_code(

@@ -6,7 +6,7 @@ use anyhow::Result;
 use sqlx::PgPool;
 
 use crate::models::{
-    Location, LocationInventoryStats, LocationWithWarehouse, WarehouseInventoryStats,
+    Location, LocationInventoryStats, LocationStatus, LocationWithWarehouse, WarehouseInventoryStats,
 };
 use crate::repositories::Executor;
 
@@ -85,11 +85,24 @@ impl LocationRepo {
         Ok(())
     }
 
+    /// 更新库位状态（启用/停用）
+    pub async fn update_status(executor: Executor<'_>, location_id: i64, status: &str) -> Result<()> {
+        sqlx::query!(
+            "UPDATE location SET status = $1 WHERE location_id = $2",
+            status,
+            location_id
+        )
+        .execute(executor)
+        .await?;
+
+        Ok(())
+    }
+
     /// 根据 ID 查找库位（排除已删除）
     pub async fn find_by_id(pool: &PgPool, location_id: i64) -> Result<Option<Location>> {
         let row = sqlx::query_as!(
             Location,
-            "SELECT location_id, warehouse_id, location_code, location_name, capacity, created_at, deleted_at
+            "SELECT location_id, warehouse_id, location_code, location_name, capacity, status, created_at, deleted_at
              FROM location WHERE location_id = $1 AND deleted_at IS NULL",
             location_id
         )
@@ -107,7 +120,7 @@ impl LocationRepo {
     ) -> Result<Option<Location>> {
         let row = sqlx::query_as!(
             Location,
-            "SELECT location_id, warehouse_id, location_code, location_name, capacity, created_at, deleted_at
+            "SELECT location_id, warehouse_id, location_code, location_name, capacity, status, created_at, deleted_at
              FROM location WHERE warehouse_id = $1 AND location_code = $2 AND deleted_at IS NULL",
             warehouse_id,
             location_code
@@ -122,7 +135,7 @@ impl LocationRepo {
     pub async fn list_by_warehouse(pool: &PgPool, warehouse_id: i64) -> Result<Vec<Location>> {
         let rows = sqlx::query_as!(
             Location,
-            "SELECT location_id, warehouse_id, location_code, location_name, capacity, created_at, deleted_at
+            "SELECT location_id, warehouse_id, location_code, location_name, capacity, status, created_at, deleted_at
              FROM location WHERE warehouse_id = $1 AND deleted_at IS NULL
              ORDER BY location_code",
             warehouse_id
@@ -141,7 +154,7 @@ impl LocationRepo {
         let row = sqlx::query_as!(
             LocationWithWarehouse,
             r#"
-            SELECT l.location_id, l.location_code, l.location_name, l.capacity,
+            SELECT l.location_id, l.location_code, l.location_name, l.capacity, l.status,
                    l.warehouse_id, w.warehouse_name, w.warehouse_code
             FROM location l
             JOIN warehouse w ON l.warehouse_id = w.warehouse_id
@@ -244,6 +257,73 @@ impl LocationRepo {
         Ok(stats)
     }
 
+    /// 分页搜索仓库下的库位（支持关键词、状态筛选）
+    pub async fn list_by_warehouse_paginated(
+        pool: &PgPool,
+        warehouse_id: i64,
+        keyword: Option<&str>,
+        is_active: Option<bool>,
+        page: u32,
+        page_size: u32,
+    ) -> Result<(Vec<Location>, u64)> {
+        let offset = ((page - 1) * page_size) as i64;
+        let limit = page_size as i64;
+
+        let mut conditions: Vec<String> = vec![];
+        let mut params: Vec<String> = vec![];
+        let mut idx = 2; // $1 is warehouse_id
+
+        if let Some(pattern) = keyword.and_then(super::build_fuzzy_pattern) {
+            conditions.push(format!(
+                "(location_code ILIKE ${idx} OR location_name ILIKE ${idx})",
+                idx = idx
+            ));
+            params.push(pattern);
+            idx += 1;
+        }
+
+        if let Some(active) = is_active {
+            let status = if active { LocationStatus::Active } else { LocationStatus::Inactive };
+            conditions.push(format!("status = ${}", idx));
+            params.push(status.to_string());
+            idx += 1;
+        }
+
+        let base_where = {
+            let mut w = String::from("warehouse_id = $1 AND deleted_at IS NULL");
+            for cond in &conditions {
+                w.push_str(&format!(" AND {}", cond));
+            }
+            w
+        };
+
+        // Count query
+        let count_sql = format!("SELECT COUNT(*) FROM location WHERE {}", base_where);
+        let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+        count_query = count_query.bind(warehouse_id);
+        for p in &params {
+            count_query = count_query.bind(p.as_str());
+        }
+        let total = count_query.fetch_one(pool).await? as u64;
+
+        // Data query
+        let data_sql = format!(
+            "SELECT location_id, warehouse_id, location_code, location_name, capacity, status, created_at, deleted_at \
+             FROM location WHERE {} ORDER BY location_code LIMIT ${} OFFSET ${}",
+            base_where, idx, idx + 1
+        );
+        let mut data_query = sqlx::query_as::<_, Location>(&data_sql);
+        data_query = data_query.bind(warehouse_id);
+        for p in &params {
+            data_query = data_query.bind(p.as_str());
+        }
+        data_query = data_query.bind(limit);
+        data_query = data_query.bind(offset);
+        let items = data_query.fetch_all(pool).await?;
+
+        Ok((items, total))
+    }
+
     /// 分页获取仓库下所有库位的库存统计
     pub async fn list_location_stats_by_warehouse(
         pool: &PgPool,
@@ -300,7 +380,7 @@ impl LocationRepo {
     ) -> Result<Option<Location>> {
         let row = sqlx::query_as!(
             Location,
-            "SELECT l.location_id, l.warehouse_id, l.location_code, l.location_name, l.capacity, l.created_at, l.deleted_at
+            "SELECT l.location_id, l.warehouse_id, l.location_code, l.location_name, l.capacity, l.status, l.created_at, l.deleted_at
              FROM location l
              JOIN warehouse w ON l.warehouse_id = w.warehouse_id
              WHERE w.warehouse_name = $1 AND l.location_code = $2 AND l.deleted_at IS NULL AND w.deleted_at IS NULL",
@@ -320,7 +400,7 @@ impl LocationRepo {
     ) -> Result<Option<Location>> {
         let row = sqlx::query_as!(
             Location,
-            "SELECT l.location_id, l.warehouse_id, l.location_code, l.location_name, l.capacity, l.created_at, l.deleted_at
+            "SELECT l.location_id, l.warehouse_id, l.location_code, l.location_name, l.capacity, l.status, l.created_at, l.deleted_at
              FROM location l
              JOIN warehouse w ON l.warehouse_id = w.warehouse_id
              WHERE w.warehouse_name = $1 AND l.deleted_at IS NULL AND w.deleted_at IS NULL
@@ -338,7 +418,7 @@ impl LocationRepo {
     pub async fn list_all_with_warehouse(pool: &PgPool) -> Result<std::collections::HashMap<(String, String), Location>> {
         let rows = sqlx::query_as!(
             Location,
-            "SELECT l.location_id, l.warehouse_id, l.location_code, l.location_name, l.capacity, l.created_at, l.deleted_at
+            "SELECT l.location_id, l.warehouse_id, l.location_code, l.location_name, l.capacity, l.status, l.created_at, l.deleted_at
              FROM location l
              JOIN warehouse w ON l.warehouse_id = w.warehouse_id
              WHERE l.deleted_at IS NULL AND w.deleted_at IS NULL"

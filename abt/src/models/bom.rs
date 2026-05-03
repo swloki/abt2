@@ -216,6 +216,16 @@ where
 // 成本报告
 // ============================================================================
 
+/// BOM 人工成本报告（单独查看）
+#[derive(Debug, Clone)]
+pub struct BomLaborCostReport {
+    pub bom_id: i64,
+    pub bom_name: String,
+    pub product_code: String,
+    pub labor_costs: Vec<LaborCostItem>,
+    pub warnings: Vec<String>,
+}
+
 /// BOM 成本报告
 #[derive(Debug, Clone)]
 pub struct BomCostReport {

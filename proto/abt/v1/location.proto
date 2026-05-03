@@ -11,6 +11,7 @@ service AbtLocationService {
   rpc GetLocation(GetLocationRequest) returns (LocationResponse);
   rpc CreateLocation(CreateLocationRequest) returns (U64Response);
   rpc UpdateLocation(UpdateLocationRequest) returns (BoolResponse);
+  rpc UpdateLocationStatus(UpdateLocationStatusRequest) returns (BoolResponse);
   rpc DeleteLocation(DeleteLocationRequest) returns (BoolResponse);
   rpc GetWarehouseInventoryStats(GetWarehouseInventoryStatsRequest) returns (WarehouseInventoryStatsResponse);
   rpc GetLocationInventoryStats(GetLocationInventoryStatsRequest) returns (LocationInventoryStatsResponse);
@@ -40,6 +41,9 @@ message LocationWithWarehouseResponse {
 
 message LocationListResponse {
   repeated LocationResponse items = 1;
+  uint64 total = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
 }
 
 message LocationWithWarehouseListResponse {
@@ -70,6 +74,10 @@ message LocationStatsListResponse {
 
 message ListLocationsByWarehouseRequest {
   int64 warehouse_id = 1;
+  optional string keyword = 2;
+  optional uint32 page = 3;
+  optional uint32 page_size = 4;
+  optional bool is_active = 5;
 }
 
 message GetLocationRequest {
@@ -100,6 +108,11 @@ message GetWarehouseInventoryStatsRequest {
 
 message GetLocationInventoryStatsRequest {
   int64 location_id = 1;
+}
+
+message UpdateLocationStatusRequest {
+  int64 location_id = 1;
+  bool is_active = 2;
 }
 
 message ListLocationStatsByWarehouseRequest {

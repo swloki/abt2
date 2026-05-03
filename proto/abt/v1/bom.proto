@@ -31,6 +31,8 @@ service AbtBomService {
   rpc PublishBom(PublishBomRequest) returns (PublishBomResponse);
   // 取消发布 BOM（已发布 → 草稿）
   rpc UnpublishBom(UnpublishBomRequest) returns (UnpublishBomResponse);
+  // 单独查看人工成本
+  rpc GetBomLaborCost(GetBomLaborCostRequest) returns (BomLaborCostResponse);
 }
 
 enum BomStatus {
@@ -266,4 +268,18 @@ message BomCostReportResponse {
   repeated MaterialCostItem material_costs = 4;
   repeated LaborCostItem labor_costs = 5;
   repeated string warnings = 6;
+}
+
+// 查看人工成本请求
+message GetBomLaborCostRequest {
+  int64 bom_id = 1;
+}
+
+// 查看人工成本响应
+message BomLaborCostResponse {
+  int64 bom_id = 1;
+  string bom_name = 2;
+  string product_code = 3;
+  repeated LaborCostItem labor_costs = 4;
+  repeated string warnings = 5;
 }

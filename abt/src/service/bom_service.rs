@@ -81,6 +81,9 @@ pub trait BomService: Send + Sync {
     /// 获取 BOM 成本报告
     async fn get_bom_cost_report(&self, bom_id: i64, executor: Executor<'_>) -> Result<crate::models::BomCostReport>;
 
+    /// 获取 BOM 人工成本（单独查看）
+    async fn get_bom_labor_cost(&self, bom_id: i64) -> Result<crate::models::BomLaborCostReport>;
+
     /// 发布 BOM（草稿 → 已发布）
     async fn publish(&self, bom_id: i64, operator_id: i64, executor: Executor<'_>) -> Result<Bom>;
 

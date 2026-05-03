@@ -10,7 +10,7 @@ use sqlx::PgPool;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use crate::models::{f64_to_decimal, Bom, BomCostReport, BomDetail, BomNode, BomQuery, BomStatus, LaborCostItem, MaterialCostItem, NewBomNode};
+use crate::models::{f64_to_decimal, Bom, BomCostReport, BomDetail, BomLaborCostReport, BomNode, BomQuery, BomStatus, LaborCostItem, MaterialCostItem, NewBomNode};
 use crate::repositories::{BomNodeRepo, BomRepo, Executor, LaborProcessRepo, ProductPriceRepo, ProductRepo};
 use crate::service::{AttributeOverrides, BomService};
 
@@ -412,16 +412,7 @@ impl BomService for BomServiceImpl {
             .map(|m| m.product_name.clone())
             .collect();
 
-        let labor_costs: Vec<LaborCostItem> = labor_processes.iter().map(|lp| {
-            LaborCostItem {
-                id: lp.id,
-                name: lp.name.clone(),
-                unit_price: lp.unit_price.to_string(),
-                quantity: lp.quantity.to_string(),
-                sort_order: lp.sort_order,
-                remark: lp.remark.clone().unwrap_or_default(),
-            }
-        }).collect();
+        let labor_costs: Vec<LaborCostItem> = labor_processes.iter().map(LaborCostItem::from).collect();
 
         Ok(BomCostReport {
             bom_id,
@@ -430,6 +421,37 @@ impl BomService for BomServiceImpl {
             material_costs,
             labor_costs,
             warnings,
+        })
+    }
+
+    async fn get_bom_labor_cost(&self, bom_id: i64) -> Result<BomLaborCostReport> {
+        let bom = BomRepo::find_by_id_pool(&self.pool, bom_id).await?
+            .ok_or_else(|| anyhow::anyhow!("BOM not found"))?;
+
+        let root = BomNodeRepo::find_root_by_bom_id(&self.pool, bom_id).await?
+            .ok_or_else(|| anyhow::anyhow!("BOM has no nodes"))?;
+
+        let product_code = if let Some(ref code) = root.product_code {
+            code.clone()
+        } else if root.product_id > 0 {
+            let products = ProductRepo::find_by_ids(&self.pool, &[root.product_id]).await?;
+            products.first()
+                .map(|p| p.meta.product_code.clone())
+                .ok_or_else(|| anyhow::anyhow!("Root product not found"))?
+        } else {
+            anyhow::bail!("Root product not found");
+        };
+
+        let labor_processes = LaborProcessRepo::list_all_by_product_code(&self.pool, &product_code).await?;
+
+        let labor_costs: Vec<LaborCostItem> = labor_processes.iter().map(LaborCostItem::from).collect();
+
+        Ok(BomLaborCostReport {
+            bom_id,
+            bom_name: bom.bom_name,
+            product_code,
+            labor_costs,
+            warnings: Vec::new(),
         })
     }
 }

@@ -8,6 +8,24 @@ use sqlx::FromRow;
 
 use super::LocationInfo;
 
+/// 库位状态
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum LocationStatus {
+    #[default]
+    Active,
+    Inactive,
+}
+
+impl std::fmt::Display for LocationStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LocationStatus::Active => write!(f, "active"),
+            LocationStatus::Inactive => write!(f, "inactive"),
+        }
+    }
+}
+
 /// 库位实体
 #[derive(Debug, Serialize, Deserialize, Clone, Default, FromRow)]
 pub struct Location {
@@ -16,8 +34,23 @@ pub struct Location {
     pub location_code: String,
     pub location_name: Option<String>,
     pub capacity: Option<i32>,
+    pub status: String,
     pub created_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
+}
+
+impl Location {
+    /// 库位是否启用
+    pub fn is_active(&self) -> bool {
+        self.status == "active"
+    }
+}
+
+impl LocationWithWarehouse {
+    /// 库位是否启用
+    pub fn is_active(&self) -> bool {
+        self.status == "active"
+    }
 }
 
 impl From<Location> for LocationInfo {
@@ -54,6 +87,7 @@ pub struct LocationWithWarehouse {
     pub location_code: String,
     pub location_name: Option<String>,
     pub capacity: Option<i32>,
+    pub status: String,
     pub warehouse_id: i64,
     pub warehouse_name: String,
     pub warehouse_code: String,
@@ -75,6 +109,22 @@ mod tests {
         assert!(location.location_code.is_empty());
         assert!(location.location_name.is_none());
         assert!(location.capacity.is_none());
+    }
+
+    #[test]
+    fn test_location_status_display() {
+        assert_eq!(format!("{}", LocationStatus::Active), "active");
+        assert_eq!(format!("{}", LocationStatus::Inactive), "inactive");
+    }
+
+    #[test]
+    fn test_location_status_serialization() {
+        let status = LocationStatus::Active;
+        let json = serde_json::to_string(&status).unwrap();
+        assert_eq!(json, r#""active""#);
+
+        let deserialized: LocationStatus = serde_json::from_str(&json).unwrap();
+        assert_eq!(deserialized, LocationStatus::Active);
     }
 
     #[test]
@@ -125,6 +175,7 @@ mod tests {
             location_code: "A-01".to_string(),
             location_name: Some("测试库位".to_string()),
             capacity: Some(50),
+            status: "active".to_string(),
             warehouse_id: 10,
             warehouse_name: "主仓库".to_string(),
             warehouse_code: "MAIN".to_string(),
@@ -132,10 +183,12 @@ mod tests {
 
         let json = serde_json::to_string(&location).unwrap();
         assert!(json.contains(r#""warehouse_name":"主仓库""#));
+        assert!(json.contains(r#""status":"active""#));
 
         let deserialized: LocationWithWarehouse = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized.warehouse_name, "主仓库");
         assert_eq!(deserialized.location_code, "A-01");
+        assert_eq!(deserialized.status, "active");
     }
 
     #[test]
@@ -146,6 +199,7 @@ mod tests {
             location_code: "A-01".to_string(),
             location_name: Some("测试库位".to_string()),
             capacity: Some(50),
+            status: "active".to_string(),
             created_at: Utc::now(),
             deleted_at: None,
         };

@@ -64,4 +64,6 @@ static RESOURCES: &[ResourceActionDef] = &[
     ResourceActionDef { resource_code: "DEPARTMENT", resource_name: "部门管理", description: "组织架构", action: "DELETE", action_name: "删除" },
     // BOM 成本
     ResourceActionDef { resource_code: "BOM_COST", resource_name: "BOM成本", description: "BOM成本查看", action: "READ", action_name: "查看" },
+    // BOM 人工成本（单独查看）
+    ResourceActionDef { resource_code: "BOM_LABOR_COST", resource_name: "BOM人工成本", description: "BOM人工成本单独查看", action: "READ", action_name: "查看" },
 ];

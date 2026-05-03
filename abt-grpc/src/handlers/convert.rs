@@ -169,13 +169,14 @@ use crate::generated::abt::v1::{LocationResponse, LocationWithWarehouseResponse}
 
 impl From<abt::Location> for LocationResponse {
     fn from(l: abt::Location) -> Self {
+        let is_active = l.is_active();
         LocationResponse {
             location_id: l.location_id,
             warehouse_id: l.warehouse_id,
             location_code: l.location_code,
+            is_active,
             location_name: l.location_name.unwrap_or_default(),
             location_type: String::new(), // field not in abt::Location
-            is_active: l.deleted_at.is_none(),
             created_at: l.created_at.timestamp(),
             updated_at: l.created_at.timestamp(), // no updated_at, use created_at
         }
@@ -184,14 +185,15 @@ impl From<abt::Location> for LocationResponse {
 
 impl From<abt::LocationWithWarehouse> for LocationWithWarehouseResponse {
     fn from(l: abt::LocationWithWarehouse) -> Self {
+        let is_active = l.is_active();
         LocationWithWarehouseResponse {
             location_id: l.location_id,
             warehouse_id: l.warehouse_id,
             warehouse_name: l.warehouse_name,
             location_code: l.location_code,
+            is_active,
             location_name: l.location_name.unwrap_or_default(),
             location_type: String::new(), // field not in abt::LocationWithWarehouse
-            is_active: true, // assume active
         }
     }
 }
@@ -337,7 +339,7 @@ impl From<abt::BomCategory> for ProtoBomCategoryResponse {
 // ========== BOM Cost Report conversions ==========
 
 use crate::generated::abt::v1::{
-    BomCostReportResponse, LaborCostItem as ProtoLaborCostItem,
+    BomCostReportResponse, BomLaborCostResponse, LaborCostItem as ProtoLaborCostItem,
     MaterialCostItem as ProtoMaterialCostItem,
 };
 
@@ -376,6 +378,18 @@ impl From<abt::LaborCostItem> for ProtoLaborCostItem {
             quantity: item.quantity,
             sort_order: item.sort_order,
             remark: item.remark,
+        }
+    }
+}
+
+impl From<abt::BomLaborCostReport> for BomLaborCostResponse {
+    fn from(report: abt::BomLaborCostReport) -> Self {
+        BomLaborCostResponse {
+            bom_id: report.bom_id,
+            bom_name: report.bom_name,
+            product_code: report.product_code,
+            labor_costs: report.labor_costs.into_iter().map(|l| l.into()).collect(),
+            warnings: report.warnings,
         }
     }
 }

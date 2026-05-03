@@ -113,3 +113,20 @@ pub struct PerProductRoutingResult {
     pub routing_name: Option<String>,
     pub routing_id: Option<i64>,
 }
+
+// ============================================================================
+// 类型转换
+// ============================================================================
+
+impl From<&BomLaborProcess> for super::bom::LaborCostItem {
+    fn from(lp: &BomLaborProcess) -> Self {
+        super::bom::LaborCostItem {
+            id: lp.id,
+            name: lp.name.clone(),
+            unit_price: lp.unit_price.to_string(),
+            quantity: lp.quantity.to_string(),
+            sort_order: lp.sort_order,
+            remark: lp.remark.clone().unwrap_or_default(),
+        }
+    }
+}

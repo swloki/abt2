@@ -2817,6 +2817,26 @@ pub struct BomCostReportResponse {
     #[prost(string, repeated, tag = "6")]
     pub warnings: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+/// 查看人工成本请求
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetBomLaborCostRequest {
+    #[prost(int64, tag = "1")]
+    pub bom_id: i64,
+}
+/// 查看人工成本响应
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BomLaborCostResponse {
+    #[prost(int64, tag = "1")]
+    pub bom_id: i64,
+    #[prost(string, tag = "2")]
+    pub bom_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "4")]
+    pub labor_costs: ::prost::alloc::vec::Vec<LaborCostItem>,
+    #[prost(string, repeated, tag = "5")]
+    pub warnings: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum BomStatus {
@@ -3362,6 +3382,31 @@ pub mod abt_bom_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtBomService", "UnpublishBom"));
             self.inner.unary(req, path, codec).await
         }
+        /// 单独查看人工成本
+        pub async fn get_bom_labor_cost(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetBomLaborCostRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::BomLaborCostResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtBomService/GetBomLaborCost",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtBomService", "GetBomLaborCost"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -3480,6 +3525,14 @@ pub mod abt_bom_service_server {
             request: tonic::Request<super::UnpublishBomRequest>,
         ) -> std::result::Result<
             tonic::Response<super::UnpublishBomResponse>,
+            tonic::Status,
+        >;
+        /// 单独查看人工成本
+        async fn get_bom_labor_cost(
+            &self,
+            request: tonic::Request<super::GetBomLaborCostRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::BomLaborCostResponse>,
             tonic::Status,
         >;
     }
@@ -4418,6 +4471,52 @@ pub mod abt_bom_service_server {
                     };
                     Box::pin(fut)
                 }
+                "/abt.v1.AbtBomService/GetBomLaborCost" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetBomLaborCostSvc<T: AbtBomService>(pub Arc<T>);
+                    impl<
+                        T: AbtBomService,
+                    > tonic::server::UnaryService<super::GetBomLaborCostRequest>
+                    for GetBomLaborCostSvc<T> {
+                        type Response = super::BomLaborCostResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetBomLaborCostRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtBomService>::get_bom_labor_cost(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetBomLaborCostSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
                 _ => {
                     Box::pin(async move {
                         let mut response = http::Response::new(
@@ -5247,6 +5346,7 @@ pub enum Resource {
     LaborProcessDict = 13,
     Routing = 14,
     BomCost = 15,
+    BomLaborCost = 16,
 }
 impl Resource {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -5271,6 +5371,7 @@ impl Resource {
             Self::LaborProcessDict => "LABOR_PROCESS_DICT",
             Self::Routing => "ROUTING",
             Self::BomCost => "BOM_COST",
+            Self::BomLaborCost => "BOM_LABOR_COST",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -5292,6 +5393,7 @@ impl Resource {
             "LABOR_PROCESS_DICT" => Some(Self::LaborProcessDict),
             "ROUTING" => Some(Self::Routing),
             "BOM_COST" => Some(Self::BomCost),
+            "BOM_LABOR_COST" => Some(Self::BomLaborCost),
             _ => None,
         }
     }

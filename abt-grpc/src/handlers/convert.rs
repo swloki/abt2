@@ -337,7 +337,7 @@ impl From<abt::BomCategory> for ProtoBomCategoryResponse {
 // ========== BOM Cost Report conversions ==========
 
 use crate::generated::abt::v1::{
-    BomCostReportResponse, LaborCostItem as ProtoLaborCostItem,
+    BomCostReportResponse, BomLaborCostResponse, LaborCostItem as ProtoLaborCostItem,
     MaterialCostItem as ProtoMaterialCostItem,
 };
 
@@ -376,6 +376,18 @@ impl From<abt::LaborCostItem> for ProtoLaborCostItem {
             quantity: item.quantity,
             sort_order: item.sort_order,
             remark: item.remark,
+        }
+    }
+}
+
+impl From<abt::BomLaborCostReport> for BomLaborCostResponse {
+    fn from(report: abt::BomLaborCostReport) -> Self {
+        BomLaborCostResponse {
+            bom_id: report.bom_id,
+            bom_name: report.bom_name,
+            product_code: report.product_code,
+            labor_costs: report.labor_costs.into_iter().map(|l| l.into()).collect(),
+            warnings: report.warnings,
         }
     }
 }

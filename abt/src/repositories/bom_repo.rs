@@ -8,7 +8,7 @@ use chrono::NaiveDate;
 use sqlx::PgPool;
 
 use crate::models::BomQuery;
-use crate::repositories::{build_fuzzy_pattern, Executor};
+use crate::repositories::{Executor, build_fuzzy_pattern};
 
 /// BOM 简要信息（用于引用显示）
 #[derive(Debug, Clone, sqlx::FromRow)]
@@ -98,7 +98,10 @@ impl BomRepo {
     }
 
     /// 根据 ID 查找 BOM
-    pub async fn find_by_id(executor: Executor<'_>, bom_id: i64) -> Result<Option<crate::models::Bom>> {
+    pub async fn find_by_id(
+        executor: Executor<'_>,
+        bom_id: i64,
+    ) -> Result<Option<crate::models::Bom>> {
         let row = sqlx::query_as::<_, crate::models::Bom>(
             "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at FROM bom WHERE bom_id = $1",
         )
@@ -110,7 +113,10 @@ impl BomRepo {
     }
 
     /// 查找 BOM 并加行锁（用于先读后写模式，必须在事务内调用）
-    pub async fn find_by_id_for_update(executor: Executor<'_>, bom_id: i64) -> Result<Option<crate::models::Bom>> {
+    pub async fn find_by_id_for_update(
+        executor: Executor<'_>,
+        bom_id: i64,
+    ) -> Result<Option<crate::models::Bom>> {
         let row = sqlx::query_as::<_, crate::models::Bom>(
             "SELECT bom_id, bom_name, create_at, update_at, bom_category_id, created_by, status, published_at FROM bom WHERE bom_id = $1 FOR UPDATE",
         )
@@ -187,7 +193,10 @@ impl BomRepo {
         query.push(" OFFSET ");
         query.push_bind(((page - 1) * page_size) as i32);
 
-        let result = query.build_query_as::<crate::models::Bom>().fetch_all(pool).await?;
+        let result = query
+            .build_query_as::<crate::models::Bom>()
+            .fetch_all(pool)
+            .await?;
         Ok(result)
     }
 
@@ -208,10 +217,11 @@ impl BomRepo {
     ) {
         if let Some(bom_name) = &bom_query.bom_name
             && !bom_name.is_empty()
-            && let Some(pattern) = build_fuzzy_pattern(bom_name) {
-                query.push(" AND bom_name ILIKE ");
-                query.push_bind(pattern);
-            }
+            && let Some(pattern) = build_fuzzy_pattern(bom_name)
+        {
+            query.push(" AND bom_name ILIKE ");
+            query.push_bind(pattern);
+        }
         if let Some(create_by) = &bom_query.create_by
             && !create_by.is_empty()
         {

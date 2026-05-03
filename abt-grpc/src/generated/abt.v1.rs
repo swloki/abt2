@@ -10326,6 +10326,12 @@ pub struct LocationWithWarehouseResponse {
 pub struct LocationListResponse {
     #[prost(message, repeated, tag = "1")]
     pub items: ::prost::alloc::vec::Vec<LocationResponse>,
+    #[prost(uint64, tag = "2")]
+    pub total: u64,
+    #[prost(uint32, tag = "3")]
+    pub page: u32,
+    #[prost(uint32, tag = "4")]
+    pub page_size: u32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct LocationWithWarehouseListResponse {
@@ -10367,10 +10373,18 @@ pub struct LocationStatsListResponse {
     #[prost(uint32, tag = "4")]
     pub page_size: u32,
 }
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListLocationsByWarehouseRequest {
     #[prost(int64, tag = "1")]
     pub warehouse_id: i64,
+    #[prost(string, optional, tag = "2")]
+    pub keyword: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag = "3")]
+    pub page: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "4")]
+    pub page_size: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "5")]
+    pub is_active: ::core::option::Option<bool>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetLocationRequest {
@@ -10413,6 +10427,13 @@ pub struct GetWarehouseInventoryStatsRequest {
 pub struct GetLocationInventoryStatsRequest {
     #[prost(int64, tag = "1")]
     pub location_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateLocationStatusRequest {
+    #[prost(int64, tag = "1")]
+    pub location_id: i64,
+    #[prost(bool, tag = "2")]
+    pub is_active: bool,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListLocationStatsByWarehouseRequest {
@@ -10635,6 +10656,29 @@ pub mod abt_location_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtLocationService", "UpdateLocation"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn update_location_status(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateLocationStatusRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtLocationService/UpdateLocationStatus",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.AbtLocationService", "UpdateLocationStatus"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn delete_location(
             &mut self,
             request: impl tonic::IntoRequest<super::DeleteLocationRequest>,
@@ -10786,6 +10830,10 @@ pub mod abt_location_service_server {
         async fn update_location(
             &self,
             request: tonic::Request<super::UpdateLocationRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn update_location_status(
+            &self,
+            request: tonic::Request<super::UpdateLocationStatusRequest>,
         ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
         async fn delete_location(
             &self,
@@ -11112,6 +11160,55 @@ pub mod abt_location_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = UpdateLocationSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtLocationService/UpdateLocationStatus" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateLocationStatusSvc<T: AbtLocationService>(pub Arc<T>);
+                    impl<
+                        T: AbtLocationService,
+                    > tonic::server::UnaryService<super::UpdateLocationStatusRequest>
+                    for UpdateLocationStatusSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateLocationStatusRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtLocationService>::update_location_status(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateLocationStatusSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

@@ -169,13 +169,14 @@ use crate::generated::abt::v1::{LocationResponse, LocationWithWarehouseResponse}
 
 impl From<abt::Location> for LocationResponse {
     fn from(l: abt::Location) -> Self {
+        let is_active = l.is_active();
         LocationResponse {
             location_id: l.location_id,
             warehouse_id: l.warehouse_id,
             location_code: l.location_code,
+            is_active,
             location_name: l.location_name.unwrap_or_default(),
             location_type: String::new(), // field not in abt::Location
-            is_active: l.deleted_at.is_none(),
             created_at: l.created_at.timestamp(),
             updated_at: l.created_at.timestamp(), // no updated_at, use created_at
         }
@@ -184,14 +185,15 @@ impl From<abt::Location> for LocationResponse {
 
 impl From<abt::LocationWithWarehouse> for LocationWithWarehouseResponse {
     fn from(l: abt::LocationWithWarehouse) -> Self {
+        let is_active = l.is_active();
         LocationWithWarehouseResponse {
             location_id: l.location_id,
             warehouse_id: l.warehouse_id,
             warehouse_name: l.warehouse_name,
             location_code: l.location_code,
+            is_active,
             location_name: l.location_name.unwrap_or_default(),
             location_type: String::new(), // field not in abt::LocationWithWarehouse
-            is_active: true, // assume active
         }
     }
 }

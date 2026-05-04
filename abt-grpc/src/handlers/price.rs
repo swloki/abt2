@@ -46,7 +46,6 @@ impl GrpcPriceService for PriceHandler {
             items: result.items.into_iter().map(|entry| PriceLogEntryResponse {
                 log_id: entry.log_id,
                 product_id: entry.product_id,
-                old_price: entry.old_price.map(|p| p.to_string()).unwrap_or_default(),
                 new_price: entry.new_price.to_string(),
                 operator_id: entry.operator_id,
                 remark: entry.remark,
@@ -106,7 +105,6 @@ impl GrpcPriceService for PriceHandler {
                 product_id: entry.product_id,
                 product_name: entry.product_name,
                 product_code: entry.product_code,
-                old_price: entry.old_price.map(|p| p.to_string()).unwrap_or_default(),
                 new_price: entry.new_price.to_string(),
                 operator_id: entry.operator_id,
                 remark: entry.remark,

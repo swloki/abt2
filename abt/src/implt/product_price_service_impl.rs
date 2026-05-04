@@ -1,6 +1,5 @@
 //! 产品价格服务实现
 //!
-//! 实现价格管理和历史记录的业务逻辑。
 //! 使用 product_price 表（最新行即当前价格）。
 
 use anyhow::Result;
@@ -36,17 +35,7 @@ impl ProductPriceService for ProductPriceServiceImpl {
         remark: Option<&str>,
         executor: Executor<'_>,
     ) -> Result<()> {
-        // 1. 获取当前价格
-        let current_price = ProductPriceRepo::get_price(&self.pool, product_id).await?;
-
-        // 2. 如果价格相同，不更新
-        if let Some(current) = current_price
-            && current == new_price
-        {
-            return Ok(());
-        }
-
-        // 3. INSERT 到 product_price 表（同时完成更新和历史记录）
+        // 条件 INSERT：价格相同则不插入，单次 DB 往返
         ProductPriceRepo::update_price(executor, product_id, new_price, operator_id, remark)
             .await?;
 

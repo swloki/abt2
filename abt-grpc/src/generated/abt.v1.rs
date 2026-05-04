@@ -11500,8 +11500,6 @@ pub struct PriceLogEntryResponse {
     pub log_id: i64,
     #[prost(int64, tag = "2")]
     pub product_id: i64,
-    #[prost(string, tag = "3")]
-    pub old_price: ::prost::alloc::string::String,
     #[prost(string, tag = "4")]
     pub new_price: ::prost::alloc::string::String,
     #[prost(int64, optional, tag = "5")]
@@ -11521,8 +11519,6 @@ pub struct PriceLogWithProductResponse {
     pub product_name: ::prost::alloc::string::String,
     #[prost(string, optional, tag = "4")]
     pub product_code: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(string, tag = "5")]
-    pub old_price: ::prost::alloc::string::String,
     #[prost(string, tag = "6")]
     pub new_price: ::prost::alloc::string::String,
     #[prost(int64, optional, tag = "7")]

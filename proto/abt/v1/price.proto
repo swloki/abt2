@@ -14,7 +14,8 @@ service AbtPriceService {
 message PriceLogEntryResponse {
   int64 log_id = 1;
   int64 product_id = 2;
-  string old_price = 3;
+  reserved 3;
+  reserved "old_price";
   string new_price = 4;
   optional int64 operator_id = 5;
   optional string remark = 6;
@@ -26,7 +27,8 @@ message PriceLogWithProductResponse {
   int64 product_id = 2;
   string product_name = 3;
   optional string product_code = 4;
-  string old_price = 5;
+  reserved 5;
+  reserved "old_price";
   string new_price = 6;
   optional int64 operator_id = 7;
   optional string remark = 8;

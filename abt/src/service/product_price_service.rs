@@ -20,7 +20,6 @@ use crate::repositories::{Executor, PaginatedResult};
 pub struct PriceLogEntry {
     pub log_id: i64,
     pub product_id: i64,
-    pub old_price: Option<Decimal>,
     pub new_price: Decimal,
     pub operator_id: Option<i64>,
     pub remark: Option<String>,
@@ -42,7 +41,6 @@ pub struct PriceLogWithProduct {
     pub product_id: i64,
     pub product_name: String,
     pub product_code: Option<String>,
-    pub old_price: Option<Decimal>,
     pub new_price: Decimal,
     pub operator_id: Option<i64>,
     pub remark: Option<String>,

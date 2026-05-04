@@ -12039,26 +12039,16 @@ pub mod abt_price_service_server {
         const NAME: &'static str = SERVICE_NAME;
     }
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ProductMeta {
-    #[prost(string, tag = "1")]
-    pub category: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub subcategory: ::prost::alloc::string::String,
-    #[prost(string, tag = "3")]
-    pub product_code: ::prost::alloc::string::String,
     #[prost(string, tag = "4")]
     pub specification: ::prost::alloc::string::String,
-    #[prost(string, tag = "5")]
-    pub unit: ::prost::alloc::string::String,
     #[prost(string, tag = "6")]
     pub acquire_channel: ::prost::alloc::string::String,
-    #[prost(double, tag = "7")]
-    pub loss_rate: f64,
     #[prost(string, optional, tag = "8")]
     pub old_code: ::core::option::Option<::prost::alloc::string::String>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ProductResponse {
     #[prost(int64, tag = "1")]
     pub product_id: i64,
@@ -12066,6 +12056,10 @@ pub struct ProductResponse {
     pub pdt_name: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "3")]
     pub meta: ::core::option::Option<ProductMeta>,
+    #[prost(string, tag = "4")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub unit: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ProductsResponse {
@@ -12106,14 +12100,18 @@ pub struct GetProductsByIdsRequest {
     #[prost(int64, repeated, tag = "1")]
     pub product_ids: ::prost::alloc::vec::Vec<i64>,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateProductRequest {
     #[prost(string, tag = "1")]
     pub pdt_name: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "2")]
     pub meta: ::core::option::Option<ProductMeta>,
+    #[prost(string, tag = "3")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub unit: ::prost::alloc::string::String,
 }
-#[derive(Clone, PartialEq, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UpdateProductRequest {
     #[prost(int64, tag = "1")]
     pub product_id: i64,
@@ -12121,6 +12119,10 @@ pub struct UpdateProductRequest {
     pub pdt_name: ::prost::alloc::string::String,
     #[prost(message, optional, tag = "3")]
     pub meta: ::core::option::Option<ProductMeta>,
+    #[prost(string, tag = "4")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub unit: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DeleteProductRequest {

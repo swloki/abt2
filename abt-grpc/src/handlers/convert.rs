@@ -8,6 +8,8 @@ impl From<abt::Product> for ProductResponse {
             product_id: product.product_id,
             pdt_name: product.pdt_name,
             meta: Some(product.meta.into()),
+            product_code: product.product_code,
+            unit: product.unit,
         }
     }
 }
@@ -15,13 +17,8 @@ impl From<abt::Product> for ProductResponse {
 impl From<abt::ProductMeta> for ProductMeta {
     fn from(meta: abt::ProductMeta) -> Self {
         ProductMeta {
-            category: meta.category,
-            subcategory: meta.subcategory,
-            product_code: meta.product_code,
             specification: meta.specification,
-            unit: meta.unit,
             acquire_channel: meta.acquire_channel,
-            loss_rate: meta.loss_rate,
             old_code: meta.old_code,
         }
     }
@@ -30,13 +27,8 @@ impl From<abt::ProductMeta> for ProductMeta {
 impl From<ProductMeta> for abt::ProductMeta {
     fn from(meta: ProductMeta) -> Self {
         abt::ProductMeta {
-            category: meta.category,
-            subcategory: meta.subcategory,
-            product_code: meta.product_code,
             specification: meta.specification,
-            unit: meta.unit,
             acquire_channel: meta.acquire_channel,
-            loss_rate: meta.loss_rate,
             old_code: meta.old_code,
         }
     }

@@ -59,7 +59,7 @@ impl BomServiceImpl {
         let products = ProductRepo::find_by_ids(&self.pool, &product_ids).await?;
         let valid_product_ids: HashSet<i64> = products.iter().map(|p| p.product_id).collect();
         let product_code_map: HashMap<i64, String> = products.iter()
-            .map(|p| (p.product_id, p.meta.product_code.clone()))
+            .map(|p| (p.product_id, p.product_code.clone()))
             .collect();
         let name_map: HashMap<i64, String> = products.iter()
             .map(|p| (p.product_id, p.pdt_name.clone()))
@@ -286,7 +286,7 @@ impl BomService for BomServiceImpl {
         if root.product_id > 0 {
             let products = ProductRepo::find_by_ids(&self.pool, &[root.product_id]).await?;
             if let Some(product) = products.first() {
-                return Ok(Some(product.meta.product_code.clone()));
+                return Ok(Some(product.product_code.clone()));
             }
         }
 
@@ -310,7 +310,7 @@ impl BomService for BomServiceImpl {
         let new_product = products
             .first()
             .ok_or_else(|| anyhow::anyhow!("替换物料不存在: {}", new_product_id))?;
-        let new_product_code = new_product.meta.product_code.clone();
+        let new_product_code = new_product.product_code.clone();
 
         let affected_boms: Vec<crate::models::Bom> = match bom_id {
             Some(id) => {
@@ -436,7 +436,7 @@ impl BomService for BomServiceImpl {
         } else if root.product_id > 0 {
             let products = ProductRepo::find_by_ids(&self.pool, &[root.product_id]).await?;
             products.first()
-                .map(|p| p.meta.product_code.clone())
+                .map(|p| p.product_code.clone())
                 .ok_or_else(|| anyhow::anyhow!("Root product not found"))?
         } else {
             anyhow::bail!("Root product not found");

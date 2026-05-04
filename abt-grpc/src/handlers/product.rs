@@ -107,6 +107,8 @@ impl GrpcProductService for ProductHandler {
         let product = abt::Product {
             product_id: 0,
             pdt_name: req.pdt_name,
+            product_code: req.product_code,
+            unit: req.unit,
             meta: req.meta.map(|m| m.into()).unwrap_or_default(),
         };
 
@@ -133,6 +135,8 @@ impl GrpcProductService for ProductHandler {
         let product = abt::Product {
             product_id: req.product_id,
             pdt_name: req.pdt_name,
+            product_code: req.product_code,
+            unit: req.unit,
             meta: req.meta.map(|m| m.into()).unwrap_or_default(),
         };
 

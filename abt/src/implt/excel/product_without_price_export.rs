@@ -37,12 +37,15 @@ impl ExcelExportService for ProductWithoutPriceExporter {
             r#"
             SELECT
                 p.pdt_name,
-                COALESCE(p.meta->>'product_code', '') as product_code,
+                p.product_code,
                 COALESCE(p.meta->>'old_code', '') as old_code
             FROM products p
-            WHERE (p.meta->>'price') IS NULL
-               OR (p.meta->>'price') = ''
-               OR (p.meta->>'price')::decimal = 0
+            WHERE NOT EXISTS (
+                SELECT 1 FROM product_price pp WHERE pp.product_id = p.product_id
+            )
+               OR EXISTS (
+                SELECT 1 FROM product_price pp WHERE pp.product_id = p.product_id AND pp.price = 0
+            )
             ORDER BY p.pdt_name
             "#,
         )

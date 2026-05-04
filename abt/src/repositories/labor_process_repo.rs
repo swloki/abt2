@@ -246,7 +246,7 @@ impl LaborProcessRepo {
         let items = sqlx::query_as::<_, BomWithoutLaborCost>(
             r#"
             SELECT b.bom_id, b.bom_name,
-                   p.meta->>'product_code' AS product_code,
+                   p.product_code AS product_code,
                    p.pdt_name AS product_name,
                    b.create_at AS created_at
             FROM bom b
@@ -254,7 +254,7 @@ impl LaborProcessRepo {
             JOIN products p ON bn.product_id = p.product_id
             WHERE NOT EXISTS (
                   SELECT 1 FROM bom_labor_process blp
-                  WHERE blp.product_code = p.meta->>'product_code'
+                  WHERE blp.product_code = p.product_code
               )
             ORDER BY b.bom_id DESC
             "#,

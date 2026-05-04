@@ -252,7 +252,7 @@ impl BomRepo {
         if let Some(product_code) = &bom_query.product_code
             && !product_code.is_empty()
         {
-            query.push(" AND EXISTS (SELECT 1 FROM bom_nodes n JOIN products p ON n.product_id = p.product_id WHERE n.bom_id = bom.bom_id AND n.parent_id IS NULL AND p.meta->>'product_code' ILIKE ");
+            query.push(" AND EXISTS (SELECT 1 FROM bom_nodes n JOIN products p ON n.product_id = p.product_id WHERE n.bom_id = bom.bom_id AND n.parent_id IS NULL AND p.product_code ILIKE ");
             query.push_bind(format!("%{}%", product_code));
             query.push(")");
         }
@@ -343,11 +343,11 @@ impl BomRepo {
 
         let codes: Vec<String> = sqlx::query_scalar(
             r#"
-            SELECT DISTINCT p.meta->>'product_code'
+            SELECT DISTINCT p.product_code
             FROM products p
             JOIN bom_nodes bn ON bn.product_id = p.product_id AND bn.parent_id IS NULL
             JOIN bom b ON b.bom_id = bn.bom_id
-            WHERE p.meta->>'product_code' = ANY($1)
+            WHERE p.product_code = ANY($1)
             "#,
         )
         .bind(product_codes)

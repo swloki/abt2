@@ -11,6 +11,8 @@ mod product_all_export;
 mod product_inventory_import;
 mod product_without_price_export;
 mod progress;
+mod warehouse_location_export;
+mod warehouse_location_import;
 
 use anyhow::{Context, Result};
 use calamine::{Range, Data, Reader, Xlsx, open_workbook};
@@ -30,6 +32,8 @@ pub use product_all_export::ProductAllExporter;
 pub use product_inventory_import::ProductInventoryImporter;
 pub use product_without_price_export::ProductWithoutPriceExporter;
 pub use progress::ProgressTracker;
+pub use warehouse_location_export::export_warehouse_locations_to_bytes;
+pub use warehouse_location_import::import_warehouse_locations;
 
 // ---- 共享辅助函数 ----
 

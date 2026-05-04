@@ -169,6 +169,51 @@ impl WarehouseRepo {
         Ok(count > 0)
     }
 
+    /// 批量根据编码查找仓库（排除已删除）
+    pub async fn find_by_codes(pool: &PgPool, codes: &[String]) -> Result<Vec<Warehouse>> {
+        if codes.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query_as::<_, Warehouse>(
+            "SELECT warehouse_id, warehouse_name, warehouse_code, status, created_at, updated_at, deleted_at
+             FROM warehouse WHERE warehouse_code = ANY($1) AND deleted_at IS NULL",
+        )
+        .bind(codes)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    /// 批量根据编码查找已删除的仓库
+    pub async fn find_deleted_by_codes(pool: &PgPool, codes: &[String]) -> Result<Vec<Warehouse>> {
+        if codes.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query_as::<_, Warehouse>(
+            "SELECT warehouse_id, warehouse_name, warehouse_code, status, created_at, updated_at, deleted_at
+             FROM warehouse WHERE warehouse_code = ANY($1) AND deleted_at IS NOT NULL",
+        )
+        .bind(codes)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
+    }
+
+    /// 根据编码查找已删除的仓库
+    pub async fn find_deleted_by_code(pool: &PgPool, code: &str) -> Result<Option<Warehouse>> {
+        let row = sqlx::query_as::<_, Warehouse>(
+            "SELECT warehouse_id, warehouse_name, warehouse_code, status, created_at, updated_at, deleted_at
+             FROM warehouse WHERE warehouse_code = $1 AND deleted_at IS NOT NULL",
+        )
+        .bind(code)
+        .fetch_optional(pool)
+        .await?;
+
+        Ok(row)
+    }
+
     /// 检查仓库下是否有库存
     pub async fn has_inventory(pool: &PgPool, warehouse_id: i64) -> Result<bool> {
         let count: i64 = sqlx::query_scalar::<_, i64>(

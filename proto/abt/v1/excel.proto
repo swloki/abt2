@@ -18,6 +18,14 @@ message ImportResultResponse {
   int32 success_count = 1;
   int32 failed_count = 2;
   repeated string errors = 3;
+  repeated RowError row_errors = 4;
+}
+
+message RowError {
+  uint32 row_index = 1;
+  string column_name = 2;
+  string reason = 3;
+  optional string raw_value = 4;
 }
 
 message ExcelProgressResponse {
@@ -26,8 +34,13 @@ message ExcelProgressResponse {
 }
 
 message ImportExcelRequest {
-  string file_path = 1;
+  string file_path = 1;        // 上传后返回的文件路径（必须位于临时上传目录下）
   optional int64 operator_id = 2;
+  // 导入类型: "product_inventory"（默认）= 产品库存, "warehouse_location" = 仓库库位
+  string import_type = 3;
+  // 同步模式（仅 warehouse_location）：删除导入文件中未出现的库位。
+  // 注意：每个仓库的删除量不得超过该仓库总库位的 20%，否则跳过该仓库的同步删除。
+  optional bool sync_mode = 4;
 }
 
 message ExportExcelRequest {
@@ -48,7 +61,9 @@ message UploadFileResponse {
 
 // 流式下载请求
 message DownloadExportFileRequest {
-  string export_type = 1;  // 导出类型: "products"
+  // 导出类型: "products"（默认）= 所有产品, "products_without_price" = 无价格产品,
+  //          "warehouse_location" = 仓库库位
+  string export_type = 1;
 }
 
 // 流式下载响应

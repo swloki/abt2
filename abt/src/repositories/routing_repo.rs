@@ -379,7 +379,7 @@ impl RoutingRepo {
             r#"
             SELECT COUNT(DISTINCT b.bom_id)
             FROM bom_routing br
-            JOIN products p ON p.meta->>'product_code' = br.product_code
+            JOIN products p ON p.product_code = br.product_code
             JOIN bom_nodes bn ON bn.product_id = p.product_id AND bn.parent_id IS NULL
             JOIN bom b ON b.bom_id = bn.bom_id
             WHERE br.routing_id = $1
@@ -393,7 +393,7 @@ impl RoutingRepo {
             r#"
             SELECT DISTINCT b.bom_id, b.bom_name, b.create_at as created_at
             FROM bom_routing br
-            JOIN products p ON p.meta->>'product_code' = br.product_code
+            JOIN products p ON p.product_code = br.product_code
             JOIN bom_nodes bn ON bn.product_id = p.product_id AND bn.parent_id IS NULL
             JOIN bom b ON b.bom_id = bn.bom_id
             WHERE br.routing_id = $1

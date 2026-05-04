@@ -241,32 +241,4 @@ impl ProductRepo {
 
         Ok(())
     }
-
-    /// 更新产品（使用 Executor）
-    #[allow(dead_code)]
-    pub async fn update_with_tx(
-        executor: Executor<'_>,
-        product_id: i64,
-        pdt_name: &str,
-        product_code: &str,
-        unit: &str,
-        meta: crate::models::ProductMeta,
-    ) -> Result<()> {
-        sqlx::query!(
-            r#"
-            UPDATE products
-            SET pdt_name = $1, product_code = $2, unit = $3, meta = $4::jsonb
-            WHERE product_id = $5
-            "#,
-            pdt_name,
-            product_code,
-            unit,
-            serde_json::json!(meta),
-            product_id
-        )
-        .execute(executor)
-        .await?;
-
-        Ok(())
-    }
 }

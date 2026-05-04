@@ -161,7 +161,7 @@ impl InventoryRepo {
         let rows = sqlx::query_as::<_, InventoryDetail>(
             r#"
             SELECT i.inventory_id, i.product_id, p.pdt_name as product_name,
-                   COALESCE(p.meta->>'product_code', '') as product_code,
+                   p.product_code,
                    i.location_id, l.location_code, w.warehouse_name,
                    i.quantity, i.safety_stock,
                    i.quantity < i.safety_stock as is_low_stock, i.batch_no,
@@ -189,7 +189,7 @@ impl InventoryRepo {
         let rows = sqlx::query_as::<_, InventoryDetail>(
             r#"
             SELECT i.inventory_id, i.product_id, p.pdt_name as product_name,
-                   COALESCE(p.meta->>'product_code', '') as product_code,
+                   p.product_code,
                    i.location_id, l.location_code, w.warehouse_name,
                    i.quantity, i.safety_stock,
                    i.quantity < i.safety_stock as is_low_stock, i.batch_no,
@@ -214,7 +214,7 @@ impl InventoryRepo {
         let rows = sqlx::query_as::<_, InventoryDetail>(
             r#"
             SELECT i.inventory_id, i.product_id, p.pdt_name as product_name,
-                   COALESCE(p.meta->>'product_code', '') as product_code,
+                   p.product_code,
                    i.location_id, l.location_code, w.warehouse_name,
                    i.quantity, i.safety_stock,
                    true as is_low_stock, i.batch_no,
@@ -246,7 +246,7 @@ impl InventoryRepo {
         let mut qb = sqlx::QueryBuilder::new(
             r#"
             SELECT i.inventory_id, i.product_id, p.pdt_name as product_name,
-                   COALESCE(p.meta->>'product_code', '') as product_code,
+                   p.product_code,
                    i.location_id, l.location_code, w.warehouse_name,
                    i.quantity, i.safety_stock,
                    i.quantity < i.safety_stock as is_low_stock, i.batch_no,
@@ -302,15 +302,16 @@ impl InventoryRepo {
         if let Some(ref product_code) = query.product_code
             && !product_code.is_empty()
         {
-            qb.push(" AND p.meta->>'product_code' ILIKE ")
+            qb.push(" AND p.product_code ILIKE ")
                 .push_bind(format!("%{}%", product_code));
         }
         if query.low_stock_only.unwrap_or(false) {
             qb.push(" AND i.quantity < i.safety_stock");
         }
         if let Some(term_id) = query.term_id {
-            qb.push(" AND p.meta->>'category' = ")
-                .push_bind(term_id.to_string());
+            qb.push(" AND EXISTS (SELECT 1 FROM term_relation tr WHERE tr.product_id = p.product_id AND tr.term_id = ");
+            qb.push_bind(term_id);
+            qb.push(")");
         }
     }
 
@@ -329,7 +330,7 @@ impl InventoryRepo {
                 il.log_id,
                 il.product_id,
                 p.pdt_name as product_name,
-                COALESCE(p.meta->>'product_code', '') as product_code,
+                p.product_code,
                 il.location_id,
                 l.location_code,
                 w.warehouse_name,
@@ -369,7 +370,7 @@ impl InventoryRepo {
             param_index += 1;
         }
         if query.product_code.is_some() {
-            where_parts.push(format!("p.meta->>'product_code' ILIKE ${}", param_index));
+            where_parts.push(format!("p.product_code ILIKE ${}", param_index));
             param_index += 1;
         }
         if query.location_id.is_some() {
@@ -496,14 +497,14 @@ impl InventoryRepo {
             SELECT
                 p.product_id,
                 p.pdt_name,
-                COALESCE(p.meta->>'product_code', '') as product_code,
+                p.product_code,
                 COALESCE(p.meta->>'specification', '') as specification,
-                COALESCE(p.meta->>'unit', '') as unit,
+                p.unit,
                 w.warehouse_name,
                 l.location_code,
                 i.quantity,
                 i.safety_stock,
-                COALESCE((p.meta->>'price')::decimal, 0) as price
+                COALESCE((SELECT price FROM product_price WHERE product_id = p.product_id ORDER BY created_at DESC LIMIT 1), 0) as price
             FROM inventory i
             JOIN products p ON i.product_id = p.product_id
             JOIN location l ON i.location_id = l.location_id

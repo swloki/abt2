@@ -1768,7 +1768,7 @@ pub mod auth_service_server {
         const NAME: &'static str = SERVICE_NAME;
     }
 }
-#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ImportResultResponse {
     #[prost(int32, tag = "1")]
     pub success_count: i32,
@@ -1776,6 +1776,19 @@ pub struct ImportResultResponse {
     pub failed_count: i32,
     #[prost(string, repeated, tag = "3")]
     pub errors: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "4")]
+    pub row_errors: ::prost::alloc::vec::Vec<RowError>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RowError {
+    #[prost(uint32, tag = "1")]
+    pub row_index: u32,
+    #[prost(string, tag = "2")]
+    pub column_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "4")]
+    pub raw_value: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExcelProgressResponse {
@@ -1786,10 +1799,18 @@ pub struct ExcelProgressResponse {
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ImportExcelRequest {
+    /// 上传后返回的文件路径（必须位于临时上传目录下）
     #[prost(string, tag = "1")]
     pub file_path: ::prost::alloc::string::String,
     #[prost(int64, optional, tag = "2")]
     pub operator_id: ::core::option::Option<i64>,
+    /// 导入类型: "product_inventory"（默认）= 产品库存, "warehouse_location" = 仓库库位
+    #[prost(string, tag = "3")]
+    pub import_type: ::prost::alloc::string::String,
+    /// 同步模式（仅 warehouse_location）：删除导入文件中未出现的库位。
+    /// 注意：每个仓库的删除量不得超过该仓库总库位的 20%，否则跳过该仓库的同步删除。
+    #[prost(bool, optional, tag = "4")]
+    pub sync_mode: ::core::option::Option<bool>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ExportExcelRequest {
@@ -1825,7 +1846,8 @@ pub struct UploadFileResponse {
 /// 流式下载请求
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DownloadExportFileRequest {
-    /// 导出类型: "products"
+    /// 导出类型: "products"（默认）= 所有产品, "products_without_price" = 无价格产品,
+    /// "warehouse_location" = 仓库库位
     #[prost(string, tag = "1")]
     pub export_type: ::prost::alloc::string::String,
 }

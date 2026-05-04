@@ -185,6 +185,47 @@ impl LocationRepo {
         Ok(count > 0)
     }
 
+    /// 根据仓库 ID 和编码查找已删除的库位
+    pub async fn find_deleted_by_code(
+        pool: &PgPool,
+        warehouse_id: i64,
+        location_code: &str,
+    ) -> Result<Option<Location>> {
+        let row = sqlx::query_as!(
+            Location,
+            "SELECT location_id, warehouse_id, location_code, location_name, capacity, status, created_at, deleted_at
+             FROM location WHERE warehouse_id = $1 AND location_code = $2 AND deleted_at IS NOT NULL",
+            warehouse_id,
+            location_code
+        )
+        .fetch_optional(pool)
+        .await?;
+
+        Ok(row)
+    }
+
+    /// 批量查找已删除的库位（按仓库）
+    pub async fn find_deleted_by_codes(
+        pool: &PgPool,
+        warehouse_id: i64,
+        location_codes: &[String],
+    ) -> Result<Vec<Location>> {
+        if location_codes.is_empty() {
+            return Ok(Vec::new());
+        }
+        let rows = sqlx::query_as!(
+            Location,
+            "SELECT location_id, warehouse_id, location_code, location_name, capacity, status, created_at, deleted_at
+             FROM location WHERE warehouse_id = $1 AND location_code = ANY($2) AND deleted_at IS NOT NULL",
+            warehouse_id,
+            location_codes
+        )
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
+    }
+
     /// 检查库位下是否有库存
     pub async fn has_inventory(pool: &PgPool, location_id: i64) -> Result<bool> {
         let count: i64 = sqlx::query_scalar::<_, i64>(

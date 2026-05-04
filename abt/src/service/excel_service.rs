@@ -16,6 +16,21 @@ pub struct ImportResult {
     pub failed_count: usize,
     /// 错误信息
     pub errors: Vec<String>,
+    /// 行级错误详情
+    pub row_errors: Vec<RowError>,
+}
+
+/// 行级错误详情
+#[derive(Debug, Clone)]
+pub struct RowError {
+    /// 行号（1-based）
+    pub row_index: usize,
+    /// 列名
+    pub column_name: String,
+    /// 错误原因
+    pub reason: String,
+    /// 原始值
+    pub raw_value: Option<String>,
 }
 
 /// Excel 处理进度

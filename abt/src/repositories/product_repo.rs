@@ -16,15 +16,19 @@ impl ProductRepo {
     pub async fn insert(
         executor: Executor<'_>,
         pdt_name: &str,
+        product_code: &str,
+        unit: &str,
         meta: crate::models::ProductMeta,
     ) -> Result<i64> {
         let product_id: i64 = sqlx::query_scalar!(
             r#"
-            INSERT INTO products (pdt_name, meta)
-            VALUES ($1, $2::jsonb)
+            INSERT INTO products (pdt_name, product_code, unit, meta)
+            VALUES ($1, $2, $3, $4::jsonb)
             RETURNING product_id
             "#,
             pdt_name,
+            product_code,
+            unit,
             serde_json::json!(meta)
         )
         .fetch_one(executor)
@@ -38,15 +42,19 @@ impl ProductRepo {
         executor: Executor<'_>,
         product_id: i64,
         pdt_name: &str,
+        product_code: &str,
+        unit: &str,
         meta: crate::models::ProductMeta,
     ) -> Result<()> {
         sqlx::query!(
             r#"
             UPDATE products
-            SET pdt_name = $1, meta = $2::jsonb
-            WHERE product_id = $3
+            SET pdt_name = $1, product_code = $2, unit = $3, meta = $4::jsonb
+            WHERE product_id = $5
             "#,
             pdt_name,
+            product_code,
+            unit,
             serde_json::json!(meta),
             product_id
         )
@@ -69,7 +77,7 @@ impl ProductRepo {
     #[allow(dead_code)]
     pub async fn find_by_id(pool: &PgPool, product_id: i64) -> Result<Option<Product>> {
         let row = sqlx::query_as::<_, Product>(
-            "SELECT product_id, pdt_name, meta FROM products WHERE product_id = $1",
+            "SELECT product_id, pdt_name, product_code, unit, meta FROM products WHERE product_id = $1",
         )
         .bind(product_id)
         .fetch_optional(pool)
@@ -82,7 +90,7 @@ impl ProductRepo {
     #[allow(dead_code)]
     pub async fn query(pool: &PgPool, query: &ProductQuery) -> Result<Vec<Product>> {
         let mut qb = sqlx::QueryBuilder::new(
-            "SELECT DISTINCT p.product_id, p.pdt_name, p.meta FROM products p",
+            "SELECT DISTINCT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta FROM products p",
         );
 
         // term_id 过滤: 通过 term_relation 关联表 JOIN 查询
@@ -103,7 +111,7 @@ impl ProductRepo {
         if let Some(product_code) = &query.product_code
             && !product_code.is_empty()
         {
-            qb.push(" AND p.meta->>'product_code' ILIKE ");
+            qb.push(" AND p.product_code ILIKE ");
             qb.push_bind(format!("%{}%", product_code));
         }
 
@@ -141,7 +149,7 @@ impl ProductRepo {
         if let Some(product_code) = &query.product_code
             && !product_code.is_empty()
         {
-            qb.push(" AND p.meta->>'product_code' ILIKE ");
+            qb.push(" AND p.product_code ILIKE ");
             qb.push_bind(format!("%{}%", product_code));
         }
 
@@ -158,12 +166,13 @@ impl ProductRepo {
 
     /// 检查产品编码是否存在
     pub async fn exist_product_code(pool: &PgPool, code: &str) -> Result<bool> {
-        let count: i64 = sqlx::query_scalar::<_, i64>(
-            "SELECT COUNT(*) FROM products WHERE meta->>'product_code' = $1",
+        let count: i64 = sqlx::query_scalar!(
+            "SELECT COUNT(*) FROM products WHERE product_code = $1",
+            code
         )
-        .bind(code)
         .fetch_one(pool)
-        .await?;
+        .await?
+        .unwrap_or(0);
 
         Ok(count > 0)
     }
@@ -171,7 +180,7 @@ impl ProductRepo {
     /// 根据产品编码查找产品
     pub async fn find_by_code(pool: &PgPool, code: &str) -> Result<Option<Product>> {
         let row = sqlx::query_as::<_, Product>(
-            "SELECT product_id, pdt_name, meta FROM products WHERE meta->>'product_code' = $1",
+            "SELECT product_id, pdt_name, product_code, unit, meta FROM products WHERE product_code = $1",
         )
         .bind(code)
         .fetch_optional(pool)
@@ -187,7 +196,7 @@ impl ProductRepo {
         }
 
         let rows = sqlx::query_as::<_, Product>(
-            "SELECT product_id, pdt_name, meta FROM products WHERE product_id = ANY($1)",
+            "SELECT product_id, pdt_name, product_code, unit, meta FROM products WHERE product_id = ANY($1)",
         )
         .bind(product_ids)
         .fetch_all(pool)
@@ -203,7 +212,7 @@ impl ProductRepo {
         }
 
         let rows = sqlx::query_as::<_, Product>(
-            "SELECT product_id, pdt_name, meta FROM products WHERE meta->>'product_code' = ANY($1)",
+            "SELECT product_id, pdt_name, product_code, unit, meta FROM products WHERE product_code = ANY($1)",
         )
         .bind(codes)
         .fetch_all(pool)
@@ -239,15 +248,19 @@ impl ProductRepo {
         executor: Executor<'_>,
         product_id: i64,
         pdt_name: &str,
+        product_code: &str,
+        unit: &str,
         meta: crate::models::ProductMeta,
     ) -> Result<()> {
         sqlx::query!(
             r#"
             UPDATE products
-            SET pdt_name = $1, meta = $2::jsonb
-            WHERE product_id = $3
+            SET pdt_name = $1, product_code = $2, unit = $3, meta = $4::jsonb
+            WHERE product_id = $5
             "#,
             pdt_name,
+            product_code,
+            unit,
             serde_json::json!(meta),
             product_id
         )

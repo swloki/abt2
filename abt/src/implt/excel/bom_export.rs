@@ -271,7 +271,7 @@ impl BomExporter {
             worksheet.write_number_with_format(row, 0, (row_num + 1) as f64, cell_format)?;
             worksheet.write_number_with_format(row, 1, level as f64, cell_format)?;
             worksheet.write_string_with_format(
-                row, 2, &node.product.meta.product_code, cell_format,
+                row, 2, &node.product.product_code, cell_format,
             )?;
             worksheet.write_string_with_format(row, 3, &node.product.pdt_name, cell_format)?;
             worksheet.write_number_with_format(row, 4, node.node.quantity, cell_format)?;

@@ -16,13 +16,10 @@ service AbtProductService {
 }
 
 message ProductMeta {
-  string category = 1;
-  string subcategory = 2;
-  string product_code = 3;
+  reserved 1, 2, 3, 5, 7;
+  reserved "category", "subcategory", "product_code", "unit", "loss_rate";
   string specification = 4;
-  string unit = 5;
   string acquire_channel = 6;
-  double loss_rate = 7;
   optional string old_code = 8;
 }
 
@@ -30,6 +27,8 @@ message ProductResponse {
   int64 product_id = 1;
   string pdt_name = 2;
   ProductMeta meta = 3;
+  string product_code = 4;
+  string unit = 5;
 }
 
 message ProductsResponse {
@@ -62,12 +61,16 @@ message GetProductsByIdsRequest {
 message CreateProductRequest {
   string pdt_name = 1;
   ProductMeta meta = 2;
+  string product_code = 3;
+  string unit = 4;
 }
 
 message UpdateProductRequest {
   int64 product_id = 1;
   string pdt_name = 2;
   ProductMeta meta = 3;
+  string product_code = 4;
+  string unit = 5;
 }
 
 message DeleteProductRequest {

@@ -110,8 +110,8 @@ impl ExcelImportService for ProductInventoryImporter {
         let products = ProductRepo::find_by_codes(&self.pool, &all_codes).await?;
         let product_map: HashMap<String, (i64, String)> = products
             .iter()
-            .filter(|p| !p.meta.product_code.is_empty())
-            .map(|p| (p.meta.product_code.clone(), (p.product_id, p.pdt_name.clone())))
+            .filter(|p| !p.product_code.is_empty())
+            .map(|p| (p.product_code.clone(), (p.product_id, p.pdt_name.clone())))
             .collect();
 
         let location_map = LocationRepo::list_all_with_warehouse(&self.pool).await?;
@@ -247,28 +247,8 @@ async fn update_price_batch(
 ) -> Result<()> {
     sqlx::query!(
         r#"
-        UPDATE products
-        SET meta = jsonb_set(
-            COALESCE(meta, '{}'::jsonb),
-            '{price}',
-            to_jsonb($2::numeric)
-        )
-        WHERE product_id = $1
-        "#,
-        product_id,
-        price
-    )
-    .execute(&mut **tx)
-    .await?;
-
-    sqlx::query!(
-        r#"
-        INSERT INTO product_price_log (product_id, old_price, new_price, remark, created_at)
-        SELECT $1,
-               (SELECT meta->>'price' FROM products WHERE product_id = $1)::numeric,
-               $2,
-               'Excel 批量导入更新',
-               NOW()
+        INSERT INTO product_price (product_id, price, operator_id, remark)
+        VALUES ($1, $2, NULL, 'Excel 批量导入更新')
         "#,
         product_id,
         price

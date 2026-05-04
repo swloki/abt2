@@ -29,7 +29,7 @@ pub use labor_process_dict_service::LaborProcessDictService;
 pub use inventory_service::{InventoryLog, InventoryService};
 pub use location_service::LocationService;
 pub use permission_service::PermissionService;
-pub use excel_service::{ExcelExportService, ExcelImportService, ExcelProgress, ExportRequest, ImportResult, ImportSource};
+pub use excel_service::{ExcelExportService, ExcelImportService, ExcelProgress, ExportRequest, ImportResult, ImportSource, RowError};
 pub use product_price_service::{
     AllPriceHistoryQuery, PriceHistoryQuery, PriceLogEntry, PriceLogWithProduct,
     ProductPriceService,

@@ -11,7 +11,7 @@ use std::sync::OnceLock;
 use tokio::sync::{Mutex, OnceCell};
 
 // Internal modules
-mod implt;
+pub mod implt;
 mod permission_cache;
 pub mod models;
 pub mod repositories;
@@ -204,4 +204,3 @@ pub fn get_auth_service(
         resource_actions,
     )
 }
-

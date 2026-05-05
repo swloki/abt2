@@ -21,6 +21,7 @@ mod routing;
 mod term;
 mod user;
 mod warehouse;
+mod inventory_cascade;
 
 pub use api::*;
 pub use auth::*;
@@ -39,3 +40,4 @@ pub use routing::*;
 pub use term::*;
 pub use user::*;
 pub use warehouse::*;
+pub use inventory_cascade::*;

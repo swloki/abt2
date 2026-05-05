@@ -19,6 +19,7 @@ mod routing_repo;
 mod term_repo;
 mod user_repo;
 mod warehouse_repo;
+mod inventory_cascade_repo;
 
 pub use auth_repo::AuthRepo;
 pub use bom_category_repo::BomCategoryRepo;
@@ -37,6 +38,7 @@ pub use routing_repo::{BomBrief, RoutingRepo};
 pub use term_repo::TermRepo;
 pub use user_repo::UserRepo;
 pub use warehouse_repo::WarehouseRepo;
+pub use inventory_cascade_repo::{CascadeNodeRow, InventoryCascadeRepo, StockSummaryRow};
 
 // Re-export Executor from common
 pub use common::PgExecutor as Executor;

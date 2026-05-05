@@ -36,12 +36,9 @@ message ChildNodeInventory {
   string product_code = 3;
   string product_name = 4;
   string unit = 5;
-  // BOM 中需要的数量，string 避免浮点精度问题，格式如 "1.500000"
-  string quantity = 6;
-  // 库存总量，string 保留 Decimal 精度，无库存时为 "0"
-  string total_stock = 7;
-  // 损耗率，string 避免浮点精度问题，格式如 "0.050000"
-  string loss_rate = 8;
+  double quantity = 6;
+  double total_stock = 7;
+  double loss_rate = 8;
 }
 
 message CascadeInventoryResponse {
@@ -189,7 +186,7 @@ Service 实现逻辑：
 | 产品不存在 / 已软删除 | 返回 gRPC NOT_FOUND |
 | 产品没有被任何 BOM 引用 | 返回空 bom_groups |
 | 产品在 BOM 中是叶子节点（无子节点） | 该 BOM 的 children 为空数组 |
-| 子节点产品无库存记录 | total_stock 返回 "0" |
+| 子节点产品无库存记录 | total_stock 返回 0.0 |
 | BOM 已软删除 | SQL 中 `b.deleted_at IS NULL` 过滤 |
 
 ## 索引要求

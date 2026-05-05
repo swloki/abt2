@@ -65,12 +65,13 @@ WITH parent_product AS (
   FROM products
   WHERE (product_id = $1 OR product_code = $2)
     AND deleted_at IS NULL
+  LIMIT 1
 )
 SELECT
   pp.product_id AS root_product_id,
   pp.product_code AS root_product_code,
   pp.pdt_name AS root_product_name,
-  bn_parent.bom_id,
+  b.bom_id,
   b.bom_name,
   child.id AS node_id,
   child.product_id,
@@ -82,13 +83,15 @@ SELECT
 FROM parent_product pp
 JOIN bom_nodes bn_parent ON bn_parent.product_id = pp.product_id
 JOIN bom b ON b.bom_id = bn_parent.bom_id
+          AND b.deleted_at IS NULL
 JOIN bom_nodes child ON child.parent_id = bn_parent.id
                      AND child.bom_id = bn_parent.bom_id
 JOIN products p_child ON p_child.product_id = child.product_id
-WHERE b.deleted_at IS NULL
-  AND p_child.deleted_at IS NULL
+                      AND p_child.deleted_at IS NULL
 ORDER BY b.bom_id, child."order";
 ```
+
+注意：如果一个产品在同一个 BOM 中作为多个节点的子节点出现，会产生多行相同 bom_id 的记录。当前设计按 bom_id 分组时会合并到同一个 BomCascadeGroup 中，不做去重——同一 BOM 中该产品不同位置的子节点都会列出。
 
 若 CTE 返回空（产品不存在），直接返回 NOT_FOUND。若返回有顶层产品但无子行（未被 BOM 引用），返回空 bom_groups。
 
@@ -105,8 +108,9 @@ GROUP BY i.product_id
 
 3. **组装结果**（Service 层职责）：
    - Repository 返回扁平查询结果，不做分组
-   - Service 用 `HashMap<i64, Decimal>` 存库存汇总，合并到子节点
-   - 按 `bom_id` 分组，组装 `CascadeInventoryResult`
+   - Service 用 `HashMap<i64, Decimal>` 存库存汇总（无记录的默认为 0），合并到子节点
+   - 用 `HashMap<i64, BomCascadeGroup>` 按 `bom_id` 聚合，避免 Vec 反复遍历
+   - 组装 `CascadeInventoryResult`
 
 ## 新增文件
 
@@ -155,7 +159,7 @@ pub struct ChildNodeInventory {
     pub product_name: String,
     pub unit: Option<String>,
     pub quantity: Decimal,
-    pub total_stock: Option<Decimal>,
+    pub total_stock: Decimal,  // 默认 0，不使用 Option
     pub loss_rate: Decimal,
 }
 ```
@@ -176,8 +180,9 @@ pub trait InventoryCascadeService: Send + Sync {
 Service 实现逻辑：
 - Repository 返回扁平查询结果，不做分组（Repo 保持"纯查询"职责）
 - Service 调用 repo 两次查询
-- 用 `HashMap<i64, Decimal>` 存库存汇总，合并到子节点数据
-- 按 `bom_id` 分组，组装 `CascadeInventoryResult`
+- 库存查询无记录时 total_stock 默认为 0，不使用 Option
+- 用 `HashMap<i64, BomCascadeGroup>` 按 bom_id 聚合，避免 Vec 反复遍历
+- loss_rate 只返回原始值，不做"损耗后需求量"计算（如需后续可加字段）
 
 ## 边界情况
 
@@ -187,7 +192,15 @@ Service 实现逻辑：
 | 产品没有被任何 BOM 引用 | 返回空 bom_groups |
 | 产品在 BOM 中是叶子节点（无子节点） | 该 BOM 的 children 为空数组 |
 | 子节点产品无库存记录 | total_stock 返回 0.0 |
-| BOM 已软删除 | SQL 中 `b.deleted_at IS NULL` 过滤 |
+| BOM 已软删除 | SQL JOIN 条件中 `b.deleted_at IS NULL` 过滤 |
+| 数据库查询失败 | 返回 gRPC INTERNAL，记录错误日志 |
+| 同一产品在同一 BOM 中出现在多个节点 | 所有位置的子节点都列出，不做去重 |
+
+## 错误处理 & 日志
+
+- 产品不存在：`NOT_FOUND`，附带产品 ID/code 信息
+- 数据库错误：`INTERNAL`，不透传 anyhow，记录 `error!` 级别日志
+- 查询耗时：分别记录结构查询和库存查询的耗时（`info!` 级别），便于性能监控
 
 ## 索引要求
 
@@ -206,5 +219,5 @@ CREATE INDEX IF NOT EXISTS idx_inventory_product
 
 ## 性能考虑
 
-- **结果集限制**：若产品被大量 BOM 引用（极端情况），考虑加 `LIMIT` 或分页参数，防止返回过大结果集
-- **缓存（后续可选）**：BOM 结构变化不频繁，可缓存级联结构（key: `bom_cascade:{product_id}`），库存单独实时查询
+- **结果集硬限制**：SQL 加 `LIMIT 500`，防止产品被大量 BOM 引用时返回过大结果集
+- **缓存（后续推荐）**：BOM 结构变化不频繁，可缓存级联结构（key: `bom_cascade:{product_id}`，BOM 更新时删除相关缓存），库存单独实时查询（或短 TTL 30 秒）

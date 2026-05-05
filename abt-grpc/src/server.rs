@@ -106,6 +106,10 @@ impl AppState {
         abt::get_bom_category_service(self.abt_context)
     }
 
+    pub fn inventory_cascade_service(&self) -> impl abt::InventoryCascadeService {
+        abt::get_inventory_cascade_service(self.abt_context)
+    }
+
     pub fn auth_service(&self) -> impl abt::AuthService {
         let config = get_config();
         let resources = abt::collect_all_resources();

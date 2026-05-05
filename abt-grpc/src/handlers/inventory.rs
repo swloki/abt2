@@ -13,7 +13,7 @@ use tonic::{Request, Response};
 
 // Import traits and types from abt
 use abt::{
-    InventoryLog as AbtInventoryLog, InventoryLogQuery as AbtInventoryLogQuery,
+    InventoryCascadeService, InventoryLog as AbtInventoryLog, InventoryLogQuery as AbtInventoryLogQuery,
     InventoryQuery as AbtInventoryQuery, InventoryService, OperationType,
     SetSafetyStockRequest as AbtSetSafetyStockRequest, StockChangeRequest as AbtStockChangeRequest,
     StockTransferRequest as AbtStockTransferRequest,
@@ -610,6 +610,68 @@ impl GrpcInventoryService for InventoryHandler {
                     operator: detail.operator.unwrap_or_default(),
                     remark: detail.remark.unwrap_or_default(),
                     created_at: detail.created_at.timestamp(),
+                })
+                .collect(),
+        }))
+    }
+
+    #[require_permission(Resource::Inventory, Action::Read)]
+    async fn cascade_inventory(
+        &self,
+        request: Request<CascadeInventoryRequest>,
+    ) -> GrpcResult<CascadeInventoryResponse> {
+        let req = request.into_inner();
+
+        // 输入校验
+        let (product_id, product_code) = match req.product_identifier {
+            Some(cascade_inventory_request::ProductIdentifier::ProductId(id)) => (Some(id), None),
+            Some(cascade_inventory_request::ProductIdentifier::ProductCode(code)) => (None, Some(code)),
+            None => (None, None),
+        };
+
+        if product_id.is_none() && product_code.is_none() {
+            return Err(common::error::validation(
+                "product_identifier",
+                "必须提供 product_id 或 product_code",
+            ));
+        }
+
+        let max_results = req.max_results.unwrap_or(500);
+
+        let state = AppState::get().await;
+        let srv = state.inventory_cascade_service();
+
+        let result = srv
+            .cascade_inventory(product_id, product_code, max_results)
+            .await
+            .map_err(common::error::err_to_status)?;
+
+        Ok(Response::new(CascadeInventoryResponse {
+            product_id: result.product_id,
+            product_code: result.product_code,
+            product_name: result.product_name,
+            bom_groups: result
+                .bom_groups
+                .into_iter()
+                .map(|g| BomCascadeGroup {
+                    bom_id: g.bom_id,
+                    bom_name: g.bom_name,
+                    children: g
+                        .children
+                        .into_iter()
+                        .map(|c| ChildNodeInventory {
+                            node_id: c.node_id,
+                            product_id: c.product_id,
+                            product_code: c.product_code,
+                            product_name: c.product_name,
+                            unit: c.unit.unwrap_or_default(),
+                            quantity: c.quantity.to_string().parse().unwrap_or(0.0),
+                            total_stock: c.total_stock.to_string().parse().unwrap_or(0.0),
+                            loss_rate: c.loss_rate.to_string().parse().unwrap_or(0.0),
+                            order: c.order,
+                            parent_node_id: c.parent_node_id,
+                        })
+                        .collect(),
                 })
                 .collect(),
         }))

@@ -19,6 +19,7 @@ use abt::{
     StockTransferRequest as AbtStockTransferRequest,
 };
 use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 
 pub struct InventoryHandler;
 
@@ -622,7 +623,6 @@ impl GrpcInventoryService for InventoryHandler {
     ) -> GrpcResult<CascadeInventoryResponse> {
         let req = request.into_inner();
 
-        // 输入校验
         let (product_id, product_code) = match req.product_identifier {
             Some(cascade_inventory_request::ProductIdentifier::ProductId(id)) => (Some(id), None),
             Some(cascade_inventory_request::ProductIdentifier::ProductCode(code)) => (None, Some(code)),
@@ -665,9 +665,9 @@ impl GrpcInventoryService for InventoryHandler {
                             product_code: c.product_code,
                             product_name: c.product_name,
                             unit: c.unit.unwrap_or_default(),
-                            quantity: c.quantity.to_string().parse().unwrap_or(0.0),
-                            total_stock: c.total_stock.to_string().parse().unwrap_or(0.0),
-                            loss_rate: c.loss_rate.to_string().parse().unwrap_or(0.0),
+                            quantity: c.quantity.to_f64().unwrap_or(0.0),
+                            total_stock: c.total_stock.to_f64().unwrap_or(0.0),
+                            loss_rate: c.loss_rate.to_f64().unwrap_or(0.0),
                             order: c.order,
                             parent_node_id: c.parent_node_id,
                         })

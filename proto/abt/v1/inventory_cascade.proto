@@ -1,0 +1,38 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+message CascadeInventoryRequest {
+  oneof product_identifier {
+    int64 product_id = 1;
+    string product_code = 2;
+  }
+  optional int32 max_results = 3;  // 默认 500，上限 2000
+}
+
+message BomCascadeGroup {
+  int64 bom_id = 1;
+  string bom_name = 2;
+  repeated ChildNodeInventory children = 3;
+}
+
+message ChildNodeInventory {
+  int64 node_id = 1;
+  int64 product_id = 2;
+  string product_code = 3;
+  string product_name = 4;
+  string unit = 5;
+  double quantity = 6;
+  double total_stock = 7;
+  double loss_rate = 8;
+  int32 order = 9;
+  optional int64 parent_node_id = 10;
+}
+
+message CascadeInventoryResponse {
+  int64 product_id = 1;
+  string product_code = 2;
+  string product_name = 3;
+  repeated BomCascadeGroup bom_groups = 4;
+}

@@ -4,6 +4,7 @@ package abt.v1;
 option go_package = "abt/v1";
 
 import "abt/v1/base.proto";
+import "abt/v1/inventory_cascade.proto";
 
 service AbtInventoryService {
   // Stock operations
@@ -25,6 +26,9 @@ service AbtInventoryService {
   rpc GetLogsByProduct(GetLogsByProductRequest) returns (InventoryLogDetailListResponse);
   rpc GetLogsByLocation(GetLogsByLocationRequest) returns (InventoryLogDetailListResponse);
   rpc GetLogsByWarehouse(GetLogsByWarehouseRequest) returns (InventoryLogDetailListResponse);
+
+  // 级联查询库存
+  rpc CascadeInventory(CascadeInventoryRequest) returns (CascadeInventoryResponse);
 }
 
 message InventoryResponse {

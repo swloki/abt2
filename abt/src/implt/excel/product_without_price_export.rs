@@ -40,9 +40,12 @@ impl ExcelExportService for ProductWithoutPriceExporter {
                 p.product_code,
                 COALESCE(p.meta->>'old_code', '') as old_code
             FROM products p
-            WHERE NOT EXISTS (
-                SELECT 1 FROM product_price pp WHERE pp.product_id = p.product_id
-            )
+            LEFT JOIN LATERAL (
+                SELECT 1 FROM product_price pp
+                WHERE pp.product_id = p.product_id
+                ORDER BY pp.created_at DESC LIMIT 1
+            ) latest ON TRUE
+            WHERE latest IS NULL
                OR EXISTS (
                 SELECT 1 FROM product_price pp WHERE pp.product_id = p.product_id AND pp.price = 0
             )

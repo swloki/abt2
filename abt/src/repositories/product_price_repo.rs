@@ -41,18 +41,21 @@ struct AllPriceHistoryRow {
 
 impl ProductPriceRepo {
     /// 获取产品当前价格（product_price 最新记录）
-    pub async fn get_price(pool: &PgPool, product_id: i64) -> Result<Option<Decimal>> {
+    pub async fn get_price(executor: Executor<'_>, product_id: i64) -> Result<Option<Decimal>> {
         let price: Option<Decimal> = sqlx::query_scalar!(
             "SELECT price FROM product_price WHERE product_id = $1 ORDER BY created_at DESC LIMIT 1",
             product_id
         )
-        .fetch_optional(pool)
+        .fetch_optional(executor)
         .await?;
 
         Ok(price)
     }
 
-    /// 更新产品价格（条件 INSERT：价格不同才插入，单次 DB 往返）
+    /// 更新产品价格（条件 INSERT：价格不同才插入）
+    ///
+    /// 使用 pg_advisory_xact_lock 防止并发写入导致重复行。
+    /// 锁在事务结束时自动释放，无需显式 unlock。
     pub async fn update_price(
         executor: Executor<'_>,
         product_id: i64,
@@ -60,6 +63,10 @@ impl ProductPriceRepo {
         operator_id: Option<i64>,
         remark: Option<&str>,
     ) -> Result<()> {
+        sqlx::query!("SELECT pg_advisory_xact_lock($1)", product_id)
+            .execute(&mut *executor)
+            .await?;
+
         sqlx::query!(
             r#"
             INSERT INTO product_price (product_id, price, operator_id, remark)

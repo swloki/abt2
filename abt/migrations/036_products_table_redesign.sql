@@ -33,13 +33,19 @@ WHERE unit IS NULL;
 -- Step 2.5: 去重 product_code（重复编码加产品 ID 后缀）
 -- ============================================================================
 
+-- 对每个重复的 product_code，保留最早（MIN product_id）的记录不变，
+-- 其余记录追加 -product_id 后缀使编码唯一
 UPDATE products SET product_code = product_code || '-' || product_id::text
 WHERE product_id IN (
-    SELECT MAX(product_id)
-    FROM products
-    WHERE product_code IS NOT NULL AND product_code != ''
-    GROUP BY product_code
-    HAVING COUNT(*) > 1
+    SELECT product_id
+    FROM (
+        SELECT product_id,
+               product_code AS orig_code,
+               ROW_NUMBER() OVER (PARTITION BY product_code ORDER BY product_id) AS rn
+        FROM products
+        WHERE product_code IS NOT NULL AND product_code != ''
+    ) sub
+    WHERE rn > 1
 );
 
 -- ============================================================================

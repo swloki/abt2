@@ -22,6 +22,7 @@ message CascadeInventoryRequest {
     int64 product_id = 1;
     string product_code = 2;
   }
+  optional int32 max_results = 3;  // 默认 500，上限 2000
 }
 
 message BomCascadeGroup {
@@ -39,6 +40,8 @@ message ChildNodeInventory {
   double quantity = 6;
   double total_stock = 7;
   double loss_rate = 8;
+  int32 order = 9;             // 在 BOM 中的排序
+  optional int64 parent_node_id = 10;  // 所属父节点 ID
 }
 
 message CascadeInventoryResponse {
@@ -79,7 +82,9 @@ SELECT
   p_child.pdt_name AS product_name,
   child.unit,
   child.quantity,
-  child.loss_rate
+  child.loss_rate,
+  child."order",
+  bn_parent.id AS parent_node_id
 FROM parent_product pp
 JOIN bom_nodes bn_parent ON bn_parent.product_id = pp.product_id
 JOIN bom b ON b.bom_id = bn_parent.bom_id
@@ -88,8 +93,11 @@ JOIN bom_nodes child ON child.parent_id = bn_parent.id
                      AND child.bom_id = bn_parent.bom_id
 JOIN products p_child ON p_child.product_id = child.product_id
                       AND p_child.deleted_at IS NULL
-ORDER BY b.bom_id, child."order";
+ORDER BY b.bom_id, child."order"
+LIMIT $3;
 ```
+
+注意：不加 `bn_parent.parent_id IS NULL`，因为产品可能出现在 BOM 的任意层级，不仅限于根节点。
 
 注意：如果一个产品在同一个 BOM 中作为多个节点的子节点出现，会产生多行相同 bom_id 的记录。当前设计按 bom_id 分组时会合并到同一个 BomCascadeGroup 中，不做去重——同一 BOM 中该产品不同位置的子节点都会列出。
 
@@ -161,6 +169,8 @@ pub struct ChildNodeInventory {
     pub quantity: Decimal,
     pub total_stock: Decimal,  // 默认 0，不使用 Option
     pub loss_rate: Decimal,
+    pub order: i32,
+    pub parent_node_id: Option<i64>,
 }
 ```
 
@@ -195,9 +205,12 @@ Service 实现逻辑：
 | BOM 已软删除 | SQL JOIN 条件中 `b.deleted_at IS NULL` 过滤 |
 | 数据库查询失败 | 返回 gRPC INTERNAL，记录错误日志 |
 | 同一产品在同一 BOM 中出现在多个节点 | 所有位置的子节点都列出，不做去重 |
+| product_id 和 product_code 都为空 | 返回 gRPC INVALID_ARGUMENT |
+| 同时传入 product_id 和 product_code | product_id 优先 |
 
 ## 错误处理 & 日志
 
+- 输入校验：`product_id` 和 `product_code` 都为空 → `INVALID_ARGUMENT`；同时传入时 `product_id` 优先
 - 产品不存在：`NOT_FOUND`，附带产品 ID/code 信息
 - 数据库错误：`INTERNAL`，不透传 anyhow，记录 `error!` 级别日志
 - 查询耗时：分别记录结构查询和库存查询的耗时（`info!` 级别），便于性能监控
@@ -219,5 +232,5 @@ CREATE INDEX IF NOT EXISTS idx_inventory_product
 
 ## 性能考虑
 
-- **结果集硬限制**：SQL 加 `LIMIT 500`，防止产品被大量 BOM 引用时返回过大结果集
+- **结果集可配置限制**：通过 `max_results` 参数控制（默认 500，上限 2000），防止产品被大量 BOM 引用时返回过大结果集
 - **缓存（后续推荐）**：BOM 结构变化不频繁，可缓存级联结构（key: `bom_cascade:{product_id}`，BOM 更新时删除相关缓存），库存单独实时查询（或短 TTL 30 秒）

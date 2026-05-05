@@ -11,6 +11,8 @@ use crate::models::{BomCascadeGroup, CascadeInventoryResult, ChildNodeInventory}
 use crate::repositories::InventoryCascadeRepo;
 use crate::service::InventoryCascadeService;
 
+const MAX_RESULTS_LIMIT: i32 = 2000;
+
 pub struct InventoryCascadeServiceImpl {
     pool: Arc<PgPool>,
 }
@@ -29,14 +31,11 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
         product_code: Option<String>,
         max_results: i32,
     ) -> Result<CascadeInventoryResult> {
-        let max = max_results.clamp(1, 2000);
+        let max = max_results.clamp(1, MAX_RESULTS_LIMIT);
 
-        // Clone product_code for error message before it's moved
         let product_code_for_error = product_code.clone();
-
         let start = std::time::Instant::now();
 
-        // 第一次查询：产品信息 + BOM 子节点结构
         let rows = InventoryCascadeRepo::find_cascade_nodes(
             &self.pool,
             product_id,
@@ -51,7 +50,6 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
             "cascade structure query completed"
         );
 
-        // 空结果 = 产品不存在
         if rows.is_empty() {
             anyhow::bail!(
                 "产品不存在: {}",
@@ -67,19 +65,16 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
         let result_product_code = first.root_product_code.clone();
         let result_product_name = first.root_product_name.clone();
 
-        // 收集有子节点的行
         let child_rows: Vec<_> = rows
             .into_iter()
             .filter(|r| r.bom_id.is_some() && r.node_id.is_some())
             .collect();
 
-        // 收集子节点 product_id 用于库存查询
         let child_product_ids: Vec<i64> = child_rows
             .iter()
             .filter_map(|r| r.product_id)
             .collect();
 
-        // 第二次查询：批量获取库存汇总
         let stock_start = std::time::Instant::now();
         let stock_map = if child_product_ids.is_empty() {
             HashMap::new()
@@ -102,7 +97,6 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
             "cascade stock query completed"
         );
 
-        // 按 bom_id 分组构建 BomCascadeGroup
         let mut groups: HashMap<i64, BomCascadeGroup> = HashMap::new();
 
         for row in child_rows {
@@ -139,7 +133,6 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
                 .push(child);
         }
 
-        // 按 bom_id 排序输出
         let mut bom_groups: Vec<BomCascadeGroup> = groups.into_values().collect();
         bom_groups.sort_by_key(|g| g.bom_id);
 

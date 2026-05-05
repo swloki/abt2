@@ -19,6 +19,7 @@ mod routing_service;
 mod term_service;
 mod user_service;
 mod warehouse_service;
+mod inventory_cascade_service;
 
 pub use auth_service::AuthService;
 pub use bom_category_service::BomCategoryService;
@@ -40,6 +41,7 @@ pub use routing_service::RoutingService;
 pub use term_service::TermService;
 pub use user_service::UserService;
 pub use warehouse_service::WarehouseService;
+pub use inventory_cascade_service::InventoryCascadeService;
 
 // Re-export executor type from repositories
 pub use crate::repositories::Executor;

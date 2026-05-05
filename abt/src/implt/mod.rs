@@ -19,6 +19,7 @@ mod routing_service_impl;
 mod term_service_impl;
 mod user_service_impl;
 mod warehouse_service_impl;
+mod inventory_cascade_service_impl;
 
 pub use auth_service_impl::AuthServiceImpl;
 pub use bom_service_impl::BomServiceImpl;
@@ -36,3 +37,4 @@ pub use routing_service_impl::RoutingServiceImpl;
 pub use term_service_impl::TermServiceImpl;
 pub use user_service_impl::UserServiceImpl;
 pub use warehouse_service_impl::WarehouseServiceImpl;
+pub use inventory_cascade_service_impl::InventoryCascadeServiceImpl;

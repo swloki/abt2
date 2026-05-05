@@ -190,6 +190,11 @@ pub fn get_department_service(ctx: &AppContext) -> impl crate::service::Departme
     crate::implt::DepartmentServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
 
+/// 获取级联查询库存服务
+pub fn get_inventory_cascade_service(ctx: &AppContext) -> impl crate::service::InventoryCascadeService {
+    crate::implt::InventoryCascadeServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
 /// 获取认证服务
 pub fn get_auth_service(
     pool: sqlx::PgPool,

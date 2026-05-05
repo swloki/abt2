@@ -8,7 +8,7 @@ status: approved
 
 ## Overview
 
-为 ABT 系统引入嵌入式工作流引擎，支持可配置的审批流程和任务分配。引擎完全集成在现有 Rust + PostgreSQL 架构中，不依赖外部服务。
+为 ABT 系统引入嵌入式工作流引擎，支持可配置的审批流程和任务分配。引擎完全集成在现有 Rust + PostgreSQL 架构中，零外部依赖。
 
 ## Decision: Self-built vs External Library
 
@@ -18,6 +18,21 @@ status: approved
 - Temporal 需要独立的 Temporal Server 部署，与"嵌入式"需求冲突
 - ABT 的工作流需求（审批 + 任务分配）复杂度可控，不需要分布式编排能力
 - 自建方案保持所有数据在同一个 PostgreSQL 中，事务一致性更易保证
+
+## 核心架构分层
+
+```
+┌─────────────────────────────────────────────────┐
+│ 静态定义层                                       │
+│ 模板管理 + Graph Linter + Condition AST 校验      │
+├─────────────────────────────────────────────────┤
+│ 动态运行层                                       │
+│ 事务驱动的实例流转 + frozen graph 快照 + 派生状态  │
+├─────────────────────────────────────────────────┤
+│ 自动化调度层                                     │
+│ 后台 Worker（超时扫描、提醒、异步 Hook）           │
+└─────────────────────────────────────────────────┘
+```
 
 ## Architecture
 
@@ -30,48 +45,60 @@ abt/src/repositories/
   workflow_template_repo.rs           ← 模板 CRUD
   workflow_instance_repo.rs           ← 实例 CRUD
   workflow_task_repo.rs               ← 任务 CRUD
+  workflow_history_repo.rs            ← 审计历史
 abt/src/service/workflow_service.rs   ← Service trait
 abt/src/implt/workflow_engine.rs      ← 核心引擎
 abt/src/implt/workflow_hooks.rs       ← WorkflowHook trait + 各实体的 hook 实现
+abt/src/implt/workflow_worker.rs      ← 后台 Worker（超时扫描、异步 Hook）
+abt/src/implt/graph_linter.rs         ← Graph Linter（发布时校验）
 abt-grpc/src/handlers/workflow.rs     ← gRPC handler
 ```
 
 ## Design Improvements (from Ideation)
 
-基于 ideation 分析，采纳以下 5 项改进：
+基于 ideation 分析，采纳以下改进：
 
-### Improvement 1: 3 表设计替代 5 表（折叠 nodes + edges 到 JSONB）
+### Improvement 1: 4 表设计替代 5 表（折叠 nodes + edges 到 JSONB）
 
-将 `workflow_nodes` 和 `workflow_edges` 折叠为 `workflow_templates` 上的一个 JSONB 列 `graph`。V1 没有可视化设计器，流程图很小（3-8 节点），模板是原子发布的。这消除了 2 个 repository、2 组 CRUD 接口和跨表 JOIN。
+将 `workflow_nodes` 和 `workflow_edges` 折叠为 `workflow_templates` 上的一个 JSONB 列 `graph`。新增独立的 `workflow_history` 审计表。V1 没有可视化设计器，流程图很小（3-8 节点），模板是原子发布的。
 
 ### Improvement 2: 冻结图快照
 
-实例创建时将完整图定义序列化到 `frozen_graph` JSONB 列。运行时无需 JOIN 模板表，模板编辑不影响运行中的实例。与 BOM 系统的快照模式一致（`bom_nodes` 在创建时拷贝子节点结构）。
+实例创建时将完整图定义序列化到 `frozen_graph` JSONB 列。运行时无需 JOIN 模板表，模板编辑不影响运行中的实例。与 BOM 系统的快照模式一致。
 
 ### Improvement 3: 移除 current_node_ids 数组
 
-当前活跃节点从 `workflow_tasks WHERE status = 'pending'` 派生查询得出，不存储冗余的可变数组。消除并行网关合并时的行级锁争用。
+当前活跃节点从 `workflow_tasks WHERE status = 'pending'` 派生查询得出，消除并行网关合并时的行级锁争用。
 
 ### Improvement 4: Condition AST 替代原始 JSONB 条件
 
-用 Rust enum 表达式树（`Condition::And`, `Condition::FieldCompare`, `Condition::Or` 等）替代原始 JSONB 条件。条件在模板创建时验证，防止类型不匹配导致的静默路由失败（与产品表 `meta->>'category'` 的 bug 同源）。
+用 Rust enum 表达式树替代原始 JSONB 条件。条件在模板创建时验证，防止类型不匹配导致的静默路由失败。
 
 ### Improvement 5: Fail-closed assignee + 升级路径
 
-assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警），不跳过审批。每个节点配置必须包含 `fallback_assignee` 防止永久阻塞。
+assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警），不跳过审批。每个节点配置必须包含 `fallback_assignee`。
+
+### Improvement 6: workflow_history 决策审计表
+
+独立审计表记录每一次决策（条件判定、超时动作、Hook 执行等），提供完整的可追溯性。
+
+### Improvement 7: 超时与调度 Worker
+
+节点配置支持 `timeout_hours` / `remind_hours_before`，后台 Worker 定期扫描超时任务并执行相应动作。
 
 ## Data Model
 
-### workflow_templates（含折叠的图定义）
+### workflow_templates
 
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUID | PK |
+| entity_type | VARCHAR | 业务实体类型 |
 | name | VARCHAR | 模板名称 |
-| entity_type | VARCHAR | 关联业务实体类型（product, bom, purchase_order 等） |
-| version | INT | 版本号 |
+| version | INT | 单调递增版本 |
 | status | VARCHAR | draft / active / archived |
-| graph | JSONB | 图定义：`{nodes: [...], edges: [...]}`，包含完整的节点和边 |
+| graph | JSONB | 完整流程定义（nodes + edges） |
+| graph_checksum | VARCHAR | 图结构哈希 |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
 
@@ -94,7 +121,9 @@ assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警）
         "assignee_value": "manager",
         "multi_approval": "any",
         "reject_action": "terminate",
-        "fallback_assignee": "admin"
+        "fallback_assignee": "admin",
+        "timeout_hours": 48,
+        "remind_hours_before": 4
       }
     },
     {
@@ -122,22 +151,25 @@ assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警）
 }
 ```
 
-### workflow_instances（含冻结图快照）
+### workflow_instances
 
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUID | PK |
-| template_id | UUID | FK → templates（仅用于追溯，运行时不 JOIN） |
-| template_version | INT | 创建时的模板版本号 |
+| template_id | UUID | 模板引用（仅追溯，运行时不 JOIN） |
+| template_version | INT | 创建时版本 |
 | entity_type | VARCHAR | 业务实体类型 |
 | entity_id | UUID | 业务实体 ID |
-| status | VARCHAR | running / completed / rejected / cancelled |
-| frozen_graph | JSONB | 创建时快照的完整图定义（不再运行时 JOIN 模板） |
+| status | VARCHAR | running / completed / rejected / suspended / terminated |
+| frozen_graph | JSONB | 创建时快照的完整图定义 |
+| context | JSONB | 运行时变量 + entity_snapshot |
 | initiator_id | UUID | 发起人 |
 | created_at | TIMESTAMP | |
+| updated_at | TIMESTAMP | |
+| last_advanced_at | TIMESTAMP | 最后推进时间 |
 | completed_at | TIMESTAMP | |
 
-注意：无 `current_node_ids` 数组列。当前活跃节点通过派生查询获取。
+无 `current_node_ids` 数组列。当前活跃节点通过派生查询获取。
 
 ### workflow_tasks
 
@@ -145,28 +177,55 @@ assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警）
 |--------|------|-------------|
 | id | UUID | PK |
 | instance_id | UUID | FK → instances |
-| node_id | VARCHAR | frozen_graph 中的节点 ID |
-| assignee_id | UUID | 被分配人 |
-| action | VARCHAR | approve / reject / complete / delegate |
+| node_id | VARCHAR NOT NULL | frozen_graph 中的节点 ID |
+| prev_task_id | UUID | 任务链溯源 |
+| assignee_id | UUID | 处理人 |
 | status | VARCHAR | pending / completed / rejected / delegated |
-| result | JSONB | 操作结果（评论、意见等） |
+| action | VARCHAR | approve / reject / complete / delegate |
+| due_at | TIMESTAMP | 超时截止时间 |
+| remind_at | TIMESTAMP | 提醒时间 |
+| result | JSONB | 操作结果、意见、auto_reason |
 | created_at | TIMESTAMP | |
 | completed_at | TIMESTAMP | |
+
+### workflow_history
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUID | PK |
+| instance_id | UUID | 实例 ID |
+| task_id | UUID | 关联任务 |
+| node_id | VARCHAR | 节点 ID |
+| event_type | VARCHAR | node_enter / edge_triggered / condition_evaluated / task_completed / timeout_action / hook_executed / suspended |
+| actor_id | UUID | 操作人（系统用特殊值） |
+| payload | JSONB | 详细记录（条件判定结果、超时原因等） |
+| created_at | TIMESTAMP | |
 
 ### Indexes
 
 ```sql
-CREATE INDEX idx_workflow_tasks_assignee_status ON workflow_tasks(assignee_id, status);
-CREATE INDEX idx_workflow_tasks_instance_status ON workflow_tasks(instance_id, status);
-CREATE INDEX idx_workflow_instances_entity ON workflow_instances(entity_type, entity_id);
+CREATE INDEX idx_workflow_tasks_assignee_status ON workflow_tasks(assignee_id, status, due_at);
+CREATE INDEX idx_workflow_tasks_instance_node ON workflow_tasks(instance_id, node_id, status);
+CREATE INDEX idx_workflow_instances_entity ON workflow_instances(entity_type, entity_id, status);
+CREATE INDEX idx_workflow_history_instance_time ON workflow_history(instance_id, created_at);
 ```
 
-## Condition AST
+## Graph Linter（发布时强制校验）
 
-用 Rust enum 定义条件表达式树，替代原始 JSONB：
+模板从 `draft` 发布为 `active` 时执行以下校验：
+
+1. 必须有且仅有一个 `start` 节点，至少一个 `end` 节点
+2. DFS 死循环检测（允许合法汇聚）
+3. 每个审批/任务节点必须配置 `fallback_assignee`
+4. Condition AST 字段白名单 + 类型校验
+5. 计算 `graph_checksum` 用于完整性校验
+
+校验失败则拒绝发布，返回具体错误信息。
+
+## Condition AST 与求值
 
 ```rust
-enum Condition {
+pub enum Condition {
     And(Vec<Condition>),
     Or(Vec<Condition>),
     Not(Box<Condition>),
@@ -180,18 +239,18 @@ enum Condition {
     Never,
 }
 
-enum CompareOp {
-    Eq,
-    Neq,
-    Gt,
-    GtEq,
-    Lt,
-    LtEq,
-    In,
+pub enum CompareOp {
+    Eq, Neq, Gt, GtEq, Lt, LtEq, In,
+}
+
+pub struct EvaluationContext {
+    pub entity_snapshot: serde_json::Value,
+    pub variables: HashMap<String, serde_json::Value>,
+    pub initiator: UserInfo,
 }
 ```
 
-条件在模板创建时验证（字段存在性、类型匹配），不在运行时才发现错误。`ConditionEvaluator` 负责将条件应用于实体上下文进行求值。
+条件在模板创建时验证（字段存在性、类型匹配），运行时通过 `EvaluationContext` 求值。`entity_snapshot` 在实例创建时写入 `context` JSONB，条件评估完全自包含，不依赖外部状态。
 
 ## WorkflowEngine Core Logic
 
@@ -199,28 +258,46 @@ enum CompareOp {
 
 1. 加载模板，验证状态为 active
 2. 深拷贝 `graph` JSONB 到 `frozen_graph`，记录 `template_version`
-3. 创建实例记录
-4. 从 `frozen_graph` 找到 start 节点后的第一个节点
-5. 解析 assignee 规则，若零候选人则 fail-closed + 报警
-6. 为该节点创建 task 并分配审批人/执行人
-7. 返回 instance_id
+3. 写入 `entity_snapshot` 到 `context` JSONB
+4. 创建实例记录
+5. 从 `frozen_graph` 找到 start 节点后的第一个节点
+6. 解析 assignee 规则（fail-closed），计算 `due_at` / `remind_at`
+7. 为该节点创建 task
+8. 记录 `workflow_history`（`node_enter` 事件）
+9. 返回 instance_id
 
 ### advance_instance(task_id, action, result)
 
-1. 在事务中执行
-2. 标记当前 task 完成/拒绝
-3. 从 `frozen_graph`（已加载到实例行上）查找当前节点的出边
-4. 用 Condition AST 评估条件，确定下一个节点
-5. 如果下一个是 end 节点，标记实例完成
-6. 如果是 approval/task 节点，解析 assignee（fail-closed），创建新 task
-7. 派发 WorkflowHook::on_approved / on_rejected（如有）
+```rust
+pub async fn advance_instance(task_id: Uuid, action: Action, result: Value) -> Result<()> {
+    let mut tx = pool.begin().await?;
 
-### reject_instance(task_id, reason)
+    // 1. 锁实例
+    let instance = lock_instance_for_update(&mut tx, instance_id).await?;
 
-1. 标记 task 为 rejected
-2. 根据 node config 中的 reject_action 决定行为：
-   - terminate: 直接终止实例
-   - back_to_previous: 退回到上一个节点，创建新 task
+    // 2. 更新当前任务
+    update_task(&mut tx, task_id, action, result).await?;
+
+    // 3. 评估下一节点（Condition AST）
+    let context = EvaluationContext::from_instance(&instance);
+    let next_nodes = engine.evaluate_next(&instance.frozen_graph, &action, &context)?;
+
+    // 4. 创建新任务（含 due_at / remind_at）
+    for node in next_nodes {
+        create_task(&mut tx, &instance, node).await?;
+    }
+
+    // 5. 记录审计历史
+    record_history(&mut tx, event_details).await?;
+
+    tx.commit().await?;
+
+    // 6. 事务外异步执行 Hook
+    hooks.dispatch_async(&instance, next_nodes).await;
+
+    Ok(())
+}
+```
 
 ### get_current_nodes(instance_id)（派生查询）
 
@@ -229,7 +306,9 @@ SELECT DISTINCT node_id FROM workflow_tasks
 WHERE instance_id = $1 AND status = 'pending'
 ```
 
-替代了 `current_node_ids` 数组，无需维护冗余状态。
+### 并行网关 Join 判断
+
+从 `frozen_graph` 中获取目标节点的所有入边，通过派生查询检查所有入边的源 task 是否都已完成。
 
 ## Assignee Configuration (node.config JSONB)
 
@@ -239,18 +318,22 @@ WHERE instance_id = $1 AND status = 'pending'
   "assignee_value": "manager",
   "multi_approval": "any",
   "reject_action": "terminate",
-  "fallback_assignee": "admin"
+  "fallback_assignee": "admin",
+  "timeout_hours": 48,
+  "remind_hours_before": 4
 }
 ```
 
 - `assignee_type`: `role` | `user` | `department_head` | `initiator_manager`
 - `multi_approval`: `any`（任一通过即推进）| `all`（全部通过才推进）
-- `fallback_assignee`: **必填**。当 assignee 规则解析为零候选人时，分配给此用户并触发报警
+- `fallback_assignee`: **必填**（Graph Linter 强制校验）
+- `timeout_hours`: 可选，超时截止时间
+- `remind_hours_before`: 可选，提前提醒时间
 
 ### Fail-closed 策略
 
 1. 解析 assignee 规则，获取候选人列表
-2. 若列表为空：使用 `fallback_assignee` 创建 task，同时在 task 的 result 中记录 `"auto_assigned_reason": "no_candidates_found"`
+2. 若列表为空：使用 `fallback_assignee` 创建 task，同时在 result 中记录 `"auto_assigned_reason": "no_candidates_found"`
 3. 若 `fallback_assignee` 也不存在：暂停实例（status 设为 `suspended`），返回错误
 
 ## WorkflowHook Trait（替代 JSONB 回调）
@@ -258,8 +341,8 @@ WHERE instance_id = $1 AND status = 'pending'
 ```rust
 #[async_trait]
 trait WorkflowHook: Send + Sync {
-    async fn on_approved(&self, conn: PgExecutor<'_>, instance: &WorkflowInstance, entity_id: Uuid) -> anyhow::Result<()>;
-    async fn on_rejected(&self, conn: PgExecutor<'_>, instance: &WorkflowInstance, entity_id: Uuid) -> anyhow::Result<()>;
+    async fn on_approved(&self, instance: &WorkflowInstance, entity_id: Uuid) -> anyhow::Result<()>;
+    async fn on_rejected(&self, instance: &WorkflowInstance, entity_id: Uuid) -> anyhow::Result<()>;
 }
 
 struct WorkflowHookRegistry {
@@ -267,7 +350,14 @@ struct WorkflowHookRegistry {
 }
 ```
 
-每个业务实体类型注册一个 hook 实现。模板 config 只标记 `has_callback: true`，引擎根据 `entity_type` 分派到对应的 hook。
+Hook 在事务提交后异步执行（由 Worker 处理），避免 hook 失败导致状态回滚。每个业务实体类型注册一个 hook 实现。
+
+## 超时与调度 Worker
+
+- 节点 config 支持 `timeout_hours`、`remind_hours_before`
+- Worker 扫描频率：5 分钟（ABT 当前业务量完全足够，后续可调至 2 分钟）
+- 使用 `FOR UPDATE SKIP LOCKED` 防重复处理
+- 超时动作记录到 `workflow_history`（`timeout_action` 事件）
 
 ## gRPC API
 
@@ -302,38 +392,39 @@ service WorkflowService {
 | NOT_FOUND | 模板/实例/任务不存在 |
 | FAILED_PRECONDITION | 试图对已完成实例操作、模板 draft 时创建实例 |
 | PERMISSION_DENIED | 非审批人试图审批 |
-| INVALID_ARGUMENT | 流程定义不合法（缺少 start/end 节点、条件类型不匹配） |
+| INVALID_ARGUMENT | 流程定义不合法（Graph Linter 校验失败、条件类型不匹配） |
 | RESOURCE_EXHAUSTED | assignee 解析为零候选人且无 fallback |
 
 ## Implementation Plan
 
-### Step 1: Template CRUD + Condition AST
+### Step 1: Template CRUD + Graph Linter + Condition AST
 
-实现模板 CRUD（graph 作为 JSONB 整体读写）。实现 `Condition` enum 及其验证和求值逻辑。验证在模板创建时执行。
+实现模板 CRUD（graph 作为 JSONB 整体读写）。实现 Graph Linter（发布时校验）。实现 `Condition` enum 及其验证和求值逻辑。
 
 ### Step 2: Engine Core + Frozen Graph + Derived State
 
-实现 WorkflowEngine 的 start_instance（含 frozen_graph 快照）和 advance_instance。用派生查询替代 current_node_ids。先用线性流程验证基本通路。
+实现 WorkflowEngine 的 start_instance（含 frozen_graph 快照 + entity_snapshot）和 advance_instance。用派生查询替代 current_node_ids。先用线性流程验证基本通路。
 
-### Step 3: Condition Branches & Parallel
+### Step 3: Parallel Gateway + Timeout Worker
 
-在引擎中加入条件评估和并行网关支持。并行网关的合并通过派生查询检查"该节点所有入边的源 task 是否都已完成"。
+实现并行网关的 join 判断（入边 + 派生查询）。实现后台 Worker（超时扫描、提醒，`FOR UPDATE SKIP LOCKED`）。实现 `workflow_history` 审计记录。
 
-### Step 4: WorkflowHook + gRPC API
+### Step 4: Async Hook + Complete gRPC API
 
-实现 WorkflowHook trait registry 和各实体的 hook。暴露完整的 gRPC 接口。
+实现 WorkflowHook trait registry 和各实体的 hook（事务外异步执行）。暴露完整的 gRPC 接口。
 
 ## Testing
 
 - Repository 层：sqlx test fixture
+- Graph Linter：纯 Rust 单元测试（cycle detection、missing nodes、invalid conditions）
 - Condition AST：纯 Rust 单元测试，无需数据库
-- Engine 层：mock repository 测试引擎逻辑（frozen_graph 从 JSON 反序列化即可）
-- 集成测试：完整的"创建模板 → 发起实例 → 审批 → 完成"流程
-- 边界测试：驳回后退回、并行节点部分完成、条件分支选择、assignee 解析为零候选人的 fail-closed 行为
+- Engine 层：mock repository 测试引擎逻辑（frozen_graph 从 JSON 反序列化）
+- Worker：集成测试超时扫描、`SKIP LOCKED` 防重复
+- 端到端：完整的"创建模板 → 发布 → 发起实例 → 审批/超时 → 完成"流程
+- 边界测试：驳回后退回、并行节点部分完成、条件分支选择、assignee 解析为零候选人的 fail-closed、fallback 不存在的 suspended 行为
 
 ## V1 Scope Exclusions
 
 - 拖拽式流程设计器 UI
-- 定时器/超时节点
 - 子流程嵌套
 - 复杂会签规则（V1 只支持 any 和 all）

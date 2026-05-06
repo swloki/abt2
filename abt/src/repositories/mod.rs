@@ -38,7 +38,9 @@ pub use routing_repo::{BomBrief, RoutingRepo};
 pub use term_repo::TermRepo;
 pub use user_repo::UserRepo;
 pub use warehouse_repo::WarehouseRepo;
-pub use inventory_cascade_repo::{CascadeNodeRow, InventoryCascadeRepo, StockSummaryRow};
+pub use inventory_cascade_repo::{
+    BomRefRow, CascadeNodeFlat, InventoryCascadeRepo, ProductInfoRow, StockSummaryRow,
+};
 
 // Re-export Executor from common
 pub use common::PgExecutor as Executor;

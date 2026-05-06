@@ -48,6 +48,7 @@ abt/src/repositories/
   workflow_history_repo.rs            ← 审计历史
 abt/src/service/workflow_service.rs   ← Service trait
 abt/src/implt/workflow_engine.rs      ← 核心引擎
+abt/src/implt/workflow_actions.rs     ← ActionRegistry + 各业务 action 实现
 abt/src/implt/workflow_hooks.rs       ← WorkflowHook trait + 各实体的 hook 实现
 abt/src/implt/workflow_worker.rs      ← 后台 Worker（超时扫描、异步 Hook）
 abt/src/implt/graph_linter.rs         ← Graph Linter（发布时校验）
@@ -57,6 +58,10 @@ abt-grpc/src/handlers/workflow.rs     ← gRPC handler
 ## Design Improvements (from Ideation)
 
 基于 ideation 分析，采纳以下改进：
+
+### Improvement 0: auto_task 节点类型（系统自动执行的业务动作）
+
+除人工审批节点外，引入 `auto_task` 节点类型。引擎推进到 auto_task 时，通过 `ActionRegistry` 查找并执行注册的业务动作（如生成生产定单、创建领料单），执行成功后自动推进到下一节点。链式 auto_task 在同一事务内依次执行。执行失败则暂停实例（suspended），运维可通过 Admin API 手动重试。
 
 ### Improvement 1: 4 表设计替代 5 表（折叠 nodes + edges 到 JSONB）
 
@@ -142,6 +147,24 @@ assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警）
       }
     },
     {
+      "id": "gen_prod_order",
+      "node_type": "auto_task",
+      "name": "生成生产定单",
+      "config": {
+        "action": "create_production_order",
+        "retryable": true
+      }
+    },
+    {
+      "id": "gen_schedule",
+      "node_type": "auto_task",
+      "name": "生成提排单",
+      "config": {
+        "action": "create_production_schedule",
+        "retryable": true
+      }
+    },
+    {
       "id": "merge_point",
       "node_type": "join",
       "name": "汇聚",
@@ -160,7 +183,9 @@ assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警）
     {"from": "start", "to": "dept_approval"},
     {"from": "manager_approval", "to": "merge_point"},
     {"from": "dept_approval", "to": "merge_point"},
-    {"from": "merge_point", "to": "end"}
+    {"from": "merge_point", "to": "gen_prod_order"},
+    {"from": "gen_prod_order", "to": "gen_schedule"},
+    {"from": "gen_schedule", "to": "end"}
   ]
 }
 ```
@@ -265,12 +290,13 @@ CREATE INDEX idx_workflow_history_instance_time ON workflow_history(instance_id,
 
 1. 必须有且仅有一个 `start` 节点，至少一个 `end` 节点
 2. DFS 死循环检测（允许合法汇聚）
-3. 每个审批/任务节点必须配置 `fallback_assignee`
-4. Condition AST 字段白名单 + 类型校验（创建时初步校验 + 发布时最终确认，两阶段使用同一份白名单配置）
-5. 发布时最终确认：检查所有 edge 的 condition 中引用的 field 是否在 `entity_type` 对应的白名单中
-6. 并行 Join 节点的 `incoming_edges` 配置必须与实际入边数量匹配
-7. `reject_action: back_to_previous` 只能配置在入边源节点全部为人工节点（`approval` / `task`）的节点上，防止退回到 `start` 或 `join` 节点导致逻辑死循环。此外，配置 `back_to_previous` 的节点在 frozen_graph 中必须只有唯一入边（即唯一前驱），若存在多条入边且无法唯一确定退回目标，Linter 应拒绝发布
-8. 计算 `graph_checksum`（SHA-256，对规范化 JSON 字符串 `canonicalize(graph.nodes) ++ canonicalize(graph.edges)` 计算哈希）用于完整性校验
+3. 每个 approval 节点必须配置 `fallback_assignee`
+4. 每个 auto_task 节点必须配置 `action`，且 `action` 值必须在当前已注册的 ActionRegistry 中存在（发布时校验，未注册的 action 拒绝发布）
+5. Condition AST 字段白名单 + 类型校验（创建时初步校验 + 发布时最终确认，两阶段使用同一份白名单配置）
+6. 发布时最终确认：检查所有 edge 的 condition 中引用的 field 是否在 `entity_type` 对应的白名单中
+7. 并行 Join 节点的 `incoming_edges` 配置必须与实际入边数量匹配
+8. `reject_action: back_to_previous` 只能配置在入边源节点全部为人工节点（`approval`）的节点上，防止退回到 `start`、`join` 或 `auto_task` 节点导致逻辑死循环。此外，配置 `back_to_previous` 的节点在 frozen_graph 中必须只有唯一入边（即唯一前驱），若存在多条入边且无法唯一确定退回目标，Linter 应拒绝发布
+9. 计算 `graph_checksum`（SHA-256，对规范化 JSON 字符串 `canonicalize(graph.nodes) ++ canonicalize(graph.edges)` 计算哈希）用于完整性校验
 
 校验失败则拒绝发布，返回具体错误信息。
 
@@ -329,19 +355,66 @@ struct EntitySnapshotRegistry {
 
 每个业务模块注册自己的 `EntitySnapshotProvider` 实现。`start_instance` 时引擎通过注册表获取快照，保持引擎不耦合具体实体。
 
+### ActionRegistry（auto_task 的业务动作注册表）
+
+```rust
+#[async_trait]
+trait AutoAction: Send + Sync {
+    /// 在事务内执行业务动作。接收 instance 上下文，可读取 entity_snapshot。
+    /// 执行结果通过返回值传递，引擎写入 workflow_history。
+    async fn execute(&self, tx: &mut Transaction, instance: &WorkflowInstance) -> Result<ActionOutput>;
+}
+
+struct ActionOutput {
+    /// 可选：写入 context.variables 的更新（供后续条件评估使用）
+    pub variables_update: HashMap<String, serde_json::Value>,
+}
+
+struct ActionRegistry {
+    actions: HashMap<String, Arc<dyn AutoAction>>,
+}
+
+impl ActionRegistry {
+    fn register(&mut self, name: &str, action: Arc<dyn AutoAction>) {
+        self.actions.insert(name.to_string(), action);
+    }
+
+    fn get(&self, name: &str) -> Option<&Arc<dyn AutoAction>> {
+        self.actions.get(name)
+    }
+
+    /// Graph Linter 发布校验时调用：检查 action 是否已注册
+    fn is_registered(&self, name: &str) -> bool {
+        self.actions.contains_key(name)
+    }
+}
+```
+
+各业务模块在初始化时注册 action：
+
+```rust
+registry.register("create_production_order", Arc::new(CreateProductionOrderAction));
+registry.register("create_production_schedule", Arc::new(CreateProductionScheduleAction));
+registry.register("create_material_requisition", Arc::new(CreateMaterialRequisitionAction));
+```
+
+Action 接收 `&mut Transaction`，可安全进行数据库写操作，与引擎状态更新在同一事务内。Action 执行失败时事务整体回滚，引擎将实例标记为 `suspended`。
+
 ## WorkflowEngine Core Logic
 
-### start_instance(template_id, entity_type, entity_id, initiator_id)
+### start_instance(entity_type, entity_id, initiator_id)
 
-1. 加载模板，验证状态为 active
+1. 按 `entity_type` 查找 active 模板（`SELECT * FROM workflow_templates WHERE entity_type = $1 AND status = 'active' LIMIT 1`），验证状态为 active
 2. 深拷贝 `graph` JSONB 到 `frozen_graph`，记录 `template_version`
 3. 写入 `entity_snapshot` 到 `context` JSONB，初始化 `join_progress`（遍历 frozen_graph 中所有 `node_type == "join"` 的节点，每个节点映射一个空数组）
 4. 创建实例记录
 5. 从 `frozen_graph` 找到 start 节点的所有出边对应的目标节点（支持并行启动：start 可连接多个后续节点）
-6. 对每个目标节点，解析 assignee 规则（fail-closed），计算 `due_at` / `remind_at`
-7. 为每个目标节点创建 task
-8. 记录 `workflow_history`（`node_enter` 事件）
-9. 返回 instance_id
+6. 对每个目标节点按类型处理：
+   - `approval`：解析 assignee 规则（fail-closed），计算 `due_at` / `remind_at`，创建 task
+   - `auto_task`：在当前事务内执行注册的 action，成功后自动推进到下一节点（见 auto_task 执行规则）
+   - `join`/`end`：由引擎按正常流程处理
+7. 记录 `workflow_history`（`node_enter` 事件）
+8. 返回 instance_id
 
 ### advance_instance(task_id, action, result)
 
@@ -407,9 +480,42 @@ pub async fn advance_instance(task_id: Uuid, action: Action, result: Value) -> R
         ready_nodes.push(node);
     }
 
-    // 6. 创建新任务（含 due_at / remind_at / timeout_action）
+    // 6. 按节点类型处理每个就绪节点
     for node in &ready_nodes {
-        create_task(&mut tx, &instance, node, Some(task_id)).await?;
+        match node.node_type {
+            NodeType::Approval => {
+                create_task(&mut tx, &instance, node, Some(task_id)).await?;
+            }
+            NodeType::AutoTask => {
+                // 事务内同步执行，失败则整体回滚
+                let action_name = node.config.get("action").unwrap();
+                let handler = engine.action_registry.get(action_name)
+                    .ok_or_else(|| anyhow::anyhow!("action not registered: {}", action_name))?;
+                let output = handler.execute(&mut tx, &instance).await
+                    .map_err(|e| {
+                        // 执行失败：标记实例 suspended，记录原因
+                        // 事务会在外层回滚，suspended 状态在独立事务中写入
+                        anyhow::anyhow!("auto_task '{}' failed: {}", action_name, e)
+                    })?;
+                // 写入 action 输出到 context.variables
+                if !output.variables_update.is_empty() {
+                    update_context_variables(&mut tx, &instance, &output.variables_update).await?;
+                }
+                record_history(&mut tx, HistoryEvent::auto_task_executed(
+                    instance.id, node.id, action_name, true
+                )).await?;
+                // auto_task 完成后自动推进：将其出边目标节点加入下一轮处理
+                // 链式 auto_task 在同一事务内循环执行
+            }
+            NodeType::End => {
+                update_instance_status(&mut tx, instance.id, "completed").await?;
+                record_history(&mut tx, HistoryEvent::node_enter(instance.id, node.id)).await?;
+                hooks.dispatch_async(&instance, &[node]).await;
+            }
+            NodeType::Join | NodeType::Start => {
+                // 这些类型由引擎框架处理，不在此分支创建 task
+            }
+        }
     }
 
     // 7. 记录审计历史
@@ -454,6 +560,27 @@ WHERE instance_id = $1 AND status = 'pending'
 4. 在前驱节点创建新 task，`prev_task_id` 指向当前 rejected task
 5. 新 task 的 `result` 包含 `{"rejection_context": {"original_task_id": "...", "reason": "..."}}`
 6. V1 只支持退回到直接前驱节点，不支持指定退回目标或跳级退回。Graph Linter 强制校验：配置 `back_to_previous` 的节点必须只有唯一入边，多入边节点不允许配置此 reject_action
+
+### auto_task 执行规则
+
+**正常流程：**
+1. 引擎推进到 auto_task 节点时，从 `ActionRegistry` 查找 `config.action` 对应的 handler
+2. 在当前事务内调用 `handler.execute(&mut tx, &instance)`
+3. 执行成功后，将 `ActionOutput.variables_update` 合并到 `instance.context.variables`
+4. 记录 `workflow_history`（`event_type = auto_task_executed`）
+5. 自动评估出边，推进到下一节点
+
+**链式执行：** 若下一节点也是 auto_task，在同一事务内继续执行，直到遇到 approval（创建 task 等待人工）、join（等待并行分支）、end（完成）或执行失败。
+
+**失败处理：**
+1. auto_task 执行失败时，当前事务回滚
+2. 引擎在独立事务中将实例状态设为 `suspended`，写入 `suspended_reason`：
+   ```json
+   {"reason": "auto_task_failed", "node_id": "gen_prod_order", "action": "create_production_order", "error": "..."}
+   ```
+3. 记录 `workflow_history`（`event_type = auto_task_executed, payload.success = false`）
+4. 返回 gRPC `ABORTED` 错误
+5. 运维通过 `RetryAutoTask` Admin API 手动重试：引擎从 suspended 原因中读取失败的 node_id 和 action，重新执行
 
 ## Assignee Configuration (node.config JSONB)
 
@@ -544,6 +671,7 @@ service WorkflowService {
 
   // Admin
   rpc RetryFailedHook(RetryFailedHookRequest) returns (RetryFailedHookResponse);
+  rpc RetryAutoTask(RetryAutoTaskRequest) returns (RetryAutoTaskResponse);
 }
 ```
 
@@ -555,25 +683,26 @@ service WorkflowService {
 | FAILED_PRECONDITION | 试图对已完成实例操作、模板 draft 时创建实例 |
 | PERMISSION_DENIED | 非审批人试图审批 |
 | INVALID_ARGUMENT | 流程定义不合法（Graph Linter 校验失败、条件类型不匹配） |
-| ABORTED | 实例已挂起（assignee 解析为零候选人且无 fallback），response 携带 `suspended_reason` 供前端展示 |
+| ABORTED | 实例已挂起（assignee 解析为零候选人且无 fallback，或 auto_task 执行失败），response 携带 `suspended_reason` 供前端展示 |
+| INTERNAL | auto_task action 未注册（引擎内部错误，不应发生在生产环境） |
 
 ## Implementation Plan
 
 ### Step 1: Template CRUD + Graph Linter + Condition AST
 
-实现模板 CRUD（graph 作为 JSONB 整体读写）。实现 Graph Linter（发布时校验）。实现 `Condition` enum 及其验证和求值逻辑。
+实现模板 CRUD（graph 作为 JSONB 整体读写）。实现 Graph Linter（发布时校验，含 auto_task action 注册校验）。实现 `Condition` enum 及其验证和求值逻辑。
 
 ### Step 2: Engine Core + Frozen Graph + Derived State
 
-实现 WorkflowEngine 的 start_instance（含 frozen_graph 快照 + entity_snapshot）和 advance_instance。用派生查询替代 current_node_ids。先用线性流程验证基本通路。
+实现 WorkflowEngine 的 start_instance（含 frozen_graph 快照 + entity_snapshot）和 advance_instance。实现节点类型分发（approval 创建 task，auto_task 执行 action，end 完成）。实现 ActionRegistry 基础框架。先用线性流程（approval → auto_task → end）验证基本通路。
 
 ### Step 3: Parallel Gateway + Timeout Worker
 
-实现并行网关的 join 判断（入边 + 派生查询）。实现后台 Worker（超时扫描、提醒，`FOR UPDATE SKIP LOCKED`）。实现 `workflow_history` 审计记录。
+实现并行网关的 join 判断（入边 + 派生查询）。实现后台 Worker（超时扫描、提醒，`FOR UPDATE SKIP LOCKED`）。实现 `workflow_history` 审计记录。实现 auto_task 失败 suspended + RetryAutoTask Admin API。
 
-### Step 4: Async Hook + Complete gRPC API
+### Step 4: Async Hook + Action Implementations + Complete gRPC API
 
-实现 WorkflowHook trait registry 和各实体的 hook（事务外异步执行）。暴露完整的 gRPC 接口。
+实现 WorkflowHook trait registry 和各实体的 hook（事务外异步执行）。实现具体业务 action（从简单的 action 开始，如 create_production_order）。暴露完整的 gRPC 接口。
 
 ## Testing
 
@@ -584,6 +713,12 @@ service WorkflowService {
 - Worker：集成测试超时扫描、`SKIP LOCKED` 防重复
 - 端到端：完整的"创建模板 → 发布 → 发起实例 → 审批/超时 → 完成"流程
 - 边界测试：驳回后退回、并行节点部分完成、条件分支选择、assignee 解析为零候选人的 fail-closed、fallback 不存在的 suspended 行为
+- **auto_task 测试：**
+  - 链式 auto_task 在同一事务内依次执行
+  - auto_task 失败 → 实例 suspended → RetryAutoTask 恢复
+  - auto_task 输出变量供后续条件评估使用
+  - auto_task 与 approval 混合流程（审批通过 → 自动生成单据 → 继续审批）
+  - Action 未注册时 Graph Linter 拒绝发布
 - **重点覆盖组合场景（并行 + multi_approval=all）：**
   - 甲审批通过，乙未操作超时 → auto_reject → 甲的 task cancelled → 实例 reject/terminate
   - 甲审批通过，乙 reject → 立即触发 reject_action → 甲的 task cancelled
@@ -596,3 +731,4 @@ service WorkflowService {
 - 拖拽式流程设计器 UI
 - 子流程嵌套
 - 复杂会签规则（V1 只支持 any 和 all）
+- auto_task 重试策略（仅支持手动重试，不支持自动重试 + 退避）

@@ -601,6 +601,22 @@ WHERE instance_id = $1 AND status = 'pending'
    - 建议：若实例 suspended 时间超过 1 小时，运维应选择 `refresh_snapshot = true`
 5. 重试时 action 实现的幂等性保证：即使前一次执行实际已成功（但客户端超时），重试不会重复创建资源
 
+### RecordEntityChange（流程运行期间实体变更通知）
+
+当业务实体在工作流运行期间被修改时，业务模块调用此 API 通知引擎。**不暂停、不取消、不重启**工作流，仅记录事件并通知当前处理人。
+
+**流程：**
+1. 业务模块（如订单模块）检测到实体变更
+2. 调用 `RecordEntityChange(instance_id, change_summary)`
+3. 引擎在 `workflow_history` 记录 `entity_changed` 事件，payload 包含 `change_summary`
+4. 引擎查找当前实例所有 `status = pending` 的 task 的 assignee，触发通知
+5. 工作流继续正常运行
+
+**`change_summary` 由业务模块构造**，引擎不解析内容，只负责存储和传递。例如：
+```json
+{"fields_changed": ["quantity", "delivery_date"], "changed_by": "user_id_xxx", "reason": "客户要求调整数量"}
+```
+
 ## Assignee Configuration (node.config JSONB)
 
 ```json
@@ -680,6 +696,7 @@ service WorkflowService {
   rpc GetInstance(GetInstanceRequest) returns (Instance);
   rpc ListInstances(ListInstancesRequest) returns (InstanceList);
   rpc CancelInstance(CancelInstanceRequest) returns (Instance);
+  rpc RecordEntityChange(RecordEntityChangeRequest) returns (RecordEntityChangeResponse); // 流程运行期间实体变更通知
 
   // Task operations
   rpc GetMyTasks(GetMyTasksRequest) returns (TaskList);

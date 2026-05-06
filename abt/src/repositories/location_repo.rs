@@ -413,6 +413,25 @@ impl LocationRepo {
     // Excel 导入辅助方法
     // ========================================================================
 
+    /// 批量获取所有库位，按 location_code 索引（排除已删除）
+    pub async fn list_all_by_code(pool: &PgPool) -> Result<std::collections::HashMap<String, Location>> {
+        let rows = sqlx::query_as!(
+            Location,
+            "SELECT location_id, warehouse_id, location_code, location_name, capacity, status, created_at, deleted_at
+             FROM location WHERE deleted_at IS NULL"
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut map = std::collections::HashMap::new();
+        for loc in rows {
+            map.entry(loc.location_code.clone())
+                .or_insert(loc);
+        }
+
+        Ok(map)
+    }
+
     /// 根据仓库名称和库位编码查找库位
     pub async fn find_by_warehouse_name_and_code(
         pool: &PgPool,

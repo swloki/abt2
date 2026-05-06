@@ -134,7 +134,7 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
         }
 
         let mut bom_groups: Vec<BomCascadeGroup> = groups.into_values().collect();
-        bom_groups.sort_by_key(|g| g.bom_id);
+        bom_groups.sort_by_key(|g| std::cmp::Reverse(g.bom_id));
 
         Ok(CascadeInventoryResult {
             product_id: result_product_id,

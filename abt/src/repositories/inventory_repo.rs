@@ -487,6 +487,36 @@ impl InventoryRepo {
     }
 
     // ========================================================================
+    // Excel 导入辅助
+    // ========================================================================
+
+    /// 获取指定库位上已存在的产品ID映射（location_id -> Vec<product_id>）
+    pub async fn get_location_occupants(
+        pool: &PgPool,
+        location_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, Vec<i64>>> {
+        if location_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+
+        let rows = sqlx::query!(
+            "SELECT DISTINCT location_id, product_id FROM inventory WHERE location_id = ANY($1)",
+            location_ids
+        )
+        .fetch_all(pool)
+        .await?;
+
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            map.entry(row.location_id)
+                .or_insert_with(Vec::new)
+                .push(row.product_id);
+        }
+
+        Ok(map)
+    }
+
+    // ========================================================================
     // Excel 导出
     // ========================================================================
 

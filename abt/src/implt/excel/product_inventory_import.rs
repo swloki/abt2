@@ -11,14 +11,14 @@ use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::implt::excel::{ProgressTracker, deserialize_optional_decimal, import_range_from_source};
-use crate::repositories::{LocationRepo, ProductRepo};
+use crate::repositories::{InventoryRepo, LocationRepo, ProductRepo};
 use crate::service::{ExcelImportService, ImportResult, ImportSource};
 
 /// 产品导入列定义（schema-as-code，与导出共享）
-pub const PRODUCT_IMPORT_HEADERS: [&str; 8] = [
-    "新编码", "旧编码", "物料名称", "仓库名称", "库位名称", "库存数量", "价格", "安全库存",
+pub const PRODUCT_IMPORT_HEADERS: [&str; 7] = [
+    "新编码", "旧编码", "物料名称", "库位编码", "库存数量", "价格", "安全库存",
 ];
-const _: () = assert!(PRODUCT_IMPORT_HEADERS.len() == 8);
+const _: () = assert!(PRODUCT_IMPORT_HEADERS.len() == 7);
 
 #[derive(Debug, Deserialize)]
 struct ExcelRow {
@@ -28,10 +28,8 @@ struct ExcelRow {
     old_code: Option<String>,
     #[serde(rename = "物料名称")]
     product_name: Option<String>,
-    #[serde(rename = "仓库名称")]
-    warehouse_name: Option<String>,
-    #[serde(rename = "库位名称", alias = "库位")]
-    storage: Option<String>,
+    #[serde(rename = "库位编码")]
+    location_code: Option<String>,
     #[serde(rename = "库存数量", deserialize_with = "deserialize_optional_decimal")]
     quantity: Option<Decimal>,
     #[serde(rename = "价格", deserialize_with = "deserialize_optional_decimal")]
@@ -114,7 +112,7 @@ impl ExcelImportService for ProductInventoryImporter {
             .map(|p| (p.product_code.clone(), (p.product_id, p.pdt_name.clone())))
             .collect();
 
-        let location_map = LocationRepo::list_all_with_warehouse(&self.pool).await?;
+        let location_map = LocationRepo::list_all_by_code(&self.pool).await?;
 
         let mut pending_items: Vec<PendingItem> = Vec::with_capacity(rows.len());
         for row in &rows {
@@ -139,24 +137,15 @@ impl ExcelImportService for ProductInventoryImporter {
                     continue;
                 };
 
-            let location_id = match &row.warehouse_name {
-                Some(wh) if !wh.is_empty() => {
-                    if let Some(ref loc_name) = row.storage {
-                        if !loc_name.is_empty() {
-                            location_map
-                                .get(&(wh.clone(), loc_name.clone()))
-                                .map(|loc| loc.location_id)
-                        } else {
-                            location_map
-                                .iter()
-                                .find(|((w, _), _)| w == wh)
-                                .map(|(_, loc)| loc.location_id)
+            let location_id = match &row.location_code {
+                Some(code) if !code.is_empty() => {
+                    match location_map.get(code) {
+                        Some(loc) => Some(loc.location_id),
+                        None => {
+                            result.failed_count += 1;
+                            result.errors.push(format!("库位未找到: {}", code));
+                            continue;
                         }
-                    } else {
-                        location_map
-                            .iter()
-                            .find(|((w, _), _)| w == wh)
-                            .map(|(_, loc)| loc.location_id)
                     }
                 }
                 _ => None,
@@ -177,6 +166,58 @@ impl ExcelImportService for ProductInventoryImporter {
                 new_name,
             });
         }
+
+        // 验证一库位一产品约束
+        let mut location_ids_to_check: Vec<i64> = pending_items
+            .iter()
+            .filter_map(|item| item.location_id)
+            .collect();
+        location_ids_to_check.sort();
+        location_ids_to_check.dedup();
+
+        let db_occupants = InventoryRepo::get_location_occupants(&self.pool, &location_ids_to_check).await?;
+
+        // 检查导入数据内部冲突 + 与数据库冲突
+        let mut import_location_product: HashMap<i64, i64> = HashMap::new();
+        let mut conflict_set: std::collections::HashSet<i64> = std::collections::HashSet::new();
+
+        for item in &pending_items {
+            if let Some(loc_id) = item.location_id {
+                // 检查与数据库已有数据冲突
+                if let Some(db_products) = db_occupants.get(&loc_id) {
+                    if !db_products.iter().any(|&pid| pid == item.product_id) {
+                        conflict_set.insert(loc_id);
+                    }
+                }
+
+                // 检查导入数据内部冲突
+                if let Some(&existing_pid) = import_location_product.get(&loc_id) {
+                    if existing_pid != item.product_id {
+                        conflict_set.insert(loc_id);
+                    }
+                } else {
+                    import_location_product.insert(loc_id, item.product_id);
+                }
+            }
+        }
+
+        if !conflict_set.is_empty() {
+            // 将冲突的 location_id 反查 location_code 用于错误提示
+            let conflict_codes: Vec<String> = conflict_set
+                .iter()
+                .filter_map(|&lid| location_map.iter().find(|(_, loc)| loc.location_id == lid).map(|(code, _)| code.clone()))
+                .collect();
+            result.failed_count += conflict_set.len();
+            result.errors.push(format!(
+                "库位已被其它产品占用: {}",
+                conflict_codes.join(", ")
+            ));
+        }
+
+        // 过滤掉冲突的条目
+        pending_items.retain(|item| {
+            item.location_id.is_none_or(|lid| !conflict_set.contains(&lid))
+        });
 
         let mut tx = self.pool.begin().await?;
 

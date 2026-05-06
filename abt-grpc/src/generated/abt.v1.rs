@@ -7054,6 +7054,69 @@ pub mod department_service_server {
         const NAME: &'static str = SERVICE_NAME;
     }
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CascadeInventoryRequest {
+    /// 默认 500，上限 2000
+    #[prost(int32, optional, tag = "3")]
+    pub max_results: ::core::option::Option<i32>,
+    #[prost(oneof = "cascade_inventory_request::ProductIdentifier", tags = "1, 2")]
+    pub product_identifier: ::core::option::Option<
+        cascade_inventory_request::ProductIdentifier,
+    >,
+}
+/// Nested message and enum types in `CascadeInventoryRequest`.
+pub mod cascade_inventory_request {
+    #[derive(Clone, PartialEq, Eq, Hash, ::prost::Oneof)]
+    pub enum ProductIdentifier {
+        #[prost(int64, tag = "1")]
+        ProductId(i64),
+        #[prost(string, tag = "2")]
+        ProductCode(::prost::alloc::string::String),
+    }
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BomCascadeGroup {
+    #[prost(int64, tag = "1")]
+    pub bom_id: i64,
+    #[prost(string, tag = "2")]
+    pub bom_name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "3")]
+    pub children: ::prost::alloc::vec::Vec<ChildNodeInventory>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ChildNodeInventory {
+    #[prost(int64, tag = "1")]
+    pub node_id: i64,
+    #[prost(int64, tag = "2")]
+    pub product_id: i64,
+    #[prost(string, tag = "3")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub product_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub unit: ::prost::alloc::string::String,
+    #[prost(double, tag = "6")]
+    pub quantity: f64,
+    #[prost(double, tag = "7")]
+    pub total_stock: f64,
+    #[prost(double, tag = "8")]
+    pub loss_rate: f64,
+    #[prost(int32, tag = "9")]
+    pub order: i32,
+    #[prost(int64, optional, tag = "10")]
+    pub parent_node_id: ::core::option::Option<i64>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CascadeInventoryResponse {
+    #[prost(int64, tag = "1")]
+    pub product_id: i64,
+    #[prost(string, tag = "2")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub product_name: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "4")]
+    pub bom_groups: ::prost::alloc::vec::Vec<BomCascadeGroup>,
+}
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct InventoryResponse {
     #[prost(int64, tag = "1")]
@@ -7744,6 +7807,33 @@ pub mod abt_inventory_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// 级联查询库存
+        pub async fn cascade_inventory(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CascadeInventoryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CascadeInventoryResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtInventoryService/CascadeInventory",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.AbtInventoryService", "CascadeInventory"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -7855,6 +7945,14 @@ pub mod abt_inventory_service_server {
             request: tonic::Request<super::GetLogsByWarehouseRequest>,
         ) -> std::result::Result<
             tonic::Response<super::InventoryLogDetailListResponse>,
+            tonic::Status,
+        >;
+        /// 级联查询库存
+        async fn cascade_inventory(
+            &self,
+            request: tonic::Request<super::CascadeInventoryRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CascadeInventoryResponse>,
             tonic::Status,
         >;
     }
@@ -8585,6 +8683,55 @@ pub mod abt_inventory_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = GetLogsByWarehouseSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtInventoryService/CascadeInventory" => {
+                    #[allow(non_camel_case_types)]
+                    struct CascadeInventorySvc<T: AbtInventoryService>(pub Arc<T>);
+                    impl<
+                        T: AbtInventoryService,
+                    > tonic::server::UnaryService<super::CascadeInventoryRequest>
+                    for CascadeInventorySvc<T> {
+                        type Response = super::CascadeInventoryResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CascadeInventoryRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtInventoryService>::cascade_inventory(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CascadeInventorySvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

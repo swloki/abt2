@@ -52,7 +52,6 @@ impl InventoryCascadeRepo {
               SELECT product_id, product_code, pdt_name
               FROM products
               WHERE (product_id = $1 OR product_code = $2)
-                AND deleted_at IS NULL
               LIMIT 1
             )
             SELECT
@@ -63,7 +62,7 @@ impl InventoryCascadeRepo {
               b.bom_name,
               child.id AS node_id,
               child.product_id,
-              child.product_code,
+              COALESCE(child.product_code, p_child.product_code) AS product_code,
               p_child.pdt_name AS product_name,
               child.unit,
               child.quantity,
@@ -73,12 +72,12 @@ impl InventoryCascadeRepo {
             FROM parent_product pp
             LEFT JOIN bom_nodes bn_parent ON bn_parent.product_id = pp.product_id
             LEFT JOIN bom b ON b.bom_id = bn_parent.bom_id
-                      AND b.deleted_at IS NULL
+                      AND b.status = 'published'
             LEFT JOIN bom_nodes child ON child.parent_id = bn_parent.id
                        AND child.bom_id = bn_parent.bom_id
             LEFT JOIN products p_child ON p_child.product_id = child.product_id
-                      AND p_child.deleted_at IS NULL
-            ORDER BY b.bom_id, child."order"
+            WHERE child.id IS NULL OR p_child.product_id IS NOT NULL
+            ORDER BY b.bom_id DESC, child."order" ASC
             LIMIT $3
             "#,
         )

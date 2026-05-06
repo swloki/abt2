@@ -8,17 +8,14 @@ ABT is a BOM (Bill of Materials) and Inventory Management System built in Rust. 
 
 **注意：使用中文进行沟通**
 
-## Build & Run Commands
+## Build & Verification Commands
 
 ```bash
 # Build all crates
 cargo build
 
-# Build release
-cargo build --release
-
-# Run the gRPC server (requires DATABASE_URL env var)
-cargo run -p abt-grpc
+# Lint with clippy (主要验证代码正确性)
+cargo clippy
 
 # Run tests
 cargo test
@@ -30,6 +27,8 @@ cargo test -p abt-grpc
 # Run a single test
 cargo test -p abt -- test_name
 ```
+
+**注意：不要使用 `cargo run` 启动服务，服务已经在运行中。验证代码正确性主要使用 `cargo clippy`。**
 
 **Required environment variable:** `DATABASE_URL` (PostgreSQL connection string). Optional: `GRPC_HOST` (default `0.0.0.0`), `GRPC_PORT` (default `8001`), `MAX_CONNECTION` (default `20`). A `.env` file in the `abt-grpc` directory is loaded via `dotenvy`.
 

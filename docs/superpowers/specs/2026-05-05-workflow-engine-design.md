@@ -61,7 +61,7 @@ abt-grpc/src/handlers/workflow.rs     ← gRPC handler
 
 ### Improvement 0: auto_task 节点类型（系统自动执行的业务动作）
 
-除人工审批节点外，引入 `auto_task` 节点类型。引擎推进到 auto_task 时，通过 `ActionRegistry` 查找并执行注册的业务动作（如生成生产定单、创建领料单），执行成功后自动推进到下一节点。链式 auto_task 在同一事务内依次执行。执行失败则暂停实例（suspended），运维可通过 Admin API 手动重试。
+除人工审批节点外，引入 `auto_task` 节点类型。引擎推进到 auto_task 时，通过 `ActionRegistry` 查找并执行注册的业务动作（如生成生产定单、创建领料单），执行成功后自动推进到下一节点。**每个 auto_task 独立事务**：成功即提交并记录 history，失败则仅回滚当前节点，实例 suspended。链式 auto_task 逐个独立执行，失败后重试从断点继续。运维可通过 Admin API 手动重试。
 
 ### Improvement 1: 4 表设计替代 5 表（折叠 nodes + edges 到 JSONB）
 
@@ -360,8 +360,16 @@ struct EntitySnapshotRegistry {
 ```rust
 #[async_trait]
 trait AutoAction: Send + Sync {
-    /// 在事务内执行业务动作。接收 instance 上下文，可读取 entity_snapshot。
+    /// 在独立事务内执行业务动作。接收 instance 上下文，可读取 entity_snapshot。
     /// 执行结果通过返回值传递，引擎写入 workflow_history。
+    ///
+    /// ## 约束（开发者必须遵守）
+    /// 1. 纯数据库操作：禁止调用外部 REST/gRPC 服务、发送邮件/消息等。
+    ///    外部副作用必须放在 WorkflowHook（事务后异步执行）中。
+    /// 2. 幂等性：使用 instance_id + node_id 作为幂等键，重试时必须安全。
+    ///    推荐：INSERT 前先检查是否已存在（WHERE instance_id = $1 AND node_id = $2）。
+    /// 3. 快速完成：单个 action 执行时间不应超过 5 秒。
+    ///    引擎会设置 SET LOCAL statement_timeout 防止长事务。
     async fn execute(&self, tx: &mut Transaction, instance: &WorkflowInstance) -> Result<ActionOutput>;
 }
 
@@ -487,25 +495,24 @@ pub async fn advance_instance(task_id: Uuid, action: Action, result: Value) -> R
                 create_task(&mut tx, &instance, node, Some(task_id)).await?;
             }
             NodeType::AutoTask => {
-                // 事务内同步执行，失败则整体回滚
-                let action_name = node.config.get("action").unwrap();
-                let handler = engine.action_registry.get(action_name)
-                    .ok_or_else(|| anyhow::anyhow!("action not registered: {}", action_name))?;
-                let output = handler.execute(&mut tx, &instance).await
-                    .map_err(|e| {
-                        // 执行失败：标记实例 suspended，记录原因
-                        // 事务会在外层回滚，suspended 状态在独立事务中写入
-                        anyhow::anyhow!("auto_task '{}' failed: {}", action_name, e)
-                    })?;
-                // 写入 action 输出到 context.variables
-                if !output.variables_update.is_empty() {
-                    update_context_variables(&mut tx, &instance, &output.variables_update).await?;
+                // 独立事务执行：先提交当前事务，再开新事务
+                tx.commit().await?;
+
+                let result = engine.execute_auto_task(&instance, node).await;
+                match result {
+                    Ok(output) => {
+                        // 成功：记录 history，继续推进到下一个节点
+                        // execute_auto_task 内部已 commit 并记录 history
+                        // 引擎继续评估 node 的出边，处理下一个节点
+                        engine.advance_from_node(&instance, node).await?;
+                        return Ok(());
+                    }
+                    Err(e) => {
+                        // 失败：suspended 实例（独立事务），返回错误
+                        engine.suspend_instance(&instance, node, &e).await?;
+                        return Err(e);
+                    }
                 }
-                record_history(&mut tx, HistoryEvent::auto_task_executed(
-                    instance.id, node.id, action_name, true
-                )).await?;
-                // auto_task 完成后自动推进：将其出边目标节点加入下一轮处理
-                // 链式 auto_task 在同一事务内循环执行
             }
             NodeType::End => {
                 update_instance_status(&mut tx, instance.id, "completed").await?;
@@ -563,24 +570,36 @@ WHERE instance_id = $1 AND status = 'pending'
 
 ### auto_task 执行规则
 
-**正常流程：**
-1. 引擎推进到 auto_task 节点时，从 `ActionRegistry` 查找 `config.action` 对应的 handler
-2. 在当前事务内调用 `handler.execute(&mut tx, &instance)`
-3. 执行成功后，将 `ActionOutput.variables_update` 合并到 `instance.context.variables`
-4. 记录 `workflow_history`（`event_type = auto_task_executed`）
-5. 自动评估出边，推进到下一节点
-
-**链式执行：** 若下一节点也是 auto_task，在同一事务内继续执行，直到遇到 approval（创建 task 等待人工）、join（等待并行分支）、end（完成）或执行失败。
+**正常流程（每个 auto_task 独立事务）：**
+1. 引擎推进到 auto_task 节点时，开启新事务
+2. 在事务内 `SET LOCAL statement_timeout`（默认 5 秒，可在节点 config 中配置 `timeout_seconds`）
+3. 从 `ActionRegistry` 查找 `config.action` 对应的 handler
+4. 调用 `handler.execute(&mut tx, &instance)`
+5. 执行成功：COMMIT 事务，将 `ActionOutput.variables_update` 合并到 `instance.context.variables`，记录 `workflow_history`（`event_type = auto_task_executed`）
+6. 自动评估出边，推进到下一节点
+7. 若下一节点也是 auto_task，开新事务重复上述步骤
 
 **失败处理：**
-1. auto_task 执行失败时，当前事务回滚
+1. auto_task 执行失败时，当前事务 ROLLBACK（仅回滚此节点，前面已提交的不受影响）
 2. 引擎在独立事务中将实例状态设为 `suspended`，写入 `suspended_reason`：
    ```json
    {"reason": "auto_task_failed", "node_id": "gen_prod_order", "action": "create_production_order", "error": "..."}
    ```
 3. 记录 `workflow_history`（`event_type = auto_task_executed, payload.success = false`）
 4. 返回 gRPC `ABORTED` 错误
-5. 运维通过 `RetryAutoTask` Admin API 手动重试：引擎从 suspended 原因中读取失败的 node_id 和 action，重新执行
+5. 运维通过 `RetryAutoTask` Admin API 手动重试（见下方）
+
+### RetryAutoTask 安全机制
+
+`RetryAutoTask` Admin API 必须满足以下前置条件：
+1. 实例状态必须为 `suspended`（`FOR UPDATE` 锁定，防止并发重试）
+2. `suspended_reason.reason` 必须为 `auto_task_failed`
+3. 重试的 `node_id` 必须与 `suspended_reason.node_id` 匹配
+4. 支持可选参数 `refresh_snapshot: bool`：
+   - `true`：重试前通过 EntitySnapshotProvider 重新获取业务实体快照，更新 `context.entity_snapshot`
+   - `false`（默认）：使用原快照
+   - 建议：若实例 suspended 时间超过 1 小时，运维应选择 `refresh_snapshot = true`
+5. 重试时 action 实现的幂等性保证：即使前一次执行实际已成功（但客户端超时），重试不会重复创建资源
 
 ## Assignee Configuration (node.config JSONB)
 
@@ -714,8 +733,13 @@ service WorkflowService {
 - 端到端：完整的"创建模板 → 发布 → 发起实例 → 审批/超时 → 完成"流程
 - 边界测试：驳回后退回、并行节点部分完成、条件分支选择、assignee 解析为零候选人的 fail-closed、fallback 不存在的 suspended 行为
 - **auto_task 测试：**
-  - 链式 auto_task 在同一事务内依次执行
-  - auto_task 失败 → 实例 suspended → RetryAutoTask 恢复
+  - 每个 auto_task 独立事务执行，成功即提交
+  - 链式 auto_task 逐个独立执行，中间失败仅回滚当前节点
+  - auto_task 失败 → 实例 suspended → RetryAutoTask 从断点恢复（前面已完成的保留）
+  - RetryAutoTask 前置条件校验（status = suspended + FOR UPDATE 锁）
+  - RetryAutoTask refresh_snapshot 刷新快照后重试
+  - Action 幂等性验证（重试不重复创建资源）
+  - auto_task statement_timeout 生效
   - auto_task 输出变量供后续条件评估使用
   - auto_task 与 approval 混合流程（审批通过 → 自动生成单据 → 继续审批）
   - Action 未注册时 Graph Linter 拒绝发布

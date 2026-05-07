@@ -1,0 +1,57 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+service AbtNotificationService {
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc MarkAsRead(MarkAsReadRequest) returns (BoolResponse);
+  rpc MarkAllAsRead(MarkAllAsReadRequest) returns (BoolResponse);
+  rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse);
+}
+
+message NotificationResponse {
+  int64 notification_id = 1;
+  string type = 2;
+  string title = 3;
+  optional string content = 4;
+  optional string related_type = 5;
+  optional int64 related_id = 6;
+  bool is_read = 7;
+  optional string read_at = 8;
+  string created_at = 9;
+  optional string metadata = 10;  // JSON string
+}
+
+message ListNotificationsRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional string type = 3;
+  optional bool is_read = 4;
+  optional string start_time = 5;
+  optional string end_time = 6;
+}
+
+message ListNotificationsResponse {
+  repeated NotificationResponse items = 1;
+  uint64 total = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
+}
+
+message MarkAsReadRequest {
+  int64 notification_id = 1;
+}
+
+message MarkAllAsReadRequest {
+  optional string type = 1;  // 只标记指定类型，为空则全部
+}
+
+message GetUnreadCountRequest {}
+
+message GetUnreadCountResponse {
+  int64 total = 1;
+  map<string, int64> by_type = 2;
+}

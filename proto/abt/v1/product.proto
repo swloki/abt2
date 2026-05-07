@@ -13,6 +13,9 @@ service AbtProductService {
   rpc UpdateProduct(UpdateProductRequest) returns (BoolResponse);
   rpc DeleteProduct(DeleteProductRequest) returns (BoolResponse);
   rpc CheckProductUsage(CheckProductUsageRequest) returns (CheckProductUsageResponse);
+  rpc WatchProduct(WatchProductRequest) returns (WatchProductResponse);
+  rpc UnwatchProduct(UnwatchProductRequest) returns (BoolResponse);
+  rpc ListWatchedProducts(ListWatchedProductsRequest) returns (ListWatchedProductsResponse);
 }
 
 message ProductMeta {
@@ -93,4 +96,39 @@ message CheckProductUsageResponse {
   bool is_used = 1;
   repeated BomReference used_in_boms = 2;
   int64 total_boms = 3;  // 总共使用的 BOM 数量（可能多于返回的列表）
+}
+
+// 关注产品
+message WatchProductRequest {
+  int64 product_id = 1;
+  optional string safety_stock_override = 2;  // Decimal → string
+}
+
+message WatchProductResponse {
+  bool is_new = 1;
+}
+
+message UnwatchProductRequest {
+  int64 product_id = 1;
+}
+
+message ListWatchedProductsRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+}
+
+message WatchedProduct {
+  int64 product_id = 1;
+  string product_code = 2;
+  string product_name = 3;
+  string current_quantity = 4;               // Decimal → string
+  string effective_safety_stock = 5;         // COALESCE(override, safety_stock)
+  bool is_alerting = 6;                      // current_quantity < effective_safety_stock
+}
+
+message ListWatchedProductsResponse {
+  repeated WatchedProduct items = 1;
+  uint64 total = 2;
+  uint32 page = 3;
+  uint32 page_size = 4;
 }

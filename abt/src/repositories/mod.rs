@@ -20,6 +20,8 @@ mod term_repo;
 mod user_repo;
 mod warehouse_repo;
 mod inventory_cascade_repo;
+mod notification_repo;
+mod product_watcher_repo;
 
 pub use auth_repo::AuthRepo;
 pub use bom_category_repo::BomCategoryRepo;
@@ -41,6 +43,8 @@ pub use warehouse_repo::WarehouseRepo;
 pub use inventory_cascade_repo::{
     BomRefRow, CascadeNodeFlat, InventoryCascadeRepo, ProductInfoRow, StockSummaryRow,
 };
+pub use notification_repo::NotificationRepo;
+pub use product_watcher_repo::ProductWatcherRepo;
 
 // Re-export Executor from common
 pub use common::PgExecutor as Executor;

@@ -22,6 +22,7 @@ mod term;
 mod user;
 mod warehouse;
 mod inventory_cascade;
+mod notification;
 
 pub use api::*;
 pub use auth::*;
@@ -41,3 +42,4 @@ pub use term::*;
 pub use user::*;
 pub use warehouse::*;
 pub use inventory_cascade::*;
+pub use notification::*;

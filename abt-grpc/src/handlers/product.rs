@@ -14,6 +14,7 @@ use crate::server::AppState;
 
 // Import trait to bring methods into scope
 use abt::ProductService;
+use abt::ProductWatcherService;
 
 pub struct ProductHandler;
 
@@ -198,6 +199,80 @@ impl GrpcProductService for ProductHandler {
                 bom_name: b.bom_name,
             }).collect(),
             total_boms: total,
+        }))
+    }
+
+    async fn watch_product(
+        &self,
+        request: Request<WatchProductRequest>,
+    ) -> GrpcResult<WatchProductResponse> {
+        let auth = extract_auth(&request)?;
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.product_watcher_service();
+
+        let override_val = req
+            .safety_stock_override
+            .as_deref()
+            .and_then(|s| s.parse::<rust_decimal::Decimal>().ok());
+
+        let is_new = srv
+            .watch_product(auth.user_id, req.product_id, override_val)
+            .await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(WatchProductResponse { is_new }))
+    }
+
+    async fn unwatch_product(
+        &self,
+        request: Request<UnwatchProductRequest>,
+    ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.product_watcher_service();
+
+        let found = srv
+            .unwatch_product(auth.user_id, req.product_id)
+            .await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(BoolResponse { value: found }))
+    }
+
+    async fn list_watched_products(
+        &self,
+        request: Request<ListWatchedProductsRequest>,
+    ) -> GrpcResult<ListWatchedProductsResponse> {
+        let auth = extract_auth(&request)?;
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.product_watcher_service();
+
+        let page = req.page.unwrap_or(1);
+        let page_size = req.page_size.unwrap_or(20);
+
+        let (items, total) = srv
+            .list_watched_products(auth.user_id, page, page_size)
+            .await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(ListWatchedProductsResponse {
+            items: items
+                .into_iter()
+                .map(|p| WatchedProduct {
+                    product_id: p.product_id,
+                    product_code: p.product_code,
+                    product_name: p.product_name,
+                    current_quantity: p.current_quantity.to_string(),
+                    effective_safety_stock: p.effective_safety_stock.to_string(),
+                    is_alerting: p.is_alerting,
+                })
+                .collect(),
+            total: total as u64,
+            page,
+            page_size,
         }))
     }
 }

@@ -20,6 +20,9 @@ mod term_service_impl;
 mod user_service_impl;
 mod warehouse_service_impl;
 mod inventory_cascade_service_impl;
+mod notification_service_impl;
+mod product_watcher_service_impl;
+mod stock_alert_worker;
 
 pub use auth_service_impl::AuthServiceImpl;
 pub use bom_service_impl::BomServiceImpl;
@@ -38,3 +41,6 @@ pub use term_service_impl::TermServiceImpl;
 pub use user_service_impl::UserServiceImpl;
 pub use warehouse_service_impl::WarehouseServiceImpl;
 pub use inventory_cascade_service_impl::InventoryCascadeServiceImpl;
+pub use notification_service_impl::NotificationServiceImpl;
+pub use product_watcher_service_impl::ProductWatcherServiceImpl;
+pub use stock_alert_worker::StockAlertWorker;

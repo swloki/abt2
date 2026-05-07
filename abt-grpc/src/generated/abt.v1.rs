@@ -11642,6 +11642,613 @@ pub mod abt_location_service_server {
     }
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct NotificationResponse {
+    #[prost(int64, tag = "1")]
+    pub notification_id: i64,
+    #[prost(string, tag = "2")]
+    pub r#type: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub title: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "4")]
+    pub content: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "5")]
+    pub related_type: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int64, optional, tag = "6")]
+    pub related_id: ::core::option::Option<i64>,
+    #[prost(bool, tag = "7")]
+    pub is_read: bool,
+    #[prost(string, optional, tag = "8")]
+    pub read_at: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, tag = "9")]
+    pub created_at: ::prost::alloc::string::String,
+    /// JSON string
+    #[prost(string, optional, tag = "10")]
+    pub metadata: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListNotificationsRequest {
+    #[prost(uint32, optional, tag = "1")]
+    pub page: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "2")]
+    pub page_size: ::core::option::Option<u32>,
+    #[prost(string, optional, tag = "3")]
+    pub r#type: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(bool, optional, tag = "4")]
+    pub is_read: ::core::option::Option<bool>,
+    #[prost(string, optional, tag = "5")]
+    pub start_time: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "6")]
+    pub end_time: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListNotificationsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<NotificationResponse>,
+    #[prost(uint64, tag = "2")]
+    pub total: u64,
+    #[prost(uint32, tag = "3")]
+    pub page: u32,
+    #[prost(uint32, tag = "4")]
+    pub page_size: u32,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MarkAsReadRequest {
+    #[prost(int64, tag = "1")]
+    pub notification_id: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct MarkAllAsReadRequest {
+    /// 只标记指定类型，为空则全部
+    #[prost(string, optional, tag = "1")]
+    pub r#type: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetUnreadCountRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetUnreadCountResponse {
+    #[prost(int64, tag = "1")]
+    pub total: i64,
+    #[prost(map = "string, int64", tag = "2")]
+    pub by_type: ::std::collections::HashMap<::prost::alloc::string::String, i64>,
+}
+/// Generated client implementations.
+pub mod abt_notification_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    #[derive(Debug, Clone)]
+    pub struct AbtNotificationServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl AbtNotificationServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> AbtNotificationServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> AbtNotificationServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            AbtNotificationServiceClient::new(
+                InterceptedService::new(inner, interceptor),
+            )
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        pub async fn list_notifications(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListNotificationsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListNotificationsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtNotificationService/ListNotifications",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.AbtNotificationService", "ListNotifications"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn mark_as_read(
+            &mut self,
+            request: impl tonic::IntoRequest<super::MarkAsReadRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtNotificationService/MarkAsRead",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtNotificationService", "MarkAsRead"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn mark_all_as_read(
+            &mut self,
+            request: impl tonic::IntoRequest<super::MarkAllAsReadRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtNotificationService/MarkAllAsRead",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.AbtNotificationService", "MarkAllAsRead"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_unread_count(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetUnreadCountRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetUnreadCountResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtNotificationService/GetUnreadCount",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.AbtNotificationService", "GetUnreadCount"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod abt_notification_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with AbtNotificationServiceServer.
+    #[async_trait]
+    pub trait AbtNotificationService: std::marker::Send + std::marker::Sync + 'static {
+        async fn list_notifications(
+            &self,
+            request: tonic::Request<super::ListNotificationsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListNotificationsResponse>,
+            tonic::Status,
+        >;
+        async fn mark_as_read(
+            &self,
+            request: tonic::Request<super::MarkAsReadRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn mark_all_as_read(
+            &self,
+            request: tonic::Request<super::MarkAllAsReadRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn get_unread_count(
+            &self,
+            request: tonic::Request<super::GetUnreadCountRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetUnreadCountResponse>,
+            tonic::Status,
+        >;
+    }
+    #[derive(Debug)]
+    pub struct AbtNotificationServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> AbtNotificationServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>>
+    for AbtNotificationServiceServer<T>
+    where
+        T: AbtNotificationService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/abt.v1.AbtNotificationService/ListNotifications" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListNotificationsSvc<T: AbtNotificationService>(pub Arc<T>);
+                    impl<
+                        T: AbtNotificationService,
+                    > tonic::server::UnaryService<super::ListNotificationsRequest>
+                    for ListNotificationsSvc<T> {
+                        type Response = super::ListNotificationsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListNotificationsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtNotificationService>::list_notifications(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListNotificationsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtNotificationService/MarkAsRead" => {
+                    #[allow(non_camel_case_types)]
+                    struct MarkAsReadSvc<T: AbtNotificationService>(pub Arc<T>);
+                    impl<
+                        T: AbtNotificationService,
+                    > tonic::server::UnaryService<super::MarkAsReadRequest>
+                    for MarkAsReadSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::MarkAsReadRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtNotificationService>::mark_as_read(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = MarkAsReadSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtNotificationService/MarkAllAsRead" => {
+                    #[allow(non_camel_case_types)]
+                    struct MarkAllAsReadSvc<T: AbtNotificationService>(pub Arc<T>);
+                    impl<
+                        T: AbtNotificationService,
+                    > tonic::server::UnaryService<super::MarkAllAsReadRequest>
+                    for MarkAllAsReadSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::MarkAllAsReadRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtNotificationService>::mark_all_as_read(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = MarkAllAsReadSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtNotificationService/GetUnreadCount" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetUnreadCountSvc<T: AbtNotificationService>(pub Arc<T>);
+                    impl<
+                        T: AbtNotificationService,
+                    > tonic::server::UnaryService<super::GetUnreadCountRequest>
+                    for GetUnreadCountSvc<T> {
+                        type Response = super::GetUnreadCountResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetUnreadCountRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtNotificationService>::get_unread_count(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetUnreadCountSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for AbtNotificationServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "abt.v1.AbtNotificationService";
+    impl<T> tonic::server::NamedService for AbtNotificationServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct PriceLogEntryResponse {
     #[prost(int64, tag = "1")]
     pub log_id: i64,
@@ -12299,6 +12906,61 @@ pub struct CheckProductUsageResponse {
     #[prost(int64, tag = "3")]
     pub total_boms: i64,
 }
+/// 关注产品
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WatchProductRequest {
+    #[prost(int64, tag = "1")]
+    pub product_id: i64,
+    /// Decimal → string
+    #[prost(string, optional, tag = "2")]
+    pub safety_stock_override: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WatchProductResponse {
+    #[prost(bool, tag = "1")]
+    pub is_new: bool,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UnwatchProductRequest {
+    #[prost(int64, tag = "1")]
+    pub product_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListWatchedProductsRequest {
+    #[prost(uint32, optional, tag = "1")]
+    pub page: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "2")]
+    pub page_size: ::core::option::Option<u32>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WatchedProduct {
+    #[prost(int64, tag = "1")]
+    pub product_id: i64,
+    #[prost(string, tag = "2")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub product_name: ::prost::alloc::string::String,
+    /// Decimal → string
+    #[prost(string, tag = "4")]
+    pub current_quantity: ::prost::alloc::string::String,
+    /// COALESCE(override, safety_stock)
+    #[prost(string, tag = "5")]
+    pub effective_safety_stock: ::prost::alloc::string::String,
+    /// current_quantity \< effective_safety_stock
+    #[prost(bool, tag = "6")]
+    pub is_alerting: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListWatchedProductsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<WatchedProduct>,
+    #[prost(uint64, tag = "2")]
+    pub total: u64,
+    #[prost(uint32, tag = "3")]
+    pub page: u32,
+    #[prost(uint32, tag = "4")]
+    pub page_size: u32,
+}
 /// Generated client implementations.
 pub mod abt_product_service_client {
     #![allow(
@@ -12551,6 +13213,77 @@ pub mod abt_product_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        pub async fn watch_product(
+            &mut self,
+            request: impl tonic::IntoRequest<super::WatchProductRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WatchProductResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtProductService/WatchProduct",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtProductService", "WatchProduct"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn unwatch_product(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UnwatchProductRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtProductService/UnwatchProduct",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtProductService", "UnwatchProduct"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_watched_products(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListWatchedProductsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListWatchedProductsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtProductService/ListWatchedProducts",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.AbtProductService", "ListWatchedProducts"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -12601,6 +13334,24 @@ pub mod abt_product_service_server {
             request: tonic::Request<super::CheckProductUsageRequest>,
         ) -> std::result::Result<
             tonic::Response<super::CheckProductUsageResponse>,
+            tonic::Status,
+        >;
+        async fn watch_product(
+            &self,
+            request: tonic::Request<super::WatchProductRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WatchProductResponse>,
+            tonic::Status,
+        >;
+        async fn unwatch_product(
+            &self,
+            request: tonic::Request<super::UnwatchProductRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn list_watched_products(
+            &self,
+            request: tonic::Request<super::ListWatchedProductsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListWatchedProductsResponse>,
             tonic::Status,
         >;
     }
@@ -12992,6 +13743,147 @@ pub mod abt_product_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = CheckProductUsageSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtProductService/WatchProduct" => {
+                    #[allow(non_camel_case_types)]
+                    struct WatchProductSvc<T: AbtProductService>(pub Arc<T>);
+                    impl<
+                        T: AbtProductService,
+                    > tonic::server::UnaryService<super::WatchProductRequest>
+                    for WatchProductSvc<T> {
+                        type Response = super::WatchProductResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::WatchProductRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtProductService>::watch_product(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = WatchProductSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtProductService/UnwatchProduct" => {
+                    #[allow(non_camel_case_types)]
+                    struct UnwatchProductSvc<T: AbtProductService>(pub Arc<T>);
+                    impl<
+                        T: AbtProductService,
+                    > tonic::server::UnaryService<super::UnwatchProductRequest>
+                    for UnwatchProductSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UnwatchProductRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtProductService>::unwatch_product(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UnwatchProductSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtProductService/ListWatchedProducts" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListWatchedProductsSvc<T: AbtProductService>(pub Arc<T>);
+                    impl<
+                        T: AbtProductService,
+                    > tonic::server::UnaryService<super::ListWatchedProductsRequest>
+                    for ListWatchedProductsSvc<T> {
+                        type Response = super::ListWatchedProductsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListWatchedProductsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtProductService>::list_watched_products(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListWatchedProductsSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

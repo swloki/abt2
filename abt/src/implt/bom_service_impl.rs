@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::models::{f64_to_decimal, Bom, BomCostReport, BomDetail, BomLaborCostReport, BomNode, BomQuery, BomStatus, LaborCostItem, MaterialCostItem, NewBomNode};
-use crate::repositories::{BomNodeRepo, BomRepo, Executor, LaborProcessRepo, ProductPriceRepo, ProductRepo};
+use crate::repositories::{BomNodeFields, BomNodeRepo, BomRepo, Executor, LaborProcessRepo, ProductPriceRepo, ProductRepo};
 use crate::service::{AttributeOverrides, BomService};
 
 /// 收集所有后代节点 ID
@@ -152,17 +152,16 @@ impl BomService for BomServiceImpl {
     }
 
     async fn update_node(&self, _bom_id: i64, node: BomNode, executor: Executor<'_>) -> Result<()> {
-        BomNodeRepo::update(
-            executor,
-            node.id,
-            f64_to_decimal(node.quantity),
-            f64_to_decimal(node.loss_rate),
-            node.unit.as_deref(),
-            node.remark.as_deref(),
-            node.position.as_deref(),
-            node.work_center.as_deref(),
-            node.properties.as_deref(),
-        ).await
+        let fields = BomNodeFields {
+            quantity: f64_to_decimal(node.quantity),
+            loss_rate: f64_to_decimal(node.loss_rate),
+            unit: node.unit.as_deref(),
+            remark: node.remark.as_deref(),
+            position: node.position.as_deref(),
+            work_center: node.work_center.as_deref(),
+            properties: node.properties.as_deref(),
+        };
+        BomNodeRepo::update(executor, node.id, &fields).await
     }
 
     async fn delete_node(&self, _bom_id: i64, node_id: i64, executor: Executor<'_>) -> Result<i64> {
@@ -331,30 +330,26 @@ impl BomService for BomServiceImpl {
         let mut changed_bom_ids: HashSet<i64> = HashSet::new();
 
         for node in &nodes {
-            let quantity = overrides.quantity
-                .map(f64_to_decimal)
-                .unwrap_or(node.quantity);
-            let loss_rate = overrides.loss_rate
-                .map(f64_to_decimal)
-                .unwrap_or(node.loss_rate);
-            let unit = overrides.unit.as_deref().or(node.unit.as_deref());
-            let remark = overrides.remark.as_deref().or(node.remark.as_deref());
-            let position = overrides.position.as_deref().or(node.position.as_deref());
-            let work_center = overrides.work_center.as_deref().or(node.work_center.as_deref());
-            let properties = overrides.properties.as_deref().or(node.properties.as_deref());
+            let fields = BomNodeFields {
+                quantity: overrides.quantity
+                    .map(f64_to_decimal)
+                    .unwrap_or(node.quantity),
+                loss_rate: overrides.loss_rate
+                    .map(f64_to_decimal)
+                    .unwrap_or(node.loss_rate),
+                unit: overrides.unit.as_deref().or(node.unit.as_deref()),
+                remark: overrides.remark.as_deref().or(node.remark.as_deref()),
+                position: overrides.position.as_deref().or(node.position.as_deref()),
+                work_center: overrides.work_center.as_deref().or(node.work_center.as_deref()),
+                properties: overrides.properties.as_deref().or(node.properties.as_deref()),
+            };
 
             BomNodeRepo::substitute_node_product(
                 &mut *executor,
                 node.id,
                 new_product_id,
                 Some(&new_product_code),
-                quantity,
-                loss_rate,
-                unit,
-                remark,
-                position,
-                work_center,
-                properties,
+                &fields,
             ).await?;
 
             replaced_node_count += 1;

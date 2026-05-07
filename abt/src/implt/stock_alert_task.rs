@@ -1,7 +1,6 @@
 //! 库存告警定时任务
 
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::PgPool;
@@ -14,12 +13,12 @@ const NOTIFICATION_TYPE_STOCK_ALERT: &str = "stock_alert";
 const RELATED_TYPE_PRODUCT: &str = "product";
 
 pub struct StockAlertTask {
-    pool: Arc<PgPool>,
+    pool: PgPool,
     interval_secs: u64,
 }
 
 impl StockAlertTask {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         let interval_secs = std::env::var("STOCK_ALERT_SCAN_INTERVAL_SECS")
             .ok()
             .and_then(|s| s.parse().ok())
@@ -62,14 +61,12 @@ impl ScheduledTask for StockAlertTask {
         // 2. 批量查询关注者的告警状态
         let alert_statuses = ProductWatcherRepo::batch_get_alert_status(&self.pool, &low_stock_ids).await?;
 
-        let active_alerts: HashSet<(i64, i64)> = alert_statuses
-            .iter()
-            .filter(|(_, _, active)| *active)
-            .map(|(uid, pid, _)| (*uid, *pid))
-            .collect();
-
+        let mut active_alerts: HashSet<(i64, i64)> = HashSet::new();
         let mut watchers_by_product: HashMap<i64, Vec<i64>> = HashMap::new();
-        for (uid, pid, _) in &alert_statuses {
+        for (uid, pid, active) in &alert_statuses {
+            if *active {
+                active_alerts.insert((*uid, *pid));
+            }
             watchers_by_product.entry(*pid).or_default().push(*uid);
         }
 

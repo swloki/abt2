@@ -2,6 +2,8 @@
 //!
 //! 包含 BOM 实体及其相关的查询参数和详情结构。
 
+use std::str::FromStr;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize};
 use sqlx::postgres::PgRow;
@@ -23,8 +25,12 @@ impl BomStatus {
             BomStatus::Published => "published",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Result<Self, anyhow::Error> {
+impl FromStr for BomStatus {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "draft" => Ok(BomStatus::Draft),
             "published" => Ok(BomStatus::Published),
@@ -44,7 +50,7 @@ impl Bom {
     /// - 已发布 → 放行
     /// - 草稿 + 是创建者 → 放行
     /// - 否则 → Err（fail-closed: created_by 为 None 时拒绝）
-    /// `reveal_existence`: false 用于读操作（NotFound），true 用于写操作（PermissionDenied）
+    ///   `reveal_existence`: false 用于读操作（NotFound），true 用于写操作（PermissionDenied）
     pub fn require_creator_or_published(&self, user_id: i64, reveal_existence: bool) -> Result<(), anyhow::Error> {
         if self.status == BomStatus::Published {
             return Ok(());
@@ -83,7 +89,7 @@ impl<'r> FromRow<'r, PgRow> for Bom {
         let bom_category_id: Option<i64> = row.try_get("bom_category_id")?;
 
         let status_str: String = row.try_get("status")?;
-        let status = BomStatus::from_str(&status_str).unwrap_or(BomStatus::Draft);
+        let status = status_str.parse().unwrap_or(BomStatus::Draft);
 
         let published_at: Option<DateTime<Utc>> = row.try_get("published_at")?;
         let created_by: Option<i64> = row.try_get("created_by")?;

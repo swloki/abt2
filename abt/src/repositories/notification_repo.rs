@@ -143,30 +143,6 @@ impl NotificationRepo {
         Ok((total, by_type))
     }
 
-    /// 检查是否已有未读的同类型同关联实体通知（Worker 去重用）
-    pub async fn has_unread_alert(
-        pool: &PgPool,
-        user_id: i64,
-        notification_type: &str,
-        related_type: &str,
-        related_id: i64,
-    ) -> Result<bool> {
-        let exists: bool = sqlx::query_scalar(
-            r#"SELECT EXISTS(
-                SELECT 1 FROM notifications
-                WHERE user_id = $1 AND type = $2 AND related_type = $3 AND related_id = $4 AND is_read = false
-                LIMIT 1
-            )"#,
-        )
-        .bind(user_id)
-        .bind(notification_type)
-        .bind(related_type)
-        .bind(related_id)
-        .fetch_one(pool)
-        .await?;
-        Ok(exists)
-    }
-
     /// 批量插入通知（Worker 用）
     pub async fn batch_insert(
         pool: &PgPool,

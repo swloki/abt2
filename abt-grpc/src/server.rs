@@ -110,6 +110,14 @@ impl AppState {
         abt::get_inventory_cascade_service(self.abt_context)
     }
 
+    pub fn notification_service(&self) -> impl abt::NotificationService {
+        abt::get_notification_service(self.abt_context)
+    }
+
+    pub fn product_watcher_service(&self) -> impl abt::ProductWatcherService {
+        abt::get_product_watcher_service(self.abt_context)
+    }
+
     pub fn auth_service(&self) -> impl abt::AuthService {
         let config = get_config();
         let resources = abt::collect_all_resources();
@@ -132,6 +140,18 @@ impl AppState {
 
 pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
     AppState::init().await?;
+
+    // Start stock alert worker
+    {
+        let state = AppState::get().await;
+        let pool = state.pool();
+        let shutdown = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let worker = abt::implt::StockAlertWorker::new(std::sync::Arc::new(pool), shutdown);
+        tokio::spawn(async move {
+            worker.run().await;
+        });
+        tracing::info!("StockAlertWorker spawned");
+    }
 
     let reflection_service = Builder::configure()
         .build_v1()
@@ -199,6 +219,9 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(AbtRoutingServiceServer::with_interceptor(
             crate::handlers::routing::RoutingHandler::new(), auth_interceptor,
+        ))
+        .add_service(crate::handlers::AbtNotificationServiceServer::with_interceptor(
+            crate::handlers::notification::NotificationHandler::new(), auth_interceptor,
         ))
         .serve(addr)
         .await?;

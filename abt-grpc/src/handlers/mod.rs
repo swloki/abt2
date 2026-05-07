@@ -18,6 +18,7 @@ pub mod routing;
 pub mod term;
 pub mod user;
 pub mod warehouse;
+pub mod notification;
 
 pub use crate::generated::abt::v1::{
     abt_bom_category_service_server::AbtBomCategoryServiceServer,
@@ -30,6 +31,7 @@ pub use crate::generated::abt::v1::{
     abt_price_service_server::AbtPriceServiceServer,
     abt_product_service_server::AbtProductServiceServer,
     abt_routing_service_server::AbtRoutingServiceServer,
+    abt_notification_service_server::AbtNotificationServiceServer,
     abt_term_service_server::AbtTermServiceServer,
     abt_warehouse_service_server::AbtWarehouseServiceServer,
     auth_service_server::AuthServiceServer,

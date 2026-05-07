@@ -195,6 +195,16 @@ pub fn get_inventory_cascade_service(ctx: &AppContext) -> impl crate::service::I
     crate::implt::InventoryCascadeServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
 
+/// 获取通知服务
+pub fn get_notification_service(ctx: &AppContext) -> impl crate::service::NotificationService {
+    crate::implt::NotificationServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取产品关注服务
+pub fn get_product_watcher_service(ctx: &AppContext) -> impl crate::service::ProductWatcherService {
+    crate::implt::ProductWatcherServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
 /// 获取认证服务
 pub fn get_auth_service(
     pool: sqlx::PgPool,

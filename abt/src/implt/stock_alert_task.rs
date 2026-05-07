@@ -1,5 +1,6 @@
 //! 库存告警定时任务
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -14,11 +15,16 @@ const RELATED_TYPE_PRODUCT: &str = "product";
 
 pub struct StockAlertTask {
     pool: Arc<PgPool>,
+    interval_secs: u64,
 }
 
 impl StockAlertTask {
     pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+        let interval_secs = std::env::var("STOCK_ALERT_SCAN_INTERVAL_SECS")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(300);
+        Self { pool, interval_secs }
     }
 }
 
@@ -29,10 +35,7 @@ impl ScheduledTask for StockAlertTask {
     }
 
     fn interval_secs(&self) -> u64 {
-        std::env::var("STOCK_ALERT_SCAN_INTERVAL_SECS")
-            .ok()
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(300)
+        self.interval_secs
     }
 
     async fn run_once(&self) -> anyhow::Result<TaskRunResult> {
@@ -52,14 +55,16 @@ impl ScheduledTask for StockAlertTask {
             }
 
             let watcher_ids: Vec<i64> = watchers.iter().map(|w| w.user_id).collect();
-            let users_with_unread = NotificationRepo::batch_has_unread_alert(
+            let users_with_unread: HashSet<i64> = NotificationRepo::batch_has_unread_alert(
                 &self.pool,
                 &watcher_ids,
                 NOTIFICATION_TYPE_STOCK_ALERT,
                 RELATED_TYPE_PRODUCT,
                 pid,
             )
-            .await?;
+            .await?
+            .into_iter()
+            .collect();
 
             for watcher in &watchers {
                 if users_with_unread.contains(&watcher.user_id) {

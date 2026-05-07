@@ -34,7 +34,7 @@ impl GrpcTaskSchedulerService for TaskSchedulerHandler {
         let statuses = state.task_scheduler().list_statuses().await;
 
         Ok(Response::new(ListTasksResponse {
-            tasks: statuses.into_iter().map(status_to_proto).collect(),
+            tasks: statuses.iter().map(status_to_proto).collect(),
         }))
     }
 
@@ -62,14 +62,14 @@ impl GrpcTaskSchedulerService for TaskSchedulerHandler {
     }
 }
 
-fn status_to_proto(s: abt::TaskStatus) -> TaskStatusProto {
+fn status_to_proto(s: &abt::TaskStatus) -> TaskStatusProto {
     TaskStatusProto {
-        name: s.name,
+        name: s.name.clone(),
         is_running: s.is_running,
-        last_run_at: s.last_run_at,
+        last_run_at: s.last_run_at.clone(),
         last_elapsed_ms: s.last_elapsed_ms,
-        last_result: s.last_result,
-        last_error: s.last_error,
+        last_result: s.last_result.clone(),
+        last_error: s.last_error.clone(),
         total_runs: s.total_runs,
         interval_secs: s.interval_secs,
     }

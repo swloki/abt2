@@ -23,6 +23,7 @@ mod inventory_cascade_service_impl;
 mod notification_service_impl;
 mod product_watcher_service_impl;
 mod stock_alert_worker;
+mod task_scheduler;
 
 pub use auth_service_impl::AuthServiceImpl;
 pub use bom_service_impl::BomServiceImpl;
@@ -44,3 +45,4 @@ pub use inventory_cascade_service_impl::InventoryCascadeServiceImpl;
 pub use notification_service_impl::NotificationServiceImpl;
 pub use product_watcher_service_impl::ProductWatcherServiceImpl;
 pub use stock_alert_worker::StockAlertWorker;
+pub use task_scheduler::TaskScheduler;

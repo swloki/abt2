@@ -22,7 +22,6 @@ mod warehouse_service_impl;
 mod inventory_cascade_service_impl;
 mod notification_service_impl;
 mod product_watcher_service_impl;
-mod stock_alert_worker;
 mod stock_alert_task;
 mod task_scheduler;
 
@@ -45,6 +44,5 @@ pub use warehouse_service_impl::WarehouseServiceImpl;
 pub use inventory_cascade_service_impl::InventoryCascadeServiceImpl;
 pub use notification_service_impl::NotificationServiceImpl;
 pub use product_watcher_service_impl::ProductWatcherServiceImpl;
-pub use stock_alert_worker::StockAlertWorker;
 pub use stock_alert_task::StockAlertTask;
 pub use task_scheduler::TaskScheduler;

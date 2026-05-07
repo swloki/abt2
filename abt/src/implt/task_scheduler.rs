@@ -64,6 +64,15 @@ impl TaskScheduler {
     }
 
     pub async fn trigger(&self, name: &str) -> anyhow::Result<TaskRunResult> {
+        {
+            let map = self.statuses.lock().await;
+            if let Some(s) = map.get(name) {
+                if s.is_running {
+                    anyhow::bail!("task '{}' is already running", name);
+                }
+            }
+        }
+
         let task = self
             .tasks
             .iter()
@@ -132,7 +141,6 @@ async fn run_task_loop(
                         );
                     }
                     Ok(Err(e)) => {
-                        s.last_result = None;
                         s.last_error = Some(e.to_string());
                         tracing::error!(
                             task = name.as_str(),
@@ -142,7 +150,6 @@ async fn run_task_loop(
                         );
                     }
                     Err(_) => {
-                        s.last_result = None;
                         s.last_error = Some(format!("timed out after {}s", TASK_TIMEOUT_SECS));
                         tracing::error!(
                             task = name.as_str(),

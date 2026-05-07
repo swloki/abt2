@@ -19,6 +19,7 @@ pub mod term;
 pub mod user;
 pub mod warehouse;
 pub mod notification;
+pub mod task_scheduler;
 
 pub use crate::generated::abt::v1::{
     abt_bom_category_service_server::AbtBomCategoryServiceServer,
@@ -32,6 +33,7 @@ pub use crate::generated::abt::v1::{
     abt_product_service_server::AbtProductServiceServer,
     abt_routing_service_server::AbtRoutingServiceServer,
     abt_notification_service_server::AbtNotificationServiceServer,
+    abt_task_scheduler_service_server::AbtTaskSchedulerServiceServer,
     abt_term_service_server::AbtTermServiceServer,
     abt_warehouse_service_server::AbtWarehouseServiceServer,
     auth_service_server::AuthServiceServer,

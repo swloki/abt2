@@ -167,28 +167,27 @@ impl NotificationRepo {
         Ok(exists)
     }
 
-    /// 批量检查哪些用户已有未读的同类型同关联实体通知（Worker 去重用）
-    /// 返回拥有未读告警的 user_id 列表
-    pub async fn batch_has_unread_alert(
+    /// 批量插入通知（Worker 用）
+    pub async fn batch_insert(
         pool: &PgPool,
-        user_ids: &[i64],
-        notification_type: &str,
-        related_type: &str,
-        related_id: i64,
-    ) -> Result<Vec<i64>> {
-        if user_ids.is_empty() {
-            return Ok(Vec::new());
+        requests: &[CreateNotificationRequest],
+    ) -> Result<usize> {
+        if requests.is_empty() {
+            return Ok(0);
         }
-        let rows: Vec<(i64,)> = sqlx::query_as(
-            r#"SELECT DISTINCT user_id FROM notifications
-            WHERE user_id = ANY($1) AND type = $2 AND related_type = $3 AND related_id = $4 AND is_read = false"#,
-        )
-        .bind(user_ids)
-        .bind(notification_type)
-        .bind(related_type)
-        .bind(related_id)
-        .fetch_all(pool)
-        .await?;
-        Ok(rows.into_iter().map(|r| r.0).collect())
+        let mut qb = sqlx::QueryBuilder::new(
+            "INSERT INTO notifications (user_id, type, title, content, related_type, related_id, metadata) ",
+        );
+        qb.push_values(requests, |mut b, req| {
+            b.push_bind(req.user_id)
+                .push_bind(&req.notification_type)
+                .push_bind(&req.title)
+                .push_bind(&req.content)
+                .push_bind(&req.related_type)
+                .push_bind(req.related_id)
+                .push_bind(&req.metadata);
+        });
+        qb.build().execute(pool).await?;
+        Ok(requests.len())
     }
 }

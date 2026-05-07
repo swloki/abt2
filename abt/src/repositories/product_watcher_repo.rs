@@ -138,4 +138,82 @@ impl ProductWatcherRepo {
         .await?;
         Ok(rows)
     }
+
+    /// 批量查询多个产品的关注者（Worker 用）
+    /// 返回 (product_id, Vec<ProductWatcherUser>) 对
+    pub async fn find_watchers_by_products(
+        pool: &PgPool,
+        product_ids: &[i64],
+    ) -> Result<Vec<(i64, i64)>> {
+        if product_ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let rows: Vec<(i64, i64)> = sqlx::query_as(
+            "SELECT product_id, user_id FROM product_watchers WHERE product_id = ANY($1)",
+        )
+        .bind(product_ids)
+        .fetch_all(pool)
+        .await?;
+        Ok(rows)
+    }
+
+    /// 批量查询关注者的告警状态（Worker 用）
+    pub async fn batch_get_alert_status(
+        pool: &PgPool,
+        product_ids: &[i64],
+    ) -> Result<Vec<(i64, i64, bool)>> {
+        if product_ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let rows: Vec<(i64, i64, bool)> = sqlx::query_as(
+            "SELECT user_id, product_id, alert_active FROM product_watchers WHERE product_id = ANY($1)",
+        )
+        .bind(product_ids)
+        .fetch_all(pool)
+        .await?;
+        Ok(rows)
+    }
+
+    /// 批量设置告警状态为活跃（Worker 用）
+    pub async fn batch_activate_alerts(
+        pool: &PgPool,
+        pairs: &[(i64, i64)],
+    ) -> Result<()> {
+        if pairs.is_empty() {
+            return Ok(());
+        }
+        let user_ids: Vec<i64> = pairs.iter().map(|(uid, _)| *uid).collect();
+        let product_ids: Vec<i64> = pairs.iter().map(|(_, pid)| *pid).collect();
+        sqlx::query(
+            r#"UPDATE product_watchers
+            SET alert_active = true, last_notified_at = now(), updated_at = now()
+            WHERE (user_id, product_id) IN (
+                SELECT * FROM UNNEST($1::bigint[], $2::bigint[])
+            )"#,
+        )
+        .bind(&user_ids)
+        .bind(&product_ids)
+        .execute(pool)
+        .await?;
+        Ok(())
+    }
+
+    /// 批量重置已回升产品的告警状态（Worker 用）
+    pub async fn batch_clear_recovered(
+        pool: &PgPool,
+        low_stock_product_ids: &[i64],
+    ) -> Result<u64> {
+        if low_stock_product_ids.is_empty() {
+            return Ok(0);
+        }
+        let result = sqlx::query(
+            r#"UPDATE product_watchers
+            SET alert_active = false, updated_at = now()
+            WHERE alert_active = true AND product_id != ALL($1)"#,
+        )
+        .bind(low_stock_product_ids)
+        .execute(pool)
+        .await?;
+        Ok(result.rows_affected())
+    }
 }

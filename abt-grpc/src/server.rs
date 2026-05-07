@@ -1,6 +1,7 @@
 //! gRPC Server 配置和启动
 
 use std::net::SocketAddr;
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tonic::transport::Server;
@@ -14,6 +15,7 @@ static APP_STATE: OnceCell<Arc<AppState>> = OnceCell::const_new();
 
 pub struct AppState {
     abt_context: &'static abt::AppContext,
+    task_scheduler: Arc<abt::implt::TaskScheduler>,
 }
 
 impl AppState {
@@ -32,7 +34,18 @@ impl AppState {
 
         // Context is now initialized, get reference
         let ctx = abt::get_context().await;
-        let state = Arc::new(AppState { abt_context: ctx });
+        let pool_arc = Arc::new(ctx.pool().clone());
+
+        // Build task scheduler
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let mut scheduler = abt::implt::TaskScheduler::new(shutdown);
+        scheduler.register(abt::implt::StockAlertTask::new(pool_arc));
+        scheduler.start().await;
+
+        let state = Arc::new(AppState {
+            abt_context: ctx,
+            task_scheduler: Arc::new(scheduler),
+        });
 
         APP_STATE
             .set(state)
@@ -118,6 +131,10 @@ impl AppState {
         abt::get_product_watcher_service(self.abt_context)
     }
 
+    pub fn task_scheduler(&self) -> Arc<abt::implt::TaskScheduler> {
+        Arc::clone(&self.task_scheduler)
+    }
+
     pub fn auth_service(&self) -> impl abt::AuthService {
         let config = get_config();
         let resources = abt::collect_all_resources();
@@ -140,18 +157,6 @@ impl AppState {
 
 pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
     AppState::init().await?;
-
-    // Start stock alert worker
-    {
-        let state = AppState::get().await;
-        let pool = state.pool();
-        let shutdown = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let worker = abt::implt::StockAlertWorker::new(std::sync::Arc::new(pool), shutdown);
-        tokio::spawn(async move {
-            worker.run().await;
-        });
-        tracing::info!("StockAlertWorker spawned");
-    }
 
     let reflection_service = Builder::configure()
         .build_v1()
@@ -222,6 +227,9 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(crate::handlers::AbtNotificationServiceServer::with_interceptor(
             crate::handlers::notification::NotificationHandler::new(), auth_interceptor,
+        ))
+        .add_service(crate::handlers::AbtTaskSchedulerServiceServer::with_interceptor(
+            crate::handlers::task_scheduler::TaskSchedulerHandler::new(), auth_interceptor,
         ))
         .serve(addr)
         .await?;

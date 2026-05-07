@@ -48,11 +48,17 @@ impl GrpcTaskSchedulerService for TaskSchedulerHandler {
         }
 
         let state = AppState::get().await;
-        let result = state
-            .task_scheduler()
+        let scheduler = state.task_scheduler();
+        let result = scheduler
             .trigger(&req.name)
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(|e| {
+                if e.to_string().contains("task not found") {
+                    error::not_found("Task", &req.name)
+                } else {
+                    error::err_to_status(e)
+                }
+            })?;
 
         Ok(Response::new(TriggerTaskResponse {
             processed: result.processed as u64,

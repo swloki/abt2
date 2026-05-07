@@ -35,6 +35,11 @@ pub trait ScheduledTask: Send + Sync {
         300
     }
 
+    /// 单次执行超时（秒），默认 60
+    fn timeout_secs(&self) -> u64 {
+        60
+    }
+
     /// 执行一次任务
     async fn run_once(&self) -> Result<TaskRunResult>;
 }

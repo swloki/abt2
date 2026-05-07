@@ -9,7 +9,38 @@ use tokio::sync::Mutex;
 
 use crate::service::{ScheduledTask, TaskRunResult, TaskStatus};
 
-const TASK_TIMEOUT_SECS: u64 = 60;
+struct RunningGuard {
+    name: String,
+    statuses: Arc<Mutex<HashMap<String, TaskStatus>>>,
+}
+
+impl RunningGuard {
+    async fn acquire(name: String, statuses: Arc<Mutex<HashMap<String, TaskStatus>>>) -> Option<Self> {
+        {
+            let mut map = statuses.lock().await;
+            if let Some(s) = map.get_mut(&name) {
+                if s.is_running {
+                    return None;
+                }
+                s.is_running = true;
+            }
+        }
+        Some(Self { name, statuses })
+    }
+}
+
+impl Drop for RunningGuard {
+    fn drop(&mut self) {
+        let name = self.name.clone();
+        let statuses = self.statuses.clone();
+        tokio::spawn(async move {
+            let mut map = statuses.lock().await;
+            if let Some(s) = map.get_mut(&name) {
+                s.is_running = false;
+            }
+        });
+    }
+}
 
 pub struct TaskScheduler {
     tasks: Vec<Arc<dyn ScheduledTask>>,
@@ -64,21 +95,42 @@ impl TaskScheduler {
     }
 
     pub async fn trigger(&self, name: &str) -> anyhow::Result<TaskRunResult> {
-        {
-            let map = self.statuses.lock().await;
-            if let Some(s) = map.get(name) {
-                if s.is_running {
-                    anyhow::bail!("task '{}' is already running", name);
-                }
-            }
-        }
+        let _guard = RunningGuard::acquire(name.to_string(), self.statuses.clone())
+            .await
+            .ok_or_else(|| anyhow::anyhow!("task '{}' is already running", name))?;
 
         let task = self
             .tasks
             .iter()
             .find(|t| t.name() == name)
             .ok_or_else(|| anyhow::anyhow!("task not found: {}", name))?;
-        task.run_once().await
+
+        let start = std::time::Instant::now();
+        let result = task.run_once().await;
+        let elapsed = start.elapsed().as_millis() as u64;
+
+        {
+            let mut map = self.statuses.lock().await;
+            if let Some(s) = map.get_mut(name) {
+                s.last_run_at = Some(Utc::now().to_rfc3339());
+                s.last_elapsed_ms = Some(elapsed);
+                s.total_runs += 1;
+                match &result {
+                    Ok(r) => {
+                        s.last_result = Some(format!(
+                            "processed={}, succeeded={}",
+                            r.processed, r.succeeded
+                        ));
+                        s.last_error = None;
+                    }
+                    Err(e) => {
+                        s.last_error = Some(e.to_string());
+                    }
+                }
+            }
+        }
+
+        result
     }
 
     pub async fn list_statuses(&self) -> Vec<TaskStatus> {
@@ -96,23 +148,30 @@ async fn run_task_loop(
 ) {
     let name = task.name().to_string();
     let interval = task.interval_secs();
+    let timeout_secs = task.timeout_secs();
 
     loop {
-        if shutdown.load(Ordering::Relaxed) {
+        if shutdown.load(Ordering::Acquire) {
             tracing::info!(task = name.as_str(), "task shutting down");
             return;
         }
 
-        {
-            let mut map = statuses.lock().await;
-            if let Some(s) = map.get_mut(&name) {
-                s.is_running = true;
+        let _guard = RunningGuard::acquire(name.clone(), statuses.clone()).await;
+        if _guard.is_none() {
+            tracing::warn!(task = name.as_str(), "task already running, skipping");
+            let sleep_interval = interval.max(1);
+            for _ in 0..sleep_interval {
+                if shutdown.load(Ordering::Acquire) {
+                    return;
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
+            continue;
         }
 
         let start = std::time::Instant::now();
         let result = tokio::time::timeout(
-            std::time::Duration::from_secs(TASK_TIMEOUT_SECS),
+            std::time::Duration::from_secs(timeout_secs),
             task.run_once(),
         )
         .await;
@@ -121,7 +180,6 @@ async fn run_task_loop(
         {
             let mut map = statuses.lock().await;
             if let Some(s) = map.get_mut(&name) {
-                s.is_running = false;
                 s.last_run_at = Some(Utc::now().to_rfc3339());
                 s.last_elapsed_ms = Some(elapsed);
                 s.total_runs += 1;
@@ -150,7 +208,7 @@ async fn run_task_loop(
                         );
                     }
                     Err(_) => {
-                        s.last_error = Some(format!("timed out after {}s", TASK_TIMEOUT_SECS));
+                        s.last_error = Some(format!("timed out after {}s", timeout_secs));
                         tracing::error!(
                             task = name.as_str(),
                             elapsed_ms = elapsed,
@@ -161,8 +219,11 @@ async fn run_task_loop(
             }
         }
 
-        for _ in 0..interval {
-            if shutdown.load(Ordering::Relaxed) {
+        drop(_guard);
+
+        let sleep_interval = interval.max(1);
+        for _ in 0..sleep_interval {
+            if shutdown.load(Ordering::Acquire) {
                 tracing::info!(task = name.as_str(), "task shutting down during sleep");
                 return;
             }

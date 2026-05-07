@@ -16,6 +16,7 @@ static APP_STATE: OnceCell<Arc<AppState>> = OnceCell::const_new();
 pub struct AppState {
     abt_context: &'static abt::AppContext,
     task_scheduler: Arc<abt::implt::TaskScheduler>,
+    shutdown: Arc<AtomicBool>,
 }
 
 impl AppState {
@@ -38,13 +39,14 @@ impl AppState {
 
         // Build task scheduler
         let shutdown = Arc::new(AtomicBool::new(false));
-        let mut scheduler = abt::implt::TaskScheduler::new(shutdown);
+        let mut scheduler = abt::implt::TaskScheduler::new(shutdown.clone());
         scheduler.register(abt::implt::StockAlertTask::new(pool_arc));
         scheduler.start().await;
 
         let state = Arc::new(AppState {
             abt_context: ctx,
             task_scheduler: Arc::new(scheduler),
+            shutdown,
         });
 
         APP_STATE
@@ -157,6 +159,8 @@ impl AppState {
 
 pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
     AppState::init().await?;
+    let state = AppState::get().await;
+    let shutdown = state.shutdown.clone();
 
     let reflection_service = Builder::configure()
         .build_v1()
@@ -231,8 +235,13 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         .add_service(crate::handlers::AbtTaskSchedulerServiceServer::with_interceptor(
             crate::handlers::task_scheduler::TaskSchedulerHandler::new(), auth_interceptor,
         ))
-        .serve(addr)
+        .serve_with_shutdown(addr, async move {
+            tokio::signal::ctrl_c().await.expect("failed to listen for ctrl+c");
+            tracing::info!("Shutdown signal received, stopping background tasks...");
+            shutdown.store(true, std::sync::atomic::Ordering::Release);
+        })
         .await?;
 
+    tracing::info!("Server stopped.");
     Ok(())
 }

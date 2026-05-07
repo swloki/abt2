@@ -21,7 +21,7 @@ impl ProductWatcherRepo {
             INSERT INTO product_watchers (user_id, product_id, safety_stock_override, updated_at)
             VALUES ($1, $2, $3, now())
             ON CONFLICT (user_id, product_id) DO UPDATE SET
-                safety_stock_override = EXCLUDED.safety_stock_override,
+                safety_stock_override = COALESCE(EXCLUDED.safety_stock_override, product_watchers.safety_stock_override),
                 updated_at = now()
             RETURNING (xmax = 0) AS is_new
             "#,
@@ -81,7 +81,10 @@ impl ProductWatcherRepo {
                 (COALESCE(i.quantity, 0) < COALESCE(pw.safety_stock_override, COALESCE(i.safety_stock, 0))) AS is_alerting
             FROM product_watchers pw
             JOIN products p ON p.product_id = pw.product_id
-            LEFT JOIN inventory i ON i.product_id = pw.product_id
+            LEFT JOIN (
+                SELECT product_id, SUM(quantity) as quantity, MAX(safety_stock) as safety_stock
+                FROM inventory GROUP BY product_id
+            ) i ON i.product_id = pw.product_id
             WHERE pw.user_id = $1
             ORDER BY pw.created_at DESC
             LIMIT $2 OFFSET $3
@@ -109,7 +112,10 @@ impl ProductWatcherRepo {
                 MIN(COALESCE(pw.safety_stock_override, i.safety_stock)) AS effective_safety_stock
             FROM product_watchers pw
             JOIN products p ON p.product_id = pw.product_id
-            JOIN inventory i ON i.product_id = pw.product_id
+            JOIN (
+                SELECT product_id, SUM(quantity) as quantity, MAX(safety_stock) as safety_stock
+                FROM inventory GROUP BY product_id
+            ) i ON i.product_id = pw.product_id
             WHERE i.quantity < COALESCE(pw.safety_stock_override, i.safety_stock)
             GROUP BY pw.product_id, p.pdt_name, i.quantity
             "#,

@@ -216,6 +216,15 @@ impl GrpcProductService for ProductHandler {
             .as_deref()
             .and_then(|s| s.parse::<rust_decimal::Decimal>().ok());
 
+        if let Some(val) = override_val {
+            if val <= rust_decimal::Decimal::ZERO {
+                return Err(error::validation(
+                    "safety_stock_override",
+                    "安全库存覆盖值必须大于 0",
+                ));
+            }
+        }
+
         let is_new = srv
             .watch_product(auth.user_id, req.product_id, override_val)
             .await

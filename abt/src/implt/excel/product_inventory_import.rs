@@ -96,10 +96,10 @@ impl ExcelImportService for ProductInventoryImporter {
             if !row.new_code.is_empty() {
                 all_codes.push(row.new_code.clone());
             }
-            if let Some(ref old_code) = row.old_code {
-                if !old_code.is_empty() {
-                    all_codes.push(old_code.clone());
-                }
+            if let Some(ref old_code) = row.old_code
+                && !old_code.is_empty()
+            {
+                all_codes.push(old_code.clone());
             }
         }
         all_codes.sort();
@@ -184,10 +184,10 @@ impl ExcelImportService for ProductInventoryImporter {
         for item in &pending_items {
             if let Some(loc_id) = item.location_id {
                 // 检查与数据库已有数据冲突
-                if let Some(db_products) = db_occupants.get(&loc_id) {
-                    if !db_products.iter().any(|&pid| pid == item.product_id) {
-                        conflict_set.insert(loc_id);
-                    }
+                if let Some(db_products) = db_occupants.get(&loc_id)
+                    && !db_products.contains(&item.product_id)
+                {
+                    conflict_set.insert(loc_id);
                 }
 
                 // 检查导入数据内部冲突
@@ -224,51 +224,49 @@ impl ExcelImportService for ProductInventoryImporter {
         for item in &pending_items {
             self.tracker.tick();
 
-            if let Some(ref name) = item.new_name {
-                if let Err(e) = ProductRepo::update_name(&mut tx, item.product_id, name).await {
-                    result.failed_count += 1;
-                    result
-                        .errors
-                        .push(format!("更新产品名称失败 product_id={}: {}", item.product_id, e));
-                    continue;
-                }
+            if let Some(ref name) = item.new_name
+                && let Err(e) = ProductRepo::update_name(&mut tx, item.product_id, name).await
+            {
+                result.failed_count += 1;
+                result
+                    .errors
+                    .push(format!("更新产品名称失败 product_id={}: {}", item.product_id, e));
+                continue;
             }
 
-            if let Some(price) = item.price {
-                if let Err(e) = update_price_batch(&mut tx, item.product_id, price).await {
-                    result.failed_count += 1;
-                    result
-                        .errors
-                        .push(format!("更新价格失败 product_id={}: {}", item.product_id, e));
-                    continue;
-                }
+            if let Some(price) = item.price
+                && let Err(e) = update_price_batch(&mut tx, item.product_id, price).await
+            {
+                result.failed_count += 1;
+                result
+                    .errors
+                    .push(format!("更新价格失败 product_id={}: {}", item.product_id, e));
+                continue;
             }
 
             if let Some(location_id) = item.location_id {
-                if let Some(quantity) = item.quantity {
-                    if let Err(e) =
+                if let Some(quantity) = item.quantity
+                    && let Err(e) =
                         upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity)
                             .await
-                    {
-                        result.failed_count += 1;
-                        result.errors.push(format!("更新库存失败: {}", e));
-                        continue;
-                    }
+                {
+                    result.failed_count += 1;
+                    result.errors.push(format!("更新库存失败: {}", e));
+                    continue;
                 }
 
-                if let Some(safety_stock) = item.safety_stock {
-                    if let Err(e) = upsert_inventory_safety_stock(
+                if let Some(safety_stock) = item.safety_stock
+                    && let Err(e) = upsert_inventory_safety_stock(
                         &mut tx,
                         item.product_id,
                         location_id,
                         safety_stock,
                     )
                     .await
-                    {
-                        result.failed_count += 1;
-                        result.errors.push(format!("更新安全库存失败: {}", e));
-                        continue;
-                    }
+                {
+                    result.failed_count += 1;
+                    result.errors.push(format!("更新安全库存失败: {}", e));
+                    continue;
                 }
             }
 

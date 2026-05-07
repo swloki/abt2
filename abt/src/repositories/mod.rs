@@ -25,7 +25,7 @@ mod product_watcher_repo;
 
 pub use auth_repo::AuthRepo;
 pub use bom_category_repo::BomCategoryRepo;
-pub use bom_node_repo::BomNodeRepo;
+pub use bom_node_repo::{BomNodeFields, BomNodeRepo};
 pub use bom_repo::{BomReference, BomRepo, ProductUsageResult};
 pub use department_repo::DepartmentRepo;
 pub use inventory_repo::InventoryRepo;

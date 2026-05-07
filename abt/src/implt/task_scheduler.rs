@@ -109,27 +109,7 @@ impl TaskScheduler {
         let result = task.run_once().await;
         let elapsed = start.elapsed().as_millis() as u64;
 
-        {
-            let mut map = self.statuses.lock().await;
-            if let Some(s) = map.get_mut(name) {
-                s.last_run_at = Some(Utc::now().to_rfc3339());
-                s.last_elapsed_ms = Some(elapsed);
-                s.total_runs += 1;
-                match &result {
-                    Ok(r) => {
-                        s.last_result = Some(format!(
-                            "processed={}, succeeded={}",
-                            r.processed, r.succeeded
-                        ));
-                        s.last_error = None;
-                    }
-                    Err(e) => {
-                        s.last_error = Some(e.to_string());
-                    }
-                }
-            }
-        }
-
+        update_status(&self.statuses, name, elapsed, &result).await;
         result
     }
 
@@ -138,6 +118,41 @@ impl TaskScheduler {
         let mut list: Vec<TaskStatus> = statuses.values().cloned().collect();
         list.sort_by(|a, b| a.name.cmp(&b.name));
         list
+    }
+}
+
+async fn update_status(
+    statuses: &Arc<Mutex<HashMap<String, TaskStatus>>>,
+    name: &str,
+    elapsed: u64,
+    result: &anyhow::Result<TaskRunResult>,
+) {
+    let mut map = statuses.lock().await;
+    if let Some(s) = map.get_mut(name) {
+        s.last_run_at = Some(Utc::now().to_rfc3339());
+        s.last_elapsed_ms = Some(elapsed);
+        s.total_runs += 1;
+        match result {
+            Ok(r) => {
+                s.last_result = Some(format!(
+                    "processed={}, succeeded={}",
+                    r.processed, r.succeeded
+                ));
+                s.last_error = None;
+            }
+            Err(e) => {
+                s.last_error = Some(e.to_string());
+            }
+        }
+    }
+}
+
+async fn sleep_with_shutdown(secs: u64, shutdown: &AtomicBool) {
+    tokio::select! {
+        _ = tokio::time::sleep(std::time::Duration::from_secs(secs)) => {}
+        _ = tokio::signal::ctrl_c() => {
+            shutdown.store(true, Ordering::Release);
+        }
     }
 }
 
@@ -159,13 +174,7 @@ async fn run_task_loop(
         let _guard = RunningGuard::acquire(name.clone(), statuses.clone()).await;
         if _guard.is_none() {
             tracing::warn!(task = name.as_str(), "task already running, skipping");
-            let sleep_interval = interval.max(1);
-            for _ in 0..sleep_interval {
-                if shutdown.load(Ordering::Acquire) {
-                    return;
-                }
-                tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-            }
+            sleep_with_shutdown(interval.max(1), &shutdown).await;
             continue;
         }
 
@@ -221,13 +230,11 @@ async fn run_task_loop(
 
         drop(_guard);
 
-        let sleep_interval = interval.max(1);
-        for _ in 0..sleep_interval {
-            if shutdown.load(Ordering::Acquire) {
-                tracing::info!(task = name.as_str(), "task shutting down during sleep");
-                return;
-            }
-            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        sleep_with_shutdown(interval.max(1), &shutdown).await;
+
+        if shutdown.load(Ordering::Acquire) {
+            tracing::info!(task = name.as_str(), "task shutting down during sleep");
+            return;
         }
     }
 }

@@ -9,6 +9,17 @@ use sqlx::PgPool;
 use crate::models::{BomNode, BomNodeRow, NewBomNode};
 use crate::repositories::Executor;
 
+/// BOM 节点可更新字段（quantity, loss_rate, unit, remark, position, work_center, properties）
+pub struct BomNodeFields<'a> {
+    pub quantity: Decimal,
+    pub loss_rate: Decimal,
+    pub unit: Option<&'a str>,
+    pub remark: Option<&'a str>,
+    pub position: Option<&'a str>,
+    pub work_center: Option<&'a str>,
+    pub properties: Option<&'a str>,
+}
+
 pub struct BomNodeRepo;
 
 impl BomNodeRepo {
@@ -125,25 +136,19 @@ impl BomNodeRepo {
     pub async fn update(
         executor: Executor<'_>,
         id: i64,
-        quantity: Decimal,
-        loss_rate: Decimal,
-        unit: Option<&str>,
-        remark: Option<&str>,
-        position: Option<&str>,
-        work_center: Option<&str>,
-        properties: Option<&str>,
+        fields: &BomNodeFields<'_>,
     ) -> Result<()> {
         sqlx::query(
             r#"UPDATE bom_nodes SET quantity = $1, loss_rate = $2, unit = $3, remark = $4, position = $5, work_center = $6, properties = $7
                WHERE id = $8"#,
         )
-        .bind(quantity)
-        .bind(loss_rate)
-        .bind(unit)
-        .bind(remark)
-        .bind(position)
-        .bind(work_center)
-        .bind(properties)
+        .bind(fields.quantity)
+        .bind(fields.loss_rate)
+        .bind(fields.unit)
+        .bind(fields.remark)
+        .bind(fields.position)
+        .bind(fields.work_center)
+        .bind(fields.properties)
         .bind(id)
         .execute(executor)
         .await?;
@@ -229,26 +234,20 @@ impl BomNodeRepo {
         node_id: i64,
         new_product_id: i64,
         new_product_code: Option<&str>,
-        quantity: Decimal,
-        loss_rate: Decimal,
-        unit: Option<&str>,
-        remark: Option<&str>,
-        position: Option<&str>,
-        work_center: Option<&str>,
-        properties: Option<&str>,
+        fields: &BomNodeFields<'_>,
     ) -> Result<()> {
         sqlx::query(
             "UPDATE bom_nodes SET product_id = $1, product_code = $2, quantity = $3, loss_rate = $4, unit = $5, remark = $6, position = $7, work_center = $8, properties = $9 WHERE id = $10",
         )
         .bind(new_product_id)
         .bind(new_product_code)
-        .bind(quantity)
-        .bind(loss_rate)
-        .bind(unit)
-        .bind(remark)
-        .bind(position)
-        .bind(work_center)
-        .bind(properties)
+        .bind(fields.quantity)
+        .bind(fields.loss_rate)
+        .bind(fields.unit)
+        .bind(fields.remark)
+        .bind(fields.position)
+        .bind(fields.work_center)
+        .bind(fields.properties)
         .bind(node_id)
         .execute(executor)
         .await?;
@@ -293,14 +292,14 @@ impl BomNodeRepo {
 
         // 更新 parent_id 映射
         for node in &source_nodes {
-            if let Some(old_parent) = node.parent_id {
-                if let (Some(&new_id), Some(&new_parent_id)) = (id_map.get(&node.id), id_map.get(&old_parent)) {
-                    sqlx::query("UPDATE bom_nodes SET parent_id = $1 WHERE id = $2")
-                        .bind(new_parent_id)
-                        .bind(new_id)
-                        .execute(&mut *executor)
-                        .await?;
-                }
+            if let Some(old_parent) = node.parent_id
+                && let (Some(&new_id), Some(&new_parent_id)) = (id_map.get(&node.id), id_map.get(&old_parent))
+            {
+                sqlx::query("UPDATE bom_nodes SET parent_id = $1 WHERE id = $2")
+                    .bind(new_parent_id)
+                    .bind(new_id)
+                    .execute(&mut *executor)
+                    .await?;
             }
         }
 

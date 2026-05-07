@@ -35,12 +35,11 @@ impl AppState {
 
         // Context is now initialized, get reference
         let ctx = abt::get_context().await;
-        let pool_arc = Arc::new(ctx.pool().clone());
 
         // Build task scheduler
         let shutdown = Arc::new(AtomicBool::new(false));
         let mut scheduler = abt::implt::TaskScheduler::new(shutdown.clone());
-        scheduler.register(abt::implt::StockAlertTask::new(pool_arc));
+        scheduler.register(abt::implt::StockAlertTask::new(ctx.pool().clone()));
         scheduler.start().await;
 
         let state = Arc::new(AppState {

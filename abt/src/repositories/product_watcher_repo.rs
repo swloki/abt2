@@ -4,7 +4,7 @@ use anyhow::Result;
 use rust_decimal::Decimal;
 use sqlx::PgPool;
 
-use crate::models::{LowStockWatchedProduct, ProductWatcherUser, WatchedProductWithInventory};
+use crate::models::{LowStockWatchedProduct, WatchedProductWithInventory};
 
 pub struct ProductWatcherRepo;
 
@@ -120,38 +120,6 @@ impl ProductWatcherRepo {
             GROUP BY pw.product_id, p.pdt_name, i.quantity
             "#,
         )
-        .fetch_all(pool)
-        .await?;
-        Ok(rows)
-    }
-
-    /// 查询产品的关注者（Worker 用）
-    pub async fn find_watchers_by_product(
-        pool: &PgPool,
-        product_id: i64,
-    ) -> Result<Vec<ProductWatcherUser>> {
-        let rows = sqlx::query_as::<_, ProductWatcherUser>(
-            "SELECT user_id FROM product_watchers WHERE product_id = $1",
-        )
-        .bind(product_id)
-        .fetch_all(pool)
-        .await?;
-        Ok(rows)
-    }
-
-    /// 批量查询多个产品的关注者（Worker 用）
-    /// 返回 (product_id, Vec<ProductWatcherUser>) 对
-    pub async fn find_watchers_by_products(
-        pool: &PgPool,
-        product_ids: &[i64],
-    ) -> Result<Vec<(i64, i64)>> {
-        if product_ids.is_empty() {
-            return Ok(vec![]);
-        }
-        let rows: Vec<(i64, i64)> = sqlx::query_as(
-            "SELECT product_id, user_id FROM product_watchers WHERE product_id = ANY($1)",
-        )
-        .bind(product_ids)
         .fetch_all(pool)
         .await?;
         Ok(rows)

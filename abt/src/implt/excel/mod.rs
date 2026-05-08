@@ -4,6 +4,7 @@
 
 mod bom_export;
 mod boms_no_labor_cost_export;
+mod category_export;
 mod labor_process_dict_export;
 mod labor_process_export;
 mod labor_process_import;
@@ -25,6 +26,7 @@ use crate::service::ImportSource;
 
 pub use bom_export::BomExporter;
 pub use boms_no_labor_cost_export::BomsWithoutLaborCostExporter;
+pub use category_export::export_categories_to_bytes;
 pub use labor_process_dict_export::LaborProcessDictExporter;
 pub use labor_process_export::LaborProcessExporter;
 pub use labor_process_import::{normalize_process_name, LaborProcessImporter};

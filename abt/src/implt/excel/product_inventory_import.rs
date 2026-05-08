@@ -30,13 +30,13 @@ struct ExcelRow {
     product_name: Option<String>,
     #[serde(rename = "库位编码")]
     location_code: Option<String>,
-    #[serde(rename = "库存数量", deserialize_with = "deserialize_optional_decimal")]
+    #[serde(default, rename = "库存数量", deserialize_with = "deserialize_optional_decimal")]
     quantity: Option<Decimal>,
-    #[serde(rename = "价格", deserialize_with = "deserialize_optional_decimal")]
+    #[serde(default, rename = "价格", deserialize_with = "deserialize_optional_decimal")]
     price: Option<Decimal>,
-    #[serde(rename = "安全库存", deserialize_with = "deserialize_optional_decimal")]
+    #[serde(default, rename = "安全库存", deserialize_with = "deserialize_optional_decimal")]
     safety_stock: Option<Decimal>,
-    #[serde(rename = "分类ID")]
+    #[serde(default, rename = "分类ID")]
     category_ids: Option<String>,
 }
 

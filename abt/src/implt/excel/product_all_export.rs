@@ -11,11 +11,11 @@ use crate::repositories::InventoryRepo;
 use crate::service::{ExcelExportService, ExportRequest};
 
 /// 产品全量导出列定义（schema-as-code）
-pub const PRODUCT_EXPORT_HEADERS: [&str; 10] = [
+pub const PRODUCT_EXPORT_HEADERS: [&str; 12] = [
     "产品ID", "产品名称", "产品编码", "规格", "单位", "仓库名称", "库位编码",
-    "库存数量", "安全库存", "价格",
+    "库存数量", "安全库存", "价格", "分类ID", "分类名称",
 ];
-const _: () = assert!(PRODUCT_EXPORT_HEADERS.len() == 10);
+const _: () = assert!(PRODUCT_EXPORT_HEADERS.len() == 12);
 
 pub struct ProductAllExporter {
     pool: PgPool,
@@ -51,6 +51,12 @@ impl ExcelExportService for ProductAllExporter {
             worksheet.write_number(row_num, 7, row.quantity.to_f64().unwrap_or(0.0))?;
             worksheet.write_number(row_num, 8, row.safety_stock.to_f64().unwrap_or(0.0))?;
             worksheet.write_number(row_num, 9, row.price.to_f64().unwrap_or(0.0))?;
+            if let Some(ref ids) = row.category_ids {
+                worksheet.write_string(row_num, 10, ids)?;
+            }
+            if let Some(ref names) = row.category_names {
+                worksheet.write_string(row_num, 11, names)?;
+            }
         }
 
         Ok(workbook.save_to_buffer()?)

@@ -534,11 +534,21 @@ impl InventoryRepo {
                 l.location_code,
                 i.quantity,
                 i.safety_stock,
-                COALESCE((SELECT price FROM product_price WHERE product_id = p.product_id ORDER BY created_at DESC LIMIT 1), 0) as price
+                COALESCE((SELECT price FROM product_price WHERE product_id = p.product_id ORDER BY created_at DESC LIMIT 1), 0) as price,
+                cat.ids as category_ids,
+                cat.names as category_names
             FROM inventory i
             JOIN products p ON i.product_id = p.product_id
             JOIN location l ON i.location_id = l.location_id
             JOIN warehouse w ON l.warehouse_id = w.warehouse_id
+            LEFT JOIN LATERAL (
+                SELECT
+                    string_agg(tr.term_id::text, ',') AS ids,
+                    string_agg(t.term_name, ',') AS names
+                FROM term_relation tr
+                JOIN terms t ON t.term_id = tr.term_id
+                WHERE tr.product_id = p.product_id
+            ) cat ON TRUE
             ORDER BY w.warehouse_name, l.location_code, p.pdt_name
             "#,
         )

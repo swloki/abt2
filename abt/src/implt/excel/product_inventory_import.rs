@@ -15,10 +15,10 @@ use crate::repositories::{InventoryRepo, LocationRepo, ProductRepo};
 use crate::service::{ExcelImportService, ImportResult, ImportSource};
 
 /// 产品导入列定义（schema-as-code，与导出共享）
-pub const PRODUCT_IMPORT_HEADERS: [&str; 7] = [
-    "新编码", "旧编码", "物料名称", "库位编码", "库存数量", "价格", "安全库存",
+pub const PRODUCT_IMPORT_HEADERS: [&str; 8] = [
+    "新编码", "旧编码", "物料名称", "库位编码", "库存数量", "价格", "安全库存", "分类ID",
 ];
-const _: () = assert!(PRODUCT_IMPORT_HEADERS.len() == 7);
+const _: () = assert!(PRODUCT_IMPORT_HEADERS.len() == 8);
 
 #[derive(Debug, Deserialize)]
 struct ExcelRow {
@@ -36,6 +36,8 @@ struct ExcelRow {
     price: Option<Decimal>,
     #[serde(rename = "安全库存", deserialize_with = "deserialize_optional_decimal")]
     safety_stock: Option<Decimal>,
+    #[serde(rename = "分类ID")]
+    category_ids: Option<String>,
 }
 
 struct PendingItem {
@@ -45,6 +47,7 @@ struct PendingItem {
     price: Option<Decimal>,
     safety_stock: Option<Decimal>,
     new_name: Option<String>,
+    category_ids: Vec<i64>,
 }
 
 pub struct ProductInventoryImporter {
@@ -157,6 +160,21 @@ impl ExcelImportService for ProductInventoryImporter {
                 .filter(|n| !n.is_empty() && **n != db_name)
                 .cloned();
 
+            let category_ids: Vec<i64> = row
+                .category_ids
+                .as_deref()
+                .unwrap_or("")
+                .split(',')
+                .filter_map(|s| {
+                    let s = s.trim();
+                    if s.is_empty() {
+                        None
+                    } else {
+                        s.parse::<i64>().ok()
+                    }
+                })
+                .collect();
+
             pending_items.push(PendingItem {
                 product_id,
                 location_id,
@@ -164,6 +182,7 @@ impl ExcelImportService for ProductInventoryImporter {
                 price: row.price,
                 safety_stock: row.safety_stock,
                 new_name,
+                category_ids,
             });
         }
 
@@ -270,6 +289,15 @@ impl ExcelImportService for ProductInventoryImporter {
                 }
             }
 
+            if !item.category_ids.is_empty()
+                && let Err(e) = sync_product_categories(&mut tx, item.product_id, &item.category_ids)
+                    .await
+            {
+                result.failed_count += 1;
+                result.errors.push(format!("更新分类关联失败 product_id={}: {}", item.product_id, e));
+                continue;
+            }
+
             result.success_count += 1;
         }
 
@@ -357,6 +385,31 @@ async fn upsert_inventory_safety_stock(
     )
     .execute(&mut **tx)
     .await?;
+
+    Ok(())
+}
+
+async fn sync_product_categories(
+    tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
+    product_id: i64,
+    category_ids: &[i64],
+) -> Result<()> {
+    sqlx::query!(
+        "DELETE FROM term_relation WHERE product_id = $1",
+        product_id
+    )
+    .execute(&mut **tx)
+    .await?;
+
+    for term_id in category_ids {
+        sqlx::query!(
+            "INSERT INTO term_relation (term_id, product_id) VALUES ($1, $2)",
+            term_id,
+            product_id
+        )
+        .execute(&mut **tx)
+        .await?;
+    }
 
     Ok(())
 }

@@ -248,6 +248,8 @@ pub struct InventoryExportRow {
     pub quantity: Decimal,
     pub safety_stock: Decimal,
     pub price: Decimal,
+    pub category_ids: Option<String>,
+    pub category_names: Option<String>,
 }
 
 // ============================================================================

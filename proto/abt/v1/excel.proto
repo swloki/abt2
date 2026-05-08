@@ -62,7 +62,7 @@ message UploadFileResponse {
 // 流式下载请求
 message DownloadExportFileRequest {
   // 导出类型: "products"（默认）= 所有产品, "products_without_price" = 无价格产品,
-  //          "warehouse_location" = 仓库库位
+  //          "warehouse_location" = 仓库库位, "category" = 产品分类
   string export_type = 1;
 }
 

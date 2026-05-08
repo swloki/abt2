@@ -17,6 +17,7 @@ const IMPORT_KEY_PRODUCT_INVENTORY: &str = "product_inventory";
 const IMPORT_KEY_WAREHOUSE_LOCATION: &str = "warehouse_location";
 const EXPORT_TYPE_PRODUCTS_WITHOUT_PRICE: &str = "products_without_price";
 const EXPORT_TYPE_WAREHOUSE_LOCATION: &str = "warehouse_location";
+const EXPORT_TYPE_CATEGORY: &str = "category";
 
 pub struct ExcelHandler {
     active_imports: Mutex<HashMap<String, Arc<abt::excel::ProgressTracker>>>,
@@ -232,6 +233,16 @@ impl GrpcExcelService for ExcelHandler {
                     .map_err(error::err_to_status)?;
                 let name = format!(
                     "warehouse_location_{}.xlsx",
+                    chrono::Utc::now().format("%Y%m%d%H%M%S")
+                );
+                (b, name)
+            }
+            EXPORT_TYPE_CATEGORY => {
+                let b = abt::excel::export_categories_to_bytes(&state.pool())
+                    .await
+                    .map_err(error::err_to_status)?;
+                let name = format!(
+                    "category_export_{}.xlsx",
                     chrono::Utc::now().format("%Y%m%d%H%M%S")
                 );
                 (b, name)

@@ -1847,7 +1847,7 @@ pub struct UploadFileResponse {
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DownloadExportFileRequest {
     /// 导出类型: "products"（默认）= 所有产品, "products_without_price" = 无价格产品,
-    /// "warehouse_location" = 仓库库位
+    /// "warehouse_location" = 仓库库位, "category" = 产品分类
     #[prost(string, tag = "1")]
     pub export_type: ::prost::alloc::string::String,
 }

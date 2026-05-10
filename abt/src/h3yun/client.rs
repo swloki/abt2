@@ -11,8 +11,7 @@ const DEFAULT_ENDPOINT: &str = "https://www.h3yun.com/OpenApi/Invoke";
 const DEFAULT_ENGINE_CODE: &str = "wkcmav3emlzu0l1smysmopu85";
 const DEFAULT_ENGINE_SECRET: &str = "PO+ZqVdtElYtTteED8z0wPUs5QBP/3WoXzGj4PEYYyKl0riiEhB8Rw==";
 
-/// H3Yun API 客户端
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct H3YunClient {
     client: Client,
     endpoint: String,
@@ -68,11 +67,9 @@ impl H3YunClient {
             })
     }
 
-    /// 更新 BizObject
     pub async fn update(
         &self,
         schema_code: &str,
-        _object_id: &str,
         biz_object: &str,
     ) -> Result<(), SyncError> {
         let req = H3YunRequest {

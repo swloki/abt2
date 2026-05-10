@@ -45,6 +45,7 @@ impl AppState {
 
         // Start H3Yun sync worker
         let h3yun_client = abt::h3yun::client::H3YunClient::new();
+        abt::h3yun::init_h3yun_client(h3yun_client.clone());
         abt::h3yun::sync_worker::start_sync_channel(ctx.pool().clone(), h3yun_client);
 
         let state = Arc::new(AppState {
@@ -240,7 +241,7 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
             crate::handlers::task_scheduler::TaskSchedulerHandler::new(), auth_interceptor,
         ))
         .add_service(AbtSyncServiceServer::with_interceptor(
-            crate::handlers::sync_handler::SyncHandler::new(), auth_interceptor,
+            crate::handlers::sync_handler::SyncHandler, auth_interceptor,
         ))
         .serve_with_shutdown(addr, async move {
             tokio::signal::ctrl_c().await.expect("failed to listen for ctrl+c");

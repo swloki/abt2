@@ -40,7 +40,12 @@ impl AppState {
         let shutdown = Arc::new(AtomicBool::new(false));
         let mut scheduler = abt::implt::TaskScheduler::new(shutdown.clone());
         scheduler.register(abt::implt::StockAlertTask::new(ctx.pool().clone()));
+        scheduler.register(abt::h3yun::scheduled::H3YunSyncTask::new(ctx.pool().clone()));
         scheduler.start().await;
+
+        // Start H3Yun sync worker
+        let h3yun_client = abt::h3yun::client::H3YunClient::new();
+        abt::h3yun::sync_worker::start_sync_channel(ctx.pool().clone(), h3yun_client);
 
         let state = Arc::new(AppState {
             abt_context: ctx,
@@ -168,7 +173,7 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
     use crate::handlers::{
         AbtBomServiceServer, AbtExcelServiceServer, AbtInventoryServiceServer,
         AbtLaborProcessServiceServer, AbtLaborProcessDictServiceServer, AbtLocationServiceServer, AbtPriceServiceServer,
-        AbtProductServiceServer, AbtRoutingServiceServer, AbtTermServiceServer, AbtWarehouseServiceServer,
+        AbtProductServiceServer, AbtRoutingServiceServer, AbtSyncServiceServer, AbtTermServiceServer, AbtWarehouseServiceServer,
         AuthServiceServer, AbtBomCategoryServiceServer, DepartmentServiceServer,
         PermissionServiceServer, RoleServiceServer, UserServiceServer,
     };
@@ -233,6 +238,9 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(crate::handlers::AbtTaskSchedulerServiceServer::with_interceptor(
             crate::handlers::task_scheduler::TaskSchedulerHandler::new(), auth_interceptor,
+        ))
+        .add_service(AbtSyncServiceServer::with_interceptor(
+            crate::handlers::sync_handler::SyncHandler::new(), auth_interceptor,
         ))
         .serve_with_shutdown(addr, async move {
             tokio::signal::ctrl_c().await.expect("failed to listen for ctrl+c");

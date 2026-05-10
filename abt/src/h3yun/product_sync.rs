@@ -1,4 +1,4 @@
-//! 产品同步逻辑 — 字段映射 + create/update/delete
+//! 产品同步逻辑
 
 use sqlx::PgPool;
 use tracing::{info, warn};
@@ -8,78 +8,25 @@ use super::models::{schema, EntityType, SyncError};
 use super::sync_state::SyncStateRepo;
 use crate::models::Product;
 
-/// 同步单个产品到 H3Yun
 pub async fn sync_product(
     pool: &PgPool,
     client: &H3YunClient,
     product: &Product,
     category_path: Option<&(String, String, String)>,
 ) -> Result<(), SyncError> {
-    let biz_object = build_product_payload(product, category_path);
-    let biz_json = serde_json::to_string(&biz_object).map_err(|e| SyncError::ValidationError {
+    let payload = build_product_payload(product, category_path);
+    let biz_json = serde_json::to_string(&payload).map_err(|e| SyncError::ValidationError {
         record_id: product.product_code.clone(),
         fields: vec![format!("JSON serialize failed: {e}")],
     })?;
 
-    // 查映射表
-    let existing = SyncStateRepo::find(pool, EntityType::Product, product.product_id)
-        .await
-        .map_err(|e| SyncError::FatalError {
-            reason: format!("DB query failed: {e}"),
-        })?;
-
-    match existing {
-        Some(state) if state.h3yun_object_id.is_some() => {
-            // 已有 ObjectId → UpdateBizObject
-            let object_id = state.h3yun_object_id.as_ref().unwrap();
-            client
-                .update(schema::PRODUCT, object_id, &biz_json)
-                .await?;
-
-            SyncStateRepo::update_synced(pool, state.id, object_id, None)
-                .await
-                .map_err(|e| SyncError::FatalError {
-                    reason: format!("DB update failed: {e}"),
-                })?;
-
-            info!(
-                product_id = product.product_id,
-                object_id,
-                "Product synced (update)"
-            );
-        }
-        _ => {
-            // 无映射 → CreateBizObject
-            let object_id = client.create(schema::PRODUCT, &biz_json).await?;
-
-            SyncStateRepo::upsert(
-                pool,
-                EntityType::Product,
-                product.product_id,
-                &object_id,
-                None,
-            )
-            .await
-            .map_err(|e| SyncError::FatalError {
-                reason: format!("DB upsert failed: {e}"),
-            })?;
-
-            info!(
-                product_id = product.product_id,
-                object_id,
-                "Product synced (create)"
-            );
-        }
-    }
-
-    Ok(())
+    super::sync_entity(pool, client, schema::PRODUCT, EntityType::Product, product.product_id, &biz_json, "product").await
 }
 
-/// 删除产品同步 — 产品在 ABT 被删除时调用
 pub async fn delete_product_sync(pool: &PgPool, client: &H3YunClient, product_id: i64) {
     let existing = match SyncStateRepo::find(pool, EntityType::Product, product_id).await {
         Ok(Some(s)) if s.h3yun_object_id.is_some() => s,
-        _ => return, // 未同步过，跳过
+        _ => return,
     };
 
     let object_id = existing.h3yun_object_id.as_ref().unwrap();
@@ -93,13 +40,11 @@ pub async fn delete_product_sync(pool: &PgPool, client: &H3YunClient, product_id
         }
     }
 
-    // 无论 H3Yun 删除是否成功，都清理映射行
     if let Err(e) = SyncStateRepo::delete(pool, EntityType::Product, product_id).await {
         warn!(product_id, error = %e, "Failed to delete sync state mapping");
     }
 }
 
-/// 构造产品 H3Yun payload
 fn build_product_payload(
     product: &Product,
     category_path: Option<&(String, String, String)>,

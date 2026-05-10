@@ -9,19 +9,8 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::server::AppState;
 
+#[derive(Default)]
 pub struct SyncHandler;
-
-impl SyncHandler {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Default for SyncHandler {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[tonic::async_trait]
 impl GrpcSyncService for SyncHandler {
@@ -34,15 +23,11 @@ impl GrpcSyncService for SyncHandler {
             return Err(error::validation("product_id", "产品 ID 无效"));
         }
 
-        let sender = abt::h3yun::get_sync_event_sender().clone();
-        let event = abt::h3yun::models::SyncEvent {
-            entity_type: abt::h3yun::models::EntityType::Product,
-            entity_id: req.product_id,
-            priority: abt::h3yun::models::Priority::Normal,
-        };
-
-        sender
-            .send(event)
+        abt::h3yun::get_sync_event_sender()
+            .send(abt::h3yun::models::SyncEvent {
+                entity_type: abt::h3yun::models::EntityType::Product,
+                entity_id: req.product_id,
+            })
             .await
             .map_err(|e| error::err_to_status(anyhow::anyhow!("Failed to send sync event: {e}")))?;
 
@@ -68,17 +53,18 @@ impl GrpcSyncService for SyncHandler {
                 .0
         };
 
-        let sender = abt::h3yun::get_sync_event_sender().clone();
+        let sender = abt::h3yun::get_sync_event_sender();
         let mut queued = 0i32;
 
         for product in &products {
-            let event = abt::h3yun::models::SyncEvent {
-                entity_type: abt::h3yun::models::EntityType::Product,
-                entity_id: product.product_id,
-                priority: abt::h3yun::models::Priority::Low,
-            };
-
-            if sender.send(event).await.is_ok() {
+            if sender
+                .send(abt::h3yun::models::SyncEvent {
+                    entity_type: abt::h3yun::models::EntityType::Product,
+                    entity_id: product.product_id,
+                })
+                .await
+                .is_ok()
+            {
                 queued += 1;
             }
         }
@@ -109,17 +95,18 @@ impl GrpcSyncService for SyncHandler {
                 .map_err(error::err_to_status)?
         };
 
-        let sender = abt::h3yun::get_sync_event_sender().clone();
+        let sender = abt::h3yun::get_sync_event_sender();
         let mut queued = 0i32;
 
         for inv in &inventories {
-            let event = abt::h3yun::models::SyncEvent {
-                entity_type: abt::h3yun::models::EntityType::Inventory,
-                entity_id: inv.inventory_id,
-                priority: abt::h3yun::models::Priority::Normal,
-            };
-
-            if sender.send(event).await.is_ok() {
+            if sender
+                .send(abt::h3yun::models::SyncEvent {
+                    entity_type: abt::h3yun::models::EntityType::Inventory,
+                    entity_id: inv.inventory_id,
+                })
+                .await
+                .is_ok()
+            {
                 queued += 1;
             }
         }
@@ -143,7 +130,7 @@ impl GrpcSyncService for SyncHandler {
         };
 
         let state = AppState::get().await;
-        let client = abt::h3yun::client::H3YunClient::new();
+        let client = abt::h3yun::get_h3yun_client();
         let schema_code = match entity_type {
             abt::h3yun::models::EntityType::Product => abt::h3yun::models::schema::PRODUCT,
             abt::h3yun::models::EntityType::Inventory => abt::h3yun::models::schema::WAREHOUSE,
@@ -154,9 +141,8 @@ impl GrpcSyncService for SyncHandler {
             .await
             .map_err(|e| error::err_to_status(anyhow::anyhow!("H3Yun query failed: {e}")))?;
 
-        let pool = state.pool();
         let local_mappings = abt::h3yun::sync_state::SyncStateRepo::find_all_by_type(
-            &pool,
+            &state.pool(),
             entity_type,
         )
         .await

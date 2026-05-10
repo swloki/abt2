@@ -1,10 +1,10 @@
-//! H3Yun 同步定时任务 — 扫描未同步实体并发送事件
+//! H3Yun 同步定时任务
 
 use async_trait::async_trait;
 use sqlx::PgPool;
 use tracing::info;
 
-use super::models::{EntityType, Priority, SyncEvent};
+use super::models::{EntityType, SyncEvent};
 use super::sync_state::SyncStateRepo;
 use crate::service::{ScheduledTask, TaskRunResult};
 
@@ -24,16 +24,11 @@ impl ScheduledTask for H3YunSyncTask {
         "h3yun_sync"
     }
 
-    fn interval_secs(&self) -> u64 {
-        300 // 5 分钟
-    }
-
     fn timeout_secs(&self) -> u64 {
-        600 // 覆盖默认 60s
+        600
     }
 
     async fn run_once(&self) -> anyhow::Result<TaskRunResult> {
-        // 查询未同步的产品实体 ID
         let unsynced_products =
             SyncStateRepo::find_entity_ids_never_synced(&self.pool, EntityType::Product, 500)
                 .await?;
@@ -46,14 +41,13 @@ impl ScheduledTask for H3YunSyncTask {
             });
         }
 
-        let sender = crate::h3yun::get_sync_event_sender().clone();
+        let sender = crate::h3yun::get_sync_event_sender();
         let mut queued = 0;
 
         for product_id in &unsynced_products {
             let event = SyncEvent {
                 entity_type: EntityType::Product,
                 entity_id: *product_id,
-                priority: Priority::Low,
             };
 
             if sender.send(event).await.is_ok() {

@@ -177,6 +177,16 @@ impl GrpcProductService for ProductHandler {
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
+        // 异步删除 H3Yun 同步记录（不阻塞主流程）
+        if abt::h3yun::has_sync_event_sender() {
+            let state = AppState::get().await;
+            let pool = state.pool();
+            let client = abt::h3yun::client::H3YunClient::new();
+            tokio::spawn(async move {
+                abt::h3yun::product_sync::delete_product_sync(&pool, &client, req.product_id).await;
+            });
+        }
+
         Ok(Response::new(BoolResponse { value: true }))
     }
 

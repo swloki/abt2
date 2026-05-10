@@ -11,6 +11,7 @@ use std::sync::OnceLock;
 use tokio::sync::{Mutex, OnceCell};
 
 // Internal modules
+pub mod h3yun;
 pub mod implt;
 mod permission_cache;
 pub mod models;

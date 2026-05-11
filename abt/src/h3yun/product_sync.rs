@@ -31,17 +31,17 @@ pub async fn delete_product_sync(pool: &PgPool, client: &H3YunClient, product_id
 
     let object_id = existing.h3yun_object_id.as_ref().unwrap();
 
+    // Only delete local mapping after successful H3Yun delete
     match client.delete(schema::PRODUCT, object_id).await {
         Ok(()) => {
             info!(product_id, object_id, "Product deleted from H3Yun");
+            if let Err(e) = SyncStateRepo::delete(pool, EntityType::Product, product_id).await {
+                warn!(product_id, error = %e, "Failed to delete sync state mapping after H3Yun delete");
+            }
         }
         Err(e) => {
-            warn!(product_id, object_id, error = %e, "Failed to delete product from H3Yun");
+            warn!(product_id, object_id, error = %e, "Failed to delete product from H3Yun, keeping local mapping");
         }
-    }
-
-    if let Err(e) = SyncStateRepo::delete(pool, EntityType::Product, product_id).await {
-        warn!(product_id, error = %e, "Failed to delete sync state mapping");
     }
 }
 
@@ -62,6 +62,49 @@ fn build_product_payload(
         "Pgroup": pgroup,
         "PgroupM": pgroup_m,
         "PgroupS": pgroup_s,
+        // Fa5124b81d6f8b7c245d4bf99b59a04b62a2e519 — H3Yun "自动倒冲" field
         "Fa5124b81d6f8b7c245d4bf99b59a04b62a2e519": "系统倒冲"
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::{Product, ProductMeta};
+
+    fn test_product() -> Product {
+        Product {
+            product_id: 1,
+            product_code: "P001".to_string(),
+            pdt_name: "Test Product".to_string(),
+            unit: "个".to_string(),
+            meta: ProductMeta {
+                specification: "100x200".to_string(),
+                acquire_channel: "采购".to_string(),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn payload_without_category() {
+        let product = test_product();
+        let payload = build_product_payload(&product, None);
+        assert_eq!(payload["Procode"], "P001");
+        assert_eq!(payload["Proname"], "Test Product");
+        assert_eq!(payload["Pgroup"], "");
+        assert_eq!(payload["PgroupM"], "");
+        assert_eq!(payload["PgroupS"], "");
+    }
+
+    #[test]
+    fn payload_with_category() {
+        let product = test_product();
+        let cat = ("电子".to_string(), "电阻".to_string(), "贴片电阻".to_string());
+        let payload = build_product_payload(&product, Some(&cat));
+        assert_eq!(payload["Pgroup"], "电子");
+        assert_eq!(payload["PgroupM"], "电阻");
+        assert_eq!(payload["PgroupS"], "贴片电阻");
+    }
 }

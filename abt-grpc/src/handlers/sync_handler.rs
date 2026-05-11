@@ -1,5 +1,6 @@
 //! H3Yun Sync gRPC Handler
 
+use abt_macros::require_permission;
 use common::error;
 use tonic::{Request, Response};
 
@@ -7,13 +8,27 @@ use crate::generated::abt::v1::{
     abt_sync_service_server::AbtSyncService as GrpcSyncService, *,
 };
 use crate::handlers::GrpcResult;
+use crate::interceptors::auth::extract_auth;
+use crate::permissions::PermissionCode;
 use crate::server::AppState;
 
-#[derive(Default)]
 pub struct SyncHandler;
+
+impl SyncHandler {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+impl Default for SyncHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[tonic::async_trait]
 impl GrpcSyncService for SyncHandler {
+    #[require_permission(Resource::Sync, Action::Write)]
     async fn sync_product(
         &self,
         request: Request<SyncProductRequest>,
@@ -38,29 +53,38 @@ impl GrpcSyncService for SyncHandler {
         }))
     }
 
+    #[require_permission(Resource::Sync, Action::Write)]
     async fn sync_all_products(
         &self,
         _request: Request<SyncAllRequest>,
     ) -> GrpcResult<SyncResponse> {
         let state = AppState::get().await;
-        let products: Vec<abt::models::Product> = {
+        let product_ids: Vec<i64> = {
             use abt::service::ProductService;
+            let query = abt::models::ProductQuery {
+                page: Some(1),
+                page_size: Some(99999),
+                ..Default::default()
+            };
             state
                 .product_service()
-                .query(abt::models::ProductQuery::default())
+                .query(query)
                 .await
                 .map_err(error::err_to_status)?
                 .0
+                .into_iter()
+                .map(|p| p.product_id)
+                .collect()
         };
 
         let sender = abt::h3yun::get_sync_event_sender();
         let mut queued = 0i32;
 
-        for product in &products {
+        for product_id in &product_ids {
             if sender
                 .send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Product,
-                    entity_id: product.product_id,
+                    entity_id: *product_id,
                 })
                 .await
                 .is_ok()
@@ -76,6 +100,7 @@ impl GrpcSyncService for SyncHandler {
         }))
     }
 
+    #[require_permission(Resource::Sync, Action::Write)]
     async fn sync_inventory(
         &self,
         request: Request<SyncInventoryRequest>,
@@ -118,6 +143,7 @@ impl GrpcSyncService for SyncHandler {
         }))
     }
 
+    #[require_permission(Resource::Sync, Action::Read)]
     async fn reconcile(
         &self,
         request: Request<ReconcileRequest>,

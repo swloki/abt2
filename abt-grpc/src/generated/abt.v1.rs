@@ -5369,6 +5369,7 @@ pub enum Resource {
     Routing = 14,
     BomCost = 15,
     BomLaborCost = 16,
+    Sync = 17,
 }
 impl Resource {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -5394,6 +5395,7 @@ impl Resource {
             Self::Routing => "ROUTING",
             Self::BomCost => "BOM_COST",
             Self::BomLaborCost => "BOM_LABOR_COST",
+            Self::Sync => "SYNC",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -5416,6 +5418,7 @@ impl Resource {
             "ROUTING" => Some(Self::Routing),
             "BOM_COST" => Some(Self::BomCost),
             "BOM_LABOR_COST" => Some(Self::BomLaborCost),
+            "SYNC" => Some(Self::Sync),
             _ => None,
         }
     }

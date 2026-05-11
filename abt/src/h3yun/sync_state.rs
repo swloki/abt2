@@ -115,11 +115,15 @@ impl SyncStateRepo {
         entity_type: EntityType,
         limit: i64,
     ) -> Result<Vec<i64>> {
+        // Find products that either have no sync_state row at all, or have one but never completed
         let rows = sqlx::query_scalar::<_, i64>(
             r#"
-            SELECT entity_id
-            FROM h3yun_sync_state
-            WHERE entity_type = $1 AND last_synced_at IS NULL
+            SELECT p.product_id
+            FROM products p
+            LEFT JOIN h3yun_sync_state s
+                ON s.entity_id = p.product_id AND s.entity_type = $1
+            WHERE p.deleted_at IS NULL
+              AND (s.id IS NULL OR s.last_synced_at IS NULL)
             LIMIT $2
             "#,
         )

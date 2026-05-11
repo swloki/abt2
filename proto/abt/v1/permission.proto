@@ -24,6 +24,7 @@ enum Resource {
   ROUTING = 14;
   BOM_COST = 15;
   BOM_LABOR_COST = 16;
+  SYNC = 17;
 }
 
 // 权限操作枚举

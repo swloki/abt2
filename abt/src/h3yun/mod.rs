@@ -68,7 +68,7 @@ pub(crate) async fn sync_entity(
     match existing {
         Some(state) if state.h3yun_object_id.is_some() => {
             let object_id = state.h3yun_object_id.as_ref().unwrap();
-            client.update(schema_code, biz_json).await?;
+            client.update(schema_code, object_id, biz_json).await?;
 
             SyncStateRepo::update_synced(pool, state.id, object_id)
                 .await

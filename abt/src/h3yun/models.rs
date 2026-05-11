@@ -102,3 +102,40 @@ pub mod action {
     pub const UPDATE: &str = "UpdateBizObject";
     pub const REMOVE: &str = "RemoveBizObject";
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn entity_type_as_str() {
+        assert_eq!(EntityType::Product.as_str(), "product");
+        assert_eq!(EntityType::Inventory.as_str(), "inventory");
+    }
+
+    #[test]
+    fn sync_error_display_transient() {
+        let err = SyncError::Transient { backoff_hint: Duration::from_secs(5) };
+        let msg = format!("{err}");
+        assert!(msg.contains("Transient"));
+        assert!(msg.contains("5"));
+    }
+
+    #[test]
+    fn sync_error_display_validation() {
+        let err = SyncError::ValidationError {
+            record_id: "P001".to_string(),
+            fields: vec!["bad field".to_string()],
+        };
+        let msg = format!("{err}");
+        assert!(msg.contains("P001"));
+        assert!(msg.contains("bad field"));
+    }
+
+    #[test]
+    fn sync_error_display_fatal() {
+        let err = SyncError::FatalError { reason: "boom".to_string() };
+        let msg = format!("{err}");
+        assert!(msg.contains("boom"));
+    }
+}

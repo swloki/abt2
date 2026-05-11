@@ -1,6 +1,8 @@
 //! Sync Worker — Channel 消费者，逐记录错误隔离
 
 use sqlx::PgPool;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 
@@ -9,12 +11,13 @@ use super::inventory_sync::{self, InventorySyncData};
 use super::models::{EntityType, SyncError, SyncEvent};
 use super::product_sync;
 
-pub fn start_sync_channel(pool: PgPool, client: H3YunClient) -> mpsc::Sender<SyncEvent> {
+pub fn start_sync_channel(pool: PgPool, client: H3YunClient, shutdown: Arc<AtomicBool>) -> mpsc::Sender<SyncEvent> {
     let (tx, rx) = mpsc::channel::<SyncEvent>(1000);
     let worker = SyncWorker {
         receiver: rx,
         pool,
         client,
+        shutdown,
     };
 
     tokio::spawn(async move {
@@ -30,17 +33,41 @@ struct SyncWorker {
     receiver: mpsc::Receiver<SyncEvent>,
     pool: PgPool,
     client: H3YunClient,
+    shutdown: Arc<AtomicBool>,
 }
 
 impl SyncWorker {
     async fn run(mut self) {
         info!("Sync worker running, waiting for events...");
 
-        while let Some(event) = self.receiver.recv().await {
+        loop {
+            if self.shutdown.load(Ordering::Acquire) {
+                info!("Sync worker shutting down...");
+                break;
+            }
+
+            tokio::select! {
+                event = self.receiver.recv() => {
+                    match event {
+                        Some(event) => self.handle_event(event).await,
+                        None => break, // Channel closed
+                    }
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_secs(5)) => {
+                    continue; // Periodic shutdown check
+                }
+            }
+        }
+
+        // Drain remaining events before exit
+        while let Ok(event) = self.receiver.try_recv() {
+            if self.shutdown.load(Ordering::Acquire) {
+                break;
+            }
             self.handle_event(event).await;
         }
 
-        info!("Sync worker stopped (channel closed)");
+        info!("Sync worker stopped");
     }
 
     async fn handle_event(&self, event: SyncEvent) {
@@ -80,10 +107,13 @@ impl SyncWorker {
 
     async fn fetch_product(&self, product_id: i64) -> Option<crate::models::Product> {
         use crate::repositories::ProductRepo;
-        ProductRepo::find_by_id(&self.pool, product_id)
-            .await
-            .ok()
-            .flatten()
+        match ProductRepo::find_by_id(&self.pool, product_id).await {
+            Ok(product) => product,
+            Err(e) => {
+                warn!(product_id, error = %e, "Failed to fetch product from DB");
+                None
+            }
+        }
     }
 
     async fn fetch_category_path(

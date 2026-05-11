@@ -11,7 +11,7 @@ const DEFAULT_ENDPOINT: &str = "https://www.h3yun.com/OpenApi/Invoke";
 const DEFAULT_ENGINE_CODE: &str = "wkcmav3emlzu0l1smysmopu85";
 const DEFAULT_ENGINE_SECRET: &str = "PO+ZqVdtElYtTteED8z0wPUs5QBP/3WoXzGj4PEYYyKl0riiEhB8Rw==";
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default)]
 pub struct H3YunClient {
     client: Client,
     endpoint: String,
@@ -19,8 +19,18 @@ pub struct H3YunClient {
     engine_secret: String,
 }
 
+// Manual Debug to avoid leaking credentials in logs
+impl std::fmt::Debug for H3YunClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("H3YunClient")
+            .field("endpoint", &self.endpoint)
+            .field("engine_code", &"[REDACTED]")
+            .finish()
+    }
+}
+
 impl H3YunClient {
-    /// 创建客户端，从环境变量读取凭证
+    /// 创建客户端，优先从环境变量读取凭证，未设置则使用默认值
     pub fn new() -> Self {
         let engine_code = std::env::var("H3YUN_ENGINE_CODE").unwrap_or_else(|_| {
             warn!("H3YUN_ENGINE_CODE not set, using default");
@@ -70,12 +80,20 @@ impl H3YunClient {
     pub async fn update(
         &self,
         schema_code: &str,
+        object_id: &str,
         biz_object: &str,
     ) -> Result<(), SyncError> {
+        // H3Yun UpdateBizObject requires ObjectId in BizObject
+        let mut payload: serde_json::Value = serde_json::from_str(biz_object)
+            .map_err(|e| SyncError::FatalError {
+                reason: format!("Failed to parse biz_object as JSON for update: {e}"),
+            })?;
+        payload["ObjectId"] = serde_json::Value::String(object_id.to_string());
+
         let req = H3YunRequest {
             ActionName: action::UPDATE.to_string(),
             SchemaCode: schema_code.to_string(),
-            BizObject: biz_object.to_string(),
+            BizObject: payload.to_string(),
             IsSubmit: Some(true),
         };
 
@@ -174,8 +192,11 @@ impl H3YunClient {
 
         resp.json::<H3YunResponse>()
             .await
-            .map_err(|_| SyncError::Transient {
-                backoff_hint: Duration::from_secs(3),
+            .map_err(|e| {
+                warn!(status = %status, error = %e, "Failed to parse H3Yun response as JSON");
+                SyncError::FatalError {
+                    reason: format!("Invalid JSON response from H3Yun: {e}"),
+                }
             })
     }
 }
@@ -186,6 +207,10 @@ fn classify_error(message: &str) -> SyncError {
     if msg_lower.contains("timeout")
         || msg_lower.contains("rate")
         || msg_lower.contains("too many")
+        || msg_lower.contains("server")
+        || msg_lower.contains("unavailable")
+        || msg_lower.contains("internal")
+        || msg_lower.contains("connection")
     {
         SyncError::Transient {
             backoff_hint: Duration::from_secs(10),
@@ -197,10 +222,84 @@ fn classify_error(message: &str) -> SyncError {
         SyncError::FatalError {
             reason: message.to_string(),
         }
-    } else {
+    } else if msg_lower.contains("required")
+        || msg_lower.contains("invalid format")
+        || msg_lower.contains("duplicate")
+    {
         SyncError::ValidationError {
             record_id: String::new(),
             fields: vec![message.to_string()],
         }
+    } else {
+        // Default to Transient for unrecognized errors — safer to retry than to skip
+        SyncError::Transient {
+            backoff_hint: Duration::from_secs(10),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::Duration;
+
+    fn is_transient(err: SyncError) -> bool {
+        matches!(err, SyncError::Transient { .. })
+    }
+    fn is_fatal(err: SyncError) -> bool {
+        matches!(err, SyncError::FatalError { .. })
+    }
+    fn is_validation(err: SyncError) -> bool {
+        matches!(err, SyncError::ValidationError { .. })
+    }
+
+    #[test]
+    fn classify_transient_timeout() {
+        assert!(is_transient(classify_error("Request timeout")));
+    }
+
+    #[test]
+    fn classify_transient_rate() {
+        assert!(is_transient(classify_error("Rate limit exceeded")));
+    }
+
+    #[test]
+    fn classify_transient_server() {
+        assert!(is_transient(classify_error("Internal Server Error")));
+    }
+
+    #[test]
+    fn classify_transient_unavailable() {
+        assert!(is_transient(classify_error("Service Unavailable")));
+    }
+
+    #[test]
+    fn classify_fatal_auth() {
+        assert!(is_fatal(classify_error("Authentication failed")));
+    }
+
+    #[test]
+    fn classify_fatal_credential() {
+        assert!(is_fatal(classify_error("Invalid credential")));
+    }
+
+    #[test]
+    fn classify_validation_required() {
+        assert!(is_validation(classify_error("Required field missing")));
+    }
+
+    #[test]
+    fn classify_validation_duplicate() {
+        assert!(is_validation(classify_error("Duplicate key")));
+    }
+
+    #[test]
+    fn classify_unknown_defaults_to_transient() {
+        assert!(is_transient(classify_error("Some unknown error")));
+    }
+
+    #[test]
+    fn classify_empty_defaults_to_transient() {
+        assert!(is_transient(classify_error("")));
     }
 }

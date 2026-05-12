@@ -2607,6 +2607,8 @@ pub struct ListBomsRequest {
     pub bom_category_id: ::core::option::Option<i64>,
     #[prost(enumeration = "BomStatus", optional, tag = "8")]
     pub status: ::core::option::Option<i32>,
+    #[prost(enumeration = "CostFilter", optional, tag = "9")]
+    pub cost_filter: ::core::option::Option<i32>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetBomRequest {
@@ -2884,6 +2886,38 @@ impl BomStatus {
             "BOM_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
             "BOM_STATUS_DRAFT" => Some(Self::Draft),
             "BOM_STATUS_PUBLISHED" => Some(Self::Published),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CostFilter {
+    Unspecified = 0,
+    All = 1,
+    Price = 2,
+    Labor = 3,
+}
+impl CostFilter {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "COST_FILTER_UNSPECIFIED",
+            Self::All => "COST_FILTER_ALL",
+            Self::Price => "COST_FILTER_PRICE",
+            Self::Labor => "COST_FILTER_LABOR",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "COST_FILTER_UNSPECIFIED" => Some(Self::Unspecified),
+            "COST_FILTER_ALL" => Some(Self::All),
+            "COST_FILTER_PRICE" => Some(Self::Price),
+            "COST_FILTER_LABOR" => Some(Self::Labor),
             _ => None,
         }
     }

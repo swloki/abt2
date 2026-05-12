@@ -41,6 +41,13 @@ enum BomStatus {
   BOM_STATUS_PUBLISHED = 2;
 }
 
+enum CostFilter {
+  COST_FILTER_UNSPECIFIED = 0;
+  COST_FILTER_ALL = 1;
+  COST_FILTER_PRICE = 2;
+  COST_FILTER_LABOR = 3;
+}
+
 message BomNodeProto {
   int64 node_id = 1;
   int64 product_id = 2;
@@ -109,6 +116,7 @@ message ListBomsRequest {
   optional string date_to = 6;
   optional int64 bom_category_id = 7;
   optional BomStatus status = 8;
+  optional CostFilter cost_filter = 9;
 }
 
 message GetBomRequest {

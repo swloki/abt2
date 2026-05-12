@@ -269,6 +269,48 @@ impl BomRepo {
             query.push_bind(caller_id);
             query.push(")");
         }
+        if let Some(cost_filter) = &bom_query.cost_filter {
+            match cost_filter {
+                crate::models::CostFilter::Price => {
+                    query.push(
+                        " AND EXISTS (\
+                         SELECT 1 FROM bom_nodes leaf \
+                         WHERE leaf.bom_id = bom.bom_id \
+                         AND NOT EXISTS (SELECT 1 FROM bom_nodes child WHERE child.parent_id = leaf.id) \
+                         AND NOT EXISTS (SELECT 1 FROM product_price pp WHERE pp.product_id = leaf.product_id) \
+                         )",
+                    );
+                }
+                crate::models::CostFilter::Labor => {
+                    query.push(
+                        " AND EXISTS (\
+                         SELECT 1 FROM bom_nodes root \
+                         JOIN products p ON root.product_id = p.product_id \
+                         WHERE root.bom_id = bom.bom_id AND root.parent_id IS NULL \
+                         AND NOT EXISTS (SELECT 1 FROM bom_labor_process blp WHERE blp.product_code = p.product_code) \
+                         )",
+                    );
+                }
+                crate::models::CostFilter::All => {
+                    query.push(
+                        " AND (\
+                         EXISTS (\
+                         SELECT 1 FROM bom_nodes leaf \
+                         WHERE leaf.bom_id = bom.bom_id \
+                         AND NOT EXISTS (SELECT 1 FROM bom_nodes child WHERE child.parent_id = leaf.id) \
+                         AND NOT EXISTS (SELECT 1 FROM product_price pp WHERE pp.product_id = leaf.product_id) \
+                         ) \
+                         OR EXISTS (\
+                         SELECT 1 FROM bom_nodes root \
+                         JOIN products p ON root.product_id = p.product_id \
+                         WHERE root.bom_id = bom.bom_id AND root.parent_id IS NULL \
+                         AND NOT EXISTS (SELECT 1 FROM bom_labor_process blp WHERE blp.product_code = p.product_code) \
+                         ) \
+                         )",
+                    );
+                }
+            }
+        }
     }
 
     /// 查询使用指定产品的 BOM 列表

@@ -27,6 +27,16 @@ impl BomStatus {
     }
 }
 
+/// BOM 成本缺失筛选
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CostFilter {
+    #[default]
+    All,
+    Price,
+    Labor,
+}
+
 impl FromStr for BomStatus {
     type Err = anyhow::Error;
 
@@ -181,6 +191,9 @@ pub struct BomQuery {
     /// 调用者 ID（由 handler 注入，用于可见性过滤）
     #[serde(skip)]
     pub caller_id: Option<i64>,
+    /// 成本缺失筛选（由 handler 从 proto 转换）
+    #[serde(skip)]
+    pub cost_filter: Option<CostFilter>,
 }
 
 impl Default for BomQuery {
@@ -199,6 +212,7 @@ impl Default for BomQuery {
             page_size: Some(12),
             status: None,
             caller_id: None,
+            cost_filter: None,
         }
     }
 }

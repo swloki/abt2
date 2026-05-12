@@ -332,30 +332,32 @@ async fn upsert_inventory_quantity(
     location_id: i64,
     quantity: Decimal,
 ) -> Result<()> {
-    sqlx::query!(
+    let inventory_id: i64 = sqlx::query_scalar!(
         r#"
         INSERT INTO inventory (product_id, location_id, quantity, safety_stock)
         VALUES ($1, $2, $3, 0)
         ON CONFLICT (product_id, location_id)
         DO UPDATE SET quantity = $3, updated_at = NOW()
+        RETURNING inventory_id
         "#,
         product_id,
         location_id,
         quantity
     )
-    .execute(&mut **tx)
+    .fetch_one(&mut **tx)
     .await?;
 
     sqlx::query!(
         r#"
-        INSERT INTO inventory_log (product_id, location_id, change_qty, before_qty, after_qty, operation_type, remark, created_at)
-        SELECT $1, $2, $3,
-               COALESCE((SELECT quantity FROM inventory WHERE product_id = $1 AND location_id = $2), 0),
-               $3,
+        INSERT INTO inventory_log (inventory_id, product_id, location_id, change_qty, before_qty, after_qty, operation_type, remark, created_at)
+        VALUES ($1, $2, $3, $4,
+               COALESCE((SELECT quantity FROM inventory WHERE inventory_id = $1), 0) - $4,
+               COALESCE((SELECT quantity FROM inventory WHERE inventory_id = $1), 0),
                'adjust',
                'Excel 批量盘点导入',
-               NOW()
+               NOW())
         "#,
+        inventory_id,
         product_id,
         location_id,
         quantity

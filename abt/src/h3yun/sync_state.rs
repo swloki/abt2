@@ -122,8 +122,7 @@ impl SyncStateRepo {
             FROM products p
             LEFT JOIN h3yun_sync_state s
                 ON s.entity_id = p.product_id AND s.entity_type = $1
-            WHERE p.deleted_at IS NULL
-              AND (s.id IS NULL OR s.last_synced_at IS NULL)
+            WHERE (s.id IS NULL OR s.last_synced_at IS NULL)
             LIMIT $2
             "#,
         )

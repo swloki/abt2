@@ -5,11 +5,11 @@ use serde_json::Value;
 use std::time::Duration;
 use tracing::warn;
 
-use super::models::{action, H3YunRequest, H3YunResponse, SyncError};
+use super::models::{H3YunRequest, H3YunResponse, SyncError, action};
 
 const DEFAULT_ENDPOINT: &str = "https://www.h3yun.com/OpenApi/Invoke";
 const DEFAULT_ENGINE_CODE: &str = "wkcmav3emlzu0l1smysmopu85";
-const DEFAULT_ENGINE_SECRET: &str = "PO+ZqVdtElYtTteED8z0wPUs5QBP/3WoXzGj4PEYYyKl0riiEhB8Rw==";
+const DEFAULT_ENGINE_SECRET: &str = "KzoufliRxIlLQkt9DBiXd64PlnXJjNuu+rR+RATVEt8RvB1yj+DuUg==";
 
 #[derive(Clone, Default)]
 pub struct H3YunClient {
@@ -84,8 +84,8 @@ impl H3YunClient {
         biz_object: &str,
     ) -> Result<(), SyncError> {
         // H3Yun UpdateBizObject requires ObjectId in BizObject
-        let mut payload: serde_json::Value = serde_json::from_str(biz_object)
-            .map_err(|e| SyncError::FatalError {
+        let mut payload: serde_json::Value =
+            serde_json::from_str(biz_object).map_err(|e| SyncError::FatalError {
                 reason: format!("Failed to parse biz_object as JSON for update: {e}"),
             })?;
         payload["ObjectId"] = serde_json::Value::String(object_id.to_string());
@@ -190,14 +190,30 @@ impl H3YunClient {
             });
         }
 
-        resp.json::<H3YunResponse>()
-            .await
-            .map_err(|e| {
-                warn!(status = %status, error = %e, "Failed to parse H3Yun response as JSON");
-                SyncError::FatalError {
-                    reason: format!("Invalid JSON response from H3Yun: {e}"),
+        // 先读取响应体文本，方便调试非 JSON 响应
+        let body_text = resp.text().await.map_err(|e| SyncError::FatalError {
+            reason: format!("Failed to read response body: {e}"),
+        })?;
+
+        serde_json::from_str::<H3YunResponse>(&body_text).map_err(|e| {
+            let preview = if body_text.len() > 500 {
+                format!("{}... (truncated, total {} bytes)", &body_text[..500], body_text.len())
+            } else {
+                body_text.clone()
+            };
+            warn!(status = %status, error = %e, body = %preview, "Failed to parse H3Yun response as JSON");
+
+            // 非 JSON 响应（如 HTML 错误页）按 Transient 处理，允许重试
+            if status.is_server_error() {
+                SyncError::Transient {
+                    backoff_hint: Duration::from_secs(30),
                 }
-            })
+            } else {
+                SyncError::FatalError {
+                    reason: format!("Invalid JSON response from H3Yun (HTTP {}): {e}. Body: {}", status, preview),
+                }
+            }
+        })
     }
 }
 

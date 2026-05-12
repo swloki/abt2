@@ -86,6 +86,13 @@ impl GrpcBomService for BomHandler {
             _ => None,
         });
 
+        let cost_filter = req.cost_filter.and_then(|f| match f {
+            1 => Some(abt::models::CostFilter::All),
+            2 => Some(abt::models::CostFilter::Price),
+            3 => Some(abt::models::CostFilter::Labor),
+            _ => None,
+        });
+
         let query = abt::BomQuery {
             page: req.page.map(|p| p as i64),
             page_size: req.page_size.map(|p| p as i64),
@@ -96,6 +103,7 @@ impl GrpcBomService for BomHandler {
             bom_category_id: req.bom_category_id,
             status,
             caller_id: Some(auth.user_id),
+            cost_filter,
             ..Default::default()
         };
 

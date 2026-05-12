@@ -42,6 +42,7 @@ struct ExcelRow {
 
 struct PendingItem {
     product_id: i64,
+    product_code: String,
     location_id: Option<i64>,
     quantity: Option<Decimal>,
     price: Option<Decimal>,
@@ -177,6 +178,7 @@ impl ExcelImportService for ProductInventoryImporter {
 
             pending_items.push(PendingItem {
                 product_id,
+                product_code: row.new_code.clone(),
                 location_id,
                 quantity: row.quantity,
                 price: row.price,
@@ -243,62 +245,86 @@ impl ExcelImportService for ProductInventoryImporter {
         for item in &pending_items {
             self.tracker.tick();
 
+            // 每条 item 用 savepoint 隔离，单条失败不中断整个事务
+            sqlx::query("SAVEPOINT item_sp")
+                .execute(&mut *tx)
+                .await?;
+
+            let mut item_failed = false;
+
             if let Some(ref name) = item.new_name
                 && let Err(e) = ProductRepo::update_name(&mut tx, item.product_id, name).await
             {
                 result.failed_count += 1;
                 result
                     .errors
-                    .push(format!("更新产品名称失败 product_id={}: {}", item.product_id, e));
-                continue;
+                    .push(format!("更新产品名称失败 {}: {}", item.product_code, e));
+                item_failed = true;
             }
 
-            if let Some(price) = item.price
-                && let Err(e) = update_price_batch(&mut tx, item.product_id, price).await
-            {
-                result.failed_count += 1;
-                result
-                    .errors
-                    .push(format!("更新价格失败 product_id={}: {}", item.product_id, e));
-                continue;
+            if !item_failed {
+                if let Some(price) = item.price
+                    && let Err(e) = update_price_batch(&mut tx, item.product_id, price).await
+                {
+                    result.failed_count += 1;
+                    result
+                        .errors
+                        .push(format!("更新价格失败 {}: {}", item.product_code, e));
+                    item_failed = true;
+                }
             }
 
-            if let Some(location_id) = item.location_id {
-                if let Some(quantity) = item.quantity
-                    && let Err(e) =
-                        upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity)
+            if !item_failed {
+                if let Some(location_id) = item.location_id {
+                    if let Some(quantity) = item.quantity
+                        && let Err(e) =
+                            upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity)
+                                .await
+                    {
+                        result.failed_count += 1;
+                        result.errors.push(format!("更新库存失败: {}", e));
+                        item_failed = true;
+                    }
+
+                    if !item_failed {
+                        if let Some(safety_stock) = item.safety_stock
+                            && let Err(e) = upsert_inventory_safety_stock(
+                                &mut tx,
+                                item.product_id,
+                                location_id,
+                                safety_stock,
+                            )
                             .await
-                {
-                    result.failed_count += 1;
-                    result.errors.push(format!("更新库存失败: {}", e));
-                    continue;
-                }
-
-                if let Some(safety_stock) = item.safety_stock
-                    && let Err(e) = upsert_inventory_safety_stock(
-                        &mut tx,
-                        item.product_id,
-                        location_id,
-                        safety_stock,
-                    )
-                    .await
-                {
-                    result.failed_count += 1;
-                    result.errors.push(format!("更新安全库存失败: {}", e));
-                    continue;
+                        {
+                            result.failed_count += 1;
+                            result.errors.push(format!("更新安全库存失败: {}", e));
+                            item_failed = true;
+                        }
+                    }
                 }
             }
 
-            if !item.category_ids.is_empty()
-                && let Err(e) = sync_product_categories(&mut tx, item.product_id, &item.category_ids)
-                    .await
-            {
-                result.failed_count += 1;
-                result.errors.push(format!("更新分类关联失败 product_id={}: {}", item.product_id, e));
-                continue;
+            if !item_failed {
+                if !item.category_ids.is_empty()
+                    && let Err(e) = sync_product_categories(&mut tx, item.product_id, &item.category_ids)
+                        .await
+                {
+                    result.failed_count += 1;
+                    result.errors.push(format!("更新分类关联失败 {}: {}", item.product_code, e));
+                    item_failed = true;
+                }
             }
 
-            result.success_count += 1;
+            if item_failed {
+                sqlx::query("ROLLBACK TO SAVEPOINT item_sp")
+                    .execute(&mut *tx)
+                    .await?;
+            } else {
+                sqlx::query("RELEASE SAVEPOINT item_sp")
+                    .execute(&mut *tx)
+                    .await?;
+                result.success_count += 1;
+            }
         }
 
         tx.commit().await?;

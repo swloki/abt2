@@ -329,6 +329,21 @@ impl ExcelImportService for ProductInventoryImporter {
 
         tx.commit().await?;
 
+        // 批量触发 H3Yun 同步（每个成功的产品）
+        if crate::h3yun::is_initialized() {
+            let sender = crate::h3yun::get_sync_event_sender().clone();
+            tokio::spawn(async move {
+                for item in &pending_items {
+                    if item.product_id > 0 {
+                        let _ = sender.send(crate::h3yun::models::SyncEvent {
+                            entity_type: crate::h3yun::models::EntityType::Product,
+                            entity_id: item.product_id,
+                        }).await;
+                    }
+                }
+            });
+        }
+
         Ok(result)
     }
 }

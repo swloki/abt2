@@ -51,15 +51,14 @@ impl std::fmt::Display for SyncError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             SyncError::Transient { backoff_hint } => {
-                write!(f, "Transient error (retry after {:?})", backoff_hint)
+                write!(f, "暂时性错误，建议 {:?} 后重试", backoff_hint)
             }
             SyncError::ValidationError { record_id, fields } => {
-                write!(
-                    f,
-                    "Validation error for record {}: {}",
-                    record_id,
-                    fields.join(", ")
-                )
+                if record_id.is_empty() {
+                    write!(f, "数据校验失败: {}", fields.join(", "))
+                } else {
+                    write!(f, "数据校验失败 [{}]: {}", record_id, fields.join(", "))
+                }
             }
             SyncError::FatalError { reason } => {
                 write!(f, "Fatal error: {}", reason)
@@ -70,11 +69,23 @@ impl std::fmt::Display for SyncError {
 
 impl std::error::Error for SyncError {}
 
+/// LoadBizObjects 用的 Filter 格式
+#[derive(Debug, Serialize)]
+pub struct H3YunFilter {
+    pub ActionName: String,
+    pub SchemaCode: String,
+    pub Filter: String,
+}
+
+/// Create/Update/Remove 用的请求格式
 #[derive(Debug, Serialize)]
 pub struct H3YunRequest {
     pub ActionName: String,
     pub SchemaCode: String,
-    pub BizObject: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub BizObject: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub BizObjectId: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub IsSubmit: Option<bool>,
 }
@@ -83,12 +94,20 @@ pub struct H3YunRequest {
 pub struct H3YunResponse {
     #[serde(default)]
     pub Successful: bool,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_string")]
     pub ErrorMessage: String,
     #[serde(default)]
     pub ReturnData: Option<serde_json::Value>,
     #[serde(default)]
     pub ErrorCode: Option<i32>,
+}
+
+fn deserialize_null_string<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let opt = Option::<String>::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
 }
 
 pub mod schema {

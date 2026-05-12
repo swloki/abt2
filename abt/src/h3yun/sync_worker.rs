@@ -77,7 +77,7 @@ impl SyncWorker {
                     Some(p) => p,
                     None => return,
                 };
-                let category_path = self.fetch_category_path(event.entity_id).await;
+                let category_path = product_sync::fetch_category_path(&self.pool, event.entity_id).await;
                 with_retry("product", event.entity_id, || {
                     let pool = self.pool.clone();
                     let client = self.client.clone();
@@ -114,53 +114,6 @@ impl SyncWorker {
                 None
             }
         }
-    }
-
-    async fn fetch_category_path(
-        &self,
-        product_id: i64,
-    ) -> Option<(String, String, String)> {
-        let rows = sqlx::query_as::<_, (i64,)>(
-            r#"
-            SELECT t.term_id FROM term_relation tr
-            JOIN terms t ON tr.term_id = t.term_id
-            WHERE tr.product_id = $1 AND t.taxonomy = 'category'
-            LIMIT 1
-            "#,
-        )
-        .bind(product_id)
-        .fetch_all(&self.pool)
-        .await
-        .ok()?;
-
-        let term_id = rows.first()?.0;
-
-        let mut path = Vec::new();
-        let mut current_id = term_id;
-
-        for _ in 0..3 {
-            let term = sqlx::query_as::<_, (String, i64)>(
-                "SELECT term_name, term_parent FROM terms WHERE term_id = $1",
-            )
-            .bind(current_id)
-            .fetch_optional(&self.pool)
-            .await
-            .ok()??;
-
-            path.push(term.0);
-            if term.1 == 0 {
-                break;
-            }
-            current_id = term.1;
-        }
-
-        path.reverse();
-
-        Some((
-            path.first().cloned().unwrap_or_default(),
-            path.get(1).cloned().unwrap_or_default(),
-            path.get(2).cloned().unwrap_or_default(),
-        ))
     }
 
     async fn fetch_inventory_data(&self, inventory_id: i64) -> Option<InventorySyncData> {

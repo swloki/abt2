@@ -38,19 +38,40 @@ impl GrpcSyncService for SyncHandler {
             return Err(error::validation("product_id", "产品 ID 无效"));
         }
 
-        abt::h3yun::get_sync_event_sender()
-            .send(abt::h3yun::models::SyncEvent {
-                entity_type: abt::h3yun::models::EntityType::Product,
-                entity_id: req.product_id,
-            })
-            .await
-            .map_err(|e| error::err_to_status(anyhow::anyhow!("Failed to send sync event: {e}")))?;
+        let state = AppState::get().await;
+        let pool = state.pool();
+        let client = abt::h3yun::get_h3yun_client();
 
-        Ok(Response::new(SyncResponse {
-            processed: 1,
-            succeeded: 0,
-            message: "Sync event queued".to_string(),
-        }))
+        // 查询产品
+        let product = abt::repositories::ProductRepo::find_by_id(&pool, req.product_id)
+            .await
+            .map_err(error::err_to_status)?
+            .ok_or_else(|| error::validation("product_id", "产品不存在"))?;
+
+        // 查询分类路径
+        let category_path =
+            abt::h3yun::product_sync::fetch_category_path(&pool, req.product_id).await;
+
+        // 直接执行同步
+        match abt::h3yun::product_sync::sync_product(
+            &pool,
+            client,
+            &product,
+            category_path.as_ref(),
+        )
+        .await
+        {
+            Ok(()) => Ok(Response::new(SyncResponse {
+                processed: 1,
+                succeeded: 1,
+                message: "同步成功".to_string(),
+            })),
+            Err(e) => Ok(Response::new(SyncResponse {
+                processed: 1,
+                succeeded: 0,
+                message: format!("同步失败: {e}"),
+            })),
+        }
     }
 
     #[require_permission(Resource::Sync, Action::Write)]
@@ -111,6 +132,9 @@ impl GrpcSyncService for SyncHandler {
         }
 
         let state = AppState::get().await;
+        let pool = state.pool();
+        let client = abt::h3yun::get_h3yun_client();
+
         let inventories: Vec<abt::models::InventoryDetail> = {
             use abt::service::InventoryService;
             state
@@ -120,26 +144,47 @@ impl GrpcSyncService for SyncHandler {
                 .map_err(error::err_to_status)?
         };
 
-        let sender = abt::h3yun::get_sync_event_sender();
-        let mut queued = 0i32;
+        let mut succeeded = 0i32;
+        let mut failed = 0i32;
+        let mut errors = Vec::new();
 
         for inv in &inventories {
-            if sender
-                .send(abt::h3yun::models::SyncEvent {
-                    entity_type: abt::h3yun::models::EntityType::Inventory,
-                    entity_id: inv.inventory_id,
-                })
-                .await
-                .is_ok()
-            {
-                queued += 1;
+            let data = abt::h3yun::inventory_sync::InventorySyncData {
+                inventory_id: inv.inventory_id,
+                product_id: inv.product_id,
+                location_code: inv.location_code.clone(),
+                warehouse_name: inv.warehouse_name.clone(),
+                product_code: inv.product_code.clone(),
+                product_name: inv.product_name.clone(),
+                quantity: inv.quantity,
+                unit: String::new(),
+            };
+
+            match abt::h3yun::inventory_sync::sync_inventory(&pool, client, &data).await {
+                Ok(()) => succeeded += 1,
+                Err(e) => {
+                    failed += 1;
+                    if errors.len() < 5 {
+                        errors.push(format!("{}: {e}", data.location_code));
+                    }
+                }
             }
         }
 
+        let message = if failed == 0 {
+            format!("同步成功 {succeeded} 条库存")
+        } else {
+            let mut msg = format!("成功 {succeeded}，失败 {failed}");
+            if !errors.is_empty() {
+                msg.push_str(&format!(" — {}", errors.join("; ")));
+            }
+            msg
+        };
+
         Ok(Response::new(SyncResponse {
-            processed: queued,
-            succeeded: 0,
-            message: format!("{queued} inventory sync events queued"),
+            processed: inventories.len() as i32,
+            succeeded,
+            message,
         }))
     }
 

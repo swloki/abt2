@@ -20,7 +20,65 @@ pub async fn sync_product(
         fields: vec![format!("JSON serialize failed: {e}")],
     })?;
 
-    super::sync_entity(pool, client, schema::PRODUCT, EntityType::Product, product.product_id, &biz_json, "product").await
+    super::sync_entity(
+        pool,
+        client,
+        schema::PRODUCT,
+        EntityType::Product,
+        product.product_id,
+        &biz_json,
+        "Procode",
+        &product.product_code,
+        "product",
+    )
+    .await
+}
+
+pub async fn fetch_category_path(
+    pool: &PgPool,
+    product_id: i64,
+) -> Option<(String, String, String)> {
+    let rows = sqlx::query_as::<_, (i64,)>(
+        r#"
+        SELECT t.term_id FROM term_relation tr
+        JOIN terms t ON tr.term_id = t.term_id
+        WHERE tr.product_id = $1 AND t.taxonomy = 'category'
+        LIMIT 1
+        "#,
+    )
+    .bind(product_id)
+    .fetch_all(pool)
+    .await
+    .ok()?;
+
+    let term_id = rows.first()?.0;
+
+    let mut path = Vec::new();
+    let mut current_id = term_id;
+
+    for _ in 0..3 {
+        let term = sqlx::query_as::<_, (String, i64)>(
+            "SELECT term_name, term_parent FROM terms WHERE term_id = $1",
+        )
+        .bind(current_id)
+        .fetch_optional(pool)
+        .await
+        .ok()??;
+
+        path.push(term.0);
+        if term.1 == 0 {
+            break;
+        }
+        current_id = term.1;
+    }
+
+    path.reverse();
+
+    Some((
+        path.first().cloned().unwrap_or_default(),
+        path.get(1).cloned().unwrap_or_default(),
+        path.get(2).cloned().unwrap_or_default(),
+    ))
 }
 
 pub async fn delete_product_sync(pool: &PgPool, client: &H3YunClient, product_id: i64) {
@@ -62,8 +120,7 @@ fn build_product_payload(
         "Pgroup": pgroup,
         "PgroupM": pgroup_m,
         "PgroupS": pgroup_s,
-        // Fa5124b81d6f8b7c245d4bf99b59a04b62a2e519 — H3Yun "自动倒冲" field
-        "Fa5124b81d6f8b7c245d4bf99b59a04b62a2e519": "系统倒冲"
+        "Fa5124b65846244078bedf7d739842cf4": "系统倒冲"
     })
 }
 

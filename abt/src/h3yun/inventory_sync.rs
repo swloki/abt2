@@ -39,5 +39,16 @@ pub async fn sync_inventory(
         fields: vec![format!("JSON serialize failed: {e}")],
     })?;
 
-    super::sync_entity(pool, client, schema::WAREHOUSE, EntityType::Inventory, data.inventory_id, &biz_json, "inventory").await
+    super::sync_entity(
+        pool,
+        client,
+        schema::WAREHOUSE,
+        EntityType::Inventory,
+        data.inventory_id,
+        &biz_json,
+        "Pcode20201118",
+        &data.product_code,
+        "inventory",
+    )
+    .await
 }

@@ -36,17 +36,17 @@ impl AppState {
         // Context is now initialized, get reference
         let ctx = abt::get_context().await;
 
-        // Build task scheduler
+        // Initialize H3Yun sync worker before scheduler starts (scheduler tasks depend on it)
         let shutdown = Arc::new(AtomicBool::new(false));
+        let h3yun_client = abt::h3yun::client::H3YunClient::new();
+        abt::h3yun::init_h3yun_client(h3yun_client.clone());
+        abt::h3yun::sync_worker::start_sync_channel(ctx.pool().clone(), h3yun_client, shutdown.clone());
+
+        // Build task scheduler
         let mut scheduler = abt::implt::TaskScheduler::new(shutdown.clone());
         scheduler.register(abt::implt::StockAlertTask::new(ctx.pool().clone()));
         scheduler.register(abt::h3yun::scheduled::H3YunSyncTask::new(ctx.pool().clone()));
         scheduler.start().await;
-
-        // Start H3Yun sync worker
-        let h3yun_client = abt::h3yun::client::H3YunClient::new();
-        abt::h3yun::init_h3yun_client(h3yun_client.clone());
-        abt::h3yun::sync_worker::start_sync_channel(ctx.pool().clone(), h3yun_client, shutdown.clone());
 
         let state = Arc::new(AppState {
             abt_context: ctx,

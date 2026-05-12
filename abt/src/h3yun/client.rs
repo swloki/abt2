@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::time::Duration;
 use tracing::warn;
 
-use super::models::{H3YunRequest, H3YunResponse, SyncError, action};
+use super::models::{H3YunFilter, H3YunRequest, H3YunResponse, SyncError, action};
 
 const DEFAULT_ENDPOINT: &str = "https://www.h3yun.com/OpenApi/Invoke";
 const DEFAULT_ENGINE_CODE: &str = "wkcmav3emlzu0l1smysmopu85";
@@ -59,7 +59,8 @@ impl H3YunClient {
         let req = H3YunRequest {
             ActionName: action::CREATE.to_string(),
             SchemaCode: schema_code.to_string(),
-            BizObject: biz_object.to_string(),
+            BizObject: Some(biz_object.to_string()),
+            BizObjectId: None,
             IsSubmit: Some(true),
         };
 
@@ -68,12 +69,19 @@ impl H3YunClient {
             return Err(classify_error(&resp.ErrorMessage));
         }
 
-        resp.ReturnData
-            .and_then(|d| d.get("ObjectIds").cloned())
-            .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok())
-            .and_then(|ids| ids.into_iter().next())
+        let return_data = resp.ReturnData;
+        return_data
+            .and_then(|d| {
+                d.get("BizObjectId")
+                    .and_then(|v| v.as_str().map(|s| s.to_string()))
+                    .or_else(|| {
+                        d.get("ObjectIds").cloned()
+                            .and_then(|v| serde_json::from_value::<Vec<String>>(v).ok())
+                            .and_then(|ids| ids.into_iter().next())
+                    })
+            })
             .ok_or_else(|| SyncError::FatalError {
-                reason: "CreateBizObject succeeded but no ObjectId returned".to_string(),
+                reason: "CreateBizObject succeeded but no ObjectId in ReturnData".to_string(),
             })
     }
 
@@ -83,17 +91,12 @@ impl H3YunClient {
         object_id: &str,
         biz_object: &str,
     ) -> Result<(), SyncError> {
-        // H3Yun UpdateBizObject requires ObjectId in BizObject
-        let mut payload: serde_json::Value =
-            serde_json::from_str(biz_object).map_err(|e| SyncError::FatalError {
-                reason: format!("Failed to parse biz_object as JSON for update: {e}"),
-            })?;
-        payload["ObjectId"] = serde_json::Value::String(object_id.to_string());
-
+        // 和旧代码一致：BizObjectId 作为顶层字段，BizObject 是 JSON 字符串
         let req = H3YunRequest {
             ActionName: action::UPDATE.to_string(),
             SchemaCode: schema_code.to_string(),
-            BizObject: payload.to_string(),
+            BizObject: Some(biz_object.to_string()),
+            BizObjectId: Some(object_id.to_string()),
             IsSubmit: Some(true),
         };
 
@@ -107,11 +110,11 @@ impl H3YunClient {
 
     /// 删除 BizObject
     pub async fn delete(&self, schema_code: &str, object_id: &str) -> Result<(), SyncError> {
-        let biz_object = serde_json::json!({ "ObjectId": object_id }).to_string();
         let req = H3YunRequest {
             ActionName: action::REMOVE.to_string(),
             SchemaCode: schema_code.to_string(),
-            BizObject: biz_object,
+            BizObject: None,
+            BizObjectId: Some(object_id.to_string()),
             IsSubmit: None,
         };
 
@@ -125,15 +128,20 @@ impl H3YunClient {
 
     /// 查询 BizObject 列表（对账用）
     pub async fn query_list(&self, schema_code: &str) -> Result<Vec<Value>, SyncError> {
-        let biz_object = serde_json::json!({ "Filter": "" }).to_string();
-        let req = H3YunRequest {
+        let filter = serde_json::json!({
+            "FromRowNum": 0,
+            "RequireCount": false,
+            "ReturnItems": [],
+            "SortByCollection": [],
+            "ToRowNum": 10000
+        });
+        let req = H3YunFilter {
             ActionName: action::LOAD.to_string(),
             SchemaCode: schema_code.to_string(),
-            BizObject: biz_object,
-            IsSubmit: None,
+            Filter: filter.to_string(),
         };
 
-        let resp = self.invoke(&req).await?;
+        let resp = self.invoke_filter(&req).await?;
         if !resp.Successful {
             return Err(classify_error(&resp.ErrorMessage));
         }
@@ -147,7 +155,7 @@ impl H3YunClient {
                     serde_json::from_value::<Vec<Value>>(d).ok()
                 } else {
                     d.as_object()
-                        .and_then(|o| o.get("ObjectDatas"))
+                        .and_then(|o| o.get("BizObjectArray"))
                         .and_then(|v| serde_json::from_value::<Vec<Value>>(v.clone()).ok())
                 }
             })
@@ -156,8 +164,79 @@ impl H3YunClient {
         Ok(items)
     }
 
-    /// 发送 HTTP 请求
+    /// 按字段查询 ObjectId，存在返回 Some(object_id)
+    pub async fn find_by_field(
+        &self,
+        schema_code: &str,
+        field_name: &str,
+        field_value: &str,
+    ) -> Result<Option<String>, SyncError> {
+        // 和旧代码 ListFilter 结构完全一致，包含所有字段
+        let filter = serde_json::json!({
+            "FromRowNum": 0,
+            "RequireCount": true,
+            "ReturnItems": ["ObjectId"],
+            "SortByCollection": [],
+            "ToRowNum": 12,
+            "Matcher": {
+                "Type": "Item",
+                "Matchers": null,
+                "Name": field_name,
+                "Operator": 2,
+                "Value": field_value
+            }
+        });
+
+        // LoadBizObjects 用 "Filter" 字段，不是 "BizObject"
+        let req = H3YunFilter {
+            ActionName: action::LOAD.to_string(),
+            SchemaCode: schema_code.to_string(),
+            Filter: filter.to_string(),
+        };
+
+        let resp = self.invoke_filter(&req).await?;
+        if !resp.Successful {
+            return Err(classify_error(&resp.ErrorMessage));
+        }
+
+        let return_data_debug = format!("{:?}", resp.ReturnData);
+        let object_id = resp.ReturnData.and_then(|d| {
+            let data = if let Some(s) = d.as_str() {
+                serde_json::from_str::<Value>(s).ok().unwrap_or(d)
+            } else {
+                d
+            };
+            data.get("BizObjectArray")
+                .and_then(|arr| arr.as_array())
+                .and_then(|items| items.first())
+                .and_then(|item| item.get("ObjectId"))
+                .and_then(|v| v.as_str().map(|s| s.to_string()))
+        });
+
+        if object_id.is_none() {
+            warn!(
+                schema_code,
+                field_name,
+                field_value,
+                return_data = %return_data_debug,
+                "find_by_field: query returned no ObjectId"
+            );
+        }
+
+        Ok(object_id)
+    }
+
+    /// 发送 HTTP 请求（Filter 格式，用于 LoadBizObjects）
+    async fn invoke_filter(&self, req: &H3YunFilter) -> Result<H3YunResponse, SyncError> {
+        self.do_post(req).await
+    }
+
+    /// 发送 HTTP 请求（BizObject 格式，用于 Create/Update/Remove）
     async fn invoke(&self, req: &H3YunRequest) -> Result<H3YunResponse, SyncError> {
+        self.do_post(req).await
+    }
+
+    async fn do_post<T: serde::Serialize>(&self, req: &T) -> Result<H3YunResponse, SyncError> {
         let resp = self
             .client
             .post(&self.endpoint)
@@ -190,7 +269,6 @@ impl H3YunClient {
             });
         }
 
-        // 先读取响应体文本，方便调试非 JSON 响应
         let body_text = resp.text().await.map_err(|e| SyncError::FatalError {
             reason: format!("Failed to read response body: {e}"),
         })?;
@@ -203,7 +281,6 @@ impl H3YunClient {
             };
             warn!(status = %status, error = %e, body = %preview, "Failed to parse H3Yun response as JSON");
 
-            // 非 JSON 响应（如 HTML 错误页）按 Transient 处理，允许重试
             if status.is_server_error() {
                 SyncError::Transient {
                     backoff_hint: Duration::from_secs(30),
@@ -228,8 +305,18 @@ fn classify_error(message: &str) -> SyncError {
         || msg_lower.contains("internal")
         || msg_lower.contains("connection")
     {
-        SyncError::Transient {
-            backoff_hint: Duration::from_secs(10),
+        SyncError::ValidationError {
+            record_id: String::new(),
+            fields: vec![format!("H3Yun 暂时性错误: {message}")],
+        }
+    } else if msg_lower.is_empty()
+        || msg_lower.contains("objectid")
+        || msg_lower.contains("duplicate")
+        || msg_lower.contains("已存在")
+    {
+        SyncError::ValidationError {
+            record_id: String::new(),
+            fields: vec![if message.is_empty() { "未知错误".to_string() } else { message.to_string() }],
         }
     } else if msg_lower.contains("auth")
         || msg_lower.contains("credential")
@@ -247,9 +334,10 @@ fn classify_error(message: &str) -> SyncError {
             fields: vec![message.to_string()],
         }
     } else {
-        // Default to Transient for unrecognized errors — safer to retry than to skip
-        SyncError::Transient {
-            backoff_hint: Duration::from_secs(10),
+        // 未知错误直接暴露原始信息
+        SyncError::ValidationError {
+            record_id: String::new(),
+            fields: vec![if message.is_empty() { "未知错误".to_string() } else { message.to_string() }],
         }
     }
 }

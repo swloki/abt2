@@ -47,6 +47,8 @@ pub fn is_initialized() -> bool {
 }
 
 /// Shared create-or-update logic for syncing an entity to H3Yun
+/// 和旧代码一致：每次都先查 H3Yun，存在就 update，不存在就 create
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn sync_entity(
     pool: &sqlx::PgPool,
     client: &H3YunClient,
@@ -54,41 +56,38 @@ pub(crate) async fn sync_entity(
     entity_type: models::EntityType,
     entity_id: i64,
     biz_json: &str,
+    search_field: &str,
+    search_value: &str,
     label: &str,
 ) -> Result<(), models::SyncError> {
     use tracing::info;
     use sync_state::SyncStateRepo;
 
-    let existing = SyncStateRepo::find(pool, entity_type, entity_id)
+    // 每次都先查 H3Yun（和旧代码一致，不依赖本地 mapping 判断存在性）
+    let remote_id = client
+        .find_by_field(schema_code, search_field, search_value)
         .await
-        .map_err(|e| models::SyncError::FatalError {
-            reason: format!("DB query failed: {e}"),
-        })?;
+        .ok()
+        .flatten();
 
-    match existing {
-        Some(state) if state.h3yun_object_id.is_some() => {
-            let object_id = state.h3yun_object_id.as_ref().unwrap();
-            client.update(schema_code, object_id, biz_json).await?;
-
-            SyncStateRepo::update_synced(pool, state.id, object_id)
-                .await
-                .map_err(|e| models::SyncError::FatalError {
-                    reason: format!("DB update failed: {e}"),
-                })?;
-
-            info!(label, entity_id, object_id, "Synced (update)");
-        }
-        _ => {
-            let object_id = client.create(schema_code, biz_json).await?;
-
-            SyncStateRepo::upsert(pool, entity_type, entity_id, &object_id)
-                .await
-                .map_err(|e| models::SyncError::FatalError {
-                    reason: format!("DB upsert failed: {e}"),
-                })?;
-
-            info!(label, entity_id, object_id, "Synced (create)");
-        }
+    if let Some(object_id) = remote_id {
+        // H3Yun 已存在 → update
+        client.update(schema_code, &object_id, biz_json).await?;
+        SyncStateRepo::upsert(pool, entity_type, entity_id, &object_id)
+            .await
+            .map_err(|e| models::SyncError::FatalError {
+                reason: format!("DB upsert failed: {e}"),
+            })?;
+        info!(label, entity_id, object_id, "Synced (update)");
+    } else {
+        // H3Yun 不存在 → create
+        let object_id = client.create(schema_code, biz_json).await?;
+        SyncStateRepo::upsert(pool, entity_type, entity_id, &object_id)
+            .await
+            .map_err(|e| models::SyncError::FatalError {
+                reason: format!("DB upsert failed: {e}"),
+            })?;
+        info!(label, entity_id, object_id, "Synced (create)");
     }
 
     Ok(())

@@ -41,6 +41,7 @@ impl<'r> FromRow<'r, PgRow> for Product {
 
 /// 产品元数据（存储在 JSONB 字段中，仅含低频无约束字段）
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(default)]
 pub struct ProductMeta {
     /// 规格
     pub specification: String,

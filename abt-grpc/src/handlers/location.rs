@@ -279,4 +279,30 @@ impl GrpcLocationService for LocationHandler {
             page_size: result.page_size,
         }))
     }
+
+    #[require_permission(Resource::Location, Action::Read)]
+    async fn search_locations(
+        &self,
+        request: Request<SearchLocationsRequest>,
+    ) -> GrpcResult<SearchLocationsResponse> {
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.location_service();
+
+        let result = srv.search_locations(
+            req.keyword,
+            req.is_active,
+            req.warehouse_id,
+            req.page,
+            req.page_size,
+        ).await
+            .map_err(error::err_to_status)?;
+
+        Ok(Response::new(SearchLocationsResponse {
+            items: result.items.into_iter().map(|l| l.into()).collect(),
+            total: result.total,
+            page: result.page,
+            page_size: result.page_size,
+        }))
+    }
 }

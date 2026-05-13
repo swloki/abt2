@@ -30,27 +30,6 @@ impl ProductServiceImpl {
 impl ProductService for ProductServiceImpl {
     async fn create(&self, product: Product, executor: Executor<'_>) -> Result<i64> {
         let product_id = ProductRepo::insert(executor, &product.pdt_name, &product.product_code, &product.unit, product.meta).await?;
-
-        // 自动触发 H3Yun 同步
-        if crate::h3yun::is_initialized() {
-            let pool = self.pool.clone();
-            let client = crate::h3yun::get_h3yun_client().clone();
-            let pid = product_id;
-            tokio::spawn(async move {
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                match crate::repositories::ProductRepo::find_by_id(&pool, pid).await {
-                    Ok(Some(product)) => {
-                        let cat = crate::h3yun::product_sync::fetch_category_path(&pool, pid).await;
-                        match crate::h3yun::product_sync::sync_product(&pool, &client, &product, cat.as_ref()).await {
-                            Ok(()) => tracing::warn!(pid, "Auto-sync OK"),
-                            Err(e) => tracing::warn!(pid, error = %e, "Auto-sync failed"),
-                        }
-                    }
-                    _ => tracing::warn!(pid, "Auto-sync: product not found in DB"),
-                }
-            });
-        }
-
         Ok(product_id)
     }
 
@@ -60,30 +39,7 @@ impl ProductService for ProductServiceImpl {
         product: Product,
         executor: Executor<'_>,
     ) -> Result<()> {
-        ProductRepo::update(executor, product_id, &product.pdt_name, &product.product_code, &product.unit, product.meta).await?;
-
-        // 自动触发 H3Yun 同步（直接调用，不走 channel）
-        if crate::h3yun::is_initialized() {
-            let pool = self.pool.clone();
-            let client = crate::h3yun::get_h3yun_client().clone();
-            let pid = product_id;
-            tokio::spawn(async move {
-                // 等事务提交后再查数据
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-                match crate::repositories::ProductRepo::find_by_id(&pool, pid).await {
-                    Ok(Some(product)) => {
-                        let cat = crate::h3yun::product_sync::fetch_category_path(&pool, pid).await;
-                        match crate::h3yun::product_sync::sync_product(&pool, &client, &product, cat.as_ref()).await {
-                            Ok(()) => tracing::warn!(pid, "Auto-sync OK"),
-                            Err(e) => tracing::warn!(pid, error = %e, "Auto-sync failed"),
-                        }
-                    }
-                    _ => tracing::warn!(pid, "Auto-sync: product not found in DB"),
-                }
-            });
-        }
-
-        Ok(())
+        ProductRepo::update(executor, product_id, &product.pdt_name, &product.product_code, &product.unit, product.meta).await
     }
 
     async fn delete(&self, product_id: i64, executor: Executor<'_>) -> Result<()> {

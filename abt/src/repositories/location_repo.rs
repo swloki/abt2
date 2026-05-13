@@ -473,6 +473,80 @@ impl LocationRepo {
         Ok(row)
     }
 
+    /// 跨仓库搜索库位（带仓库名称），支持 keyword + is_active + warehouse_id 筛选
+    pub async fn search_locations(
+        pool: &PgPool,
+        keyword: Option<&str>,
+        is_active: Option<bool>,
+        warehouse_id: Option<i64>,
+        page: u32,
+        page_size: u32,
+    ) -> Result<(Vec<LocationWithWarehouse>, u64)> {
+        let offset = ((page - 1) * page_size) as i64;
+        let limit = page_size as i64;
+
+        let mut conditions: Vec<String> = vec!["l.deleted_at IS NULL".to_string(), "w.deleted_at IS NULL".to_string()];
+        let mut param_idx = 0;
+
+        let kw_param = if let Some(pattern) = keyword.and_then(super::build_fuzzy_pattern) {
+            param_idx += 1;
+            conditions.push(format!(
+                "(l.location_code ILIKE ${param_idx} OR l.location_name ILIKE ${param_idx} OR w.warehouse_name ILIKE ${param_idx})",
+            ));
+            Some(pattern)
+        } else {
+            None
+        };
+
+        let active_param = if let Some(active) = is_active {
+            param_idx += 1;
+            let status = if active { LocationStatus::Active } else { LocationStatus::Inactive };
+            conditions.push(format!("l.status = ${param_idx}"));
+            Some(status.to_string())
+        } else {
+            None
+        };
+
+        let wh_param = if let Some(wid) = warehouse_id {
+            param_idx += 1;
+            conditions.push(format!("l.warehouse_id = ${param_idx}"));
+            Some(wid)
+        } else {
+            None
+        };
+
+        let where_clause = conditions.join(" AND ");
+
+        let limit_idx = param_idx + 1;
+        let offset_idx = param_idx + 2;
+
+        let count_sql = format!(
+            "SELECT COUNT(*) FROM location l JOIN warehouse w ON l.warehouse_id = w.warehouse_id WHERE {}",
+            where_clause
+        );
+        let mut count_query = sqlx::query_scalar::<_, i64>(&count_sql);
+        if let Some(ref p) = kw_param { count_query = count_query.bind(p.as_str()); }
+        if let Some(ref p) = active_param { count_query = count_query.bind(p.as_str()); }
+        if let Some(wid) = wh_param { count_query = count_query.bind(wid); }
+        let total = count_query.fetch_one(pool).await? as u64;
+
+        let data_sql = format!(
+            "SELECT l.location_id, l.location_code, l.location_name, l.capacity, l.status, \
+             l.warehouse_id, w.warehouse_name, w.warehouse_code \
+             FROM location l JOIN warehouse w ON l.warehouse_id = w.warehouse_id \
+             WHERE {} ORDER BY w.warehouse_name, l.location_code LIMIT ${} OFFSET ${}",
+            where_clause, limit_idx, offset_idx
+        );
+        let mut data_query = sqlx::query_as::<_, LocationWithWarehouse>(&data_sql);
+        if let Some(ref p) = kw_param { data_query = data_query.bind(p.as_str()); }
+        if let Some(ref p) = active_param { data_query = data_query.bind(p.as_str()); }
+        if let Some(wid) = wh_param { data_query = data_query.bind(wid); }
+        data_query = data_query.bind(limit).bind(offset);
+        let items = data_query.fetch_all(pool).await?;
+
+        Ok((items, total))
+    }
+
     /// 批量获取所有库位（带仓库名称），用于 Excel 导入
     /// 返回 HashMap: (warehouse_name, location_code) -> Location
     pub async fn list_all_with_warehouse(pool: &PgPool) -> Result<std::collections::HashMap<(String, String), Location>> {

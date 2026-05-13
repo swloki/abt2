@@ -8,6 +8,8 @@ ABT is a BOM (Bill of Materials) and Inventory Management System built in Rust. 
 
 **注意：使用中文进行沟通**
 
+**注意：禁止修改前端代码（`E:\work\front\abt_front` 目录下的所有文件），只改后端。**
+
 ## Build & Verification Commands
 
 ```bash

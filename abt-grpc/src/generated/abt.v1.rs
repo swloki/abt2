@@ -10650,6 +10650,30 @@ pub struct ListLocationStatsByWarehouseRequest {
     #[prost(uint32, optional, tag = "3")]
     pub page_size: ::core::option::Option<u32>,
 }
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SearchLocationsRequest {
+    #[prost(string, optional, tag = "1")]
+    pub keyword: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(uint32, optional, tag = "2")]
+    pub page: ::core::option::Option<u32>,
+    #[prost(uint32, optional, tag = "3")]
+    pub page_size: ::core::option::Option<u32>,
+    #[prost(bool, optional, tag = "4")]
+    pub is_active: ::core::option::Option<bool>,
+    #[prost(int64, optional, tag = "5")]
+    pub warehouse_id: ::core::option::Option<i64>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SearchLocationsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<LocationWithWarehouseResponse>,
+    #[prost(uint64, tag = "2")]
+    pub total: u64,
+    #[prost(uint32, tag = "3")]
+    pub page: u32,
+    #[prost(uint32, tag = "4")]
+    pub page_size: u32,
+}
 /// Generated client implementations.
 pub mod abt_location_service_client {
     #![allow(
@@ -10993,6 +11017,30 @@ pub mod abt_location_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        pub async fn search_locations(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SearchLocationsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SearchLocationsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtLocationService/SearchLocations",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtLocationService", "SearchLocations"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -11064,6 +11112,13 @@ pub mod abt_location_service_server {
             request: tonic::Request<super::ListLocationStatsByWarehouseRequest>,
         ) -> std::result::Result<
             tonic::Response<super::LocationStatsListResponse>,
+            tonic::Status,
+        >;
+        async fn search_locations(
+            &self,
+            request: tonic::Request<super::SearchLocationsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SearchLocationsResponse>,
             tonic::Status,
         >;
     }
@@ -11623,6 +11678,52 @@ pub mod abt_location_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListLocationStatsByWarehouseSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtLocationService/SearchLocations" => {
+                    #[allow(non_camel_case_types)]
+                    struct SearchLocationsSvc<T: AbtLocationService>(pub Arc<T>);
+                    impl<
+                        T: AbtLocationService,
+                    > tonic::server::UnaryService<super::SearchLocationsRequest>
+                    for SearchLocationsSvc<T> {
+                        type Response = super::SearchLocationsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SearchLocationsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtLocationService>::search_locations(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SearchLocationsSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

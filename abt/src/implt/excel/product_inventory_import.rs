@@ -44,6 +44,7 @@ struct PendingItem {
     product_id: i64,
     product_code: String,
     location_id: Option<i64>,
+    inventory_id: Option<i64>,
     quantity: Option<Decimal>,
     price: Option<Decimal>,
     safety_stock: Option<Decimal>,
@@ -180,6 +181,7 @@ impl ExcelImportService for ProductInventoryImporter {
                 product_id,
                 product_code: row.new_code.clone(),
                 location_id,
+                inventory_id: None,
                 quantity: row.quantity,
                 price: row.price,
                 safety_stock: row.safety_stock,
@@ -242,7 +244,7 @@ impl ExcelImportService for ProductInventoryImporter {
 
         let mut tx = self.pool.begin().await?;
 
-        for item in &pending_items {
+        for item in &mut pending_items {
             self.tracker.tick();
 
             // 每条 item 用 savepoint 隔离，单条失败不中断整个事务
@@ -276,14 +278,15 @@ impl ExcelImportService for ProductInventoryImporter {
 
             if !item_failed {
                 if let Some(location_id) = item.location_id {
-                    if let Some(quantity) = item.quantity
-                        && let Err(e) =
-                            upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity)
-                                .await
-                    {
-                        result.failed_count += 1;
-                        result.errors.push(format!("更新库存失败: {}", e));
-                        item_failed = true;
+                    if let Some(quantity) = item.quantity {
+                        match upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity).await {
+                            Ok(inv_id) => { item.inventory_id = Some(inv_id); }
+                            Err(e) => {
+                                result.failed_count += 1;
+                                result.errors.push(format!("更新库存失败: {}", e));
+                                item_failed = true;
+                            }
+                        }
                     }
 
                     if !item_failed {
@@ -329,7 +332,7 @@ impl ExcelImportService for ProductInventoryImporter {
 
         tx.commit().await?;
 
-        // 批量触发 H3Yun 同步（每个成功的产品）
+        // 批量触发 H3Yun 同步（产品 + 库存）
         if crate::h3yun::is_initialized() {
             let sender = crate::h3yun::get_sync_event_sender().clone();
             tokio::spawn(async move {
@@ -338,6 +341,12 @@ impl ExcelImportService for ProductInventoryImporter {
                         let _ = sender.send(crate::h3yun::models::SyncEvent {
                             entity_type: crate::h3yun::models::EntityType::Product,
                             entity_id: item.product_id,
+                        }).await;
+                    }
+                    if let Some(inv_id) = item.inventory_id {
+                        let _ = sender.send(crate::h3yun::models::SyncEvent {
+                            entity_type: crate::h3yun::models::EntityType::Inventory,
+                            entity_id: inv_id,
                         }).await;
                     }
                 }
@@ -356,7 +365,13 @@ async fn update_price_batch(
     sqlx::query!(
         r#"
         INSERT INTO product_price (product_id, price, operator_id, remark)
-        VALUES ($1, $2, NULL, 'Excel 批量导入更新')
+        SELECT $1, $2, NULL, 'Excel 批量导入更新'
+        WHERE COALESCE(
+            (SELECT price FROM product_price
+             WHERE product_id = $1
+             ORDER BY created_at DESC LIMIT 1),
+            -999999999
+        ) != $2
         "#,
         product_id,
         price
@@ -372,7 +387,7 @@ async fn upsert_inventory_quantity(
     product_id: i64,
     location_id: i64,
     quantity: Decimal,
-) -> Result<()> {
+) -> Result<i64> {
     let inventory_id: i64 = sqlx::query_scalar!(
         r#"
         INSERT INTO inventory (product_id, location_id, quantity, safety_stock)
@@ -406,7 +421,7 @@ async fn upsert_inventory_quantity(
     .execute(&mut **tx)
     .await?;
 
-    Ok(())
+    Ok(inventory_id)
 }
 
 async fn upsert_inventory_safety_stock(

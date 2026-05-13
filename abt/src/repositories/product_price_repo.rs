@@ -71,11 +71,12 @@ impl ProductPriceRepo {
             r#"
             INSERT INTO product_price (product_id, price, operator_id, remark)
             SELECT $1, $2, $3, $4
-            WHERE NOT EXISTS (
-                SELECT 1 FROM product_price
-                WHERE product_id = $1 AND price = $2
-                ORDER BY created_at DESC LIMIT 1
-            )
+            WHERE COALESCE(
+                (SELECT price FROM product_price
+                 WHERE product_id = $1
+                 ORDER BY created_at DESC LIMIT 1),
+                -999999999
+            ) != $2
             "#,
             product_id,
             new_price,

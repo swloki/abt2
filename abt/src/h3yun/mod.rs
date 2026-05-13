@@ -92,3 +92,45 @@ pub(crate) async fn sync_entity(
 
     Ok(())
 }
+
+/// 多字段 AND 匹配版本的 sync_entity，用于库存同步（product_code + location_code + warehouse_name）
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn sync_entity_by_fields(
+    pool: &sqlx::PgPool,
+    client: &H3YunClient,
+    schema_code: &str,
+    entity_type: models::EntityType,
+    entity_id: i64,
+    biz_json: &str,
+    fields: &[(&str, &str)],
+    label: &str,
+) -> Result<(), models::SyncError> {
+    use tracing::info;
+    use sync_state::SyncStateRepo;
+
+    let remote_id = client
+        .find_by_fields(schema_code, fields)
+        .await
+        .ok()
+        .flatten();
+
+    if let Some(object_id) = remote_id {
+        client.update(schema_code, &object_id, biz_json).await?;
+        SyncStateRepo::upsert(pool, entity_type, entity_id, &object_id)
+            .await
+            .map_err(|e| models::SyncError::FatalError {
+                reason: format!("DB upsert failed: {e}"),
+            })?;
+        info!(label, entity_id, object_id, "Synced (update)");
+    } else {
+        let object_id = client.create(schema_code, biz_json).await?;
+        SyncStateRepo::upsert(pool, entity_type, entity_id, &object_id)
+            .await
+            .map_err(|e| models::SyncError::FatalError {
+                reason: format!("DB upsert failed: {e}"),
+            })?;
+        info!(label, entity_id, object_id, "Synced (create)");
+    }
+
+    Ok(())
+}

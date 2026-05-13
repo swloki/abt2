@@ -140,6 +140,17 @@ impl GrpcInventoryService for InventoryHandler {
             .await
             .map_err(error::sqlx_err_to_status)?;
 
+        if abt::h3yun::is_initialized() {
+            let sender = abt::h3yun::get_sync_event_sender().clone();
+            let inv_id = log.inventory_id;
+            tokio::spawn(async move {
+                let _ = sender.send(abt::h3yun::models::SyncEvent {
+                    entity_type: abt::h3yun::models::EntityType::Inventory,
+                    entity_id: inv_id,
+                }).await;
+            });
+        }
+
         Ok(Response::new(to_proto_log_response(log)))
     }
 
@@ -167,6 +178,17 @@ impl GrpcInventoryService for InventoryHandler {
         tx.commit()
             .await
             .map_err(error::sqlx_err_to_status)?;
+
+        if abt::h3yun::is_initialized() {
+            let sender = abt::h3yun::get_sync_event_sender().clone();
+            let inv_id = log.inventory_id;
+            tokio::spawn(async move {
+                let _ = sender.send(abt::h3yun::models::SyncEvent {
+                    entity_type: abt::h3yun::models::EntityType::Inventory,
+                    entity_id: inv_id,
+                }).await;
+            });
+        }
 
         Ok(Response::new(to_proto_log_response(log)))
     }
@@ -196,6 +218,17 @@ impl GrpcInventoryService for InventoryHandler {
             .await
             .map_err(error::sqlx_err_to_status)?;
 
+        if abt::h3yun::is_initialized() {
+            let sender = abt::h3yun::get_sync_event_sender().clone();
+            let inv_id = log.inventory_id;
+            tokio::spawn(async move {
+                let _ = sender.send(abt::h3yun::models::SyncEvent {
+                    entity_type: abt::h3yun::models::EntityType::Inventory,
+                    entity_id: inv_id,
+                }).await;
+            });
+        }
+
         Ok(Response::new(to_proto_log_response(log)))
     }
 
@@ -224,6 +257,17 @@ impl GrpcInventoryService for InventoryHandler {
             .await
             .map_err(error::sqlx_err_to_status)?;
 
+        if abt::h3yun::is_initialized() {
+            let sender = abt::h3yun::get_sync_event_sender().clone();
+            let inv_id = log.inventory_id;
+            tokio::spawn(async move {
+                let _ = sender.send(abt::h3yun::models::SyncEvent {
+                    entity_type: abt::h3yun::models::EntityType::Inventory,
+                    entity_id: inv_id,
+                }).await;
+            });
+        }
+
         Ok(Response::new(to_proto_log_response(log)))
     }
 
@@ -250,6 +294,22 @@ impl GrpcInventoryService for InventoryHandler {
         tx.commit()
             .await
             .map_err(error::sqlx_err_to_status)?;
+
+        if abt::h3yun::is_initialized() {
+            let sender = abt::h3yun::get_sync_event_sender().clone();
+            let from_id = out_log.inventory_id;
+            let to_id = in_log.inventory_id;
+            tokio::spawn(async move {
+                let _ = sender.send(abt::h3yun::models::SyncEvent {
+                    entity_type: abt::h3yun::models::EntityType::Inventory,
+                    entity_id: from_id,
+                }).await;
+                let _ = sender.send(abt::h3yun::models::SyncEvent {
+                    entity_type: abt::h3yun::models::EntityType::Inventory,
+                    entity_id: to_id,
+                }).await;
+            });
+        }
 
         Ok(Response::new(InventoryLogListResponse {
             items: vec![

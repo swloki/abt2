@@ -90,4 +90,14 @@ pub trait LocationService: Send + Sync {
         page: Option<u32>,
         page_size: Option<u32>,
     ) -> Result<PaginatedResult<LocationInventoryStats>>;
+
+    /// 跨仓库搜索库位（带仓库名称）
+    async fn search_locations(
+        &self,
+        keyword: Option<String>,
+        is_active: Option<bool>,
+        warehouse_id: Option<i64>,
+        page: Option<u32>,
+        page_size: Option<u32>,
+    ) -> Result<PaginatedResult<LocationWithWarehouse>>;
 }

@@ -138,7 +138,6 @@ impl GrpcProductService for ProductHandler {
         request: Request<UpdateProductRequest>,
     ) -> GrpcResult<BoolResponse> {
         let req = request.into_inner();
-        tracing::warn!("=== update_product called, product_id={} ===", req.product_id);
         let state = AppState::get().await;
         let srv = state.product_service();
 
@@ -159,19 +158,14 @@ impl GrpcProductService for ProductHandler {
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         // 自动触发 H3Yun 同步
-        let initialized = abt::h3yun::is_initialized();
-        tracing::warn!(product_id = req.product_id, initialized, "Auto-sync triggered after product update");
-        if initialized {
+        if abt::h3yun::is_initialized() {
             let sender = abt::h3yun::get_sync_event_sender().clone();
             let pid = req.product_id;
             tokio::spawn(async move {
-                match sender.send(abt::h3yun::models::SyncEvent {
+                let _ = sender.send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Product,
                     entity_id: pid,
-                }).await {
-                    Ok(()) => tracing::info!(pid, "Sync event sent"),
-                    Err(e) => tracing::warn!(pid, error = %e, "Failed to send sync event"),
-                }
+                }).await;
             });
         }
 

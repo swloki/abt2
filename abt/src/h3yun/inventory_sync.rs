@@ -32,6 +32,7 @@ pub async fn sync_inventory(
         "Size": "期初导入",
         "stockqty": data.quantity.to_string(),
         "unit": data.unit,
+        "LotsCost20201118": 0,
     });
 
     let biz_json = serde_json::to_string(&payload).map_err(|e| SyncError::ValidationError {
@@ -39,15 +40,21 @@ pub async fn sync_inventory(
         fields: vec![format!("JSON serialize failed: {e}")],
     })?;
 
-    super::sync_entity(
+    // 和旧代码一致：三字段联合匹配（product_code + location_code + warehouse_name）
+    let fields: &[(&str, &str)] = &[
+        ("Pcode20201118", &data.product_code),
+        ("KW20201118", &data.location_code),
+        ("WH20201118", &data.warehouse_name),
+    ];
+
+    super::sync_entity_by_fields(
         pool,
         client,
         schema::WAREHOUSE,
         EntityType::Inventory,
         data.inventory_id,
         &biz_json,
-        "Pcode20201118",
-        &data.product_code,
+        fields,
         "inventory",
     )
     .await

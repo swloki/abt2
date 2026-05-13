@@ -403,7 +403,7 @@ impl BomService for BomServiceImpl {
         }).collect();
 
         let warnings: Vec<String> = material_costs.iter()
-            .filter(|m| m.unit_price.is_none())
+            .filter(|m| m.unit_price.as_ref().is_none_or(|p| p.parse::<rust_decimal::Decimal>().unwrap_or(rust_decimal::Decimal::ZERO).is_zero()))
             .map(|m| m.product_name.clone())
             .collect();
 

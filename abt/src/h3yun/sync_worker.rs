@@ -117,7 +117,7 @@ impl SyncWorker {
     }
 
     async fn fetch_inventory_data(&self, inventory_id: i64) -> Option<InventorySyncData> {
-        let row = sqlx::query_as::<_, (i64, i64, String, String, String, String, rust_decimal::Decimal, String)>(
+        let result = sqlx::query_as::<_, (i64, i64, String, String, String, String, rust_decimal::Decimal, String)>(
             r#"
             SELECT
                 i.inventory_id,
@@ -129,27 +129,36 @@ impl SyncWorker {
                 i.quantity,
                 p.unit
             FROM inventory i
-            JOIN locations l ON i.location_id = l.location_id
-            JOIN warehouses w ON l.warehouse_id = w.warehouse_id
+            JOIN location l ON i.location_id = l.location_id
+            JOIN warehouse w ON l.warehouse_id = w.warehouse_id
             JOIN products p ON i.product_id = p.product_id
             WHERE i.inventory_id = $1
             "#,
         )
         .bind(inventory_id)
         .fetch_optional(&self.pool)
-        .await
-        .ok()??;
+        .await;
 
-        Some(InventorySyncData {
-            inventory_id: row.0,
-            product_id: row.1,
-            location_code: row.2,
-            warehouse_name: row.3,
-            product_code: row.4,
-            product_name: row.5,
-            quantity: row.6,
-            unit: row.7,
-        })
+        match result {
+            Ok(Some(row)) => Some(InventorySyncData {
+                inventory_id: row.0,
+                product_id: row.1,
+                location_code: row.2,
+                warehouse_name: row.3,
+                product_code: row.4,
+                product_name: row.5,
+                quantity: row.6,
+                unit: row.7,
+            }),
+            Ok(None) => {
+                warn!(inventory_id, "Inventory not found in DB");
+                None
+            }
+            Err(e) => {
+                warn!(inventory_id, error = %e, "Failed to fetch inventory data");
+                None
+            }
+        }
     }
 }
 

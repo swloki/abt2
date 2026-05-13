@@ -226,6 +226,67 @@ impl H3YunClient {
         Ok(object_id)
     }
 
+    /// 按多字段 AND 查询 ObjectId（和旧代码三字段联合匹配一致）
+    pub async fn find_by_fields(
+        &self,
+        schema_code: &str,
+        fields: &[(&str, &str)],
+    ) -> Result<Option<String>, SyncError> {
+        let matchers: Vec<Value> = fields
+            .iter()
+            .map(|(name, value)| {
+                serde_json::json!({
+                    "Type": "Item",
+                    "Matchers": null,
+                    "Name": name,
+                    "Operator": 2,
+                    "Value": value
+                })
+            })
+            .collect();
+
+        let filter = serde_json::json!({
+            "FromRowNum": 0,
+            "RequireCount": true,
+            "ReturnItems": ["ObjectId"],
+            "SortByCollection": [],
+            "ToRowNum": 12,
+            "Matcher": {
+                "Type": "And",
+                "Matchers": matchers,
+                "Name": null,
+                "Operator": null,
+                "Value": null
+            }
+        });
+
+        let req = H3YunFilter {
+            ActionName: action::LOAD.to_string(),
+            SchemaCode: schema_code.to_string(),
+            Filter: filter.to_string(),
+        };
+
+        let resp = self.invoke_filter(&req).await?;
+        if !resp.Successful {
+            return Err(classify_error(&resp.ErrorMessage));
+        }
+
+        let object_id = resp.ReturnData.and_then(|d| {
+            let data = if let Some(s) = d.as_str() {
+                serde_json::from_str::<Value>(s).ok().unwrap_or(d)
+            } else {
+                d
+            };
+            data.get("BizObjectArray")
+                .and_then(|arr| arr.as_array())
+                .and_then(|items| items.first())
+                .and_then(|item| item.get("ObjectId"))
+                .and_then(|v| v.as_str().map(|s| s.to_string()))
+        });
+
+        Ok(object_id)
+    }
+
     /// 发送 HTTP 请求（Filter 格式，用于 LoadBizObjects）
     async fn invoke_filter(&self, req: &H3YunFilter) -> Result<H3YunResponse, SyncError> {
         self.do_post(req).await

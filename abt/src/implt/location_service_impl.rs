@@ -219,4 +219,29 @@ impl LocationService for LocationServiceImpl {
         let pagination = PaginationParams::new(page, page_size);
         Ok(PaginatedResult::new(items, total, &pagination))
     }
+
+    async fn search_locations(
+        &self,
+        keyword: Option<String>,
+        is_active: Option<bool>,
+        warehouse_id: Option<i64>,
+        page: Option<u32>,
+        page_size: Option<u32>,
+    ) -> Result<PaginatedResult<LocationWithWarehouse>> {
+        let page = page.unwrap_or(1).max(1);
+        let page_size = page_size.unwrap_or(20).clamp(1, 100);
+
+        let (items, total) = LocationRepo::search_locations(
+            &self.pool,
+            keyword.as_deref(),
+            is_active,
+            warehouse_id,
+            page,
+            page_size,
+        )
+        .await?;
+
+        let pagination = PaginationParams::new(page, page_size);
+        Ok(PaginatedResult::new(items, total, &pagination))
+    }
 }

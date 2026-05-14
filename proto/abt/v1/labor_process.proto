@@ -90,10 +90,9 @@ message ImportLaborProcessesResponse {
 
 message ProductRoutingInfo {
   string product_code = 1;
-  bool auto_created_routing = 2;
-  bool matched_existing_routing = 3;
-  optional string routing_name = 4;
-  optional int64 routing_id = 5;
+  bool matched_existing_routing = 2;
+  optional string routing_name = 3;
+  optional int64 routing_id = 4;
 }
 
 message ImportLaborProcessResult {

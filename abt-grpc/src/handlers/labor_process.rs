@@ -296,7 +296,6 @@ impl GrpcLaborProcessService for LaborProcessHandler {
                 .into_iter()
                 .map(|r| ProductRoutingInfo {
                     product_code: r.product_code,
-                    auto_created_routing: r.auto_created_routing,
                     matched_existing_routing: r.matched_existing_routing,
                     routing_name: r.routing_name,
                     routing_id: r.routing_id,

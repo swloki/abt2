@@ -118,13 +118,13 @@ impl RoleService for RoleServiceImpl {
 }
 
 fn map_duplicate_error(e: anyhow::Error, role_code: &str) -> anyhow::Error {
-    if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>() {
-        if db_err.code().as_deref() == Some("23505") {
-            return anyhow::Error::from(ServiceError::Conflict {
-                resource: "Role".to_string(),
-                message: format!("角色编码 '{}' 已存在", role_code),
-            });
-        }
+    if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>()
+        && db_err.code().as_deref() == Some("23505")
+    {
+        return anyhow::Error::from(ServiceError::Conflict {
+            resource: "Role".to_string(),
+            message: format!("角色编码 '{}' 已存在", role_code),
+        });
     }
     e
 }

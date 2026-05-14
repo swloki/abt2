@@ -8926,12 +8926,10 @@ pub struct ProductRoutingInfo {
     #[prost(string, tag = "1")]
     pub product_code: ::prost::alloc::string::String,
     #[prost(bool, tag = "2")]
-    pub auto_created_routing: bool,
-    #[prost(bool, tag = "3")]
     pub matched_existing_routing: bool,
-    #[prost(string, optional, tag = "4")]
+    #[prost(string, optional, tag = "3")]
     pub routing_name: ::core::option::Option<::prost::alloc::string::String>,
-    #[prost(int64, optional, tag = "5")]
+    #[prost(int64, optional, tag = "4")]
     pub routing_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]

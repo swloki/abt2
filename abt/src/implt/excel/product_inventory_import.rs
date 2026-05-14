@@ -264,58 +264,55 @@ impl ExcelImportService for ProductInventoryImporter {
                 item_failed = true;
             }
 
-            if !item_failed {
-                if let Some(price) = item.price
-                    && let Err(e) = update_price_batch(&mut tx, item.product_id, price).await
-                {
-                    result.failed_count += 1;
-                    result
-                        .errors
-                        .push(format!("更新价格失败 {}: {}", item.product_code, e));
-                    item_failed = true;
-                }
+            if !item_failed
+                && let Some(price) = item.price
+                && let Err(e) = update_price_batch(&mut tx, item.product_id, price).await
+            {
+                result.failed_count += 1;
+                result
+                    .errors
+                    .push(format!("更新价格失败 {}: {}", item.product_code, e));
+                item_failed = true;
             }
 
-            if !item_failed {
-                if let Some(location_id) = item.location_id {
-                    if let Some(quantity) = item.quantity {
-                        match upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity).await {
-                            Ok(inv_id) => { item.inventory_id = Some(inv_id); }
-                            Err(e) => {
-                                result.failed_count += 1;
-                                result.errors.push(format!("更新库存失败: {}", e));
-                                item_failed = true;
-                            }
-                        }
-                    }
-
-                    if !item_failed {
-                        if let Some(safety_stock) = item.safety_stock
-                            && let Err(e) = upsert_inventory_safety_stock(
-                                &mut tx,
-                                item.product_id,
-                                location_id,
-                                safety_stock,
-                            )
-                            .await
-                        {
+            if !item_failed
+                && let Some(location_id) = item.location_id
+            {
+                if let Some(quantity) = item.quantity {
+                    match upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity).await {
+                        Ok(inv_id) => { item.inventory_id = Some(inv_id); }
+                        Err(e) => {
                             result.failed_count += 1;
-                            result.errors.push(format!("更新安全库存失败: {}", e));
+                            result.errors.push(format!("更新库存失败: {}", e));
                             item_failed = true;
                         }
                     }
                 }
-            }
 
-            if !item_failed {
-                if !item.category_ids.is_empty()
-                    && let Err(e) = sync_product_categories(&mut tx, item.product_id, &item.category_ids)
-                        .await
+                if !item_failed
+                    && let Some(safety_stock) = item.safety_stock
+                    && let Err(e) = upsert_inventory_safety_stock(
+                        &mut tx,
+                        item.product_id,
+                        location_id,
+                        safety_stock,
+                    )
+                    .await
                 {
                     result.failed_count += 1;
-                    result.errors.push(format!("更新分类关联失败 {}: {}", item.product_code, e));
+                    result.errors.push(format!("更新安全库存失败: {}", e));
                     item_failed = true;
                 }
+            }
+
+            if !item_failed
+                && !item.category_ids.is_empty()
+                && let Err(e) = sync_product_categories(&mut tx, item.product_id, &item.category_ids)
+                    .await
+            {
+                result.failed_count += 1;
+                result.errors.push(format!("更新分类关联失败 {}: {}", item.product_code, e));
+                item_failed = true;
             }
 
             if item_failed {

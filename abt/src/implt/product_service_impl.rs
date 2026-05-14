@@ -97,13 +97,13 @@ impl ProductService for ProductServiceImpl {
 /// 将数据库 UNIQUE 约束冲突转换为 ServiceError::Conflict，
 /// 其他错误原样传递。
 fn map_duplicate_error(e: anyhow::Error, product_code: &str) -> anyhow::Error {
-    if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>() {
-        if db_err.code().as_deref() == Some("23505") {
-            return anyhow::Error::from(ServiceError::Conflict {
-                resource: "Product".to_string(),
-                message: format!("产品编码 '{}' 已存在", product_code),
-            });
-        }
+    if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>()
+        && db_err.code().as_deref() == Some("23505")
+    {
+        return anyhow::Error::from(ServiceError::Conflict {
+            resource: "Product".to_string(),
+            message: format!("产品编码 '{}' 已存在", product_code),
+        });
     }
     e
 }

@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 use std::sync::Arc;
 
+use common::error::ServiceError;
 use crate::models::{
     CreateLocationRequest, Location, LocationInventoryStats, LocationStatus, LocationWithWarehouse,
     UpdateLocationRequest, WarehouseInventoryStats,
@@ -30,19 +31,23 @@ impl LocationServiceImpl {
 #[async_trait]
 impl LocationService for LocationServiceImpl {
     async fn create(&self, req: CreateLocationRequest, executor: Executor<'_>) -> Result<i64> {
-        // 检查仓库是否存在
         if WarehouseRepo::find_by_id(&self.pool, req.warehouse_id)
             .await?
             .is_none()
         {
-            return Err(anyhow::anyhow!("仓库不存在: {}", req.warehouse_id));
+            return Err(ServiceError::NotFound {
+                resource: "Warehouse".to_string(),
+                id: req.warehouse_id.to_string(),
+            }.into());
         }
 
-        // 检查库位编码是否已存在
         if LocationRepo::code_exists_in_warehouse(&self.pool, req.warehouse_id, &req.location_code)
             .await?
         {
-            return Err(anyhow::anyhow!("库位编码已存在: {}", req.location_code));
+            return Err(ServiceError::Conflict {
+                resource: "Location".to_string(),
+                message: format!("库位编码 '{}' 已存在", req.location_code),
+            }.into());
         }
 
         let location_id = LocationRepo::insert(
@@ -63,12 +68,13 @@ impl LocationService for LocationServiceImpl {
         req: UpdateLocationRequest,
         executor: Executor<'_>,
     ) -> Result<()> {
-        // 检查库位是否存在
         let location = LocationRepo::find_by_id(&self.pool, location_id)
             .await?
-            .ok_or_else(|| anyhow::anyhow!("库位不存在: {}", location_id))?;
+            .ok_or_else(|| ServiceError::NotFound {
+                resource: "Location".to_string(),
+                id: location_id.to_string(),
+            })?;
 
-        // 如果编码变更，检查新编码是否已存在
         if location.location_code != req.location_code
             && LocationRepo::code_exists_in_warehouse(
                 &self.pool,
@@ -77,7 +83,10 @@ impl LocationService for LocationServiceImpl {
             )
             .await?
         {
-            return Err(anyhow::anyhow!("库位编码已存在: {}", req.location_code));
+            return Err(ServiceError::Conflict {
+                resource: "Location".to_string(),
+                message: format!("库位编码 '{}' 已存在", req.location_code),
+            }.into());
         }
 
         LocationRepo::update(
@@ -96,12 +105,14 @@ impl LocationService for LocationServiceImpl {
         is_active: bool,
         executor: Executor<'_>,
     ) -> Result<()> {
-        // 检查库位是否存在
         if LocationRepo::find_by_id(&self.pool, location_id)
             .await?
             .is_none()
         {
-            return Err(anyhow::anyhow!("库位不存在: {}", location_id));
+            return Err(ServiceError::NotFound {
+                resource: "Location".to_string(),
+                id: location_id.to_string(),
+            }.into());
         }
 
         let status = if is_active { LocationStatus::Active } else { LocationStatus::Inactive };
@@ -114,17 +125,20 @@ impl LocationService for LocationServiceImpl {
         hard_delete: bool,
         executor: Executor<'_>,
     ) -> Result<bool> {
-        // 检查库位是否存在
         if LocationRepo::find_by_id(&self.pool, location_id)
             .await?
             .is_none()
         {
-            return Err(anyhow::anyhow!("库位不存在: {}", location_id));
+            return Err(ServiceError::NotFound {
+                resource: "Location".to_string(),
+                id: location_id.to_string(),
+            }.into());
         }
 
-        // 检查库位下是否有库存
         if LocationRepo::has_inventory(&self.pool, location_id).await? {
-            return Err(anyhow::anyhow!("库位下存在库存，无法删除"));
+            return Err(ServiceError::BusinessValidation {
+                message: "库位下存在库存，无法删除".to_string(),
+            }.into());
         }
 
         if hard_delete {
@@ -187,7 +201,10 @@ impl LocationService for LocationServiceImpl {
     ) -> Result<WarehouseInventoryStats> {
         LocationRepo::get_warehouse_inventory_stats(&self.pool, warehouse_id)
             .await?
-            .ok_or_else(|| anyhow::anyhow!("仓库不存在: {}", warehouse_id))
+            .ok_or_else(|| ServiceError::NotFound {
+                resource: "Warehouse".to_string(),
+                id: warehouse_id.to_string(),
+            }.into())
     }
 
     async fn get_location_inventory_stats(
@@ -196,7 +213,10 @@ impl LocationService for LocationServiceImpl {
     ) -> Result<LocationInventoryStats> {
         LocationRepo::get_location_inventory_stats(&self.pool, location_id)
             .await?
-            .ok_or_else(|| anyhow::anyhow!("库位不存在: {}", location_id))
+            .ok_or_else(|| ServiceError::NotFound {
+                resource: "Location".to_string(),
+                id: location_id.to_string(),
+            }.into())
     }
 
     async fn list_location_stats_by_warehouse(

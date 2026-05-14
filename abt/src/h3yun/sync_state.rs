@@ -133,4 +133,26 @@ impl SyncStateRepo {
 
         Ok(rows)
     }
+
+    /// 查询未同步的库存记录 (inventory_id 列表)
+    pub async fn find_unsynced_inventories(
+        pool: &PgPool,
+        limit: i64,
+    ) -> Result<Vec<i64>> {
+        let rows = sqlx::query_scalar::<_, i64>(
+            r#"
+            SELECT i.inventory_id
+            FROM inventory i
+            LEFT JOIN h3yun_sync_state s
+                ON s.entity_id = i.inventory_id AND s.entity_type = 'inventory'
+            WHERE (s.id IS NULL OR s.last_synced_at IS NULL)
+            LIMIT $1
+            "#,
+        )
+        .bind(limit)
+        .fetch_all(pool)
+        .await?;
+
+        Ok(rows)
+    }
 }

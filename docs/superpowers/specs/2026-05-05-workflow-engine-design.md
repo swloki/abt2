@@ -63,6 +63,34 @@ abt-grpc/src/handlers/workflow.rs     ← gRPC handler
 
 除人工审批节点外，引入 `auto_task` 节点类型。引擎推进到 auto_task 时，通过 `ActionRegistry` 查找并执行注册的业务动作（如生成生产定单、创建领料单），执行成功后自动推进到下一节点。**每个 auto_task 独立事务**：成功即提交并记录 history，失败则仅回滚当前节点，实例 suspended。链式 auto_task 逐个独立执行，失败后重试从断点继续。运维可通过 Admin API 手动重试。
 
+auto_task 节点支持 `input_mapping` / `output_mapping` 声明式数据映射，实现任务与流程上下文的解耦（见 Improvement 8）。
+
+### Improvement 0b: 统一节点执行结果（NodeResult）
+
+引擎对所有节点的执行结果统一抽象为 `NodeResult` 枚举：
+
+```rust
+enum NodeResult {
+    /// 节点执行完成，可继续推进（auto_task 成功、approval 通过）
+    Completed { output: HashMap<String, Value> },
+    /// 节点挂起，等待外部信号（approval 等待人工审批）
+    Waiting { signal: String, timeout: Option<Duration> },
+    /// 节点执行失败
+    Failed { error: String },
+}
+```
+
+引擎按 `NodeResult` 统一分发处理，不感知具体节点类型的内部逻辑。approval 和 auto_task 各自封装为独立的处理器，返回统一的 `NodeResult`，引擎只负责调度和状态转移。
+
+### Improvement 0c: 声明式数据映射（input_mapping / output_mapping）
+
+auto_task 节点的 config 支持 `input_mapping` 和 `output_mapping`，实现任务实现与流程上下文的解耦：
+
+- `input_mapping`：定义任务参数与上下文变量的映射关系。引擎在执行前从上下文中提取数据，构造类型化的输入传给 action。
+- `output_mapping`：定义 action 输出字段到上下文变量的映射关系。引擎在 action 完成后自动将输出写回上下文。
+
+同一 action 可在不同流程中以不同映射复用，action 实现无需感知上下文结构。
+
 ### Improvement 1: 4 表设计替代 5 表（折叠 nodes + edges 到 JSONB）
 
 将 `workflow_nodes` 和 `workflow_edges` 折叠为 `workflow_templates` 上的一个 JSONB 列 `graph`。新增独立的 `workflow_history` 审计表。V1 没有可视化设计器，流程图很小（3-8 节点），模板是原子发布的。
@@ -152,7 +180,16 @@ assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警）
       "name": "生成生产定单",
       "config": {
         "action": "create_production_order",
-        "retryable": true
+        "retryable": true,
+        "input_mapping": {
+          "product_id": "${entity_snapshot.product_id}",
+          "quantity": "${entity_snapshot.quantity}",
+          "unit": "${entity_snapshot.unit}"
+        },
+        "output_mapping": {
+          "order_id": "production_order_id",
+          "order_status": "production_order_status"
+        }
       }
     },
     {
@@ -161,7 +198,14 @@ assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警）
       "name": "生成提排单",
       "config": {
         "action": "create_production_schedule",
-        "retryable": true
+        "retryable": true,
+        "input_mapping": {
+          "order_id": "${production_order_id}",
+          "product_id": "${entity_snapshot.product_id}"
+        },
+        "output_mapping": {
+          "schedule_id": "production_schedule_id"
+        }
       }
     },
     {
@@ -360,8 +404,8 @@ struct EntitySnapshotRegistry {
 ```rust
 #[async_trait]
 trait AutoAction: Send + Sync {
-    /// 在独立事务内执行业务动作。接收 instance 上下文，可读取 entity_snapshot。
-    /// 执行结果通过返回值传递，引擎写入 workflow_history。
+    /// 在独立事务内执行业务动作。接收经过 input_mapping 解析后的类型化参数，
+    /// 引擎负责数据映射，action 实现无需感知上下文结构。
     ///
     /// ## 约束（开发者必须遵守）
     /// 1. 纯数据库操作：禁止调用外部 REST/gRPC 服务、发送邮件/消息等。
@@ -370,12 +414,12 @@ trait AutoAction: Send + Sync {
     ///    推荐：INSERT 前先检查是否已存在（WHERE instance_id = $1 AND node_id = $2）。
     /// 3. 快速完成：单个 action 执行时间不应超过 5 秒。
     ///    引擎会设置 SET LOCAL statement_timeout 防止长事务。
-    async fn execute(&self, tx: &mut Transaction, instance: &WorkflowInstance) -> Result<ActionOutput>;
+    async fn execute(&self, tx: &mut Transaction, inputs: HashMap<String, Value>) -> Result<ActionOutput>;
 }
 
 struct ActionOutput {
-    /// 可选：写入 context.variables 的更新（供后续条件评估使用）
-    pub variables_update: HashMap<String, serde_json::Value>,
+    /// 输出字段，引擎根据 output_mapping 将其写入 context.variables
+    pub data: HashMap<String, serde_json::Value>,
 }
 
 struct ActionRegistry {
@@ -573,11 +617,19 @@ WHERE instance_id = $1 AND status = 'pending'
 **正常流程（每个 auto_task 独立事务）：**
 1. 引擎推进到 auto_task 节点时，开启新事务
 2. 在事务内 `SET LOCAL statement_timeout`（默认 5 秒，可在节点 config 中配置 `timeout_seconds`）
-3. 从 `ActionRegistry` 查找 `config.action` 对应的 handler
-4. 调用 `handler.execute(&mut tx, &instance)`
-5. 执行成功：COMMIT 事务，将 `ActionOutput.variables_update` 合并到 `instance.context.variables`，记录 `workflow_history`（`event_type = auto_task_executed`）
-6. 自动评估出边，推进到下一节点
-7. 若下一节点也是 auto_task，开新事务重复上述步骤
+3. **数据映射（输入）**：引擎解析节点的 `input_mapping`，从 `instance.context` 中提取值，构造 `HashMap<String, Value>` 输入参数。表达式语法：`${变量名}` 支持点号路径（如 `${entity_snapshot.product_id}`）
+4. 从 `ActionRegistry` 查找 `config.action` 对应的 handler
+5. 调用 `handler.execute(&mut tx, inputs)`，传入映射后的参数（而非整个 instance）
+6. 执行成功：COMMIT 事务，**数据映射（输出）**：引擎根据节点的 `output_mapping` 将 `ActionOutput.data` 写入 `instance.context.variables`，记录 `workflow_history`（`event_type = auto_task_executed`）
+7. 自动评估出边，推进到下一节点
+8. 若下一节点也是 auto_task，开新事务重复上述步骤
+
+**映射示例：**
+- 节点配置 `input_mapping: { "product_id": "${entity_snapshot.product_id}" }`
+- 引擎从 context 中取出 `entity_snapshot.product_id` 的值，构造 `{ "product_id": "P001" }` 传给 action
+- action 返回 `ActionOutput { data: { "order_id": "ORD-123" } }`
+- 节点配置 `output_mapping: { "order_id": "production_order_id" }`
+- 引擎将 `order_id` 映射为 `production_order_id` 写入 context.variables，后续节点可通过 `${production_order_id}` 引用
 
 **失败处理：**
 1. auto_task 执行失败时，当前事务 ROLLBACK（仅回滚此节点，前面已提交的不受影响）

@@ -11,6 +11,7 @@ use anyhow::{Context, Result};
 use async_trait::async_trait;
 use sqlx::PgPool;
 
+use common::error::ServiceError;
 use crate::models::{Product, ProductQuery};
 use crate::repositories::{BomRepo, BomReference, Executor, ProductRepo};
 use crate::service::ProductService;
@@ -29,7 +30,9 @@ impl ProductServiceImpl {
 #[async_trait]
 impl ProductService for ProductServiceImpl {
     async fn create(&self, product: Product, executor: Executor<'_>) -> Result<i64> {
-        let product_id = ProductRepo::insert(&mut *executor, &product.pdt_name, &product.product_code, &product.unit, product.meta).await?;
+        let product_id = ProductRepo::insert(&mut *executor, &product.pdt_name, &product.product_code, &product.unit, product.meta)
+            .await
+            .map_err(|e| map_duplicate_error(e, &product.product_code))?;
         ProductRepo::upsert_term_relation(executor, product_id, product.term_id).await?;
         Ok(product_id)
     }
@@ -40,7 +43,9 @@ impl ProductService for ProductServiceImpl {
         product: Product,
         executor: Executor<'_>,
     ) -> Result<()> {
-        ProductRepo::update(&mut *executor, product_id, &product.pdt_name, &product.product_code, &product.unit, product.meta).await?;
+        ProductRepo::update(&mut *executor, product_id, &product.pdt_name, &product.product_code, &product.unit, product.meta)
+            .await
+            .map_err(|e| map_duplicate_error(e, &product.product_code))?;
         ProductRepo::upsert_term_relation(executor, product_id, product.term_id).await?;
         Ok(())
     }
@@ -87,4 +92,18 @@ impl ProductService for ProductServiceImpl {
         let is_used = result.total > 0;
         Ok((is_used, result.boms, result.total))
     }
+}
+
+/// 将数据库 UNIQUE 约束冲突转换为 ServiceError::Conflict，
+/// 其他错误原样传递。
+fn map_duplicate_error(e: anyhow::Error, product_code: &str) -> anyhow::Error {
+    if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>() {
+        if db_err.code().as_deref() == Some("23505") {
+            return anyhow::Error::from(ServiceError::Conflict {
+                resource: "Product".to_string(),
+                message: format!("产品编码 '{}' 已存在", product_code),
+            });
+        }
+    }
+    e
 }

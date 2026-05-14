@@ -1,6 +1,8 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::Arc;
+
+use common::error::ServiceError;
 use crate::models::*;
 use crate::repositories::{Executor, PermissionRepo, RoleRepo};
 use crate::service::RoleService;
@@ -22,7 +24,9 @@ impl RoleServiceImpl {
 #[async_trait]
 impl RoleService for RoleServiceImpl {
     async fn create(&self, operator_id: Option<i64>, req: CreateRoleRequest, executor: Executor<'_>) -> Result<i64> {
-        let role_id = RoleRepo::insert(executor, &req).await?;
+        let role_id = RoleRepo::insert(executor, &req)
+            .await
+            .map_err(|e| map_duplicate_error(e, &req.role_code))?;
         Self::log_audit(executor, AuditEntry {
             operator_id,
             target_type: "role",
@@ -35,7 +39,10 @@ impl RoleService for RoleServiceImpl {
     }
 
     async fn update(&self, operator_id: Option<i64>, role_id: i64, req: UpdateRoleRequest, executor: Executor<'_>) -> Result<()> {
-        let old_role = RoleRepo::find_by_id_with_executor(executor, role_id).await?.ok_or_else(|| anyhow!("Role not found"))?;
+        let old_role = RoleRepo::find_by_id_with_executor(executor, role_id).await?.ok_or_else(|| ServiceError::NotFound {
+            resource: "Role".to_string(),
+            id: role_id.to_string(),
+        })?;
         RoleRepo::update(executor, role_id, &req).await?;
         Self::log_audit(executor, AuditEntry {
             operator_id,
@@ -49,7 +56,10 @@ impl RoleService for RoleServiceImpl {
     }
 
     async fn delete(&self, operator_id: Option<i64>, role_id: i64, executor: Executor<'_>) -> Result<()> {
-        let old_role = RoleRepo::find_by_id_with_executor(executor, role_id).await?.ok_or_else(|| anyhow!("Role not found"))?;
+        let old_role = RoleRepo::find_by_id_with_executor(executor, role_id).await?.ok_or_else(|| ServiceError::NotFound {
+            resource: "Role".to_string(),
+            id: role_id.to_string(),
+        })?;
         RoleRepo::delete(executor, role_id).await?;
         Self::log_audit(executor, AuditEntry {
             operator_id,
@@ -105,4 +115,16 @@ impl RoleService for RoleServiceImpl {
         crate::get_permission_cache().load(self.pool.as_ref()).await?;
         Ok(())
     }
+}
+
+fn map_duplicate_error(e: anyhow::Error, role_code: &str) -> anyhow::Error {
+    if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>() {
+        if db_err.code().as_deref() == Some("23505") {
+            return anyhow::Error::from(ServiceError::Conflict {
+                resource: "Role".to_string(),
+                message: format!("角色编码 '{}' 已存在", role_code),
+            });
+        }
+    }
+    e
 }

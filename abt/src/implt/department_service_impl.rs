@@ -1,7 +1,8 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use async_trait::async_trait;
 use std::sync::Arc;
 
+use common::error::ServiceError;
 use crate::models::*;
 use crate::repositories::{DepartmentRepo, Executor};
 use crate::service::DepartmentService;
@@ -23,7 +24,9 @@ impl DepartmentService for DepartmentServiceImpl {
         req: CreateDepartmentRequest,
         executor: Executor<'_>,
     ) -> Result<i64> {
-        let department_id = DepartmentRepo::insert(executor, &req).await?;
+        let department_id = DepartmentRepo::insert(executor, &req)
+            .await
+            .map_err(|e| map_duplicate_error(e, &req.department_code))?;
         Ok(department_id)
     }
 
@@ -35,7 +38,10 @@ impl DepartmentService for DepartmentServiceImpl {
     ) -> Result<()> {
         let _old_dept = DepartmentRepo::find_by_id(self.pool.as_ref(), department_id)
             .await?
-            .ok_or_else(|| anyhow!("Department not found"))?;
+            .ok_or_else(|| ServiceError::NotFound {
+                resource: "Department".to_string(),
+                id: department_id.to_string(),
+            })?;
         DepartmentRepo::update(executor, department_id, &req).await?;
         Ok(())
     }
@@ -47,9 +53,14 @@ impl DepartmentService for DepartmentServiceImpl {
     ) -> Result<()> {
         let old_dept = DepartmentRepo::find_by_id(self.pool.as_ref(), department_id)
             .await?
-            .ok_or_else(|| anyhow!("Department not found"))?;
+            .ok_or_else(|| ServiceError::NotFound {
+                resource: "Department".to_string(),
+                id: department_id.to_string(),
+            })?;
         if old_dept.is_default {
-            return Err(anyhow!("Cannot delete the default department"));
+            return Err(ServiceError::BusinessValidation {
+                message: "无法删除默认部门".to_string(),
+            }.into());
         }
         DepartmentRepo::delete(executor, department_id).await?;
         Ok(())
@@ -89,4 +100,16 @@ impl DepartmentService for DepartmentServiceImpl {
         DepartmentRepo::remove_departments(executor, user_id, &department_ids).await?;
         Ok(())
     }
+}
+
+fn map_duplicate_error(e: anyhow::Error, department_code: &str) -> anyhow::Error {
+    if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>() {
+        if db_err.code().as_deref() == Some("23505") {
+            return anyhow::Error::from(ServiceError::Conflict {
+                resource: "Department".to_string(),
+                message: format!("部门编码 '{}' 已存在", department_code),
+            });
+        }
+    }
+    e
 }

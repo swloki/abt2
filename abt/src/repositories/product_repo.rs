@@ -74,10 +74,12 @@ impl ProductRepo {
     }
 
     /// 根据 ID 查找产品
-    #[allow(dead_code)]
     pub async fn find_by_id(pool: &PgPool, product_id: i64) -> Result<Option<Product>> {
         let row = sqlx::query_as::<_, Product>(
-            "SELECT product_id, pdt_name, product_code, unit, meta FROM products WHERE product_id = $1",
+            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id \
+             FROM products p \
+             LEFT JOIN term_relation tr ON p.product_id = tr.product_id \
+             WHERE p.product_id = $1",
         )
         .bind(product_id)
         .fetch_optional(pool)
@@ -87,17 +89,19 @@ impl ProductRepo {
     }
 
     /// 查询产品列表
-    #[allow(dead_code)]
     pub async fn query(pool: &PgPool, query: &ProductQuery) -> Result<Vec<Product>> {
-        let mut qb = sqlx::QueryBuilder::new(
-            "SELECT DISTINCT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta FROM products p",
-        );
-
         // term_id 过滤: 通过 term_relation 关联表 JOIN 查询
-        if let Some(term_id) = query.term_id {
-            qb.push(" JOIN term_relation tr ON p.product_id = tr.product_id AND tr.term_id = ");
-            qb.push_bind(term_id);
-        }
+        let mut qb = if let Some(term_id) = query.term_id {
+            let mut b = sqlx::QueryBuilder::new(
+                "SELECT DISTINCT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id FROM products p JOIN term_relation tr ON p.product_id = tr.product_id AND tr.term_id = ",
+            );
+            b.push_bind(term_id);
+            b
+        } else {
+            sqlx::QueryBuilder::new(
+                "SELECT DISTINCT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id FROM products p LEFT JOIN term_relation tr ON p.product_id = tr.product_id",
+            )
+        };
 
         qb.push(" WHERE 1=1");
 
@@ -129,7 +133,6 @@ impl ProductRepo {
     }
 
     /// 查询产品总数
-    #[allow(dead_code)]
     pub async fn query_count(pool: &PgPool, query: &ProductQuery) -> Result<i64> {
         let mut qb = sqlx::QueryBuilder::new("SELECT count(*) FROM products p");
 
@@ -180,7 +183,10 @@ impl ProductRepo {
     /// 根据产品编码查找产品
     pub async fn find_by_code(pool: &PgPool, code: &str) -> Result<Option<Product>> {
         let row = sqlx::query_as::<_, Product>(
-            "SELECT product_id, pdt_name, product_code, unit, meta FROM products WHERE product_code = $1",
+            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id \
+             FROM products p \
+             LEFT JOIN term_relation tr ON p.product_id = tr.product_id \
+             WHERE p.product_code = $1",
         )
         .bind(code)
         .fetch_optional(pool)
@@ -196,7 +202,10 @@ impl ProductRepo {
         }
 
         let rows = sqlx::query_as::<_, Product>(
-            "SELECT product_id, pdt_name, product_code, unit, meta FROM products WHERE product_id = ANY($1)",
+            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id \
+             FROM products p \
+             LEFT JOIN term_relation tr ON p.product_id = tr.product_id \
+             WHERE p.product_id = ANY($1)",
         )
         .bind(product_ids)
         .fetch_all(pool)
@@ -212,7 +221,10 @@ impl ProductRepo {
         }
 
         let rows = sqlx::query_as::<_, Product>(
-            "SELECT product_id, pdt_name, product_code, unit, meta FROM products WHERE product_code = ANY($1)",
+            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id \
+             FROM products p \
+             LEFT JOIN term_relation tr ON p.product_id = tr.product_id \
+             WHERE p.product_code = ANY($1)",
         )
         .bind(codes)
         .fetch_all(pool)
@@ -238,6 +250,29 @@ impl ProductRepo {
         )
         .execute(executor)
         .await?;
+
+        Ok(())
+    }
+
+    /// 写入产品的分类关联（先删后插）
+    pub async fn upsert_term_relation(
+        executor: Executor<'_>,
+        product_id: i64,
+        term_id: Option<i64>,
+    ) -> Result<()> {
+        sqlx::query!("DELETE FROM term_relation WHERE product_id = $1", product_id)
+            .execute(&mut *executor)
+            .await?;
+
+        if let Some(tid) = term_id {
+            sqlx::query!(
+                "INSERT INTO term_relation (term_id, product_id) VALUES ($1, $2)",
+                tid,
+                product_id
+            )
+            .execute(&mut *executor)
+            .await?;
+        }
 
         Ok(())
     }

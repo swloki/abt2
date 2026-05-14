@@ -29,7 +29,8 @@ impl ProductServiceImpl {
 #[async_trait]
 impl ProductService for ProductServiceImpl {
     async fn create(&self, product: Product, executor: Executor<'_>) -> Result<i64> {
-        let product_id = ProductRepo::insert(executor, &product.pdt_name, &product.product_code, &product.unit, product.meta).await?;
+        let product_id = ProductRepo::insert(&mut *executor, &product.pdt_name, &product.product_code, &product.unit, product.meta).await?;
+        ProductRepo::upsert_term_relation(executor, product_id, product.term_id).await?;
         Ok(product_id)
     }
 
@@ -39,7 +40,9 @@ impl ProductService for ProductServiceImpl {
         product: Product,
         executor: Executor<'_>,
     ) -> Result<()> {
-        ProductRepo::update(executor, product_id, &product.pdt_name, &product.product_code, &product.unit, product.meta).await
+        ProductRepo::update(&mut *executor, product_id, &product.pdt_name, &product.product_code, &product.unit, product.meta).await?;
+        ProductRepo::upsert_term_relation(executor, product_id, product.term_id).await?;
+        Ok(())
     }
 
     async fn delete(&self, product_id: i64, executor: Executor<'_>) -> Result<()> {

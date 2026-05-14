@@ -182,13 +182,13 @@ impl UserService for UserServiceImpl {
 }
 
 fn map_duplicate_error(e: anyhow::Error, username: &str) -> anyhow::Error {
-    if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>() {
-        if db_err.code().as_deref() == Some("23505") {
-            return anyhow::Error::from(ServiceError::Conflict {
-                resource: "User".to_string(),
-                message: format!("用户名 '{}' 已存在", username),
-            });
-        }
+    if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>()
+        && db_err.code().as_deref() == Some("23505")
+    {
+        return anyhow::Error::from(ServiceError::Conflict {
+            resource: "User".to_string(),
+            message: format!("用户名 '{}' 已存在", username),
+        });
     }
     e
 }

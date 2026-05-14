@@ -108,7 +108,6 @@ pub struct ValidLaborProcessRow {
 #[derive(Debug, Clone)]
 pub struct PerProductRoutingResult {
     pub product_code: String,
-    pub auto_created_routing: bool,
     pub matched_existing_routing: bool,
     pub routing_name: Option<String>,
     pub routing_id: Option<i64>,

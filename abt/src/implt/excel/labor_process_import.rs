@@ -5,15 +5,14 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use calamine::RangeDeserializerBuilder;
-use chrono::Utc;
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use sqlx::PgPool;
 
 use crate::implt::excel::{ProgressTracker, deserialize_optional_decimal, import_range_from_source};
 use crate::models::{
-    CreateRoutingReq, LaborProcessImportResult, LaborProcessImportRowResult, PerProductRoutingResult,
-    RoutingStep, RoutingStepInput, ValidLaborProcessRow, LABOR_PROCESS_EXCEL_COLUMNS,
+    LaborProcessImportResult, LaborProcessImportRowResult, PerProductRoutingResult,
+    RoutingStep, ValidLaborProcessRow, LABOR_PROCESS_EXCEL_COLUMNS,
 };
 use crate::repositories::{BomRepo, Executor, LaborProcessDictRepo, LaborProcessRepo};
 use crate::service::{ImportSource, RoutingService};
@@ -267,7 +266,20 @@ impl LaborProcessImporter {
                         products_to_skip.insert(pc.clone());
                     }
                 }
-                Ok(None) => {}
+                Ok(None) => {
+                    let codes = unique_sorted_process_codes(rows_for_product);
+                    if !codes.is_empty() {
+                        let matched = self.routing_service.find_matching_routing(&codes).await?;
+                        if matched.is_none() {
+                            failure_count += 1;
+                            results.push(row_error(0, pc.clone(), format!(
+                                "未找到匹配的工艺路线（工序编码: {}），请先在工艺路线管理中创建对应路线后再导入",
+                                codes.join(", ")
+                            )));
+                            products_to_skip.insert(pc.clone());
+                        }
+                    }
+                }
                 Err(e) => {
                     failure_count += 1;
                     results.push(LaborProcessImportRowResult {
@@ -303,23 +315,18 @@ impl LaborProcessImporter {
             let rows_for_product = grouped.get(pc).unwrap();
             let product_process_codes = unique_sorted_process_codes(rows_for_product);
 
-            let mut auto_created = false;
-            let mut matched_existing = false;
             let mut route_name: Option<String> = None;
             let mut route_id: Option<i64> = None;
 
             if !product_process_codes.is_empty() {
-                let routing_result = auto_route(
+                let routing_result = find_and_bind_routing(
                     self.routing_service.as_ref(),
                     &mut tx,
                     pc,
                     &product_process_codes,
-                    rows_for_product,
                 )
                 .await?;
 
-                auto_created = routing_result.auto_created;
-                matched_existing = routing_result.matched_existing;
                 route_name = routing_result.name;
                 route_id = routing_result.id;
             }
@@ -331,8 +338,7 @@ impl LaborProcessImporter {
 
             routing_results.push(PerProductRoutingResult {
                 product_code: pc.clone(),
-                auto_created_routing: auto_created,
-                matched_existing_routing: matched_existing,
+                matched_existing_routing: route_name.is_some(),
                 routing_name: route_name,
                 routing_id: route_id,
             });
@@ -404,25 +410,20 @@ async fn validate_process_codes(pool: &PgPool, process_codes: &[String]) -> Resu
 }
 
 struct AutoRouteResult {
-    auto_created: bool,
-    matched_existing: bool,
     name: Option<String>,
     id: Option<i64>,
 }
 
-async fn auto_route(
+async fn find_and_bind_routing(
     routing_service: &dyn RoutingService,
     executor: Executor<'_>,
     product_code: &str,
     unique_process_codes: &[String],
-    valid_rows: &[ValidLaborProcessRow],
 ) -> Result<AutoRouteResult> {
     let existing = routing_service.get_bom_routing_tx(product_code, executor).await?;
 
     if let Some((existing_id, existing_name, _steps)) = existing {
         return Ok(AutoRouteResult {
-            auto_created: false,
-            matched_existing: true,
             name: Some(existing_name),
             id: Some(existing_id),
         });
@@ -443,8 +444,6 @@ async fn auto_route(
         match bind_result {
             Ok((name, id)) => {
                 return Ok(AutoRouteResult {
-                    auto_created: false,
-                    matched_existing: true,
                     name: Some(name),
                     id: Some(id),
                 });
@@ -458,49 +457,12 @@ async fn auto_route(
         }
     }
 
-    let now = Utc::now();
-    let date_str = now.format("%Y%m%d").to_string();
-    let routing_name = format!("Auto-{}-{}", product_code, date_str);
-
-    let mut steps: Vec<RoutingStepInput> = Vec::new();
-    let mut seen_codes: HashSet<String> = HashSet::new();
-    let mut step_order = 1i32;
-
-    for row in valid_rows {
-        if let Some(code) = &row.process_code
-            && !seen_codes.contains(code)
-        {
-            seen_codes.insert(code.clone());
-            steps.push(RoutingStepInput {
-                process_code: code.clone(),
-                step_order,
-                is_required: true,
-                remark: row.remark.clone(),
-            });
-            step_order += 1;
-        }
-    }
-
-    let create_req = CreateRoutingReq {
-        name: routing_name.clone(),
-        description: Some(format!("导入工序时自动创建 ({})", date_str)),
-        steps,
-    };
-
-    let new_routing_id = routing_service
-        .create(create_req, executor)
-        .await?;
-
-    routing_service
-        .set_bom_routing(product_code, new_routing_id, executor)
-        .await?;
-
-    Ok(AutoRouteResult {
-        auto_created: true,
-        matched_existing: false,
-        name: Some(routing_name),
-        id: Some(new_routing_id),
-    })
+    Err(common::error::ServiceError::BusinessValidation {
+        message: format!(
+            "未找到匹配的工艺路线（工序编码: {}），请先在工艺路线管理中创建对应路线后再导入",
+            unique_process_codes.join(", ")
+        ),
+    }.into())
 }
 
 pub fn normalize_process_name(name: &str) -> String {

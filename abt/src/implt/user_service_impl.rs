@@ -6,6 +6,7 @@ use argon2::password_hash::rand_core::OsRng;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHasher, PasswordHash, PasswordVerifier};
 
+use common::error::ServiceError;
 use crate::models::*;
 use crate::repositories::{Executor, PermissionRepo, UserRepo};
 use crate::service::UserService;
@@ -23,7 +24,7 @@ impl UserServiceImpl {
         let salt = SaltString::generate(&mut OsRng);
         let argon2 = Argon2::default();
         let hash = argon2
-            .hash_password(password.as_bytes(), &salt)
+            .hash_password(password.bytes().collect::<Vec<u8>>().as_slice(), &salt)
             .map_err(|e| anyhow!("Failed to hash password: {}", e))?;
         Ok(hash.to_string())
     }
@@ -37,7 +38,9 @@ impl UserServiceImpl {
 impl UserService for UserServiceImpl {
     async fn create(&self, operator_id: Option<i64>, req: CreateUserRequest, executor: Executor<'_>) -> Result<i64> {
         let password_hash = Self::hash_password(&req.password)?;
-        let user_id = UserRepo::insert(executor, &req, &password_hash).await?;
+        let user_id = UserRepo::insert(executor, &req, &password_hash)
+            .await
+            .map_err(|e| map_duplicate_error(e, &req.username))?;
         Self::log_audit(executor, AuditEntry {
             operator_id,
             target_type: "user",
@@ -50,7 +53,10 @@ impl UserService for UserServiceImpl {
     }
 
     async fn update(&self, operator_id: Option<i64>, user_id: i64, req: UpdateUserRequest, executor: Executor<'_>) -> Result<()> {
-        let old_user = UserRepo::find_by_id_with_executor(executor, user_id).await?.ok_or_else(|| anyhow!("User not found"))?;
+        let old_user = UserRepo::find_by_id_with_executor(executor, user_id).await?.ok_or_else(|| ServiceError::NotFound {
+            resource: "User".to_string(),
+            id: user_id.to_string(),
+        })?;
         UserRepo::update(executor, user_id, &req).await?;
         Self::log_audit(executor, AuditEntry {
             operator_id,
@@ -64,7 +70,10 @@ impl UserService for UserServiceImpl {
     }
 
     async fn delete(&self, operator_id: Option<i64>, user_id: i64, executor: Executor<'_>) -> Result<()> {
-        let old_user = UserRepo::find_by_id_with_executor(executor, user_id).await?.ok_or_else(|| anyhow!("User not found"))?;
+        let old_user = UserRepo::find_by_id_with_executor(executor, user_id).await?.ok_or_else(|| ServiceError::NotFound {
+            resource: "User".to_string(),
+            id: user_id.to_string(),
+        })?;
         UserRepo::delete(executor, user_id).await?;
         Self::log_audit(executor, AuditEntry {
             operator_id,
@@ -150,16 +159,19 @@ impl UserService for UserServiceImpl {
     async fn change_password(&self, user_id: i64, old_password: &str, new_password: &str) -> Result<()> {
         let user = UserRepo::find_by_id(self.pool.as_ref(), user_id)
             .await?
-            .ok_or_else(|| anyhow!("用户不存在"))?;
+            .ok_or_else(|| ServiceError::NotFound {
+                resource: "User".to_string(),
+                id: user_id.to_string(),
+            })?;
 
-        // 验证旧密码
         let parsed_hash = PasswordHash::new(&user.password_hash)
             .map_err(|_| anyhow!("密码格式错误"))?;
         Argon2::default()
-            .verify_password(old_password.as_bytes(), &parsed_hash)
-            .map_err(|_| anyhow!("旧密码不正确"))?;
+            .verify_password(old_password.bytes().collect::<Vec<u8>>().as_slice(), &parsed_hash)
+            .map_err(|_| ServiceError::BusinessValidation {
+                message: "旧密码不正确".to_string(),
+            })?;
 
-        // 生成新密码哈希并更新
         let new_hash = Self::hash_password(new_password)?;
         let mut tx = self.pool.begin().await?;
         UserRepo::update_password(&mut tx, user_id, &new_hash).await?;
@@ -167,4 +179,16 @@ impl UserService for UserServiceImpl {
 
         Ok(())
     }
+}
+
+fn map_duplicate_error(e: anyhow::Error, username: &str) -> anyhow::Error {
+    if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>() {
+        if db_err.code().as_deref() == Some("23505") {
+            return anyhow::Error::from(ServiceError::Conflict {
+                resource: "User".to_string(),
+                message: format!("用户名 '{}' 已存在", username),
+            });
+        }
+    }
+    e
 }

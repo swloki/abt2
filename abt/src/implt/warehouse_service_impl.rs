@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use sqlx::PgPool;
 use std::sync::Arc;
 
+use common::error::ServiceError;
 use crate::models::{
     CreateWarehouseRequest, UpdateWarehouseRequest, Warehouse, WarehouseWithLocations,
 };
@@ -27,9 +28,11 @@ impl WarehouseServiceImpl {
 #[async_trait]
 impl WarehouseService for WarehouseServiceImpl {
     async fn create(&self, req: CreateWarehouseRequest, executor: Executor<'_>) -> Result<i64> {
-        // 检查编码是否已存在
         if WarehouseRepo::code_exists(&self.pool, &req.warehouse_code).await? {
-            return Err(anyhow::anyhow!("仓库编码已存在: {}", req.warehouse_code));
+            return Err(ServiceError::Conflict {
+                resource: "Warehouse".to_string(),
+                message: format!("仓库编码 '{}' 已存在", req.warehouse_code),
+            }.into());
         }
 
         let warehouse_id =
@@ -43,17 +46,21 @@ impl WarehouseService for WarehouseServiceImpl {
         req: UpdateWarehouseRequest,
         executor: Executor<'_>,
     ) -> Result<()> {
-        // 检查仓库是否存在
         let warehouse = WarehouseRepo::find_by_id(&self.pool, warehouse_id)
             .await?
-            .ok_or_else(|| anyhow::anyhow!("仓库不存在: {}", warehouse_id))?;
+            .ok_or_else(|| ServiceError::NotFound {
+                resource: "Warehouse".to_string(),
+                id: warehouse_id.to_string(),
+            })?;
 
-        // 如果更新了编码，检查新编码是否已存在
         if let Some(ref new_code) = req.warehouse_code
             && new_code != &warehouse.warehouse_code
             && WarehouseRepo::code_exists(&self.pool, new_code).await?
         {
-            return Err(anyhow::anyhow!("仓库编码已存在: {}", new_code));
+            return Err(ServiceError::Conflict {
+                resource: "Warehouse".to_string(),
+                message: format!("仓库编码 '{}' 已存在", new_code),
+            }.into());
         }
 
         WarehouseRepo::update(
@@ -72,27 +79,33 @@ impl WarehouseService for WarehouseServiceImpl {
         hard_delete: bool,
         executor: Executor<'_>,
     ) -> Result<bool> {
-        // 检查仓库是否存在
         if WarehouseRepo::find_by_id(&self.pool, warehouse_id)
             .await?
             .is_none()
         {
-            return Err(anyhow::anyhow!("仓库不存在: {}", warehouse_id));
+            return Err(ServiceError::NotFound {
+                resource: "Warehouse".to_string(),
+                id: warehouse_id.to_string(),
+            }.into());
         }
 
         if hard_delete {
-            // 硬删除：检查是否有库位和库存
             if WarehouseRepo::has_locations(&self.pool, warehouse_id).await? {
-                return Err(anyhow::anyhow!("仓库下存在库位，无法删除"));
+                return Err(ServiceError::BusinessValidation {
+                    message: "仓库下存在库位，无法删除".to_string(),
+                }.into());
             }
             if WarehouseRepo::has_inventory(&self.pool, warehouse_id).await? {
-                return Err(anyhow::anyhow!("仓库下存在库存，无法删除"));
+                return Err(ServiceError::BusinessValidation {
+                    message: "仓库下存在库存，无法删除".to_string(),
+                }.into());
             }
             WarehouseRepo::hard_delete(executor, warehouse_id).await?;
         } else {
-            // 软删除：也需要检查是否有库位
             if WarehouseRepo::has_locations(&self.pool, warehouse_id).await? {
-                return Err(anyhow::anyhow!("仓库下存在库位，无法删除"));
+                return Err(ServiceError::BusinessValidation {
+                    message: "仓库下存在库位，无法删除".to_string(),
+                }.into());
             }
             WarehouseRepo::soft_delete(executor, warehouse_id).await?;
         }
@@ -122,7 +135,6 @@ impl WarehouseService for WarehouseServiceImpl {
         }
         let warehouse = warehouse.unwrap();
 
-        // 获取仓库下的所有库位（LocationRepo 将在 location 模块实现后可用）
         let locations = vec![];
 
         Ok(Some(WarehouseWithLocations {

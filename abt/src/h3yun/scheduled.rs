@@ -43,20 +43,16 @@ impl ScheduledTask for H3YunSyncTask {
             });
         }
 
+        let mut total_processed = 0;
+        let mut total_queued = 0;
+        let mut total_channel_full = 0;
+
+        // 1. 同步未同步的产品
         let unsynced_products =
             SyncStateRepo::find_entity_ids_never_synced(&self.pool, EntityType::Product, limit)
                 .await?;
 
-        if unsynced_products.is_empty() {
-            return Ok(TaskRunResult {
-                processed: 0,
-                succeeded: 0,
-                message: "No unsynced entities".to_string(),
-            });
-        }
-
-        let mut queued = 0;
-        let mut channel_full = 0;
+        total_processed += unsynced_products.len();
 
         for product_id in &unsynced_products {
             let event = SyncEvent {
@@ -65,20 +61,49 @@ impl ScheduledTask for H3YunSyncTask {
             };
 
             match sender.try_send(event) {
-                Ok(()) => queued += 1,
-                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => channel_full += 1,
+                Ok(()) => total_queued += 1,
+                Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => total_channel_full += 1,
                 Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
                     return Err(anyhow::anyhow!("sync channel closed"));
                 }
             }
         }
 
-        info!(queued, channel_full, "H3Yun sync task queued unsynced products");
+        // 2. 同步未同步的库存
+        let remaining_capacity = sender.capacity().min(500) as i64;
+        if remaining_capacity > 0 {
+            let unsynced_inventories =
+                SyncStateRepo::find_unsynced_inventories(&self.pool, remaining_capacity).await?;
+
+            total_processed += unsynced_inventories.len();
+
+            for inventory_id in &unsynced_inventories {
+                let event = SyncEvent {
+                    entity_type: EntityType::Inventory,
+                    entity_id: *inventory_id,
+                };
+
+                match sender.try_send(event) {
+                    Ok(()) => total_queued += 1,
+                    Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => total_channel_full += 1,
+                    Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {
+                        return Err(anyhow::anyhow!("sync channel closed"));
+                    }
+                }
+            }
+        }
+
+        info!(
+            total_queued,
+            total_channel_full,
+            products = unsynced_products.len(),
+            "H3Yun sync task queued unsynced entities"
+        );
 
         Ok(TaskRunResult {
-            processed: unsynced_products.len(),
-            succeeded: queued,
-            message: format!("Queued {queued}, channel full skipped {channel_full}"),
+            processed: total_processed,
+            succeeded: total_queued,
+            message: format!("Queued {total_queued}, channel full skipped {total_channel_full}"),
         })
     }
 }

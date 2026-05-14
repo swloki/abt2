@@ -15,6 +15,7 @@ pub struct Product {
     pub product_code: String,
     pub unit: String,
     pub meta: ProductMeta,
+    pub term_id: Option<i64>,
 }
 
 impl<'r> FromRow<'r, PgRow> for Product {
@@ -29,12 +30,14 @@ impl<'r> FromRow<'r, PgRow> for Product {
                 index: "meta".to_string(),
                 source: Box::new(e),
             })?;
+        let term_id: Option<i64> = row.try_get("term_id").ok();
         Ok(Product {
             product_id,
             pdt_name,
             product_code,
             unit,
             meta,
+            term_id,
         })
     }
 }
@@ -68,36 +71,6 @@ pub struct ProductQuery {
     pub page: Option<i64>,
     /// 每页数量
     pub page_size: Option<i64>,
-}
-
-// ============================================================================
-// 创建/更新请求
-// ============================================================================
-
-/// 创建产品请求
-#[derive(Debug, Serialize, Deserialize)]
-pub struct CreateProductRequest {
-    /// 产品名称
-    pub pdt_name: String,
-    /// 产品编码
-    pub product_code: String,
-    /// 单位
-    pub unit: String,
-    /// 产品元数据
-    pub meta: ProductMeta,
-}
-
-/// 更新产品请求
-#[derive(Debug, Serialize, Deserialize)]
-pub struct UpdateProductRequest {
-    /// 产品名称
-    pub pdt_name: String,
-    /// 产品编码
-    pub product_code: String,
-    /// 单位
-    pub unit: String,
-    /// 产品元数据
-    pub meta: ProductMeta,
 }
 
 // ============================================================================
@@ -171,24 +144,5 @@ mod tests {
         assert!(query.product_code.is_none());
         assert!(query.page.is_none());
         assert!(query.page_size.is_none());
-    }
-
-    #[test]
-    fn test_create_product_request() {
-        let request = CreateProductRequest {
-            pdt_name: "新产品".to_string(),
-            product_code: "NEW001".to_string(),
-            unit: "件".to_string(),
-            meta: ProductMeta {
-                specification: "规格".to_string(),
-                acquire_channel: "自制".to_string(),
-                old_code: None,
-            },
-        };
-
-        let json = serde_json::to_string(&request).unwrap();
-        assert!(json.contains(r#""pdt_name":"新产品""#));
-        assert!(json.contains(r#""product_code":"NEW001""#));
-        assert!(json.contains(r#""unit":"件""#));
     }
 }

@@ -32,6 +32,7 @@ message ProductResponse {
   ProductMeta meta = 3;
   string product_code = 4;
   string unit = 5;
+  optional int64 term_id = 6;
 }
 
 message ProductsResponse {
@@ -66,6 +67,7 @@ message CreateProductRequest {
   ProductMeta meta = 2;
   string product_code = 3;
   string unit = 4;
+  optional int64 term_id = 5;
 }
 
 message UpdateProductRequest {
@@ -74,6 +76,7 @@ message UpdateProductRequest {
   ProductMeta meta = 3;
   string product_code = 4;
   string unit = 5;
+  optional int64 term_id = 6;
 }
 
 message DeleteProductRequest {

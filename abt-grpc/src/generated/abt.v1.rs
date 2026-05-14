@@ -12948,6 +12948,8 @@ pub struct ProductResponse {
     pub product_code: ::prost::alloc::string::String,
     #[prost(string, tag = "5")]
     pub unit: ::prost::alloc::string::String,
+    #[prost(int64, optional, tag = "6")]
+    pub term_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ProductsResponse {
@@ -12998,6 +13000,8 @@ pub struct CreateProductRequest {
     pub product_code: ::prost::alloc::string::String,
     #[prost(string, tag = "4")]
     pub unit: ::prost::alloc::string::String,
+    #[prost(int64, optional, tag = "5")]
+    pub term_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UpdateProductRequest {
@@ -13011,6 +13015,8 @@ pub struct UpdateProductRequest {
     pub product_code: ::prost::alloc::string::String,
     #[prost(string, tag = "5")]
     pub unit: ::prost::alloc::string::String,
+    #[prost(int64, optional, tag = "6")]
+    pub term_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct DeleteProductRequest {

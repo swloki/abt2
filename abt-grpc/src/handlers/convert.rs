@@ -10,6 +10,7 @@ impl From<abt::Product> for ProductResponse {
             meta: Some(product.meta.into()),
             product_code: product.product_code,
             unit: product.unit,
+            term_id: product.term_id,
         }
     }
 }

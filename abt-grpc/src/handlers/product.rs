@@ -111,6 +111,7 @@ impl GrpcProductService for ProductHandler {
             product_code: req.product_code,
             unit: req.unit,
             meta: req.meta.map(|m| m.into()).unwrap_or_default(),
+            term_id: req.term_id,
         };
 
         let id = srv.create(product, &mut tx).await
@@ -150,6 +151,7 @@ impl GrpcProductService for ProductHandler {
             product_code: req.product_code,
             unit: req.unit,
             meta: req.meta.map(|m| m.into()).unwrap_or_default(),
+            term_id: req.term_id,
         };
 
         srv.update(req.product_id, product, &mut tx).await

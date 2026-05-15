@@ -5,6 +5,7 @@
 use anyhow::Result;
 use chrono::{DateTime, Utc};
 use sqlx::{FromRow, PgPool};
+use std::collections::HashMap;
 
 use crate::models::{BomRouting, Routing, RoutingStep};
 use crate::repositories::Executor;
@@ -291,6 +292,69 @@ impl RoutingRepo {
         .fetch_optional(executor)
         .await?;
         Ok(routing_id)
+    }
+
+    // ========================================================================
+    // 批量查询（导入优化）
+    // ========================================================================
+
+    /// 批量查询 BOM 路线绑定
+    pub async fn find_bom_routing_batch(
+        pool: &PgPool,
+        product_codes: &[String],
+    ) -> Result<HashMap<String, BomRouting>> {
+        if product_codes.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let items: Vec<BomRouting> = sqlx::query_as(
+            "SELECT id, product_code, routing_id, created_at, updated_at \
+             FROM bom_routing WHERE product_code = ANY($1)",
+        )
+        .bind(product_codes)
+        .fetch_all(pool)
+        .await?;
+        Ok(items.into_iter().map(|b| (b.product_code.clone(), b)).collect())
+    }
+
+    /// 批量按 ID 查询路线
+    pub async fn find_routing_by_ids(
+        pool: &PgPool,
+        ids: &[i64],
+    ) -> Result<HashMap<i64, Routing>> {
+        if ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let items: Vec<Routing> = sqlx::query_as(
+            "SELECT id, name, description, created_at, updated_at \
+             FROM routing WHERE id = ANY($1)",
+        )
+        .bind(ids)
+        .fetch_all(pool)
+        .await?;
+        Ok(items.into_iter().map(|r| (r.id, r)).collect())
+    }
+
+    /// 批量查询多个路线的工序列表
+    pub async fn find_steps_by_routing_ids_batch(
+        pool: &PgPool,
+        routing_ids: &[i64],
+    ) -> Result<HashMap<i64, Vec<RoutingStep>>> {
+        if routing_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let steps: Vec<RoutingStep> = sqlx::query_as(
+            "SELECT id, routing_id, process_code, step_order, is_required, remark, created_at, updated_at \
+             FROM routing_step WHERE routing_id = ANY($1) \
+             ORDER BY step_order ASC, id ASC",
+        )
+        .bind(routing_ids)
+        .fetch_all(pool)
+        .await?;
+        let mut map: HashMap<i64, Vec<RoutingStep>> = HashMap::new();
+        for step in steps {
+            map.entry(step.routing_id).or_default().push(step);
+        }
+        Ok(map)
     }
 
     // ========================================================================

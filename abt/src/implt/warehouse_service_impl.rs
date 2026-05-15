@@ -129,11 +129,9 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         warehouse_id: i64,
     ) -> Result<Option<WarehouseWithLocations>> {
-        let warehouse = WarehouseRepo::find_by_id(&self.pool, warehouse_id).await?;
-        if warehouse.is_none() {
+        let Some(warehouse) = WarehouseRepo::find_by_id(&self.pool, warehouse_id).await? else {
             return Ok(None);
-        }
-        let warehouse = warehouse.unwrap();
+        };
 
         let locations = vec![];
 

@@ -142,6 +142,8 @@ impl ExcelImportService for ProductInventoryImporter {
                     continue;
                 };
 
+            let has_quantity_or_stock = row.quantity.is_some() || row.safety_stock.is_some();
+
             let location_id = match &row.location_code {
                 Some(code) if !code.is_empty() => {
                     match location_map.get(code) {
@@ -153,7 +155,17 @@ impl ExcelImportService for ProductInventoryImporter {
                         }
                     }
                 }
-                _ => None,
+                _ => {
+                    if has_quantity_or_stock {
+                        result.failed_count += 1;
+                        result.errors.push(format!(
+                            "产品 {} 有库存数量或安全库存但未填写库位编码",
+                            row.new_code
+                        ));
+                        continue;
+                    }
+                    None
+                }
             };
 
             let new_name = row

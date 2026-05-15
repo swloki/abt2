@@ -82,6 +82,17 @@ pub struct LaborProcessImportResult {
     pub routing_results: Vec<PerProductRoutingResult>,
 }
 
+impl LaborProcessImportResult {
+    pub fn failed(failure_count: i32, results: Vec<LaborProcessImportRowResult>) -> Self {
+        Self {
+            success_count: 0,
+            failure_count,
+            results,
+            routing_results: Vec::new(),
+        }
+    }
+}
+
 /// 工序 Excel 导入单行结果
 #[derive(Debug, Clone)]
 pub struct LaborProcessImportRowResult {

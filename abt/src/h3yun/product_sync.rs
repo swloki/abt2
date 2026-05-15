@@ -87,7 +87,9 @@ pub async fn delete_product_sync(pool: &PgPool, client: &H3YunClient, product_id
         _ => return,
     };
 
-    let object_id = existing.h3yun_object_id.as_ref().unwrap();
+    let Some(object_id) = existing.h3yun_object_id.as_ref() else {
+        return;
+    };
 
     // Only delete local mapping after successful H3Yun delete
     match client.delete(schema::PRODUCT, object_id).await {

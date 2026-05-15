@@ -14,7 +14,7 @@ use crate::models::{
     LaborProcessImportResult, LaborProcessImportRowResult, PerProductRoutingResult,
     RoutingStep, ValidLaborProcessRow, LABOR_PROCESS_EXCEL_COLUMNS,
 };
-use crate::repositories::{BomRepo, Executor, LaborProcessDictRepo, LaborProcessRepo};
+use crate::repositories::{BomRepo, Executor, LaborProcessDictRepo, LaborProcessRepo, RoutingRepo};
 use crate::service::{ImportSource, RoutingService};
 
 #[derive(Debug, Deserialize)]
@@ -160,20 +160,19 @@ impl LaborProcessImporter {
             });
         }
 
-        if failure_count > 0 {
-            return Ok(LaborProcessImportResult {
-                success_count: 0,
-                failure_count,
-                results,
-                routing_results: Vec::new(),
-            });
+        if valid_rows.is_empty() {
+            return Ok(LaborProcessImportResult::failed(failure_count, results));
         }
 
         // 验证所有 process_code 是否存在于工序字典中
         let all_unique_process_codes = unique_sorted_process_codes(&valid_rows);
 
-        if !all_unique_process_codes.is_empty() {
-            validate_process_codes(&self.pool, &all_unique_process_codes).await?;
+        if !all_unique_process_codes.is_empty()
+            && let Err(e) = validate_process_codes(&self.pool, &all_unique_process_codes).await
+        {
+            failure_count += 1;
+            results.push(row_error(0, String::new(), e.to_string()));
+            return Ok(LaborProcessImportResult::failed(failure_count, results));
         }
 
         // 按产品编码分组
@@ -194,167 +193,213 @@ impl LaborProcessImporter {
         for pc in &product_codes {
             if !codes_with_bom_set.contains(pc.as_str()) {
                 failure_count += 1;
-                results.push(LaborProcessImportRowResult {
-                    row_number: 0,
-                    process_name: pc.clone(),
-                    operation: "error".to_string(),
-                    error_message: format!("产品 {} 没有对应的 BOM，无法导入人工成本", pc),
-                });
+                results.push(row_error(0, pc.clone(), format!("产品 {} 没有对应的 BOM，无法导入人工成本", pc)));
                 products_to_skip.insert(pc.clone());
             }
         }
 
-        // 工艺路线校验
+        // 批量预加载路线数据（消除 N+1 查询）
+        let bom_routing_map = RoutingRepo::find_bom_routing_batch(&self.pool, &product_codes).await?;
+        let routing_ids: Vec<i64> = bom_routing_map.values().map(|b| b.routing_id).collect();
+        let routing_map = RoutingRepo::find_routing_by_ids(&self.pool, &routing_ids).await?;
+        let steps_map = RoutingRepo::find_steps_by_routing_ids_batch(&self.pool, &routing_ids).await?;
+
+        // 工艺路线校验（使用预加载的批量数据）
         for pc in &product_codes {
-            let rows_for_product = grouped.get(pc).unwrap();
+            let Some(rows_for_product) = grouped.get(pc) else {
+                continue;
+            };
 
-            match self.routing_service.get_bom_routing(pc).await {
-                Ok(Some((_, routing_name, routing_steps))) => {
-                    let mut product_has_error = false;
-
-                    let imported_codes: HashSet<&str> = rows_for_product
-                        .iter()
-                        .filter_map(|r| r.process_code.as_deref())
-                        .collect();
-
-                    let missing_steps: Vec<&RoutingStep> = routing_steps
-                        .iter()
-                        .filter(|s| !imported_codes.contains(s.process_code.as_str()))
-                        .collect();
-
-                    if !missing_steps.is_empty() {
-                        for step in &missing_steps {
-                            failure_count += 1;
-                            results.push(LaborProcessImportRowResult {
-                                row_number: 0,
-                                process_name: format!("{} / {}", pc, step.process_code),
-                                operation: "error".to_string(),
-                                error_message: format!(
-                                    "产品 {} 的路线 '{}' 包含工序 '{}' 但导入中缺失，请添加该工序（数量可为0）并在备注中说明原因",
-                                    pc, routing_name, step.process_code
-                                ),
-                            });
-                        }
-                        product_has_error = true;
+            if let Some(binding) = bom_routing_map.get(pc) {
+                let routing = match routing_map.get(&binding.routing_id) {
+                    Some(r) => r,
+                    None => {
+                        failure_count += 1;
+                        results.push(row_error(0, String::new(), format!("产品 {} 绑定的路线已被删除", pc)));
+                        products_to_skip.insert(pc.clone());
+                        continue;
                     }
+                };
+                let routing_steps = steps_map.get(&binding.routing_id).cloned().unwrap_or_default();
 
-                    if !product_has_error {
-                        for row in rows_for_product {
-                            if row.quantity == Decimal::ZERO {
-                                let has_remark = row.remark
-                                    .as_ref()
-                                    .map(|s| !s.trim().is_empty())
-                                    .unwrap_or(false);
-                                if !has_remark {
-                                    failure_count += 1;
-                                    results.push(LaborProcessImportRowResult {
-                                        row_number: row.row_number,
-                                        process_name: row.name.clone(),
-                                        operation: "error".to_string(),
-                                        error_message: format!(
-                                            "产品 {} 的工序 '{}' 数量为 0，需要在备注中说明原因",
-                                            pc, row.name
-                                        ),
-                                    });
-                                    product_has_error = true;
-                                }
+                let mut product_has_error = false;
+
+                let imported_codes: HashSet<&str> = rows_for_product
+                    .iter()
+                    .filter_map(|r| r.process_code.as_deref())
+                    .collect();
+
+                let missing_steps: Vec<&RoutingStep> = routing_steps
+                    .iter()
+                    .filter(|s| !imported_codes.contains(s.process_code.as_str()))
+                    .collect();
+
+                if !missing_steps.is_empty() {
+                    for step in &missing_steps {
+                        failure_count += 1;
+                        results.push(row_error(0, format!("{} / {}", pc, step.process_code), format!(
+                            "产品 {} 的路线 '{}' 包含工序 '{}' 但导入中缺失，请添加该工序（数量可为0）并在备注中说明原因",
+                            pc, routing.name, step.process_code
+                        )));
+                    }
+                    product_has_error = true;
+                }
+
+                if !product_has_error {
+                    for row in rows_for_product {
+                        if row.quantity == Decimal::ZERO {
+                            let has_remark = row.remark
+                                .as_ref()
+                                .map(|s| !s.trim().is_empty())
+                                .unwrap_or(false);
+                            if !has_remark {
+                                failure_count += 1;
+                                results.push(row_error(row.row_number, row.name.clone(), format!(
+                                    "产品 {} 的工序 '{}' 数量为 0，需要在备注中说明原因",
+                                    pc, row.name
+                                )));
+                                product_has_error = true;
                             }
                         }
                     }
+                }
 
-                    if product_has_error {
+                if product_has_error {
+                    products_to_skip.insert(pc.clone());
+                }
+            } else {
+                // 无绑定路线，尝试匹配
+                let codes = unique_sorted_process_codes(rows_for_product);
+                if !codes.is_empty() {
+                    let matched = match self.routing_service.find_matching_routing(&codes).await {
+                        Ok(m) => m,
+                        Err(e) => {
+                            failure_count += 1;
+                            results.push(row_error(0, String::new(), format!("产品 {} 查询匹配路线失败: {}", pc, e)));
+                            products_to_skip.insert(pc.clone());
+                            continue;
+                        }
+                    };
+                    if matched.is_none() {
+                        failure_count += 1;
+                        results.push(row_error(0, pc.clone(), format!(
+                            "未找到匹配的工艺路线（工序编码: {}），请先在工艺路线管理中创建对应路线后再导入",
+                            codes.join(", ")
+                        )));
                         products_to_skip.insert(pc.clone());
                     }
-                }
-                Ok(None) => {
-                    let codes = unique_sorted_process_codes(rows_for_product);
-                    if !codes.is_empty() {
-                        let matched = self.routing_service.find_matching_routing(&codes).await?;
-                        if matched.is_none() {
-                            failure_count += 1;
-                            results.push(row_error(0, pc.clone(), format!(
-                                "未找到匹配的工艺路线（工序编码: {}），请先在工艺路线管理中创建对应路线后再导入",
-                                codes.join(", ")
-                            )));
-                            products_to_skip.insert(pc.clone());
-                        }
-                    }
-                }
-                Err(e) => {
-                    failure_count += 1;
-                    results.push(LaborProcessImportRowResult {
-                        row_number: 0,
-                        process_name: String::new(),
-                        operation: "error".to_string(),
-                        error_message: format!("产品 {} 查询路线失败: {}", pc, e),
-                    });
-                    products_to_skip.insert(pc.clone());
                 }
             }
         }
 
         if products_to_skip.len() == product_codes.len() {
-            return Ok(LaborProcessImportResult {
-                success_count: 0,
-                failure_count,
-                results,
-                routing_results: Vec::new(),
-            });
+            return Ok(LaborProcessImportResult::failed(failure_count, results));
         }
 
-        // 事务：按产品依次处理
-        let mut tx = self.pool.begin().await?;
+        // 分批事务：每 500 个产品一个事务，避免单事务过大超时
+        const BATCH_SIZE: usize = 500;
+        let processable: Vec<&String> = product_codes
+            .iter()
+            .filter(|pc| !products_to_skip.contains(*pc))
+            .collect();
+
         let mut routing_results: Vec<PerProductRoutingResult> = Vec::new();
         let mut success_count = 0i32;
 
-        for pc in &product_codes {
-            if products_to_skip.contains(pc) {
+        for chunk in processable.chunks(BATCH_SIZE) {
+            let mut tx = self.pool.begin().await?;
+
+            for &pc in chunk {
+                let Some(rows_for_product) = grouped.get(pc) else {
                 continue;
+            };
+                let product_process_codes = unique_sorted_process_codes(rows_for_product);
+
+                let mut route_name: Option<String> = None;
+                let mut route_id: Option<i64> = None;
+                let mut product_failed = false;
+
+                sqlx::query("SAVEPOINT product_sp")
+                    .execute(&mut *tx)
+                    .await?;
+
+                if !product_process_codes.is_empty() {
+                    let routing_result = match find_and_bind_routing(
+                        self.routing_service.as_ref(),
+                        &mut tx,
+                        pc,
+                        &product_process_codes,
+                    )
+                    .await {
+                        Ok(r) => r,
+                        Err(e) => {
+                            failure_count += 1;
+                            results.push(row_error(0, pc.clone(), format!("产品 {} 查找或绑定路线失败: {}", pc, e)));
+                            product_failed = true;
+                            AutoRouteResult { name: None, id: None }
+                        }
+                    };
+
+                    if !product_failed {
+                        route_name = routing_result.name;
+                        route_id = routing_result.id;
+                    }
+                }
+
+                if !product_failed {
+                    match LaborProcessRepo::delete_by_product_code(&mut tx, pc).await {
+                        Ok(_) => {},
+                        Err(e) => {
+                            failure_count += 1;
+                            results.push(row_error(0, pc.clone(), format!("产品 {} 删除现有工序失败: {}", pc, e)));
+                            product_failed = true;
+                        }
+                    }
+                }
+
+                if !product_failed {
+                    match LaborProcessRepo::batch_insert(&mut tx, pc, rows_for_product).await {
+                        Ok(_) => {},
+                        Err(e) => {
+                            failure_count += 1;
+                            results.push(row_error(0, pc.clone(), format!("产品 {} 插入工序失败: {}", pc, e)));
+                            product_failed = true;
+                        }
+                    }
+                }
+
+                if product_failed {
+                    sqlx::query("ROLLBACK TO SAVEPOINT product_sp")
+                        .execute(&mut *tx)
+                        .await?;
+                } else {
+                    sqlx::query("RELEASE SAVEPOINT product_sp")
+                        .execute(&mut *tx)
+                        .await?;
+
+                    self.tracker.tick();
+
+                    routing_results.push(PerProductRoutingResult {
+                        product_code: pc.clone(),
+                        matched_existing_routing: route_name.is_some(),
+                        routing_name: route_name,
+                        routing_id: route_id,
+                    });
+
+                    success_count += rows_for_product.len() as i32;
+                    for row in rows_for_product {
+                        results.push(LaborProcessImportRowResult {
+                            row_number: row.row_number,
+                            process_name: row.name.clone(),
+                            operation: "created".to_string(),
+                            error_message: String::new(),
+                        });
+                    }
+                }
             }
 
-            let rows_for_product = grouped.get(pc).unwrap();
-            let product_process_codes = unique_sorted_process_codes(rows_for_product);
-
-            let mut route_name: Option<String> = None;
-            let mut route_id: Option<i64> = None;
-
-            if !product_process_codes.is_empty() {
-                let routing_result = find_and_bind_routing(
-                    self.routing_service.as_ref(),
-                    &mut tx,
-                    pc,
-                    &product_process_codes,
-                )
-                .await?;
-
-                route_name = routing_result.name;
-                route_id = routing_result.id;
-            }
-
-            LaborProcessRepo::delete_by_product_code(&mut tx, pc).await?;
-            LaborProcessRepo::batch_insert(&mut tx, pc, rows_for_product).await?;
-
-            self.tracker.tick();
-
-            routing_results.push(PerProductRoutingResult {
-                product_code: pc.clone(),
-                matched_existing_routing: route_name.is_some(),
-                routing_name: route_name,
-                routing_id: route_id,
-            });
-
-            success_count += rows_for_product.len() as i32;
-            for row in rows_for_product {
-                results.push(LaborProcessImportRowResult {
-                    row_number: row.row_number,
-                    process_name: row.name.clone(),
-                    operation: "created".to_string(),
-                    error_message: String::new(),
-                });
-            }
+            tx.commit().await?;
         }
-
-        tx.commit().await?;
 
         Ok(LaborProcessImportResult {
             success_count,

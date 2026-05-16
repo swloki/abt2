@@ -10,6 +10,8 @@ service AbtSyncService {
   rpc SyncAllProducts(SyncAllRequest) returns (SyncResponse);
   // 同步指定产品的库存
   rpc SyncInventory(SyncInventoryRequest) returns (SyncResponse);
+  // 全量同步所有有库位且有库存的库存记录
+  rpc SyncAllInventory(SyncAllRequest) returns (SyncResponse);
   // 对账：比较 ABT 与 H3Yun 状态差异
   rpc Reconcile(ReconcileRequest) returns (ReconcileResponse);
 }

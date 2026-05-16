@@ -50,6 +50,7 @@ struct PendingItem {
     safety_stock: Option<Decimal>,
     new_name: Option<String>,
     category_ids: Vec<i64>,
+    succeeded: bool,
 }
 
 pub struct ProductInventoryImporter {
@@ -199,6 +200,7 @@ impl ExcelImportService for ProductInventoryImporter {
                 safety_stock: row.safety_stock,
                 new_name,
                 category_ids,
+                succeeded: false,
             });
         }
 
@@ -344,17 +346,21 @@ impl ExcelImportService for ProductInventoryImporter {
                 sqlx::query("RELEASE SAVEPOINT item_sp")
                     .execute(&mut *tx)
                     .await?;
+                item.succeeded = true;
                 result.success_count += 1;
             }
         }
 
         tx.commit().await?;
 
-        // 批量触发 H3Yun 同步（产品 + 库存）
+        // 批量触发 H3Yun 同步（产品 + 库存）— 只同步成功的条目
         if crate::h3yun::is_initialized() {
             let sender = crate::h3yun::get_sync_event_sender().clone();
             tokio::spawn(async move {
                 for item in &pending_items {
+                    if !item.succeeded {
+                        continue;
+                    }
                     if item.product_id > 0 {
                         let _ = sender.send(crate::h3yun::models::SyncEvent {
                             entity_type: crate::h3yun::models::EntityType::Product,

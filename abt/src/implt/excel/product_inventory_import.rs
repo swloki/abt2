@@ -290,6 +290,15 @@ impl ExcelImportService for ProductInventoryImporter {
             if !item_failed
                 && let Some(location_id) = item.location_id
             {
+                // 清理该库位上其它产品的零库存记录，维护一库位一产品约束
+                sqlx::query!(
+                    "DELETE FROM inventory WHERE location_id = $1 AND product_id != $2 AND quantity = 0",
+                    location_id,
+                    item.product_id,
+                )
+                .execute(&mut *tx)
+                .await?;
+
                 if let Some(quantity) = item.quantity {
                     match upsert_inventory_quantity(&mut tx, item.product_id, location_id, quantity).await {
                         Ok(inv_id) => { item.inventory_id = Some(inv_id); }

@@ -122,6 +122,44 @@ impl GrpcSyncService for SyncHandler {
     }
 
     #[require_permission(Resource::Sync, Action::Write)]
+    async fn sync_all_inventory(
+        &self,
+        _request: Request<SyncAllRequest>,
+    ) -> GrpcResult<SyncResponse> {
+        let state = AppState::get().await;
+        let pool = state.pool();
+
+        let inventory_ids: Vec<i64> = sqlx::query_scalar!(
+            r#"SELECT inventory_id FROM inventory WHERE quantity > 0 AND location_id IS NOT NULL"#
+        )
+        .fetch_all(&pool)
+        .await
+        .map_err(|e| error::err_to_status(anyhow::anyhow!(e)))?;
+
+        let sender = abt::h3yun::get_sync_event_sender();
+        let mut queued = 0i32;
+
+        for inventory_id in &inventory_ids {
+            if sender
+                .send(abt::h3yun::models::SyncEvent {
+                    entity_type: abt::h3yun::models::EntityType::Inventory,
+                    entity_id: *inventory_id,
+                })
+                .await
+                .is_ok()
+            {
+                queued += 1;
+            }
+        }
+
+        Ok(Response::new(SyncResponse {
+            processed: queued,
+            succeeded: 0,
+            message: format!("{queued} inventory sync events queued"),
+        }))
+    }
+
+    #[require_permission(Resource::Sync, Action::Write)]
     async fn sync_inventory(
         &self,
         request: Request<SyncInventoryRequest>,

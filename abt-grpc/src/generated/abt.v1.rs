@@ -16036,6 +16036,28 @@ pub mod abt_sync_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtSyncService", "SyncInventory"));
             self.inner.unary(req, path, codec).await
         }
+        /// 全量同步所有有库位且有库存的库存记录
+        pub async fn sync_all_inventory(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SyncAllRequest>,
+        ) -> std::result::Result<tonic::Response<super::SyncResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtSyncService/SyncAllInventory",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtSyncService", "SyncAllInventory"));
+            self.inner.unary(req, path, codec).await
+        }
         /// 对账：比较 ABT 与 H3Yun 状态差异
         pub async fn reconcile(
             &mut self,
@@ -16090,6 +16112,11 @@ pub mod abt_sync_service_server {
         async fn sync_inventory(
             &self,
             request: tonic::Request<super::SyncInventoryRequest>,
+        ) -> std::result::Result<tonic::Response<super::SyncResponse>, tonic::Status>;
+        /// 全量同步所有有库位且有库存的库存记录
+        async fn sync_all_inventory(
+            &self,
+            request: tonic::Request<super::SyncAllRequest>,
         ) -> std::result::Result<tonic::Response<super::SyncResponse>, tonic::Status>;
         /// 对账：比较 ABT 与 H3Yun 状态差异
         async fn reconcile(
@@ -16297,6 +16324,52 @@ pub mod abt_sync_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = SyncInventorySvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtSyncService/SyncAllInventory" => {
+                    #[allow(non_camel_case_types)]
+                    struct SyncAllInventorySvc<T: AbtSyncService>(pub Arc<T>);
+                    impl<
+                        T: AbtSyncService,
+                    > tonic::server::UnaryService<super::SyncAllRequest>
+                    for SyncAllInventorySvc<T> {
+                        type Response = super::SyncResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SyncAllRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtSyncService>::sync_all_inventory(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SyncAllInventorySvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

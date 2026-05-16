@@ -500,7 +500,7 @@ impl InventoryRepo {
         }
 
         let rows = sqlx::query!(
-            "SELECT DISTINCT location_id, product_id FROM inventory WHERE location_id = ANY($1)",
+            "SELECT DISTINCT location_id, product_id FROM inventory WHERE location_id = ANY($1) AND quantity != 0",
             location_ids
         )
         .fetch_all(pool)

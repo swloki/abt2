@@ -1,0 +1,231 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+// ============================================================================
+// 工作流模板服务
+// ============================================================================
+service AbtWorkflowService {
+  // 模板管理
+  rpc CreateTemplate(CreateWorkflowTemplateRequest) returns (U64Response);
+  rpc UpdateTemplate(UpdateWorkflowTemplateRequest) returns (BoolResponse);
+  rpc GetTemplate(GetWorkflowTemplateRequest) returns (WorkflowTemplateResponse);
+  rpc ListTemplates(ListWorkflowTemplatesRequest) returns (WorkflowTemplateListResponse);
+  rpc PublishTemplate(PublishTemplateRequest) returns (BoolResponse);
+  rpc ArchiveTemplate(ArchiveTemplateRequest) returns (BoolResponse);
+
+  // 实例管理
+  rpc StartInstance(StartWorkflowInstanceRequest) returns (U64Response);
+  rpc CancelInstance(CancelWorkflowInstanceRequest) returns (BoolResponse);
+  rpc GetInstance(GetWorkflowInstanceRequest) returns (WorkflowInstanceResponse);
+  rpc ListInstances(ListWorkflowInstancesRequest) returns (WorkflowInstanceListResponse);
+
+  // 任务操作
+  rpc GetMyTasks(GetMyTasksRequest) returns (WorkflowTaskListResponse);
+  rpc ApproveTask(ApproveTaskRequest) returns (BoolResponse);
+  rpc RejectTask(RejectTaskRequest) returns (BoolResponse);
+  rpc DelegateTask(DelegateTaskRequest) returns (U64Response);
+
+  // Admin API
+  rpc RetryAutoTask(RetryAutoTaskRequest) returns (BoolResponse);
+  rpc RetryFailedHook(RetryFailedHookRequest) returns (BoolResponse);
+  rpc RecordEntityChange(RecordEntityChangeRequest) returns (RecordEntityChangeResponse);
+
+  // 触发器
+  rpc ListTriggerEvents(ListTriggerEventsRequest) returns (TriggerEventListResponse);
+}
+
+// ============================================================================
+// 模板相关消息
+// ============================================================================
+
+message WorkflowTemplateResponse {
+  int64 id = 1;
+  string entity_type = 2;
+  string name = 3;
+  int32 version = 4;
+  string status = 5;
+  string graph = 6; // JSON string
+  string graph_checksum = 7;
+  string created_at = 8;
+  string updated_at = 9;
+  string trigger_event = 10;
+}
+
+message WorkflowTemplateListResponse {
+  repeated WorkflowTemplateResponse items = 1;
+}
+
+message CreateWorkflowTemplateRequest {
+  string entity_type = 1;
+  string name = 2;
+  string graph = 3; // JSON string
+  string trigger_event = 4;
+}
+
+message UpdateWorkflowTemplateRequest {
+  int64 id = 1;
+  string name = 2;
+  string graph = 3; // JSON string
+  string trigger_event = 4;
+}
+
+message GetWorkflowTemplateRequest {
+  int64 id = 1;
+}
+
+message ListWorkflowTemplatesRequest {
+  string entity_type = 1;
+  string status = 2;
+}
+
+message PublishTemplateRequest {
+  int64 id = 1;
+}
+
+message ArchiveTemplateRequest {
+  int64 id = 1;
+}
+
+// ============================================================================
+// 实例相关消息
+// ============================================================================
+
+message WorkflowInstanceResponse {
+  int64 id = 1;
+  int64 template_id = 2;
+  int32 template_version = 3;
+  string entity_type = 4;
+  int64 entity_id = 5;
+  string status = 6;
+  string frozen_graph = 7; // JSON string
+  string context = 8;      // JSON string
+  string suspended_reason = 9; // JSON string
+  int64 initiator_id = 10;
+  string created_at = 11;
+  string updated_at = 12;
+  string last_advanced_at = 13;
+  string completed_at = 14;
+}
+
+message WorkflowInstanceListResponse {
+  repeated WorkflowInstanceResponse items = 1;
+}
+
+message StartWorkflowInstanceRequest {
+  string entity_type = 1;
+  int64 entity_id = 2;
+  int64 initiator_id = 3;
+}
+
+message CancelWorkflowInstanceRequest {
+  int64 id = 1;
+  int64 operator_id = 2;
+}
+
+message GetWorkflowInstanceRequest {
+  int64 id = 1;
+}
+
+message ListWorkflowInstancesRequest {
+  string entity_type = 1;
+  int64 entity_id = 2;
+  string status = 3;
+}
+
+// ============================================================================
+// 任务相关消息
+// ============================================================================
+
+message WorkflowTaskResponse {
+  int64 id = 1;
+  int64 instance_id = 2;
+  string node_id = 3;
+  int64 prev_task_id = 4;
+  int64 assignee_id = 5;
+  string status = 6;
+  string action = 7;
+  string timeout_action = 8;
+  string due_at = 9;
+  string remind_at = 10;
+  string result = 11; // JSON string
+  string created_at = 12;
+  string completed_at = 13;
+  // 附带实例信息方便展示
+  string instance_entity_type = 14;
+  int64 instance_entity_id = 15;
+  string template_name = 16;
+}
+
+message WorkflowTaskListResponse {
+  repeated WorkflowTaskResponse items = 1;
+}
+
+message GetMyTasksRequest {
+  int64 user_id = 1;
+  string status = 2;
+}
+
+message ApproveTaskRequest {
+  int64 task_id = 1;
+  int64 operator_id = 2;
+  string comment = 3;
+}
+
+message RejectTaskRequest {
+  int64 task_id = 1;
+  int64 operator_id = 2;
+  string comment = 3;
+}
+
+message DelegateTaskRequest {
+  int64 task_id = 1;
+  int64 from_user_id = 2;
+  int64 to_user_id = 3;
+}
+
+// ============================================================================
+// Admin 消息
+// ============================================================================
+
+message RetryAutoTaskRequest {
+  int64 instance_id = 1;
+  int64 operator_id = 2;
+}
+
+message RetryFailedHookRequest {
+  int64 instance_id = 1;
+  int64 operator_id = 2;
+}
+
+message RecordEntityChangeRequest {
+  int64 instance_id = 1;
+  int64 entity_id = 2;
+  string change_type = 3;
+  string change_detail = 4; // JSON string
+}
+
+message RecordEntityChangeResponse {
+  repeated int64 assignee_ids = 1;
+}
+
+// ============================================================================
+// 触发器消息
+// ============================================================================
+
+message ListTriggerEventsRequest {}
+
+message TriggerEventDef {
+  string name = 1;
+  string label = 2;
+  string description = 3;
+  int64 bound_template_id = 4;
+  string bound_template_name = 5;
+}
+
+message TriggerEventListResponse {
+  repeated TriggerEventDef items = 1;
+}

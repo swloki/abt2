@@ -76,9 +76,9 @@ impl ProductRepo {
     /// 根据 ID 查找产品
     pub async fn find_by_id(pool: &PgPool, product_id: i64) -> Result<Option<Product>> {
         let row = sqlx::query_as::<_, Product>(
-            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id \
+            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, \
+             (SELECT tr.term_id FROM term_relation tr WHERE tr.product_id = p.product_id LIMIT 1) AS term_id \
              FROM products p \
-             LEFT JOIN term_relation tr ON p.product_id = tr.product_id \
              WHERE p.product_id = $1",
         )
         .bind(product_id)
@@ -90,16 +90,18 @@ impl ProductRepo {
 
     /// 查询产品列表
     pub async fn query(pool: &PgPool, query: &ProductQuery) -> Result<Vec<Product>> {
-        // term_id 过滤: 通过 term_relation 关联表 JOIN 查询
         let mut qb = if let Some(term_id) = query.term_id {
             let mut b = sqlx::QueryBuilder::new(
-                "SELECT DISTINCT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id FROM products p JOIN term_relation tr ON p.product_id = tr.product_id AND tr.term_id = ",
+                "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, ",
             );
             b.push_bind(term_id);
+            b.push("::int8 AS term_id FROM products p WHERE EXISTS (SELECT 1 FROM term_relation tr WHERE tr.product_id = p.product_id AND tr.term_id = ");
+            b.push_bind(term_id);
+            b.push(")");
             b
         } else {
             sqlx::QueryBuilder::new(
-                "SELECT DISTINCT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id FROM products p LEFT JOIN term_relation tr ON p.product_id = tr.product_id",
+                "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, (SELECT tr.term_id FROM term_relation tr WHERE tr.product_id = p.product_id LIMIT 1) AS term_id FROM products p",
             )
         };
 
@@ -183,9 +185,9 @@ impl ProductRepo {
     /// 根据产品编码查找产品
     pub async fn find_by_code(pool: &PgPool, code: &str) -> Result<Option<Product>> {
         let row = sqlx::query_as::<_, Product>(
-            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id \
+            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, \
+             (SELECT tr.term_id FROM term_relation tr WHERE tr.product_id = p.product_id LIMIT 1) AS term_id \
              FROM products p \
-             LEFT JOIN term_relation tr ON p.product_id = tr.product_id \
              WHERE p.product_code = $1",
         )
         .bind(code)
@@ -202,9 +204,9 @@ impl ProductRepo {
         }
 
         let rows = sqlx::query_as::<_, Product>(
-            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id \
+            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, \
+             (SELECT tr.term_id FROM term_relation tr WHERE tr.product_id = p.product_id LIMIT 1) AS term_id \
              FROM products p \
-             LEFT JOIN term_relation tr ON p.product_id = tr.product_id \
              WHERE p.product_id = ANY($1)",
         )
         .bind(product_ids)
@@ -221,9 +223,9 @@ impl ProductRepo {
         }
 
         let rows = sqlx::query_as::<_, Product>(
-            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, tr.term_id \
+            "SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta, \
+             (SELECT tr.term_id FROM term_relation tr WHERE tr.product_id = p.product_id LIMIT 1) AS term_id \
              FROM products p \
-             LEFT JOIN term_relation tr ON p.product_id = tr.product_id \
              WHERE p.product_code = ANY($1)",
         )
         .bind(codes)

@@ -24,6 +24,31 @@ impl EntityType {
 pub struct SyncEvent {
     pub entity_type: EntityType,
     pub entity_id: i64,
+    pub is_batch: bool,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct SyncBatchStatus {
+    pub batch_type: String,
+    pub status: String,
+    pub total: i32,
+    pub processed: i32,
+    pub succeeded: i32,
+    pub failed: i32,
+    pub started_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+}
+
+impl SyncBatchStatus {
+    pub fn new(entity_type: EntityType, total: i32) -> Self {
+        Self {
+            batch_type: entity_type.as_str().to_string(),
+            status: "running".to_string(),
+            total,
+            started_at: Some(Utc::now()),
+            ..Default::default()
+        }
+    }
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]

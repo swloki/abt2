@@ -47,6 +47,7 @@ reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-feature
 
 # Concurrency
 parking_lot = "0.12"
+tokio-util = "0.7"
 
 
 

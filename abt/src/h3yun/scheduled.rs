@@ -58,6 +58,7 @@ impl ScheduledTask for H3YunSyncTask {
             let event = SyncEvent {
                 entity_type: EntityType::Product,
                 entity_id: *product_id,
+                is_batch: false,
             };
 
             match sender.try_send(event) {
@@ -81,6 +82,7 @@ impl ScheduledTask for H3YunSyncTask {
                 let event = SyncEvent {
                     entity_type: EntityType::Inventory,
                     entity_id: *inventory_id,
+                    is_batch: false,
                 };
 
                 match sender.try_send(event) {

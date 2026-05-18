@@ -23,6 +23,7 @@ mod user;
 mod warehouse;
 mod inventory_cascade;
 mod notification;
+mod workflow;
 
 pub use api::*;
 pub use auth::*;
@@ -43,3 +44,4 @@ pub use user::*;
 pub use warehouse::*;
 pub use inventory_cascade::*;
 pub use notification::*;
+pub use workflow::*;

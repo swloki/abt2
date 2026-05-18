@@ -7,7 +7,7 @@ use tonic::{Request, Response};
 use crate::generated::abt::v1::{
     abt_sync_service_server::AbtSyncService as GrpcSyncService, *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{dt_to_string, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::permissions::PermissionCode;
 use crate::server::AppState;
@@ -98,6 +98,12 @@ impl GrpcSyncService for SyncHandler {
                 .collect()
         };
 
+        let total = product_ids.len() as i32;
+        abt::h3yun::set_batch_status(abt::h3yun::models::SyncBatchStatus::new(
+            abt::h3yun::models::EntityType::Product,
+            total,
+        ));
+
         let sender = abt::h3yun::get_sync_event_sender();
         let mut queued = 0i32;
 
@@ -106,6 +112,7 @@ impl GrpcSyncService for SyncHandler {
                 .send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Product,
                     entity_id: *product_id,
+                    is_batch: true,
                 })
                 .await
                 .is_ok()
@@ -136,6 +143,12 @@ impl GrpcSyncService for SyncHandler {
         .await
         .map_err(|e| error::err_to_status(anyhow::anyhow!(e)))?;
 
+        let total = inventory_ids.len() as i32;
+        abt::h3yun::set_batch_status(abt::h3yun::models::SyncBatchStatus::new(
+            abt::h3yun::models::EntityType::Inventory,
+            total,
+        ));
+
         let sender = abt::h3yun::get_sync_event_sender();
         let mut queued = 0i32;
 
@@ -144,6 +157,7 @@ impl GrpcSyncService for SyncHandler {
                 .send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Inventory,
                     entity_id: *inventory_id,
+                    is_batch: true,
                 })
                 .await
                 .is_ok()
@@ -223,6 +237,31 @@ impl GrpcSyncService for SyncHandler {
             processed: inventories.len() as i32,
             succeeded,
             message,
+        }))
+    }
+
+    #[require_permission(Resource::Sync, Action::Read)]
+    async fn get_latest_sync_status(
+        &self,
+        request: Request<GetLatestSyncStatusRequest>,
+    ) -> GrpcResult<SyncBatchStatus> {
+        let req = request.into_inner();
+        let batch_type = req.batch_type;
+        if batch_type != "product" && batch_type != "inventory" {
+            return Err(error::validation("batch_type", "必须是 product 或 inventory"));
+        }
+
+        let batch = abt::h3yun::get_batch_status(&batch_type);
+
+        Ok(Response::new(SyncBatchStatus {
+            batch_type,
+            status: batch.as_ref().map(|b| b.status.clone()).unwrap_or_default(),
+            total: batch.as_ref().map(|b| b.total).unwrap_or_default(),
+            processed: batch.as_ref().map(|b| b.processed).unwrap_or_default(),
+            succeeded: batch.as_ref().map(|b| b.succeeded).unwrap_or_default(),
+            failed: batch.as_ref().map(|b| b.failed).unwrap_or_default(),
+            started_at: dt_to_string(batch.as_ref().and_then(|b| b.started_at)),
+            completed_at: dt_to_string(batch.as_ref().and_then(|b| b.completed_at)),
         }))
     }
 

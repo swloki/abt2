@@ -22,6 +22,10 @@ mod warehouse_repo;
 mod inventory_cascade_repo;
 mod notification_repo;
 mod product_watcher_repo;
+mod workflow_template_repo;
+mod workflow_instance_repo;
+mod workflow_task_repo;
+mod workflow_history_repo;
 
 pub use auth_repo::AuthRepo;
 pub use bom_category_repo::BomCategoryRepo;
@@ -45,6 +49,10 @@ pub use inventory_cascade_repo::{
 };
 pub use notification_repo::NotificationRepo;
 pub use product_watcher_repo::ProductWatcherRepo;
+pub use workflow_template_repo::WorkflowTemplateRepo;
+pub use workflow_instance_repo::WorkflowInstanceRepo;
+pub use workflow_task_repo::WorkflowTaskRepo;
+pub use workflow_history_repo::WorkflowHistoryRepo;
 
 // Re-export Executor from common
 pub use common::PgExecutor as Executor;

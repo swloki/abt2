@@ -24,6 +24,11 @@ mod notification_service_impl;
 mod product_watcher_service_impl;
 mod stock_alert_task;
 mod task_scheduler;
+pub mod graph_linter;
+pub mod workflow_actions;
+pub mod workflow_engine;
+pub mod workflow_hooks;
+pub mod workflow_worker;
 
 pub use auth_service_impl::AuthServiceImpl;
 pub use bom_service_impl::BomServiceImpl;

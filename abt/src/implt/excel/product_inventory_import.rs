@@ -365,12 +365,14 @@ impl ExcelImportService for ProductInventoryImporter {
                         let _ = sender.send(crate::h3yun::models::SyncEvent {
                             entity_type: crate::h3yun::models::EntityType::Product,
                             entity_id: item.product_id,
+                            is_batch: false,
                         }).await;
                     }
                     if let Some(inv_id) = item.inventory_id {
                         let _ = sender.send(crate::h3yun::models::SyncEvent {
                             entity_type: crate::h3yun::models::EntityType::Inventory,
                             entity_id: inv_id,
+                            is_batch: false,
                         }).await;
                     }
                 }

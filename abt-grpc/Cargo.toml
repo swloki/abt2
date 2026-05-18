@@ -18,6 +18,7 @@ prost = "0.14"
 tokio = { version = "1", features = ["full"] }
 futures = "0.3"
 tokio-stream = "0.1"
+tokio-util = "0.7"
 
 # 项目内部
 abt = { path = "../abt" }

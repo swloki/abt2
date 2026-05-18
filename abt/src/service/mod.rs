@@ -23,6 +23,7 @@ mod inventory_cascade_service;
 mod notification_service;
 mod product_watcher_service;
 mod scheduled_task_service;
+mod workflow_service;
 
 pub use auth_service::AuthService;
 pub use bom_category_service::BomCategoryService;
@@ -48,6 +49,7 @@ pub use inventory_cascade_service::InventoryCascadeService;
 pub use notification_service::NotificationService;
 pub use product_watcher_service::ProductWatcherService;
 pub use scheduled_task_service::{ScheduledTask, TaskRunResult, TaskStatus};
+pub use workflow_service::WorkflowService;
 
 // Re-export executor type from repositories
 pub use crate::repositories::Executor;

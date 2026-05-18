@@ -71,14 +71,17 @@ impl SyncWorker {
     }
 
     async fn handle_event(&self, event: SyncEvent) {
-        match event.entity_type {
+        let ok = match event.entity_type {
             EntityType::Product => {
                 let product = match self.fetch_product(event.entity_id).await {
                     Some(p) => p,
-                    None => return,
+                    None => {
+                        self.update_batch(&event, false);
+                        return;
+                    }
                 };
                 let category_path = product_sync::fetch_category_path(&self.pool, event.entity_id).await;
-                with_retry("product", event.entity_id, || {
+                with_retry("product", product.product_id, || {
                     let pool = self.pool.clone();
                     let client = self.client.clone();
                     let product = product.clone();
@@ -87,21 +90,32 @@ impl SyncWorker {
                         product_sync::sync_product(&pool, &client, &product, cat.as_ref()).await
                     })
                 })
-                .await;
+                .await
             }
             EntityType::Inventory => {
                 let data = match self.fetch_inventory_data(event.entity_id).await {
                     Some(d) => d,
-                    None => return,
+                    None => {
+                        self.update_batch(&event, false);
+                        return;
+                    }
                 };
-                with_retry("inventory", event.entity_id, || {
+                with_retry("inventory", data.inventory_id, || {
                     let pool = self.pool.clone();
                     let client = self.client.clone();
                     let data = data.clone();
                     Box::pin(async move { inventory_sync::sync_inventory(&pool, &client, &data).await })
                 })
-                .await;
+                .await
             }
+        };
+
+        self.update_batch(&event, ok);
+    }
+
+    fn update_batch(&self, event: &SyncEvent, succeeded: bool) {
+        if event.is_batch {
+            super::update_batch_progress(event.entity_type.as_str(), succeeded);
         }
     }
 
@@ -162,7 +176,7 @@ impl SyncWorker {
     }
 }
 
-async fn with_retry<F, Fut>(label: &str, id: i64, f: F)
+async fn with_retry<F, Fut>(label: &str, id: i64, f: F) -> bool
 where
     F: Fn() -> Fut,
     Fut: std::future::Future<Output = Result<(), SyncError>>,
@@ -170,23 +184,23 @@ where
     let mut attempts = 0u32;
     loop {
         match f().await {
-            Ok(()) => return,
+            Ok(()) => return true,
             Err(SyncError::Transient { backoff_hint }) => {
                 attempts += 1;
                 if attempts >= 3 {
                     warn!(label, id, attempts, "Sync failed after max retries");
-                    return;
+                    return false;
                 }
                 warn!(label, id, attempt = attempts, "Sync transient error, retrying...");
                 tokio::time::sleep(backoff_hint).await;
             }
             Err(SyncError::ValidationError { record_id, fields }) => {
                 warn!(label, id, record_id, fields = fields.join(","), "Sync validation error, skipping");
-                return;
+                return false;
             }
             Err(SyncError::FatalError { reason }) => {
                 error!(label, id, reason, "Sync fatal error");
-                return;
+                return false;
             }
         }
     }

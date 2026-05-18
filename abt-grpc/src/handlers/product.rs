@@ -126,6 +126,7 @@ impl GrpcProductService for ProductHandler {
                 let _ = sender.send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Product,
                     entity_id: id,
+                    is_batch: false,
                 }).await;
             });
         }
@@ -167,6 +168,7 @@ impl GrpcProductService for ProductHandler {
                 let _ = sender.send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Product,
                     entity_id: pid,
+                    is_batch: false,
                 }).await;
             });
         }

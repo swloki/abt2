@@ -16,7 +16,9 @@ static APP_STATE: OnceCell<Arc<AppState>> = OnceCell::const_new();
 pub struct AppState {
     abt_context: &'static abt::AppContext,
     task_scheduler: Arc<abt::implt::TaskScheduler>,
+    workflow_engine: abt::implt::workflow_engine::WorkflowEngine,
     shutdown: Arc<AtomicBool>,
+    worker_cancel: tokio_util::sync::CancellationToken,
 }
 
 impl AppState {
@@ -48,10 +50,24 @@ impl AppState {
         scheduler.register(abt::h3yun::scheduled::H3YunSyncTask::new(ctx.pool().clone()));
         scheduler.start().await;
 
+        // 启动 Workflow Worker（超时扫描/提醒）
+        let worker_cancel = tokio_util::sync::CancellationToken::new();
+        let worker = abt::implt::workflow_worker::WorkflowWorker::new(
+            Arc::new(ctx.pool().clone()),
+            worker_cancel.clone(),
+        );
+        tokio::spawn(async move {
+            worker.run().await;
+        });
+
+        let workflow_engine = abt::implt::workflow_engine::WorkflowEngine::new(Arc::new(ctx.pool().clone()));
+
         let state = Arc::new(AppState {
             abt_context: ctx,
             task_scheduler: Arc::new(scheduler),
-            shutdown,
+            workflow_engine,
+            shutdown: shutdown.clone(),
+            worker_cancel,
         });
 
         APP_STATE
@@ -138,6 +154,10 @@ impl AppState {
         abt::get_product_watcher_service(self.abt_context)
     }
 
+    pub fn workflow_service(&self) -> abt::implt::workflow_engine::WorkflowEngine {
+        self.workflow_engine.clone()
+    }
+
     pub fn task_scheduler(&self) -> Arc<abt::implt::TaskScheduler> {
         Arc::clone(&self.task_scheduler)
     }
@@ -175,6 +195,7 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         AbtBomServiceServer, AbtExcelServiceServer, AbtInventoryServiceServer,
         AbtLaborProcessServiceServer, AbtLaborProcessDictServiceServer, AbtLocationServiceServer, AbtPriceServiceServer,
         AbtProductServiceServer, AbtRoutingServiceServer, AbtSyncServiceServer, AbtTermServiceServer, AbtWarehouseServiceServer,
+        AbtWorkflowServiceServer,
         AuthServiceServer, AbtBomCategoryServiceServer, DepartmentServiceServer,
         PermissionServiceServer, RoleServiceServer, UserServiceServer,
     };
@@ -243,9 +264,13 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         .add_service(AbtSyncServiceServer::with_interceptor(
             crate::handlers::sync_handler::SyncHandler::new(), auth_interceptor,
         ))
+        .add_service(AbtWorkflowServiceServer::with_interceptor(
+            crate::handlers::workflow::WorkflowHandler::new(), auth_interceptor,
+        ))
         .serve_with_shutdown(addr, async move {
             tokio::signal::ctrl_c().await.expect("failed to listen for ctrl+c");
             tracing::info!("Shutdown signal received, stopping background tasks...");
+            state.worker_cancel.cancel();
             shutdown.store(true, std::sync::atomic::Ordering::Release);
         })
         .await?;

@@ -147,6 +147,7 @@ impl GrpcInventoryService for InventoryHandler {
                 let _ = sender.send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Inventory,
                     entity_id: inv_id,
+                    is_batch: false,
                 }).await;
             });
         }
@@ -186,6 +187,7 @@ impl GrpcInventoryService for InventoryHandler {
                 let _ = sender.send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Inventory,
                     entity_id: inv_id,
+                    is_batch: false,
                 }).await;
             });
         }
@@ -225,6 +227,7 @@ impl GrpcInventoryService for InventoryHandler {
                 let _ = sender.send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Inventory,
                     entity_id: inv_id,
+                    is_batch: false,
                 }).await;
             });
         }
@@ -264,6 +267,7 @@ impl GrpcInventoryService for InventoryHandler {
                 let _ = sender.send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Inventory,
                     entity_id: inv_id,
+                    is_batch: false,
                 }).await;
             });
         }
@@ -303,10 +307,12 @@ impl GrpcInventoryService for InventoryHandler {
                 let _ = sender.send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Inventory,
                     entity_id: from_id,
+                    is_batch: false,
                 }).await;
                 let _ = sender.send(abt::h3yun::models::SyncEvent {
                     entity_type: abt::h3yun::models::EntityType::Inventory,
                     entity_id: to_id,
+                    is_batch: false,
                 }).await;
             });
         }

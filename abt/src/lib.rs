@@ -4,6 +4,7 @@
 
 #![allow(non_snake_case)]
 #![allow(ambiguous_glob_reexports)]
+#![recursion_limit = "256"]
 
 use sqlx::postgres::PgPool;
 use std::sync::Arc;
@@ -219,4 +220,8 @@ pub fn get_auth_service(
         jwt_expiration_hours,
         resource_actions,
     )
+}
+
+pub fn get_workflow_service(ctx: &AppContext) -> impl crate::service::WorkflowService {
+    crate::implt::workflow_engine::WorkflowEngine::new(Arc::new(ctx.pool().clone()))
 }

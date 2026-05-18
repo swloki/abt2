@@ -15859,6 +15859,30 @@ pub struct SyncResponse {
     pub message: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetLatestSyncStatusRequest {
+    #[prost(string, tag = "1")]
+    pub batch_type: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SyncBatchStatus {
+    #[prost(string, tag = "1")]
+    pub batch_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(int32, tag = "3")]
+    pub total: i32,
+    #[prost(int32, tag = "4")]
+    pub processed: i32,
+    #[prost(int32, tag = "5")]
+    pub succeeded: i32,
+    #[prost(int32, tag = "6")]
+    pub failed: i32,
+    #[prost(string, tag = "7")]
+    pub started_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub completed_at: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ReconcileRequest {
     #[prost(string, tag = "1")]
     pub entity_type: ::prost::alloc::string::String,
@@ -15992,7 +16016,7 @@ pub mod abt_sync_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtSyncService", "SyncProduct"));
             self.inner.unary(req, path, codec).await
         }
-        /// 全量同步所有产品和库存
+        /// 全量同步所有产品
         pub async fn sync_all_products(
             &mut self,
             request: impl tonic::IntoRequest<super::SyncAllRequest>,
@@ -16058,6 +16082,31 @@ pub mod abt_sync_service_client {
                 .insert(GrpcMethod::new("abt.v1.AbtSyncService", "SyncAllInventory"));
             self.inner.unary(req, path, codec).await
         }
+        /// 查询最近同步批次状态
+        pub async fn get_latest_sync_status(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetLatestSyncStatusRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SyncBatchStatus>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtSyncService/GetLatestSyncStatus",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtSyncService", "GetLatestSyncStatus"));
+            self.inner.unary(req, path, codec).await
+        }
         /// 对账：比较 ABT 与 H3Yun 状态差异
         pub async fn reconcile(
             &mut self,
@@ -16103,7 +16152,7 @@ pub mod abt_sync_service_server {
             &self,
             request: tonic::Request<super::SyncProductRequest>,
         ) -> std::result::Result<tonic::Response<super::SyncResponse>, tonic::Status>;
-        /// 全量同步所有产品和库存
+        /// 全量同步所有产品
         async fn sync_all_products(
             &self,
             request: tonic::Request<super::SyncAllRequest>,
@@ -16118,6 +16167,11 @@ pub mod abt_sync_service_server {
             &self,
             request: tonic::Request<super::SyncAllRequest>,
         ) -> std::result::Result<tonic::Response<super::SyncResponse>, tonic::Status>;
+        /// 查询最近同步批次状态
+        async fn get_latest_sync_status(
+            &self,
+            request: tonic::Request<super::GetLatestSyncStatusRequest>,
+        ) -> std::result::Result<tonic::Response<super::SyncBatchStatus>, tonic::Status>;
         /// 对账：比较 ABT 与 H3Yun 状态差异
         async fn reconcile(
             &self,
@@ -16370,6 +16424,55 @@ pub mod abt_sync_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = SyncAllInventorySvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtSyncService/GetLatestSyncStatus" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetLatestSyncStatusSvc<T: AbtSyncService>(pub Arc<T>);
+                    impl<
+                        T: AbtSyncService,
+                    > tonic::server::UnaryService<super::GetLatestSyncStatusRequest>
+                    for GetLatestSyncStatusSvc<T> {
+                        type Response = super::SyncBatchStatus;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetLatestSyncStatusRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtSyncService>::get_latest_sync_status(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetLatestSyncStatusSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -18379,6 +18482,1847 @@ pub mod abt_warehouse_service_server {
     /// Generated gRPC service name
     pub const SERVICE_NAME: &str = "abt.v1.AbtWarehouseService";
     impl<T> tonic::server::NamedService for AbtWarehouseServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WorkflowTemplateResponse {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(string, tag = "2")]
+    pub entity_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(int32, tag = "4")]
+    pub version: i32,
+    #[prost(string, tag = "5")]
+    pub status: ::prost::alloc::string::String,
+    /// JSON string
+    #[prost(string, tag = "6")]
+    pub graph: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub graph_checksum: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub created_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub updated_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "10")]
+    pub trigger_event: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WorkflowTemplateListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<WorkflowTemplateResponse>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CreateWorkflowTemplateRequest {
+    #[prost(string, tag = "1")]
+    pub entity_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    /// JSON string
+    #[prost(string, tag = "3")]
+    pub graph: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub trigger_event: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateWorkflowTemplateRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    /// JSON string
+    #[prost(string, tag = "3")]
+    pub graph: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub trigger_event: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetWorkflowTemplateRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListWorkflowTemplatesRequest {
+    #[prost(string, tag = "1")]
+    pub entity_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub status: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct PublishTemplateRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ArchiveTemplateRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WorkflowInstanceResponse {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(int64, tag = "2")]
+    pub template_id: i64,
+    #[prost(int32, tag = "3")]
+    pub template_version: i32,
+    #[prost(string, tag = "4")]
+    pub entity_type: ::prost::alloc::string::String,
+    #[prost(int64, tag = "5")]
+    pub entity_id: i64,
+    #[prost(string, tag = "6")]
+    pub status: ::prost::alloc::string::String,
+    /// JSON string
+    #[prost(string, tag = "7")]
+    pub frozen_graph: ::prost::alloc::string::String,
+    /// JSON string
+    #[prost(string, tag = "8")]
+    pub context: ::prost::alloc::string::String,
+    /// JSON string
+    #[prost(string, tag = "9")]
+    pub suspended_reason: ::prost::alloc::string::String,
+    #[prost(int64, tag = "10")]
+    pub initiator_id: i64,
+    #[prost(string, tag = "11")]
+    pub created_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "12")]
+    pub updated_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "13")]
+    pub last_advanced_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "14")]
+    pub completed_at: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WorkflowInstanceListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<WorkflowInstanceResponse>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct StartWorkflowInstanceRequest {
+    #[prost(string, tag = "1")]
+    pub entity_type: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub entity_id: i64,
+    #[prost(int64, tag = "3")]
+    pub initiator_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CancelWorkflowInstanceRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(int64, tag = "2")]
+    pub operator_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetWorkflowInstanceRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListWorkflowInstancesRequest {
+    #[prost(string, tag = "1")]
+    pub entity_type: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub entity_id: i64,
+    #[prost(string, tag = "3")]
+    pub status: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct WorkflowTaskResponse {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(int64, tag = "2")]
+    pub instance_id: i64,
+    #[prost(string, tag = "3")]
+    pub node_id: ::prost::alloc::string::String,
+    #[prost(int64, tag = "4")]
+    pub prev_task_id: i64,
+    #[prost(int64, tag = "5")]
+    pub assignee_id: i64,
+    #[prost(string, tag = "6")]
+    pub status: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub action: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub timeout_action: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub due_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "10")]
+    pub remind_at: ::prost::alloc::string::String,
+    /// JSON string
+    #[prost(string, tag = "11")]
+    pub result: ::prost::alloc::string::String,
+    #[prost(string, tag = "12")]
+    pub created_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "13")]
+    pub completed_at: ::prost::alloc::string::String,
+    /// 附带实例信息方便展示
+    #[prost(string, tag = "14")]
+    pub instance_entity_type: ::prost::alloc::string::String,
+    #[prost(int64, tag = "15")]
+    pub instance_entity_id: i64,
+    #[prost(string, tag = "16")]
+    pub template_name: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WorkflowTaskListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<WorkflowTaskResponse>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetMyTasksRequest {
+    #[prost(int64, tag = "1")]
+    pub user_id: i64,
+    #[prost(string, tag = "2")]
+    pub status: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ApproveTaskRequest {
+    #[prost(int64, tag = "1")]
+    pub task_id: i64,
+    #[prost(int64, tag = "2")]
+    pub operator_id: i64,
+    #[prost(string, tag = "3")]
+    pub comment: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RejectTaskRequest {
+    #[prost(int64, tag = "1")]
+    pub task_id: i64,
+    #[prost(int64, tag = "2")]
+    pub operator_id: i64,
+    #[prost(string, tag = "3")]
+    pub comment: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DelegateTaskRequest {
+    #[prost(int64, tag = "1")]
+    pub task_id: i64,
+    #[prost(int64, tag = "2")]
+    pub from_user_id: i64,
+    #[prost(int64, tag = "3")]
+    pub to_user_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RetryAutoTaskRequest {
+    #[prost(int64, tag = "1")]
+    pub instance_id: i64,
+    #[prost(int64, tag = "2")]
+    pub operator_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RetryFailedHookRequest {
+    #[prost(int64, tag = "1")]
+    pub instance_id: i64,
+    #[prost(int64, tag = "2")]
+    pub operator_id: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RecordEntityChangeRequest {
+    #[prost(int64, tag = "1")]
+    pub instance_id: i64,
+    #[prost(int64, tag = "2")]
+    pub entity_id: i64,
+    #[prost(string, tag = "3")]
+    pub change_type: ::prost::alloc::string::String,
+    /// JSON string
+    #[prost(string, tag = "4")]
+    pub change_detail: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RecordEntityChangeResponse {
+    #[prost(int64, repeated, tag = "1")]
+    pub assignee_ids: ::prost::alloc::vec::Vec<i64>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListTriggerEventsRequest {}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct TriggerEventDef {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub description: ::prost::alloc::string::String,
+    #[prost(int64, tag = "4")]
+    pub bound_template_id: i64,
+    #[prost(string, tag = "5")]
+    pub bound_template_name: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct TriggerEventListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<TriggerEventDef>,
+}
+/// Generated client implementations.
+pub mod abt_workflow_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    /// # ============================================================================
+    /// 工作流模板服务
+    #[derive(Debug, Clone)]
+    pub struct AbtWorkflowServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl AbtWorkflowServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> AbtWorkflowServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> AbtWorkflowServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            AbtWorkflowServiceClient::new(InterceptedService::new(inner, interceptor))
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        /// 模板管理
+        pub async fn create_template(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateWorkflowTemplateRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/CreateTemplate",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "CreateTemplate"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_template(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateWorkflowTemplateRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/UpdateTemplate",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "UpdateTemplate"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_template(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetWorkflowTemplateRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkflowTemplateResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/GetTemplate",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "GetTemplate"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_templates(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListWorkflowTemplatesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkflowTemplateListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/ListTemplates",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "ListTemplates"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn publish_template(
+            &mut self,
+            request: impl tonic::IntoRequest<super::PublishTemplateRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/PublishTemplate",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "PublishTemplate"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn archive_template(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ArchiveTemplateRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/ArchiveTemplate",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "ArchiveTemplate"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// 实例管理
+        pub async fn start_instance(
+            &mut self,
+            request: impl tonic::IntoRequest<super::StartWorkflowInstanceRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/StartInstance",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "StartInstance"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn cancel_instance(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CancelWorkflowInstanceRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/CancelInstance",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "CancelInstance"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_instance(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetWorkflowInstanceRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkflowInstanceResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/GetInstance",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "GetInstance"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_instances(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListWorkflowInstancesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkflowInstanceListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/ListInstances",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "ListInstances"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// 任务操作
+        pub async fn get_my_tasks(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetMyTasksRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkflowTaskListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/GetMyTasks",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "GetMyTasks"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn approve_task(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ApproveTaskRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/ApproveTask",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "ApproveTask"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn reject_task(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RejectTaskRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/RejectTask",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "RejectTask"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn delegate_task(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DelegateTaskRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/DelegateTask",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "DelegateTask"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// Admin API
+        pub async fn retry_auto_task(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RetryAutoTaskRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/RetryAutoTask",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "RetryAutoTask"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn retry_failed_hook(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RetryFailedHookRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/RetryFailedHook",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "RetryFailedHook"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn record_entity_change(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordEntityChangeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordEntityChangeResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/RecordEntityChange",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.AbtWorkflowService", "RecordEntityChange"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        /// 触发器
+        pub async fn list_trigger_events(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListTriggerEventsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::TriggerEventListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/ListTriggerEvents",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.AbtWorkflowService", "ListTriggerEvents"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod abt_workflow_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with AbtWorkflowServiceServer.
+    #[async_trait]
+    pub trait AbtWorkflowService: std::marker::Send + std::marker::Sync + 'static {
+        /// 模板管理
+        async fn create_template(
+            &self,
+            request: tonic::Request<super::CreateWorkflowTemplateRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn update_template(
+            &self,
+            request: tonic::Request<super::UpdateWorkflowTemplateRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn get_template(
+            &self,
+            request: tonic::Request<super::GetWorkflowTemplateRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkflowTemplateResponse>,
+            tonic::Status,
+        >;
+        async fn list_templates(
+            &self,
+            request: tonic::Request<super::ListWorkflowTemplatesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkflowTemplateListResponse>,
+            tonic::Status,
+        >;
+        async fn publish_template(
+            &self,
+            request: tonic::Request<super::PublishTemplateRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn archive_template(
+            &self,
+            request: tonic::Request<super::ArchiveTemplateRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        /// 实例管理
+        async fn start_instance(
+            &self,
+            request: tonic::Request<super::StartWorkflowInstanceRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn cancel_instance(
+            &self,
+            request: tonic::Request<super::CancelWorkflowInstanceRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn get_instance(
+            &self,
+            request: tonic::Request<super::GetWorkflowInstanceRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkflowInstanceResponse>,
+            tonic::Status,
+        >;
+        async fn list_instances(
+            &self,
+            request: tonic::Request<super::ListWorkflowInstancesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkflowInstanceListResponse>,
+            tonic::Status,
+        >;
+        /// 任务操作
+        async fn get_my_tasks(
+            &self,
+            request: tonic::Request<super::GetMyTasksRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::WorkflowTaskListResponse>,
+            tonic::Status,
+        >;
+        async fn approve_task(
+            &self,
+            request: tonic::Request<super::ApproveTaskRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn reject_task(
+            &self,
+            request: tonic::Request<super::RejectTaskRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn delegate_task(
+            &self,
+            request: tonic::Request<super::DelegateTaskRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        /// Admin API
+        async fn retry_auto_task(
+            &self,
+            request: tonic::Request<super::RetryAutoTaskRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn retry_failed_hook(
+            &self,
+            request: tonic::Request<super::RetryFailedHookRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn record_entity_change(
+            &self,
+            request: tonic::Request<super::RecordEntityChangeRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::RecordEntityChangeResponse>,
+            tonic::Status,
+        >;
+        /// 触发器
+        async fn list_trigger_events(
+            &self,
+            request: tonic::Request<super::ListTriggerEventsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::TriggerEventListResponse>,
+            tonic::Status,
+        >;
+    }
+    /// # ============================================================================
+    /// 工作流模板服务
+    #[derive(Debug)]
+    pub struct AbtWorkflowServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> AbtWorkflowServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for AbtWorkflowServiceServer<T>
+    where
+        T: AbtWorkflowService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/abt.v1.AbtWorkflowService/CreateTemplate" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateTemplateSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::CreateWorkflowTemplateRequest>
+                    for CreateTemplateSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateWorkflowTemplateRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::create_template(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateTemplateSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/UpdateTemplate" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateTemplateSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::UpdateWorkflowTemplateRequest>
+                    for UpdateTemplateSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateWorkflowTemplateRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::update_template(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateTemplateSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/GetTemplate" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetTemplateSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::GetWorkflowTemplateRequest>
+                    for GetTemplateSvc<T> {
+                        type Response = super::WorkflowTemplateResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetWorkflowTemplateRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::get_template(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetTemplateSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/ListTemplates" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListTemplatesSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::ListWorkflowTemplatesRequest>
+                    for ListTemplatesSvc<T> {
+                        type Response = super::WorkflowTemplateListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListWorkflowTemplatesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::list_templates(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListTemplatesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/PublishTemplate" => {
+                    #[allow(non_camel_case_types)]
+                    struct PublishTemplateSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::PublishTemplateRequest>
+                    for PublishTemplateSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PublishTemplateRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::publish_template(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = PublishTemplateSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/ArchiveTemplate" => {
+                    #[allow(non_camel_case_types)]
+                    struct ArchiveTemplateSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::ArchiveTemplateRequest>
+                    for ArchiveTemplateSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ArchiveTemplateRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::archive_template(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ArchiveTemplateSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/StartInstance" => {
+                    #[allow(non_camel_case_types)]
+                    struct StartInstanceSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::StartWorkflowInstanceRequest>
+                    for StartInstanceSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::StartWorkflowInstanceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::start_instance(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = StartInstanceSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/CancelInstance" => {
+                    #[allow(non_camel_case_types)]
+                    struct CancelInstanceSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::CancelWorkflowInstanceRequest>
+                    for CancelInstanceSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CancelWorkflowInstanceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::cancel_instance(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CancelInstanceSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/GetInstance" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetInstanceSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::GetWorkflowInstanceRequest>
+                    for GetInstanceSvc<T> {
+                        type Response = super::WorkflowInstanceResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetWorkflowInstanceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::get_instance(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetInstanceSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/ListInstances" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListInstancesSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::ListWorkflowInstancesRequest>
+                    for ListInstancesSvc<T> {
+                        type Response = super::WorkflowInstanceListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListWorkflowInstancesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::list_instances(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListInstancesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/GetMyTasks" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetMyTasksSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::GetMyTasksRequest>
+                    for GetMyTasksSvc<T> {
+                        type Response = super::WorkflowTaskListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetMyTasksRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::get_my_tasks(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetMyTasksSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/ApproveTask" => {
+                    #[allow(non_camel_case_types)]
+                    struct ApproveTaskSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::ApproveTaskRequest>
+                    for ApproveTaskSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ApproveTaskRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::approve_task(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ApproveTaskSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/RejectTask" => {
+                    #[allow(non_camel_case_types)]
+                    struct RejectTaskSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::RejectTaskRequest>
+                    for RejectTaskSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RejectTaskRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::reject_task(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RejectTaskSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/DelegateTask" => {
+                    #[allow(non_camel_case_types)]
+                    struct DelegateTaskSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::DelegateTaskRequest>
+                    for DelegateTaskSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DelegateTaskRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::delegate_task(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DelegateTaskSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/RetryAutoTask" => {
+                    #[allow(non_camel_case_types)]
+                    struct RetryAutoTaskSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::RetryAutoTaskRequest>
+                    for RetryAutoTaskSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RetryAutoTaskRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::retry_auto_task(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RetryAutoTaskSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/RetryFailedHook" => {
+                    #[allow(non_camel_case_types)]
+                    struct RetryFailedHookSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::RetryFailedHookRequest>
+                    for RetryFailedHookSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RetryFailedHookRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::retry_failed_hook(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RetryFailedHookSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/RecordEntityChange" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordEntityChangeSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::RecordEntityChangeRequest>
+                    for RecordEntityChangeSvc<T> {
+                        type Response = super::RecordEntityChangeResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordEntityChangeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::record_entity_change(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordEntityChangeSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/ListTriggerEvents" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListTriggerEventsSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::ListTriggerEventsRequest>
+                    for ListTriggerEventsSvc<T> {
+                        type Response = super::TriggerEventListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListTriggerEventsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::list_trigger_events(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListTriggerEventsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for AbtWorkflowServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "abt.v1.AbtWorkflowService";
+    impl<T> tonic::server::NamedService for AbtWorkflowServiceServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
 }

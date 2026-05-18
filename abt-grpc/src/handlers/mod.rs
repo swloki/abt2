@@ -21,6 +21,7 @@ pub mod warehouse;
 pub mod notification;
 pub mod sync_handler;
 pub mod task_scheduler;
+pub mod workflow;
 
 pub use crate::generated::abt::v1::{
     abt_bom_category_service_server::AbtBomCategoryServiceServer,
@@ -36,6 +37,7 @@ pub use crate::generated::abt::v1::{
     abt_notification_service_server::AbtNotificationServiceServer,
     abt_sync_service_server::AbtSyncServiceServer,
     abt_task_scheduler_service_server::AbtTaskSchedulerServiceServer,
+    abt_workflow_service_server::AbtWorkflowServiceServer,
     abt_term_service_server::AbtTermServiceServer,
     abt_warehouse_service_server::AbtWarehouseServiceServer,
     auth_service_server::AuthServiceServer,
@@ -50,6 +52,16 @@ pub type GrpcResult<T> = Result<tonic::Response<T>, tonic::Status>;
 /// Convert an empty string to None, non-empty to Some.
 pub fn empty_to_none(s: String) -> Option<String> {
     if s.is_empty() { None } else { Some(s) }
+}
+
+/// Convert an Option<DateTime> to RFC3339 string, empty if None.
+pub fn dt_to_string(dt: Option<chrono::DateTime<chrono::Utc>>) -> String {
+    dt.map(|d| d.to_rfc3339()).unwrap_or_default()
+}
+
+/// Convert an Option<serde_json::Value> to JSON string, empty if None.
+pub fn json_to_string(v: Option<serde_json::Value>) -> String {
+    v.map(|v| v.to_string()).unwrap_or_default()
 }
 
 /// 验证文件路径在上传目录内，防止路径遍历

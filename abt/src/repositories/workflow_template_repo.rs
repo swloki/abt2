@@ -92,12 +92,20 @@ impl WorkflowTemplateRepo {
         pool: &PgPool,
         entity_type: &str,
     ) -> Result<Vec<WorkflowTemplate>> {
-        let rows = sqlx::query_as::<_, WorkflowTemplate>(
-            "SELECT id, entity_type, name, version, status, graph, graph_checksum, trigger_event, created_at, updated_at, deleted_at FROM workflow_templates WHERE entity_type = $1 AND deleted_at IS NULL ORDER BY version DESC",
-        )
-        .bind(entity_type)
-        .fetch_all(pool)
-        .await?;
+        let rows = if entity_type.is_empty() {
+            sqlx::query_as::<_, WorkflowTemplate>(
+                "SELECT id, entity_type, name, version, status, graph, graph_checksum, trigger_event, created_at, updated_at, deleted_at FROM workflow_templates WHERE deleted_at IS NULL ORDER BY version DESC",
+            )
+            .fetch_all(pool)
+            .await?
+        } else {
+            sqlx::query_as::<_, WorkflowTemplate>(
+                "SELECT id, entity_type, name, version, status, graph, graph_checksum, trigger_event, created_at, updated_at, deleted_at FROM workflow_templates WHERE entity_type = $1 AND deleted_at IS NULL ORDER BY version DESC",
+            )
+            .bind(entity_type)
+            .fetch_all(pool)
+            .await?
+        };
         Ok(rows)
     }
 

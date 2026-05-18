@@ -12,11 +12,44 @@ pub mod sync_worker;
 
 use client::H3YunClient;
 use models::SyncEvent;
-use std::sync::OnceLock;
+use std::collections::HashMap;
+use std::sync::{OnceLock, RwLock};
 use tokio::sync::mpsc::Sender;
 
 static SYNC_SENDER: OnceLock<Sender<SyncEvent>> = OnceLock::new();
 static H3YUN_CLIENT: OnceLock<H3YunClient> = OnceLock::new();
+static BATCH_STATUS: OnceLock<RwLock<HashMap<String, models::SyncBatchStatus>>> = OnceLock::new();
+
+fn batch_status_map() -> &'static RwLock<HashMap<String, models::SyncBatchStatus>> {
+    BATCH_STATUS.get_or_init(|| RwLock::new(HashMap::new()))
+}
+
+pub fn set_batch_status(status: models::SyncBatchStatus) {
+    if let Ok(mut map) = batch_status_map().write() {
+        map.insert(status.batch_type.clone(), status);
+    }
+}
+
+pub fn update_batch_progress(batch_type: &str, succeeded: bool) {
+    if let Ok(mut map) = batch_status_map().write()
+        && let Some(batch) = map.get_mut(batch_type)
+    {
+        batch.processed += 1;
+        if succeeded {
+            batch.succeeded += 1;
+        } else {
+            batch.failed += 1;
+        }
+        if batch.processed >= batch.total {
+            batch.status = "completed".to_string();
+            batch.completed_at = Some(chrono::Utc::now());
+        }
+    }
+}
+
+pub fn get_batch_status(batch_type: &str) -> Option<models::SyncBatchStatus> {
+    batch_status_map().read().ok()?.get(batch_type).cloned()
+}
 
 pub fn get_sync_event_sender() -> &'static Sender<SyncEvent> {
     SYNC_SENDER

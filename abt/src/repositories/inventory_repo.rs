@@ -487,6 +487,25 @@ impl InventoryRepo {
     }
 
     // ========================================================================
+    // 入库校验
+    // ========================================================================
+
+    /// 查询库位上是否有库存（quantity > 0），返回占用产品的 (product_id, quantity)
+    pub async fn find_occupant_by_location(
+        executor: Executor<'_>,
+        location_id: i64,
+    ) -> Result<Option<(i64, Decimal)>> {
+        let row = sqlx::query!(
+            "SELECT product_id, quantity FROM inventory WHERE location_id = $1 AND quantity > 0 LIMIT 1",
+            location_id
+        )
+        .fetch_optional(&mut *executor)
+        .await?;
+
+        Ok(row.map(|r| (r.product_id, r.quantity)))
+    }
+
+    // ========================================================================
     // Excel 导入辅助
     // ========================================================================
 

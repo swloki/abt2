@@ -14,8 +14,9 @@ use crate::models::{
     InventoryQuery, OperationType, SetSafetyStockRequest, StockChangeRequest, StockTransferRequest,
 };
 use crate::repositories::{
-    Executor, InventoryRepo, LocationRepo, PaginatedResult, PaginationParams,
+    Executor, InventoryRepo, LocationRepo, PaginatedResult, PaginationParams, ProductRepo,
 };
+use common::error::ServiceError;
 use crate::service::{InventoryLog, InventoryService};
 
 /// 库存服务实现
@@ -47,6 +48,24 @@ impl InventoryService for InventoryServiceImpl {
         // 验证数量为正数
         if req.quantity <= Decimal::ZERO {
             return Err(anyhow::anyhow!("入库数量必须为正数"));
+        }
+
+        // 校验库位是否被其他产品占用
+        if let Some((occupant_id, qty)) =
+            InventoryRepo::find_occupant_by_location(executor, req.location_id).await?
+            && occupant_id != req.product_id
+        {
+            let product = ProductRepo::find_by_id(&self.pool, occupant_id).await?;
+            let pdt_name = product
+                .map(|p| p.pdt_name)
+                .unwrap_or_else(|| "未知产品".to_string());
+            return Err(anyhow::Error::from(ServiceError::Conflict {
+                resource: "location".into(),
+                message: format!(
+                    "库位已被产品 {} 占用（库存: {}），请先清空该库位",
+                    pdt_name, qty
+                ),
+            }));
         }
 
         // 获取或创建库存记录

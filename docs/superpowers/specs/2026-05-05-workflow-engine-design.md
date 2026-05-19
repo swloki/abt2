@@ -119,6 +119,18 @@ assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警）
 
 节点配置支持 `timeout_hours` / `remind_hours_before`，后台 Worker 定期扫描超时任务并执行相应动作。
 
+### Improvement 8: frozen_graph 模式版本化
+
+`frozen_graph` JSONB 信封中加入 `graph_version: u32` 字段。当引擎 Rust 类型演进（新增节点类型、修改 Condition 语法、变更 input_mapping 语义）时，引擎按版本分发到对应的反序列化路径。工作流实例可存活数周数月，没有版本化则引擎代码演进会破坏运行中实例的反序列化。
+
+### Improvement 9: ActionRegistry 启动时校验
+
+所有 action 注册完成后，启动时执行一次性校验：`SELECT DISTINCT action_name FROM workflow_templates WHERE status = 'active'`，验证每个名称在 ActionRegistry 中存在。任一 active 模板引用未注册 action → 拒绝启动。延续代码库 fail-closed 哲学（与权限缓存 `.expect()` 模式一致），防止部署删了 action 注册后运行时才发现的定时炸弹。
+
+### Improvement 10: 状态列 CHECK 约束
+
+`workflow_instances.status` 和 `workflow_tasks.status` 添加 PostgreSQL `CHECK` 约束，限定为闭合词汇。数据库级约束从任何入口点（Rust 代码、手动 SQL、运维工具）保护状态合法性。沿袭 migration 029 为 `bom.status` 建 CHECK 约束的先例。
+
 ## Data Model
 
 ### workflow_templates
@@ -246,7 +258,7 @@ assignee 规则解析为零候选人时，fail-closed（暂停流程 + 报警）
 | entity_type | VARCHAR | 业务实体类型 |
 | entity_id | UUID | 业务实体 ID |
 | status | VARCHAR | 枚举值见下方说明 |
-| frozen_graph | JSONB | 创建时快照的完整图定义 |
+| frozen_graph | JSONB | 创建时快照的完整图定义（含 `graph_version` 字段，见 Improvement 8） |
 | context | JSONB | 运行时变量 + entity_snapshot + join_progress |
 | suspended_reason | JSONB | 挂起原因（如 `{"reason": "no_fallback_assignee", "node_id": "manager_approval"}`） |
 | initiator_id | UUID | 发起人 |
@@ -326,6 +338,19 @@ CREATE INDEX idx_workflow_tasks_instance_node ON workflow_tasks(instance_id, nod
 CREATE INDEX idx_workflow_tasks_pending_due ON workflow_tasks(status, due_at) WHERE status = 'pending';
 CREATE INDEX idx_workflow_instances_entity ON workflow_instances(entity_type, entity_id, status);
 CREATE INDEX idx_workflow_history_instance_time ON workflow_history(instance_id, created_at);
+```
+
+### CHECK Constraints
+
+```sql
+ALTER TABLE workflow_instances ADD CONSTRAINT wf_instance_status_check
+  CHECK (status IN ('running', 'completed', 'rejected', 'suspended', 'cancelled', 'terminated'));
+
+ALTER TABLE workflow_tasks ADD CONSTRAINT wf_task_status_check
+  CHECK (status IN ('pending', 'completed', 'rejected', 'delegated', 'timed_out', 'cancelled'));
+
+ALTER TABLE workflow_templates ADD CONSTRAINT wf_template_status_check
+  CHECK (status IN ('draft', 'active', 'archived'));
 ```
 
 ## Graph Linter（发布时强制校验）
@@ -451,6 +476,26 @@ registry.register("create_material_requisition", Arc::new(CreateMaterialRequisit
 ```
 
 Action 接收 `&mut Transaction`，可安全进行数据库写操作，与引擎状态更新在同一事务内。Action 执行失败时事务整体回滚，引擎将实例标记为 `suspended`。
+
+**ActionRegistry 启动时校验（见 Improvement 9）：**
+
+```rust
+impl ActionRegistry {
+    /// 启动时校验：所有 active 模板引用的 action 必须已注册
+    /// 失败则 panic（fail-closed），与权限缓存 .expect() 模式一致
+    pub fn validate_active_templates(&self, pool: &PgPool) -> Result<()> {
+        let unregistered = sqlx::query_scalar!(
+            "SELECT DISTINCT graph->'nodes' @> '[{\"node_type\":\"auto_task\"}]' as has_auto,
+                    jsonb_path_query_array(graph->'nodes', '$.nodes[*].config.action') as actions
+             FROM workflow_templates WHERE status = 'active'"
+        )
+        // 简化伪代码：提取所有 auto_task 的 action 名称，检查 is_registered
+        // 任一未注册 → panic!("active template references unregistered action: {name}")
+    }
+}
+```
+
+此校验在所有 action 注册完成后执行（`init_context_with_pool()` 之后），确保部署一致性。
 
 ## WorkflowEngine Core Logic
 

@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "pg": "^8.13.0",
+    "smol-toml": "^1.6.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

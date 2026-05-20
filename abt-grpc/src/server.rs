@@ -177,6 +177,22 @@ impl AppState {
         abt::get_quotation_service(self.abt_context)
     }
 
+    pub fn sales_order_service(&self) -> impl abt::SalesOrderService {
+        abt::get_sales_order_service(self.abt_context)
+    }
+
+    pub fn shipping_request_service(&self) -> impl abt::ShippingRequestService {
+        abt::get_shipping_request_service(self.abt_context)
+    }
+
+    pub fn sales_return_service(&self) -> impl abt::SalesReturnService {
+        abt::get_sales_return_service(self.abt_context)
+    }
+
+    pub fn reconciliation_service(&self) -> impl abt::ReconciliationService {
+        abt::get_reconciliation_service(self.abt_context)
+    }
+
     pub async fn begin_transaction(&self) -> anyhow::Result<sqlx::Transaction<'static, sqlx::Postgres>> {
         self.abt_context.begin_transaction().await
     }
@@ -200,7 +216,8 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         AbtLaborProcessServiceServer, AbtLaborProcessDictServiceServer, AbtLocationServiceServer, AbtPriceServiceServer,
         AbtProductServiceServer, AbtRoutingServiceServer, AbtSyncServiceServer, AbtTermServiceServer, AbtWarehouseServiceServer,
         AbtWorkflowServiceServer,
-        QuotationServiceServer,
+        QuotationServiceServer, SalesOrderServiceServer, ShippingRequestServiceServer,
+        SalesReturnServiceServer, ReconciliationServiceServer,
         AuthServiceServer, AbtBomCategoryServiceServer, DepartmentServiceServer,
         PermissionServiceServer, RoleServiceServer, UserServiceServer,
     };
@@ -274,6 +291,18 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(QuotationServiceServer::with_interceptor(
             crate::handlers::quotation::QuotationHandler::new(), auth_interceptor,
+        ))
+        .add_service(SalesOrderServiceServer::with_interceptor(
+            crate::handlers::sales_order::SalesOrderHandler::new(), auth_interceptor,
+        ))
+        .add_service(ShippingRequestServiceServer::with_interceptor(
+            crate::handlers::shipping_request::ShippingRequestHandler::new(), auth_interceptor,
+        ))
+        .add_service(SalesReturnServiceServer::with_interceptor(
+            crate::handlers::sales_return::SalesReturnHandler::new(), auth_interceptor,
+        ))
+        .add_service(ReconciliationServiceServer::with_interceptor(
+            crate::handlers::reconciliation::ReconciliationHandler::new(), auth_interceptor,
         ))
         .serve_with_shutdown(addr, async move {
             tokio::signal::ctrl_c().await.expect("failed to listen for ctrl+c");

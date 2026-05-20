@@ -22,6 +22,10 @@ pub mod notification;
 pub mod sync_handler;
 pub mod task_scheduler;
 pub mod quotation;
+pub mod reconciliation;
+pub mod sales_order;
+pub mod sales_return;
+pub mod shipping_request;
 pub mod workflow;
 
 pub use crate::generated::abt::v1::{
@@ -40,6 +44,10 @@ pub use crate::generated::abt::v1::{
     abt_task_scheduler_service_server::AbtTaskSchedulerServiceServer,
     abt_workflow_service_server::AbtWorkflowServiceServer,
     quotation_service_server::QuotationServiceServer,
+    reconciliation_service_server::ReconciliationServiceServer,
+    sales_order_service_server::SalesOrderServiceServer,
+    sales_return_service_server::SalesReturnServiceServer,
+    shipping_request_service_server::ShippingRequestServiceServer,
     abt_term_service_server::AbtTermServiceServer,
     abt_warehouse_service_server::AbtWarehouseServiceServer,
     auth_service_server::AuthServiceServer,

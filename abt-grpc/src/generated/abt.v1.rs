@@ -14925,6 +14925,977 @@ pub mod quotation_service_server {
         const NAME: &'static str = SERVICE_NAME;
     }
 }
+/// 对账单行项目
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReconciliationItem {
+    #[prost(int64, tag = "1")]
+    pub item_id: i64,
+    #[prost(int64, tag = "2")]
+    pub statement_id: i64,
+    #[prost(string, tag = "3")]
+    pub source_type: ::prost::alloc::string::String,
+    #[prost(int64, tag = "4")]
+    pub source_id: i64,
+    #[prost(int64, tag = "5")]
+    pub product_id: i64,
+    #[prost(string, tag = "6")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub product_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub unit: ::prost::alloc::string::String,
+    #[prost(double, tag = "9")]
+    pub quantity: f64,
+    #[prost(double, tag = "10")]
+    pub unit_price: f64,
+    #[prost(double, tag = "11")]
+    pub amount: f64,
+    #[prost(string, tag = "12")]
+    pub remark: ::prost::alloc::string::String,
+}
+/// 对账单
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReconciliationStatement {
+    #[prost(int64, tag = "1")]
+    pub statement_id: i64,
+    #[prost(string, tag = "2")]
+    pub statement_no: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub customer_name: ::prost::alloc::string::String,
+    #[prost(int32, tag = "4")]
+    pub period_year: i32,
+    #[prost(int32, tag = "5")]
+    pub period_month: i32,
+    #[prost(double, tag = "6")]
+    pub shipping_total: f64,
+    #[prost(double, tag = "7")]
+    pub return_total: f64,
+    #[prost(double, tag = "8")]
+    pub adjustment_total: f64,
+    #[prost(double, tag = "9")]
+    pub net_amount: f64,
+    #[prost(enumeration = "ReconciliationStatus", tag = "10")]
+    pub status: i32,
+    #[prost(string, tag = "11")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "12")]
+    pub operator_id: i64,
+    #[prost(int64, tag = "13")]
+    pub created_at: i64,
+    #[prost(int64, tag = "14")]
+    pub updated_at: i64,
+    #[prost(message, repeated, tag = "15")]
+    pub items: ::prost::alloc::vec::Vec<ReconciliationItem>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CreateReconciliationRequest {
+    #[prost(string, tag = "1")]
+    pub customer_name: ::prost::alloc::string::String,
+    #[prost(int32, tag = "2")]
+    pub period_year: i32,
+    #[prost(int32, tag = "3")]
+    pub period_month: i32,
+    #[prost(string, tag = "4")]
+    pub remark: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AdjustmentItem {
+    #[prost(int64, tag = "1")]
+    pub product_id: i64,
+    #[prost(double, tag = "2")]
+    pub quantity: f64,
+    #[prost(double, tag = "3")]
+    pub unit_price: f64,
+    #[prost(double, tag = "4")]
+    pub amount: f64,
+    #[prost(string, tag = "5")]
+    pub remark: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddReconciliationAdjustmentRequest {
+    #[prost(int64, tag = "1")]
+    pub statement_id: i64,
+    #[prost(message, repeated, tag = "2")]
+    pub items: ::prost::alloc::vec::Vec<AdjustmentItem>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateReconciliationRequest {
+    #[prost(int64, tag = "1")]
+    pub statement_id: i64,
+    #[prost(string, tag = "2")]
+    pub remark: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListReconciliationsRequest {
+    #[prost(string, optional, tag = "1")]
+    pub keyword: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(enumeration = "ReconciliationStatus", optional, tag = "2")]
+    pub status: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "3")]
+    pub period_year: ::core::option::Option<i32>,
+    #[prost(int32, optional, tag = "4")]
+    pub period_month: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "5")]
+    pub pagination: ::core::option::Option<PaginationParams>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetReconciliationRequest {
+    #[prost(int64, tag = "1")]
+    pub statement_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateReconciliationStatusRequest {
+    #[prost(int64, tag = "1")]
+    pub statement_id: i64,
+    #[prost(enumeration = "ReconciliationStatus", tag = "2")]
+    pub status: i32,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeleteReconciliationRequest {
+    #[prost(int64, tag = "1")]
+    pub statement_id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReconciliationResponse {
+    #[prost(message, optional, tag = "1")]
+    pub statement: ::core::option::Option<ReconciliationStatement>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ReconciliationListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<ReconciliationStatement>,
+    #[prost(message, optional, tag = "2")]
+    pub pagination: ::core::option::Option<PaginationInfo>,
+}
+/// 对账单状态
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ReconciliationStatus {
+    Unspecified = 0,
+    Draft = 1,
+    Confirmed = 2,
+    Approved = 3,
+}
+impl ReconciliationStatus {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "RECONCILIATION_STATUS_UNSPECIFIED",
+            Self::Draft => "RECONCILIATION_STATUS_DRAFT",
+            Self::Confirmed => "RECONCILIATION_STATUS_CONFIRMED",
+            Self::Approved => "RECONCILIATION_STATUS_APPROVED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "RECONCILIATION_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
+            "RECONCILIATION_STATUS_DRAFT" => Some(Self::Draft),
+            "RECONCILIATION_STATUS_CONFIRMED" => Some(Self::Confirmed),
+            "RECONCILIATION_STATUS_APPROVED" => Some(Self::Approved),
+            _ => None,
+        }
+    }
+}
+/// Generated client implementations.
+pub mod reconciliation_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    #[derive(Debug, Clone)]
+    pub struct ReconciliationServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl ReconciliationServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> ReconciliationServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> ReconciliationServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            ReconciliationServiceClient::new(InterceptedService::new(inner, interceptor))
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        pub async fn create_reconciliation(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateReconciliationRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ReconciliationService/CreateReconciliation",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ReconciliationService",
+                        "CreateReconciliation",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn add_reconciliation_adjustment(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AddReconciliationAdjustmentRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ReconciliationService/AddReconciliationAdjustment",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ReconciliationService",
+                        "AddReconciliationAdjustment",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_reconciliation(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateReconciliationRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ReconciliationService/UpdateReconciliation",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ReconciliationService",
+                        "UpdateReconciliation",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn delete_reconciliation(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DeleteReconciliationRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ReconciliationService/DeleteReconciliation",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ReconciliationService",
+                        "DeleteReconciliation",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_reconciliation(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetReconciliationRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReconciliationResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ReconciliationService/GetReconciliation",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.ReconciliationService", "GetReconciliation"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_reconciliations(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListReconciliationsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReconciliationListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ReconciliationService/ListReconciliations",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ReconciliationService",
+                        "ListReconciliations",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_reconciliation_status(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateReconciliationStatusRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ReconciliationService/UpdateReconciliationStatus",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ReconciliationService",
+                        "UpdateReconciliationStatus",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod reconciliation_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with ReconciliationServiceServer.
+    #[async_trait]
+    pub trait ReconciliationService: std::marker::Send + std::marker::Sync + 'static {
+        async fn create_reconciliation(
+            &self,
+            request: tonic::Request<super::CreateReconciliationRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn add_reconciliation_adjustment(
+            &self,
+            request: tonic::Request<super::AddReconciliationAdjustmentRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn update_reconciliation(
+            &self,
+            request: tonic::Request<super::UpdateReconciliationRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn delete_reconciliation(
+            &self,
+            request: tonic::Request<super::DeleteReconciliationRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn get_reconciliation(
+            &self,
+            request: tonic::Request<super::GetReconciliationRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReconciliationResponse>,
+            tonic::Status,
+        >;
+        async fn list_reconciliations(
+            &self,
+            request: tonic::Request<super::ListReconciliationsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ReconciliationListResponse>,
+            tonic::Status,
+        >;
+        async fn update_reconciliation_status(
+            &self,
+            request: tonic::Request<super::UpdateReconciliationStatusRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+    }
+    #[derive(Debug)]
+    pub struct ReconciliationServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> ReconciliationServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>>
+    for ReconciliationServiceServer<T>
+    where
+        T: ReconciliationService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/abt.v1.ReconciliationService/CreateReconciliation" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateReconciliationSvc<T: ReconciliationService>(pub Arc<T>);
+                    impl<
+                        T: ReconciliationService,
+                    > tonic::server::UnaryService<super::CreateReconciliationRequest>
+                    for CreateReconciliationSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateReconciliationRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ReconciliationService>::create_reconciliation(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateReconciliationSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ReconciliationService/AddReconciliationAdjustment" => {
+                    #[allow(non_camel_case_types)]
+                    struct AddReconciliationAdjustmentSvc<T: ReconciliationService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: ReconciliationService,
+                    > tonic::server::UnaryService<
+                        super::AddReconciliationAdjustmentRequest,
+                    > for AddReconciliationAdjustmentSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::AddReconciliationAdjustmentRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ReconciliationService>::add_reconciliation_adjustment(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = AddReconciliationAdjustmentSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ReconciliationService/UpdateReconciliation" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateReconciliationSvc<T: ReconciliationService>(pub Arc<T>);
+                    impl<
+                        T: ReconciliationService,
+                    > tonic::server::UnaryService<super::UpdateReconciliationRequest>
+                    for UpdateReconciliationSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateReconciliationRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ReconciliationService>::update_reconciliation(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateReconciliationSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ReconciliationService/DeleteReconciliation" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeleteReconciliationSvc<T: ReconciliationService>(pub Arc<T>);
+                    impl<
+                        T: ReconciliationService,
+                    > tonic::server::UnaryService<super::DeleteReconciliationRequest>
+                    for DeleteReconciliationSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeleteReconciliationRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ReconciliationService>::delete_reconciliation(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DeleteReconciliationSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ReconciliationService/GetReconciliation" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetReconciliationSvc<T: ReconciliationService>(pub Arc<T>);
+                    impl<
+                        T: ReconciliationService,
+                    > tonic::server::UnaryService<super::GetReconciliationRequest>
+                    for GetReconciliationSvc<T> {
+                        type Response = super::ReconciliationResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetReconciliationRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ReconciliationService>::get_reconciliation(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetReconciliationSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ReconciliationService/ListReconciliations" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListReconciliationsSvc<T: ReconciliationService>(pub Arc<T>);
+                    impl<
+                        T: ReconciliationService,
+                    > tonic::server::UnaryService<super::ListReconciliationsRequest>
+                    for ListReconciliationsSvc<T> {
+                        type Response = super::ReconciliationListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListReconciliationsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ReconciliationService>::list_reconciliations(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListReconciliationsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ReconciliationService/UpdateReconciliationStatus" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateReconciliationStatusSvc<T: ReconciliationService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: ReconciliationService,
+                    > tonic::server::UnaryService<
+                        super::UpdateReconciliationStatusRequest,
+                    > for UpdateReconciliationStatusSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::UpdateReconciliationStatusRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ReconciliationService>::update_reconciliation_status(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateReconciliationStatusSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for ReconciliationServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "abt.v1.ReconciliationService";
+    impl<T> tonic::server::NamedService for ReconciliationServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateRoleRequest {
     #[prost(string, tag = "1")]
@@ -16678,6 +17649,2604 @@ pub mod abt_routing_service_server {
     /// Generated gRPC service name
     pub const SERVICE_NAME: &str = "abt.v1.AbtRoutingService";
     impl<T> tonic::server::NamedService for AbtRoutingServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
+/// 销售订单行项目
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SalesOrderItem {
+    #[prost(int64, tag = "1")]
+    pub item_id: i64,
+    #[prost(int64, tag = "2")]
+    pub order_id: i64,
+    #[prost(int64, tag = "3")]
+    pub product_id: i64,
+    #[prost(string, tag = "4")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub product_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub unit: ::prost::alloc::string::String,
+    #[prost(double, tag = "7")]
+    pub unit_price: f64,
+    #[prost(double, tag = "8")]
+    pub quantity: f64,
+    #[prost(double, tag = "9")]
+    pub discount: f64,
+    #[prost(double, tag = "10")]
+    pub subtotal: f64,
+    #[prost(double, tag = "11")]
+    pub shipped_qty: f64,
+    #[prost(double, tag = "12")]
+    pub returned_qty: f64,
+    #[prost(string, tag = "13")]
+    pub remark: ::prost::alloc::string::String,
+}
+/// 销售订单
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SalesOrder {
+    #[prost(int64, tag = "1")]
+    pub order_id: i64,
+    #[prost(string, tag = "2")]
+    pub order_no: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub quotation_id: i64,
+    #[prost(string, tag = "4")]
+    pub customer_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub contact_person: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub contact_phone: ::prost::alloc::string::String,
+    #[prost(enumeration = "SalesOrderStatus", tag = "7")]
+    pub status: i32,
+    #[prost(double, tag = "8")]
+    pub total_amount: f64,
+    #[prost(string, tag = "9")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "10")]
+    pub delivery_date: i64,
+    #[prost(int64, tag = "11")]
+    pub created_at: i64,
+    #[prost(int64, tag = "12")]
+    pub updated_at: i64,
+    #[prost(int64, tag = "13")]
+    pub operator_id: i64,
+    #[prost(message, repeated, tag = "14")]
+    pub items: ::prost::alloc::vec::Vec<SalesOrderItem>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateSalesOrderItem {
+    #[prost(int64, tag = "1")]
+    pub product_id: i64,
+    #[prost(double, tag = "2")]
+    pub unit_price: f64,
+    #[prost(double, tag = "3")]
+    pub quantity: f64,
+    #[prost(double, tag = "4")]
+    pub discount: f64,
+    #[prost(string, tag = "5")]
+    pub remark: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateSalesOrderRequest {
+    #[prost(int64, tag = "1")]
+    pub quotation_id: i64,
+    #[prost(string, tag = "2")]
+    pub customer_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub contact_person: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub contact_phone: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "6")]
+    pub delivery_date: i64,
+    #[prost(message, repeated, tag = "7")]
+    pub items: ::prost::alloc::vec::Vec<CreateSalesOrderItem>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateSalesOrderRequest {
+    #[prost(int64, tag = "1")]
+    pub order_id: i64,
+    #[prost(string, tag = "2")]
+    pub customer_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub contact_person: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub contact_phone: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "6")]
+    pub delivery_date: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListSalesOrdersRequest {
+    #[prost(string, optional, tag = "1")]
+    pub keyword: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(enumeration = "SalesOrderStatus", optional, tag = "2")]
+    pub status: ::core::option::Option<i32>,
+    #[prost(message, optional, tag = "3")]
+    pub pagination: ::core::option::Option<PaginationParams>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetSalesOrderRequest {
+    #[prost(int64, tag = "1")]
+    pub order_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeleteSalesOrderRequest {
+    #[prost(int64, tag = "1")]
+    pub order_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateSalesOrderStatusRequest {
+    #[prost(int64, tag = "1")]
+    pub order_id: i64,
+    #[prost(enumeration = "SalesOrderStatus", tag = "2")]
+    pub status: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SalesOrderResponse {
+    #[prost(message, optional, tag = "1")]
+    pub order: ::core::option::Option<SalesOrder>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SalesOrderListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<SalesOrder>,
+    #[prost(message, optional, tag = "2")]
+    pub pagination: ::core::option::Option<PaginationInfo>,
+}
+/// 销售订单状态
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum SalesOrderStatus {
+    Unspecified = 0,
+    Draft = 1,
+    Confirmed = 2,
+    InProgress = 3,
+    Completed = 4,
+    Cancelled = 5,
+}
+impl SalesOrderStatus {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "SALES_ORDER_STATUS_UNSPECIFIED",
+            Self::Draft => "SALES_ORDER_STATUS_DRAFT",
+            Self::Confirmed => "SALES_ORDER_STATUS_CONFIRMED",
+            Self::InProgress => "SALES_ORDER_STATUS_IN_PROGRESS",
+            Self::Completed => "SALES_ORDER_STATUS_COMPLETED",
+            Self::Cancelled => "SALES_ORDER_STATUS_CANCELLED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SALES_ORDER_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
+            "SALES_ORDER_STATUS_DRAFT" => Some(Self::Draft),
+            "SALES_ORDER_STATUS_CONFIRMED" => Some(Self::Confirmed),
+            "SALES_ORDER_STATUS_IN_PROGRESS" => Some(Self::InProgress),
+            "SALES_ORDER_STATUS_COMPLETED" => Some(Self::Completed),
+            "SALES_ORDER_STATUS_CANCELLED" => Some(Self::Cancelled),
+            _ => None,
+        }
+    }
+}
+/// Generated client implementations.
+pub mod sales_order_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    #[derive(Debug, Clone)]
+    pub struct SalesOrderServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl SalesOrderServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> SalesOrderServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> SalesOrderServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            SalesOrderServiceClient::new(InterceptedService::new(inner, interceptor))
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        pub async fn create_sales_order(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateSalesOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesOrderService/CreateSalesOrder",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.SalesOrderService", "CreateSalesOrder"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_sales_order(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateSalesOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesOrderService/UpdateSalesOrder",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.SalesOrderService", "UpdateSalesOrder"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn delete_sales_order(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DeleteSalesOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesOrderService/DeleteSalesOrder",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.SalesOrderService", "DeleteSalesOrder"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_sales_order(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetSalesOrderRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SalesOrderResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesOrderService/GetSalesOrder",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.SalesOrderService", "GetSalesOrder"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_sales_orders(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListSalesOrdersRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SalesOrderListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesOrderService/ListSalesOrders",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.SalesOrderService", "ListSalesOrders"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_sales_order_status(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateSalesOrderStatusRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesOrderService/UpdateSalesOrderStatus",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.SalesOrderService", "UpdateSalesOrderStatus"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod sales_order_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with SalesOrderServiceServer.
+    #[async_trait]
+    pub trait SalesOrderService: std::marker::Send + std::marker::Sync + 'static {
+        async fn create_sales_order(
+            &self,
+            request: tonic::Request<super::CreateSalesOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn update_sales_order(
+            &self,
+            request: tonic::Request<super::UpdateSalesOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn delete_sales_order(
+            &self,
+            request: tonic::Request<super::DeleteSalesOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn get_sales_order(
+            &self,
+            request: tonic::Request<super::GetSalesOrderRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SalesOrderResponse>,
+            tonic::Status,
+        >;
+        async fn list_sales_orders(
+            &self,
+            request: tonic::Request<super::ListSalesOrdersRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SalesOrderListResponse>,
+            tonic::Status,
+        >;
+        async fn update_sales_order_status(
+            &self,
+            request: tonic::Request<super::UpdateSalesOrderStatusRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+    }
+    #[derive(Debug)]
+    pub struct SalesOrderServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> SalesOrderServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for SalesOrderServiceServer<T>
+    where
+        T: SalesOrderService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/abt.v1.SalesOrderService/CreateSalesOrder" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateSalesOrderSvc<T: SalesOrderService>(pub Arc<T>);
+                    impl<
+                        T: SalesOrderService,
+                    > tonic::server::UnaryService<super::CreateSalesOrderRequest>
+                    for CreateSalesOrderSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateSalesOrderRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesOrderService>::create_sales_order(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateSalesOrderSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesOrderService/UpdateSalesOrder" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateSalesOrderSvc<T: SalesOrderService>(pub Arc<T>);
+                    impl<
+                        T: SalesOrderService,
+                    > tonic::server::UnaryService<super::UpdateSalesOrderRequest>
+                    for UpdateSalesOrderSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateSalesOrderRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesOrderService>::update_sales_order(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateSalesOrderSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesOrderService/DeleteSalesOrder" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeleteSalesOrderSvc<T: SalesOrderService>(pub Arc<T>);
+                    impl<
+                        T: SalesOrderService,
+                    > tonic::server::UnaryService<super::DeleteSalesOrderRequest>
+                    for DeleteSalesOrderSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeleteSalesOrderRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesOrderService>::delete_sales_order(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DeleteSalesOrderSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesOrderService/GetSalesOrder" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetSalesOrderSvc<T: SalesOrderService>(pub Arc<T>);
+                    impl<
+                        T: SalesOrderService,
+                    > tonic::server::UnaryService<super::GetSalesOrderRequest>
+                    for GetSalesOrderSvc<T> {
+                        type Response = super::SalesOrderResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetSalesOrderRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesOrderService>::get_sales_order(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetSalesOrderSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesOrderService/ListSalesOrders" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListSalesOrdersSvc<T: SalesOrderService>(pub Arc<T>);
+                    impl<
+                        T: SalesOrderService,
+                    > tonic::server::UnaryService<super::ListSalesOrdersRequest>
+                    for ListSalesOrdersSvc<T> {
+                        type Response = super::SalesOrderListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListSalesOrdersRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesOrderService>::list_sales_orders(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListSalesOrdersSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesOrderService/UpdateSalesOrderStatus" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateSalesOrderStatusSvc<T: SalesOrderService>(pub Arc<T>);
+                    impl<
+                        T: SalesOrderService,
+                    > tonic::server::UnaryService<super::UpdateSalesOrderStatusRequest>
+                    for UpdateSalesOrderStatusSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateSalesOrderStatusRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesOrderService>::update_sales_order_status(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateSalesOrderStatusSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for SalesOrderServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "abt.v1.SalesOrderService";
+    impl<T> tonic::server::NamedService for SalesOrderServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
+/// 销售退货行项目
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SalesReturnItem {
+    #[prost(int64, tag = "1")]
+    pub item_id: i64,
+    #[prost(int64, tag = "2")]
+    pub return_id: i64,
+    #[prost(int64, tag = "3")]
+    pub request_item_id: i64,
+    #[prost(int64, tag = "4")]
+    pub order_item_id: i64,
+    #[prost(int64, tag = "5")]
+    pub product_id: i64,
+    #[prost(string, tag = "6")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub product_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub unit: ::prost::alloc::string::String,
+    #[prost(double, tag = "9")]
+    pub unit_price: f64,
+    #[prost(double, tag = "10")]
+    pub quantity: f64,
+    #[prost(double, tag = "11")]
+    pub subtotal: f64,
+    #[prost(string, tag = "12")]
+    pub remark: ::prost::alloc::string::String,
+}
+/// 销售退货单
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SalesReturn {
+    #[prost(int64, tag = "1")]
+    pub return_id: i64,
+    #[prost(string, tag = "2")]
+    pub return_no: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub request_id: i64,
+    #[prost(int64, tag = "4")]
+    pub order_id: i64,
+    #[prost(string, tag = "5")]
+    pub customer_name: ::prost::alloc::string::String,
+    #[prost(enumeration = "SalesReturnStatus", tag = "6")]
+    pub status: i32,
+    #[prost(double, tag = "7")]
+    pub total_amount: f64,
+    #[prost(string, tag = "8")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(int64, tag = "10")]
+    pub operator_id: i64,
+    #[prost(int64, tag = "11")]
+    pub created_at: i64,
+    #[prost(int64, tag = "12")]
+    pub updated_at: i64,
+    #[prost(message, repeated, tag = "13")]
+    pub items: ::prost::alloc::vec::Vec<SalesReturnItem>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateSalesReturnItem {
+    #[prost(int64, tag = "1")]
+    pub request_item_id: i64,
+    #[prost(double, tag = "2")]
+    pub quantity: f64,
+    #[prost(string, tag = "3")]
+    pub remark: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateSalesReturnRequest {
+    #[prost(int64, tag = "1")]
+    pub request_id: i64,
+    #[prost(string, tag = "2")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "4")]
+    pub items: ::prost::alloc::vec::Vec<CreateSalesReturnItem>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdateSalesReturnRequest {
+    #[prost(int64, tag = "1")]
+    pub return_id: i64,
+    #[prost(string, tag = "2")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "4")]
+    pub items: ::prost::alloc::vec::Vec<CreateSalesReturnItem>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListSalesReturnsRequest {
+    #[prost(string, optional, tag = "1")]
+    pub keyword: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(enumeration = "SalesReturnStatus", optional, tag = "2")]
+    pub status: ::core::option::Option<i32>,
+    #[prost(int64, optional, tag = "3")]
+    pub order_id: ::core::option::Option<i64>,
+    #[prost(int64, optional, tag = "4")]
+    pub request_id: ::core::option::Option<i64>,
+    #[prost(message, optional, tag = "5")]
+    pub pagination: ::core::option::Option<PaginationParams>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetSalesReturnRequest {
+    #[prost(int64, tag = "1")]
+    pub return_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateSalesReturnStatusRequest {
+    #[prost(int64, tag = "1")]
+    pub return_id: i64,
+    #[prost(enumeration = "SalesReturnStatus", tag = "2")]
+    pub status: i32,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeleteSalesReturnRequest {
+    #[prost(int64, tag = "1")]
+    pub return_id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SalesReturnResponse {
+    #[prost(message, optional, tag = "1")]
+    pub r#return: ::core::option::Option<SalesReturn>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SalesReturnListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<SalesReturn>,
+    #[prost(message, optional, tag = "2")]
+    pub pagination: ::core::option::Option<PaginationInfo>,
+}
+/// 销售退货状态
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum SalesReturnStatus {
+    Unspecified = 0,
+    Pending = 1,
+    Approved = 2,
+    Received = 3,
+    Completed = 4,
+    Rejected = 5,
+}
+impl SalesReturnStatus {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "SALES_RETURN_STATUS_UNSPECIFIED",
+            Self::Pending => "SALES_RETURN_STATUS_PENDING",
+            Self::Approved => "SALES_RETURN_STATUS_APPROVED",
+            Self::Received => "SALES_RETURN_STATUS_RECEIVED",
+            Self::Completed => "SALES_RETURN_STATUS_COMPLETED",
+            Self::Rejected => "SALES_RETURN_STATUS_REJECTED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SALES_RETURN_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
+            "SALES_RETURN_STATUS_PENDING" => Some(Self::Pending),
+            "SALES_RETURN_STATUS_APPROVED" => Some(Self::Approved),
+            "SALES_RETURN_STATUS_RECEIVED" => Some(Self::Received),
+            "SALES_RETURN_STATUS_COMPLETED" => Some(Self::Completed),
+            "SALES_RETURN_STATUS_REJECTED" => Some(Self::Rejected),
+            _ => None,
+        }
+    }
+}
+/// Generated client implementations.
+pub mod sales_return_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    #[derive(Debug, Clone)]
+    pub struct SalesReturnServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl SalesReturnServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> SalesReturnServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> SalesReturnServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            SalesReturnServiceClient::new(InterceptedService::new(inner, interceptor))
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        pub async fn create_sales_return(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateSalesReturnRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesReturnService/CreateSalesReturn",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.SalesReturnService", "CreateSalesReturn"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_sales_return(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateSalesReturnRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesReturnService/UpdateSalesReturn",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.SalesReturnService", "UpdateSalesReturn"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn delete_sales_return(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DeleteSalesReturnRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesReturnService/DeleteSalesReturn",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.SalesReturnService", "DeleteSalesReturn"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_sales_return(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetSalesReturnRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SalesReturnResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesReturnService/GetSalesReturn",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.SalesReturnService", "GetSalesReturn"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_sales_returns(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListSalesReturnsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SalesReturnListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesReturnService/ListSalesReturns",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.SalesReturnService", "ListSalesReturns"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_sales_return_status(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateSalesReturnStatusRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesReturnService/UpdateSalesReturnStatus",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.SalesReturnService",
+                        "UpdateSalesReturnStatus",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod sales_return_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with SalesReturnServiceServer.
+    #[async_trait]
+    pub trait SalesReturnService: std::marker::Send + std::marker::Sync + 'static {
+        async fn create_sales_return(
+            &self,
+            request: tonic::Request<super::CreateSalesReturnRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn update_sales_return(
+            &self,
+            request: tonic::Request<super::UpdateSalesReturnRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn delete_sales_return(
+            &self,
+            request: tonic::Request<super::DeleteSalesReturnRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn get_sales_return(
+            &self,
+            request: tonic::Request<super::GetSalesReturnRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SalesReturnResponse>,
+            tonic::Status,
+        >;
+        async fn list_sales_returns(
+            &self,
+            request: tonic::Request<super::ListSalesReturnsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SalesReturnListResponse>,
+            tonic::Status,
+        >;
+        async fn update_sales_return_status(
+            &self,
+            request: tonic::Request<super::UpdateSalesReturnStatusRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+    }
+    #[derive(Debug)]
+    pub struct SalesReturnServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> SalesReturnServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for SalesReturnServiceServer<T>
+    where
+        T: SalesReturnService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/abt.v1.SalesReturnService/CreateSalesReturn" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateSalesReturnSvc<T: SalesReturnService>(pub Arc<T>);
+                    impl<
+                        T: SalesReturnService,
+                    > tonic::server::UnaryService<super::CreateSalesReturnRequest>
+                    for CreateSalesReturnSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateSalesReturnRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesReturnService>::create_sales_return(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateSalesReturnSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesReturnService/UpdateSalesReturn" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateSalesReturnSvc<T: SalesReturnService>(pub Arc<T>);
+                    impl<
+                        T: SalesReturnService,
+                    > tonic::server::UnaryService<super::UpdateSalesReturnRequest>
+                    for UpdateSalesReturnSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateSalesReturnRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesReturnService>::update_sales_return(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateSalesReturnSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesReturnService/DeleteSalesReturn" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeleteSalesReturnSvc<T: SalesReturnService>(pub Arc<T>);
+                    impl<
+                        T: SalesReturnService,
+                    > tonic::server::UnaryService<super::DeleteSalesReturnRequest>
+                    for DeleteSalesReturnSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeleteSalesReturnRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesReturnService>::delete_sales_return(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DeleteSalesReturnSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesReturnService/GetSalesReturn" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetSalesReturnSvc<T: SalesReturnService>(pub Arc<T>);
+                    impl<
+                        T: SalesReturnService,
+                    > tonic::server::UnaryService<super::GetSalesReturnRequest>
+                    for GetSalesReturnSvc<T> {
+                        type Response = super::SalesReturnResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetSalesReturnRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesReturnService>::get_sales_return(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetSalesReturnSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesReturnService/ListSalesReturns" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListSalesReturnsSvc<T: SalesReturnService>(pub Arc<T>);
+                    impl<
+                        T: SalesReturnService,
+                    > tonic::server::UnaryService<super::ListSalesReturnsRequest>
+                    for ListSalesReturnsSvc<T> {
+                        type Response = super::SalesReturnListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListSalesReturnsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesReturnService>::list_sales_returns(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListSalesReturnsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesReturnService/UpdateSalesReturnStatus" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateSalesReturnStatusSvc<T: SalesReturnService>(pub Arc<T>);
+                    impl<
+                        T: SalesReturnService,
+                    > tonic::server::UnaryService<super::UpdateSalesReturnStatusRequest>
+                    for UpdateSalesReturnStatusSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::UpdateSalesReturnStatusRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesReturnService>::update_sales_return_status(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateSalesReturnStatusSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for SalesReturnServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "abt.v1.SalesReturnService";
+    impl<T> tonic::server::NamedService for SalesReturnServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
+/// 发货申请行项目
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ShippingRequestItem {
+    #[prost(int64, tag = "1")]
+    pub item_id: i64,
+    #[prost(int64, tag = "2")]
+    pub request_id: i64,
+    #[prost(int64, tag = "3")]
+    pub order_item_id: i64,
+    #[prost(int64, tag = "4")]
+    pub product_id: i64,
+    #[prost(string, tag = "5")]
+    pub product_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub product_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub unit: ::prost::alloc::string::String,
+    #[prost(double, tag = "8")]
+    pub quantity: f64,
+    #[prost(string, tag = "9")]
+    pub remark: ::prost::alloc::string::String,
+}
+/// 发货申请
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ShippingRequest {
+    #[prost(int64, tag = "1")]
+    pub request_id: i64,
+    #[prost(string, tag = "2")]
+    pub request_no: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub order_id: i64,
+    #[prost(string, tag = "4")]
+    pub customer_name: ::prost::alloc::string::String,
+    #[prost(enumeration = "ShippingRequestStatus", tag = "5")]
+    pub status: i32,
+    #[prost(string, tag = "6")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "7")]
+    pub operator_id: i64,
+    #[prost(int64, tag = "8")]
+    pub confirmed_at: i64,
+    #[prost(int64, tag = "9")]
+    pub shipped_at: i64,
+    #[prost(int64, tag = "10")]
+    pub created_at: i64,
+    #[prost(int64, tag = "11")]
+    pub updated_at: i64,
+    #[prost(message, repeated, tag = "12")]
+    pub items: ::prost::alloc::vec::Vec<ShippingRequestItem>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateShippingRequestItem {
+    #[prost(int64, tag = "1")]
+    pub order_item_id: i64,
+    #[prost(double, tag = "2")]
+    pub quantity: f64,
+    #[prost(string, tag = "3")]
+    pub remark: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateShippingRequestRequest {
+    #[prost(int64, tag = "1")]
+    pub order_id: i64,
+    #[prost(string, tag = "2")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "3")]
+    pub items: ::prost::alloc::vec::Vec<CreateShippingRequestItem>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdateShippingRequestRequest {
+    #[prost(int64, tag = "1")]
+    pub request_id: i64,
+    #[prost(string, tag = "2")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "3")]
+    pub items: ::prost::alloc::vec::Vec<CreateShippingRequestItem>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListShippingRequestsRequest {
+    #[prost(string, optional, tag = "1")]
+    pub keyword: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(enumeration = "ShippingRequestStatus", optional, tag = "2")]
+    pub status: ::core::option::Option<i32>,
+    #[prost(int64, optional, tag = "3")]
+    pub order_id: ::core::option::Option<i64>,
+    #[prost(message, optional, tag = "4")]
+    pub pagination: ::core::option::Option<PaginationParams>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetShippingRequestRequest {
+    #[prost(int64, tag = "1")]
+    pub request_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateShippingRequestStatusRequest {
+    #[prost(int64, tag = "1")]
+    pub request_id: i64,
+    #[prost(enumeration = "ShippingRequestStatus", tag = "2")]
+    pub status: i32,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeleteShippingRequestRequest {
+    #[prost(int64, tag = "1")]
+    pub request_id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ShippingRequestResponse {
+    #[prost(message, optional, tag = "1")]
+    pub request: ::core::option::Option<ShippingRequest>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ShippingRequestListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<ShippingRequest>,
+    #[prost(message, optional, tag = "2")]
+    pub pagination: ::core::option::Option<PaginationInfo>,
+}
+/// 发货申请状态
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ShippingRequestStatus {
+    Unspecified = 0,
+    Pending = 1,
+    Confirmed = 2,
+    Shipped = 3,
+    Cancelled = 4,
+}
+impl ShippingRequestStatus {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "SHIPPING_REQUEST_STATUS_UNSPECIFIED",
+            Self::Pending => "SHIPPING_REQUEST_STATUS_PENDING",
+            Self::Confirmed => "SHIPPING_REQUEST_STATUS_CONFIRMED",
+            Self::Shipped => "SHIPPING_REQUEST_STATUS_SHIPPED",
+            Self::Cancelled => "SHIPPING_REQUEST_STATUS_CANCELLED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "SHIPPING_REQUEST_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
+            "SHIPPING_REQUEST_STATUS_PENDING" => Some(Self::Pending),
+            "SHIPPING_REQUEST_STATUS_CONFIRMED" => Some(Self::Confirmed),
+            "SHIPPING_REQUEST_STATUS_SHIPPED" => Some(Self::Shipped),
+            "SHIPPING_REQUEST_STATUS_CANCELLED" => Some(Self::Cancelled),
+            _ => None,
+        }
+    }
+}
+/// Generated client implementations.
+pub mod shipping_request_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    #[derive(Debug, Clone)]
+    pub struct ShippingRequestServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl ShippingRequestServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> ShippingRequestServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> ShippingRequestServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            ShippingRequestServiceClient::new(
+                InterceptedService::new(inner, interceptor),
+            )
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        pub async fn create_shipping_request(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateShippingRequestRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ShippingRequestService/CreateShippingRequest",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ShippingRequestService",
+                        "CreateShippingRequest",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_shipping_request(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateShippingRequestRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ShippingRequestService/UpdateShippingRequest",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ShippingRequestService",
+                        "UpdateShippingRequest",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn delete_shipping_request(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DeleteShippingRequestRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ShippingRequestService/DeleteShippingRequest",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ShippingRequestService",
+                        "DeleteShippingRequest",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_shipping_request(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetShippingRequestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ShippingRequestResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ShippingRequestService/GetShippingRequest",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ShippingRequestService",
+                        "GetShippingRequest",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_shipping_requests(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListShippingRequestsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ShippingRequestListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ShippingRequestService/ListShippingRequests",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ShippingRequestService",
+                        "ListShippingRequests",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_shipping_request_status(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateShippingRequestStatusRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.ShippingRequestService/UpdateShippingRequestStatus",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.ShippingRequestService",
+                        "UpdateShippingRequestStatus",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod shipping_request_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with ShippingRequestServiceServer.
+    #[async_trait]
+    pub trait ShippingRequestService: std::marker::Send + std::marker::Sync + 'static {
+        async fn create_shipping_request(
+            &self,
+            request: tonic::Request<super::CreateShippingRequestRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn update_shipping_request(
+            &self,
+            request: tonic::Request<super::UpdateShippingRequestRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn delete_shipping_request(
+            &self,
+            request: tonic::Request<super::DeleteShippingRequestRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn get_shipping_request(
+            &self,
+            request: tonic::Request<super::GetShippingRequestRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ShippingRequestResponse>,
+            tonic::Status,
+        >;
+        async fn list_shipping_requests(
+            &self,
+            request: tonic::Request<super::ListShippingRequestsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ShippingRequestListResponse>,
+            tonic::Status,
+        >;
+        async fn update_shipping_request_status(
+            &self,
+            request: tonic::Request<super::UpdateShippingRequestStatusRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+    }
+    #[derive(Debug)]
+    pub struct ShippingRequestServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> ShippingRequestServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>>
+    for ShippingRequestServiceServer<T>
+    where
+        T: ShippingRequestService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/abt.v1.ShippingRequestService/CreateShippingRequest" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateShippingRequestSvc<T: ShippingRequestService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: ShippingRequestService,
+                    > tonic::server::UnaryService<super::CreateShippingRequestRequest>
+                    for CreateShippingRequestSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateShippingRequestRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ShippingRequestService>::create_shipping_request(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateShippingRequestSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ShippingRequestService/UpdateShippingRequest" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateShippingRequestSvc<T: ShippingRequestService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: ShippingRequestService,
+                    > tonic::server::UnaryService<super::UpdateShippingRequestRequest>
+                    for UpdateShippingRequestSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateShippingRequestRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ShippingRequestService>::update_shipping_request(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateShippingRequestSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ShippingRequestService/DeleteShippingRequest" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeleteShippingRequestSvc<T: ShippingRequestService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: ShippingRequestService,
+                    > tonic::server::UnaryService<super::DeleteShippingRequestRequest>
+                    for DeleteShippingRequestSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeleteShippingRequestRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ShippingRequestService>::delete_shipping_request(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DeleteShippingRequestSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ShippingRequestService/GetShippingRequest" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetShippingRequestSvc<T: ShippingRequestService>(pub Arc<T>);
+                    impl<
+                        T: ShippingRequestService,
+                    > tonic::server::UnaryService<super::GetShippingRequestRequest>
+                    for GetShippingRequestSvc<T> {
+                        type Response = super::ShippingRequestResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetShippingRequestRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ShippingRequestService>::get_shipping_request(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetShippingRequestSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ShippingRequestService/ListShippingRequests" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListShippingRequestsSvc<T: ShippingRequestService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: ShippingRequestService,
+                    > tonic::server::UnaryService<super::ListShippingRequestsRequest>
+                    for ListShippingRequestsSvc<T> {
+                        type Response = super::ShippingRequestListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListShippingRequestsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ShippingRequestService>::list_shipping_requests(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListShippingRequestsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.ShippingRequestService/UpdateShippingRequestStatus" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateShippingRequestStatusSvc<T: ShippingRequestService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: ShippingRequestService,
+                    > tonic::server::UnaryService<
+                        super::UpdateShippingRequestStatusRequest,
+                    > for UpdateShippingRequestStatusSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::UpdateShippingRequestStatusRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as ShippingRequestService>::update_shipping_request_status(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateShippingRequestStatusSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for ShippingRequestServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "abt.v1.ShippingRequestService";
+    impl<T> tonic::server::NamedService for ShippingRequestServiceServer<T> {
         const NAME: &'static str = SERVICE_NAME;
     }
 }

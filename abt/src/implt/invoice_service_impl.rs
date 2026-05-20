@@ -1,7 +1,3 @@
-//! 采购发票服务实现
-//!
-//! 实现采购发票管理的业务逻辑。
-
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -14,7 +10,6 @@ use crate::models::{InvoiceDetail, InvoiceQuery};
 use crate::repositories::{Executor, InvoiceRepo, PaginatedResult, PaginationParams};
 use crate::service::InvoiceService;
 
-/// 采购发票服务实现
 pub struct InvoiceServiceImpl {
     pool: Arc<PgPool>,
 }
@@ -27,7 +22,6 @@ impl InvoiceServiceImpl {
 
 #[async_trait]
 impl InvoiceService for InvoiceServiceImpl {
-    /// 创建发票
     async fn create(
         &self,
         invoice_no: String,
@@ -54,7 +48,6 @@ impl InvoiceService for InvoiceServiceImpl {
         Ok(invoice_id)
     }
 
-    /// 分页查询发票列表
     async fn list(&self, query: InvoiceQuery) -> Result<PaginatedResult<InvoiceDetail>> {
         let page = query.page.unwrap_or(1).max(1) as u32;
         let page_size = query.page_size.unwrap_or(20).clamp(1, 100) as u32;

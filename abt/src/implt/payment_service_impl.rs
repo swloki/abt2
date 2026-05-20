@@ -1,7 +1,3 @@
-//! 采购付款服务实现
-//!
-//! 实现采购付款管理的业务逻辑。
-
 use anyhow::Result;
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -15,7 +11,6 @@ use crate::repositories::{
 };
 use crate::service::PaymentService;
 
-/// 采购付款服务实现
 pub struct PaymentServiceImpl {
     pool: Arc<PgPool>,
 }
@@ -39,7 +34,6 @@ impl PaymentService for PaymentServiceImpl {
         operator_id: Option<i64>,
         executor: Executor<'_>,
     ) -> Result<i64> {
-        // 生成付款编号
         let payment_no = DocumentSequenceRepo::next_number(&mut *executor, "PP").await?;
 
         let payment_id = PaymentRepo::insert(
@@ -57,12 +51,10 @@ impl PaymentService for PaymentServiceImpl {
         Ok(payment_id)
     }
 
-    /// 根据 ID 获取付款详情
     async fn get_by_id(&self, payment_id: i64) -> Result<Option<PurchasePayment>> {
         PaymentRepo::find_by_id(&self.pool, payment_id).await
     }
 
-    /// 分页查询付款列表
     async fn list(&self, query: PaymentQuery) -> Result<PaginatedResult<PaymentDetail>> {
         let page = query.page.unwrap_or(1).max(1) as u32;
         let page_size = query.page_size.unwrap_or(20).clamp(1, 100) as u32;

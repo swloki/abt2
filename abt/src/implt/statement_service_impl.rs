@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::PgPool;
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use common::error::ServiceError;
@@ -13,7 +14,6 @@ use crate::repositories::{
 };
 use crate::service::StatementService;
 
-/// 用于查询匹配采购订单的行项目
 #[derive(Debug, sqlx::FromRow)]
 struct PoItemRow {
     po_id: i64,
@@ -22,12 +22,6 @@ struct PoItemRow {
     product_name: Option<String>,
     quantity: Decimal,
     unit_price: Decimal,
-}
-
-/// 用于查询匹配的采购订单 ID
-#[derive(Debug, sqlx::FromRow)]
-struct PoIdRow {
-    po_id: i64,
 }
 
 pub struct StatementServiceImpl {
@@ -53,18 +47,22 @@ impl StatementService for StatementServiceImpl {
         // 1. 生成对账单编号
         let statement_no = DocumentSequenceRepo::next_number(&mut *executor, "PS").await?;
 
-        // 2. 查询匹配的采购订单（状态4/5，在期间内，未对账，未删除）
-        let po_ids: Vec<PoIdRow> = sqlx::query_as::<_, PoIdRow>(
+        // 2. 一次查询获取匹配的采购订单行项目（状态4/5，在期间内，未对账，未删除）
+        let po_items: Vec<PoItemRow> = sqlx::query_as::<_, PoItemRow>(
             r#"
-            SELECT po.po_id
-            FROM purchase_orders po
+            SELECT poi.po_id, po.po_no, poi.product_id, poi.product_name,
+                   poi.quantity, poi.unit_price
+            FROM purchase_order_items poi
+            INNER JOIN purchase_orders po ON poi.po_id = po.po_id
             WHERE po.supplier_id = $1
               AND po.status IN (4, 5)
               AND po.created_at >= $2::date
               AND po.created_at < ($3::date + interval '1 day')
               AND po.deleted_at IS NULL
-              AND po.po_id NOT IN (SELECT psi.po_id FROM purchase_statement_items psi)
-            ORDER BY po.po_id
+              AND NOT EXISTS (
+                  SELECT 1 FROM purchase_statement_items psi WHERE psi.po_id = po.po_id
+              )
+            ORDER BY poi.po_id, poi.item_id
             "#,
         )
         .bind(supplier_id)
@@ -73,34 +71,13 @@ impl StatementService for StatementServiceImpl {
         .fetch_all(&mut *executor)
         .await?;
 
-        if po_ids.is_empty() {
+        if po_items.is_empty() {
             return Err(anyhow::Error::from(ServiceError::BusinessValidation {
                 message: "指定供应商在指定期间内没有可对账的采购订单".to_string(),
             }));
         }
 
-        let po_id_list: Vec<i64> = po_ids.iter().map(|r| r.po_id).collect();
-
-        // 3. 查询这些订单的行项目
-        let po_items: Vec<PoItemRow> = sqlx::query_as::<_, PoItemRow>(
-            r#"
-            SELECT poi.po_id, po.po_no, poi.product_id, poi.product_name,
-                   poi.quantity, poi.unit_price
-            FROM purchase_order_items poi
-            INNER JOIN purchase_orders po ON poi.po_id = po.po_id
-            WHERE poi.po_id = ANY($1)
-            ORDER BY poi.po_id, poi.item_id
-            "#,
-        )
-        .bind(&po_id_list)
-        .fetch_all(&mut *executor)
-        .await?;
-
-        if po_items.is_empty() {
-            return Err(anyhow::Error::from(ServiceError::BusinessValidation {
-                message: "采购订单没有行项目，无法生成对账单".to_string(),
-            }));
-        }
+        let po_id_list: Vec<i64> = po_items.iter().map(|r| r.po_id).collect::<HashSet<_>>().into_iter().collect();
 
         // 4. 计算总金额并构建行项目
         let mut total_amount = Decimal::ZERO;
@@ -146,7 +123,6 @@ impl StatementService for StatementServiceImpl {
         Ok(statement_id)
     }
 
-    /// 根据 ID 获取对账单详情（含行项目）
     async fn get_by_id(&self, statement_id: i64) -> Result<Option<StatementWithItems>> {
         let statement = match StatementRepo::find_by_id(&self.pool, statement_id).await? {
             Some(s) => s,
@@ -158,7 +134,6 @@ impl StatementService for StatementServiceImpl {
         Ok(Some(StatementWithItems { statement, items }))
     }
 
-    /// 分页查询对账单列表
     async fn list(&self, query: StatementQuery) -> Result<PaginatedResult<StatementDetail>> {
         let page = query.page.unwrap_or(1).max(1) as u32;
         let page_size = query.page_size.unwrap_or(20).clamp(1, 100) as u32;
@@ -170,7 +145,6 @@ impl StatementService for StatementServiceImpl {
         Ok(PaginatedResult::new(items, total as u64, &pagination))
     }
 
-    /// 更新对账单状态
     async fn update_status(
         &self,
         statement_id: i64,

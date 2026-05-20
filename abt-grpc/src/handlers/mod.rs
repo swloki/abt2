@@ -13,8 +13,11 @@ pub mod location;
 pub mod permission;
 pub mod price;
 pub mod product;
+pub mod purchase;
+pub mod purchase_settlement;
 pub mod role;
 pub mod routing;
+pub mod supplier;
 pub mod term;
 pub mod user;
 pub mod warehouse;
@@ -40,6 +43,9 @@ pub use crate::generated::abt::v1::{
     abt_workflow_service_server::AbtWorkflowServiceServer,
     abt_term_service_server::AbtTermServiceServer,
     abt_warehouse_service_server::AbtWarehouseServiceServer,
+    purchase_service_server::PurchaseServiceServer,
+    purchase_settlement_service_server::PurchaseSettlementServiceServer,
+    supplier_service_server::SupplierServiceServer,
     auth_service_server::AuthServiceServer,
     department_service_server::DepartmentServiceServer,
     permission_service_server::PermissionServiceServer,

@@ -158,6 +158,34 @@ impl AppState {
         self.workflow_engine.clone()
     }
 
+    pub fn supplier_service(&self) -> impl abt::SupplierService {
+        abt::get_supplier_service(self.abt_context)
+    }
+
+    pub fn supplier_price_service(&self) -> impl abt::SupplierPriceService {
+        abt::get_supplier_price_service(self.abt_context)
+    }
+
+    pub fn purchase_order_service(&self) -> impl abt::PurchaseOrderService {
+        abt::get_purchase_order_service(self.abt_context)
+    }
+
+    pub fn document_sequence_service(&self) -> impl abt::DocumentSequenceService {
+        abt::get_document_sequence_service(self.abt_context)
+    }
+
+    pub fn statement_service(&self) -> impl abt::StatementService {
+        abt::get_statement_service(self.abt_context)
+    }
+
+    pub fn invoice_service(&self) -> impl abt::InvoiceService {
+        abt::get_invoice_service(self.abt_context)
+    }
+
+    pub fn payment_service(&self) -> impl abt::PaymentService {
+        abt::get_payment_service(self.abt_context)
+    }
+
     pub fn task_scheduler(&self) -> Arc<abt::implt::TaskScheduler> {
         Arc::clone(&self.task_scheduler)
     }
@@ -198,6 +226,7 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         AbtWorkflowServiceServer,
         AuthServiceServer, AbtBomCategoryServiceServer, DepartmentServiceServer,
         PermissionServiceServer, RoleServiceServer, UserServiceServer,
+        PurchaseServiceServer, PurchaseSettlementServiceServer, SupplierServiceServer,
     };
     use crate::interceptors::auth_interceptor;
 
@@ -266,6 +295,15 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(AbtWorkflowServiceServer::with_interceptor(
             crate::handlers::workflow::WorkflowHandler::new(), auth_interceptor,
+        ))
+        .add_service(SupplierServiceServer::with_interceptor(
+            crate::handlers::supplier::SupplierHandler::new(), auth_interceptor,
+        ))
+        .add_service(PurchaseServiceServer::with_interceptor(
+            crate::handlers::purchase::PurchaseHandler::new(), auth_interceptor,
+        ))
+        .add_service(PurchaseSettlementServiceServer::with_interceptor(
+            crate::handlers::purchase_settlement::SettlementHandler::new(), auth_interceptor,
         ))
         .serve_with_shutdown(addr, async move {
             tokio::signal::ctrl_c().await.expect("failed to listen for ctrl+c");

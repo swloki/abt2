@@ -1,7 +1,3 @@
-//! 采购订单服务实现
-//!
-//! 实现采购订单管理的业务逻辑。
-
 use anyhow::Result;
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -20,7 +16,6 @@ use crate::repositories::{
 };
 use crate::service::PurchaseOrderService;
 
-/// 产品信息（用于行项目填充）
 #[derive(Debug, sqlx::FromRow)]
 struct ProductInfo {
     product_id: i64,
@@ -29,7 +24,6 @@ struct ProductInfo {
     unit: Option<String>,
 }
 
-/// 采购订单服务实现
 pub struct PurchaseOrderServiceImpl {
     pool: Arc<PgPool>,
 }
@@ -39,7 +33,6 @@ impl PurchaseOrderServiceImpl {
         Self { pool }
     }
 
-    /// 批量查询产品信息
     async fn fetch_product_info(
         pool: &PgPool,
         product_ids: &[i64],
@@ -61,108 +54,16 @@ impl PurchaseOrderServiceImpl {
             .collect();
         Ok(map)
     }
-}
 
-#[async_trait]
-impl PurchaseOrderService for PurchaseOrderServiceImpl {
-    async fn create(
-        &self,
-        supplier_id: i64,
-        order_type: i16,
-        remark: Option<String>,
-        operator_id: Option<i64>,
-        items: Vec<PurchaseOrderItemInput>,
-        executor: Executor<'_>,
-    ) -> Result<i64> {
-        // 1. 生成单据编号
-        let po_no = DocumentSequenceRepo::next_number(&mut *executor, "PO").await?;
-
-        // 2. 批量查询产品信息
-        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-        let product_map = Self::fetch_product_info(&self.pool, &product_ids).await?;
-
-        // 3. 构建行项目并计算金额
-        let mut total_amount = Decimal::ZERO;
-        let mut po_items: Vec<PurchaseOrderItem> = Vec::with_capacity(items.len());
-
-        for input in &items {
-            let product = product_map.get(&input.product_id).ok_or_else(|| {
-                ServiceError::NotFound {
-                    resource: "Product".to_string(),
-                    id: input.product_id.to_string(),
-                }
-            })?;
-
-            let subtotal = input.unit_price * input.quantity;
-            total_amount += subtotal;
-
-            po_items.push(PurchaseOrderItem {
-                item_id: 0, // 自增，插入时忽略
-                po_id: 0,   // 尚未生成
-                product_id: input.product_id,
-                product_code: product.product_code.clone(),
-                product_name: product.pdt_name.clone(),
-                unit: product.unit.clone(),
-                unit_price: input.unit_price,
-                quantity: input.quantity,
-                received_qty: Decimal::ZERO,
-                subtotal,
-                remark: input.remark.clone(),
-                created_at: chrono::Utc::now(),
-            });
-        }
-
-        // 4. 插入主表
-        let po_id = PurchaseOrderRepo::insert(
-            executor,
-            &po_no,
-            supplier_id,
-            order_type,
-            total_amount,
-            remark.as_deref(),
-            operator_id,
-        )
-        .await?;
-
-        // 5. 批量插入行项目
-        for item in &mut po_items {
-            item.po_id = po_id;
-        }
-        PurchaseOrderItemRepo::insert_batch(executor, &po_items).await?;
-
-        Ok(po_id)
-    }
-
-    async fn update(
-        &self,
+    fn build_po_items(
+        items: &[PurchaseOrderItemInput],
+        product_map: &HashMap<i64, ProductInfo>,
         po_id: i64,
-        supplier_id: i64,
-        remark: Option<String>,
-        items: Vec<PurchaseOrderItemInput>,
-        executor: Executor<'_>,
-    ) -> Result<()> {
-        // 1. 检查当前状态必须为草稿(1)
-        let current_status = PurchaseOrderRepo::find_status(&self.pool, po_id)
-            .await?
-            .ok_or_else(|| ServiceError::NotFound {
-                resource: "PurchaseOrder".to_string(),
-                id: po_id.to_string(),
-            })?;
-
-        if current_status != 1 {
-            return Err(anyhow::Error::from(ServiceError::BusinessValidation {
-                message: format!("采购订单状态为{}，不允许修改（仅草稿状态可修改）", status_label(current_status)),
-            }));
-        }
-
-        // 2. 批量查询产品信息并计算金额
-        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-        let product_map = Self::fetch_product_info(&self.pool, &product_ids).await?;
-
+    ) -> Result<(Vec<PurchaseOrderItem>, Decimal)> {
         let mut total_amount = Decimal::ZERO;
-        let mut po_items: Vec<PurchaseOrderItem> = Vec::with_capacity(items.len());
+        let mut po_items = Vec::with_capacity(items.len());
 
-        for input in &items {
+        for input in items {
             let product = product_map.get(&input.product_id).ok_or_else(|| {
                 ServiceError::NotFound {
                     resource: "Product".to_string(),
@@ -189,7 +90,72 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             });
         }
 
-        // 3. 更新主表 + 删旧插新行项目
+        Ok((po_items, total_amount))
+    }
+}
+
+#[async_trait]
+impl PurchaseOrderService for PurchaseOrderServiceImpl {
+    async fn create(
+        &self,
+        supplier_id: i64,
+        order_type: i16,
+        remark: Option<String>,
+        operator_id: Option<i64>,
+        items: Vec<PurchaseOrderItemInput>,
+        executor: Executor<'_>,
+    ) -> Result<i64> {
+        let po_no = DocumentSequenceRepo::next_number(&mut *executor, "PO").await?;
+
+        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        let product_map = Self::fetch_product_info(&self.pool, &product_ids).await?;
+        let (po_items, total_amount) = Self::build_po_items(&items, &product_map, 0)?;
+
+        let po_id = PurchaseOrderRepo::insert(
+            executor,
+            &po_no,
+            supplier_id,
+            order_type,
+            total_amount,
+            remark.as_deref(),
+            operator_id,
+        )
+        .await?;
+
+        let mut po_items = po_items;
+        for item in &mut po_items {
+            item.po_id = po_id;
+        }
+        PurchaseOrderItemRepo::insert_batch(executor, &po_items).await?;
+
+        Ok(po_id)
+    }
+
+    async fn update(
+        &self,
+        po_id: i64,
+        supplier_id: i64,
+        remark: Option<String>,
+        items: Vec<PurchaseOrderItemInput>,
+        executor: Executor<'_>,
+    ) -> Result<()> {
+        let current_status = PurchaseOrderRepo::find_status(&self.pool, po_id)
+            .await?
+            .ok_or_else(|| ServiceError::NotFound {
+                resource: "PurchaseOrder".to_string(),
+                id: po_id.to_string(),
+            })?;
+
+        if current_status != 1 {
+            return Err(anyhow::Error::from(ServiceError::BusinessValidation {
+                message: format!("采购订单状态为{}，不允许修改（仅草稿状态可修改）", status_label(current_status)),
+            }));
+        }
+
+        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        let product_map = Self::fetch_product_info(&self.pool, &product_ids).await?;
+        let (po_items, total_amount) = Self::build_po_items(&items, &product_map, po_id)?;
+
         PurchaseOrderRepo::update(
             executor,
             po_id,
@@ -206,7 +172,6 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
     }
 
     async fn delete(&self, po_id: i64, executor: Executor<'_>) -> Result<()> {
-        // 检查当前状态必须为草稿(1)
         let current_status = PurchaseOrderRepo::find_status(&self.pool, po_id)
             .await?
             .ok_or_else(|| ServiceError::NotFound {
@@ -252,7 +217,6 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         status: i16,
         executor: Executor<'_>,
     ) -> Result<()> {
-        // 验证订单存在
         let current_status = PurchaseOrderRepo::find_status(&self.pool, po_id)
             .await?
             .ok_or_else(|| ServiceError::NotFound {
@@ -260,7 +224,6 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
                 id: po_id.to_string(),
             })?;
 
-        // 状态转换白名单校验
         if !is_valid_transition(current_status, status) {
             return Err(anyhow::Error::from(ServiceError::BusinessValidation {
                 message: format!(
@@ -276,7 +239,6 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
     }
 }
 
-/// 状态转换白名单
 fn is_valid_transition(from: i16, to: i16) -> bool {
     matches!(
         (from, to),
@@ -290,7 +252,6 @@ fn is_valid_transition(from: i16, to: i16) -> bool {
     )
 }
 
-/// 状态标签（中文）
 fn status_label(status: i16) -> &'static str {
     match status {
         1 => "草稿",

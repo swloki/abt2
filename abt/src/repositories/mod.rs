@@ -79,15 +79,12 @@ pub fn build_fuzzy_pattern(input: &str) -> Option<String> {
     Some(format!("%{}%", pattern))
 }
 
-/// 分页参数
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PaginationParams {
     pub page: u32,
     pub page_size: u32,
 }
 
-#[allow(dead_code)]
 impl PaginationParams {
     pub fn new(page: u32, page_size: u32) -> Self {
         Self {
@@ -101,8 +98,6 @@ impl PaginationParams {
     }
 }
 
-/// 分页结果
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PaginatedResult<T> {
     pub items: Vec<T>,
@@ -112,7 +107,6 @@ pub struct PaginatedResult<T> {
     pub total_pages: u32,
 }
 
-#[allow(dead_code)]
 impl<T> PaginatedResult<T> {
     pub fn new(items: Vec<T>, total: u64, pagination: &PaginationParams) -> Self {
         let total_pages = ((total as f64) / (pagination.page_size as f64)).ceil() as u32;

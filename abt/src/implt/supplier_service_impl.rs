@@ -135,7 +135,18 @@ impl SupplierService for SupplierServiceImpl {
                 id: supplier_id.to_string(),
             })?;
 
-        // TODO: 检查是否有采购订单引用此供应商（采购订单模块实现后添加）
+        let has_orders: bool = sqlx::query_scalar(
+            "SELECT EXISTS(SELECT 1 FROM purchase_orders WHERE supplier_id = $1 AND deleted_at IS NULL LIMIT 1)",
+        )
+        .bind(supplier_id)
+        .fetch_one(&*self.pool)
+        .await?;
+
+        if has_orders {
+            return Err(anyhow::Error::from(ServiceError::BusinessValidation {
+                message: "该供应商存在关联的采购订单，无法删除".to_string(),
+            }));
+        }
 
         SupplierRepo::soft_delete(executor, supplier_id).await?;
         Ok(())

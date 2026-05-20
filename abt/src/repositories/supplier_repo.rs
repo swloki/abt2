@@ -1,18 +1,9 @@
-//! 供应商数据访问层
-//!
-//! 提供供应商、联系人、银行账户的数据库 CRUD 操作。
-
 use anyhow::Result;
 use sqlx::PgPool;
 
 use crate::models::{Supplier, SupplierBankAccount, SupplierContact, SupplierQuery};
 use crate::repositories::{build_fuzzy_pattern, Executor};
 
-// ============================================================================
-// SupplierRepo
-// ============================================================================
-
-/// 供应商数据仓库
 pub struct SupplierRepo;
 
 impl SupplierRepo {
@@ -193,36 +184,37 @@ impl SupplierRepo {
     }
 }
 
-// ============================================================================
-// SupplierContactRepo
-// ============================================================================
-
-/// 供应商联系人数据仓库
 pub struct SupplierContactRepo;
 
 impl SupplierContactRepo {
-    /// 批量插入联系人
     pub async fn insert_batch(
         executor: Executor<'_>,
         supplier_id: i64,
         contacts: &[(String, Option<String>, Option<String>, Option<String>, bool)],
     ) -> Result<()> {
-        for (name, phone, email, position, is_primary) in contacts {
-            sqlx::query(
-                r#"
-                INSERT INTO supplier_contacts (supplier_id, contact_name, phone, email, position, is_primary)
-                VALUES ($1, $2, $3, $4, $5, $6)
-                "#,
-            )
-            .bind(supplier_id)
-            .bind(name)
-            .bind(phone)
-            .bind(email)
-            .bind(position)
-            .bind(is_primary)
-            .execute(&mut *executor)
-            .await?;
+        if contacts.is_empty() {
+            return Ok(());
         }
+        let names: Vec<&str> = contacts.iter().map(|(n, _, _, _, _)| n.as_str()).collect();
+        let phones: Vec<Option<&str>> = contacts.iter().map(|(_, p, _, _, _)| p.as_deref()).collect();
+        let emails: Vec<Option<&str>> = contacts.iter().map(|(_, _, e, _, _)| e.as_deref()).collect();
+        let positions: Vec<Option<&str>> = contacts.iter().map(|(_, _, _, pos, _)| pos.as_deref()).collect();
+        let is_primaries: Vec<bool> = contacts.iter().map(|(_, _, _, _, ip)| *ip).collect();
+
+        sqlx::query(
+            r#"
+            INSERT INTO supplier_contacts (supplier_id, contact_name, phone, email, position, is_primary)
+            SELECT $1, * FROM UNNEST($2::varchar[], $3::varchar[], $4::varchar[], $5::varchar[], $6::boolean[])
+            "#,
+        )
+        .bind(supplier_id)
+        .bind(&names)
+        .bind(&phones)
+        .bind(&emails)
+        .bind(&positions)
+        .bind(&is_primaries)
+        .execute(executor)
+        .await?;
         Ok(())
     }
 
@@ -255,35 +247,35 @@ impl SupplierContactRepo {
     }
 }
 
-// ============================================================================
-// SupplierBankAccountRepo
-// ============================================================================
-
-/// 供应商银行账户数据仓库
 pub struct SupplierBankAccountRepo;
 
 impl SupplierBankAccountRepo {
-    /// 批量插入银行账户
     pub async fn insert_batch(
         executor: Executor<'_>,
         supplier_id: i64,
         accounts: &[(String, String, String, bool)],
     ) -> Result<()> {
-        for (bank_name, account_name, account_no, is_default) in accounts {
-            sqlx::query(
-                r#"
-                INSERT INTO supplier_bank_accounts (supplier_id, bank_name, account_name, account_no, is_default)
-                VALUES ($1, $2, $3, $4, $5)
-                "#,
-            )
-            .bind(supplier_id)
-            .bind(bank_name)
-            .bind(account_name)
-            .bind(account_no)
-            .bind(is_default)
-            .execute(&mut *executor)
-            .await?;
+        if accounts.is_empty() {
+            return Ok(());
         }
+        let bank_names: Vec<&str> = accounts.iter().map(|(b, _, _, _)| b.as_str()).collect();
+        let account_names: Vec<&str> = accounts.iter().map(|(_, a, _, _)| a.as_str()).collect();
+        let account_nos: Vec<&str> = accounts.iter().map(|(_, _, n, _)| n.as_str()).collect();
+        let is_defaults: Vec<bool> = accounts.iter().map(|(_, _, _, d)| *d).collect();
+
+        sqlx::query(
+            r#"
+            INSERT INTO supplier_bank_accounts (supplier_id, bank_name, account_name, account_no, is_default)
+            SELECT $1, * FROM UNNEST($2::varchar[], $3::varchar[], $4::varchar[], $5::boolean[])
+            "#,
+        )
+        .bind(supplier_id)
+        .bind(&bank_names)
+        .bind(&account_names)
+        .bind(&account_nos)
+        .bind(&is_defaults)
+        .execute(executor)
+        .await?;
         Ok(())
     }
 

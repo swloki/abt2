@@ -1,7 +1,3 @@
-//! 采购结算数据访问层
-//!
-//! 提供采购对账单、发票、付款的数据库 CRUD 操作。
-
 use anyhow::Result;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
@@ -13,11 +9,6 @@ use crate::models::{
 };
 use crate::repositories::Executor;
 
-// ============================================================================
-// StatementRepo
-// ============================================================================
-
-/// 采购对账单数据仓库
 pub struct StatementRepo;
 
 impl StatementRepo {
@@ -191,27 +182,39 @@ impl StatementRepo {
         Ok(status)
     }
 
-    /// 批量插入对账单行项目
     pub async fn insert_items(executor: Executor<'_>, items: &[StatementItem]) -> Result<()> {
-        for item in items {
-            sqlx::query(
-                r#"
-                INSERT INTO purchase_statement_items
-                    (statement_id, po_id, po_no, product_id, product_name, quantity, unit_price, amount)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                "#,
-            )
-            .bind(item.statement_id)
-            .bind(item.po_id)
-            .bind(&item.po_no)
-            .bind(item.product_id)
-            .bind(&item.product_name)
-            .bind(item.quantity)
-            .bind(item.unit_price)
-            .bind(item.amount)
-            .execute(&mut *executor)
-            .await?;
+        if items.is_empty() {
+            return Ok(());
         }
+        let statement_ids: Vec<i64> = items.iter().map(|i| i.statement_id).collect();
+        let po_ids: Vec<i64> = items.iter().map(|i| i.po_id).collect();
+        let po_nos: Vec<Option<&str>> = items.iter().map(|i| i.po_no.as_deref()).collect();
+        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        let product_names: Vec<Option<&str>> = items.iter().map(|i| i.product_name.as_deref()).collect();
+        let quantities: Vec<Decimal> = items.iter().map(|i| i.quantity).collect();
+        let unit_prices: Vec<Decimal> = items.iter().map(|i| i.unit_price).collect();
+        let amounts: Vec<Decimal> = items.iter().map(|i| i.amount).collect();
+
+        sqlx::query(
+            r#"
+            INSERT INTO purchase_statement_items
+                (statement_id, po_id, po_no, product_id, product_name, quantity, unit_price, amount)
+            SELECT * FROM UNNEST(
+                $1::bigint[], $2::bigint[], $3::varchar[], $4::bigint[], $5::varchar[],
+                $6::decimal[], $7::decimal[], $8::decimal[]
+            )
+            "#,
+        )
+        .bind(&statement_ids)
+        .bind(&po_ids)
+        .bind(&po_nos)
+        .bind(&product_ids)
+        .bind(&product_names)
+        .bind(&quantities)
+        .bind(&unit_prices)
+        .bind(&amounts)
+        .execute(executor)
+        .await?;
         Ok(())
     }
 
@@ -230,11 +233,6 @@ impl StatementRepo {
     }
 }
 
-// ============================================================================
-// InvoiceRepo
-// ============================================================================
-
-/// 采购发票数据仓库
 pub struct InvoiceRepo;
 
 impl InvoiceRepo {
@@ -391,11 +389,6 @@ impl InvoiceRepo {
     }
 }
 
-// ============================================================================
-// PaymentRepo
-// ============================================================================
-
-/// 采购付款数据仓库
 pub struct PaymentRepo;
 
 impl PaymentRepo {

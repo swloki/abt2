@@ -1,18 +1,9 @@
-//! 采购订单数据访问层
-//!
-//! 提供采购订单、行项目的数据库 CRUD 操作。
-
 use anyhow::Result;
 use sqlx::PgPool;
 
 use crate::models::{PurchaseOrder, PurchaseOrderDetail, PurchaseOrderItem, PurchaseOrderQuery};
 use crate::repositories::{build_fuzzy_pattern, Executor};
 
-// ============================================================================
-// PurchaseOrderRepo
-// ============================================================================
-
-/// 采购订单数据仓库
 pub struct PurchaseOrderRepo;
 
 impl PurchaseOrderRepo {
@@ -195,6 +186,21 @@ impl PurchaseOrderRepo {
         Ok(())
     }
 
+    /// 批量更新采购订单状态
+    pub async fn batch_update_status(executor: Executor<'_>, po_ids: &[i64], status: i16) -> Result<()> {
+        if po_ids.is_empty() {
+            return Ok(());
+        }
+        sqlx::query(
+            "UPDATE purchase_orders SET status = $1, updated_at = NOW() WHERE po_id = ANY($2)",
+        )
+        .bind(status)
+        .bind(po_ids)
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
     /// 获取采购订单当前状态（用于校验）
     pub async fn find_status(pool: &PgPool, po_id: i64) -> Result<Option<i16>> {
         let status: Option<i16> = sqlx::query_scalar(
@@ -208,37 +214,46 @@ impl PurchaseOrderRepo {
     }
 }
 
-// ============================================================================
-// PurchaseOrderItemRepo
-// ============================================================================
-
-/// 采购订单行项目数据仓库
 pub struct PurchaseOrderItemRepo;
 
 impl PurchaseOrderItemRepo {
-    /// 批量插入行项目
     pub async fn insert_batch(executor: Executor<'_>, items: &[PurchaseOrderItem]) -> Result<()> {
-        for item in items {
-            sqlx::query(
-                r#"
-                INSERT INTO purchase_order_items
-                    (po_id, product_id, product_code, product_name, unit, unit_price, quantity, received_qty, subtotal, remark)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-                "#,
-            )
-            .bind(item.po_id)
-            .bind(item.product_id)
-            .bind(&item.product_code)
-            .bind(&item.product_name)
-            .bind(&item.unit)
-            .bind(item.unit_price)
-            .bind(item.quantity)
-            .bind(item.received_qty)
-            .bind(item.subtotal)
-            .bind(&item.remark)
-            .execute(&mut *executor)
-            .await?;
+        if items.is_empty() {
+            return Ok(());
         }
+        let po_ids: Vec<i64> = items.iter().map(|i| i.po_id).collect();
+        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        let product_codes: Vec<Option<&str>> = items.iter().map(|i| i.product_code.as_deref()).collect();
+        let product_names: Vec<Option<&str>> = items.iter().map(|i| i.product_name.as_deref()).collect();
+        let units: Vec<Option<&str>> = items.iter().map(|i| i.unit.as_deref()).collect();
+        let unit_prices: Vec<rust_decimal::Decimal> = items.iter().map(|i| i.unit_price).collect();
+        let quantities: Vec<rust_decimal::Decimal> = items.iter().map(|i| i.quantity).collect();
+        let received_qtys: Vec<rust_decimal::Decimal> = items.iter().map(|i| i.received_qty).collect();
+        let subtotals: Vec<rust_decimal::Decimal> = items.iter().map(|i| i.subtotal).collect();
+        let remarks: Vec<Option<&str>> = items.iter().map(|i| i.remark.as_deref()).collect();
+
+        sqlx::query(
+            r#"
+            INSERT INTO purchase_order_items
+                (po_id, product_id, product_code, product_name, unit, unit_price, quantity, received_qty, subtotal, remark)
+            SELECT * FROM UNNEST(
+                $1::bigint[], $2::bigint[], $3::varchar[], $4::varchar[], $5::varchar[],
+                $6::decimal[], $7::decimal[], $8::decimal[], $9::decimal[], $10::varchar[]
+            )
+            "#,
+        )
+        .bind(&po_ids)
+        .bind(&product_ids)
+        .bind(&product_codes)
+        .bind(&product_names)
+        .bind(&units)
+        .bind(&unit_prices)
+        .bind(&quantities)
+        .bind(&received_qtys)
+        .bind(&subtotals)
+        .bind(&remarks)
+        .execute(executor)
+        .await?;
         Ok(())
     }
 

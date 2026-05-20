@@ -1,5 +1,3 @@
-//! Purchase gRPC Handler (PurchaseOrder + SupplierPrice)
-
 use common::error;
 use rust_decimal::Decimal;
 use tonic::{Request, Response};
@@ -8,7 +6,7 @@ use crate::generated::abt::v1::{
     purchase_service_server::PurchaseService as GrpcPurchaseService,
     *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{empty_to_none, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
@@ -39,12 +37,48 @@ fn po_status_to_proto(status: i16) -> i32 {
     }
 }
 
+fn proto_to_po_status(status: i32) -> i16 {
+    match PurchaseOrderStatus::try_from(status).unwrap_or(PurchaseOrderStatus::Unspecified) {
+        PurchaseOrderStatus::Draft => 1,
+        PurchaseOrderStatus::Submitted => 2,
+        PurchaseOrderStatus::Approved => 3,
+        PurchaseOrderStatus::PartialReceived => 4,
+        PurchaseOrderStatus::FullyReceived => 5,
+        PurchaseOrderStatus::Reconciled => 6,
+        PurchaseOrderStatus::Closed => 7,
+        _ => 0,
+    }
+}
+
 fn po_type_to_proto(order_type: i16) -> i32 {
     match order_type {
         1 => PurchaseOrderType::Production as i32,
         2 => PurchaseOrderType::Miscellaneous as i32,
         _ => PurchaseOrderType::Unspecified as i32,
     }
+}
+
+fn proto_to_po_type(order_type: i32) -> i16 {
+    match PurchaseOrderType::try_from(order_type).unwrap_or(PurchaseOrderType::Unspecified) {
+        PurchaseOrderType::Production => 1,
+        PurchaseOrderType::Miscellaneous => 2,
+        _ => 0,
+    }
+}
+
+fn parse_po_items(items: &[CreatePurchaseOrderItem]) -> Result<Vec<abt::models::PurchaseOrderItemInput>, tonic::Status> {
+    items.iter().map(|item| {
+        let unit_price: Decimal = item.unit_price.parse()
+            .map_err(|_| error::validation("unit_price", "Invalid decimal format"))?;
+        let quantity: Decimal = item.quantity.parse()
+            .map_err(|_| error::validation("quantity", "Invalid decimal format"))?;
+        Ok(abt::models::PurchaseOrderItemInput {
+            product_id: item.product_id,
+            unit_price,
+            quantity,
+            remark: empty_to_none(item.remark.clone()),
+        })
+    }).collect()
 }
 
 fn po_detail_to_proto(d: &abt::models::PurchaseOrderDetail) -> PurchaseOrder {
@@ -175,32 +209,12 @@ impl GrpcPurchaseService for PurchaseHandler {
         let srv = state.purchase_order_service();
         let mut tx = state.begin_transaction().await.map_err(error::err_to_status)?;
 
-        let mut items = Vec::with_capacity(req.items.len());
-        for item in &req.items {
-            let unit_price: Decimal = item.unit_price.parse()
-                .map_err(|_| error::validation("unit_price", "Invalid decimal format"))?;
-            let quantity: Decimal = item.quantity.parse()
-                .map_err(|_| error::validation("quantity", "Invalid decimal format"))?;
-            items.push(abt::models::PurchaseOrderItemInput {
-                product_id: item.product_id,
-                unit_price,
-                quantity,
-                remark: if item.remark.is_empty() { None } else { Some(item.remark.clone()) },
-            });
-        }
-
-        let order_type = match PurchaseOrderType::try_from(req.order_type)
-            .unwrap_or(PurchaseOrderType::Unspecified)
-        {
-            PurchaseOrderType::Production => 1,
-            PurchaseOrderType::Miscellaneous => 2,
-            _ => 0,
-        };
+        let items = parse_po_items(&req.items)?;
 
         let id = srv.create(
             req.supplier_id,
-            order_type,
-            if req.remark.is_empty() { None } else { Some(req.remark) },
+            proto_to_po_type(req.order_type),
+            empty_to_none(req.remark),
             Some(auth.user_id),
             items,
             &mut tx,
@@ -218,24 +232,12 @@ impl GrpcPurchaseService for PurchaseHandler {
         let srv = state.purchase_order_service();
         let mut tx = state.begin_transaction().await.map_err(error::err_to_status)?;
 
-        let mut items = Vec::with_capacity(req.items.len());
-        for item in &req.items {
-            let unit_price: Decimal = item.unit_price.parse()
-                .map_err(|_| error::validation("unit_price", "Invalid decimal format"))?;
-            let quantity: Decimal = item.quantity.parse()
-                .map_err(|_| error::validation("quantity", "Invalid decimal format"))?;
-            items.push(abt::models::PurchaseOrderItemInput {
-                product_id: item.product_id,
-                unit_price,
-                quantity,
-                remark: if item.remark.is_empty() { None } else { Some(item.remark.clone()) },
-            });
-        }
+        let items = parse_po_items(&req.items)?;
 
         srv.update(
             req.po_id,
             req.supplier_id,
-            if req.remark.is_empty() { None } else { Some(req.remark) },
+            empty_to_none(req.remark),
             items,
             &mut tx,
         ).await.map_err(error::err_to_status)?;
@@ -285,25 +287,8 @@ impl GrpcPurchaseService for PurchaseHandler {
         let query = abt::models::PurchaseOrderQuery {
             keyword: req.keyword,
             supplier_id: req.supplier_id,
-            order_type: req.order_type.map(|ot| match PurchaseOrderType::try_from(ot)
-                .unwrap_or(PurchaseOrderType::Unspecified)
-            {
-                PurchaseOrderType::Production => 1,
-                PurchaseOrderType::Miscellaneous => 2,
-                _ => 0,
-            }),
-            status: req.status.map(|s| match PurchaseOrderStatus::try_from(s)
-                .unwrap_or(PurchaseOrderStatus::Unspecified)
-            {
-                PurchaseOrderStatus::Draft => 1,
-                PurchaseOrderStatus::Submitted => 2,
-                PurchaseOrderStatus::Approved => 3,
-                PurchaseOrderStatus::PartialReceived => 4,
-                PurchaseOrderStatus::FullyReceived => 5,
-                PurchaseOrderStatus::Reconciled => 6,
-                PurchaseOrderStatus::Closed => 7,
-                _ => 0,
-            }),
+            order_type: req.order_type.map(proto_to_po_type),
+            status: req.status.map(proto_to_po_status),
             page: Some(pagination.page as i64),
             page_size: Some(pagination.page_size as i64),
         };
@@ -328,19 +313,7 @@ impl GrpcPurchaseService for PurchaseHandler {
         let srv = state.purchase_order_service();
         let mut tx = state.begin_transaction().await.map_err(error::err_to_status)?;
 
-        let status = match PurchaseOrderStatus::try_from(req.status)
-            .unwrap_or(PurchaseOrderStatus::Unspecified)
-        {
-            PurchaseOrderStatus::Draft => 1,
-            PurchaseOrderStatus::Submitted => 2,
-            PurchaseOrderStatus::Approved => 3,
-            PurchaseOrderStatus::PartialReceived => 4,
-            PurchaseOrderStatus::FullyReceived => 5,
-            PurchaseOrderStatus::Reconciled => 6,
-            PurchaseOrderStatus::Closed => 7,
-            _ => 0,
-        };
-
+        let status = proto_to_po_status(req.status);
         srv.update_status(req.po_id, status, &mut tx).await
             .map_err(error::err_to_status)?;
 

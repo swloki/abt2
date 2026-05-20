@@ -1,5 +1,3 @@
-//! Purchase Settlement gRPC Handler (Statement + Invoice + Payment)
-
 use common::error;
 use rust_decimal::Decimal;
 use tonic::{Request, Response};
@@ -8,7 +6,7 @@ use crate::generated::abt::v1::{
     purchase_settlement_service_server::PurchaseSettlementService as GrpcSettlementService,
     *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{empty_to_none, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
@@ -16,14 +14,12 @@ use crate::permissions::PermissionCode;
 
 use abt::{StatementService, InvoiceService, PaymentService};
 
-/// Convert Unix timestamp (seconds) to NaiveDate
 fn timestamp_to_date(ts: i64) -> Result<chrono::NaiveDate, tonic::Status> {
     chrono::DateTime::from_timestamp(ts, 0)
         .map(|dt| dt.date_naive())
         .ok_or_else(|| error::validation("date", "Invalid timestamp"))
 }
 
-/// Convert NaiveDate to Unix timestamp (start of day)
 fn date_to_timestamp(d: &chrono::NaiveDate) -> i64 {
     d.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp()
 }
@@ -47,11 +43,28 @@ fn statement_status_to_proto(status: i16) -> i32 {
     }
 }
 
+fn proto_to_statement_status(status: i32) -> i16 {
+    match StatementStatus::try_from(status).unwrap_or(StatementStatus::Unspecified) {
+        StatementStatus::Pending => 1,
+        StatementStatus::Confirmed => 2,
+        StatementStatus::Disputed => 3,
+        _ => 0,
+    }
+}
+
 fn invoice_status_to_proto(status: i16) -> i32 {
     match status {
         1 => InvoiceStatus::Registered as i32,
         2 => InvoiceStatus::Verified as i32,
         _ => InvoiceStatus::Unspecified as i32,
+    }
+}
+
+fn proto_to_invoice_status(status: i32) -> i16 {
+    match InvoiceStatus::try_from(status).unwrap_or(InvoiceStatus::Unspecified) {
+        InvoiceStatus::Registered => 1,
+        InvoiceStatus::Verified => 2,
+        _ => 0,
     }
 }
 
@@ -61,6 +74,15 @@ fn payment_status_to_proto(status: i16) -> i32 {
         2 => PaymentStatus::Approved as i32,
         3 => PaymentStatus::Paid as i32,
         _ => PaymentStatus::Unspecified as i32,
+    }
+}
+
+fn proto_to_payment_status(status: i32) -> i16 {
+    match PaymentStatus::try_from(status).unwrap_or(PaymentStatus::Unspecified) {
+        PaymentStatus::Pending => 1,
+        PaymentStatus::Approved => 2,
+        PaymentStatus::Paid => 3,
+        _ => 0,
     }
 }
 
@@ -213,18 +235,14 @@ impl GrpcSettlementService for SettlementHandler {
 
         let pagination = req.pagination.unwrap_or(PaginationParams { page: 1, page_size: 20 });
 
+        let period_start = req.period_start.map(timestamp_to_date).transpose()?;
+        let period_end = req.period_end.map(timestamp_to_date).transpose()?;
+
         let query = abt::models::StatementQuery {
             supplier_id: req.supplier_id,
-            status: req.status.map(|s| match StatementStatus::try_from(s)
-                .unwrap_or(StatementStatus::Unspecified)
-            {
-                StatementStatus::Pending => 1,
-                StatementStatus::Confirmed => 2,
-                StatementStatus::Disputed => 3,
-                _ => 0,
-            }),
-            period_start: req.period_start.map(|ts| timestamp_to_date(ts).unwrap()),
-            period_end: req.period_end.map(|ts| timestamp_to_date(ts).unwrap()),
+            status: req.status.map(proto_to_statement_status),
+            period_start,
+            period_end,
             page: Some(pagination.page as i64),
             page_size: Some(pagination.page_size as i64),
         };
@@ -249,15 +267,7 @@ impl GrpcSettlementService for SettlementHandler {
         let srv = state.statement_service();
         let mut tx = state.begin_transaction().await.map_err(error::err_to_status)?;
 
-        let status = match StatementStatus::try_from(req.status)
-            .unwrap_or(StatementStatus::Unspecified)
-        {
-            StatementStatus::Pending => 1,
-            StatementStatus::Confirmed => 2,
-            StatementStatus::Disputed => 3,
-            _ => 0,
-        };
-
+        let status = proto_to_statement_status(req.status);
         srv.update_status(req.statement_id, status, &mut tx).await
             .map_err(error::err_to_status)?;
 
@@ -287,7 +297,7 @@ impl GrpcSettlementService for SettlementHandler {
             statement_id,
             invoice_amount,
             invoice_date,
-            if req.remark.is_empty() { None } else { Some(req.remark) },
+            empty_to_none(req.remark),
             Some(auth.user_id),
             &mut tx,
         ).await.map_err(error::err_to_status)?;
@@ -308,13 +318,7 @@ impl GrpcSettlementService for SettlementHandler {
         let query = abt::models::InvoiceQuery {
             supplier_id: req.supplier_id,
             statement_id: req.statement_id,
-            status: req.status.map(|s| match InvoiceStatus::try_from(s)
-                .unwrap_or(InvoiceStatus::Unspecified)
-            {
-                InvoiceStatus::Registered => 1,
-                InvoiceStatus::Verified => 2,
-                _ => 0,
-            }),
+            status: req.status.map(proto_to_invoice_status),
             page: Some(pagination.page as i64),
             page_size: Some(pagination.page_size as i64),
         };
@@ -339,14 +343,7 @@ impl GrpcSettlementService for SettlementHandler {
         let srv = state.invoice_service();
         let mut tx = state.begin_transaction().await.map_err(error::err_to_status)?;
 
-        let status = match InvoiceStatus::try_from(req.status)
-            .unwrap_or(InvoiceStatus::Unspecified)
-        {
-            InvoiceStatus::Registered => 1,
-            InvoiceStatus::Verified => 2,
-            _ => 0,
-        };
-
+        let status = proto_to_invoice_status(req.status);
         srv.update_status(req.invoice_id, status, &mut tx).await
             .map_err(error::err_to_status)?;
 
@@ -372,8 +369,8 @@ impl GrpcSettlementService for SettlementHandler {
             req.supplier_id,
             invoice_id,
             payment_amount,
-            if req.payment_method.is_empty() { None } else { Some(req.payment_method) },
-            if req.remark.is_empty() { None } else { Some(req.remark) },
+            empty_to_none(req.payment_method),
+            empty_to_none(req.remark),
             Some(auth.user_id),
             &mut tx,
         ).await.map_err(error::err_to_status)?;
@@ -408,14 +405,7 @@ impl GrpcSettlementService for SettlementHandler {
 
         let query = abt::models::PaymentQuery {
             supplier_id: req.supplier_id,
-            status: req.status.map(|s| match PaymentStatus::try_from(s)
-                .unwrap_or(PaymentStatus::Unspecified)
-            {
-                PaymentStatus::Pending => 1,
-                PaymentStatus::Approved => 2,
-                PaymentStatus::Paid => 3,
-                _ => 0,
-            }),
+            status: req.status.map(proto_to_payment_status),
             page: Some(pagination.page as i64),
             page_size: Some(pagination.page_size as i64),
         };
@@ -440,15 +430,7 @@ impl GrpcSettlementService for SettlementHandler {
         let srv = state.payment_service();
         let mut tx = state.begin_transaction().await.map_err(error::err_to_status)?;
 
-        let status = match PaymentStatus::try_from(req.status)
-            .unwrap_or(PaymentStatus::Unspecified)
-        {
-            PaymentStatus::Pending => 1,
-            PaymentStatus::Approved => 2,
-            PaymentStatus::Paid => 3,
-            _ => 0,
-        };
-
+        let status = proto_to_payment_status(req.status);
         srv.update_status(req.payment_id, status, &mut tx).await
             .map_err(error::err_to_status)?;
 

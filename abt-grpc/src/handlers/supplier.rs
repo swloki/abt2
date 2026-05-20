@@ -1,5 +1,3 @@
-//! Supplier gRPC Handler
-
 use common::error;
 use tonic::{Request, Response};
 
@@ -7,7 +5,7 @@ use crate::generated::abt::v1::{
     supplier_service_server::SupplierService as GrpcSupplierService,
     *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{empty_to_none, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
@@ -25,7 +23,7 @@ impl Default for SupplierHandler {
     fn default() -> Self { Self::new() }
 }
 
-fn classification_to_i16(cls: i32) -> String {
+fn proto_classification_to_string(cls: i32) -> String {
     match SupplierClassification::try_from(cls).unwrap_or(SupplierClassification::Unspecified) {
         SupplierClassification::A => "A".to_string(),
         SupplierClassification::B => "B".to_string(),
@@ -52,13 +50,32 @@ fn supplier_status_to_proto(status: i16) -> i32 {
     }
 }
 
-fn proto_status_to_i16(status: i32) -> i16 {
+fn proto_to_supplier_status(status: i32) -> i16 {
     match SupplierStatus::try_from(status).unwrap_or(SupplierStatus::Unspecified) {
         SupplierStatus::Pending => 1,
         SupplierStatus::Qualified => 2,
         SupplierStatus::Disabled => 3,
         _ => 0,
     }
+}
+
+fn map_contacts(contacts: Vec<SupplierContactInput>) -> Vec<abt::SupplierContactInput> {
+    contacts.into_iter().map(|c| abt::SupplierContactInput {
+        contact_name: c.contact_name,
+        phone: empty_to_none(c.phone),
+        email: empty_to_none(c.email),
+        position: empty_to_none(c.position),
+        is_primary: c.is_primary,
+    }).collect()
+}
+
+fn map_bank_accounts(accounts: Vec<SupplierBankAccountInput>) -> Vec<abt::SupplierBankAccountInput> {
+    accounts.into_iter().map(|b| abt::SupplierBankAccountInput {
+        bank_name: b.bank_name,
+        account_name: b.account_name,
+        account_no: b.account_no,
+        is_default: b.is_default,
+    }).collect()
 }
 
 fn supplier_to_proto(detail: &abt::models::SupplierDetail) -> Supplier {
@@ -121,36 +138,15 @@ impl GrpcSupplierService for SupplierHandler {
         let srv = state.supplier_service();
         let mut tx = state.begin_transaction().await.map_err(error::err_to_status)?;
 
-        let contacts: Vec<abt::SupplierContactInput> = req.contacts
-            .into_iter()
-            .map(|c| abt::SupplierContactInput {
-                contact_name: c.contact_name,
-                phone: if c.phone.is_empty() { None } else { Some(c.phone) },
-                email: if c.email.is_empty() { None } else { Some(c.email) },
-                position: if c.position.is_empty() { None } else { Some(c.position) },
-                is_primary: c.is_primary,
-            })
-            .collect();
-
-        let bank_accounts: Vec<abt::SupplierBankAccountInput> = req.bank_accounts
-            .into_iter()
-            .map(|b| abt::SupplierBankAccountInput {
-                bank_name: b.bank_name,
-                account_name: b.account_name,
-                account_no: b.account_no,
-                is_default: b.is_default,
-            })
-            .collect();
-
         let id = srv.create(
             req.supplier_code,
             req.supplier_name,
-            if req.short_name.is_empty() { None } else { Some(req.short_name) },
-            classification_to_i16(req.classification),
-            if req.remark.is_empty() { None } else { Some(req.remark) },
+            empty_to_none(req.short_name),
+            proto_classification_to_string(req.classification),
+            empty_to_none(req.remark),
             Some(auth.user_id),
-            contacts,
-            bank_accounts,
+            map_contacts(req.contacts),
+            map_bank_accounts(req.bank_accounts),
             &mut tx,
         ).await.map_err(error::err_to_status)?;
 
@@ -166,35 +162,14 @@ impl GrpcSupplierService for SupplierHandler {
         let srv = state.supplier_service();
         let mut tx = state.begin_transaction().await.map_err(error::err_to_status)?;
 
-        let contacts: Vec<abt::SupplierContactInput> = req.contacts
-            .into_iter()
-            .map(|c| abt::SupplierContactInput {
-                contact_name: c.contact_name,
-                phone: if c.phone.is_empty() { None } else { Some(c.phone) },
-                email: if c.email.is_empty() { None } else { Some(c.email) },
-                position: if c.position.is_empty() { None } else { Some(c.position) },
-                is_primary: c.is_primary,
-            })
-            .collect();
-
-        let bank_accounts: Vec<abt::SupplierBankAccountInput> = req.bank_accounts
-            .into_iter()
-            .map(|b| abt::SupplierBankAccountInput {
-                bank_name: b.bank_name,
-                account_name: b.account_name,
-                account_no: b.account_no,
-                is_default: b.is_default,
-            })
-            .collect();
-
         srv.update(
             req.supplier_id,
             req.supplier_name,
-            if req.short_name.is_empty() { None } else { Some(req.short_name) },
-            classification_to_i16(req.classification),
-            if req.remark.is_empty() { None } else { Some(req.remark) },
-            contacts,
-            bank_accounts,
+            empty_to_none(req.short_name),
+            proto_classification_to_string(req.classification),
+            empty_to_none(req.remark),
+            map_contacts(req.contacts),
+            map_bank_accounts(req.bank_accounts),
             &mut tx,
         ).await.map_err(error::err_to_status)?;
 
@@ -242,8 +217,8 @@ impl GrpcSupplierService for SupplierHandler {
 
         let query = abt::models::SupplierQuery {
             keyword: req.keyword,
-            classification: req.classification.map(classification_to_i16),
-            status: req.status.map(proto_status_to_i16),
+            classification: req.classification.map(proto_classification_to_string),
+            status: req.status.map(proto_to_supplier_status),
             page: Some(pagination.page as i64),
             page_size: Some(pagination.page_size as i64),
         };
@@ -268,7 +243,7 @@ impl GrpcSupplierService for SupplierHandler {
         let srv = state.supplier_service();
         let mut tx = state.begin_transaction().await.map_err(error::err_to_status)?;
 
-        let status = proto_status_to_i16(req.status);
+        let status = proto_to_supplier_status(req.status);
         srv.update_status(req.supplier_id, status, &mut tx).await
             .map_err(error::err_to_status)?;
 

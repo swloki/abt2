@@ -1,7 +1,3 @@
-//! 采购对账单服务实现
-//!
-//! 实现采购对账单管理的业务逻辑。
-
 use anyhow::Result;
 use async_trait::async_trait;
 use chrono::NaiveDate;
@@ -34,7 +30,6 @@ struct PoIdRow {
     po_id: i64,
 }
 
-/// 采购对账单服务实现
 pub struct StatementServiceImpl {
     pool: Arc<PgPool>,
 }
@@ -47,13 +42,6 @@ impl StatementServiceImpl {
 
 #[async_trait]
 impl StatementService for StatementServiceImpl {
-    /// 自动生成对账单
-    ///
-    /// 1. 生成对账单编号
-    /// 2. 查询指定供应商在期间内已收货（状态4/5）且未对账的采购订单
-    /// 3. 汇总行项目并计算金额
-    /// 4. 插入对账单及行项目
-    /// 5. 更新采购订单状态为已对账(6)
     async fn generate(
         &self,
         supplier_id: i64,
@@ -153,10 +141,7 @@ impl StatementService for StatementServiceImpl {
         }
         StatementRepo::insert_items(executor, &statement_items).await?;
 
-        // 7. 更新采购订单状态为已对账(6)
-        for po_id in po_id_list {
-            crate::repositories::PurchaseOrderRepo::update_status(executor, po_id, 6).await?;
-        }
+        crate::repositories::PurchaseOrderRepo::batch_update_status(executor, &po_id_list, 6).await?;
 
         Ok(statement_id)
     }

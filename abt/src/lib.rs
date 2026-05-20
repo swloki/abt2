@@ -246,3 +246,8 @@ pub fn get_sales_order_service(ctx: &AppContext) -> impl crate::service::SalesOr
 pub fn get_shipping_request_service(ctx: &AppContext) -> impl crate::service::ShippingRequestService {
     crate::implt::ShippingRequestServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
+
+/// 获取销售退货服务
+pub fn get_sales_return_service(ctx: &AppContext) -> impl crate::service::SalesReturnService {
+    crate::implt::SalesReturnServiceImpl::new(Arc::new(ctx.pool().clone()))
+}

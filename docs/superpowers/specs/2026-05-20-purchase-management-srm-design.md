@@ -1,3 +1,8 @@
+---
+name: purchase-management-srm
+description: 采购管理系统（SRM）完整模块设计，包含供应商管理、采购报价、采购订单、对账付款闭环
+---
+
 # Purchase Management System (SRM) Design
 
 Date: 2026-05-20
@@ -269,12 +274,12 @@ CREATE TABLE purchase_payments (
 
 ```sql
 INSERT INTO document_sequences (doc_type, prefix, current_value, reset_rule) VALUES
-('PO', 'PO-', 0, 'monthly'),
-('PS', 'PS-', 0, 'monthly'),
-('PP', 'PP-', 0, 'monthly');
+('PO', 'PO', 0, 'monthly'),
+('PS', 'PS', 0, 'monthly'),
+('PP', 'PP', 0, 'monthly');
 ```
 
-编号格式：`PO-2026-05-00001`。
+编号格式：`PO2026-05-00001`。
 
 ## Proto Definition
 
@@ -1226,4 +1231,4 @@ pub trait PaymentService {
 | Service | `abt/src/service/supplier_service.rs`, `abt/src/service/supplier_price_service.rs`, `abt/src/service/purchase_order_service.rs`, `abt/src/service/statement_service.rs`, `abt/src/service/invoice_service.rs`, `abt/src/service/payment_service.rs` |
 | Impl | `abt/src/implt/supplier_service_impl.rs`, `abt/src/implt/supplier_price_service_impl.rs`, `abt/src/implt/purchase_order_service_impl.rs`, `abt/src/implt/statement_service_impl.rs`, `abt/src/implt/invoice_service_impl.rs`, `abt/src/implt/payment_service_impl.rs` |
 | Handler | `abt-grpc/src/handlers/supplier.rs`, `abt-grpc/src/handlers/purchase.rs`, `abt-grpc/src/handlers/purchase_settlement.rs` |
-| Migration | `abt/migrations/045_create_supplier_tables.sql`, `abt/migrations/045_create_purchase_tables.sql` |
+| Migration | `abt/migrations/047_create_document_sequences.sql`, `abt/migrations/048_create_supplier_tables.sql`, `abt/migrations/049_create_purchase_tables.sql` |

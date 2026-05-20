@@ -21,7 +21,7 @@ origin: docs/superpowers/specs/2026-05-20-sales-quotation-design.md
 - R3. 报价单列表查询（模糊搜索 + 状态筛选 + 分页）
 - R4. 报价单详情查询（含行项目）
 - R5. 文档编号服务：通用序号生成，支持月度/年度重置，并发安全
-- R6. 报价单编号自动生成，格式 `QT-YYYY-MM-NNNNN`
+- R6. 报价单编号自动生成，格式 `QTYYYY-MM-NNNNN`
 
 ---
 
@@ -64,37 +64,13 @@ origin: docs/superpowers/specs/2026-05-20-sales-quotation-design.md
 
 ## Implementation Units
 
-### U1. Database Migrations
-
-**Goal:** 创建 quotations、quotation_items、document_sequences 三张表及索引
-
-**Requirements:** R1, R5
-
-**Dependencies:** None
-
-**Files:**
-- Create: `abt/migrations/XXX_create_document_sequences.sql`
-- Create: `abt/migrations/XXX_create_quotations.sql`
-
-**Approach:**
-- 两个独立 migration 文件，document_sequences 先于 quotations
-- document_sequences 初始化 QT 序列记录
-- quotations 遵循系统惯例（soft delete via deleted_at、operator_id 审计）
-- quotation_items 的 unit_price/quantity 用 Decimal(14,6)，subtotal/total_amount 用 Decimal(14,2)
-
-**Test expectation:** `cargo clippy` 通过，migration 文件 SQL 语法正确
-
-**Verification:** `cargo build` 通过，表结构符合设计规范
-
----
-
-### U2. Proto Definition
+### U1. Proto Definition
 
 **Goal:** 定义报价单相关的 messages、enum、service RPC
 
 **Requirements:** R1, R2, R3, R4, R6
 
-**Dependencies:** None（可与 U1 并行）
+**Dependencies:** None
 
 **Files:**
 - Create: `proto/abt/v1/quotation.proto`
@@ -115,30 +91,74 @@ origin: docs/superpowers/specs/2026-05-20-sales-quotation-design.md
 
 ---
 
-### U3. Model + Repository: Document Sequence
+### U2. Database Migrations
 
-**Goal:** 实现文档编号模型和数据库访问层
+**Goal:** 创建 quotations、quotation_items、document_sequences 三张表及索引
 
-**Requirements:** R5, R6
+**Requirements:** R1, R5
 
 **Dependencies:** U1
 
 **Files:**
+- Create: `abt/migrations/045_create_document_sequences.sql`
+- Create: `abt/migrations/046_create_quotations.sql`
+
+**Approach:**
+- 两个独立 migration 文件，document_sequences 先于 quotations
+- document_sequences 初始化 QT 序列记录
+- quotations 遵循系统惯例（soft delete via deleted_at、operator_id 审计）
+- quotation_items 的 unit_price/quantity 用 Decimal(14,6)，subtotal/total_amount 用 Decimal(14,2)
+
+**Test expectation:** `cargo clippy` 通过，migration 文件 SQL 语法正确
+
+**Verification:** `cargo build` 通过，表结构符合设计规范
+
+---
+
+### U3. Model: Document Sequence & Quotation
+
+**Goal:** 实现文档编号和报价单的数据模型
+
+**Requirements:** R1, R3, R4, R5, R6
+
+**Dependencies:** U2
+
+**Files:**
 - Create: `abt/src/models/document_sequence.rs`
-- Create: `abt/src/repositories/document_sequence_repo.rs`
+- Create: `abt/src/models/quotation.rs`
 - Modify: `abt/src/models/mod.rs`
-- Modify: `abt/src/repositories/mod.rs`
 
 **Approach:**
 - DocumentSequence struct：sequence_id, doc_type, prefix, current_value, reset_rule, created_at, updated_at
-- FromRow 实现
+- Quotation struct + QuotationItem struct + QuotationQuery struct
+- 手动 FromRow 实现
+
+**Patterns to follow:** `abt/src/models/product.rs`
+
+**Verification:** `cargo clippy` 通过
+
+---
+
+### U4. Repository: Document Sequence
+
+**Goal:** 实现文档编号数据库访问层
+
+**Requirements:** R5, R6
+
+**Dependencies:** U3
+
+**Files:**
+- Create: `abt/src/repositories/document_sequence_repo.rs`
+- Modify: `abt/src/repositories/mod.rs`
+
+**Approach:**
 - next_number(executor, doc_type) → SELECT FOR UPDATE 锁行 → 检查 reset_rule 是否需要重置 → current_value + 1 → 生成格式化编号（prefix + YYYY-MM + 序号）→ UPDATE → 返回编号字符串
 - ensure_sequence(executor, doc_type, prefix, reset_rule) → INSERT ON CONFLICT DO NOTHING
 
-**Patterns to follow:** `abt/src/models/product.rs`、`abt/src/repositories/product_repo.rs`
+**Patterns to follow:** `abt/src/repositories/product_repo.rs`
 
 **Test scenarios:**
-- Happy path: 连续调用 next_number("QT") 生成 QT-2026-05-00001、QT-2026-05-00002
+- Happy path: 连续调用 next_number("QT") 生成 QT202605-00001、QT202605-00002
 - Edge case: ensure_sequence 对已存在的 doc_type 不报错（幂等）
 - Edge case: 月度重置逻辑（新月份序号从 1 开始）
 
@@ -146,28 +166,25 @@ origin: docs/superpowers/specs/2026-05-20-sales-quotation-design.md
 
 ---
 
-### U4. Model + Repository: Quotation
+### U5. Repository: Quotation
 
-**Goal:** 实现报价单和行项目的模型与数据访问层
+**Goal:** 实现报价单和行项目的数据访问层
 
 **Requirements:** R1, R3, R4
 
-**Dependencies:** U1
+**Dependencies:** U3
 
 **Files:**
-- Create: `abt/src/models/quotation.rs`
 - Create: `abt/src/repositories/quotation_repo.rs`
-- Modify: `abt/src/models/mod.rs`
 - Modify: `abt/src/repositories/mod.rs`
 
 **Approach:**
-- Quotation struct + QuotationItem struct + QuotationQuery struct
 - Quotation.items 默认空 Vec，find_by_id 时通过二次查询填充
 - Repository 方法：insert, update, soft_delete, find_by_id, query, query_count, update_status, insert_items, delete_by_quotation, find_by_quotation_id
 - query 支持 keyword（ILIKE quotation_no 或 customer_name）+ status 筛选 + 分页
 - 使用 build_fuzzy_pattern 做模糊搜索
 
-**Patterns to follow:** `abt/src/models/product.rs`、`abt/src/repositories/product_repo.rs`
+**Patterns to follow:** `abt/src/repositories/product_repo.rs`
 
 **Test scenarios:**
 - Happy path: insert + find_by_id 返回完整数据
@@ -179,25 +196,70 @@ origin: docs/superpowers/specs/2026-05-20-sales-quotation-design.md
 
 ---
 
-### U5. Service Trait + Impl: Document Sequence & Quotation
+### U6. Service Trait: Document Sequence & Quotation
 
-**Goal:** 实现文档编号和报价单的业务逻辑层
+**Goal:** 定义文档编号和报价单的业务接口
 
 **Requirements:** R1, R2, R5, R6
 
-**Dependencies:** U3, U4
+**Dependencies:** U3
 
 **Files:**
 - Create: `abt/src/service/document_sequence_service.rs`
 - Create: `abt/src/service/quotation_service.rs`
-- Create: `abt/src/implt/document_sequence_service_impl.rs`
-- Create: `abt/src/implt/quotation_service_impl.rs`
 - Modify: `abt/src/service/mod.rs`
+
+**Approach:**
+- DocumentSequenceService trait：next_number
+- QuotationService trait：create, update, delete, get_by_id, list, update_status
+
+**Patterns to follow:** `abt/src/service/product_service.rs`
+
+**Verification:** `cargo clippy` 通过
+
+---
+
+### U7. Service Impl: Document Sequence
+
+**Goal:** 实现文档编号的业务逻辑
+
+**Requirements:** R5, R6
+
+**Dependencies:** U4, U6
+
+**Files:**
+- Create: `abt/src/implt/document_sequence_service_impl.rs`
 - Modify: `abt/src/implt/mod.rs`
 - Modify: `abt/src/lib.rs`（添加工厂函数）
 
 **Approach:**
 - DocumentSequenceServiceImpl：包装 repo 的 next_number 和 ensure_sequence
+- 持有 Arc<PgPool>（虽然 next_number 接收 executor，但 trait 一致性需要）
+
+**Patterns to follow:** `abt/src/implt/product_service_impl.rs`
+
+**Test scenarios:**
+- Happy path: 连续调用生成递增编号
+- Edge case: 跨月重置序号回到 1
+
+**Verification:** `cargo clippy` 通过
+
+---
+
+### U8. Service Impl: Quotation
+
+**Goal:** 实现报价单的业务逻辑
+
+**Requirements:** R1, R2, R6
+
+**Dependencies:** U5, U6
+
+**Files:**
+- Create: `abt/src/implt/quotation_service_impl.rs`
+- Modify: `abt/src/implt/mod.rs`
+- Modify: `abt/src/lib.rs`（添加工厂函数）
+
+**Approach:**
 - QuotationServiceImpl：
   - create：在同一 executor（事务）内调用 next_number → 校验 product_id 存在性 → 计算 subtotal/total_amount → insert 主表 → insert_items
   - update：查询现有报价 → 校验 Draft 状态 → 重新计算 → update 主表 → delete_by_quotation → insert_items
@@ -224,13 +286,13 @@ origin: docs/superpowers/specs/2026-05-20-sales-quotation-design.md
 
 ---
 
-### U6. gRPC Handler + Server Registration
+### U9. gRPC Handler + Server Registration
 
 **Goal:** 实现 Proto 层到 Service 层的转换，注册到 gRPC server
 
 **Requirements:** R1, R2, R3, R4
 
-**Dependencies:** U2, U5
+**Dependencies:** U1, U7, U8
 
 **Files:**
 - Create: `abt-grpc/src/handlers/quotation.rs`

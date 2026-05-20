@@ -1,3 +1,8 @@
+---
+name: sales-quotation
+description: 销售报价模块设计，包含报价单 CRUD、状态流转和文档编号服务
+---
+
 # Sales Quotation Module Design
 
 Date: 2026-05-20
@@ -37,10 +42,10 @@ CREATE TABLE document_sequences (
 );
 
 INSERT INTO document_sequences (doc_type, prefix, current_value, reset_rule)
-VALUES ('QT', 'QT-', 0, 'monthly');
+VALUES ('QT', 'QT', 0, 'monthly');
 ```
 
-编号生成逻辑：`SELECT ... FOR UPDATE` 锁行 → `current_value + 1` → 生成 `QT-2026-05-00001` → `UPDATE`。按 `reset_rule` 月度/年度重置序号。
+编号生成逻辑：`SELECT ... FOR UPDATE` 锁行 → `current_value + 1` → 生成 `QT2026-05-00001` → `UPDATE`。按 `reset_rule` 月度/年度重置序号。
 
 ### quotations
 
@@ -114,10 +119,10 @@ message QuotationItem {
   string product_code = 4;
   string product_name = 5;
   string unit = 6;
-  double unit_price = 7;
-  double quantity = 8;
-  double discount = 9;
-  double subtotal = 10;
+  string unit_price = 7;
+  string quantity = 8;
+  string discount = 9;
+  string subtotal = 10;
   string remark = 11;
 }
 
@@ -128,7 +133,7 @@ message Quotation {
   string contact_person = 4;
   string contact_phone = 5;
   QuotationStatus status = 6;
-  double total_amount = 7;
+  string total_amount = 7;
   string remark = 8;
   int64 valid_until = 9;
   int64 created_at = 10;
@@ -148,9 +153,9 @@ message CreateQuotationRequest {
 
 message CreateQuotationItem {
   int64 product_id = 1;
-  double unit_price = 2;
-  double quantity = 3;
-  double discount = 4;
+  string unit_price = 2;
+  string quantity = 3;
+  string discount = 4;
   string remark = 5;
 }
 
@@ -171,6 +176,10 @@ message ListQuotationsRequest {
 }
 
 message GetQuotationRequest {
+  int64 quotation_id = 1;
+}
+
+message DeleteQuotationRequest {
   int64 quotation_id = 1;
 }
 
@@ -219,11 +228,11 @@ pub struct Quotation {
     pub status: i16,
     pub total_amount: Decimal,
     pub remark: Option<String>,
-    pub valid_until: Option<NaiveDateTime>,
+    pub valid_until: Option<DateTime<Utc>>,
     pub operator_id: Option<i64>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-    pub deleted_at: Option<NaiveDateTime>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
     pub items: Vec<QuotationItem>,
 }
 
@@ -240,7 +249,7 @@ pub struct QuotationItem {
     pub discount: Decimal,
     pub subtotal: Decimal,
     pub remark: Option<String>,
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -262,8 +271,8 @@ pub struct DocumentSequence {
     pub prefix: String,
     pub current_value: i32,
     pub reset_rule: String,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 ```
 

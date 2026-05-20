@@ -246,3 +246,18 @@ pub fn get_supplier_price_service(ctx: &AppContext) -> impl crate::service::Supp
 pub fn get_purchase_order_service(ctx: &AppContext) -> impl crate::service::PurchaseOrderService {
     crate::implt::PurchaseOrderServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
+
+/// 获取采购对账单服务
+pub fn get_statement_service(ctx: &AppContext) -> impl crate::service::StatementService {
+    crate::implt::StatementServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取采购发票服务
+pub fn get_invoice_service(ctx: &AppContext) -> impl crate::service::InvoiceService {
+    crate::implt::InvoiceServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取采购付款服务
+pub fn get_payment_service(ctx: &AppContext) -> impl crate::service::PaymentService {
+    crate::implt::PaymentServiceImpl::new(Arc::new(ctx.pool().clone()))
+}

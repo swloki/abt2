@@ -27,6 +27,7 @@ mod notification;
 mod supplier;
 mod supplier_price;
 mod purchase_order;
+mod purchase_settlement;
 mod workflow;
 
 pub use api::*;
@@ -52,4 +53,5 @@ pub use notification::*;
 pub use supplier::*;
 pub use supplier_price::*;
 pub use purchase_order::*;
+pub use purchase_settlement::*;
 pub use workflow::*;

@@ -27,6 +27,9 @@ mod scheduled_task_service;
 mod supplier_service;
 mod supplier_price_service;
 mod purchase_order_service;
+mod statement_service;
+mod invoice_service;
+mod payment_service;
 mod workflow_service;
 
 pub use auth_service::AuthService;
@@ -57,6 +60,9 @@ pub use scheduled_task_service::{ScheduledTask, TaskRunResult, TaskStatus};
 pub use supplier_service::{SupplierBankAccountInput, SupplierContactInput, SupplierService};
 pub use supplier_price_service::SupplierPriceService;
 pub use purchase_order_service::PurchaseOrderService;
+pub use statement_service::StatementService;
+pub use invoice_service::InvoiceService;
+pub use payment_service::PaymentService;
 pub use workflow_service::WorkflowService;
 
 // Re-export executor type from repositories

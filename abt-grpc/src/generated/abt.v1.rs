@@ -18756,6 +18756,39 @@ pub struct TriggerEventListResponse {
     #[prost(message, repeated, tag = "1")]
     pub items: ::prost::alloc::vec::Vec<TriggerEventDef>,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListActionDefsRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ActionDefListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<ActionDef>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ActionDef {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub description: ::prost::alloc::string::String,
+    #[prost(message, repeated, tag = "4")]
+    pub inputs: ::prost::alloc::vec::Vec<FieldDef>,
+    #[prost(message, repeated, tag = "5")]
+    pub outputs: ::prost::alloc::vec::Vec<FieldDef>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct FieldDef {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub label: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub field_type: ::prost::alloc::string::String,
+    #[prost(bool, tag = "4")]
+    pub required: bool,
+    #[prost(string, tag = "5")]
+    pub description: ::prost::alloc::string::String,
+}
 /// Generated client implementations.
 pub mod abt_workflow_service_client {
     #![allow(
@@ -19257,6 +19290,31 @@ pub mod abt_workflow_service_client {
                 );
             self.inner.unary(req, path, codec).await
         }
+        /// Action 定义
+        pub async fn list_action_defs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListActionDefsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ActionDefListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.AbtWorkflowService/ListActionDefs",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.AbtWorkflowService", "ListActionDefs"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -19368,6 +19426,14 @@ pub mod abt_workflow_service_server {
             request: tonic::Request<super::ListTriggerEventsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::TriggerEventListResponse>,
+            tonic::Status,
+        >;
+        /// Action 定义
+        async fn list_action_defs(
+            &self,
+            request: tonic::Request<super::ListActionDefsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ActionDefListResponse>,
             tonic::Status,
         >;
     }
@@ -20271,6 +20337,52 @@ pub mod abt_workflow_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListTriggerEventsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.AbtWorkflowService/ListActionDefs" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListActionDefsSvc<T: AbtWorkflowService>(pub Arc<T>);
+                    impl<
+                        T: AbtWorkflowService,
+                    > tonic::server::UnaryService<super::ListActionDefsRequest>
+                    for ListActionDefsSvc<T> {
+                        type Response = super::ActionDefListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListActionDefsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as AbtWorkflowService>::list_action_defs(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListActionDefsSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

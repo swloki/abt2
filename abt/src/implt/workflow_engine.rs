@@ -43,6 +43,10 @@ impl WorkflowEngine {
         &self.hook_registry
     }
 
+    pub fn action_registry(&self) -> &ActionRegistry {
+        &self.action_registry
+    }
+
     async fn start_instance_from_template(
         &self,
         template: &WorkflowTemplate,

@@ -418,4 +418,38 @@ impl GrpcWorkflowService for WorkflowHandler {
 
         Ok(Response::new(TriggerEventListResponse { items }))
     }
+
+    async fn list_action_defs(
+        &self,
+        request: Request<ListActionDefsRequest>,
+    ) -> GrpcResult<ActionDefListResponse> {
+        let _auth = extract_auth(&request)?;
+        let state = AppState::get().await;
+        let srv = state.workflow_service();
+
+        let defs = srv.action_registry().list_defs();
+        let items = defs.iter().map(action_def_to_proto).collect();
+
+        Ok(Response::new(ActionDefListResponse { items }))
+    }
+}
+
+fn action_def_to_proto(def: &abt::ActionDef) -> ActionDef {
+    ActionDef {
+        name: def.name.clone(),
+        label: def.label.clone(),
+        description: def.description.clone(),
+        inputs: def.inputs.iter().map(field_def_to_proto).collect(),
+        outputs: def.outputs.iter().map(field_def_to_proto).collect(),
+    }
+}
+
+fn field_def_to_proto(f: &abt::FieldDef) -> FieldDef {
+    FieldDef {
+        name: f.name.clone(),
+        label: f.label.clone(),
+        field_type: f.field_type.clone(),
+        required: f.required,
+        description: f.description.clone(),
+    }
 }

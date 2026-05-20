@@ -36,6 +36,9 @@ service AbtWorkflowService {
 
   // 触发器
   rpc ListTriggerEvents(ListTriggerEventsRequest) returns (TriggerEventListResponse);
+
+  // Action 定义
+  rpc ListActionDefs(ListActionDefsRequest) returns (ActionDefListResponse);
 }
 
 // ============================================================================
@@ -228,4 +231,30 @@ message TriggerEventDef {
 
 message TriggerEventListResponse {
   repeated TriggerEventDef items = 1;
+}
+
+// ============================================================================
+// Action 定义消息
+// ============================================================================
+
+message ListActionDefsRequest {}
+
+message ActionDefListResponse {
+  repeated ActionDef items = 1;
+}
+
+message ActionDef {
+  string name = 1;
+  string label = 2;
+  string description = 3;
+  repeated FieldDef inputs = 4;
+  repeated FieldDef outputs = 5;
+}
+
+message FieldDef {
+  string name = 1;
+  string label = 2;
+  string field_type = 3;
+  bool required = 4;
+  string description = 5;
 }

@@ -41,9 +41,30 @@ impl Default for ActionOutput {
     }
 }
 
+/// Action 参数字段定义
+#[derive(Debug, Clone)]
+pub struct FieldDef {
+    pub name: String,
+    pub label: String,
+    pub field_type: String,
+    pub required: bool,
+    pub description: String,
+}
+
+/// Action 元数据定义
+#[derive(Debug, Clone)]
+pub struct ActionDef {
+    pub name: String,
+    pub label: String,
+    pub description: String,
+    pub inputs: Vec<FieldDef>,
+    pub outputs: Vec<FieldDef>,
+}
+
 /// ActionRegistry — action 名称到实现的映射
 pub struct ActionRegistry {
     actions: HashMap<String, Arc<dyn AutoAction>>,
+    defs: Vec<ActionDef>,
 }
 
 impl Default for ActionRegistry {
@@ -56,11 +77,13 @@ impl ActionRegistry {
     pub fn new() -> Self {
         Self {
             actions: HashMap::new(),
+            defs: Vec::new(),
         }
     }
 
-    pub fn register(&mut self, name: &str, action: Arc<dyn AutoAction>) {
-        self.actions.insert(name.to_string(), action);
+    pub fn register(&mut self, def: ActionDef, action: Arc<dyn AutoAction>) {
+        self.actions.insert(def.name.clone(), action);
+        self.defs.push(def);
     }
 
     pub fn get(&self, name: &str) -> Option<&Arc<dyn AutoAction>> {
@@ -69,6 +92,10 @@ impl ActionRegistry {
 
     pub fn is_registered(&self, name: &str) -> bool {
         self.actions.contains_key(name)
+    }
+
+    pub fn list_defs(&self) -> &[ActionDef] {
+        &self.defs
     }
 
     /// 启动时校验：所有 active 模板引用的 action 已注册（Improvement 9）
@@ -184,6 +211,19 @@ pub fn apply_output_mapping(
 mod tests {
     use super::*;
 
+    struct NoopAction;
+
+    #[async_trait]
+    impl AutoAction for NoopAction {
+        async fn execute(
+            &self,
+            _tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+            _inputs: HashMap<String, Value>,
+        ) -> Result<ActionOutput> {
+            Ok(ActionOutput::new())
+        }
+    }
+
     #[test]
     fn test_resolve_mapping() {
         let context = serde_json::json!({
@@ -242,9 +282,24 @@ mod tests {
 
     #[test]
     fn test_action_registry() {
-        let registry = ActionRegistry::new();
+        let mut registry = ActionRegistry::new();
         assert!(!registry.is_registered("test_action"));
         assert!(registry.get("test_action").is_none());
+        assert!(registry.list_defs().is_empty());
+
+        registry.register(
+            ActionDef {
+                name: "test_action".into(),
+                label: "测试动作".into(),
+                description: String::new(),
+                inputs: vec![],
+                outputs: vec![],
+            },
+            Arc::new(NoopAction),
+        );
+        assert!(registry.is_registered("test_action"));
+        assert_eq!(registry.list_defs().len(), 1);
+        assert_eq!(registry.list_defs()[0].name, "test_action");
     }
 
     #[test]

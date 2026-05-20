@@ -30,6 +30,7 @@ pub use service::*;
 
 // Re-export Excel implementations for gRPC handler use
 pub use implt::excel;
+pub use implt::workflow_actions::{ActionDef, FieldDef};
 
 // ============================================================================
 // App Context

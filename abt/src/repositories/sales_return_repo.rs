@@ -212,7 +212,7 @@ impl SalesReturnRepo {
         Ok(rows)
     }
 
-    /// 汇总指定 order_item_id 的所有已完成退货数量
+    /// 汇总指定 order_item_id 的所有有效退货数量（含 Pending/Approved/Received/Completed）
     pub async fn sum_returned_qty(pool: &PgPool, order_item_id: i64) -> Result<rust_decimal::Decimal> {
         let qty: rust_decimal::Decimal = sqlx::query_scalar(
             r#"

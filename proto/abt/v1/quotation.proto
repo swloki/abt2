@@ -86,6 +86,10 @@ message GetQuotationRequest {
   int64 quotation_id = 1;
 }
 
+message DeleteQuotationRequest {
+  int64 quotation_id = 1;
+}
+
 message UpdateQuotationStatusRequest {
   int64 quotation_id = 1;
   QuotationStatus status = 2;

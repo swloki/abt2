@@ -236,3 +236,8 @@ pub fn get_document_sequence_service(ctx: &AppContext) -> impl crate::service::D
 pub fn get_quotation_service(ctx: &AppContext) -> impl crate::service::QuotationService {
     crate::implt::QuotationServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
+
+/// 获取销售订单服务
+pub fn get_sales_order_service(ctx: &AppContext) -> impl crate::service::SalesOrderService {
+    crate::implt::SalesOrderServiceImpl::new(Arc::new(ctx.pool().clone()))
+}

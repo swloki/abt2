@@ -17,6 +17,7 @@ mod product_price_service;
 mod product_service;
 mod quotation_service;
 mod role_service;
+mod sales_order_service;
 mod routing_service;
 mod term_service;
 mod user_service;
@@ -45,6 +46,7 @@ pub use product_price_service::{
 pub use product_service::ProductService;
 pub use quotation_service::QuotationService;
 pub use role_service::RoleService;
+pub use sales_order_service::SalesOrderService;
 pub use routing_service::RoutingService;
 pub use term_service::TermService;
 pub use user_service::UserService;

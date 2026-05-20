@@ -24,6 +24,7 @@ mod inventory_cascade_repo;
 mod notification_repo;
 mod product_watcher_repo;
 mod quotation_repo;
+mod sales_order_repo;
 mod workflow_template_repo;
 mod workflow_instance_repo;
 mod workflow_task_repo;
@@ -53,6 +54,7 @@ pub use inventory_cascade_repo::{
 pub use notification_repo::NotificationRepo;
 pub use product_watcher_repo::ProductWatcherRepo;
 pub use quotation_repo::QuotationRepo;
+pub use sales_order_repo::SalesOrderRepo;
 pub use workflow_template_repo::WorkflowTemplateRepo;
 pub use workflow_instance_repo::WorkflowInstanceRepo;
 pub use workflow_task_repo::WorkflowTaskRepo;

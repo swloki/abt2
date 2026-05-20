@@ -11,6 +11,9 @@ message U64Response { uint64 value = 1; }
 message BoolResponse { bool value = 1; }
 message StringResponse { optional string value = 1; }
 
+// Generic delete request
+message DeleteRequest { int64 id = 1; }
+
 // Pagination
 message PaginationParams {
   uint32 page = 1;

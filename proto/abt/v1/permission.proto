@@ -25,6 +25,9 @@ enum Resource {
   BOM_COST = 15;
   BOM_LABOR_COST = 16;
   SYNC = 17;
+  SUPPLIER = 18;
+  PURCHASE = 19;
+  PURCHASE_SETTLEMENT = 20;
 }
 
 // 权限操作枚举

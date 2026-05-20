@@ -1,0 +1,142 @@
+syntax = "proto3";
+package abt.v1;
+
+import "abt/v1/base.proto";
+
+enum PurchaseOrderType {
+  PURCHASE_ORDER_TYPE_UNSPECIFIED = 0;
+  PURCHASE_ORDER_TYPE_PRODUCTION = 1;
+  PURCHASE_ORDER_TYPE_MISCELLANEOUS = 2;
+}
+
+enum PurchaseOrderStatus {
+  PURCHASE_ORDER_STATUS_UNSPECIFIED = 0;
+  PURCHASE_ORDER_STATUS_DRAFT = 1;
+  PURCHASE_ORDER_STATUS_SUBMITTED = 2;
+  PURCHASE_ORDER_STATUS_APPROVED = 3;
+  PURCHASE_ORDER_STATUS_PARTIAL_RECEIVED = 4;
+  PURCHASE_ORDER_STATUS_FULLY_RECEIVED = 5;
+  PURCHASE_ORDER_STATUS_RECONCILED = 6;
+  PURCHASE_ORDER_STATUS_CLOSED = 7;
+}
+
+message SupplierPrice {
+  int64 price_id = 1;
+  int64 supplier_id = 2;
+  int64 product_id = 3;
+  string product_code = 4;
+  string product_name = 5;
+  string unit = 6;
+  string unit_price = 7;
+  int64 valid_from = 8;
+  int64 valid_until = 9;
+  int64 operator_id = 10;
+  int64 created_at = 11;
+}
+
+message UpsertSupplierPriceRequest {
+  int64 supplier_id = 1;
+  int64 product_id = 2;
+  string unit_price = 3;
+  int64 valid_from = 4;
+  int64 valid_until = 5;
+}
+
+message ListSupplierPricesRequest {
+  optional int64 supplier_id = 1;
+  optional int64 product_id = 2;
+  optional bool active_only = 3;
+  optional PaginationParams pagination = 4;
+}
+
+message SupplierPriceListResponse {
+  repeated SupplierPrice items = 1;
+  PaginationInfo pagination = 2;
+}
+
+message PurchaseOrderItem {
+  int64 item_id = 1;
+  int64 po_id = 2;
+  int64 product_id = 3;
+  string product_code = 4;
+  string product_name = 5;
+  string unit = 6;
+  string unit_price = 7;
+  string quantity = 8;
+  string received_qty = 9;
+  string subtotal = 10;
+  string remark = 11;
+}
+
+message PurchaseOrder {
+  int64 po_id = 1;
+  string po_no = 2;
+  int64 supplier_id = 3;
+  string supplier_name = 4;
+  PurchaseOrderType order_type = 5;
+  PurchaseOrderStatus status = 6;
+  string total_amount = 7;
+  string remark = 8;
+  int64 operator_id = 9;
+  int64 created_at = 10;
+  int64 updated_at = 11;
+  repeated PurchaseOrderItem items = 12;
+}
+
+message CreatePurchaseOrderItem {
+  int64 product_id = 1;
+  string unit_price = 2;
+  string quantity = 3;
+  string remark = 4;
+}
+
+message CreatePurchaseOrderRequest {
+  int64 supplier_id = 1;
+  PurchaseOrderType order_type = 2;
+  string remark = 3;
+  repeated CreatePurchaseOrderItem items = 4;
+}
+
+message UpdatePurchaseOrderRequest {
+  int64 po_id = 1;
+  int64 supplier_id = 2;
+  string remark = 3;
+  repeated CreatePurchaseOrderItem items = 4;
+}
+
+message UpdatePurchaseOrderStatusRequest {
+  int64 po_id = 1;
+  PurchaseOrderStatus status = 2;
+}
+
+message ListPurchaseOrdersRequest {
+  optional string keyword = 1;
+  optional int64 supplier_id = 2;
+  optional PurchaseOrderType order_type = 3;
+  optional PurchaseOrderStatus status = 4;
+  optional PaginationParams pagination = 5;
+}
+
+message GetPurchaseOrderRequest {
+  int64 po_id = 1;
+}
+
+message PurchaseOrderResponse {
+  PurchaseOrder purchase_order = 1;
+}
+
+message PurchaseOrderListResponse {
+  repeated PurchaseOrder items = 1;
+  PaginationInfo pagination = 2;
+}
+
+service PurchaseService {
+  rpc UpsertSupplierPrice(UpsertSupplierPriceRequest) returns (U64Response);
+  rpc ListSupplierPrices(ListSupplierPricesRequest) returns (SupplierPriceListResponse);
+  rpc CreatePurchaseOrder(CreatePurchaseOrderRequest) returns (U64Response);
+  rpc UpdatePurchaseOrder(UpdatePurchaseOrderRequest) returns (BoolResponse);
+  rpc DeletePurchaseOrder(DeleteRequest) returns (BoolResponse);
+  rpc GetPurchaseOrder(GetPurchaseOrderRequest) returns (PurchaseOrderResponse);
+  rpc ListPurchaseOrders(ListPurchaseOrdersRequest) returns (PurchaseOrderListResponse);
+  rpc UpdatePurchaseOrderStatus(UpdatePurchaseOrderStatusRequest) returns (BoolResponse);
+}

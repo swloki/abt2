@@ -66,4 +66,16 @@ static RESOURCES: &[ResourceActionDef] = &[
     ResourceActionDef { resource_code: "BOM_COST", resource_name: "BOM成本", description: "BOM成本查看", action: "READ", action_name: "查看" },
     // BOM 人工成本（单独查看）
     ResourceActionDef { resource_code: "BOM_LABOR_COST", resource_name: "BOM人工成本", description: "BOM人工成本单独查看", action: "READ", action_name: "查看" },
+    // 供应商
+    ResourceActionDef { resource_code: "SUPPLIER", resource_name: "供应商管理", description: "供应商信息", action: "READ", action_name: "查看" },
+    ResourceActionDef { resource_code: "SUPPLIER", resource_name: "供应商管理", description: "供应商信息", action: "WRITE", action_name: "编辑" },
+    ResourceActionDef { resource_code: "SUPPLIER", resource_name: "供应商管理", description: "供应商信息", action: "DELETE", action_name: "删除" },
+    // 采购
+    ResourceActionDef { resource_code: "PURCHASE", resource_name: "采购管理", description: "采购订单", action: "READ", action_name: "查看" },
+    ResourceActionDef { resource_code: "PURCHASE", resource_name: "采购管理", description: "采购订单", action: "WRITE", action_name: "编辑" },
+    ResourceActionDef { resource_code: "PURCHASE", resource_name: "采购管理", description: "采购订单", action: "DELETE", action_name: "删除" },
+    // 采购结算
+    ResourceActionDef { resource_code: "PURCHASE_SETTLEMENT", resource_name: "采购结算", description: "对账发票付款", action: "READ", action_name: "查看" },
+    ResourceActionDef { resource_code: "PURCHASE_SETTLEMENT", resource_name: "采购结算", description: "对账发票付款", action: "WRITE", action_name: "编辑" },
+    ResourceActionDef { resource_code: "PURCHASE_SETTLEMENT", resource_name: "采购结算", description: "对账发票付款", action: "DELETE", action_name: "删除" },
 ];

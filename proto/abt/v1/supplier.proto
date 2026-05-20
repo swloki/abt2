@@ -1,0 +1,121 @@
+syntax = "proto3";
+package abt.v1;
+
+import "abt/v1/base.proto";
+
+enum SupplierClassification {
+  SUPPLIER_CLASSIFICATION_UNSPECIFIED = 0;
+  SUPPLIER_CLASSIFICATION_A = 1;
+  SUPPLIER_CLASSIFICATION_B = 2;
+  SUPPLIER_CLASSIFICATION_C = 3;
+}
+
+enum SupplierStatus {
+  SUPPLIER_STATUS_UNSPECIFIED = 0;
+  SUPPLIER_STATUS_PENDING = 1;
+  SUPPLIER_STATUS_QUALIFIED = 2;
+  SUPPLIER_STATUS_DISABLED = 3;
+}
+
+message SupplierContact {
+  int64 contact_id = 1;
+  int64 supplier_id = 2;
+  string contact_name = 3;
+  string phone = 4;
+  string email = 5;
+  string position = 6;
+  bool is_primary = 7;
+}
+
+message SupplierBankAccount {
+  int64 bank_account_id = 1;
+  int64 supplier_id = 2;
+  string bank_name = 3;
+  string account_name = 4;
+  string account_no = 5;
+  bool is_default = 6;
+}
+
+message Supplier {
+  int64 supplier_id = 1;
+  string supplier_code = 2;
+  string supplier_name = 3;
+  string short_name = 4;
+  SupplierClassification classification = 5;
+  SupplierStatus status = 6;
+  string remark = 7;
+  int64 operator_id = 8;
+  int64 created_at = 9;
+  int64 updated_at = 10;
+  repeated SupplierContact contacts = 11;
+  repeated SupplierBankAccount bank_accounts = 12;
+}
+
+message CreateSupplierRequest {
+  string supplier_code = 1;
+  string supplier_name = 2;
+  string short_name = 3;
+  SupplierClassification classification = 4;
+  string remark = 5;
+  repeated SupplierContactInput contacts = 6;
+  repeated SupplierBankAccountInput bank_accounts = 7;
+}
+
+message SupplierContactInput {
+  string contact_name = 1;
+  string phone = 2;
+  string email = 3;
+  string position = 4;
+  bool is_primary = 5;
+}
+
+message SupplierBankAccountInput {
+  string bank_name = 1;
+  string account_name = 2;
+  string account_no = 3;
+  bool is_default = 4;
+}
+
+message UpdateSupplierRequest {
+  int64 supplier_id = 1;
+  string supplier_name = 2;
+  string short_name = 3;
+  SupplierClassification classification = 4;
+  string remark = 5;
+  repeated SupplierContactInput contacts = 6;
+  repeated SupplierBankAccountInput bank_accounts = 7;
+}
+
+message UpdateSupplierStatusRequest {
+  int64 supplier_id = 1;
+  SupplierStatus status = 2;
+}
+
+message ListSuppliersRequest {
+  optional string keyword = 1;
+  optional SupplierClassification classification = 2;
+  optional SupplierStatus status = 3;
+  optional PaginationParams pagination = 4;
+}
+
+message GetSupplierRequest {
+  int64 supplier_id = 1;
+}
+
+message SupplierResponse {
+  Supplier supplier = 1;
+}
+
+message SupplierListResponse {
+  repeated Supplier items = 1;
+  PaginationInfo pagination = 2;
+}
+
+service SupplierService {
+  rpc CreateSupplier(CreateSupplierRequest) returns (U64Response);
+  rpc UpdateSupplier(UpdateSupplierRequest) returns (BoolResponse);
+  rpc DeleteSupplier(DeleteRequest) returns (BoolResponse);
+  rpc GetSupplier(GetSupplierRequest) returns (SupplierResponse);
+  rpc ListSuppliers(ListSuppliersRequest) returns (SupplierListResponse);
+  rpc UpdateSupplierStatus(UpdateSupplierStatusRequest) returns (BoolResponse);
+}

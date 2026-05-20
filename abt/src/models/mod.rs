@@ -25,6 +25,7 @@ mod warehouse;
 mod inventory_cascade;
 mod notification;
 mod supplier;
+mod supplier_price;
 mod workflow;
 
 pub use api::*;
@@ -48,4 +49,5 @@ pub use document_sequence::*;
 pub use inventory_cascade::*;
 pub use notification::*;
 pub use supplier::*;
+pub use supplier_price::*;
 pub use workflow::*;

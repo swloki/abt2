@@ -236,3 +236,8 @@ pub fn get_document_sequence_service(ctx: &AppContext) -> impl crate::service::D
 pub fn get_supplier_service(ctx: &AppContext) -> impl crate::service::SupplierService {
     crate::implt::SupplierServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
+
+/// 获取供应商价格服务
+pub fn get_supplier_price_service(ctx: &AppContext) -> impl crate::service::SupplierPriceService {
+    crate::implt::SupplierPriceServiceImpl::new(Arc::new(ctx.pool().clone()))
+}

@@ -27,6 +27,7 @@ mod workflow_template_repo;
 mod workflow_instance_repo;
 mod workflow_task_repo;
 mod supplier_repo;
+mod supplier_price_repo;
 mod workflow_history_repo;
 
 pub use auth_repo::AuthRepo;
@@ -56,6 +57,7 @@ pub use workflow_template_repo::WorkflowTemplateRepo;
 pub use workflow_instance_repo::WorkflowInstanceRepo;
 pub use workflow_task_repo::WorkflowTaskRepo;
 pub use supplier_repo::{SupplierBankAccountRepo, SupplierContactRepo, SupplierRepo};
+pub use supplier_price_repo::SupplierPriceRepo;
 pub use workflow_history_repo::WorkflowHistoryRepo;
 
 // Re-export Executor from common

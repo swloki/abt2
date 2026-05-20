@@ -25,6 +25,7 @@ mod notification_service;
 mod product_watcher_service;
 mod scheduled_task_service;
 mod supplier_service;
+mod supplier_price_service;
 mod workflow_service;
 
 pub use auth_service::AuthService;
@@ -53,6 +54,7 @@ pub use notification_service::NotificationService;
 pub use product_watcher_service::ProductWatcherService;
 pub use scheduled_task_service::{ScheduledTask, TaskRunResult, TaskStatus};
 pub use supplier_service::{SupplierBankAccountInput, SupplierContactInput, SupplierService};
+pub use supplier_price_service::SupplierPriceService;
 pub use workflow_service::WorkflowService;
 
 // Re-export executor type from repositories

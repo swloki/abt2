@@ -6,6 +6,7 @@ mod auth_service;
 mod bom_category_service;
 mod bom_service;
 mod department_service;
+mod document_sequence_service;
 mod inventory_service;
 mod labor_process_service;
 mod labor_process_dict_service;
@@ -23,12 +24,14 @@ mod inventory_cascade_service;
 mod notification_service;
 mod product_watcher_service;
 mod scheduled_task_service;
+mod supplier_service;
 mod workflow_service;
 
 pub use auth_service::AuthService;
 pub use bom_category_service::BomCategoryService;
 pub use bom_service::{AttributeOverrides, BomService};
 pub use department_service::DepartmentService;
+pub use document_sequence_service::DocumentSequenceService;
 pub use labor_process_service::LaborProcessService;
 pub use labor_process_dict_service::LaborProcessDictService;
 pub use inventory_service::{InventoryLog, InventoryService};
@@ -49,6 +52,7 @@ pub use inventory_cascade_service::InventoryCascadeService;
 pub use notification_service::NotificationService;
 pub use product_watcher_service::ProductWatcherService;
 pub use scheduled_task_service::{ScheduledTask, TaskRunResult, TaskStatus};
+pub use supplier_service::{SupplierBankAccountInput, SupplierContactInput, SupplierService};
 pub use workflow_service::WorkflowService;
 
 // Re-export executor type from repositories

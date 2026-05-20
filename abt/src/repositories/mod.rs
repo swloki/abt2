@@ -7,6 +7,7 @@ mod bom_category_repo;
 mod bom_node_repo;
 mod bom_repo;
 mod department_repo;
+mod document_sequence_repo;
 mod inventory_repo;
 mod labor_process_repo;
 mod labor_process_dict_repo;
@@ -25,6 +26,7 @@ mod product_watcher_repo;
 mod workflow_template_repo;
 mod workflow_instance_repo;
 mod workflow_task_repo;
+mod supplier_repo;
 mod workflow_history_repo;
 
 pub use auth_repo::AuthRepo;
@@ -32,6 +34,7 @@ pub use bom_category_repo::BomCategoryRepo;
 pub use bom_node_repo::{BomNodeFields, BomNodeRepo};
 pub use bom_repo::{BomReference, BomRepo, ProductUsageResult};
 pub use department_repo::DepartmentRepo;
+pub use document_sequence_repo::DocumentSequenceRepo;
 pub use inventory_repo::InventoryRepo;
 pub use labor_process_repo::{BomWithoutLaborCost, LaborProcessRepo};
 pub use labor_process_dict_repo::LaborProcessDictRepo;
@@ -52,6 +55,7 @@ pub use product_watcher_repo::ProductWatcherRepo;
 pub use workflow_template_repo::WorkflowTemplateRepo;
 pub use workflow_instance_repo::WorkflowInstanceRepo;
 pub use workflow_task_repo::WorkflowTaskRepo;
+pub use supplier_repo::{SupplierBankAccountRepo, SupplierContactRepo, SupplierRepo};
 pub use workflow_history_repo::WorkflowHistoryRepo;
 
 // Re-export Executor from common

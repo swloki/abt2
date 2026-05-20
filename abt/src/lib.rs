@@ -226,3 +226,13 @@ pub fn get_auth_service(
 pub fn get_workflow_service(ctx: &AppContext) -> impl crate::service::WorkflowService {
     crate::implt::workflow_engine::WorkflowEngine::new(Arc::new(ctx.pool().clone()))
 }
+
+/// 获取单据序号服务
+pub fn get_document_sequence_service(ctx: &AppContext) -> impl crate::service::DocumentSequenceService {
+    crate::implt::DocumentSequenceServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取供应商服务
+pub fn get_supplier_service(ctx: &AppContext) -> impl crate::service::SupplierService {
+    crate::implt::SupplierServiceImpl::new(Arc::new(ctx.pool().clone()))
+}

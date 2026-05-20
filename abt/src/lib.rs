@@ -251,3 +251,8 @@ pub fn get_shipping_request_service(ctx: &AppContext) -> impl crate::service::Sh
 pub fn get_sales_return_service(ctx: &AppContext) -> impl crate::service::SalesReturnService {
     crate::implt::SalesReturnServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
+
+/// 获取对账单服务
+pub fn get_reconciliation_service(ctx: &AppContext) -> impl crate::service::ReconciliationService {
+    crate::implt::ReconciliationServiceImpl::new(Arc::new(ctx.pool().clone()))
+}

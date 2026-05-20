@@ -16,6 +16,7 @@ mod excel_service;
 mod product_price_service;
 mod product_service;
 mod quotation_service;
+mod reconciliation_service;
 mod role_service;
 mod sales_order_service;
 mod sales_return_service;
@@ -47,6 +48,7 @@ pub use product_price_service::{
 };
 pub use product_service::ProductService;
 pub use quotation_service::QuotationService;
+pub use reconciliation_service::ReconciliationService;
 pub use role_service::RoleService;
 pub use sales_order_service::SalesOrderService;
 pub use sales_return_service::SalesReturnService;

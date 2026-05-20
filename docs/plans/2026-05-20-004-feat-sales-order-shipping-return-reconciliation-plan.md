@@ -62,47 +62,19 @@ origin: docs/superpowers/specs/2026-05-20-sales-order-shipping-return-reconcilia
 - **发货数量校验在 service 层**：创建发货申请时查询 order_items 的 shipped_qty，确保不超量
 - **库存集成通过 InventoryService trait**：发货出库和退货入库调用现有 `stock_out`/`stock_in`，传入 `ref_order_type="shipping_request"/"sales_return"` + 单据 ID
 - **对账单自动生成**：创建时查询该客户该月 Shipped 发货单和 Completed 退货单的行项目明细，插入 reconciliation_items，手动调整项单独接口添加
-- **迁移编号从 047 开始**：045/046 已被报价单模块占用（在 feat/sales-quotation 分支上）
+- **迁移编号从 050 开始**：045/046 已被报价单模块占用，047-049 已被 SRM 模块占用
 
 ---
 
 ## Implementation Units
 
-### U1. Database Migrations
-
-**Goal:** 创建 8 张新表（sales_orders, sales_order_items, shipping_requests, shipping_request_items, sales_returns, sales_return_items, reconciliation_statements, reconciliation_items）及索引，初始化 SO/SR/RT/RC 序列记录
-
-**Requirements:** R1, R3, R5, R7, R9
-
-**Dependencies:** None
-
-**Files:**
-- Create: `abt/migrations/047_create_sales_orders.sql`
-- Create: `abt/migrations/048_create_shipping_requests.sql`
-- Create: `abt/migrations/049_create_sales_returns.sql`
-- Create: `abt/migrations/050_create_reconciliation.sql`
-- Create: `abt/migrations/051_seed_sales_sequences.sql`
-
-**Approach:**
-- 按依赖顺序创建：sales_orders → shipping_requests → sales_returns → reconciliation
-- 每个 migration 一个文件，包含主表 + 行项目表 + 索引
-- 051 为 document_sequences 插入 SO/SR/RT/RC 四条序列记录
-- 遵循系统惯例：soft delete via deleted_at、operator_id 审计、TIMESTAMPTZ 时间戳
-- sales_order_items 包含 shipped_qty/returned_qty 跟踪字段
-
-**Patterns to follow:** `abt/migrations/046_create_quotations.sql`
-
-**Verification:** `cargo build` 通过
-
----
-
-### U2. Proto Definitions
+### U1. Proto Definitions
 
 **Goal:** 定义销售订单、发货申请、销售退货、月对账单的 messages、enums、service RPCs
 
 **Requirements:** R1-R9
 
-**Dependencies:** None（可与 U1 并行）
+**Dependencies:** None
 
 **Files:**
 - Create: `proto/abt/v1/sales_order.proto`
@@ -123,28 +95,75 @@ origin: docs/superpowers/specs/2026-05-20-sales-order-shipping-return-reconcilia
 
 ---
 
-### U3. Sales Order: Model + Repository + Service + Impl
+### U2. Database Migrations
 
-**Goal:** 实现销售订单完整业务层
+**Goal:** 创建 8 张新表（sales_orders, sales_order_items, shipping_requests, shipping_request_items, sales_returns, sales_return_items, reconciliation_statements, reconciliation_items）及索引，初始化 SO/SR/RT/RC 序列记录
 
-**Requirements:** R1, R2, R9
+**Requirements:** R1, R3, R5, R7, R9
 
-**Dependencies:** U1, U2
+**Dependencies:** U1
+
+**Files:**
+- Create: `abt/migrations/050_create_sales_orders.sql`
+- Create: `abt/migrations/051_create_shipping_requests.sql`
+- Create: `abt/migrations/052_create_sales_returns.sql`
+- Create: `abt/migrations/053_create_reconciliation.sql`
+- Create: `abt/migrations/054_seed_sales_sequences.sql`
+
+**Approach:**
+- 按依赖顺序创建：sales_orders → shipping_requests → sales_returns → reconciliation
+- 每个 migration 一个文件，包含主表 + 行项目表 + 索引
+- 054 为 document_sequences 插入 SO/SR/RT/RC 四条序列记录
+- 遵循系统惯例：soft delete via deleted_at、operator_id 审计、TIMESTAMPTZ 时间戳
+- sales_order_items 包含 shipped_qty/returned_qty 跟踪字段
+
+**Patterns to follow:** `abt/migrations/046_create_quotations.sql`
+
+**Verification:** `cargo build` 通过
+
+---
+
+### U3. Sales Order: Model + Repository
+
+**Goal:** 实现销售订单数据模型和数据访问层
+
+**Requirements:** R1, R2
+
+**Dependencies:** U2
 
 **Files:**
 - Create: `abt/src/models/sales_order.rs`
 - Create: `abt/src/repositories/sales_order_repo.rs`
-- Create: `abt/src/service/sales_order_service.rs`
-- Create: `abt/src/implt/sales_order_service_impl.rs`
 - Modify: `abt/src/models/mod.rs`
 - Modify: `abt/src/repositories/mod.rs`
+
+**Approach:**
+- Model: SalesOrder + SalesOrderItem + SalesOrderQuery，手动 FromRow
+- Repo: insert/update/update_header/soft_delete/find_by_id/query/query_count/update_status/insert_items/find_by_order_id/update_shipped_qty/update_returned_qty。query 支持 keyword（ILIKE order_no 或 customer_name）+ status 筛选 + 分页
+- 新表使用运行时检查 sqlx（sqlx::query_as，非 sqlx::query! 宏）
+
+**Patterns to follow:** `abt/src/models/quotation.rs`、`abt/src/repositories/quotation_repo.rs`
+
+**Verification:** `cargo clippy` 通过
+
+---
+
+### U4. Sales Order: Service + Impl
+
+**Goal:** 实现销售订单业务逻辑
+
+**Requirements:** R1, R2, R9
+
+**Dependencies:** U3
+
+**Files:**
+- Create: `abt/src/service/sales_order_service.rs`
+- Create: `abt/src/implt/sales_order_service_impl.rs`
 - Modify: `abt/src/service/mod.rs`
 - Modify: `abt/src/implt/mod.rs`
 - Modify: `abt/src/lib.rs`
 
 **Approach:**
-- Model: SalesOrder + SalesOrderItem + SalesOrderQuery，手动 FromRow
-- Repo: insert/update/update_header/soft_delete/find_by_id/query/query_count/update_status/insert_items/find_by_order_id/update_shipped_qty/update_returned_qty。query 支持 keyword（ILIKE order_no 或 customer_name）+ status 筛选 + 分页
 - Service trait: create/update_header/delete/get_by_id/list/update_status
 - Impl:
   - create: 若有 quotation_id 则校验报价单 Accepted 并复制行项目；生成 SO 编号；校验 product_id 存在性；计算 subtotal/total_amount
@@ -152,9 +171,8 @@ origin: docs/superpowers/specs/2026-05-20-sales-order-shipping-return-reconcilia
   - delete: 仅 Draft
   - update_status: Draft→Confirmed, Confirmed→Cancelled, Confirmed→InProgress, InProgress→Completed（状态白名单 matches!）
 - 工厂函数: `get_sales_order_service`
-- 新表使用运行时检查 sqlx（sqlx::query_as，非 sqlx::query! 宏）
 
-**Patterns to follow:** `abt/src/implt/quotation_service_impl.rs`、`abt/src/repositories/quotation_repo.rs`
+**Patterns to follow:** `abt/src/implt/quotation_service_impl.rs`
 
 **Test scenarios:**
 - Happy path: create 独立订单 → 生成编号 → 返回 ID
@@ -170,28 +188,46 @@ origin: docs/superpowers/specs/2026-05-20-sales-order-shipping-return-reconcilia
 
 ---
 
-### U4. Shipping Request: Model + Repository + Service + Impl
+### U5. Shipping Request: Model + Repository
 
-**Goal:** 实现发货申请完整业务层，集成库存出库
+**Goal:** 实现发货申请数据模型和数据访问层
 
-**Requirements:** R3, R4, R9
+**Requirements:** R3, R4
 
 **Dependencies:** U3
 
 **Files:**
 - Create: `abt/src/models/shipping_request.rs`
 - Create: `abt/src/repositories/shipping_request_repo.rs`
-- Create: `abt/src/service/shipping_request_service.rs`
-- Create: `abt/src/implt/shipping_request_service_impl.rs`
 - Modify: `abt/src/models/mod.rs`
 - Modify: `abt/src/repositories/mod.rs`
+
+**Approach:**
+- Model: ShippingRequest + ShippingRequestItem + ShippingRequestQuery，手动 FromRow
+- Repo: insert/update/soft_delete/find_by_id/query/query_count/update_status/update_shipped_at/update_confirmed_at/insert_items/delete_by_request/find_by_request_id。query 支持 keyword + status + order_id 筛选
+
+**Patterns to follow:** `abt/src/models/quotation.rs`、`abt/src/repositories/quotation_repo.rs`
+
+**Verification:** `cargo clippy` 通过
+
+---
+
+### U6. Shipping Request: Service + Impl
+
+**Goal:** 实现发货申请业务逻辑，集成库存出库
+
+**Requirements:** R3, R4, R9
+
+**Dependencies:** U5
+
+**Files:**
+- Create: `abt/src/service/shipping_request_service.rs`
+- Create: `abt/src/implt/shipping_request_service_impl.rs`
 - Modify: `abt/src/service/mod.rs`
 - Modify: `abt/src/implt/mod.rs`
 - Modify: `abt/src/lib.rs`
 
 **Approach:**
-- Model: ShippingRequest + ShippingRequestItem + ShippingRequestQuery，手动 FromRow
-- Repo: insert/update/soft_delete/find_by_id/query/query_count/update_status/update_shipped_at/update_confirmed_at/insert_items/delete_by_request/find_by_request_id。query 支持 keyword + status + order_id 筛选
 - Service trait: create/update/delete/get_by_id/list/update_status
 - Impl:
   - create: 校验订单 Confirmed/InProgress；每行校验 quantity <= order_item.quantity - order_item.shipped_qty；从 order_item 冗余产品信息；生成 SR 编号
@@ -219,9 +255,44 @@ origin: docs/superpowers/specs/2026-05-20-sales-order-shipping-return-reconcilia
 
 ---
 
-### U5. Sales Return: Model + Repository + Service + Impl
+### U7. Sales Return: Model + Repository
 
-**Goal:** 实现销售退货完整业务层，集成库存入库
+**Goal:** 实现销售退货数据模型和数据访问层
+
+**Requirements:** R5, R6
+
+**Dependencies:** U5
+
+**Files:**
+- Create: `abt/src/models/sales_return.rs`
+- Create: `abt/src/repositories/sales_return_repo.rs`
+- Modify: `abt/src/models/mod.rs`
+- Modify: `abt/src/repositories/mod.rs`
+
+**Approach:**
+- Model: SalesReturn + SalesReturnItem + SalesReturnQuery，手动 FromRow
+- Repo: insert/update/soft_delete/find_by_id/query/query_count/update_status/insert_items/delete_by_return/find_by_return_id。query 支持 keyword + status + order_id + request_id 筛选
+
+**Patterns to follow:** `abt/src/models/quotation.rs`、`abt/src/repositories/quotation_repo.rs`
+
+**Verification:** `cargo clippy` 通过
+
+---
+
+### U8. Sales Return: Service + Impl
+
+**Goal:** 实现销售退货业务逻辑，集成库存入库
+
+**Requirements:** R5, R6, R9
+
+**Dependencies:** U7, U6
+
+**Files:**
+- Create: `abt/src/service/sales_return_service.rs`
+- Create: `abt/src/implt/sales_return_service_impl.rs`
+- Modify: `abt/src/service/mod.rs`
+- Modify: `abt/src/implt/mod.rs`
+- Modify: `abt/src/lib.rs`
 
 **Requirements:** R5, R6, R9
 
@@ -267,28 +338,46 @@ origin: docs/superpowers/specs/2026-05-20-sales-order-shipping-return-reconcilia
 
 ---
 
-### U6. Reconciliation: Model + Repository + Service + Impl
+### U9. Reconciliation: Model + Repository
 
-**Goal:** 实现月对账单完整业务层，自动汇总发货和退货明细
+**Goal:** 实现月对账单数据模型和数据访问层
 
-**Requirements:** R7, R8, R9
+**Requirements:** R7, R8
 
-**Dependencies:** U4, U5
+**Dependencies:** U5
 
 **Files:**
 - Create: `abt/src/models/reconciliation.rs`
 - Create: `abt/src/repositories/reconciliation_repo.rs`
-- Create: `abt/src/service/reconciliation_service.rs`
-- Create: `abt/src/implt/reconciliation_service_impl.rs`
 - Modify: `abt/src/models/mod.rs`
 - Modify: `abt/src/repositories/mod.rs`
+
+**Approach:**
+- Model: ReconciliationStatement + ReconciliationItem + ReconciliationQuery，手动 FromRow
+- Repo: insert/soft_delete/find_by_id/query/query_count/update_status/insert_items/find_by_statement_id/delete_adjustments_by_statement/recalculate_totals。recalculate_totals 用 SQL 聚合计算 shipping_total/return_total/adjustment_total/net_amount
+
+**Patterns to follow:** `abt/src/models/quotation.rs`、`abt/src/repositories/quotation_repo.rs`
+
+**Verification:** `cargo clippy` 通过
+
+---
+
+### U10. Reconciliation: Service + Impl
+
+**Goal:** 实现月对账单业务逻辑，自动汇总发货和退货明细
+
+**Requirements:** R7, R8, R9
+
+**Dependencies:** U9, U6, U8
+
+**Files:**
+- Create: `abt/src/service/reconciliation_service.rs`
+- Create: `abt/src/implt/reconciliation_service_impl.rs`
 - Modify: `abt/src/service/mod.rs`
 - Modify: `abt/src/implt/mod.rs`
 - Modify: `abt/src/lib.rs`
 
 **Approach:**
-- Model: ReconciliationStatement + ReconciliationItem + ReconciliationQuery，手动 FromRow
-- Repo: insert/soft_delete/find_by_id/query/query_count/update_status/insert_items/find_by_statement_id/delete_adjustments_by_statement/recalculate_totals。recalculate_totals 用 SQL 聚合计算 shipping_total/return_total/adjustment_total/net_amount
 - Service trait: create/add_adjustments/update/delete/get_by_id/list/update_status
 - Impl:
   - create: 指定 customer_name + period_year + period_month，查询该月 Shipped 发货单明细（JOIN shipping_requests + shipping_request_items）和 Completed 退货单明细（JOIN sales_returns + sales_return_items），插入 reconciliation_items。计算汇总金额。生成 RC 编号。唯一约束防重复
@@ -313,13 +402,13 @@ origin: docs/superpowers/specs/2026-05-20-sales-order-shipping-return-reconcilia
 
 ---
 
-### U7. gRPC Handlers + Server Registration
+### U11. gRPC Handlers + Server Registration
 
 **Goal:** 实现 4 个 Proto 层到 Service 层的转换，注册到 gRPC server
 
 **Requirements:** R1-R9
 
-**Dependencies:** U2, U3, U4, U5, U6
+**Dependencies:** U1, U4, U6, U8, U10
 
 **Files:**
 - Create: `abt-grpc/src/handlers/sales_order.rs`

@@ -1,3 +1,8 @@
+---
+name: sales-order-shipping-return-reconciliation
+description: 销售管理系统剩余四个子模块设计，包含销售订单、发货申请、销售退货、月对账单
+---
+
 # Sales Order, Shipping, Return & Reconciliation Design
 
 Date: 2026-05-20
@@ -263,12 +268,12 @@ message SalesOrderItem {
   string product_code = 4;
   string product_name = 5;
   string unit = 6;
-  double unit_price = 7;
-  double quantity = 8;
-  double discount = 9;
-  double subtotal = 10;
-  double shipped_qty = 11;
-  double returned_qty = 12;
+  string unit_price = 7;
+  string quantity = 8;
+  string discount = 9;
+  string subtotal = 10;
+  string shipped_qty = 11;
+  string returned_qty = 12;
   string remark = 13;
 }
 
@@ -280,7 +285,7 @@ message SalesOrder {
   string contact_person = 5;
   string contact_phone = 6;
   SalesOrderStatus status = 7;
-  double total_amount = 8;
+  string total_amount = 8;
   string remark = 9;
   int64 delivery_date = 10;
   int64 created_at = 11;
@@ -301,9 +306,9 @@ message CreateSalesOrderRequest {
 
 message CreateSalesOrderItem {
   int64 product_id = 1;
-  double unit_price = 2;
-  double quantity = 3;
-  double discount = 4;
+  string unit_price = 2;
+  string quantity = 3;
+  string discount = 4;
   string remark = 5;
 }
 
@@ -378,7 +383,7 @@ message ShippingRequestItem {
   string product_code = 5;
   string product_name = 6;
   string unit = 7;
-  double quantity = 8;
+  string quantity = 8;
   string remark = 9;
 }
 
@@ -405,7 +410,7 @@ message CreateShippingRequestRequest {
 
 message CreateShippingRequestItem {
   int64 order_item_id = 1;
-  double quantity = 2;
+  string quantity = 2;
   string remark = 3;
 }
 
@@ -480,9 +485,9 @@ message SalesReturnItem {
   string product_code = 6;
   string product_name = 7;
   string unit = 8;
-  double unit_price = 9;
-  double quantity = 10;
-  double subtotal = 11;
+  string unit_price = 9;
+  string quantity = 10;
+  string subtotal = 11;
   string remark = 12;
 }
 
@@ -493,7 +498,7 @@ message SalesReturn {
   int64 order_id = 4;
   string customer_name = 5;
   SalesReturnStatus status = 6;
-  double total_amount = 7;
+  string total_amount = 7;
   string remark = 8;
   string reason = 9;
   int64 operator_id = 10;
@@ -511,7 +516,7 @@ message CreateSalesReturnRequest {
 
 message CreateSalesReturnItem {
   int64 request_item_id = 1;
-  double quantity = 2;
+  string quantity = 2;
   string remark = 3;
 }
 
@@ -586,9 +591,9 @@ message ReconciliationItem {
   string product_code = 6;
   string product_name = 7;
   string unit = 8;
-  double quantity = 9;
-  double unit_price = 10;
-  double amount = 11;
+  string quantity = 9;
+  string unit_price = 10;
+  string amount = 11;
   string remark = 12;
 }
 
@@ -598,10 +603,10 @@ message ReconciliationStatement {
   string customer_name = 3;
   int32 period_year = 4;
   int32 period_month = 5;
-  double shipping_total = 6;
-  double return_total = 7;
-  double adjustment_total = 8;
-  double net_amount = 9;
+  string shipping_total = 6;
+  string return_total = 7;
+  string adjustment_total = 8;
+  string net_amount = 9;
   ReconciliationStatus status = 10;
   string remark = 11;
   int64 operator_id = 12;
@@ -624,9 +629,9 @@ message AddReconciliationAdjustmentRequest {
 
 message AdjustmentItem {
   int64 product_id = 1;
-  double quantity = 2;
-  double unit_price = 3;
-  double amount = 4;
+  string quantity = 2;
+  string unit_price = 3;
+  string amount = 4;
   string remark = 5;
 }
 
@@ -692,11 +697,11 @@ pub struct SalesOrder {
     pub status: i16,
     pub total_amount: Decimal,
     pub remark: Option<String>,
-    pub delivery_date: Option<NaiveDateTime>,
+    pub delivery_date: Option<DateTime<Utc>>,
     pub operator_id: Option<i64>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-    pub deleted_at: Option<NaiveDateTime>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
     pub items: Vec<SalesOrderItem>,
 }
 
@@ -715,7 +720,7 @@ pub struct SalesOrderItem {
     pub shipped_qty: Decimal,
     pub returned_qty: Decimal,
     pub remark: Option<String>,
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -739,11 +744,11 @@ pub struct ShippingRequest {
     pub status: i16,
     pub remark: Option<String>,
     pub operator_id: Option<i64>,
-    pub confirmed_at: Option<NaiveDateTime>,
-    pub shipped_at: Option<NaiveDateTime>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-    pub deleted_at: Option<NaiveDateTime>,
+    pub confirmed_at: Option<DateTime<Utc>>,
+    pub shipped_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
     pub items: Vec<ShippingRequestItem>,
 }
 
@@ -758,7 +763,7 @@ pub struct ShippingRequestItem {
     pub unit: Option<String>,
     pub quantity: Decimal,
     pub remark: Option<String>,
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -786,9 +791,9 @@ pub struct SalesReturn {
     pub remark: Option<String>,
     pub reason: Option<String>,
     pub operator_id: Option<i64>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-    pub deleted_at: Option<NaiveDateTime>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
     pub items: Vec<SalesReturnItem>,
 }
 
@@ -806,7 +811,7 @@ pub struct SalesReturnItem {
     pub quantity: Decimal,
     pub subtotal: Decimal,
     pub remark: Option<String>,
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -837,9 +842,9 @@ pub struct ReconciliationStatement {
     pub status: i16,
     pub remark: Option<String>,
     pub operator_id: Option<i64>,
-    pub created_at: NaiveDateTime,
-    pub updated_at: NaiveDateTime,
-    pub deleted_at: Option<NaiveDateTime>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
     pub items: Vec<ReconciliationItem>,
 }
 
@@ -857,7 +862,7 @@ pub struct ReconciliationItem {
     pub unit_price: Decimal,
     pub amount: Decimal,
     pub remark: Option<String>,
-    pub created_at: NaiveDateTime,
+    pub created_at: DateTime<Utc>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
@@ -879,7 +884,7 @@ pub struct ReconciliationQuery {
 impl SalesOrderRepo {
     pub async fn insert(executor: Executor<'_>, order: &SalesOrder) -> Result<i64>;
     pub async fn update(executor: Executor<'_>, order: &SalesOrder) -> Result<()>;
-    pub async fn update_header(executor: Executor<'_>, order_id: i64, customer_name: &str, contact_person: Option<&str>, contact_phone: Option<&str>, remark: Option<&str>, delivery_date: Option<NaiveDateTime>) -> Result<()>;
+    pub async fn update_header(executor: Executor<'_>, order_id: i64, customer_name: &str, contact_person: Option<&str>, contact_phone: Option<&str>, remark: Option<&str>, delivery_date: Option<DateTime<Utc>>) -> Result<()>;
     pub async fn soft_delete(executor: Executor<'_>, order_id: i64) -> Result<()>;
     pub async fn find_by_id(pool: &PgPool, order_id: i64) -> Result<Option<SalesOrder>>;
     pub async fn query(pool: &PgPool, query: &SalesOrderQuery) -> Result<Vec<SalesOrder>>;
@@ -954,7 +959,7 @@ impl ReconciliationRepo {
 #[async_trait]
 pub trait SalesOrderService {
     async fn create(&self, operator_id: Option<i64>, order: SalesOrder, executor: Executor<'_>) -> Result<i64>;
-    async fn update_header(&self, order_id: i64, customer_name: String, contact_person: Option<String>, contact_phone: Option<String>, remark: Option<String>, delivery_date: Option<NaiveDateTime>) -> Result<()>;
+    async fn update_header(&self, order_id: i64, customer_name: String, contact_person: Option<String>, contact_phone: Option<String>, remark: Option<String>, delivery_date: Option<DateTime<Utc>>) -> Result<()>;
     async fn delete(&self, order_id: i64, executor: Executor<'_>) -> Result<()>;
     async fn get_by_id(&self, order_id: i64) -> Result<Option<SalesOrder>>;
     async fn list(&self, query: SalesOrderQuery) -> Result<PaginatedResult<SalesOrder>>;
@@ -997,14 +1002,14 @@ pub trait ReconciliationService {
 
 **SalesOrderServiceImpl:**
 
-- **create**: 若提供 `quotation_id`，校验报价单为 Accepted 状态，复制行项目（价格/产品/折扣）。否则独立创建。生成编号 SO-YYYY-MM-NNNNN。校验 product_id 存在性，冗余写入产品信息。计算 subtotal/total_amount。初始状态 Draft。
+- **create**: 若提供 `quotation_id`，校验报价单为 Accepted 状态，复制行项目（价格/产品/折扣）。否则独立创建。生成编号 SOYYYYMMNNNNN。校验 product_id 存在性，冗余写入产品信息。计算 subtotal/total_amount。初始状态 Draft。
 - **update_header**: 校验订单存在。Confirmed 及之后状态允许修改主信息（不涉及行项目）。
 - **delete**: 仅 Draft 可删。软删除。
 - **update_status**: Draft→Confirmed→Cancelled, Confirmed→InProgress→Completed。首次发货确认时自动从 Confirmed 转为 InProgress。
 
 **ShippingRequestServiceImpl:**
 
-- **create**: 校验订单为 Confirmed 或 InProgress 状态。每行的 `quantity <= order_item.quantity - order_item.shipped_qty`。从 order_item 冗余产品信息。生成编号 SR-YYYY-MM-NNNNN。初始状态 Pending。
+- **create**: 校验订单为 Confirmed 或 InProgress 状态。每行的 `quantity <= order_item.quantity - order_item.shipped_qty`。从 order_item 冗余产品信息。生成编号 SRYYYYMMNNNNN。初始状态 Pending。
 - **update**: 仅 Pending 可改行项目。重新校验数量约束。
 - **update_status**:
   - Pending→Confirmed: 记录 confirmed_at
@@ -1014,7 +1019,7 @@ pub trait ReconciliationService {
 
 **SalesReturnServiceImpl:**
 
-- **create**: 校验发货单为 Shipped 状态。每行 `quantity <= shipped_qty - 已退货数量`（按 order_item 维度）。从 shipping_request_item 获取产品信息和原价。生成编号 RT-YYYY-MM-NNNNN。初始状态 Pending。
+- **create**: 校验发货单为 Shipped 状态。每行 `quantity <= shipped_qty - 已退货数量`（按 order_item 维度）。从 shipping_request_item 获取产品信息和原价。生成编号 RTYYYYMMNNNNN。初始状态 Pending。
 - **update**: 仅 Pending 可改。
 - **update_status**:
   - Pending→Approved→Received→Completed
@@ -1023,7 +1028,7 @@ pub trait ReconciliationService {
 
 **ReconciliationServiceImpl:**
 
-- **create**: 指定客户 + 年月，查询该客户该月所有 Shipped 状态的发货单明细和 Completed 状态的退货单明细，生成 reconciliation_items（source_type=shipping/return）。计算 shipping_total、return_total、net_amount。生成编号 RC-YYYY-MM-NNNNN。同一客户同月不允许重复创建（unique index）。
+- **create**: 指定客户 + 年月，查询该客户该月所有 Shipped 状态的发货单明细和 Completed 状态的退货单明细，生成 reconciliation_items（source_type=shipping/return）。计算 shipping_total、return_total、net_amount。生成编号 RCYYYYMMNNNNN。同一客户同月不允许重复创建（unique index）。
 - **add_adjustments**: 仅 Draft 状态可添加调整项。先删除旧调整项（source_type=adjustment），重新插入。调用 recalculate_totals 重算 adjustment_total 和 net_amount。
 - **update_status**: Draft→Confirmed→Approved。仅 Draft 可改 remark。
 - **delete**: 仅 Draft 可删。

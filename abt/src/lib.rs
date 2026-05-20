@@ -241,3 +241,8 @@ pub fn get_supplier_service(ctx: &AppContext) -> impl crate::service::SupplierSe
 pub fn get_supplier_price_service(ctx: &AppContext) -> impl crate::service::SupplierPriceService {
     crate::implt::SupplierPriceServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
+
+/// 获取采购订单服务
+pub fn get_purchase_order_service(ctx: &AppContext) -> impl crate::service::PurchaseOrderService {
+    crate::implt::PurchaseOrderServiceImpl::new(Arc::new(ctx.pool().clone()))
+}

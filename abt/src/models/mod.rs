@@ -26,6 +26,7 @@ mod inventory_cascade;
 mod notification;
 mod supplier;
 mod supplier_price;
+mod purchase_order;
 mod workflow;
 
 pub use api::*;
@@ -50,4 +51,5 @@ pub use inventory_cascade::*;
 pub use notification::*;
 pub use supplier::*;
 pub use supplier_price::*;
+pub use purchase_order::*;
 pub use workflow::*;

@@ -1,0 +1,118 @@
+syntax = "proto3";
+package abt.v1;
+
+import "abt/v1/base.proto";
+
+// 对账单状态
+enum ReconciliationStatus {
+  RECONCILIATION_STATUS_UNSPECIFIED = 0;
+  RECONCILIATION_STATUS_DRAFT = 1;
+  RECONCILIATION_STATUS_CONFIRMED = 2;
+  RECONCILIATION_STATUS_APPROVED = 3;
+}
+
+// 对账单行项目
+message ReconciliationItem {
+  int64 item_id = 1;
+  int64 statement_id = 2;
+  string source_type = 3;
+  int64 source_id = 4;
+  int64 product_id = 5;
+  string product_code = 6;
+  string product_name = 7;
+  string unit = 8;
+  double quantity = 9;
+  double unit_price = 10;
+  double amount = 11;
+  string remark = 12;
+}
+
+// 对账单
+message ReconciliationStatement {
+  int64 statement_id = 1;
+  string statement_no = 2;
+  string customer_name = 3;
+  int32 period_year = 4;
+  int32 period_month = 5;
+  double shipping_total = 6;
+  double return_total = 7;
+  double adjustment_total = 8;
+  double net_amount = 9;
+  ReconciliationStatus status = 10;
+  string remark = 11;
+  int64 operator_id = 12;
+  int64 created_at = 13;
+  int64 updated_at = 14;
+  repeated ReconciliationItem items = 15;
+}
+
+// 请求消息
+
+message CreateReconciliationRequest {
+  string customer_name = 1;
+  int32 period_year = 2;
+  int32 period_month = 3;
+  string remark = 4;
+}
+
+message AdjustmentItem {
+  int64 product_id = 1;
+  double quantity = 2;
+  double unit_price = 3;
+  double amount = 4;
+  string remark = 5;
+}
+
+message AddReconciliationAdjustmentRequest {
+  int64 statement_id = 1;
+  repeated AdjustmentItem items = 2;
+}
+
+message UpdateReconciliationRequest {
+  int64 statement_id = 1;
+  string remark = 2;
+}
+
+message ListReconciliationsRequest {
+  optional string keyword = 1;
+  optional ReconciliationStatus status = 2;
+  optional int32 period_year = 3;
+  optional int32 period_month = 4;
+  optional PaginationParams pagination = 5;
+}
+
+message GetReconciliationRequest {
+  int64 statement_id = 1;
+}
+
+message UpdateReconciliationStatusRequest {
+  int64 statement_id = 1;
+  ReconciliationStatus status = 2;
+}
+
+message DeleteReconciliationRequest {
+  int64 statement_id = 1;
+}
+
+// 响应消息
+
+message ReconciliationResponse {
+  ReconciliationStatement statement = 1;
+}
+
+message ReconciliationListResponse {
+  repeated ReconciliationStatement items = 1;
+  PaginationInfo pagination = 2;
+}
+
+// 服务定义
+
+service ReconciliationService {
+  rpc CreateReconciliation(CreateReconciliationRequest) returns (U64Response);
+  rpc AddReconciliationAdjustment(AddReconciliationAdjustmentRequest) returns (BoolResponse);
+  rpc UpdateReconciliation(UpdateReconciliationRequest) returns (BoolResponse);
+  rpc DeleteReconciliation(DeleteReconciliationRequest) returns (BoolResponse);
+  rpc GetReconciliation(GetReconciliationRequest) returns (ReconciliationResponse);
+  rpc ListReconciliations(ListReconciliationsRequest) returns (ReconciliationListResponse);
+  rpc UpdateReconciliationStatus(UpdateReconciliationStatusRequest) returns (BoolResponse);
+}

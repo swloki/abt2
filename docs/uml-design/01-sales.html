@@ -1,0 +1,260 @@
+<h2>销售模块 (CRM) — 类图设计</h2>
+<p class="subtitle">5 个核心实体 + 共享层引用 + 完整业务流转</p>
+
+<div class="mockup">
+  <div class="mockup-header">Sales Module — UML Class Diagram</div>
+  <div class="mockup-body" style="padding: 20px; font-size: 13px; line-height: 1.5;">
+
+    <!-- Business flow -->
+    <div style="background: rgba(108,139,239,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #6c8bef;">业务流转</h3>
+      <div style="font-family: monospace; font-size: 13px; color: #e0e0e0; line-height: 2;">
+        <span style="color:#e5c07b;">Quotation</span> 报价
+        <span style="color:#6bc76b;">──DERIVED_FROM──→</span>
+        <span style="color:#e5c07b;">SalesOrder</span> 销售订单
+        <span style="color:#6bc76b;">──TRIGGERS──→</span>
+        <span style="color:#e5c07b;">ShippingRequest</span> 发货申请
+        <span style="color:#6bc76b;">──RECONCILES──→</span>
+        <span style="color:#e5c07b;">Reconciliation</span> 月对账单
+        <br>
+        <span style="color:#e06c75;">↗ SalesReturn</span> 销售退货
+        <span style="color:#888;">（从 ShippingRequest 逆向触发）</span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+
+      <!-- Quotation -->
+      <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05);">
+        <h3 style="color: #e5a655; margin: 0 0 6px 0;">Quotation 报价单</h3>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">功能：结合 BOM 成本规范商务询报价，锁定订单初始利润</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Quotation</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// QUO-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;customer_id: UUID <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;contact_id: UUID <span style="color:#888;">FK→contacts</span><br>
+          &nbsp;&nbsp;quotation_date: Date<br>
+          &nbsp;&nbsp;valid_until: Date <span style="color:#888;">// 报价有效期</span><br>
+          &nbsp;&nbsp;status: QuotationStatus<br>
+          &nbsp;&nbsp;total_amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;total_cost: Decimal(10,6)<br>
+          &nbsp;&nbsp;estimated_margin: Decimal(5,2) <span style="color:#888;">// 预估毛利率%</span><br>
+          &nbsp;&nbsp;payment_terms: String <span style="color:#888;">// 付款条件</span><br>
+          &nbsp;&nbsp;delivery_terms: String <span style="color:#888;">// 交货条款</span><br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">QuotationItem</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;quotation_id: UUID <span style="color:#888;">FK→quotations</span><br>
+          &nbsp;&nbsp;line_no: i32<br>
+          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;description: String<br>
+          &nbsp;&nbsp;quantity: Decimal(10,6)<br>
+          &nbsp;&nbsp;unit: String<br>
+          &nbsp;&nbsp;unit_price: Decimal(10,6)<br>
+          &nbsp;&nbsp;unit_cost: Decimal(10,6) <span style="color:#888;">// BOM展开成本</span><br>
+          &nbsp;&nbsp;discount_rate: Decimal(5,2)<br>
+          &nbsp;&nbsp;amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;delivery_date: Date?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">QuotationStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, SENT, ACCEPTED, REJECTED, EXPIRED<br>
+          &nbsp;&nbsp;}
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>共享层交互：</strong>DocumentSequence 生成编号 | CostEntry 无直接写入（报价阶段不产生实际成本）
+        </p>
+      </div>
+
+      <!-- SalesOrder -->
+      <div style="border: 2px solid #6bc76b; border-radius: 8px; padding: 14px; background: rgba(107,199,107,0.05);">
+        <h3 style="color: #6bc76b; margin: 0 0 6px 0;">SalesOrder 销售订单</h3>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">功能：多方线上会签确认，合同风险控制，全流程起点</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">SalesOrder</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// SO-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;customer_id: UUID <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;contact_id: UUID <span style="color:#888;">FK→contacts</span><br>
+          &nbsp;&nbsp;order_date: Date<br>
+          &nbsp;&nbsp;status: SalesOrderStatus<br>
+          &nbsp;&nbsp;total_amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;payment_terms: String<br>
+          &nbsp;&nbsp;delivery_address: String<br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">SalesOrderItem</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;order_id: UUID <span style="color:#888;">FK→sales_orders</span><br>
+          &nbsp;&nbsp;line_no: i32<br>
+          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;description: String<br>
+          &nbsp;&nbsp;quantity: Decimal(10,6)<br>
+          &nbsp;&nbsp;unit_price: Decimal(10,6)<br>
+          &nbsp;&nbsp;amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;delivered_qty: Decimal(10,6) <span style="color:#888;">// 已发货量</span><br>
+          &nbsp;&nbsp;returned_qty: Decimal(10,6) <span style="color:#888;">// 已退货量</span><br>
+          &nbsp;&nbsp;delivery_date: Date?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SalesOrderStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, CONFIRMED, IN_PRODUCTION<br>
+          &nbsp;&nbsp;PARTIALLY_SHIPPED, SHIPPED, COMPLETED<br>
+          &nbsp;&nbsp;CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>共享层交互：</strong>DocumentSequence 编号 | InventoryReservation SOFT预留 | DocumentLink 关联报价
+        </p>
+      </div>
+
+      <!-- ShippingRequest -->
+      <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+        <h3 style="color: #c678dd; margin: 0 0 6px 0;">ShippingRequest 发货申请</h3>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">功能：销售发货指令枪，直接流转至仓库触发出库</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ShippingRequest</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// SR-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;order_id: UUID <span style="color:#888;">FK→sales_orders</span><br>
+          &nbsp;&nbsp;customer_id: UUID <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;request_date: Date<br>
+          &nbsp;&nbsp;expected_ship_date: Date<br>
+          &nbsp;&nbsp;status: ShippingStatus<br>
+          &nbsp;&nbsp;shipping_address: String<br>
+          &nbsp;&nbsp;carrier: String? <span style="color:#888;">// 物流商</span><br>
+          &nbsp;&nbsp;tracking_number: String?<br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ShippingRequestItem</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;request_id: UUID <span style="color:#888;">FK→shipping_requests</span><br>
+          &nbsp;&nbsp;order_item_id: UUID <span style="color:#888;">FK→sales_order_items</span><br>
+          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;requested_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;shipped_qty: Decimal(10,6) <span style="color:#888;">// 实际出库量</span><br>
+          &nbsp;&nbsp;warehouse_id: UUID <span style="color:#888;">FK→warehouses</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ShippingStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, CONFIRMED, PICKING, SHIPPED<br>
+          &nbsp;&nbsp;CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>共享层交互：</strong>InventoryReservation 释放预留 | DocumentLink 关联订单 | CostEntry 记销售成本
+        </p>
+      </div>
+
+      <!-- SalesReturn -->
+      <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
+        <h3 style="color: #e06c75; margin: 0 0 6px 0;">SalesReturn 销售退货</h3>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">功能：逆向退货处理，触发质量追溯和库存回库</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">SalesReturn</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// SRT-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;order_id: UUID <span style="color:#888;">FK→sales_orders</span><br>
+          &nbsp;&nbsp;shipping_request_id: UUID <span style="color:#888;">FK→shipping_requests</span><br>
+          &nbsp;&nbsp;customer_id: UUID <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;return_date: Date<br>
+          &nbsp;&nbsp;status: ReturnStatus<br>
+          &nbsp;&nbsp;return_reason: String<br>
+          &nbsp;&nbsp;total_amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">SalesReturnItem</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;return_id: UUID <span style="color:#888;">FK→sales_returns</span><br>
+          &nbsp;&nbsp;order_item_id: UUID <span style="color:#888;">FK→sales_order_items</span><br>
+          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;returned_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;unit_price: Decimal(10,6)<br>
+          &nbsp;&nbsp;amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;disposition: ReturnDisposition<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ReturnStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, CONFIRMED, RECEIVED, INSPECTING<br>
+          &nbsp;&nbsp;COMPLETED, CANCELLED<br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ReturnDisposition</span> {<br>
+          &nbsp;&nbsp;RESTOCK, SCRAP, REWORK<br>
+          &nbsp;&nbsp;}
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>共享层交互：</strong>DocumentLink 关联原发货 | CostEntry 冲减收入 | 可触发 QMS 检验
+        </p>
+      </div>
+    </div>
+
+    <!-- Reconciliation (full width) -->
+    <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05); margin-top: 16px;">
+      <h3 style="color: #56b6c2; margin: 0 0 6px 0;">Reconciliation 月对账单</h3>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">功能：月底一键导出客户发货明细，核对后自动生成财务应收账款，打通业财融合</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Reconciliation</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// REC-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;customer_id: UUID <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;period: String <span style="color:#888;">// "2026-05"</span><br>
+          &nbsp;&nbsp;status: ReconciliationStatus<br>
+          &nbsp;&nbsp;total_amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;confirmed_amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;difference: Decimal(10,6) <span style="color:#888;">// 差异自动标记</span><br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ReconciliationItem</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;reconciliation_id: UUID <span style="color:#888;">FK→reconciliations</span><br>
+          &nbsp;&nbsp;shipping_request_id: UUID <span style="color:#888;">FK→shipping_requests</span><br>
+          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;quantity: Decimal(10,6)<br>
+          &nbsp;&nbsp;unit_price: Decimal(10,6)<br>
+          &nbsp;&nbsp;amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;confirmed: bool<br>
+          &nbsp;&nbsp;remark: String?<br>
+          }
+        </div>
+        <div>
+          <div style="background: rgba(86,182,194,0.15); padding: 12px; border-radius: 6px;">
+            <h4 style="margin: 0 0 8px 0; color: #56b6c2;">ReconciliationStatus</h4>
+            <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+              <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ReconciliationStatus</span> {<br>
+              &nbsp;&nbsp;DRAFT, SENT, CONFIRMED, DISPUTED<br>
+              &nbsp;&nbsp;SETTLED<br>
+              &nbsp;&nbsp;}
+            </div>
+            <h4 style="margin: 12px 0 8px 0; color: #56b6c2;">共享层交互</h4>
+            <p style="color: #ccc; font-size: 12px; margin: 0;">
+              DocumentSequence 编号<br>
+              DocumentLink 关联发货单（RECONCILES）<br>
+              CostEntry 对账确认后生成应收账款凭证<br>
+              <span style="color:#888;">（后续 FMS 模块消费此凭证进行核销）</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

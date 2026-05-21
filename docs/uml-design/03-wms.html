@@ -1,0 +1,472 @@
+<h2>仓储模块 (WMS) — 类图设计</h2>
+<p class="subtitle">三级库位模型 + 策略引擎 + 全业务覆盖 + 用量差异闭环</p>
+
+<div class="mockup">
+  <div class="mockup-header">WMS Module — UML Class Diagram</div>
+  <div class="mockup-body" style="padding: 20px; font-size: 13px; line-height: 1.5;">
+
+    <!-- Business flow -->
+    <div style="background: rgba(107,199,107,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #6bc76b;">核心业务流</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
+        <span style="color:#e5c07b;">ArrivalNotice</span> 来料通知
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#888;">IQC检验</span>
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">Putaway</span> 上架入库
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">StockLedger</span> 库存账
+        <br>
+        <span style="color:#c678dd;">← Pick/Ship</span> 拣货出库
+        <span style="color:#c678dd;">← MaterialRequisition</span> 生产领料
+        <span style="color:#c678dd;">← Backflush</span> 系统倒冲
+        <br>
+        <span style="color:#e06c75;">Transfer</span> 调拨 | <span style="color:#e06c75;">FormConversion</span> 形态转换 | <span style="color:#e06c75;">CycleCount</span> 盘点 | <span style="color:#e06c75;">InventoryLock</span> 锁库
+      </div>
+    </div>
+
+    <!-- Row 1: Three-level location model -->
+    <div style="margin-bottom: 20px;">
+      <h3 style="color: #6bc76b; margin: 0 0 12px 0; border-bottom: 1px solid #333; padding-bottom: 6px;">三级库位模型</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+
+        <div style="border: 2px solid #6c8bef; border-radius: 8px; padding: 14px; background: rgba(108,139,239,0.05);">
+          <h4 style="color: #6c8bef; margin: 0 0 6px 0;">Warehouse 仓库</h4>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Warehouse</span> {<br>
+            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;code: String<br>
+            &nbsp;&nbsp;name: String<br>
+            &nbsp;&nbsp;warehouse_type: WarehouseType<br>
+            &nbsp;&nbsp;status: WarehouseStatus<br>
+            &nbsp;&nbsp;address: String?<br>
+            &nbsp;&nbsp;manager_id: UUID? <span style="color:#888;">FK→users</span><br>
+            &nbsp;&nbsp;is_virtual: bool <span style="color:#888;">// 虚拟仓(委外)</span><br>
+            &nbsp;&nbsp;remark: String<br>
+            &nbsp;&nbsp;operator_id: UUID<br>
+            &nbsp;&nbsp;created_at: Timestamp<br>
+            &nbsp;&nbsp;updated_at: Timestamp<br>
+            &nbsp;&nbsp;deleted_at: Timestamp?<br>
+            }<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">WarehouseType</span> {<br>
+            &nbsp;&nbsp;RAW_MATERIAL, FINISHED_GOODS<br>
+            &nbsp;&nbsp;SEMI_FINISHED, CONSUMABLE<br>
+            &nbsp;&nbsp;VIRTUAL_OUTSOURCE<br>
+            &nbsp;&nbsp;}<br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">WarehouseStatus</span> {<br>
+            &nbsp;&nbsp;ACTIVE, INACTIVE<br>
+            &nbsp;&nbsp;}
+          </div>
+        </div>
+
+        <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05);">
+          <h4 style="color: #e5a655; margin: 0 0 6px 0;">Zone 库区</h4>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Zone</span> {<br>
+            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;warehouse_id: UUID <span style="color:#888;">FK→warehouses</span><br>
+            &nbsp;&nbsp;code: String<br>
+            &nbsp;&nbsp;name: String<br>
+            &nbsp;&nbsp;zone_type: ZoneType<br>
+            &nbsp;&nbsp;sort_order: i32<br>
+            &nbsp;&nbsp;remark: String?<br>
+            &nbsp;&nbsp;created_at: Timestamp<br>
+            &nbsp;&nbsp;updated_at: Timestamp<br>
+            &nbsp;&nbsp;deleted_at: Timestamp?<br>
+            }<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ZoneType</span> {<br>
+            &nbsp;&nbsp;RECEIVING <span style="color:#888;">// 收货区</span><br>
+            &nbsp;&nbsp;STORAGE <span style="color:#888;">// 存储区</span><br>
+            &nbsp;&nbsp;PICKING <span style="color:#888;">// 拣货区</span><br>
+            &nbsp;&nbsp;PACKING <span style="color:#888;">// 包装区</span><br>
+            &nbsp;&nbsp;INSPECTION <span style="color:#888;">// 待检区</span><br>
+            &nbsp;&nbsp;RETURNS <span style="color:#888;">// 退货区</span><br>
+            &nbsp;&nbsp;}
+          </div>
+        </div>
+
+        <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+          <h4 style="color: #c678dd; margin: 0 0 6px 0;">Bin 储位</h4>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Bin</span> {<br>
+            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;zone_id: UUID <span style="color:#888;">FK→zones</span><br>
+            &nbsp;&nbsp;code: String<br>
+            &nbsp;&nbsp;name: String<br>
+            &nbsp;&nbsp;row_no: String? <span style="color:#888;">// 行</span><br>
+            &nbsp;&nbsp;column_no: String? <span style="color:#888;">// 列</span><br>
+            &nbsp;&nbsp;layer_no: String? <span style="color:#888;">// 层</span><br>
+            &nbsp;&nbsp;capacity_limit: Decimal? <span style="color:#888;">// 容量上限</span><br>
+            &nbsp;&nbsp;allowed_product_types: String[]? <br>
+            &nbsp;&nbsp;temperature_req: String?<br>
+            &nbsp;&nbsp;status: BinStatus<br>
+            &nbsp;&nbsp;created_at: Timestamp<br>
+            &nbsp;&nbsp;updated_at: Timestamp<br>
+            &nbsp;&nbsp;deleted_at: Timestamp?<br>
+            }<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">BinStatus</span> {<br>
+            &nbsp;&nbsp;EMPTY, OCCUPIED, LOCKED, DISABLED<br>
+            &nbsp;&nbsp;}
+          </div>
+        </div>
+      </div>
+      <div style="text-align: center; font-family: monospace; color: #6bc76b; font-size: 13px; margin-top: 8px;">
+        Warehouse <span style="color:#888;">1:N</span>→ Zone <span style="color:#888;">1:N</span>→ Bin &nbsp;&nbsp;|&nbsp;&nbsp; 库存精确到 <strong>物料 × 批次 × 储位</strong> 粒度
+      </div>
+    </div>
+
+    <!-- Row 2: Stock + Strategies -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- StockLedger -->
+      <div style="border: 2px solid #6bc76b; border-radius: 8px; padding: 14px; background: rgba(107,199,107,0.05);">
+        <h4 style="color: #6bc76b; margin: 0 0 6px 0;">StockLedger 库存账（实时）</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">物料×批次×储位的实时库存数量</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">StockLedger</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;warehouse_id: UUID <span style="color:#888;">FK→warehouses</span><br>
+          &nbsp;&nbsp;zone_id: UUID <span style="color:#888;">FK→zones</span><br>
+          &nbsp;&nbsp;bin_id: UUID <span style="color:#888;">FK→bins</span><br>
+          &nbsp;&nbsp;batch_no: String?<br>
+          &nbsp;&nbsp;quantity: Decimal(10,6) <span style="color:#888;">// 现有量</span><br>
+          &nbsp;&nbsp;reserved_qty: Decimal(10,6) <span style="color:#888;">// 已预留量</span><br>
+          &nbsp;&nbsp;available_qty: Decimal(10,6) <span style="color:#888;">// = 现有量 - 已预留量</span><br>
+          &nbsp;&nbsp;unit_cost: Decimal(10,6)? <span style="color:#888;">// 移动加权平均成本</span><br>
+          &nbsp;&nbsp;received_date: Date?<br>
+          &nbsp;&nbsp;expiry_date: Date?<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#888;">// 可用量由 InventoryReservation 汇总计算</span><br>
+          <span style="color:#888;">// 此处 reserved_qty 为反范式冗余，定时校准</span>
+        </div>
+      </div>
+
+      <!-- Strategies -->
+      <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05);">
+        <h4 style="color: #e5a655; margin: 0 0 6px 0;">策略引擎（配置化）</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">上架推荐 + 拣货分配的可配置策略</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">PutawayStrategy</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;name: String<br>
+          &nbsp;&nbsp;strategy_type: PutawayType<br>
+          &nbsp;&nbsp;warehouse_id: UUID? <span style="color:#888;">// null=全局</span><br>
+          &nbsp;&nbsp;product_category_id: UUID?<br>
+          &nbsp;&nbsp;priority: i32<br>
+          &nbsp;&nbsp;is_active: bool<br>
+          }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PutawayType</span> {<br>
+          &nbsp;&nbsp;SAME_MERGE <span style="color:#888;">// 同物料合并</span><br>
+          &nbsp;&nbsp;NEAREST <span style="color:#888;">// 就近入库</span><br>
+          &nbsp;&nbsp;FIXED_BIN <span style="color:#888;">// 指定储位</span><br>
+          &nbsp;&nbsp;EMPTY_FIRST <span style="color:#888;">// 空储位优先</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">PickStrategy</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;name: String<br>
+          &nbsp;&nbsp;strategy_type: PickType<br>
+          &nbsp;&nbsp;warehouse_id: UUID?<br>
+          &nbsp;&nbsp;priority: i32<br>
+          &nbsp;&nbsp;is_active: bool<br>
+          }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PickType</span> {<br>
+          &nbsp;&nbsp;FIFO <span style="color:#888;">// 先进先出</span><br>
+          &nbsp;&nbsp;FEFO <span style="color:#888;">// 先到期先出</span><br>
+          &nbsp;&nbsp;SHORTEST_PATH <span style="color:#888;">// 最短路径</span><br>
+          &nbsp;&nbsp;FULL_PALLET <span style="color:#888;">// 整托优先</span><br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Business operations -->
+    <h3 style="color: #6bc76b; margin: 0 0 12px 0; border-bottom: 1px solid #333; padding-bottom: 6px;">业务操作实体</h3>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+      <!-- ArrivalNotice -->
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0;">ArrivalNotice 来料通知</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">供应商送货后进入待检区，不计入可用库存，质检合格后转采购入库</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ArrivalNotice</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// AN-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;purchase_order_id: UUID? <span style="color:#888;">FK→purchase_orders</span><br>
+          &nbsp;&nbsp;supplier_id: UUID <span style="color:#888;">FK→suppliers</span><br>
+          &nbsp;&nbsp;arrival_date: Date<br>
+          &nbsp;&nbsp;status: ArrivalStatus<br>
+          &nbsp;&nbsp;warehouse_id: UUID <span style="color:#888;">FK→warehouses</span><br>
+          &nbsp;&nbsp;zone_id: UUID? <span style="color:#888;">FK→zones (待检区)</span><br>
+          &nbsp;&nbsp;delivery_note: String? <span style="color:#888;">// 送货单号</span><br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ArrivalNoticeItem</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;notice_id: UUID<br>
+          &nbsp;&nbsp;order_item_id: UUID?<br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;declared_qty: Decimal(10,6) <span style="color:#888;">// 供应商申报量</span><br>
+          &nbsp;&nbsp;received_qty: Decimal(10,6) <span style="color:#888;">// 实收量</span><br>
+          &nbsp;&nbsp;accepted_qty: Decimal(10,6) <span style="color:#888;">// 检验合格量</span><br>
+          &nbsp;&nbsp;batch_no: String?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ArrivalStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, RECEIVED, INSPECTING, ACCEPTED<br>
+          &nbsp;&nbsp;PARTIALLY_ACCEPTED, REJECTED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <!-- InventoryTransaction -->
+      <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
+        <h4 style="color: #e06c75; margin: 0 0 6px 0;">InventoryTransaction 库存事务</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">所有库存变动的统一记录，不可修改只可追加</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InventoryTransaction</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String?<br>
+          &nbsp;&nbsp;transaction_type: TransactionType<br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;warehouse_id: UUID<br>
+          &nbsp;&nbsp;zone_id: UUID?<br>
+          &nbsp;&nbsp;bin_id: UUID?<br>
+          &nbsp;&nbsp;batch_no: String?<br>
+          &nbsp;&nbsp;quantity: Decimal(10,6) <span style="color:#888;">// +入库/-出库</span><br>
+          &nbsp;&nbsp;unit_cost: Decimal(10,6)?<br>
+          &nbsp;&nbsp;source_type: DocumentType<br>
+          &nbsp;&nbsp;source_id: UUID<br>
+          &nbsp;&nbsp;remark: String?<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">TransactionType</span> {<br>
+          &nbsp;&nbsp;PURCHASE_RECEIPT <span style="color:#888;">// 采购入库</span><br>
+          &nbsp;&nbsp;PRODUCTION_RECEIPT <span style="color:#888;">// 生产入库</span><br>
+          &nbsp;&nbsp;SALES_SHIPMENT <span style="color:#888;">// 销售出库</span><br>
+          &nbsp;&nbsp;MATERIAL_ISSUE <span style="color:#888;">// 生产领料</span><br>
+          &nbsp;&nbsp;MATERIAL_RETURN <span style="color:#888;">// 生产退料</span><br>
+          &nbsp;&nbsp;BACKFLUSH <span style="color:#888;">// 系统倒冲</span><br>
+          &nbsp;&nbsp;TRANSFER <span style="color:#888;">// 调拨</span><br>
+          &nbsp;&nbsp;FORM_CONVERSION <span style="color:#888;">// 形态转换</span><br>
+          &nbsp;&nbsp;ADJUSTMENT <span style="color:#888;">// 盘点调整</span><br>
+          &nbsp;&nbsp;LOCK <span style="color:#888;">// 锁库</span><br>
+          &nbsp;&nbsp;UNLOCK <span style="color:#888;">// 解锁</span><br>
+          &nbsp;&nbsp;SCRAP <span style="color:#888;">// 报废</span><br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4: More business entities -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+      <!-- MaterialRequisition -->
+      <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05);">
+        <h4 style="color: #98c379; margin: 0 0 6px 0; font-size: 13px;">MaterialRequisition 领料单</h4>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">MaterialRequisition</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// MR-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;work_order_id: UUID <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;requisition_date: Date<br>
+          &nbsp;&nbsp;status: RequisitionStatus<br>
+          &nbsp;&nbsp;warehouse_id: UUID<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">MaterialReqItem</span> {<br>
+          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;requisition_id: UUID<br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;requested_qty: Decimal <span style="color:#888;">// BOM定额</span><br>
+          &nbsp;&nbsp;issued_qty: Decimal <span style="color:#888;">// 实领量</span><br>
+          &nbsp;&nbsp;variance_qty: Decimal <span style="color:#888;">// 差异量</span><br>
+          &nbsp;&nbsp;bin_id: UUID?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">RequisitionStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, CONFIRMED, ISSUED<br>
+          &nbsp;&nbsp;CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <!-- Backflush -->
+      <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+        <h4 style="color: #c678dd; margin: 0 0 6px 0; font-size: 13px;">Backflush 倒冲记录</h4>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BackflushRecord</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String<br>
+          &nbsp;&nbsp;work_order_id: UUID <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products (完工品)</span><br>
+          &nbsp;&nbsp;completed_qty: Decimal <span style="color:#888;">// 完工数量</span><br>
+          &nbsp;&nbsp;backflush_date: Date<br>
+          &nbsp;&nbsp;status: BackflushStatus<br>
+          &nbsp;&nbsp;variance_threshold: Decimal <span style="color:#888;">// 差异阈值%</span><br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BackflushItem</span> {<br>
+          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;record_id: UUID<br>
+          &nbsp;&nbsp;component_id: UUID <span style="color:#888;">// BOM子件</span><br>
+          &nbsp;&nbsp;theoretical_qty: Decimal <span style="color:#888;">// BOM理论用量</span><br>
+          &nbsp;&nbsp;actual_qty: Decimal <span style="color:#888;">// 实际倒冲量</span><br>
+          &nbsp;&nbsp;variance_qty: Decimal<br>
+          &nbsp;&nbsp;variance_rate: Decimal <span style="color:#888;">// 差异率%</span><br>
+          &nbsp;&nbsp;is_over_threshold: bool<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">BackflushStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, EXECUTED, ADJUSTED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <!-- CycleCount -->
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0; font-size: 13px;">CycleCount 循环盘点</h4>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CycleCount</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String<br>
+          &nbsp;&nbsp;warehouse_id: UUID<br>
+          &nbsp;&nbsp;zone_id: UUID?<br>
+          &nbsp;&nbsp;count_date: Date<br>
+          &nbsp;&nbsp;status: CycleCountStatus<br>
+          &nbsp;&nbsp;is_blind: bool <span style="color:#888;">// 盲盘</span><br>
+          &nbsp;&nbsp;remark: String?<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CycleCountItem</span> {<br>
+          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;count_id: UUID<br>
+          &nbsp;&nbsp;bin_id: UUID<br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;batch_no: String?<br>
+          &nbsp;&nbsp;system_qty: Decimal <span style="color:#888;">// 盲盘时隐藏</span><br>
+          &nbsp;&nbsp;counted_qty: Decimal<br>
+          &nbsp;&nbsp;variance_qty: Decimal<br>
+          &nbsp;&nbsp;variance_reason: String?<br>
+          &nbsp;&nbsp;is_adjusted: bool<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">CycleCountStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, COUNTING, COMPLETED<br>
+          &nbsp;&nbsp;ADJUSTED, CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 5: Transfer + FormConversion + Lock -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+      <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05);">
+        <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">InventoryTransfer 库存调拨</h4>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InventoryTransfer</span> {<br>
+          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;doc_number: String<br>
+          &nbsp;&nbsp;from_warehouse_id: UUID<br>
+          &nbsp;&nbsp;from_zone_id: UUID?<br>
+          &nbsp;&nbsp;from_bin_id: UUID?<br>
+          &nbsp;&nbsp;to_warehouse_id: UUID<br>
+          &nbsp;&nbsp;to_zone_id: UUID?<br>
+          &nbsp;&nbsp;to_bin_id: UUID?<br>
+          &nbsp;&nbsp;transfer_date: Date<br>
+          &nbsp;&nbsp;status: TransferStatus<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">TransferItem</span> {<br>
+          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;transfer_id: UUID<br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;quantity: Decimal<br>
+          &nbsp;&nbsp;batch_no: String?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">TransferStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, IN_TRANSIT, COMPLETED<br>
+          &nbsp;&nbsp;CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05);">
+        <h4 style="color: #98c379; margin: 0 0 6px 0; font-size: 13px;">FormConversion 形态转换</h4>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">FormConversion</span> {<br>
+          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;doc_number: String<br>
+          &nbsp;&nbsp;warehouse_id: UUID<br>
+          &nbsp;&nbsp;conversion_date: Date<br>
+          &nbsp;&nbsp;status: ConversionStatus<br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ConversionItem</span> {<br>
+          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;conversion_id: UUID<br>
+          &nbsp;&nbsp;direction: ConversionDir<br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;quantity: Decimal<br>
+          &nbsp;&nbsp;unit_cost: Decimal<br>
+          &nbsp;&nbsp;batch_no: String?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ConversionDir</span> {<br>
+          &nbsp;&nbsp;CONSUME <span style="color:#888;">// 消耗源物料</span><br>
+          &nbsp;&nbsp;PRODUCE <span style="color:#888;">// 产出目标物料</span><br>
+          }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ConversionStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, COMPLETED, CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
+        <h4 style="color: #e06c75; margin: 0 0 6px 0; font-size: 13px;">InventoryLock 库存锁定</h4>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InventoryLock</span> {<br>
+          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;doc_number: String<br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;warehouse_id: UUID<br>
+          &nbsp;&nbsp;locked_qty: Decimal<br>
+          &nbsp;&nbsp;lock_reason: String <span style="color:#888;">// 客户预留等</span><br>
+          &nbsp;&nbsp;customer_id: UUID? <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;status: LockStatus<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">LockStatus</span> {<br>
+          &nbsp;&nbsp;ACTIVE, RELEASED, CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+    </div>
+
+    <!-- Shared layer summary -->
+    <div style="padding: 12px; background: rgba(107,199,107,0.1); border-radius: 6px;">
+      <h3 style="margin: 0 0 8px 0; color: #6bc76b;">WMS 模块 × 共享层交互汇总</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+        <span style="color:#6c8bef;">DocumentSequence</span> → AN/MR/BF/CC/TRF/FC/LCK 等所有单据编号<br>
+        <span style="color:#e5a655;">DocumentLink</span> → 来料→采购单 | 领料→工单 | 出库→发货申请 | 倒冲→工单<br>
+        <span style="color:#6bc76b;">InventoryReservation</span> → 领料消耗HARD预留 | 发货消耗SOFT预留 | 盘点调整后校准<br>
+        <span style="color:#e06c75;">CostEntry</span> → 入库记材料成本 | 出库记销售成本 | 倒冲差异记损耗成本 | 形态转换成本分摊
+      </div>
+    </div>
+
+  </div>
+</div>

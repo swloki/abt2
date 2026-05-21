@@ -1,0 +1,300 @@
+<h2>生产模块 (MES) — 类图设计</h2>
+<p class="subtitle">双模式排产 + 工单管理 + 工序报工 + 委外统一 + 用量差异闭环</p>
+
+<div class="mockup">
+  <div class="mockup-header">MES Module — UML Class Diagram</div>
+  <div class="mockup-body" style="padding: 20px; font-size: 13px; line-height: 1.5;">
+
+    <!-- Business flow -->
+    <div style="background: rgba(198,120,221,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #c678dd;">核心业务流</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
+        <span style="color:#e5c07b;">ProductionPlan</span> 生产计划
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">WorkOrder</span> 工单
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">WorkOrderRouting</span> 工序
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">WorkReport</span> 报工
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">ProductionReceipt</span> 完工入库
+        <br>
+        <span style="color:#e06c75;">↗ OutsourcingOrder</span> 委外单（虚拟库位模型）
+        &nbsp;&nbsp;
+        <span style="color:#56b6c2;">↗ ProductionInspection</span> 生产报检
+      </div>
+    </div>
+
+    <!-- Row 1: ProductionPlan + WorkOrder -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- ProductionPlan -->
+      <div style="border: 2px solid #6c8bef; border-radius: 8px; padding: 14px; background: rgba(108,139,239,0.05);">
+        <h4 style="color: #6c8bef; margin: 0 0 6px 0;">ProductionPlan 生产计划</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">兼容按单生产(MTO)与按库存备货(MTS)双轨制排产</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionPlan</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// PP-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;plan_date: Date<br>
+          &nbsp;&nbsp;plan_type: PlanType<br>
+          &nbsp;&nbsp;status: PlanStatus<br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionPlanItem</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;plan_id: UUID <span style="color:#888;">FK→production_plans</span><br>
+          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;planned_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;scheduled_start: Date<br>
+          &nbsp;&nbsp;scheduled_end: Date<br>
+          &nbsp;&nbsp;sales_order_id: UUID? <span style="color:#888;">FK→sales_orders (MTO)</span><br>
+          &nbsp;&nbsp;sales_order_item_id: UUID? <span style="color:#888;">// 具体行号</span><br>
+          &nbsp;&nbsp;bom_snapshot_id: UUID? <span style="color:#888;">// BOM版本快照</span><br>
+          &nbsp;&nbsp;routing_id: UUID? <span style="color:#888;">FK→labor_processes</span><br>
+          &nbsp;&nbsp;work_center_id: UUID? <span style="color:#888;">// 生产中心</span><br>
+          &nbsp;&nbsp;priority: i32<br>
+          &nbsp;&nbsp;status: PlanItemStatus<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PlanType</span> {<br>
+          &nbsp;&nbsp;MTO <span style="color:#888;">// 按单生产</span><br>
+          &nbsp;&nbsp;MTS <span style="color:#888;">// 按库存备货</span><br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PlanStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, CONFIRMED, IN_PROGRESS<br>
+          &nbsp;&nbsp;COMPLETED, CANCELLED<br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PlanItemStatus</span> {<br>
+          &nbsp;&nbsp;PLANNED, RELEASED, IN_PRODUCTION<br>
+          &nbsp;&nbsp;COMPLETED, CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <!-- WorkOrder -->
+      <div style="border: 2px solid #6bc76b; border-radius: 8px; padding: 14px; background: rgba(107,199,107,0.05);">
+        <h4 style="color: #6bc76b; margin: 0 0 6px 0;">WorkOrder 工单</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">将生产计划细化到批次和班组，是领料与执行的唯一依据</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WorkOrder</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// WO-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;plan_item_id: UUID? <span style="color:#888;">FK→production_plan_items</span><br>
+          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;bom_snapshot_id: UUID? <span style="color:#888;">// 冻结的BOM快照</span><br>
+          &nbsp;&nbsp;routing_id: UUID? <span style="color:#888;">FK→labor_processes</span><br>
+          &nbsp;&nbsp;planned_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;completed_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;scrap_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;scheduled_start: Date<br>
+          &nbsp;&nbsp;scheduled_end: Date<br>
+          &nbsp;&nbsp;actual_start: Timestamp?<br>
+          &nbsp;&nbsp;actual_end: Timestamp?<br>
+          &nbsp;&nbsp;status: WorkOrderStatus<br>
+          &nbsp;&nbsp;work_center_id: UUID? <span style="color:#888;">// 车间/产线</span><br>
+          &nbsp;&nbsp;team_id: UUID? <span style="color:#888;">// 班组</span><br>
+          &nbsp;&nbsp;sales_order_id: UUID? <span style="color:#888;">// MTO关联</span><br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">WorkOrderStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT <span style="color:#888;">// 待计划</span><br>
+          &nbsp;&nbsp;PLANNED <span style="color:#888;">// 已计划</span><br>
+          &nbsp;&nbsp;RELEASED <span style="color:#888;">// 已下达</span><br>
+          &nbsp;&nbsp;IN_PRODUCTION <span style="color:#888;">// 生产中</span><br>
+          &nbsp;&nbsp;COMPLETED <span style="color:#888;">// 已完工</span><br>
+          &nbsp;&nbsp;CLOSED <span style="color:#888;">// 已关闭</span><br>
+          &nbsp;&nbsp;CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Routing + WorkReport -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- WorkOrderRouting -->
+      <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05);">
+        <h4 style="color: #e5a655; margin: 0 0 6px 0;">WorkOrderRouting 工单工序</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">基于工艺路线生成，记录每道工序的计划与实际执行情况</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WorkOrderRouting</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;work_order_id: UUID <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;step_no: i32 <span style="color:#888;">// 工序序号</span><br>
+          &nbsp;&nbsp;process_name: String <span style="color:#888;">// 贴片/插件/组装...</span><br>
+          &nbsp;&nbsp;work_center_id: UUID?<br>
+          &nbsp;&nbsp;standard_time: Decimal? <span style="color:#888;">// 标准工时(小时)</span><br>
+          &nbsp;&nbsp;standard_cost: Decimal? <span style="color:#888;">// 标准人工成本</span><br>
+          &nbsp;&nbsp;planned_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;completed_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;defect_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;status: RoutingStatus<br>
+          &nbsp;&nbsp;is_outsourced: bool <span style="color:#888;">// 是否委外工序</span><br>
+          &nbsp;&nbsp;is_inspection_point: bool <span style="color:#888;">// 是否报检点</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">RoutingStatus</span> {<br>
+          &nbsp;&nbsp;PENDING, IN_PROGRESS, COMPLETED<br>
+          &nbsp;&nbsp;SKIPPED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <!-- WorkReport -->
+      <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+        <h4 style="color: #c678dd; margin: 0 0 6px 0;">WorkReport 报工记录</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">工人实时提报工序完成进度与不良数，为计件工资和成本核算提供数据</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WorkReport</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// WR-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;work_order_id: UUID <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;routing_id: UUID <span style="color:#888;">FK→work_order_routings</span><br>
+          &nbsp;&nbsp;report_date: Date<br>
+          &nbsp;&nbsp;shift: ShiftType<br>
+          &nbsp;&nbsp;worker_id: UUID <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;completed_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;defect_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;defect_reason: String?<br>
+          &nbsp;&nbsp;work_hours: Decimal <span style="color:#888;">// 实际工时</span><br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ShiftType</span> {<br>
+          &nbsp;&nbsp;DAY <span style="color:#888;">// 白班</span><br>
+          &nbsp;&nbsp;NIGHT <span style="color:#888;">// 夜班</span><br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: Outsourcing + ProductionInspection + ProductionReceipt -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+      <!-- OutsourcingOrder -->
+      <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
+        <h4 style="color: #e06c75; margin: 0 0 6px 0; font-size: 13px;">OutsourcingOrder 委外单</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">委外=虚拟生产库位，发外协=调拨，供应商报工=同模型</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">OutsourcingOrder</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// OO-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;work_order_id: UUID? <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;routing_id: UUID? <span style="color:#888;">FK→work_order_routings</span><br>
+          &nbsp;&nbsp;supplier_id: UUID <span style="color:#888;">FK→suppliers</span><br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;outsourcing_type: OutsourcingType<br>
+          &nbsp;&nbsp;planned_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;completed_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;unit_price: Decimal(10,6)<br>
+          &nbsp;&nbsp;scheduled_date: Date?<br>
+          &nbsp;&nbsp;status: OutsourcingStatus<br>
+          &nbsp;&nbsp;virtual_warehouse_id: UUID <span style="color:#888;">// 虚拟库位</span><br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">OutsourcingType</span> {<br>
+          &nbsp;&nbsp;FULL <span style="color:#888;">// 产品全委外</span><br>
+          &nbsp;&nbsp;PROCESS <span style="color:#888;">// 工序委外</span><br>
+          &nbsp;&nbsp;MATERIAL <span style="color:#888;">// 材料委外</span><br>
+          &nbsp;&nbsp;REWORK <span style="color:#888;">// 委外返工</span><br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">OutsourcingStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, SENT, IN_PRODUCTION<br>
+          &nbsp;&nbsp;DELIVERED, RECEIVED, CLOSED<br>
+          &nbsp;&nbsp;CONVERTED_TO_INTERNAL <span style="color:#888;">// 转自制</span><br>
+          &nbsp;&nbsp;CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <!-- ProductionInspection -->
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0; font-size: 13px;">ProductionInspection 生产报检</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">关键工序或完工后自动触发报检</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionInspection</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// PI-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;work_order_id: UUID<br>
+          &nbsp;&nbsp;routing_id: UUID?<br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;inspection_type: InspectionType<br>
+          &nbsp;&nbsp;sample_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;qualified_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;unqualified_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;result: InspectionResult<br>
+          &nbsp;&nbsp;inspector_id: UUID<br>
+          &nbsp;&nbsp;inspection_date: Date<br>
+          &nbsp;&nbsp;disposition: String? <span style="color:#888;">// 处置意见</span><br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionType</span> {<br>
+          &nbsp;&nbsp;FIRST_ARTICLE <span style="color:#888;">// 首件检查</span><br>
+          &nbsp;&nbsp;IN_PROCESS <span style="color:#888;">// 巡检</span><br>
+          &nbsp;&nbsp;FINAL <span style="color:#888;">// 完工检</span><br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionResult</span> {<br>
+          &nbsp;&nbsp;PASS, FAIL, CONDITIONAL<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <!-- ProductionReceipt -->
+      <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05);">
+        <h4 style="color: #98c379; margin: 0 0 6px 0; font-size: 13px;">ProductionReceipt 完工入库</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">检验合格后入库，触发倒冲和成本归集</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionReceipt</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// PR-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;work_order_id: UUID <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;received_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;warehouse_id: UUID<br>
+          &nbsp;&nbsp;zone_id: UUID?<br>
+          &nbsp;&nbsp;bin_id: UUID?<br>
+          &nbsp;&nbsp;receipt_date: Date<br>
+          &nbsp;&nbsp;status: ReceiptStatus<br>
+          &nbsp;&nbsp;backflush_triggered: bool <span style="color:#888;">// 是否触发倒冲</span><br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ReceiptStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, CONFIRMED, CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+    </div>
+
+    <!-- Shared layer summary -->
+    <div style="padding: 12px; background: rgba(198,120,221,0.1); border-radius: 6px;">
+      <h3 style="margin: 0 0 8px 0; color: #c678dd;">MES 模块 × 共享层交互汇总</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+        <span style="color:#6c8bef;">DocumentSequence</span> → PP/WO/WR/OO/PI/PR 编号<br>
+        <span style="color:#e5a655;">DocumentLink</span> → 计划→工单→报工→入库 | 工单→委外单 | 工单→领料单<br>
+        <span style="color:#6bc76b;">InventoryReservation</span> → 工单下达时 HARD 预留物料 | 领料消耗预留 | 完工释放剩余<br>
+        <span style="color:#e06c75;">CostEntry</span> → 报工记人工/制费(借:在制品/贷:人工费) | 完工记成品入库 | 倒冲差异记损耗<br>
+        <span style="color:#c678dd;">委外虚拟库位</span> → 发外协=WMS调拨到虚拟仓 | 外协收货=从虚拟仓调回 | 转自制=工单移回内部
+      </div>
+    </div>
+
+  </div>
+</div>

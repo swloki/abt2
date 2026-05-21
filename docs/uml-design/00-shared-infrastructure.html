@@ -1,0 +1,197 @@
+<h2>共享基础设施层 — 类图总览</h2>
+<p class="subtitle">4 个核心组件：实体定义 + 功能说明 + 使用场景</p>
+
+<div class="mockup">
+  <div class="mockup-header">Shared Infrastructure — UML Class Diagram with Descriptions</div>
+  <div class="mockup-body" style="padding: 20px; font-size: 13px; line-height: 1.5;">
+
+    <!-- Component 1 -->
+    <div style="border: 2px solid #6c8bef; border-radius: 8px; padding: 16px; background: rgba(108,139,239,0.05); margin-bottom: 20px;">
+      <h3 style="color: #6c8bef; margin: 0 0 8px 0;">① 统一文档编号 (DocumentSequence)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 12px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">DocumentSequence</span> {<br>
+            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;prefix: String <span style="color:#888;">// "SO", "PO", "WO"</span><br>
+            &nbsp;&nbsp;current_value: i32<br>
+            &nbsp;&nbsp;date: Date <span style="color:#888;">// 按日期分段</span><br>
+            &nbsp;&nbsp;padding_length: i32 <span style="color:#888;">// 补零位数</span><br>
+            }<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">DocumentType</span> {<br>
+            &nbsp;&nbsp;QUOTATION, SALES_ORDER, SHIPPING_REQUEST<br>
+            &nbsp;&nbsp;SALES_RETURN, RECONCILIATION<br>
+            &nbsp;&nbsp;PURCHASE_QUOTATION, PURCHASE_ORDER<br>
+            &nbsp;&nbsp;PURCHASE_RETURN, MISCELLANEOUS_REQUEST<br>
+            &nbsp;&nbsp;WORK_ORDER, OUTSOURCING_ORDER<br>
+            &nbsp;&nbsp;INSPECTION_REPORT, MRB_REPORT<br>
+            &nbsp;&nbsp;RECEIPT, PAYMENT_REQUEST, INVOICE<br>
+            &nbsp;&nbsp;}
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(108,139,239,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #6c8bef;">功能</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">为所有业务单据生成唯一、可读、有序的编号。格式为 <code style="color:#e5c07b;">{前缀}-{年}-{月}-{序号}</code>，如 <code style="color:#e5c07b;">SO-2026-05-00142</code></p>
+            <h4 style="margin: 0 0 8px 0; color: #6c8bef;">解决什么问题</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">杜绝各模块自行编号导致的编号冲突、格式混乱、无法追溯。按日期分段确保每月序号从 001 重新开始</p>
+            <h4 style="margin: 0 0 8px 0; color: #6c8bef;">使用场景</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">创建任何业务单据时调用：<br>
+            销售报价 QUO-2026-05-00001<br>
+            采购订单 PO-2026-05-00032<br>
+            工单 WO-2026-05-00008<br>
+            检验报告 INS-2026-05-00015</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Component 2 -->
+    <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 16px; background: rgba(229,166,85,0.05); margin-bottom: 20px;">
+      <h3 style="color: #e5a655; margin: 0 0 8px 0;">② 文档关联图谱 (DocumentLink)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 12px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">DocumentLink</span> {<br>
+            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;source_type: DocumentType<br>
+            &nbsp;&nbsp;source_id: UUID<br>
+            &nbsp;&nbsp;target_type: DocumentType<br>
+            &nbsp;&nbsp;target_id: UUID<br>
+            &nbsp;&nbsp;link_type: LinkType<br>
+            &nbsp;&nbsp;created_at: Timestamp<br>
+            &nbsp;&nbsp;created_by: UUID <span style="color:#888;">FK→users</span><br>
+            }<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">LinkType</span> {<br>
+            &nbsp;&nbsp;DERIVED_FROM <span style="color:#888;">// 报价→订单</span><br>
+            &nbsp;&nbsp;TRIGGERS <span style="color:#888;">// 订单→发货申请</span><br>
+            &nbsp;&nbsp;REFERENCES <span style="color:#888;">// 退货→原发货</span><br>
+            &nbsp;&nbsp;RECONCILES <span style="color:#888;">// 对账单→发货</span><br>
+            &nbsp;&nbsp;INSPECTS <span style="color:#888;">// 检验→来料通知</span><br>
+            &nbsp;&nbsp;FULFILLS <span style="color:#888;">// 采购入库→采购单</span><br>
+            &nbsp;&nbsp;ALLOCATES <span style="color:#888;">// 领料→工单</span><br>
+            &nbsp;&nbsp;}
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(229,166,85,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #e5a655;">功能</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">以有向图的方式记录任意两个业务单据之间的关系。支持图遍历查询，可追溯一张报价单到最终发票的完整链路</p>
+            <h4 style="margin: 0 0 8px 0; color: #e5a655;">解决什么问题</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">九大模块间单据关系零散记录在各表里，事后对齐几乎不可能。统一图谱后：一键追溯、BI 报表、ISO 9001 / IATF 16949 合规审计</p>
+            <h4 style="margin: 0 0 8px 0; color: #e5a655;">使用场景</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">报价 → 销售订单 → 发货申请 → 出库单 → 对账单 → 应收<br>
+            采购订单 → 来料通知 → IQC 检验 → 入库单<br>
+            工单 → 领料单 → 报工记录 → FQC → 入库</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Component 3 -->
+    <div style="border: 2px solid #6bc76b; border-radius: 8px; padding: 16px; background: rgba(107,199,107,0.05); margin-bottom: 20px;">
+      <h3 style="color: #6bc76b; margin: 0 0 8px 0;">③ 库存预留层 (InventoryReservation)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 12px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InventoryReservation</span> {<br>
+            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+            &nbsp;&nbsp;warehouse_id: UUID <span style="color:#888;">FK→warehouses</span><br>
+            &nbsp;&nbsp;reserved_qty: Decimal(10,6)<br>
+            &nbsp;&nbsp;reservation_type: ReservationType<br>
+            &nbsp;&nbsp;source_type: DocumentType<br>
+            &nbsp;&nbsp;source_id: UUID<br>
+            &nbsp;&nbsp;status: ReservationStatus<br>
+            &nbsp;&nbsp;priority: i32 <span style="color:#888;">// 预留优先级</span><br>
+            &nbsp;&nbsp;expires_at: Timestamp <span style="color:#888;">// TTL自动过期</span><br>
+            &nbsp;&nbsp;created_at: Timestamp<br>
+            }<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ReservationType</span> {<br>
+            &nbsp;&nbsp;HARD <span style="color:#888;">// 工单锁定，不可抢占</span><br>
+            &nbsp;&nbsp;SOFT <span style="color:#888;">// 销售预留，可被高优先级抢占</span><br>
+            &nbsp;&nbsp;SAFETY_STOCK <span style="color:#888;">// 安全库存永久预留</span><br>
+            &nbsp;&nbsp;}<br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ReservationStatus</span> {<br>
+            &nbsp;&nbsp;ACTIVE, FULFILLED, CANCELLED, EXPIRED<br>
+            &nbsp;&nbsp;}
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(107,199,107,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #6bc76b;">功能</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">区分「现有量」和「可用量」。提供预留、释放、过期自动清理机制。<br><strong>可用量 = 现有量 − 已预留量</strong></p>
+            <h4 style="margin: 0 0 8px 0; color: #6bc76b;">解决什么问题</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">当前系统只有库存总量，没有可用量（ATP）。导致：销售接单不知道能不能发、采购不知道该买多少、工单领料时才发现库存不够</p>
+            <h4 style="margin: 0 0 8px 0; color: #6bc76b;">使用场景</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">销售订单确认 → SOFT 预留（TTL 7天）<br>
+            工单下达 → HARD 预留（直到领料或完工）<br>
+            采购建议计算 = 需求量 − 现有量 − 已预留<br>
+            安全库存 = 永久预留，不参与可用量计算</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Component 4 -->
+    <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 16px; background: rgba(224,108,117,0.05); margin-bottom: 20px;">
+      <h3 style="color: #e06c75; margin: 0 0 8px 0;">④ 成本累积账本 (CostEntry)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 12px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CostEntry</span> {<br>
+            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;entity_type: CostEntityType<br>
+            &nbsp;&nbsp;entity_id: UUID<br>
+            &nbsp;&nbsp;cost_type: CostType<br>
+            &nbsp;&nbsp;debit_amount: Decimal(10,6)<br>
+            &nbsp;&nbsp;credit_amount: Decimal(10,6)<br>
+            &nbsp;&nbsp;cost_center: UUID <span style="color:#888;">// 部门/产线</span><br>
+            &nbsp;&nbsp;profit_center: UUID<br>
+            &nbsp;&nbsp;period: String <span style="color:#888;">// "2026-05"</span><br>
+            &nbsp;&nbsp;source_type: DocumentType<br>
+            &nbsp;&nbsp;source_id: UUID<br>
+            &nbsp;&nbsp;created_at: Timestamp<br>
+            }<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">CostType</span> {<br>
+            &nbsp;&nbsp;MATERIAL, LABOR, OVERHEAD<br>
+            &nbsp;&nbsp;OUTSOURCE, REWORK, SCRAP<br>
+            &nbsp;&nbsp;}<br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">CostEntityType</span> {<br>
+            &nbsp;&nbsp;PRODUCT, WORK_ORDER, SALES_ORDER<br>
+            &nbsp;&nbsp;PURCHASE_ORDER, INSPECTION<br>
+            &nbsp;&nbsp;}
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(224,108,117,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #e06c75;">功能</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">统一成本分类账。每个产生成本的事件写入同一张表，遵循双层记账原则（每个操作同时记借方和贷方）</p>
+            <h4 style="margin: 0 0 8px 0; color: #e06c75;">解决什么问题</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">传统 ERP 陷阱：运营模块先建、财务后加，事后对账痛苦。从第一天起就记录成本，FMS 报表、利润中心 P&L、毛利分析全部从这一张表查询</p>
+            <h4 style="margin: 0 0 8px 0; color: #e06c75;">使用场景</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">物料入库 → 记材料成本（借：存货 / 贷：应付）<br>
+            工序完工 → 记人工+制费（借：在制品 / 贷：人工费）<br>
+            检验不良 → 记返工/报废成本<br>
+            外协收货 → 记外协服务成本<br>
+            新增成本来源（如能源）只需插入行</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Relationships -->
+    <div style="padding: 12px; background: rgba(108,139,239,0.1); border-radius: 6px;">
+      <h3 style="margin: 0 0 8px 0; color: #6c8bef;">组件间协作关系</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
+        <span style="color:#6c8bef;">DocumentSequence</span> ─── 被所有模块消费 ───→ 生成单据编号<br>
+        <span style="color:#e5a655;">DocumentLink</span> ──────── 业务流转时写入 ──→ 记录单据间关系链<br>
+        <span style="color:#6bc76b;">InventoryReservation</span> ─ 预留/释放/过期 ──→ 控制库存可用量<br>
+        <span style="color:#e06c75;">CostEntry</span> ──────────── 成本事件触发 ──→ 双层记账统一入口<br>
+        <br>
+        <span style="color:#888;">所有共享实体通过 DocumentType 枚举与具体业务模块解耦</span>
+      </div>
+    </div>
+
+  </div>
+</div>

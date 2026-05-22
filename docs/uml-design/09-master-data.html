@@ -49,11 +49,21 @@ classDiagram
     Published
   }
 
+  class ProductStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Active
+    Inactive
+    Obsolete
+  }
+
   class Product {
     +product_id: i64
     +pdt_name: String
     +product_code: String
     +unit: String
+    +status: ProductStatus
+    +external_code: Option~String~
+    +owner_department_id: Option~i64~
     +meta: ProductMeta
   }
 
@@ -91,9 +101,17 @@ classDiagram
     +category_id: i64
   }
 
+  class PriceType {
+    &lt;&lt;enumeration&gt;&gt;
+    Purchase
+    Sales
+    StandardCost
+  }
+
   class PriceLogEntry {
     +log_id: i64
     +product_id: i64
+    +price_type: PriceType
     +new_price: Decimal
     +operator_id: Option~i64~
     +remark: Option~String~
@@ -108,6 +126,7 @@ classDiagram
     +bom_detail: BomDetail
     +bom_category_id: Option~i64~
     +status: BomStatus
+    +version: i32
     +published_at: Option~DateTime~
     +created_by: Option~i64~
   }
@@ -140,6 +159,7 @@ classDiagram
   class BomSnapshot {
     +snapshot_id: i64
     +bom_id: i64
+    +version: i32
     +bom_name: String
     +bom_detail: BomDetail
     +published_at: DateTime
@@ -182,16 +202,15 @@ classDiagram
     +find(product_id) Product
     +find_by_ids(product_ids) Vec~Product~
     +query(query) PaginatedResult
-    +exist_code(pool, code) bool
-    +generate_product_code(pool) String
-    +check_product_usage(product_id, page, page_size) BomUsage
+    +check_product_usage(product_id, query) PaginatedResult
+    +update_status(product_id, status, executor)
   }
 
   class ProductPriceService {
     &lt;&lt;interface&gt;&gt;
-    +update_price(product_id, new_price, operator_id, remark, executor)
-    +get_price_history(query, pool) PaginatedResult
-    +list_all_price_history(query, pool) PaginatedResult
+    +update_price(product_id, price_type, new_price, operator_id, remark, executor)
+    +query_price_history(query) PaginatedResult
+    +get_current_price(product_id, price_type) Option~Decimal~
   }
 
   class CategoryService {
@@ -201,8 +220,7 @@ classDiagram
     +delete(category_id, executor)
     +get(category_id) Category
     +list(query) Vec~Category~
-    +get_tree() Vec~CategoryTree~
-    +get_subtree(category_id) Vec~CategoryTree~
+    +get_tree(root_id: Option~i64~) Vec~CategoryTree~
     +move_to(category_id, new_parent_id, executor)
     +assign_products(category_id, product_ids, executor)
     +remove_products(category_id, product_ids, executor)
@@ -211,8 +229,7 @@ classDiagram
   class BomService {
     &lt;&lt;interface&gt;&gt;
     +create(name, created_by, bom_category_id, executor) i64
-    +update(bom, executor)
-    +update_metadata(bom_id, name, bom_category_id, executor)
+    +update(bom_id, req, executor)
     +delete(bom_id, executor)
     +find(bom_id, executor) Bom
     +query(query) PaginatedResult
@@ -220,7 +237,6 @@ classDiagram
     +update_node(bom_id, node, executor)
     +delete_node(bom_id, node_id, executor) i64
     +swap_node_position(bom_id, id1, id2, executor)
-    +exists_name(name, caller_id) bool
     +get_leaf_nodes(bom_id) Vec~BomNode~
     +save_as(source_bom_id, new_name, created_by, executor) i64
     +substitute_product(old_product_id, new_product_id, bom_id, overrides, caller_id, executor) SubstitutionResult
@@ -230,6 +246,7 @@ classDiagram
     +unpublish(bom_id, operator_id, executor) Bom
     +get_snapshots(bom_id) Vec~BomSnapshot~
     +get_snapshot(snapshot_id) BomSnapshot
+    +get_snapshot_by_version(bom_id, version) BomSnapshot
   }
 
   class BomCategoryService {
@@ -241,6 +258,7 @@ classDiagram
   }
 
   Product *-- ProductMeta : meta
+  Product --> ProductStatus : status
   Category *-- CategoryMeta : meta
   CategoryTree *-- CategoryMeta : meta
   CategoryTree o-- CategoryTree : children
@@ -259,6 +277,7 @@ classDiagram
 
   ProductService ..> Product
   ProductPriceService ..> PriceLogEntry
+  PriceLogEntry --> PriceType : price_type
   CategoryService ..> Category
   CategoryService ..> CategoryTree
   CategoryService ..> ProductCategory
@@ -304,14 +323,22 @@ classDiagram
       <!-- Product -->
       <div style="border: 2px solid #61afef; border-radius: 8px; padding: 14px; background: rgba(97,175,239,0.05);">
         <h4 style="color: #61afef; margin: 0 0 6px 0;">Product 产品</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">核心基础实体，所有业务模块（库存/BOM/采购/销售/MES）的物料主数据</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">核心基础实体，所有业务模块（库存/BOM/采购/销售/MES）的物料主数据。支持生命周期状态管理和外部编码</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Product</span> {<br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;pdt_name: String <span style="color:#888;">// 产品名称</span><br>
-          &nbsp;&nbsp;product_code: String <span style="color:#888;">// 自动生成 x{timestamp}</span><br>
+          &nbsp;&nbsp;product_code: String <span style="color:#888;">// 自动生成</span><br>
           &nbsp;&nbsp;unit: String <span style="color:#888;">// 计量单位</span><br>
+          &nbsp;&nbsp;status: ProductStatus <span style="color:#888;">// Active/Inactive/Obsolete</span><br>
+          &nbsp;&nbsp;external_code: String? <span style="color:#888;">// 客户/供应商编码</span><br>
+          &nbsp;&nbsp;owner_department_id: i64? <span style="color:#888;">// 归属部门</span><br>
           &nbsp;&nbsp;meta: JSONB → ProductMeta<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ProductStatus</span> {<br>
+          &nbsp;&nbsp;Active <span style="color:#888;">// 在用，出现在下拉框</span><br>
+          &nbsp;&nbsp;Inactive <span style="color:#888;">// 停用，不出现在下拉框</span><br>
+          &nbsp;&nbsp;Obsolete <span style="color:#888;">// 作废，仅供历史查询</span><br>
           }<br><br>
           <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ProductMeta</span> {<br>
           &nbsp;&nbsp;specification: String <span style="color:#888;">// 规格型号</span><br>
@@ -325,14 +352,14 @@ classDiagram
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ProductService</span> {<br>
           &nbsp;&nbsp;create(product, executor) → i64<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部自动生成编码(x+时间戳)</span><br>
           &nbsp;&nbsp;update(product_id, product, executor)<br>
           &nbsp;&nbsp;delete(product_id, executor)<br>
           &nbsp;&nbsp;find(product_id) → Option&lt;Product&gt;<br>
           &nbsp;&nbsp;find_by_ids(ids) → Vec&lt;Product&gt;<br>
           &nbsp;&nbsp;query(query) → (Vec, total)<br>
-          &nbsp;&nbsp;exist_code(pool, code) → bool<br>
-          &nbsp;&nbsp;generate_product_code(pool) → String<br>
-          &nbsp;&nbsp;check_product_usage(id, page) → (bool, refs, total)<br>
+          &nbsp;&nbsp;check_product_usage(id, query) → PaginatedResult<br>
+          &nbsp;&nbsp;update_status(id, status, executor)<br>
           }
         </div>
       </div>
@@ -365,8 +392,8 @@ classDiagram
           &nbsp;&nbsp;delete(category_id, executor)<br>
           &nbsp;&nbsp;get(category_id) → Option&lt;Category&gt;<br>
           &nbsp;&nbsp;list(query) → Vec&lt;Category&gt;<br>
-          &nbsp;&nbsp;get_tree() → Vec&lt;CategoryTree&gt;<br>
-          &nbsp;&nbsp;get_subtree(category_id) → Vec&lt;CategoryTree&gt;<br>
+          &nbsp;&nbsp;get_tree(root_id?) → Vec&lt;CategoryTree&gt;<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// null=全树, id=子树</span><br>
           &nbsp;&nbsp;move_to(category_id, new_parent_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;executor) <span style="color:#888;">// 级联更新path</span><br>
           &nbsp;&nbsp;assign_products(category_id,<br>
@@ -439,24 +466,30 @@ classDiagram
       <!-- PriceLogEntry -->
       <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
         <h4 style="color: #c678dd; margin: 0 0 6px 0; font-size: 13px;">PriceLogEntry 价格日志</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">每次价格变更自动追加记录，不可修改。支持按时间点查询历史价格</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">每次价格变更自动追加记录，不可修改。支持多价格类型（采购价/销售价/标准成本）和按时间点查询历史价格</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PriceType</span> {<br>
+          &nbsp;&nbsp;Purchase <span style="color:#888;">// 采购价</span><br>
+          &nbsp;&nbsp;Sales <span style="color:#888;">// 销售价</span><br>
+          &nbsp;&nbsp;StandardCost <span style="color:#888;">// 标准成本</span><br>
+          }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">PriceLogEntry</span> {<br>
           &nbsp;&nbsp;log_id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;price_type: PriceType<br>
           &nbsp;&nbsp;new_price: Decimal(10,6)<br>
           &nbsp;&nbsp;operator_id: i64?<br>
           &nbsp;&nbsp;remark: String?<br>
           &nbsp;&nbsp;created_at: DateTime<br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ProductPriceService</span> {<br>
-          &nbsp;&nbsp;update_price(product_id,<br>
+          &nbsp;&nbsp;update_price(product_id, price_type,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;new_price, operator_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;remark, executor)<br>
-          &nbsp;&nbsp;get_price_history(query, pool)<br>
+          &nbsp;&nbsp;query_price_history(query)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult<br>
-          &nbsp;&nbsp;list_all_price_history(query,<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;pool) → PaginatedResult<br>
+          &nbsp;&nbsp;get_current_price(product_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;price_type) → Decimal?<br>
           }
         </div>
       </div>
@@ -490,28 +523,35 @@ classDiagram
       <!-- BomService key operations -->
       <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05);">
         <h4 style="color: #98c379; margin: 0 0 6px 0; font-size: 13px;">BomService 关键操作</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">BOM 全生命周期管理：创建、编辑、发布（生成快照）、复制、替换、成本核算</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">BOM 全生命周期管理：创建、编辑（乐观锁）、发布（生成快照+版本）、复制、替换、成本核算</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#e5a655;">// 并发控制</span><br>
+          <span style="color:#888;">// bom.version 乐观锁</span><br>
+          <span style="color:#888;">// UPDATE ... SET version = version + 1</span><br>
+          <span style="color:#888;">// WHERE bom_id = $1 AND version = $2</span><br><br>
           <span style="color:#e5a655;">// 发布流程（快照模式）</span><br>
           <span style="color:#e5c07b;">publish</span>(bom_id, operator_id)<br>
           &nbsp;&nbsp;Draft → Published<br>
-          &nbsp;&nbsp;<span style="color:#888;">// 自动生成 BomSnapshot</span><br>
-          &nbsp;&nbsp;<span style="color:#888;">// 快照不可变，保留历史</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">// version 自增</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">// 自动生成 BomSnapshot(bom_id, version, ...)</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">// 发布事件: BomPublished</span><br>
           <span style="color:#e5c07b;">unpublish</span>(bom_id, operator_id)<br>
           &nbsp;&nbsp;Published → Draft<br>
           &nbsp;&nbsp;<span style="color:#888;">// 不删除快照</span><br><br>
-          <span style="color:#e5a655;">// 物料替换（事务+锁）</span><br>
+          <span style="color:#e5a655;">// 物料替换（InCallerTx + FOR UPDATE）</span><br>
           <span style="color:#e5c07b;">substitute_product</span>(<br>
           &nbsp;&nbsp;old_product_id, new_product_id,<br>
           &nbsp;&nbsp;bom_id?, overrides, caller_id)<br>
-          &nbsp;&nbsp;→ (affected_boms, affected_nodes)<br>
-          &nbsp;&nbsp;<span style="color:#888;">// InCallerTx: 调用者提供事务</span><br>
-          &nbsp;&nbsp;<span style="color:#888;">// SELECT FOR UPDATE 防并发</span><br><br>
+          &nbsp;&nbsp;→ (affected_boms, affected_nodes)<br><br>
           <span style="color:#e5a655;">// 快照查询</span><br>
           <span style="color:#e5c07b;">get_snapshots</span>(bom_id)<br>
-          &nbsp;&nbsp;→ Vec&lt;BomSnapshot&gt;<br>
-          <span style="color:#e5c07b;">get_snapshot</span>(snapshot_id)<br>
-          &nbsp;&nbsp;→ BomSnapshot
+          &nbsp;&nbsp;→ Vec&lt;BomSnapshot&gt; <span style="color:#888;">// 按 version DESC</span><br>
+          <span style="color:#e5c07b;">get_snapshot_by_version</span>(<br>
+          &nbsp;&nbsp;bom_id, version) → BomSnapshot<br><br>
+          <span style="color:#e5a655;">// 细粒度事件</span><br>
+          <span style="color:#888;">BomPublished, BomUnpublished</span><br>
+          <span style="color:#888;">BomNodeAdded, BomNodeUpdated</span><br>
+          <span style="color:#888;">BomNodeDeleted, BomSubstituted</span>
         </div>
       </div>
     </div>
@@ -520,12 +560,12 @@ classDiagram
     <div style="padding: 12px; background: rgba(97,175,239,0.1); border-radius: 6px;">
       <h3 style="margin: 0 0 8px 0; color: #61afef;">主数据模块 × 下游模块依赖</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
-        <span style="color:#61afef;">Product</span> → 所有模块的物料标识：库存、BOM节点、采购明细、销售明细、工单、检验批次<br>
+        <span style="color:#61afef;">Product</span> → 所有模块的物料标识 | Active/Inactive/Obsolete 状态控制可见性 | external_code 支持外部编码<br>
         <span style="color:#6bc76b;">Category</span> → 产品分类筛选（物化路径 path 支持子树快速查询，通过 ProductCategory M:N 关联）<br>
-        <span style="color:#e5a655;">BOM</span> → <a href="04-mes.html" style="color:#e06c75;">MES</a> 工单引用 BomSnapshot（不可变） | <a href="03-wms.html" style="color:#c678dd;">WMS</a> 领料单物料来源 | 成本核算的材料清单<br>
-        <span style="color:#e06c75;">BomSnapshot</span> → publish 时自动生成，工单/MES 引用 snapshot_id 确保数据不可变。unpublish 不删除快照<br>
+        <span style="color:#e5a655;">BOM</span> → 乐观锁（version 字段） | <a href="04-mes.html" style="color:#e06c75;">MES</a> 工单引用 BomSnapshot（不可变） | <a href="03-wms.html" style="color:#c678dd;">WMS</a> 领料单物料来源<br>
+        <span style="color:#e06c75;">BomSnapshot</span> → publish 时自动生成（version 自增），工单/MES 引用 snapshot_id 或 bom_id + version。unpublish 不删除快照<br>
         <span style="color:#e06c75;">BomNode</span> → get_leaf_nodes() 供出库使用 | loss_rate 用于成本差异计算 | order 仅在兄弟节点内有效<br>
-        <span style="color:#c678dd;">PriceLog</span> → <a href="07-fms.html" style="color:#98c379;">FMS</a> CostEntry 材料成本 | BOM 成本报告 unit_price 来源（支持 as_of_date 历史价格）<br>
+        <span style="color:#c678dd;">PriceLog</span> → 多价格类型（Purchase/Sales/StandardCost） | <a href="07-fms.html" style="color:#98c379;">FMS</a> CostEntry 材料成本 | 支持 as_of_date 历史价格<br>
         <span style="color:#56b6c2;">权限</span> → PRODUCT / CATEGORY / BOM / PRICE / BOM_COST / BOM_LABOR_COST 6 种资源权限
       </div>
     </div>
@@ -534,10 +574,20 @@ classDiagram
     <div style="padding: 12px; background: rgba(152,195,121,0.1); border-radius: 6px; margin-top: 12px;">
       <h3 style="margin: 0 0 8px 0; color: #98c379;">共享基础设施集成点</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
-        <span style="color:#e5c07b;">DocumentSequenceService</span> → ProductService.generate_product_code() 内部调用 next_number() 生成产品编码<br>
+        <span style="color:#e5c07b;">DocumentSequenceService</span> → ProductService.create() 内部自动生成编码（x+时间戳格式）<br>
         <span style="color:#e5c07b;">AuditLogService</span> → 所有 create / update / delete / publish / unpublish 操作内调用 record()（同事务内，字段级 diff）<br>
-        <span style="color:#e5c07b;">StateMachineService</span> → BomStatus (Draft ↔ Published) 状态转换通过 transition() 管理<br>
-        <span style="color:#e5c07b;">DomainEventBus</span> → publish 操作完成后发布事件（idempotency_key: bom:{bom_id}:published）<br>
+        <span style="color:#e5c07b;">StateMachineService</span> → BomStatus (Draft ↔ Published)、ProductStatus (Active → Inactive → Obsolete) 状态转换管理<br>
+        <span style="color:#e5c07b;">DomainEventBus</span> → 细粒度事件：BomPublished / BomUnpublished / BomNodeAdded / BomNodeUpdated / BomNodeDeleted / BomSubstituted / ProductStatusChanged<br>
+      </div>
+    </div>
+
+    <!-- Transaction modes -->
+    <div style="padding: 12px; background: rgba(86,182,194,0.1); border-radius: 6px; margin-top: 12px;">
+      <h3 style="margin: 0 0 8px 0; color: #56b6c2;">事务模式（TransactionMode）</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+        <span style="color:#e5c07b;">InCallerTx</span> — 调用者提供事务：substitute_product, add_node, update_node, delete_node, swap_node_position<br>
+        <span style="color:#e5c07b;">RequiresNew</span> — 方法自管事务：publish（生成快照+事件+审计）, unpublish, create, update, delete<br>
+        <span style="color:#e5c07b;">None</span> — 无事务：find, query, get_snapshots, get_bom_cost_report, get_leaf_nodes<br>
       </div>
     </div>
 

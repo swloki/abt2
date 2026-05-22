@@ -29,7 +29,7 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </head>
 <body>
 <h2>共享基础设施层 — 类图总览</h2>
-<p class="subtitle">8 个核心组件 · 32 种 DocumentType · 19 种领域事件 · 同步强一致 + Outbox 异步分发 · 覆盖 8 个业务模块</p>
+<p class="subtitle">10 个核心组件 + ServiceContext + 统一错误模型 + 事务模式 + 分页 + 身份认证 · 32 种 DocumentType · 19 种领域事件 · 同步强一致 + Outbox 异步分发 · 覆盖 8 个业务模块</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -117,6 +117,55 @@ classDiagram
         DeadLetter
     }
 
+    class DomainError {
+        &lt;&lt;enumeration&gt;&gt;
+        NotFound
+        Duplicate
+        PermissionDenied
+        BusinessRule
+        Validation
+        ConcurrentConflict
+        InternalError
+    }
+
+    class PgExecutor {
+        &lt;&lt;type alias&gt;&gt;
+        &'a mut PgConnection
+    }
+
+    class ServiceContext {
+        +executor: PgExecutor
+        +operator_id: i64
+        +trace_id: Option~String~
+        +request_id: Option~String~
+    }
+
+    class TransactionMode {
+        &lt;&lt;enumeration&gt;&gt;
+        InCallerTx
+        IndependentTx
+        AsyncOutbox
+    }
+
+    class PaginatedResult~T~ {
+        items: Vec~T~
+        total: u64
+        page: u32
+        page_size: u32
+        total_pages: u32
+    }
+
+    class BatchResult {
+        +success_count: i32
+        +failed_items: Vec~BatchFailure~
+        +total: i32
+    }
+
+    class BatchFailure {
+        +index: i32
+        +error: String
+    }
+
     class DocumentSequence {
         +id: i64
         +prefix: String
@@ -133,6 +182,8 @@ classDiagram
         +target_type: DocumentType
         +target_id: i64
         +link_type: LinkType
+        +path: String
+        +depth: i32
         +created_at: DateTime
         +created_by: Option~i64~
     }
@@ -169,11 +220,14 @@ classDiagram
     class DomainEvent {
         +id: i64
         +event_type: DomainEventType
+        +event_version: i32
         +aggregate_type: String
         +aggregate_id: i64
         +payload: JSONB
         +operator_id: i64
         +idempotency_key: String
+        +trace_id: Option~String~
+        +request_id: Option~String~
         +status: EventStatus
         +retry_count: i32
         +processed_at: Option~DateTime~
@@ -236,78 +290,81 @@ classDiagram
 
     class DocumentSequenceService {
         &lt;&lt;interface&gt;&gt;
-        +next_number(doc_type: DocumentType) Result~String~
+        +next_number(ctx: ServiceContext, doc_type: DocumentType) Result~String~
     }
 
     class DocumentLinkService {
         &lt;&lt;interface&gt;&gt;
-        +create_link() Result~i64~
-        +find_linked() Result~Vec~DocumentLink~~
+        +create_link(ctx: ServiceContext) Result~i64~
+        +batch_create_link(ctx: ServiceContext, requests) Result~BatchResult~
+        +find_linked(ctx: ServiceContext, source_type, source_id, page, page_size) PaginatedResult
     }
 
     class InventoryReservationService {
         &lt;&lt;interface&gt;&gt;
-        +reserve() Result~i64~
-        +fulfill(id: i64) Result
-        +cancel(id: i64) Result
-        +total_reserved() Result~Decimal~
-        +expire_old() Result~u64~
+        +reserve(ctx: ServiceContext) Result~i64~
+        +batch_reserve(ctx: ServiceContext, requests) Result~BatchResult~
+        +fulfill(ctx: ServiceContext, id: i64) Result
+        +cancel(ctx: ServiceContext, id: i64) Result
+        +total_reserved(ctx: ServiceContext, product_id, warehouse_id?) Result~Decimal~
+        +expire_old(ctx: ServiceContext) Result~u64~
     }
 
     class CostEntryService {
         &lt;&lt;interface&gt;&gt;
-        +create() Result~i64~
-        +find_by_entity() Result~Vec~CostEntry~~
+        +create(ctx: ServiceContext) Result~i64~
+        +batch_create(ctx: ServiceContext, entries) Result~BatchResult~
+        +find_by_entity(ctx: ServiceContext, entity_type, entity_id, page, page_size) PaginatedResult
     }
 
     class DomainEventBus {
         &lt;&lt;interface&gt;&gt;
-        +publish(event_type, aggregate_type, aggregate_id, payload, operator_id) Result~i64~
-        +mark_processed(id) Result
-        +mark_failed(id, reason) Result
-        +find_events(aggregate_type, id) Result~Vec~DomainEvent~~
-        +find_by_type(event_type, since?) Result~Vec~DomainEvent~~
+        +publish(ctx: ServiceContext, event_type, aggregate_type, aggregate_id, payload, idempotency_key) Result~i64~
+        +mark_processed(ctx: ServiceContext, ids: Vec~i64~) Result~u64~
+        +mark_failed(ctx: ServiceContext, id, reason) Result
+        +find_events(ctx: ServiceContext, query) PaginatedResult
     }
 
     class EventHandlerRegistry {
         &lt;&lt;interface&gt;&gt;
         +register(event_type, handler)
         +dispatch(event) Result
-        +list_handlers(event_type) Vec~String~
     }
 
     class EventProcessor {
         -pool: Arc~PgPool~
         -registry: EventHandlerRegistry
         -max_retries: i32
-        +run() JoinHandle
-        +process_event(event) Result
+        +start() Result
+        +stop() Result
+        +is_running() bool
+        +last_processed_at() Option~DateTime~
         +retry_failed() Result~u64~
     }
 
     class StateMachineService {
         &lt;&lt;interface&gt;&gt;
-        +define_states() Result
-        +define_transitions() Result
-        +transition() Result~EntityStateLog~
-        +get_current_state() Result~String~
-        +get_allowed_transitions() Result~Vec~
-        +get_state_history() Result~Vec~
+        +define_states(ctx: ServiceContext) Result
+        +define_transitions(ctx: ServiceContext) Result
+        +can_transition(ctx: ServiceContext, entity_type, entity_id, to_state) Result~bool~
+        +transition(ctx: ServiceContext) Result~EntityStateLog~
+        +get_current_state(ctx: ServiceContext, entity_type, entity_id) Result~String~
+        +get_allowed_transitions(ctx: ServiceContext, entity_type, state) Result~Vec~
+        +get_state_history(ctx: ServiceContext, entity_type, entity_id, page, page_size) PaginatedResult
     }
 
     class AuditLogService {
         &lt;&lt;interface&gt;&gt;
-        +record(entity_type, entity_id, action, changes, operator_id, context) Result~i64~
-        +find_by_entity(entity_type, entity_id) Result~Vec~AuditLog~~
-        +find_by_operator(operator_id, time_range?) Result~Vec~AuditLog~~
-        +find_by_action(action, time_range?) Result~Vec~AuditLog~~
+        +record(ctx: ServiceContext, entity_type, entity_id, action, changes, context) Result~i64~
+        +query_logs(ctx: ServiceContext, query) PaginatedResult
+        +list_audit_logs(ctx: ServiceContext, limit, offset) Vec~AuditLog~
     }
 
     class IdempotencyService {
         &lt;&lt;interface&gt;&gt;
-        +check_and_mark(event_id, handler_name) Result~bool~
-        +mark_processed(event_id, handler_name, result) Result
-        +cleanup_expired(before) Result~u64~
+        +check_and_mark(ctx: ServiceContext, event_id, handler_name) Result~bool~
+        +mark_processed(ctx: ServiceContext, event_id, handler_name, result) Result
+        +cleanup_expired(ctx: ServiceContext, before) Result~u64~
     }
 
     class DocumentSequenceServiceImpl {
@@ -344,6 +401,16 @@ classDiagram
     AuditLogServiceImpl ..|> AuditLogService : implements
     IdempotencyServiceImpl ..|> IdempotencyService : implements
 
+    ServiceContext ..> PgExecutor : wraps
+    DocumentSequenceService ..> ServiceContext : ctx
+    DocumentLinkService ..> ServiceContext : ctx
+    InventoryReservationService ..> ServiceContext : ctx
+    CostEntryService ..> ServiceContext : ctx
+    DomainEventBus ..> ServiceContext : ctx
+    StateMachineService ..> ServiceContext : ctx
+    AuditLogService ..> ServiceContext : ctx
+    IdempotencyService ..> ServiceContext : ctx
+
     EventProcessor --> EventHandlerRegistry
     EventProcessor --> DomainEvent
     EventProcessor --> IdempotencyService
@@ -373,15 +440,140 @@ classDiagram
     IdempotencyService ..> IdempotencyRecord
     EventProcessor ..> IdempotencyService
 
+    class Claims {
+        +sub: i64
+        +username: String
+        +display_name: String
+        +system_role: String
+        +role_ids: Vec~i64~
+        +role_codes: Vec~String~
+        +department_ids: Vec~i64~
+        +exp: u64
+        +iat: u64
+    }
+
+    class AuthContext {
+        +user_id: i64
+        +username: String
+        +system_role: String
+        +role_ids: Vec~i64~
+        +role_codes: Vec~String~
+        +department_ids: Vec~i64~
+        +is_super_admin() bool
+        +has_role(role_id: i64) bool
+    }
+
+    class RolePermissionCache {
+        -cache: RwLock~HashMap~
+        +load(pool)
+        +get_merged_permissions(role_ids) HashSet~String~
+        +has_permission(role_ids, resource, action) bool
+    }
+
+    class ResourceActionDef {
+        +resource_code: str
+        +resource_name: str
+        +description: str
+        +action: str
+        +action_name: str
+    }
+
+    class UserService {
+        &lt;&lt;interface&gt;&gt;
+        +create_user(ctx: ServiceContext) User
+        +update_user(ctx: ServiceContext) User
+        +delete_user(ctx: ServiceContext)
+        +get_user(user_id: i64) User
+        +list_users(query) PaginatedResult
+        +batch_assign_roles(ctx: ServiceContext)
+    }
+
+    class RoleService {
+        &lt;&lt;interface&gt;&gt;
+        +create_role(ctx: ServiceContext) Role
+        +update_role(ctx: ServiceContext) Role
+        +delete_role(ctx: ServiceContext)
+        +list_roles() Vec~Role~
+        +assign_permissions(ctx: ServiceContext)
+        +remove_permissions(ctx: ServiceContext)
+    }
+
+    class AuthService {
+        &lt;&lt;interface&gt;&gt;
+        +login(username: String, password: String) Token
+        +refresh_token(token: String) Token
+        +get_user_claims(user_id: i64) Claims
+        +list_resources() Vec~ResourceActionDef~
+    }
+
+    class PermissionService {
+        &lt;&lt;interface&gt;&gt;
+        +check_permission(user_id: i64, resource: String, action: String) bool
+        +batch_check_permissions(user_id: i64, pairs: Vec) Vec~bool~
+        +get_user_permissions(user_id: i64) Vec~String~
+    }
+
+    class DepartmentService {
+        &lt;&lt;interface&gt;&gt;
+        +create_department(ctx: ServiceContext) Department
+        +update_department(ctx: ServiceContext) Department
+        +delete_department(ctx: ServiceContext)
+        +list_departments() Vec~Department~
+        +assign_departments(ctx: ServiceContext)
+        +remove_departments(ctx: ServiceContext)
+    }
+
+    class UserServiceImpl {
+        -pool: Arc~PgPool~
+    }
+
+    class RoleServiceImpl {
+        -pool: Arc~PgPool~
+    }
+
+    class AuthServiceImpl {
+        -pool: Arc~PgPool~
+        -jwt_secret: String
+        -resource_actions: Vec~ResourceActionDef~
+    }
+
+    class PermissionServiceImpl {
+        -pool: Arc~PgPool~
+    }
+
+    class DepartmentServiceImpl {
+        -pool: Arc~PgPool~
+    }
+
+    UserServiceImpl ..|> UserService : implements
+    RoleServiceImpl ..|> RoleService : implements
+    AuthServiceImpl ..|> AuthService : implements
+    PermissionServiceImpl ..|> PermissionService : implements
+    DepartmentServiceImpl ..|> DepartmentService : implements
+
+    Claims --> AuthContext : decode JWT
+    AuthContext --> RolePermissionCache : check via role_ids
+    RolePermissionCache ..> ResourceActionDef : resolves permissions
+
+    AuthService ..> Claims : signs
+    AuthService ..> AuthContext : builds
+    PermissionService ..> RolePermissionCache : queries
+    PermissionService ..> ResourceActionDef : references
+    RoleService ..> RolePermissionCache : triggers reload
+
     note for DocumentSequenceService "Format: PREFIX-YYYY-MM-SEQ\nAtomic: INSERT ON CONFLICT DO UPDATE\nCovers 32 DocumentType across 8 modules"
-    note for DocumentLinkService "Directed graph: source -> target\n7 LinkTypes for audit trail"
-    note for InventoryReservationService "Available = OnHand - total_reserved()\nHard: WO lock | Soft: Sales TTL\nSafetyStock: permanent"
-    note for CostEntryService "Double-entry: debit + credit\nPeriod YYYY-MM\n6 CostTypes across 7 modules"
-    note for DomainEventBus "Hybrid dispatch model:\nSync: inventory reservation, quality gates (in caller tx)\nAsync: cost, doclink, workflow, notifications (Outbox)\npublish writes to DB + NOTIFY\n19 event types"
-    note for EventProcessor "Background tokio task\nLISTEN/NOTIFY for low latency\nExponential backoff on failure\nDead letter after max retries"
-    note for StateMachineService "Per-entity state definitions\nStored in DB, loaded on startup\nReplaces scattered if-else"
-    note for AuditLogService "Called directly by business Service\nSame tx as business operation\nField-level diffs (old -> new)\nISO 9001 / financial compliance"
+    note for PgExecutor "底层事务连接类型\ntype PgExecutor<'a> = &'a mut PgConnection\n被 ServiceContext 包装\n不再直接作为 service 参数\n替代 common crate，消除额外依赖层"
+    note for DomainError "统一错误模型 (thiserror)\n#[error] auto Display\n#[from] anyhow 兼容老代码\nNotFound / Duplicate / PermissionDenied\nBusinessRule / Validation / ConcurrentConflict\nInternal: #[from] anyhow 兼容老代码，gRPC 映射时日志记录完整错误链，返回客户端泛化消息\n映射 tonic::Status 语义化错误码\n渐进式迁移：新服务直接用\nServiceError 标记 deprecated，新代码禁止使用"
+    note for DocumentLinkService "Directed graph: source -> target\n7 LinkTypes for audit trail\nbatch_create_link: 订单确认时一次性创建多个关联"
+    note for InventoryReservationService "Available = OnHand - total_reserved()\nHard: WO lock | Soft: Sales TTL\nSafetyStock: permanent\nbatch_reserve: 工单/订单多行批量预留\n并发控制: reserve() 使用 SELECT FOR UPDATE 锁定行\ntotal_reserved() 在事务内加锁保证原子性"
+    note for CostEntryService "Double-entry: debit + credit\nPeriod YYYY-MM\n6 CostTypes across 7 modules\nbatch_create: 单次业务事件批量写入多条分录，返回 BatchResult"
+    note for DomainEventBus "Hybrid dispatch model:\nSync: inventory reservation, quality gates (in caller tx)\nAsync: cost, doclink, workflow, notifications (Outbox)\npublish writes to DB + NOTIFY\n19 event types\nevent_version: payload 结构版本化，支持向后兼容演化\ntrace_id + request_id: 全链路追踪\npublish 强制 idempotency_key 防重复发布\nmark_processed 批量确认已处理事件\nfind_events 统一查询（支持 aggregate_type, event_type, since 过滤）"
+    note for EventProcessor "Background tokio task\nLISTEN/NOTIFY for low latency\n定期轮询兜底: 每 30s 扫描 PENDING 且超时事件，防止 NOTIFY 丢失\nExponential backoff on failure\nDead letter after max retries\nstart/stop 替代 run(JoinHandle)\nis_running + last_processed_at 健康检查\nprocess_event 为内部方法，不暴露在接口中"
+    note for StateMachineService "Per-entity state definitions\nStored in DB, loaded on startup\nReplaces scattered if-else\ncan_transition: UI 查询是否允许转换（按钮高亮/禁用）"
+    note for AuditLogService "Called directly by business Service\nSame tx as business operation\nField-level diffs (old -> new)\nISO 9001 / financial compliance\nquery_logs 统一查询接口（支持 entity_type, operator_id, action, time_range 过滤）\nlist_audit_logs 从 PermissionService 迁移至此"
     note for IdempotencyService "Per-handler idempotency tracking\nPrevents duplicate event processing\nEventProcessor checks before dispatch\nExpired records cleaned up periodically"
+    note for ServiceContext "服务调用上下文\n包装 PgExecutor + 操作元数据\noperator_id → AuditLog/EventBus 自动获取\ntrace_id + request_id → 全链路追踪\n替代裸 PgExecutor 传入 service"
+    note for TransactionMode "显式事务模式声明\nInCallerTx: 调用者事务内\nIndependentTx: 独立事务提交后\nAsyncOutbox: Outbox 异步消费\n每个共享服务方法声明自己的事务模式"
     </div>
   </div>
 </div>
@@ -466,6 +658,8 @@ classDiagram
             &nbsp;&nbsp;target_type: DocumentType<br>
             &nbsp;&nbsp;target_id: UUID<br>
             &nbsp;&nbsp;link_type: LinkType<br>
+            &nbsp;&nbsp;path: String <span style="color:#888;">// 物化路径 "SO.42.SR.15"</span><br>
+            &nbsp;&nbsp;depth: i32 <span style="color:#888;">// 链路深度</span><br>
             &nbsp;&nbsp;created_at: Timestamp<br>
             &nbsp;&nbsp;created_by: UUID? <span style="color:#888;">FK→users</span><br>
             }<br><br>
@@ -486,6 +680,10 @@ classDiagram
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">以有向图的方式记录任意两个业务单据之间的关系。支持图遍历查询，可追溯一张报价单到最终发票的完整链路</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">模块间单据关系零散记录在各表里，事后对齐几乎不可能。统一图谱后：一键追溯、BI 报表、ISO 9001 合规审计</p>
+            <h4 style="margin: 0 0 8px 0; color: #e5a655;">批量接口</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">batch_create_link</code> — 订单确认时一次性创建多个关联（报价→订单→发货），减少 DB 交互。返回 <code style="color:#e5c07b;">BatchResult</code> 支持部分失败。查询接口 <code style="color:#e5c07b;">find_linked</code> 返回 <code style="color:#e5c07b;">PaginatedResult</code>，支持分页</p>
+            <h4 style="margin: 0 0 8px 0; color: #e5a655;">路径加速（path + depth）</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">path</code> 采用物化路径模式（如 <code style="color:#e5c07b;">QUO.1.SO.42.SR.15</code>），<code style="color:#e5c07b;">depth</code> 记录链路层级。创建关联时自动计算：<code style="color:#e5c07b;">path = parent_path + "." + current</code>。单次 LIKE 查询即可获取整条链路，无需递归。适用于质量追溯、批次追溯等深层链路场景</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">使用场景</h4>
             <p style="margin: 0; color: #ccc; font-size: 12px;">
             <span style="color:#e5a655;">Sales</span>: 报价→订单→发货→对账→应收<br>
@@ -534,6 +732,10 @@ classDiagram
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">区分「现有量」和「可用量」。提供预留、释放、过期自动清理机制。<br><strong>可用量 = 现有量 − 已预留量</strong></p>
             <h4 style="margin: 0 0 8px 0; color: #6bc76b;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">当前系统只有库存总量，没有可用量（ATP）。导致：销售接单不知道能不能发、采购不知道该买多少、工单领料时才发现库存不够</p>
+            <h4 style="margin: 0 0 8px 0; color: #6bc76b;">批量接口</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">batch_reserve</code> — 工单/销售订单多行批量预留，单次事务内完成，返回 <code style="color:#e5c07b;">BatchResult</code>（含部分失败明细）。<code style="color:#e5c07b;">total_reserved</code> 支持按 warehouse_id 过滤，精确计算仓库级可用量</p>
+            <h4 style="margin: 0 0 8px 0; color: #6bc76b;">并发控制</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">reserve()</code> 使用 <code style="color:#e5c07b;">SELECT ... FOR UPDATE</code> 锁定相关库存行，防止同一产品并发预留导致超卖。<code style="color:#e5c07b;">total_reserved()</code> 在事务内加锁计算，保证可用量读取的强一致性</p>
             <h4 style="margin: 0 0 8px 0; color: #6bc76b;">使用场景</h4>
             <p style="margin: 0; color: #ccc; font-size: 12px;">
             <span style="color:#e5a655;">Sales</span>: 订单确认→SOFT预留（TTL 7天）<br>
@@ -582,6 +784,8 @@ classDiagram
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">统一成本分类账。每个产生成本的事件写入同一张表，遵循双层记账原则（每个操作同时记借方和贷方）</p>
             <h4 style="margin: 0 0 8px 0; color: #e06c75;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">传统 ERP 陷阱：运营模块先建、财务后加，事后对账痛苦。从第一天起就记录成本，FMS 报表、利润中心 P&L、毛利分析全部从这一张表查询</p>
+            <h4 style="margin: 0 0 8px 0; color: #e06c75;">批量接口</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">batch_create</code> — 单次业务事件（如完工入库）同时产生多条成本分录（材料+人工+制费），批量写入，返回 <code style="color:#e5c07b;">BatchResult</code> 支持部分失败。<code style="color:#e5c07b;">find_by_entity</code> 返回 <code style="color:#e5c07b;">PaginatedResult</code></p>
             <h4 style="margin: 0 0 8px 0; color: #e06c75;">成本来源（按模块）</h4>
             <p style="margin: 0; color: #ccc; font-size: 12px;">
             <span style="color:#e5a655;">Sales</span>: 发货→销售成本 | 退货→冲减收入<br>
@@ -605,11 +809,14 @@ classDiagram
             <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">DomainEvent</span> {<br>
             &nbsp;&nbsp;id: i64 <span style="color:#888;">PK BIGSERIAL</span><br>
             &nbsp;&nbsp;event_type: DomainEventType<br>
+            &nbsp;&nbsp;event_version: i32 <span style="color:#888;">// 事件结构版本，默认 1</span><br>
             &nbsp;&nbsp;aggregate_type: String <span style="color:#888;">// "SalesOrder"</span><br>
             &nbsp;&nbsp;aggregate_id: i64 <span style="color:#888;">// 业务实体 ID</span><br>
             &nbsp;&nbsp;payload: JSONB <span style="color:#888;">// 事件详情</span><br>
             &nbsp;&nbsp;operator_id: i64<br>
             &nbsp;&nbsp;idempotency_key: String <span style="color:#888;">// UNIQUE 防重复</span><br>
+            &nbsp;&nbsp;trace_id: String? <span style="color:#888;">// 全链路追踪 ID</span><br>
+            &nbsp;&nbsp;request_id: String? <span style="color:#888;">// 请求关联 ID</span><br>
             &nbsp;&nbsp;status: EventStatus <span style="color:#888;">// Pending→Processed/Failed</span><br>
             &nbsp;&nbsp;retry_count: i32 <span style="color:#888;">// default 0</span><br>
             &nbsp;&nbsp;processed_at: Timestamp? <span style="color:#888;">// 处理完成时间</span><br>
@@ -624,23 +831,25 @@ classDiagram
             }<br><br>
             <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">DomainEventBus</span> {<br>
             &nbsp;&nbsp;publish(event_type, aggregate_type,<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;aggregate_id, payload, operator_id): i64<br>
-            &nbsp;&nbsp;mark_processed(id): Result<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;aggregate_id, payload, operator_id,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;idempotency_key): i64<br>
+            &nbsp;&nbsp;mark_processed(ids: Vec&lt;i64&gt;): u64<br>
             &nbsp;&nbsp;mark_failed(id, reason): Result<br>
-            &nbsp;&nbsp;find_events(aggregate_type, id): Vec<br>
-            &nbsp;&nbsp;find_by_type(event_type, since?): Vec<br>
+            &nbsp;&nbsp;find_events(query): PaginatedResult<br>
             }<br><br>
             <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">EventHandlerRegistry</span> {<br>
             &nbsp;&nbsp;register(event_type, handler)<br>
             &nbsp;&nbsp;dispatch(event): Result<br>
-            &nbsp;&nbsp;list_handlers(event_type): Vec<br>
             }<br><br>
             <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">EventProcessor</span> {<br>
             &nbsp;&nbsp;pool: Arc&lt;PgPool&gt;<br>
             &nbsp;&nbsp;registry: EventHandlerRegistry<br>
             &nbsp;&nbsp;max_retries: i32 <span style="color:#888;">// default 3</span><br>
-            &nbsp;&nbsp;run() → JoinHandle <span style="color:#888;">// 后台 tokio task</span><br>
-            &nbsp;&nbsp;process_event(event): Result<br>
+            &nbsp;&nbsp;start(): Result <span style="color:#888;">// 内部 spawn，不暴露 JoinHandle</span><br>
+            &nbsp;&nbsp;stop(): Result <span style="color:#888;">// 优雅关闭</span><br>
+            &nbsp;&nbsp;is_running(): bool<br>
+            &nbsp;&nbsp;last_processed_at(): Option&lt;DateTime&gt;<br>
+            &nbsp;&nbsp;<span style="color:#888;">// process_event 内部方法</span><br>
             &nbsp;&nbsp;retry_failed(): u64<br>
             }
           </div>
@@ -649,6 +858,13 @@ classDiagram
           <div style="background: rgba(59,130,246,0.15); padding: 12px; border-radius: 6px; height: 100%;">
             <h4 style="margin: 0 0 8px 0; color: #3b82f6;">功能</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">跨模块解耦的核心机制。<strong>Outbox 模式</strong>：业务事务内将事件写入 <code style="color:#e5c07b;">domain_events</code> 表（Outbox），后台 EventProcessor 通过 <code style="color:#e5c07b;">LISTEN/NOTIFY</code> 实时消费并异步分发给注册的 Handler</p>
+            <h4 style="margin: 0 0 8px 0; color: #3b82f6;">接口改进</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">
+            <strong>publish 强制 idempotency_key</strong>：调用方生成（如 <code style="color:#e5c07b;">{aggregate_type}:{aggregate_id}:{event_type}</code>），底层 INSERT ON CONFLICT DO NOTHING 防重复发布<br>
+            <strong>mark_processed 统一批量</strong>：单条传 <code style="color:#e5c07b;">[id]</code>，批量传 <code style="color:#e5c07b;">[id1, id2, ...]</code>，减少 DB 交互<br>
+            <strong>find_events 统一查询</strong>：支持 aggregate_type、event_type、since 等可选过滤，返回 <code style="color:#e5c07b;">PaginatedResult</code><br>
+            <strong>EventProcessor 生命周期</strong>：<code style="color:#e5c07b;">start()</code> / <code style="color:#e5c07b;">stop()</code> 替代 <code style="color:#e5c07b;">run()→JoinHandle</code>，内部自行 spawn；<code style="color:#e5c07b;">is_running()</code> + <code style="color:#e5c07b;">last_processed_at()</code> 提供健康检查<br>
+            <strong>process_event 内部化</strong>：不再暴露在公开接口中，仅 EventProcessor 内部调用</p>
             <h4 style="margin: 0 0 8px 0; color: #3b82f6;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">模块间直接调用导致的紧耦合：新增下游逻辑必须改上游 Service。事件驱动后，新逻辑只需注册 handler，上游代码零改动。<strong>Outbox 保证</strong>：事件与业务数据在同一事务内写入，零丢失风险</p>
             <h4 style="margin: 0 0 8px 0; color: #3b82f6;">19 种事件（按模块）</h4>
@@ -672,6 +888,7 @@ classDiagram
             <p style="margin: 0; color: #ccc; font-size: 12px;">
             <strong>写入</strong>: 业务事务内 INSERT domain_events (status=PENDING) + NOTIFY<br>
             <strong>消费</strong>: EventProcessor 收到 LISTEN → FETCH FOR UPDATE SKIP LOCKED<br>
+            <strong>轮询兜底</strong>: 每 30s 扫描 status=PENDING 且 created_at < now()-30s 的事件，防止 NOTIFY 丢失（NOTIFY 快速通道 + 轮询双保险）<br>
             <strong>分发</strong>: EventHandlerRegistry.dispatch() → 异步 Handler 执行<br>
             <strong>完成</strong>: 成功 → mark_processed() | 失败 → mark_failed() + 指数退避重试<br>
             <strong>死信</strong>: retry_count > max_retries → DEAD_LETTER（人工介入）</p>
@@ -679,7 +896,7 @@ classDiagram
         </div>
       </div>
       <div style="margin-top: 10px; padding: 8px 12px; background: rgba(59,130,246,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
-        <strong style="color: #3b82f6;">关键约束：</strong>Outbox 模式 — 业务事务内写入事件 | EventProcessor 后台异步消费 | LISTEN/NOTIFY 低延迟驱动 | 失败重试（指数退避）+ 死信队列 | idempotency_key 防重复消费 | Handler 独立事务，失败不影响发布方
+        <strong style="color: #3b82f6;">关键约束：</strong><span style="color:#888;">[TransactionMode: 混合模式]</span> Outbox 模式 — 业务事务内写入事件 | EventProcessor 后台异步消费（start/stop 生命周期管理，process_event 内部化）| LISTEN/NOTIFY 低延迟驱动 + 定期轮询兜底（每 30s 扫描超时事件，防 NOTIFY 丢失） | 失败重试（指数退避）+ 死信队列 | publish 强制 idempotency_key 防重复发布 + IdempotencyService 防重复消费 | mark_processed 统一批量版 | find_events 统一查询（支持多维度过滤） | Handler 独立事务，失败不影响发布方 | 查询统一返回 PaginatedResult
       </div>
     </div>
 
@@ -711,11 +928,14 @@ classDiagram
             <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">StateMachineService</span> {<br>
             &nbsp;&nbsp;define_states(entity_type, states)<br>
             &nbsp;&nbsp;define_transitions(entity_type, transitions)<br>
+            &nbsp;&nbsp;can_transition(entity_type, entity_id,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;to_state): bool<br>
             &nbsp;&nbsp;transition(entity_type, entity_id,<br>
             &nbsp;&nbsp;&nbsp;&nbsp;to_state, operator_id, remark?): StateLog<br>
             &nbsp;&nbsp;get_current_state(entity_type, entity_id): String<br>
             &nbsp;&nbsp;get_allowed_transitions(entity_type, state): Vec<br>
-            &nbsp;&nbsp;get_state_history(entity_type, entity_id): Vec<br>
+            &nbsp;&nbsp;get_state_history(entity_type, entity_id,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;page, page_size): PaginatedResult<br>
             }
           </div>
         </div>
@@ -725,6 +945,8 @@ classDiagram
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">统一管理所有业务单据的生命周期状态。状态定义和转换规则存 DB 可动态配置，guard 条件复用 Condition AST</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">各 Service impl 中分散的 if-else 状态校验，难以维护、容易遗漏。统一状态机后：规则集中管理、变更无需改代码、审计日志自动记录</p>
+            <h4 style="margin: 0 0 8px 0; color: #e5a655;">运行时查询</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">can_transition(entity_type, entity_id, to_state)</code> — 查询当前实体是否允许转换到目标状态，供 UI 按钮高亮/禁用。<code style="color:#e5c07b;">get_state_history</code> 返回 <code style="color:#e5c07b;">PaginatedResult</code>，支持分页查询状态变更历史</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">transition() 校验流程</h4>
             <p style="margin: 0; color: #ccc; font-size: 12px;">
             1. 查询当前状态（from_state）<br>
@@ -742,7 +964,7 @@ classDiagram
         </div>
       </div>
       <div style="margin-top: 10px; padding: 8px 12px; background: rgba(229,166,85,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
-        <strong style="color: #e5a655;">设计原则：</strong>定义存 DB 可动态配置 | guard 复用 Condition AST | EntityStateLog 追加写不可变 | 替换分散的 if-else 状态校验
+        <strong style="color: #e5a655;">设计原则：</strong>定义存 DB 可动态配置 | guard 复用 Condition AST | EntityStateLog 追加写不可变 | 替换分散的 if-else 状态校验 | can_transition 供 UI 运行时查询 | get_state_history 支持分页
       </div>
     </div>
 
@@ -757,7 +979,7 @@ classDiagram
             &nbsp;&nbsp;entity_type: String <span style="color:#888;">// "SalesOrder"</span><br>
             &nbsp;&nbsp;entity_id: i64<br>
             &nbsp;&nbsp;action: String <span style="color:#888;">// create/update/delete/transition</span><br>
-            &nbsp;&nbsp;changes: JSONB? <span style="color:#888;">// { field: { old, new } }</span><br>
+            &nbsp;&nbsp;changes: JSONB? <span style="color:#888;">// { field: { old, new, sensitive? } }</span><br>
             &nbsp;&nbsp;operator_id: i64<br>
             &nbsp;&nbsp;context: JSONB? <span style="color:#888;">// { ip, request_id, user_agent }</span><br>
             &nbsp;&nbsp;created_at: Timestamp<br>
@@ -766,9 +988,10 @@ classDiagram
             &nbsp;&nbsp;record(entity_type, entity_id,<br>
             &nbsp;&nbsp;&nbsp;&nbsp;action, changes?, operator_id,<br>
             &nbsp;&nbsp;&nbsp;&nbsp;context?): i64<br>
-            &nbsp;&nbsp;find_by_entity(entity_type, id): Vec<br>
-            &nbsp;&nbsp;find_by_operator(operator_id, range?): Vec<br>
-            &nbsp;&nbsp;find_by_action(action, range?): Vec<br>
+            &nbsp;&nbsp;query_logs(query): PaginatedResult<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 支持 entity_type, operator_id,</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// action, time_range 过滤</span><br>
+            &nbsp;&nbsp;list_audit_logs(limit, offset): Vec<br>
             }
           </div>
         </div>
@@ -790,7 +1013,7 @@ classDiagram
         </div>
       </div>
       <div style="margin-top: 10px; padding: 8px 12px; background: rgba(86,182,194,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
-        <strong style="color: #56b6c2;">设计原则：</strong>业务 Service 直接调用（同事务内，字段级 diff + 请求上下文）| Append-only 不可变 | 按 entity_type 分区索引 | 定期归档到冷存储
+        <strong style="color: #56b6c2;">设计原则：</strong><span style="color:#888;">[TransactionMode: InCallerTx]</span> 业务 Service 直接调用（同事务内，字段级 diff + 请求上下文）| Append-only 不可变 | 按 created_at 月分区表（PostgreSQL 声明式分区，建表时即指定）| 按 entity_type 分区索引 | 定期归档到冷存储 | changes 支持敏感字段标记（sensitive: true）| 所有查询返回 PaginatedResult
       </div>
     </div>
 
@@ -839,9 +1062,281 @@ classDiagram
         </div>
       </div>
       <div style="margin-top: 10px; padding: 8px 12px; background: rgba(198,120,221,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
-        <strong style="color: #c678dd;">设计原则：</strong>三级幂等（API + Handler + Saga补偿）| idempotency_key UNIQUE 原子性 | 与 domain_events.idempotency_key 互补（事件级 vs 操作级）| 过期记录定期清理
+        <strong style="color: #c678dd;">设计原则：</strong>三级幂等（API + Handler + Saga补偿）| idempotency_key UNIQUE 原子性 | 与 domain_events.idempotency_key 互补（事件级 vs 操作级）| 过期记录定期清理<br>
+        <strong style="color: #c678dd;">两层幂等 key 说明：</strong>
+        <code style="color:#e5c07b;">DomainEvent.idempotency_key</code> = 事件级去重（默认自动生成 <code style="color:#e5c07b;">{aggregate_type}:{aggregate_id}:{event_type}</code>，也可调用方自定义覆盖，防同一事件重复写入 Outbox）|
+        <code style="color:#e5c07b;">IdempotencyRecord.idempotency_key</code> = <code style="color:#e5c07b;">"{event_id}:{handler}"</code>（处理级去重，防同一事件被同一 handler 重复消费）
       </div>
     </div>
+
+    <!-- Component 9: PgExecutor & DomainError & PaginatedResult -->
+    <div style="border: 2px solid #f97316; border-radius: 8px; padding: 16px; background: rgba(249,115,22,0.05); margin-bottom: 20px;">
+      <h3 style="color: #f97316; margin: 0 0 8px 0;">⑨ 共享基础类型 (ServiceContext + TransactionMode + DomainError + PaginatedResult)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#888;">// 事务执行器 — 调用者控制事务边界</span><br>
+            <span style="color:#c678dd;">pub type</span> <span style="color:#e5c07b;">PgExecutor</span>&lt;'a&gt; = &amp;'a mut PgConnection<br><br>
+            <span style="color:#888;">// 服务调用上下文 — 包装 executor + 操作元数据</span><br>
+            <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ServiceContext</span> {<br>
+            &nbsp;&nbsp;executor: PgExecutor<br>
+            &nbsp;&nbsp;operator_id: i64<br>
+            &nbsp;&nbsp;trace_id: Option&lt;String&gt;<br>
+            &nbsp;&nbsp;request_id: Option&lt;String&gt;<br>
+}<br><br>
+            <span style="color:#888;">// 显式事务模式声明</span><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">TransactionMode</span> {<br>
+            &nbsp;&nbsp;InCallerTx <span style="color:#888;">// 调用者事务内执行</span><br>
+            &nbsp;&nbsp;IndependentTx <span style="color:#888;">// 独立事务，调用者提交后</span><br>
+            &nbsp;&nbsp;AsyncOutbox <span style="color:#888;">// Outbox 异步消费</span><br>
+}<br><br>
+            <span style="color:#888;">// 基于 thiserror derive 宏</span><br>
+            <span style="color:#c678dd;">#derive(Debug, thiserror::Error)</span><br>
+            <span style="color:#c678dd;">pub enum</span> <span style="color:#e5c07b;">DomainError</span> {<br>
+            &nbsp;&nbsp;<span style="color:#c678dd;">#[error("{0} not found")]</span><br>
+            &nbsp;&nbsp;NotFound(String)<br>
+            &nbsp;&nbsp;<span style="color:#c678dd;">#[error("{0} already exists")]</span><br>
+            &nbsp;&nbsp;Duplicate(String)<br>
+            &nbsp;&nbsp;<span style="color:#c678dd;">#[error("Permission denied: {0}")]</span><br>
+            &nbsp;&nbsp;PermissionDenied(String)<br>
+            &nbsp;&nbsp;<span style="color:#c678dd;">#[error("Business rule: {0}")]</span><br>
+            &nbsp;&nbsp;BusinessRule(String)<br>
+            &nbsp;&nbsp;<span style="color:#c678dd;">#[error("Validation: {0}")]</span><br>
+            &nbsp;&nbsp;Validation(String)<br>
+            &nbsp;&nbsp;<span style="color:#c678dd;">#[error("Concurrent conflict")]</span><br>
+            &nbsp;&nbsp;ConcurrentConflict<br>
+            &nbsp;&nbsp;<span style="color:#c678dd;">#[error(transparent)]</span><br>
+            &nbsp;&nbsp;Internal(#[from] anyhow::Error)<br>
+            }<br><br>
+            <span style="color:#888;">// gRPC 状态码映射</span><br>
+            <span style="color:#c678dd;">impl</span> From&lt;DomainError&gt; <span style="color:#c678dd;">for</span> tonic::Status {<br>
+            &nbsp;&nbsp;NotFound(msg) → NOT_FOUND<br>
+            &nbsp;&nbsp;Duplicate(msg) → ALREADY_EXISTS<br>
+            &nbsp;&nbsp;PermissionDenied(msg) → PERMISSION_DENIED<br>
+            &nbsp;&nbsp;BusinessRule(msg) → FAILED_PRECONDITION<br>
+            &nbsp;&nbsp;Validation(msg) → INVALID_ARGUMENT<br>
+            &nbsp;&nbsp;ConcurrentConflict → ABORTED<br>
+            &nbsp;&nbsp;Internal(e) → INTERNAL（日志记录完整错误链，返回泛化消息）<br>
+            }<br><br>
+            <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">PaginatedResult</span>&lt;T&gt; {<br>
+            &nbsp;&nbsp;items: Vec&lt;T&gt;<br>
+            &nbsp;&nbsp;total: u64<br>
+            &nbsp;&nbsp;page: u32<br>
+            &nbsp;&nbsp;page_size: u32<br>
+            &nbsp;&nbsp;total_pages: u32<br>
+            }<br><br>
+            <span style="color:#888;">// 批量操作统一返回</span><br>
+            <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">BatchResult</span> {<br>
+            &nbsp;&nbsp;success_count: i32<br>
+            &nbsp;&nbsp;failed_items: Vec&lt;BatchFailure&gt;<br>
+            &nbsp;&nbsp;total: i32 <span style="color:#888;">// = success_count + failed_items.len()</span><br>
+            }<br><br>
+            <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">BatchFailure</span> {<br>
+            &nbsp;&nbsp;index: i32 <span style="color:#888;">// 原始请求中的位置</span><br>
+            &nbsp;&nbsp;error: String <span style="color:#888;">// 失败原因</span><br>
+            }
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(249,115,22,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #f97316;">功能</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>ServiceContext</strong>：服务调用上下文，包装 PgExecutor + operator_id + trace_id + request_id。所有共享服务接受 ServiceContext 作为第一参数，消除逐参数传递 operator_id / trace_id 的冗余。共享服务（如 AuditLog.record、EventBus.publish）在调用者事务内执行，保证强一致</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>DomainError</strong>：基于 <code style="color:#e5c07b;">thiserror</code> 定义结构化错误枚举，自动派生 <code style="color:#e5c07b;">Display + Error</code> trait。新增 Validation 变体用于输入校验，Internal 的完整错误链仅记录到日志，不泄露给客户端。<code style="color:#e5c07b;">ServiceError</code> 标记 <code style="color:#e5c07b;">#[deprecated]</code>，新代码统一使用 DomainError</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>PaginatedResult</strong>：所有查询接口的标准分页返回结构</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>BatchResult</strong>：所有 batch_* 方法的统一返回结构，支持部分失败场景。<code style="color:#e5c07b;">success_count</code> 记录成功数，<code style="color:#e5c07b;">failed_items</code> 记录每个失败项的位置和原因，便于上层精确处理</p>
+            <h4 style="margin: 0 0 8px 0; color: #f97316;">PgExecutor 设计要点</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">
+            <strong>ServiceContext 封装</strong> — PgExecutor 不再直接传入 service，而是包装在 ServiceContext 中，携带 operator_id / trace_id / request_id<br>
+            <strong>TransactionMode 声明</strong> — 每个共享服务方法明确声明事务模式（InCallerTx / IndependentTx / AsyncOutbox），编译器辅助检查<br>
+            <strong>强一致保证</strong> — InCallerTx 模式下 AuditLog.record + EventBus.publish + StateMachine.transition 全部在同一事务内完成</p>
+            <h4 style="margin: 0 0 8px 0; color: #f97316;">迁移策略</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            <strong>ServiceContext</strong>：在 <code style="color:#e5c07b;">abt/src/repositories/mod.rs</code> 定义，所有共享服务接受 <code style="color:#e5c07b;">ServiceContext</code> 作为第一参数<br>
+            <strong>新服务</strong>：共享基础设施组件返回 <code style="color:#e5c07b;">Result&lt;T, DomainError&gt;</code>，接受 <code style="color:#e5c07b;">ServiceContext</code><br>
+            <strong>老服务</strong>：<code style="color:#e5c07b;">ServiceError</code> 标记 deprecated，<code style="color:#e5c07b;">anyhow::Result</code> 保持兼容</p>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 10px; padding: 8px 12px; background: rgba(249,115,22,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
+        <strong style="color: #f97316;">设计原则：</strong>ServiceContext 封装 PgExecutor + 操作元数据（operator_id / trace_id / request_id）| TransactionMode 显式声明事务模式（InCallerTx / IndependentTx / AsyncOutbox）| DomainError 统一错误模型（ServiceError deprecated）| thiserror 自动 Display + Error | #[from] anyhow::Error 兼容老代码 | PaginatedResult 查询统一返回 | BatchResult batch_* 统一返回（部分失败）
+      </div>
+    </div>
+
+    <!-- Component 10: Identity & Access -->
+    <div style="border: 2px solid #f472b6; border-radius: 8px; padding: 16px; background: rgba(244,114,182,0.05); margin-bottom: 20px;">
+      <h3 style="color: #f472b6; margin: 0 0 8px 0;">⑩ 身份认证与权限 (Identity & Access)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">User</span> {<br>
+            &nbsp;&nbsp;user_id: i64 <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;username: String <span style="color:#888;">// 登录名 UNIQUE</span><br>
+            &nbsp;&nbsp;password_hash: String <span style="color:#888;">// bcrypt</span><br>
+            &nbsp;&nbsp;display_name: String?<br>
+            &nbsp;&nbsp;is_active: bool<br>
+            &nbsp;&nbsp;is_super_admin: bool<br>
+            &nbsp;&nbsp;created_at: DateTime<br>
+            &nbsp;&nbsp;updated_at: DateTime?<br>
+            }<br><br>
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Role</span> {<br>
+            &nbsp;&nbsp;role_id: i64 <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;role_name: String<br>
+            &nbsp;&nbsp;role_code: String <span style="color:#888;">// "sales_manager"</span><br>
+            &nbsp;&nbsp;is_system_role: bool <span style="color:#888;">// 内置不可删</span><br>
+            &nbsp;&nbsp;parent_role_id: i64? <span style="color:#888;">// 层级(预留)</span><br>
+            &nbsp;&nbsp;description: String?<br>
+            &nbsp;&nbsp;created_at: DateTime<br>
+            &nbsp;&nbsp;updated_at: DateTime?<br>
+            }<br><br>
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Department</span> {<br>
+            &nbsp;&nbsp;department_id: i64 <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;department_name: String<br>
+            &nbsp;&nbsp;department_code: String<br>
+            &nbsp;&nbsp;description: String?<br>
+            &nbsp;&nbsp;is_active: bool<br>
+            &nbsp;&nbsp;is_default: bool<br>
+            &nbsp;&nbsp;created_at: DateTime<br>
+            &nbsp;&nbsp;updated_at: DateTime?<br>
+            }<br><br>
+            <span style="color:#888;">// 关联表（无ORM实体）</span><br>
+            <span style="color:#e5c07b;">user_roles</span> (user_id, role_id)<br>
+            <span style="color:#e5c07b;">role_permissions</span> (role_id, resource_code, action)<br>
+            <span style="color:#e5c07b;">user_departments</span> (user_id, department_id)
+          </div>
+        </div>
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">Claims</span> { <span style="color:#888;">// JWT payload</span><br>
+            &nbsp;&nbsp;sub: i64 <span style="color:#888;">// user_id</span><br>
+            &nbsp;&nbsp;username: String<br>
+            &nbsp;&nbsp;display_name: String<br>
+            &nbsp;&nbsp;system_role: String <span style="color:#888;">// "super_admin"|"user"</span><br>
+            &nbsp;&nbsp;role_ids: Vec&lt;i64&gt;<br>
+            &nbsp;&nbsp;role_codes: Vec&lt;String&gt;<br>
+            &nbsp;&nbsp;department_ids: Vec&lt;i64&gt; <span style="color:#888;">// Phase 2: DataScope</span><br>
+            &nbsp;&nbsp;exp: u64, iat: u64<br>
+            }<br><br>
+            <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">AuthContext</span> { <span style="color:#888;">// gRPC 请求级</span><br>
+            &nbsp;&nbsp;user_id: i64<br>
+            &nbsp;&nbsp;username: String<br>
+            &nbsp;&nbsp;system_role: String<br>
+            &nbsp;&nbsp;role_ids: Vec&lt;i64&gt;<br>
+            &nbsp;&nbsp;role_codes: Vec&lt;String&gt;<br>
+            &nbsp;&nbsp;department_ids: Vec&lt;i64&gt; <span style="color:#888;">// Phase 2: DataScope</span><br>
+            &nbsp;&nbsp;<span style="color:#888;">// helper methods:</span><br>
+            &nbsp;&nbsp;is_super_admin() → bool<br>
+            &nbsp;&nbsp;has_role(role_id) → bool<br>
+            }<br><br>
+            <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ResourceActionDef</span> {<br>
+            &nbsp;&nbsp;resource_code: "PRODUCT"<br>
+            &nbsp;&nbsp;resource_name: "产品管理"<br>
+            &nbsp;&nbsp;description: "产品基础信息"<br>
+            &nbsp;&nbsp;action: "READ" | "WRITE" | "DELETE"<br>
+            &nbsp;&nbsp;action_name: "查看" | "编辑" | "删除"<br>
+            }<br><br>
+            <span style="color:#888;">// 16 种资源定义（代码注册）</span><br>
+            PRODUCT, CATEGORY, BOM, BOM_CATEGORY<br>
+            WAREHOUSE, LOCATION, INVENTORY, PRICE<br>
+            SALES_ORDER, PURCHASE_ORDER<br>
+            WORK_ORDER, INSPECTION, COST<br>
+            USER, ROLE, DEPARTMENT
+          </div>
+        </div>
+      </div>
+      <!-- Key Components: Cache + Route Map -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#61afef;">struct</span> <span style="color:#e5c07b;">RolePermissionCache</span> { <span style="color:#888;">// 进程内全局缓存</span><br>
+            &nbsp;&nbsp;cache: RwLock&lt;HashMap&lt;i64, HashSet&lt;String&gt;&gt;&gt;<br>
+            &nbsp;&nbsp;<span style="color:#888;">// role_id → 已解析的权限集合（含继承）</span><br><br>
+            &nbsp;&nbsp;<span style="color:#888;">// 核心方法:</span><br>
+            &nbsp;&nbsp;load(pool) <span style="color:#888;">// 启动加载 + 变更时 reload</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;→ 加载 role_permissions + DFS 解析 parent_role_id 继承<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;→ 环检测（circular inheritance → hard fail）<br>
+            &nbsp;&nbsp;get_merged_permissions(role_ids) → HashSet&lt;String&gt;<br>
+            &nbsp;&nbsp;has_permission(role_ids, resource, action) → bool<br>
+            }<br><br>
+            <span style="color:#888;">// 生命周期：OnceLock 全局单例，init_context_with_pool 时加载</span><br>
+            <span style="color:#888;">// 触发 reload：assign_permissions / remove_permissions</span><br>
+            <span style="color:#888;">// 查询路径：零 DB、零 Redis，纯内存 HashMap 查找</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#e06c75;">const</span> <span style="color:#e5c07b;">PERMISSION_ROUTE_MAP</span>: HashMap&lt;&amp;str, (&amp;str, &amp;str)&gt;<br>
+            &nbsp;&nbsp;<span style="color:#888;">// gRPC method path → (resource_code, action)</span><br><br>
+            &nbsp;&nbsp;"/abt.v1.ProductService/UpdateProduct"<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;→ ("PRODUCT", "WRITE")<br>
+            &nbsp;&nbsp;"/abt.v1.SalesOrderService/ListSalesOrders"<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;→ ("SALES_ORDER", "READ")<br>
+            &nbsp;&nbsp;"/abt.v1.BomService/PublishBom"<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;→ ("BOM", "WRITE")<br>
+            &nbsp;&nbsp;... <span style="color:#888;">// 每个 handler 方法一行</span><br><br>
+            <span style="color:#e06c75;">fn</span> auth_interceptor(request) {<br>
+            &nbsp;&nbsp;claims = decode_jwt(request.metadata)<br>
+            &nbsp;&nbsp;auth_ctx = AuthContext::from(claims)<br>
+            &nbsp;&nbsp;route_perm = PERMISSION_ROUTE_MAP[method_path]<br>
+            &nbsp;&nbsp;cache.has_permission(auth_ctx.role_ids, route_perm)<br>
+            &nbsp;&nbsp;→ PermissionDenied | Ok(request)<br>
+            }
+          </div>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+        <div>
+          <div style="background: rgba(244,114,182,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #f472b6;">认证流程</h4>
+            <div style="color: #ccc; font-size: 12px;">
+              <strong>登录</strong>: AuthService.login(username, password)<br>
+              → 验证密码(argon2) → 查询用户角色+部门 → 生成 JWT(Claims) → 返回 (token, user_id, claims)<br><br>
+              <strong>请求鉴权（Interceptor 统一拦截）</strong>:<br>
+              gRPC interceptor 从 metadata 提取 token<br>
+              → 验证 JWT 签名 + 过期时间 → 构建 AuthContext → 注入 request extensions<br>
+              → <span style="color:#e06c75;">所有请求必须经过 interceptor，禁止绕过</span><br><br>
+              <strong>权限校验（路由权限表自动拦截）</strong>:<br>
+              <span style="color:#61afef;">PERMISSION_ROUTE_MAP</span>: HashMap&lt;method_path, (resource, action)&gt;<br>
+              &nbsp;&nbsp;如 "/abt.v1.ProductService/UpdateProduct" → ("PRODUCT", "WRITE")<br>
+              &nbsp;&nbsp;如 "/abt.v1.SalesOrderService/ListSalesOrders" → ("SALES_ORDER", "READ")<br>
+              interceptor 自动查表 → PermissionService.check_permission → 放行或 PermissionDenied<br>
+              <span style="color:#888;">新增接口只需在 PERMISSION_ROUTE_MAP 加一行，handler 无需关心权限逻辑</span><br><br>
+              PermissionService.check_permission(user_id, resource, action)<br>
+              → RolePermissionCache.get_merged_permissions(role_ids) 内存查询（不查 DB）<br>
+              → super_admin 直接放行 → 校验失败返回 PermissionDenied，不进入业务逻辑<br>
+              <span style="color:#888;">缓存启动时全量加载 + 角色变更时自动 reload，无 Redis 依赖</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(244,114,182,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #f472b6;">设计要点</h4>
+            <div style="color: #ccc; font-size: 12px;">
+              <strong>RBAC 模型</strong>: User → Role → Permission (resource:action)<br>
+              用户可拥有多角色，角色可拥有多权限<br><br>
+              <strong>资源定义</strong>: 代码注册（collect_all_resources），非数据库表<br>
+              权限格式: "PRODUCT:READ", "BOM:WRITE"<br>
+              <span style="color:#888;">单体 Rust 应用，新资源随新功能一起部署，代码注册足够</span><br><br>
+              <strong>超级管理员</strong>: is_super_admin 或 system_role="super_admin"<br>
+              绕过所有权限检查<br><br>
+              <strong style="color:#e06c75;">JWT 原则：只存 ID，不存详情</strong><br>
+              Claims 存 sub/role_ids/department_ids 等轻量标识符（当前 ~300 字节）<br>
+              权限细节由 <span style="color:#61afef;">RolePermissionCache</span>（进程内内存缓存）提供，不写入 JWT<br>
+              <span style="color:#888;">缓存启动时全量加载 role→permissions + 继承解析，角色/权限变更时自动 reload</span><br><br>
+              <strong>部门</strong>: 组织架构维度，User ↔ Department 多对多<br>
+              department_ids 已写入 JWT Claims，供 Phase 2 数据范围过滤使用<br><br>
+              <span style="color:#56b6c2;"><strong>Phase 2: DataScope 数据权限</strong></span><br>
+              基于 department_ids 实现行级数据隔离：<br>
+              &nbsp;&nbsp;销售只看本部门报价单，仓管只操作指定仓库<br>
+              &nbsp;&nbsp;实现方式：Service 层查询自动拼接 department_id 过滤条件<br>
+              &nbsp;&nbsp;管理员可跨部门查看（super_admin 或特殊角色）
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 10px; padding: 8px 12px; background: rgba(244,114,182,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
+        <strong style="color: #f472b6;">设计原则：</strong>RBAC 角色权限模型 | JWT 只存 ID 不存详情 | RolePermissionCache 内存缓存| <span style="color:#e06c75;">路由权限表统一拦截（PERMISSION_ROUTE_MAP）</span> | 资源权限代码注册（16 种资源 × READ/WRITE/DELETE）| super_admin 绕过检查 | 角色层级(parent_role_id)预留 | department_ids 写入 JWT 供 Phase 2 DataScope | 所有变更操作带 operator_id 审计 | AuditLog 记录用户/角色/权限变更
+      </div>
+    </div>    </div>
 
     <!-- Relationships -->
     <div style="padding: 12px; background: rgba(108,139,239,0.1); border-radius: 6px;">
@@ -851,14 +1346,25 @@ classDiagram
         <span style="color:#e5a655;">DocumentLink</span> ──────── 业务流转时写入 ──→ 记录单据间关系链（7 种 LinkType）<br>
         <span style="color:#6bc76b;">InventoryReservation</span> ─ 预留/释放/过期 ──→ 控制库存可用量（4 个模块消费）<br>
         <span style="color:#e06c75;">CostEntry</span> ──────────── 成本事件触发 ──→ 双层记账统一入口（7 个模块写入，FMS 聚合查询）<br>
-        <span style="color:#3b82f6;">DomainEventBus</span> ────── 事件发布/订阅 ──→ 跨模块解耦（19 种事件 | 同步强一致 + Outbox 异步分发）<br>
+        <span style="color:#3b82f6;">DomainEventBus</span> ────── 事件发布/订阅 ──→ 跨模块解耦（19 种事件 | 同步强一致 + Outbox 异步分发 | mark_processed 批量版 | find_events 统一查询）<br>
         <span style="color:#3b82f6;">EventHandlerRegistry</span> ── Handler 注册/分发 ──→ 支持同步（库存预留/质量关卡）和异步（Outbox）两种模式<br>
         <span style="color:#e5a655;">StateMachineService</span> ─ 状态转换管理 ──→ 统一单据生命周期（替换分散的 if-else 状态校验）<br>
-        <span style="color:#56b6c2;">AuditLogService</span> ──── 操作审计追踪 ──→ 业务 Service 直接调用（同事务内，字段级 diff，全链路可追溯）<br>
+        <span style="color:#56b6c2;">AuditLogService</span> ──── 操作审计追踪 ──→ 业务 Service 直接调用（同事务内，字段级 diff，全链路可追溯）| query_logs 统一查询 | list_audit_logs 前端审计页面<br>
         <span style="color:#c678dd;">IdempotencyService</span> ── 幂等去重保障 ──→ 三级幂等：API防重复提交 + Handler防重复消费 + Saga补偿防重复执行<br>
+        <span style="color:#f97316;">ServiceContext</span> ──────────── 服务调用上下文 ──→ 包装 PgExecutor + operator_id + trace_id + request_id，所有共享服务第一参数<br>
+        <span style="color:#f97316;">TransactionMode</span> ─────── 显式事务模式声明 ──→ InCallerTx（调用者事务）/ IndependentTx（独立事务）/ AsyncOutbox（异步消费）
+        <span style="color:#f97316;">DomainError</span> ────────── 统一错误模型 ──→ 唯一标准错误类型（ServiceError deprecated），gRPC 语义化 status code<br>
+        <span style="color:#f97316;">PaginatedResult</span> ──── 统一分页结构 ──→ 所有查询接口返回 { items, total, page, page_size, total_pages }<br>
+        <span style="color:#f97316;">BatchResult</span> ———————— 批量操作统一返回 —→ 所有 batch_* 方法返回 { success_count, failed_items, total }<br>
+        <span style="color:#f472b6;">UserService</span> ────────── 用户 CRUD + 角色分配 ──→ 创建/更新/删除带 operator_id 审计，batch_assign_roles 批量分配<br>
+        <span style="color:#f472b6;">RoleService</span> ────────── 角色 CRUD + 权限分配 ──→ assign_permissions 接受 (resource_code, action) 元组列表<br>
+        <span style="color:#f472b6;">AuthService</span> ────────── JWT 认证 ──→ login/refresh_token/get_user_claims，Claims 只存 ID（role_ids/department_ids），权限细节由 RolePermissionCache 内存缓存提供<br>
+        <span style="color:#f472b6;">PermissionService</span> ── 权限校验 ──→ check_permission 单条校验 | batch_check_permissions 批量校验（列表接口用，避免 N+1）| 两者均走 user→roles→role_permissions 链路聚合<br>
+        <span style="color:#f472b6;">DepartmentService</span> ── 部门 CRUD + 用户关联 ──→ assign_departments/remove_departments 管理用户-部门多对多<br>
         <br>
         <span style="color:#888;">EventBus + StateMachine 构成事件驱动架构骨架，所有业务模块和 <a href="08-workflow-engine.html" style="color:#6bc76b;">Workflow Engine</a> 均通过它们协作</span><br>
-        <span style="color:#888;">所有共享实体通过 DocumentType 枚举与具体业务模块解耦</span>
+        <span style="color:#888;">所有共享实体通过 DocumentType 枚举与具体业务模块解耦</span><br>
+        <span style="color:#888;">ServiceContext + DomainError + TransactionMode + PaginatedResult 构成统一的接口契约基础，ServiceContext 提供事务上下文 + 操作元数据，TransactionMode 显式声明事务边界，新服务直接采用，老服务渐进迁移</span>
       </div>
     </div>
 

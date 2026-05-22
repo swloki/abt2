@@ -319,11 +319,11 @@ graph TD
             <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">DocumentLinkService</span> { create_link(ctx), find_linked }<br>
             <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InventoryReservationService</span> { reserve(ctx), fulfill(ctx), cancel(ctx) }<br>
             <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CostEntryService</span> { create(ctx), find_by_entity }<br>
-            <span style="color:#3b82f6;">interface</span> <span style="color:#e5c07b;">DomainEventBus</span> { publish(ctx), find_events, find_by_type }<br>
+            <span style="color:#3b82f6;">interface</span> <span style="color:#e5c07b;">DomainEventBus</span> { publish(ctx), mark_processed, find_events }<br>
             <span style="color:#3b82f6;">interface</span> <span style="color:#e5c07b;">EventHandlerRegistry</span> { register · dispatch }<br>
             <span style="color:#888;">↑ 负责Handler注册与分发，支持同步（强一致）和异步（Outbox）两种模式</span><br>
             <span style="color:#e5a655;">interface</span> <span style="color:#e5c07b;">StateMachineService</span> { transition(ctx), get_current_state, ... }<br>
-            <span style="color:#56b6c2;">interface</span> <span style="color:#e5c07b;">AuditLogService</span> { record(ctx), find_by_entity, find_by_operator }<br>
+            <span style="color:#56b6c2;">interface</span> <span style="color:#e5c07b;">AuditLogService</span> { record(ctx), query_logs, list_audit_logs }<br>
             <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">IdempotencyService</span> { check_and_mark(ctx), mark_processed(ctx), cleanup_expired }<br>
             <span style="color:#888;">↑ API级（防重复提交）+ Handler级（Outbox重试幂等）+ 补偿级（Workflow重试幂等）</span>
           </div>

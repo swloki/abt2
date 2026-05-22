@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -48,7 +48,7 @@
 </head>
 <body>
 <h2>模块间接口依赖关系 — 总览</h2>
-<p class="subtitle">9 个模块 · 48 个 Service Trait · 187 个核心方法 · 接口先行 · 事件驱动</p>
+<p class="subtitle">9 个模块 · 48 个 Service Trait · 187 个核心方法 · 接口先行 · 事件驱动 · 分层实现</p>
 
 <!-- Mermaid Diagram -->
 <div class="mermaid-wrap">
@@ -249,11 +249,11 @@ graph TD
       <h3 style="color: #6c8bef; margin: 0 0 10px 0;">设计原则</h3>
       <div style="font-family: monospace; font-size: 13px; color: #e0e0e0; line-height: 2;">
         ① <strong>接口先行</strong> — 先定义 Service trait 契约，再实现<br>
-        ② <strong>模块解耦</strong> — 通过 DocumentType 枚举，共享层不引用具体业务类型<br>
-        ③ <strong>事件驱动</strong> — 业务模块通过 DomainEventBus 发布事件，handler 自动响应<br>
-        ④ <strong>状态机统一</strong> — StateMachineService 管理所有单据生命周期，替换分散的 if-else<br>
-        ⑤ <strong>质量关卡硬门</strong> — 检验不合格自动阻断下游流转（数据层面，非流程软约束）<br>
-        ⑥ <strong>业财一体</strong> — 从第一天起记录成本，统一 cost_entries 分类账<br>
+        ② <strong>模块解耦 · 单向依赖</strong> — 通过 DocumentType 枚举，共享层不引用具体业务类型；业务模块只能依赖 shared 层和更底层模块，禁止反向依赖<br>
+        ③ <strong>事件驱动</strong> — 业务模块通过 DomainEventBus 发布事件，handler 自动响应。强一致逻辑直接调用（不经 EventBus），EventBus 仅用于最终一致的副作用<br>
+        ④ <strong>状态机与流程分离</strong> — StateMachineService 管理纯状态转移规则（声明式、无外部依赖），WorkflowService 负责审批、多步骤编排和 Saga 补偿。Workflow 通过调用 StateMachine 推进状态，禁止 StateMachine 自行推进需审批的状态<br>
+        ⑤ <strong>质量关卡硬门</strong> — 业务层显式调用 InspectionResultService.is_passed() 检查，不通过则返回错误，阻断下游流转（数据层面阻断，非流程软约束）<br>
+        ⑥ <strong>业财一体（独立事务）</strong> — CostEntry 在主业务事务提交后、以独立事务记录。成本为派生数据可重算，失败不阻塞主业务流程<br>
         ⑦ <strong>流程编排</strong> — Workflow Engine 处理审批、多步骤编排和 Saga 补偿<br>
         ⑧ <strong>全链路审计</strong> — 业务 Service 同事务内直接调用 AuditLogService，字段级 diff + 请求上下文，零遗漏可追溯
       </div>
@@ -266,15 +266,15 @@ graph TD
         <span style="color:#888;">┌──────────────────────────────────────────────────────────────────────┐</span><br>
         <span style="color:#888;">│</span> <span style="color:#e5a655;">SalesOrderService</span>.confirm() <span style="color:#888;">// 业务模块只关心核心逻辑</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;├── <span style="color:#e5a655;">StateMachine</span>.transition("Confirmed") <span style="color:#888;">// 推进状态</span> <span style="color:#888;">│</span><br>
-        <span style="color:#888;">│</span>&nbsp;&nbsp;├── <span style="color:#6bc76b;">InventoryReservation</span>.reserve(SOFT) <span style="color:#e06c75;">← 同步强一致</span> <span style="color:#888;">│</span><br>
+        <span style="color:#888;">│</span>&nbsp;&nbsp;├── <span style="color:#6bc76b;">InventoryReservation</span>.reserve(SOFT) <span style="color:#e06c75;">← 同步强一致（主事务内）</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;└── <span style="color:#3b82f6;">EventBus</span>.publish(<span style="color:#e5c07b;">SalesOrderConfirmed</span>) <span style="color:#888;">// 写 Outbox</span> <span style="color:#888;">│</span><br>
-        <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color:#e06c75;">CostEntryHandler</span> → record cost <span style="color:#3b82f6;">← 异步</span> <span style="color:#888;">│</span><br>
-        <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color:#e5a655;">DocLinkHandler</span> → link QUO→SO <span style="color:#3b82f6;">← 异步</span> <span style="color:#888;">│</span><br>
-        <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <span style="color:#c678dd;">WorkflowTriggerHandler</span> → start WF <span style="color:#3b82f6;">← 异步</span> <span style="color:#888;">│</span><br>
+        <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color:#e06c75;">CostEntryHandler</span> → record cost <span style="color:#98c379;">← 独立事务</span> <span style="color:#888;">│</span><br>
+        <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color:#e5a655;">DocLinkHandler</span> → link QUO→SO <span style="color:#3b82f6;">← 异步 Outbox</span> <span style="color:#888;">│</span><br>
+        <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <span style="color:#c678dd;">WorkflowTriggerHandler</span> → start WF <span style="color:#3b82f6;">← 异步 Outbox</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">└──────────────────────────────────────────────────────────────────────┘</span><br>
-        <span style="color:#e06c75;">同步强一致</span>：库存预留、质量关卡硬门 — 调用者事务内直接执行，失败即回滚<br>
-        <span style="color:#3b82f6;">异步 Outbox</span>：成本记录、文档链接、Workflow 触发、通知 — 业务事务内写 Outbox + NOTIFY，EventProcessor 后台消费
-      </div>
+	        <span style="color:#e06c75;">① 同步强一致（主事务内）</span>：库存预留、质量关卡硬门 — 调用者事务内直接执行，失败即回滚<br>
+	        <span style="color:#98c379;">② 独立事务</span>：成本记录（CostEntry）— 主事务提交后开新事务写入，失败不影响主业务，成本为派生数据可重算<br>
+	        <span style="color:#3b82f6;">③ 异步 Outbox</span>：文档链接、Workflow 触发、通知 — 业务事务内写 Outbox + NOTIFY，EventProcessor 后台消费
     </div>
 
     <!-- Module Overview -->
@@ -413,17 +413,17 @@ graph TD
     <div style="border-left: 4px solid #3b82f6; padding: 12px 16px; background: rgba(59,130,246,0.05); margin-bottom: 12px; border-radius: 0 8px 8px 0;">
       <h4 style="color: #3b82f6; margin: 0 0 6px 0;">EventBus 事件分发 <span style="background:#3b82f6;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;">V2</span></h4>
       <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 1.8;">
-        <span style="color:#e06c75;">■ 同步强一致（调用者事务内直接调用）</span><br>
+	        <span style="color:#e06c75;">■ 同步强一致（主事务内直接调用，失败即回滚）</span><br>
         <span style="color:#e5a655;">SalesOrderConfirmed</span> → <span style="color:#e06c75;">InvRes.reserve(SOFT)</span><br>
         <span style="color:#e06c75;">SalesOrderShipped</span> → <span style="color:#e06c75;">InvRes.fulfill(释放SOFT)</span> + <span style="color:#e06c75;">InvTransaction.record</span><br>
         <span style="color:#e06c75;">WorkOrderReleased</span> → <span style="color:#e06c75;">InvRes.reserve(HARD)</span> + <span style="color:#e06c75;">MaterialRequisition.create</span><br>
         <span style="color:#e06c75;">ProductionReceiptConfirmed</span> → <span style="color:#e06c75;">InvRes.fulfill(释放HARD)</span> + <span style="color:#e06c75;">Backflush.execute</span><br><br>
-        <span style="color:#3b82f6;">■ 异步 Outbox（写 Outbox + EventProcessor 后台消费）</span><br>
-        <span style="color:#e5a655;">SalesOrderConfirmed</span> → <span style="color:#3b82f6;">CostEntryHandler</span> + <span style="color:#3b82f6;">DocLinkHandler</span> + <span style="color:#3b82f6;">WorkflowTriggerHandler</span><br>
-        <span style="color:#e5a655;">SalesOrderShipped</span> → <span style="color:#3b82f6;">CostEntryHandler(COGS)</span><br>
-        <span style="color:#6bc76b;">ArrivalNoticeReceived</span> → <span style="color:#3b82f6;">CostEntryHandler(材料成本)</span> + <span style="color:#3b82f6;">InvResReleaseHandler(释放安全库存)</span><br>
-        <span style="color:#e06c75;">ProductionReceiptConfirmed</span> → <span style="color:#3b82f6;">CostEntryHandler(成品)</span> + <span style="color:#3b82f6;">DocLinkHandler</span><br>
-        <span style="color:#e06c75;">OutsourcingReceived</span> → <span style="color:#3b82f6;">CostEntryHandler(外协成本)</span> + <span style="color:#3b82f6;">DocLinkHandler</span><br>
+	        <span style="color:#3b82f6;">■ 异步 Outbox（写 Outbox + EventProcessor 后台消费）</span><br>
+	        <span style="color:#e5a655;">SalesOrderConfirmed</span> → <span style="color:#3b82f6;">DocLinkHandler</span> + <span style="color:#3b82f6;">WorkflowTriggerHandler</span><br>
+	        <span style="color:#e5a655;">SalesOrderShipped</span> → <span style="color:#98c379;">CostEntryHandler(COGS) ← 独立事务</span><br>
+	        <span style="color:#6bc76b;">ArrivalNoticeReceived</span> → <span style="color:#98c379;">CostEntryHandler(材料成本) ← 独立事务</span> + <span style="color:#3b82f6;">InvResReleaseHandler(释放安全库存)</span><br>
+	        <span style="color:#e06c75;">ProductionReceiptConfirmed</span> → <span style="color:#98c379;">CostEntryHandler(成品) ← 独立事务</span> + <span style="color:#3b82f6;">DocLinkHandler</span><br>
+	        <span style="color:#e06c75;">OutsourcingReceived</span> → <span style="color:#98c379;">CostEntryHandler(外协成本) ← 独立事务</span> + <span style="color:#3b82f6;">DocLinkHandler</span><br>
         <span style="color:#56b6c2;">InspectionFailed</span> → <span style="color:#3b82f6;">MRBHandler(严重时创建MRB)</span><br><br>
         <span style="color:#56b6c2;">■ 审计（独立路径，非事件驱动）</span><br>
         <span style="color:#888;">业务 Service 在同一事务内直接调用 AuditLogService.record()，携带字段级 diff 和请求上下文，与 EventBus 平行独立</span>
@@ -439,9 +439,9 @@ graph TD
         &nbsp;&nbsp;→ <span style="color:#3b82f6;">EventBus</span>.publish(SalesOrderConfirmed)<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">InventoryReservationService</span>.reserve(Soft, TTL=7天)<br><br>
         <span style="color:#e5a655;">ShippingRequestService</span>.confirm()<br>
-        &nbsp;&nbsp;→ <span style="color:#56b6c2;">InspectionResultService</span>.is_passed(OQC) <span style="color:#888;">// 质量关卡硬门</span><br>
+        &nbsp;&nbsp;→ <span style="color:#56b6c2;">InspectionResultService</span>.is_passed(OQC) <span style="color:#888;">// 质量关卡硬门：显式检查，不通过则返回错误</span><br>
         &nbsp;&nbsp;→ <span style="color:#6c8bef;">InventoryReservationService</span>.fulfill(释放SOFT预留)<br>
-        &nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(销售成本: 借COGS/贷存货)<br>
+        &nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(销售成本: 借COGS/贷存货) <span style="color:#98c379;">← 独立事务</span><br>
         &nbsp;&nbsp;→ <span style="color:#c678dd;">InventoryTransactionService</span>.record(SalesShipment)
       </div>
     </div>
@@ -453,9 +453,9 @@ graph TD
         <span style="color:#6bc76b;">PurchaseOrderService</span>.confirm()<br>
         &nbsp;&nbsp;→ <span style="color:#c678dd;">ArrivalNoticeService</span>.create() 触发来料通知<br><br>
         <span style="color:#c678dd;">ArrivalNoticeService</span>.confirm() 入库确认<br>
-        &nbsp;&nbsp;→ <span style="color:#56b6c2;">InspectionResultService</span>.is_passed(IQC) <span style="color:#888;">// 质量关卡硬门</span><br>
+        &nbsp;&nbsp;→ <span style="color:#56b6c2;">InspectionResultService</span>.is_passed(IQC) <span style="color:#888;">// 质量关卡硬门：显式检查，不通过则返回错误</span><br>
         &nbsp;&nbsp;→ <span style="color:#3b82f6;">EventBus</span>.publish(ArrivalNoticeReceived)<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(材料成本: 借存货/贷应付)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(材料成本: 借存货/贷应付) <span style="color:#98c379;">← 独立事务</span><br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">InventoryReservationService</span>.fulfill(释放安全库存预留)
       </div>
     </div>
@@ -472,7 +472,7 @@ graph TD
         <span style="color:#e06c75;">ProductionReceiptService</span>.confirm() 完工入库<br>
         &nbsp;&nbsp;→ <span style="color:#3b82f6;">EventBus</span>.publish(ProductionReceiptConfirmed)<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#c678dd;">InventoryTransactionService</span>.record(ProductionReceipt)<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(成品入库成本)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(成品入库成本) <span style="color:#98c379;">← 独立事务</span><br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#c678dd;">BackflushService</span>.execute() 触发倒冲<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">InventoryReservationService</span>.cancel(释放剩余Hard)<br><br>
         <span style="color:#e06c75;">WorkOrderService</span>.outsource() 委外加工<br>
@@ -491,7 +491,7 @@ graph TD
         <span style="color:#e06c75;">OutsourcingOrderService</span>.receive() 外协收货<br>
         &nbsp;&nbsp;→ <span style="color:#3b82f6;">EventBus</span>.publish(OutsourcingReceived)<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#56b6c2;">InspectionResultService</span>.create(IQC) <span style="color:#888;">// 触发来料检验</span><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(外协服务成本)<br><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(外协服务成本) <span style="color:#98c379;">← 独立事务</span><br><br>
         <span style="color:#e06c75;">OutsourcingOrderService</span>.convert_to_internal() 转自制<br>
         &nbsp;&nbsp;→ <span style="color:#3b82f6;">EventBus</span>.publish(OutsourcingConvertedToInternal)<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#e06c75;">MES.WorkOrderService</span>.create() 创建内部工单

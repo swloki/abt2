@@ -1,5 +1,392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>采购模块 (SRM) — 类图设计</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .mockup { background: #282a36; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .mockup-header { background: linear-gradient(135deg, #6bc76b, #56b6c2); color: #fff; padding: 12px 20px; font-weight: bold; font-size: 15px; }
+    .mermaid-wrap{background:#282a36;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,0.3);position:relative}
+    .mermaid{display:flex;justify-content:center}
+    .zoom-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 0 12px 0;background:#282a36}
+    .zoom-toolbar button{background:#3b3f5c;border:1px solid #555;color:#cdd6f4;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+    .zoom-toolbar button:hover{background:#4a4f6c;border-color:#6c8bef}
+    .zoom-toolbar .zoom-label{font-size:12px;color:#888;min-width:44px;text-align:center}
+    .zoom-container{overflow:hidden;border:1px solid #333;border-radius:8px;cursor:grab;min-height:80vh;max-height:90vh}
+    .zoom-container:active{cursor:grabbing}
+    .zoom-container.dragging{cursor:grabbing;user-select:none}
+    .zoom-container svg{display:block;margin:auto;transform-origin:top center}
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,background:'#282a36',primaryColor:'#3b3f5c',primaryTextColor:'#cdd6f4',lineColor:'#666',clusterBkg:'rgba(108,139,239,0.08)',clusterBorder:'rgba(108,139,239,0.25)'},flowchart:{useMaxWidth:false,htmlLabels:true}});
+</script>
+</head>
+<body>
 <h2>采购模块 (SRM) — 类图设计</h2>
 <p class="subtitle">6 个核心实体 + 共享层引用 + 对账付款闭环</p>
+
+<div class="mermaid-wrap">
+  <div class="zoom-toolbar">
+    <button id="zoomOut" title="缩小">&#8722;</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn" title="放大">+</button>
+    <button id="zoomReset" title="重置" style="width:auto;padding:0 12px;font-size:12px;">重置</button>
+    <button id="zoomFit" title="适应宽度" style="width:auto;padding:0 12px;font-size:12px;">适应</button>
+    <span style="margin-left:auto;font-size:11px;color:#666;">滚轮缩放 · 拖拽平移</span>
+  </div>
+  <div class="zoom-container" id="zoomContainer">
+    <div class="mermaid">
+classDiagram
+    direction TB
+
+    class SupplierCategory {
+        &lt;&lt;enumeration&gt;&gt;
+        RawMaterial
+        Packaging
+        Outsourcing
+        Consumable
+        Service
+    }
+
+    class SupplierStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Prospective
+        Qualified
+        Probation
+        Disqualified
+        Blacklisted
+    }
+
+    class PurchaseQuotationStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Active
+        Expired
+        Cancelled
+    }
+
+    class PurchaseOrderStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Confirmed
+        PartiallyReceived
+        Received
+        Closed
+        Cancelled
+    }
+
+    class PurchaseReturnStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Confirmed
+        Shipped
+        Refunded
+        Cancelled
+    }
+
+    class PaymentStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Approved
+        Paid
+        Cancelled
+    }
+
+    class PaymentMethod {
+        &lt;&lt;enumeration&gt;&gt;
+        BankTransfer
+        Cash
+        Note
+    }
+
+    class MiscRequestStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Approved
+        Purchasing
+        Received
+        Closed
+        Cancelled
+    }
+
+    class Supplier {
+        +id: i64
+        +code: String
+        +name: String
+        +short_name: Option~String~
+        +category: SupplierCategory
+        +status: SupplierStatus
+        +tax_number: Option~String~
+        +lead_time_days: i32
+        +payment_terms: Option~String~
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class SupplierContact {
+        +id: i64
+        +supplier_id: i64
+        +name: String
+        +position: Option~String~
+        +phone: Option~String~
+        +email: Option~String~
+        +is_primary: bool
+    }
+
+    class SupplierBankAccount {
+        +id: i64
+        +supplier_id: i64
+        +bank_name: String
+        +account_name: String
+        +account_number: String
+        +is_default: bool
+    }
+
+    class PurchaseQuotation {
+        +id: i64
+        +doc_number: String
+        +supplier_id: i64
+        +quotation_date: Date
+        +valid_from: Date
+        +valid_until: Date
+        +status: PurchaseQuotationStatus
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class PurchaseQuotationItem {
+        +id: i64
+        +quotation_id: i64
+        +product_id: i64
+        +line_no: i32
+        +unit_price: Decimal
+        +min_order_qty: Option~Decimal~
+        +lead_time_days: Option~i32~
+        +currency: String
+        +is_preferred: bool
+    }
+
+    class PurchaseOrder {
+        +id: i64
+        +doc_number: String
+        +supplier_id: i64
+        +order_date: Date
+        +expected_delivery_date: Option~Date~
+        +status: PurchaseOrderStatus
+        +total_amount: Decimal
+        +payment_terms: Option~String~
+        +delivery_address: Option~String~
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class PurchaseOrderItem {
+        +id: i64
+        +order_id: i64
+        +line_no: i32
+        +product_id: i64
+        +description: String
+        +quantity: Decimal
+        +unit_price: Decimal
+        +amount: Decimal
+        +received_qty: Decimal
+        +inspected_qty: Decimal
+        +returned_qty: Decimal
+        +quotation_item_id: Option~i64~
+        +expected_delivery_date: Option~Date~
+    }
+
+    class PurchaseReturn {
+        +id: i64
+        +doc_number: String
+        +order_id: i64
+        +supplier_id: i64
+        +return_date: Date
+        +status: PurchaseReturnStatus
+        +return_reason: String
+        +total_amount: Decimal
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class PurchaseReturnItem {
+        +id: i64
+        +return_id: i64
+        +order_item_id: i64
+        +product_id: i64
+        +returned_qty: Decimal
+        +unit_price: Decimal
+        +amount: Decimal
+    }
+
+    class PurchaseReconciliation {
+        +id: i64
+        +doc_number: String
+        +supplier_id: i64
+        +period: String
+        +status: String
+        +total_amount: Decimal
+        +confirmed_amount: Decimal
+        +difference: Decimal
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class PurchaseReconItem {
+        +id: i64
+        +reconciliation_id: i64
+        +order_id: i64
+        +order_item_id: i64
+        +received_qty: Decimal
+        +unit_price: Decimal
+        +amount: Decimal
+        +confirmed: bool
+    }
+
+    class PaymentRequest {
+        +id: i64
+        +doc_number: String
+        +supplier_id: i64
+        +reconciliation_id: Option~i64~
+        +payment_date: Date
+        +amount: Decimal
+        +status: PaymentStatus
+        +payment_method: PaymentMethod
+        +bank_account_id: Option~i64~
+        +invoice_number: Option~String~
+        +invoice_amount: Option~Decimal~
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class MiscellaneousRequest {
+        +id: i64
+        +doc_number: String
+        +department_id: i64
+        +request_date: Date
+        +status: MiscRequestStatus
+        +total_amount: Decimal
+        +purpose: String
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class MiscRequestItem {
+        +id: i64
+        +request_id: i64
+        +line_no: i32
+        +item_name: String
+        +specification: Option~String~
+        +quantity: Decimal
+        +unit: String
+        +estimated_price: Option~Decimal~
+        +remark: Option~String~
+    }
+
+    Supplier *-- SupplierContact
+    Supplier *-- SupplierBankAccount
+    PurchaseQuotation *-- PurchaseQuotationItem
+    PurchaseOrder *-- PurchaseOrderItem
+    PurchaseReturn *-- PurchaseReturnItem
+    PurchaseReconciliation *-- PurchaseReconItem
+    MiscellaneousRequest *-- MiscRequestItem
+
+    class SupplierService {
+        &lt;&lt;interface&gt;&gt;
+        +create(req, oid) Result~Supplier~
+        +find_by_id(id) Result~Supplier~
+        +update(id, req) Result~Supplier~
+        +list(filter) Result~Vec~
+        +add_contact(sid, req) Result~SupplierContact~
+        +add_bank_account(sid, req) Result~SupplierBankAccount~
+    }
+
+    class PurchaseQuotationService {
+        &lt;&lt;interface&gt;&gt;
+        +create(req, oid) Result~PurchaseQuotation~
+        +find_by_id(id) Result~PurchaseQuotation~
+        +list(filter) Result~Vec~
+        +compare(pid) Result~Vec~
+    }
+
+    class PurchaseOrderService {
+        &lt;&lt;interface&gt;&gt;
+        +create(req, oid) Result~PurchaseOrder~
+        +create_from_quotation(pqid, oid) Result~PurchaseOrder~
+        +find_by_id(id) Result~PurchaseOrder~
+        +confirm(id, oid) Result~PurchaseOrder~
+        +list(filter) Result~Vec~
+    }
+
+    class PurchaseReturnService {
+        &lt;&lt;interface&gt;&gt;
+        +create(req, oid) Result~PurchaseReturn~
+        +find_by_id(id) Result~PurchaseReturn~
+        +confirm(id, oid) Result~PurchaseReturn~
+    }
+
+    class PurchaseReconciliationService {
+        &lt;&lt;interface&gt;&gt;
+        +create(sid, period, oid) Result~PurchaseReconciliation~
+        +find_by_id(id) Result~PurchaseReconciliation~
+        +confirm(id, oid) Result~PurchaseReconciliation~
+    }
+
+    class PaymentRequestService {
+        &lt;&lt;interface&gt;&gt;
+        +create(req, oid) Result~PaymentRequest~
+        +find_by_id(id) Result~PaymentRequest~
+        +approve(id, oid) Result~PaymentRequest~
+        +mark_paid(id, oid) Result~PaymentRequest~
+    }
+
+    class MiscellaneousRequestService {
+        &lt;&lt;interface&gt;&gt;
+        +create(req, oid) Result~MiscellaneousRequest~
+        +find_by_id(id) Result~MiscellaneousRequest~
+        +approve(id, oid) Result~MiscellaneousRequest~
+    }
+
+    PurchaseOrderService ..> PurchaseQuotationService : create_from_quotation
+    PurchaseReconciliationService ..> PurchaseOrderService : query receipts
+    PaymentRequestService ..> PurchaseReconciliationService : three-way match
+
+    note for PurchaseOrderService "confirm -> WMS.ArrivalNoticeService.create()\nShared: DocSeq(PO), DocLink(DERIVED_FROM)"
+    note for PaymentRequestService "Three-way match: receipt + invoice + payment\napprove -> CostEntry(cash outflow)\nShared: DocSeq(PAY)\nFMS: CashJournal(PurchasePayment)"
+    note for SupplierService "Referenced by OM.OutsourcingOrderService\nSupplierCategory.OUTSOURCING for external processing"
+    </div>
+  </div>
+</div>
+<script>
+(function(){var s=1,tx=0,ty=0,ms=0.1,xs=8;var c=document.getElementById('zoomContainer'),l=document.getElementById('zoomLabel'),d=false,sx,sy,stx,sty;function a(){var v=c.querySelector('svg');if(v)v.style.transform='scale('+s+') translate('+tx+'px,'+ty+'px)';l.textContent=Math.round(s*100)+'%'}document.getElementById('zoomIn').onclick=function(){s=Math.min(xs,s+0.15);a()};document.getElementById('zoomOut').onclick=function(){s=Math.max(ms,s-0.15);a()};document.getElementById('zoomReset').onclick=function(){s=1;tx=0;ty=0;a()};document.getElementById('zoomFit').onclick=function(){var v=c.querySelector('svg');if(!v)return;var w=c.clientWidth-40,sw=v.getBoundingClientRect().width/s;s=Math.max(ms,Math.min(1.5,w/sw));tx=0;ty=0;a()};c.addEventListener('wheel',function(e){e.preventDefault();s=Math.max(ms,Math.min(xs,s+(e.deltaY>0?-0.08:0.08)));a()},{passive:false});c.addEventListener('mousedown',function(e){if(e.button!==0)return;d=true;c.classList.add('dragging');sx=e.clientX;sy=e.clientY;stx=tx;sty=ty});document.addEventListener('mouseup',function(){d=false;c.classList.remove('dragging')});document.addEventListener('mousemove',function(e){if(!d)return;e.preventDefault();tx=stx+(e.clientX-sx)/s;ty=sty+(e.clientY-sy)/s;a()})})();
+</script>
 
 <div class="mockup">
   <div class="mockup-header">Purchase Module — UML Class Diagram</div>
@@ -322,9 +709,14 @@
         <span style="color:#6c8bef;">DocumentSequence</span> → PQ/PO/PRT/REC/PAY/MISC 编号<br>
         <span style="color:#e5a655;">DocumentLink</span> → 报价→订单→入库→对账→付款 全链路关联<br>
         <span style="color:#6bc76b;">InventoryReservation</span> → 安全库存预留 → 到货后释放<br>
-        <span style="color:#e06c75;">CostEntry</span> → 入库记材料成本(借:存货/贷:应付) | 退货冲减 | 付款记流出
+        <span style="color:#e06c75;">CostEntry</span> → 入库记材料成本(借:存货/贷:应付) | 退货冲减 | 付款记流出<br>
+        <span style="color:#56b6c2;">QMS</span> → 来料入库前 IQC 硬门检查 is_passed(ArrivalNotice) | 不合格触发 MRB<br>
+        <span style="color:#98c379;">FMS</span> → CashJournal 采购付款 | WriteOff 按入库单核销 | 三单匹配(入库+发票+付款)
       </div>
     </div>
 
   </div>
 </div>
+
+</body>
+</html>

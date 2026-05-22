@@ -1,5 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>共享基础设施层 — 类图总览</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .mockup { background: #282a36; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .mockup-header { background: linear-gradient(135deg, #6c8bef, #61afef); color: #fff; padding: 12px 20px; font-weight: bold; font-size: 15px; }
+    .mermaid-wrap{background:#282a36;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,0.3);position:relative}
+    .mermaid{display:flex;justify-content:center}
+    .zoom-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 0 12px 0;background:#282a36}
+    .zoom-toolbar button{background:#3b3f5c;border:1px solid #555;color:#cdd6f4;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+    .zoom-toolbar button:hover{background:#4a4f6c;border-color:#6c8bef}
+    .zoom-toolbar .zoom-label{font-size:12px;color:#888;min-width:44px;text-align:center}
+    .zoom-container{overflow:hidden;border:1px solid #333;border-radius:8px;cursor:grab;min-height:80vh;max-height:90vh}
+    .zoom-container:active{cursor:grabbing}
+    .zoom-container.dragging{cursor:grabbing;user-select:none}
+    .zoom-container svg{display:block;margin:auto;transform-origin:top center}
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,background:'#282a36',primaryColor:'#3b3f5c',primaryTextColor:'#cdd6f4',lineColor:'#666',clusterBkg:'rgba(108,139,239,0.08)',clusterBorder:'rgba(108,139,239,0.25)'},flowchart:{useMaxWidth:false,htmlLabels:true}});
+</script>
+</head>
+<body>
 <h2>共享基础设施层 — 类图总览</h2>
-<p class="subtitle">4 个核心组件：实体定义 + 功能说明 + 使用场景</p>
+<p class="subtitle">8 个核心组件 · 32 种 DocumentType · 19 种领域事件 · 同步强一致 + Outbox 异步分发 · 覆盖 8 个业务模块</p>
+
+<div class="mermaid-wrap">
+  <div class="zoom-toolbar">
+    <button id="zoomOut" title="缩小">&#8722;</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn" title="放大">+</button>
+    <button id="zoomReset" title="重置" style="width:auto;padding:0 12px;font-size:12px;">重置</button>
+    <button id="zoomFit" title="适应宽度" style="width:auto;padding:0 12px;font-size:12px;">适应</button>
+    <span style="margin-left:auto;font-size:11px;color:#666;">滚轮缩放 · 拖拽平移</span>
+  </div>
+  <div class="zoom-container" id="zoomContainer">
+    <div class="mermaid">
+classDiagram
+    direction TB
+
+    class DocumentType {
+        &lt;&lt;enumeration&gt;&gt;
+        Quotation
+        SalesOrder
+        ShippingRequest
+        SalesReturn
+        Reconciliation
+    }
+
+    class LinkType {
+        &lt;&lt;enumeration&gt;&gt;
+        DerivedFrom
+        Triggers
+        References
+        Reconciles
+        Inspects
+        Fulfills
+        Allocates
+    }
+
+    class ReservationType {
+        &lt;&lt;enumeration&gt;&gt;
+        Hard
+        Soft
+        SafetyStock
+    }
+
+    class ReservationStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Active
+        Fulfilled
+        Cancelled
+        Expired
+    }
+
+    class CostType {
+        &lt;&lt;enumeration&gt;&gt;
+        Material
+        Labor
+        Overhead
+        Outsource
+        Rework
+        Scrap
+    }
+
+    class CostEntityType {
+        &lt;&lt;enumeration&gt;&gt;
+        Product
+        WorkOrder
+        SalesOrder
+        PurchaseOrder
+        Inspection
+    }
+
+    class DomainEventType {
+        &lt;&lt;enumeration&gt;&gt;
+        SalesOrderConfirmed
+        SalesOrderShipped
+        SalesReturnReceived
+        PurchaseOrderConfirmed
+        ArrivalNoticeReceived
+    }
+
+    class EventStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Pending
+        Processing
+        Processed
+        Failed
+        DeadLetter
+    }
+
+    class DocumentSequence {
+        +id: i64
+        +prefix: String
+        +current_value: i32
+        +seq_date: NaiveDate
+        +padding_len: i32
+        +created_at: DateTime
+    }
+
+    class DocumentLink {
+        +id: i64
+        +source_type: DocumentType
+        +source_id: i64
+        +target_type: DocumentType
+        +target_id: i64
+        +link_type: LinkType
+        +created_at: DateTime
+        +created_by: Option~i64~
+    }
+
+    class InventoryReservation {
+        +id: i64
+        +product_id: i64
+        +warehouse_id: i64
+        +reserved_qty: Decimal
+        +reservation_type: ReservationType
+        +source_type: DocumentType
+        +source_id: i64
+        +status: ReservationStatus
+        +priority: i32
+        +expires_at: Option~DateTime~
+        +created_at: DateTime
+    }
+
+    class CostEntry {
+        +id: i64
+        +entity_type: CostEntityType
+        +entity_id: i64
+        +cost_type: CostType
+        +debit_amount: Decimal
+        +credit_amount: Decimal
+        +cost_center: Option~i64~
+        +profit_center: Option~i64~
+        +period: String
+        +source_type: DocumentType
+        +source_id: i64
+        +created_at: DateTime
+    }
+
+    class DomainEvent {
+        +id: i64
+        +event_type: DomainEventType
+        +aggregate_type: String
+        +aggregate_id: i64
+        +payload: JSONB
+        +operator_id: i64
+        +idempotency_key: String
+        +status: EventStatus
+        +retry_count: i32
+        +processed_at: Option~DateTime~
+        +created_at: DateTime
+    }
+
+    class StateDefinition {
+        +id: i64
+        +entity_type: String
+        +state_name: String
+        +label: String
+        +is_initial: bool
+        +is_final: bool
+    }
+
+    class StateTransitionDef {
+        +id: i64
+        +entity_type: String
+        +from_state: String
+        +to_state: String
+        +trigger_event: Option~DomainEventType~
+        +guard_condition: Option~JSONB~
+        +side_effects: JSONB
+        +sort_order: i32
+    }
+
+    class EntityStateLog {
+        +id: i64
+        +entity_type: String
+        +entity_id: i64
+        +from_state: Option~String~
+        +to_state: String
+        +transition_id: i64
+        +operator_id: i64
+        +remark: Option~String~
+        +created_at: DateTime
+    }
+
+    class AuditLog {
+        +id: i64
+        +entity_type: String
+        +entity_id: i64
+        +action: String
+        +changes: Option~JSONB~
+        +operator_id: i64
+        +context: Option~JSONB~
+        +created_at: DateTime
+    }
+
+    class IdempotencyRecord {
+        +id: i64
+        +idempotency_key: String
+        +event_id: i64
+        +handler_name: String
+        +status: String
+        +result: Option~JSONB~
+        +created_at: DateTime
+        +expires_at: Option~DateTime~
+    }
+
+    class DocumentSequenceService {
+        &lt;&lt;interface&gt;&gt;
+        +next_number(doc_type: DocumentType) Result~String~
+    }
+
+    class DocumentLinkService {
+        &lt;&lt;interface&gt;&gt;
+        +create_link() Result~i64~
+        +find_linked() Result~Vec~DocumentLink~~
+    }
+
+    class InventoryReservationService {
+        &lt;&lt;interface&gt;&gt;
+        +reserve() Result~i64~
+        +fulfill(id: i64) Result
+        +cancel(id: i64) Result
+        +total_reserved() Result~Decimal~
+        +expire_old() Result~u64~
+    }
+
+    class CostEntryService {
+        &lt;&lt;interface&gt;&gt;
+        +create() Result~i64~
+        +find_by_entity() Result~Vec~CostEntry~~
+    }
+
+    class DomainEventBus {
+        &lt;&lt;interface&gt;&gt;
+        +publish(event_type, aggregate_type, aggregate_id, payload, operator_id) Result~i64~
+        +mark_processed(id) Result
+        +mark_failed(id, reason) Result
+        +find_events(aggregate_type, id) Result~Vec~DomainEvent~~
+        +find_by_type(event_type, since?) Result~Vec~DomainEvent~~
+    }
+
+    class EventHandlerRegistry {
+        &lt;&lt;interface&gt;&gt;
+        +register(event_type, handler)
+        +dispatch(event) Result
+        +list_handlers(event_type) Vec~String~
+    }
+
+    class EventProcessor {
+        -pool: Arc~PgPool~
+        -registry: EventHandlerRegistry
+        -max_retries: i32
+        +run() JoinHandle
+        +process_event(event) Result
+        +retry_failed() Result~u64~
+    }
+
+    class StateMachineService {
+        &lt;&lt;interface&gt;&gt;
+        +define_states() Result
+        +define_transitions() Result
+        +transition() Result~EntityStateLog~
+        +get_current_state() Result~String~
+        +get_allowed_transitions() Result~Vec~
+        +get_state_history() Result~Vec~
+    }
+
+    class AuditLogService {
+        &lt;&lt;interface&gt;&gt;
+        +record(entity_type, entity_id, action, changes, operator_id, context) Result~i64~
+        +find_by_entity(entity_type, entity_id) Result~Vec~AuditLog~~
+        +find_by_operator(operator_id, time_range?) Result~Vec~AuditLog~~
+        +find_by_action(action, time_range?) Result~Vec~AuditLog~~
+    }
+
+    class IdempotencyService {
+        &lt;&lt;interface&gt;&gt;
+        +check_and_mark(event_id, handler_name) Result~bool~
+        +mark_processed(event_id, handler_name, result) Result
+        +cleanup_expired(before) Result~u64~
+    }
+
+    class DocumentSequenceServiceImpl {
+        -pool: Arc~PgPool~
+    }
+    class DocumentLinkServiceImpl {
+        -pool: Arc~PgPool~
+    }
+    class InventoryReservationServiceImpl {
+        -pool: Arc~PgPool~
+    }
+    class CostEntryServiceImpl {
+        -pool: Arc~PgPool~
+    }
+    class DomainEventBusImpl {
+        -pool: Arc~PgPool~
+    }
+    class StateMachineServiceImpl {
+        -pool: Arc~PgPool~
+    }
+    class AuditLogServiceImpl {
+        -pool: Arc~PgPool~
+    }
+    class IdempotencyServiceImpl {
+        -pool: Arc~PgPool~
+    }
+
+    DocumentSequenceServiceImpl ..|> DocumentSequenceService : implements
+    DocumentLinkServiceImpl ..|> DocumentLinkService : implements
+    InventoryReservationServiceImpl ..|> InventoryReservationService : implements
+    CostEntryServiceImpl ..|> CostEntryService : implements
+    DomainEventBusImpl ..|> DomainEventBus : implements
+    StateMachineServiceImpl ..|> StateMachineService : implements
+    AuditLogServiceImpl ..|> AuditLogService : implements
+    IdempotencyServiceImpl ..|> IdempotencyService : implements
+
+    EventProcessor --> EventHandlerRegistry
+    EventProcessor --> DomainEvent
+    EventProcessor --> IdempotencyService
+
+    DocumentLink --> DocumentType
+    DocumentLink --> LinkType
+    InventoryReservation --> DocumentType
+    InventoryReservation --> ReservationType
+    InventoryReservation --> ReservationStatus
+    CostEntry --> DocumentType
+    CostEntry --> CostEntityType
+    CostEntry --> CostType
+    DomainEvent --> DomainEventType
+    DomainEvent --> EventStatus
+    StateTransitionDef --> StateDefinition
+    EntityStateLog --> StateTransitionDef
+
+    DocumentSequenceService ..> DocumentSequence
+    DocumentLinkService ..> DocumentLink
+    InventoryReservationService ..> InventoryReservation
+    CostEntryService ..> CostEntry
+    DomainEventBus ..> DomainEvent
+    StateMachineService ..> StateDefinition
+    StateMachineService ..> StateTransitionDef
+    StateMachineService ..> EntityStateLog
+    AuditLogService ..> AuditLog
+    IdempotencyService ..> IdempotencyRecord
+    EventProcessor ..> IdempotencyService
+
+    note for DocumentSequenceService "Format: PREFIX-YYYY-MM-SEQ\nAtomic: INSERT ON CONFLICT DO UPDATE\nCovers 32 DocumentType across 8 modules"
+    note for DocumentLinkService "Directed graph: source -> target\n7 LinkTypes for audit trail"
+    note for InventoryReservationService "Available = OnHand - total_reserved()\nHard: WO lock | Soft: Sales TTL\nSafetyStock: permanent"
+    note for CostEntryService "Double-entry: debit + credit\nPeriod YYYY-MM\n6 CostTypes across 7 modules"
+    note for DomainEventBus "Hybrid dispatch model:\nSync: inventory reservation, quality gates (in caller tx)\nAsync: cost, doclink, workflow, notifications (Outbox)\npublish writes to DB + NOTIFY\n19 event types"
+    note for EventProcessor "Background tokio task\nLISTEN/NOTIFY for low latency\nExponential backoff on failure\nDead letter after max retries"
+    note for StateMachineService "Per-entity state definitions\nStored in DB, loaded on startup\nReplaces scattered if-else"
+    note for AuditLogService "Called directly by business Service\nSame tx as business operation\nField-level diffs (old -> new)\nISO 9001 / financial compliance"
+    note for IdempotencyService "Per-handler idempotency tracking\nPrevents duplicate event processing\nEventProcessor checks before dispatch\nExpired records cleaned up periodically"
+    </div>
+  </div>
+</div>
+<script>
+(function(){var s=1,tx=0,ty=0,ms=0.1,xs=8;var c=document.getElementById('zoomContainer'),l=document.getElementById('zoomLabel'),d=false,sx,sy,stx,sty;function a(){var v=c.querySelector('svg');if(v)v.style.transform='scale('+s+') translate('+tx+'px,'+ty+'px)';l.textContent=Math.round(s*100)+'%'}document.getElementById('zoomIn').onclick=function(){s=Math.min(xs,s+0.15);a()};document.getElementById('zoomOut').onclick=function(){s=Math.max(ms,s-0.15);a()};document.getElementById('zoomReset').onclick=function(){s=1;tx=0;ty=0;a()};document.getElementById('zoomFit').onclick=function(){var v=c.querySelector('svg');if(!v)return;var w=c.clientWidth-40,sw=v.getBoundingClientRect().width/s;s=Math.max(ms,Math.min(1.5,w/sw));tx=0;ty=0;a()};c.addEventListener('wheel',function(e){e.preventDefault();s=Math.max(ms,Math.min(xs,s+(e.deltaY>0?-0.08:0.08)));a()},{passive:false});c.addEventListener('mousedown',function(e){if(e.button!==0)return;d=true;c.classList.add('dragging');sx=e.clientX;sy=e.clientY;stx=tx;sty=ty});document.addEventListener('mouseup',function(){d=false;c.classList.remove('dragging')});document.addEventListener('mousemove',function(e){if(!d)return;e.preventDefault();tx=stx+(e.clientX-sx)/s;ty=sty+(e.clientY-sy)/s;a()})})();
+</script>
 
 <div class="mockup">
   <div class="mockup-header">Shared Infrastructure — UML Class Diagram with Descriptions</div>
@@ -10,23 +398,39 @@
       <h3 style="color: #6c8bef; margin: 0 0 8px 0;">① 统一文档编号 (DocumentSequence)</h3>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div>
-          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 12px;">
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
             <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">DocumentSequence</span> {<br>
             &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
             &nbsp;&nbsp;prefix: String <span style="color:#888;">// "SO", "PO", "WO"</span><br>
             &nbsp;&nbsp;current_value: i32<br>
-            &nbsp;&nbsp;date: Date <span style="color:#888;">// 按日期分段</span><br>
-            &nbsp;&nbsp;padding_length: i32 <span style="color:#888;">// 补零位数</span><br>
+            &nbsp;&nbsp;seq_date: Date <span style="color:#888;">// 按日期分段</span><br>
+            &nbsp;&nbsp;padding_len: i32 <span style="color:#888;">// 补零位数</span><br>
             }<br><br>
             <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">DocumentType</span> {<br>
-            &nbsp;&nbsp;QUOTATION, SALES_ORDER, SHIPPING_REQUEST<br>
-            &nbsp;&nbsp;SALES_RETURN, RECONCILIATION<br>
-            &nbsp;&nbsp;PURCHASE_QUOTATION, PURCHASE_ORDER<br>
-            &nbsp;&nbsp;PURCHASE_RETURN, MISCELLANEOUS_REQUEST<br>
-            &nbsp;&nbsp;WORK_ORDER, OUTSOURCING_ORDER<br>
-            &nbsp;&nbsp;INSPECTION_REPORT, MRB_REPORT<br>
-            &nbsp;&nbsp;RECEIPT, PAYMENT_REQUEST, INVOICE<br>
-            &nbsp;&nbsp;}
+            &nbsp;&nbsp;<span style="color:#e5a655;">// Sales CRM</span><br>
+            &nbsp;&nbsp;Quotation=1, SalesOrder=2, ShippingRequest=3<br>
+            &nbsp;&nbsp;SalesReturn=4, Reconciliation=5<br>
+            &nbsp;&nbsp;<span style="color:#6bc76b;">// Purchase SRM</span><br>
+            &nbsp;&nbsp;PurchaseQuotation=6, PurchaseOrder=7<br>
+            &nbsp;&nbsp;PurchaseReturn=8, MiscellaneousRequest=9<br>
+            &nbsp;&nbsp;<span style="color:#e06c75;">// MES</span><br>
+            &nbsp;&nbsp;WorkOrder=10, OutsourcingOrder=11<br>
+            &nbsp;&nbsp;ProductionPlan=12, WorkReport=13<br>
+            &nbsp;&nbsp;ProductionInspection=14, ProductionReceipt=15<br>
+            &nbsp;&nbsp;<span style="color:#c678dd;">// WMS</span><br>
+            &nbsp;&nbsp;ArrivalNotice=16, MaterialRequisition=17<br>
+            &nbsp;&nbsp;Backflush=18, CycleCount=19<br>
+            &nbsp;&nbsp;InventoryTransfer=20, FormConversion=21<br>
+            &nbsp;&nbsp;InventoryLock=22, PaymentRequest=23, Invoice=24<br>
+            &nbsp;&nbsp;<span style="color:#e06c75;">// OM 委外</span><br>
+            &nbsp;&nbsp;OutsourcingTracking=25<br>
+            &nbsp;&nbsp;<span style="color:#56b6c2;">// QMS 质量</span><br>
+            &nbsp;&nbsp;InspectionSpecification=26<br>
+            &nbsp;&nbsp;InspectionResult=27, MRB=28, RMA=29<br>
+            &nbsp;&nbsp;<span style="color:#98c379;">// FMS 财务</span><br>
+            &nbsp;&nbsp;CashJournal=30, WriteOff=31<br>
+            &nbsp;&nbsp;ExpenseReimbursement=32<br>
+            }
           </div>
         </div>
         <div>
@@ -35,12 +439,15 @@
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">为所有业务单据生成唯一、可读、有序的编号。格式为 <code style="color:#e5c07b;">{前缀}-{年}-{月}-{序号}</code>，如 <code style="color:#e5c07b;">SO-2026-05-00142</code></p>
             <h4 style="margin: 0 0 8px 0; color: #6c8bef;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">杜绝各模块自行编号导致的编号冲突、格式混乱、无法追溯。按日期分段确保每月序号从 001 重新开始</p>
-            <h4 style="margin: 0 0 8px 0; color: #6c8bef;">使用场景</h4>
-            <p style="margin: 0; color: #ccc; font-size: 12px;">创建任何业务单据时调用：<br>
-            销售报价 QUO-2026-05-00001<br>
-            采购订单 PO-2026-05-00032<br>
-            工单 WO-2026-05-00008<br>
-            检验报告 INS-2026-05-00015</p>
+            <h4 style="margin: 0 0 8px 0; color: #6c8bef;">使用场景（按模块）</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            <span style="color:#e5a655;">Sales</span>: QUO/SO/SR/SRT/REC<br>
+            <span style="color:#6bc76b;">Purchase</span>: PQ/PO/PRT/PREC/PAY/MISC<br>
+            <span style="color:#c678dd;">WMS</span>: AN/MR/BF/CC/TRF/FC/LCK<br>
+            <span style="color:#e06c75;">MES</span>: PP/WO/WR/OO/PI/PR<br>
+            <span style="color:#e06c75;">OM</span>: OO/OT<br>
+            <span style="color:#56b6c2;">QMS</span>: QS/QR/MRB/RMA<br>
+            <span style="color:#98c379;">FMS</span>: CJ/WO/ER</p>
           </div>
         </div>
       </div>
@@ -60,7 +467,7 @@
             &nbsp;&nbsp;target_id: UUID<br>
             &nbsp;&nbsp;link_type: LinkType<br>
             &nbsp;&nbsp;created_at: Timestamp<br>
-            &nbsp;&nbsp;created_by: UUID <span style="color:#888;">FK→users</span><br>
+            &nbsp;&nbsp;created_by: UUID? <span style="color:#888;">FK→users</span><br>
             }<br><br>
             <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">LinkType</span> {<br>
             &nbsp;&nbsp;DERIVED_FROM <span style="color:#888;">// 报价→订单</span><br>
@@ -78,11 +485,15 @@
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">功能</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">以有向图的方式记录任意两个业务单据之间的关系。支持图遍历查询，可追溯一张报价单到最终发票的完整链路</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">解决什么问题</h4>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">九大模块间单据关系零散记录在各表里，事后对齐几乎不可能。统一图谱后：一键追溯、BI 报表、ISO 9001 / IATF 16949 合规审计</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">模块间单据关系零散记录在各表里，事后对齐几乎不可能。统一图谱后：一键追溯、BI 报表、ISO 9001 合规审计</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">使用场景</h4>
-            <p style="margin: 0; color: #ccc; font-size: 12px;">报价 → 销售订单 → 发货申请 → 出库单 → 对账单 → 应收<br>
-            采购订单 → 来料通知 → IQC 检验 → 入库单<br>
-            工单 → 领料单 → 报工记录 → FQC → 入库</p>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            <span style="color:#e5a655;">Sales</span>: 报价→订单→发货→对账→应收<br>
+            <span style="color:#6bc76b;">Purchase</span>: 采购单→来料→IQC→入库→对账→付款<br>
+            <span style="color:#e06c75;">MES</span>: 计划→工单→报工→报检→入库<br>
+            <span style="color:#e06c75;">OM</span>: 委外单↔工单 | 委外单↔追踪节点 | 委外单↔调拨单<br>
+            <span style="color:#56b6c2;">QMS</span>: RMA→工单→工序→来料批次（全链路质量追溯）<br>
+            <span style="color:#98c379;">FMS</span>: 日记账↔核销↔出库单/入库单</p>
           </div>
         </div>
       </div>
@@ -104,7 +515,7 @@
             &nbsp;&nbsp;source_id: UUID<br>
             &nbsp;&nbsp;status: ReservationStatus<br>
             &nbsp;&nbsp;priority: i32 <span style="color:#888;">// 预留优先级</span><br>
-            &nbsp;&nbsp;expires_at: Timestamp <span style="color:#888;">// TTL自动过期</span><br>
+            &nbsp;&nbsp;expires_at: Timestamp? <span style="color:#888;">// TTL自动过期</span><br>
             &nbsp;&nbsp;created_at: Timestamp<br>
             }<br><br>
             <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ReservationType</span> {<br>
@@ -124,10 +535,12 @@
             <h4 style="margin: 0 0 8px 0; color: #6bc76b;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">当前系统只有库存总量，没有可用量（ATP）。导致：销售接单不知道能不能发、采购不知道该买多少、工单领料时才发现库存不够</p>
             <h4 style="margin: 0 0 8px 0; color: #6bc76b;">使用场景</h4>
-            <p style="margin: 0; color: #ccc; font-size: 12px;">销售订单确认 → SOFT 预留（TTL 7天）<br>
-            工单下达 → HARD 预留（直到领料或完工）<br>
-            采购建议计算 = 需求量 − 现有量 − 已预留<br>
-            安全库存 = 永久预留，不参与可用量计算</p>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            <span style="color:#e5a655;">Sales</span>: 订单确认→SOFT预留（TTL 7天）<br>
+            <span style="color:#e06c75;">MES</span>: 工单下达→HARD预留（直到领料或完工）<br>
+            <span style="color:#6bc76b;">Purchase</span>: 到货→释放安全库存预留<br>
+            <span style="color:#c678dd;">WMS</span>: 领料→消耗HARD | 盘点→校准预留<br>
+            采购建议 = 需求量 − 现有量 − 已预留</p>
           </div>
         </div>
       </div>
@@ -146,8 +559,8 @@
             &nbsp;&nbsp;cost_type: CostType<br>
             &nbsp;&nbsp;debit_amount: Decimal(10,6)<br>
             &nbsp;&nbsp;credit_amount: Decimal(10,6)<br>
-            &nbsp;&nbsp;cost_center: UUID <span style="color:#888;">// 部门/产线</span><br>
-            &nbsp;&nbsp;profit_center: UUID<br>
+            &nbsp;&nbsp;cost_center: UUID? <span style="color:#888;">// 部门/产线</span><br>
+            &nbsp;&nbsp;profit_center: UUID?<br>
             &nbsp;&nbsp;period: String <span style="color:#888;">// "2026-05"</span><br>
             &nbsp;&nbsp;source_type: DocumentType<br>
             &nbsp;&nbsp;source_id: UUID<br>
@@ -169,14 +582,264 @@
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">统一成本分类账。每个产生成本的事件写入同一张表，遵循双层记账原则（每个操作同时记借方和贷方）</p>
             <h4 style="margin: 0 0 8px 0; color: #e06c75;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">传统 ERP 陷阱：运营模块先建、财务后加，事后对账痛苦。从第一天起就记录成本，FMS 报表、利润中心 P&L、毛利分析全部从这一张表查询</p>
-            <h4 style="margin: 0 0 8px 0; color: #e06c75;">使用场景</h4>
-            <p style="margin: 0; color: #ccc; font-size: 12px;">物料入库 → 记材料成本（借：存货 / 贷：应付）<br>
-            工序完工 → 记人工+制费（借：在制品 / 贷：人工费）<br>
-            检验不良 → 记返工/报废成本<br>
-            外协收货 → 记外协服务成本<br>
-            新增成本来源（如能源）只需插入行</p>
+            <h4 style="margin: 0 0 8px 0; color: #e06c75;">成本来源（按模块）</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            <span style="color:#e5a655;">Sales</span>: 发货→销售成本 | 退货→冲减收入<br>
+            <span style="color:#6bc76b;">Purchase</span>: 入库→材料成本 | 付款→现金流出<br>
+            <span style="color:#e06c75;">MES</span>: 报工→人工+制费 | 完工→成品入库<br>
+            <span style="color:#e06c75;">OM</span>: 外协收货→外协服务成本<br>
+            <span style="color:#56b6c2;">QMS</span>: MRB不良→返工/报废成本<br>
+            <span style="color:#c678dd;">WMS</span>: 倒冲差异→损耗成本 | 形态转换→成本分摊<br>
+            <span style="color:#98c379;">FMS</span>: 聚合查询→成本核算 + 利润中心 P&L</p>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Component 5 -->
+    <div style="border: 2px solid #3b82f6; border-radius: 8px; padding: 16px; background: rgba(59,130,246,0.05); margin-bottom: 20px;">
+      <h3 style="color: #3b82f6; margin: 0 0 8px 0;">⑤ 领域事件总线 (DomainEventBus + Outbox)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">DomainEvent</span> {<br>
+            &nbsp;&nbsp;id: i64 <span style="color:#888;">PK BIGSERIAL</span><br>
+            &nbsp;&nbsp;event_type: DomainEventType<br>
+            &nbsp;&nbsp;aggregate_type: String <span style="color:#888;">// "SalesOrder"</span><br>
+            &nbsp;&nbsp;aggregate_id: i64 <span style="color:#888;">// 业务实体 ID</span><br>
+            &nbsp;&nbsp;payload: JSONB <span style="color:#888;">// 事件详情</span><br>
+            &nbsp;&nbsp;operator_id: i64<br>
+            &nbsp;&nbsp;idempotency_key: String <span style="color:#888;">// UNIQUE 防重复</span><br>
+            &nbsp;&nbsp;status: EventStatus <span style="color:#888;">// Pending→Processed/Failed</span><br>
+            &nbsp;&nbsp;retry_count: i32 <span style="color:#888;">// default 0</span><br>
+            &nbsp;&nbsp;processed_at: Timestamp? <span style="color:#888;">// 处理完成时间</span><br>
+            &nbsp;&nbsp;created_at: Timestamp<br>
+            }<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">EventStatus</span> {<br>
+            &nbsp;&nbsp;PENDING <span style="color:#888;">// 待处理</span><br>
+            &nbsp;&nbsp;PROCESSING <span style="color:#888;">// 处理中</span><br>
+            &nbsp;&nbsp;PROCESSED <span style="color:#888;">// 已完成</span><br>
+            &nbsp;&nbsp;FAILED <span style="color:#888;">// 失败待重试</span><br>
+            &nbsp;&nbsp;DEAD_LETTER <span style="color:#888;">// 超过重试上限</span><br>
+            }<br><br>
+            <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">DomainEventBus</span> {<br>
+            &nbsp;&nbsp;publish(event_type, aggregate_type,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;aggregate_id, payload, operator_id): i64<br>
+            &nbsp;&nbsp;mark_processed(id): Result<br>
+            &nbsp;&nbsp;mark_failed(id, reason): Result<br>
+            &nbsp;&nbsp;find_events(aggregate_type, id): Vec<br>
+            &nbsp;&nbsp;find_by_type(event_type, since?): Vec<br>
+            }<br><br>
+            <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">EventHandlerRegistry</span> {<br>
+            &nbsp;&nbsp;register(event_type, handler)<br>
+            &nbsp;&nbsp;dispatch(event): Result<br>
+            &nbsp;&nbsp;list_handlers(event_type): Vec<br>
+            }<br><br>
+            <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">EventProcessor</span> {<br>
+            &nbsp;&nbsp;pool: Arc&lt;PgPool&gt;<br>
+            &nbsp;&nbsp;registry: EventHandlerRegistry<br>
+            &nbsp;&nbsp;max_retries: i32 <span style="color:#888;">// default 3</span><br>
+            &nbsp;&nbsp;run() → JoinHandle <span style="color:#888;">// 后台 tokio task</span><br>
+            &nbsp;&nbsp;process_event(event): Result<br>
+            &nbsp;&nbsp;retry_failed(): u64<br>
+            }
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(59,130,246,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #3b82f6;">功能</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">跨模块解耦的核心机制。<strong>Outbox 模式</strong>：业务事务内将事件写入 <code style="color:#e5c07b;">domain_events</code> 表（Outbox），后台 EventProcessor 通过 <code style="color:#e5c07b;">LISTEN/NOTIFY</code> 实时消费并异步分发给注册的 Handler</p>
+            <h4 style="margin: 0 0 8px 0; color: #3b82f6;">解决什么问题</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">模块间直接调用导致的紧耦合：新增下游逻辑必须改上游 Service。事件驱动后，新逻辑只需注册 handler，上游代码零改动。<strong>Outbox 保证</strong>：事件与业务数据在同一事务内写入，零丢失风险</p>
+            <h4 style="margin: 0 0 8px 0; color: #3b82f6;">19 种事件（按模块）</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            <span style="color:#e5a655;">Sales</span>: SalesOrderConfirmed / Shipped / ReturnReceived<br>
+            <span style="color:#6bc76b;">Purchase</span>: POConfirmed / ArrivalReceived / PaymentPaid<br>
+            <span style="color:#e06c75;">MES</span>: PlanReleased / WOReleased / WOCompleted / ReceiptConfirmed<br>
+            <span style="color:#e06c75;">OM</span>: OutsourcingSent / Received / ConvertedToInternal<br>
+            <span style="color:#56b6c2;">QMS</span>: InspectionPassed / Failed / MRBDispositioned / RMACreated<br>
+            <span style="color:#98c379;">FMS</span>: CashJournalConfirmed / WriteOffCompleted</p>
+            <h4 style="margin: 0 0 8px 0; color: #3b82f6;">Handler 实现示例（注册到 Registry）</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            <strong style="color:#e06c75;">同步强一致</strong>：库存预留/释放、质量关卡硬门 — 调用者事务内直接执行<br>
+            <strong style="color:#3b82f6;">异步 Outbox</strong>：成本记录、文档链接、Workflow 触发、通知 — 后台异步消费<br><br>
+            InventoryReservationHandler → 预留/释放库存 <span style="color:#e06c75;">[同步]</span><br>
+            CostEntryHandler → 记录成本分录 <span style="color:#3b82f6;">[异步]</span><br>
+            DocLinkHandler → 创建单据关联 <span style="color:#3b82f6;">[异步]</span><br>
+            WorkflowTriggerHandler → 触发工作流 <span style="color:#3b82f6;">[异步]</span><br>
+            StateTransitionHandler → 触发状态转换 <span style="color:#3b82f6;">[异步]</span></p>
+            <h4 style="margin: 0 0 8px 0; color: #3b82f6;">Outbox 工作流（异步 Handler）</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            <strong>写入</strong>: 业务事务内 INSERT domain_events (status=PENDING) + NOTIFY<br>
+            <strong>消费</strong>: EventProcessor 收到 LISTEN → FETCH FOR UPDATE SKIP LOCKED<br>
+            <strong>分发</strong>: EventHandlerRegistry.dispatch() → 异步 Handler 执行<br>
+            <strong>完成</strong>: 成功 → mark_processed() | 失败 → mark_failed() + 指数退避重试<br>
+            <strong>死信</strong>: retry_count > max_retries → DEAD_LETTER（人工介入）</p>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 10px; padding: 8px 12px; background: rgba(59,130,246,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
+        <strong style="color: #3b82f6;">关键约束：</strong>Outbox 模式 — 业务事务内写入事件 | EventProcessor 后台异步消费 | LISTEN/NOTIFY 低延迟驱动 | 失败重试（指数退避）+ 死信队列 | idempotency_key 防重复消费 | Handler 独立事务，失败不影响发布方
+      </div>
+    </div>
+
+    <!-- Component 6 -->
+    <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 16px; background: rgba(229,166,85,0.05); margin-bottom: 20px;">
+      <h3 style="color: #e5a655; margin: 0 0 8px 0;">⑥ 状态机服务 (StateMachineService)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">StateDefinition</span> {<br>
+            &nbsp;&nbsp;id: i64, entity_type: String<br>
+            &nbsp;&nbsp;state_name: String, label: String<br>
+            &nbsp;&nbsp;is_initial: bool, is_final: bool<br>
+            }<br><br>
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">StateTransitionDef</span> {<br>
+            &nbsp;&nbsp;id: i64, entity_type: String<br>
+            &nbsp;&nbsp;from_state → to_state: String<br>
+            &nbsp;&nbsp;trigger_event: DomainEventType?<br>
+            &nbsp;&nbsp;guard_condition: JSONB? <span style="color:#888;">// 复用 Condition AST</span><br>
+            &nbsp;&nbsp;side_effects: JSONB <span style="color:#888;">// 发布事件等</span><br>
+            &nbsp;&nbsp;sort_order: i32<br>
+            }<br><br>
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">EntityStateLog</span> {<br>
+            &nbsp;&nbsp;id: i64, entity_type, entity_id<br>
+            &nbsp;&nbsp;from_state → to_state<br>
+            &nbsp;&nbsp;transition_id: i64 FK<br>
+            &nbsp;&nbsp;operator_id, remark?, created_at<br>
+            }<br><br>
+            <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">StateMachineService</span> {<br>
+            &nbsp;&nbsp;define_states(entity_type, states)<br>
+            &nbsp;&nbsp;define_transitions(entity_type, transitions)<br>
+            &nbsp;&nbsp;transition(entity_type, entity_id,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;to_state, operator_id, remark?): StateLog<br>
+            &nbsp;&nbsp;get_current_state(entity_type, entity_id): String<br>
+            &nbsp;&nbsp;get_allowed_transitions(entity_type, state): Vec<br>
+            &nbsp;&nbsp;get_state_history(entity_type, entity_id): Vec<br>
+            }
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(229,166,85,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #e5a655;">功能</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">统一管理所有业务单据的生命周期状态。状态定义和转换规则存 DB 可动态配置，guard 条件复用 Condition AST</p>
+            <h4 style="margin: 0 0 8px 0; color: #e5a655;">解决什么问题</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">各 Service impl 中分散的 if-else 状态校验，难以维护、容易遗漏。统一状态机后：规则集中管理、变更无需改代码、审计日志自动记录</p>
+            <h4 style="margin: 0 0 8px 0; color: #e5a655;">transition() 校验流程</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            1. 查询当前状态（from_state）<br>
+            2. 匹配转换规则（from_state → to_state）<br>
+            3. 校验 guard_condition（如果存在）<br>
+            4. 插入 EntityStateLog（追加写）<br>
+            5. 执行 side_effects（发布事件等）</p>
+            <h4 style="margin: 0 0 8px 0; color: #e5a655;">各模块状态链示例</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            <span style="color:#e5a655;">SalesOrder</span>: Draft → Confirmed → InProduction → Shipped → Completed<br>
+            <span style="color:#e06c75;">WorkOrder</span>: Draft → Planned → Released → InProduction → Completed → Closed<br>
+            <span style="color:#6bc76b;">PurchaseOrder</span>: Draft → Confirmed → PartiallyReceived → Received → Closed<br>
+            <span style="color:#e06c75;">OutsourcingOrder</span>: Draft → Sent → InProduction → Delivered → Received → Closed</p>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 10px; padding: 8px 12px; background: rgba(229,166,85,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
+        <strong style="color: #e5a655;">设计原则：</strong>定义存 DB 可动态配置 | guard 复用 Condition AST | EntityStateLog 追加写不可变 | 替换分散的 if-else 状态校验
+      </div>
+    </div>
+
+    <!-- Component 7 -->
+    <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 16px; background: rgba(86,182,194,0.05); margin-bottom: 20px;">
+      <h3 style="color: #56b6c2; margin: 0 0 8px 0;">⑦ 操作审计日志 (AuditLogService)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">AuditLog</span> {<br>
+            &nbsp;&nbsp;id: i64 <span style="color:#888;">PK BIGSERIAL</span><br>
+            &nbsp;&nbsp;entity_type: String <span style="color:#888;">// "SalesOrder"</span><br>
+            &nbsp;&nbsp;entity_id: i64<br>
+            &nbsp;&nbsp;action: String <span style="color:#888;">// create/update/delete/transition</span><br>
+            &nbsp;&nbsp;changes: JSONB? <span style="color:#888;">// { field: { old, new } }</span><br>
+            &nbsp;&nbsp;operator_id: i64<br>
+            &nbsp;&nbsp;context: JSONB? <span style="color:#888;">// { ip, request_id, user_agent }</span><br>
+            &nbsp;&nbsp;created_at: Timestamp<br>
+            }<br><br>
+            <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">AuditLogService</span> {<br>
+            &nbsp;&nbsp;record(entity_type, entity_id,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;action, changes?, operator_id,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;context?): i64<br>
+            &nbsp;&nbsp;find_by_entity(entity_type, id): Vec<br>
+            &nbsp;&nbsp;find_by_operator(operator_id, range?): Vec<br>
+            &nbsp;&nbsp;find_by_action(action, range?): Vec<br>
+            }
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(86,182,194,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #56b6c2;">功能</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">以追加写方式记录所有业务实体的状态变更。每次 create、update、delete、状态转换都自动写入审计日志，不可修改或删除</p>
+            <h4 style="margin: 0 0 8px 0; color: #56b6c2;">解决什么问题</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">传统 ERP 审计靠人工补记录、查日志，事后无法还原操作轨迹。统一审计后：ISO 9001 合规、财务审计、问题排查均可一键查询</p>
+            <h4 style="margin: 0 0 8px 0; color: #56b6c2;">记录来源（业务 Service 直接调用）</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            <strong>核心机制</strong>: 业务 Service 在同一事务内直接调用 AuditLogService.record()，携带字段级 diff 和请求上下文<br>
+            <strong>create</strong>: 所有 Service 的 create 方法<br>
+            <strong>update</strong>: 所有 Service 的 update 方法（含字段级 old→new diff）<br>
+            <strong>transition</strong>: StateMachineService.transition() 内调用<br>
+            <strong>delete</strong>: 软删除（deleted_at 设置）<br>
+            <strong>approve/reject</strong>: Workflow 审批操作</p>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 10px; padding: 8px 12px; background: rgba(86,182,194,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
+        <strong style="color: #56b6c2;">设计原则：</strong>业务 Service 直接调用（同事务内，字段级 diff + 请求上下文）| Append-only 不可变 | 按 entity_type 分区索引 | 定期归档到冷存储
+      </div>
+    </div>
+
+    <!-- Component 8 -->
+    <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 16px; background: rgba(198,120,221,0.05); margin-bottom: 20px;">
+      <h3 style="color: #c678dd; margin: 0 0 8px 0;">⑧ 幂等去重服务 (IdempotencyService)</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
+            <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">IdempotencyRecord</span> {<br>
+            &nbsp;&nbsp;id: i64 <span style="color:#888;">PK BIGSERIAL</span><br>
+            &nbsp;&nbsp;idempotency_key: String <span style="color:#888;">UNIQUE "{event_id}:{handler}"</span><br>
+            &nbsp;&nbsp;event_id: i64 <span style="color:#888;">FK→domain_events</span><br>
+            &nbsp;&nbsp;handler_name: String<br>
+            &nbsp;&nbsp;status: String <span style="color:#888;">// Processing / Processed</span><br>
+            &nbsp;&nbsp;result: JSONB? <span style="color:#888;">// handler 输出（可选）</span><br>
+            &nbsp;&nbsp;created_at: Timestamp<br>
+            &nbsp;&nbsp;expires_at: Timestamp? <span style="color:#888;">// 过期清理</span><br>
+            }<br><br>
+            <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">IdempotencyService</span> {<br>
+            &nbsp;&nbsp;check_and_mark(event_id, handler): bool<br>
+            &nbsp;&nbsp;mark_processed(event_id, handler, result?)<br>
+            &nbsp;&nbsp;cleanup_expired(before): u64<br>
+            }
+          </div>
+        </div>
+        <div>
+          <div style="background: rgba(198,120,221,0.15); padding: 12px; border-radius: 6px; height: 100%;">
+            <h4 style="margin: 0 0 8px 0; color: #c678dd;">功能</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">为系统提供 <strong>三级幂等保障</strong>：API 级（防重复提交）、Handler 级（Outbox 重试幂等）、补偿级（Workflow Saga 重试幂等）。即使同一操作被多次触发，也只执行一次</p>
+            <h4 style="margin: 0 0 8px 0; color: #c678dd;">解决什么问题</h4>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">
+            <strong>Outbox 重试</strong>：EventProcessor 崩溃后事件被重新投递 → 防成本记双份、文档链接重复<br>
+            <strong>API 重复提交</strong>：前端双击/网络重试 → 防重复创建订单/发货单<br>
+            <strong>Workflow 补偿</strong>：Saga 重试时 → 防补偿操作重复执行</p>
+            <h4 style="margin: 0 0 8px 0; color: #c678dd;">工作流</h4>
+            <p style="margin: 0; color: #ccc; font-size: 12px;">
+            1. EventProcessor 取出事件 → 准备分发给 Handler<br>
+            2. <code style="color:#e5c07b;">check_and_mark(event_id, handler_name)</code><br>
+            &nbsp;&nbsp;&nbsp;→ true: 首次执行，继续<br>
+            &nbsp;&nbsp;&nbsp;→ false: 已处理过，跳过<br>
+            3. Handler 执行<br>
+            4. <code style="color:#e5c07b;">mark_processed()</code> 记录结果<br>
+            5. 定期 <code style="color:#e5c07b;">cleanup_expired()</code> 清理过期记录</p>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 10px; padding: 8px 12px; background: rgba(198,120,221,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
+        <strong style="color: #c678dd;">设计原则：</strong>三级幂等（API + Handler + Saga补偿）| idempotency_key UNIQUE 原子性 | 与 domain_events.idempotency_key 互补（事件级 vs 操作级）| 过期记录定期清理
       </div>
     </div>
 
@@ -184,14 +847,23 @@
     <div style="padding: 12px; background: rgba(108,139,239,0.1); border-radius: 6px;">
       <h3 style="margin: 0 0 8px 0; color: #6c8bef;">组件间协作关系</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
-        <span style="color:#6c8bef;">DocumentSequence</span> ─── 被所有模块消费 ───→ 生成单据编号<br>
-        <span style="color:#e5a655;">DocumentLink</span> ──────── 业务流转时写入 ──→ 记录单据间关系链<br>
-        <span style="color:#6bc76b;">InventoryReservation</span> ─ 预留/释放/过期 ──→ 控制库存可用量<br>
-        <span style="color:#e06c75;">CostEntry</span> ──────────── 成本事件触发 ──→ 双层记账统一入口<br>
+        <span style="color:#6c8bef;">DocumentSequence</span> ─── 被所有 8 个模块消费 ─→ 生成单据编号（32 种 DocumentType）<br>
+        <span style="color:#e5a655;">DocumentLink</span> ──────── 业务流转时写入 ──→ 记录单据间关系链（7 种 LinkType）<br>
+        <span style="color:#6bc76b;">InventoryReservation</span> ─ 预留/释放/过期 ──→ 控制库存可用量（4 个模块消费）<br>
+        <span style="color:#e06c75;">CostEntry</span> ──────────── 成本事件触发 ──→ 双层记账统一入口（7 个模块写入，FMS 聚合查询）<br>
+        <span style="color:#3b82f6;">DomainEventBus</span> ────── 事件发布/订阅 ──→ 跨模块解耦（19 种事件 | 同步强一致 + Outbox 异步分发）<br>
+        <span style="color:#3b82f6;">EventHandlerRegistry</span> ── Handler 注册/分发 ──→ 支持同步（库存预留/质量关卡）和异步（Outbox）两种模式<br>
+        <span style="color:#e5a655;">StateMachineService</span> ─ 状态转换管理 ──→ 统一单据生命周期（替换分散的 if-else 状态校验）<br>
+        <span style="color:#56b6c2;">AuditLogService</span> ──── 操作审计追踪 ──→ 业务 Service 直接调用（同事务内，字段级 diff，全链路可追溯）<br>
+        <span style="color:#c678dd;">IdempotencyService</span> ── 幂等去重保障 ──→ 三级幂等：API防重复提交 + Handler防重复消费 + Saga补偿防重复执行<br>
         <br>
+        <span style="color:#888;">EventBus + StateMachine 构成事件驱动架构骨架，所有业务模块和 <a href="08-workflow-engine.html" style="color:#6bc76b;">Workflow Engine</a> 均通过它们协作</span><br>
         <span style="color:#888;">所有共享实体通过 DocumentType 枚举与具体业务模块解耦</span>
       </div>
     </div>
 
   </div>
 </div>
+
+</body>
+</html>

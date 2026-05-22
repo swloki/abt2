@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工作流引擎 V2 — 类图设计</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .mockup { background: #282a36; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .mockup-header { background: linear-gradient(135deg, #7c3aed, #3b82f6); color: #fff; padding: 12px 20px; font-weight: bold; font-size: 15px; }
+    .section { background: rgba(124,58,237,0.08); padding: 12px 14px; border-radius: 6px; margin-bottom: 16px; }
+    .section h3 { margin: 0 0 8px 0; }
+    .code { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px; line-height: 1.65; overflow-x: auto; }
+    .card { border: 2px solid; border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+    .note { color: #aaa; font-size: 11px; margin: 6px 0 0 0; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .kw { color: #c678dd; } .ty { color: #e5c07b; } .cm { color: #888; } .new { color: #6bc76b; } .del { color: #e06c75; }
+    .tbl { width: 100%; border-collapse: collapse; color: #e0e0e0; font-size: 11.5px; }
+    .tbl th { text-align: left; padding: 5px 8px; color: #888; border-bottom: 1px solid #333; }
+    .tbl td { padding: 3px 8px; }
+    .tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; margin-right: 4px; }
+    .mermaid-wrap{background:#282a36;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,0.3);position:relative}
+    .mermaid{display:flex;justify-content:center}
+    .zoom-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 0 12px 0;background:#282a36}
+    .zoom-toolbar button{background:#3b3f5c;border:1px solid #555;color:#cdd6f4;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+    .zoom-toolbar button:hover{background:#4a4f6c;border-color:#6c8bef}
+    .zoom-toolbar .zoom-label{font-size:12px;color:#888;min-width:44px;text-align:center}
+    .zoom-container{overflow:hidden;border:1px solid #333;border-radius:8px;cursor:grab;min-height:80vh;max-height:90vh}
+    .zoom-container:active{cursor:grabbing}
+    .zoom-container.dragging{cursor:grabbing;user-select:none}
+    .zoom-container svg{display:block;margin:auto;transform-origin:top center}
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,background:'#282a36',primaryColor:'#3b3f5c',primaryTextColor:'#cdd6f4',lineColor:'#666',clusterBkg:'rgba(108,139,239,0.08)',clusterBorder:'rgba(108,139,239,0.25)'},flowchart:{useMaxWidth:false,htmlLabels:true}});
+</script>
+</head>
+<body>
+<h2>工作流引擎 V2 — 类图设计</h2>
+<p class="subtitle">依赖 <a href="00-shared-infrastructure.html" style="color: #6bc76b;">共享层（DomainEventBus + StateMachineService）</a> | Saga 补偿 + 增强节点类型 — 长流程编排与失败补偿</p>
+
+<!-- Mermaid Class Diagram -->
+<div class="mermaid-wrap">
+  <div class="zoom-toolbar">
+    <button id="zoomOut" title="缩小">−</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn" title="放大">+</button>
+    <button id="zoomReset" title="重置" style="width:auto;padding:0 12px;font-size:12px;">重置</button>
+    <button id="zoomFit" title="适应宽度" style="width:auto;padding:0 12px;font-size:12px;">适应</button>
+    <span style="margin-left:auto;font-size:11px;color:#666;">滚轮缩放 · 拖拽平移</span>
+  </div>
+  <div class="zoom-container" id="zoomContainer">
+    <div class="mermaid">
+classDiagram
+  class DomainEventBus {
+    &lt;&lt;interface&gt;&gt;
+    +publish() i64
+    +find_events() Vec
+    +find_by_type() Vec
+  }
+  class StateMachineService {
+    &lt;&lt;interface&gt;&gt;
+    +define_states()
+    +define_transitions()
+    +transition() EntityStateLog
+    +get_current_state() String
+    +get_allowed_transitions() Vec
+    +get_state_history() Vec
+  }
+
+  class NodeType {
+    &lt;&lt;enumeration&gt;&gt;
+    Start
+    End
+    Approval
+    AutoTask
+    ServiceTask
+    SubProcess
+    TimerWait
+    SignalCatch
+    Join
+  }
+
+  class WorkflowTemplate {
+    +id: i64
+    +entity_type: String
+    +name: String
+    +version: i32
+    +status: TemplateStatus
+    +graph: JSONB
+    +trigger_event: String
+  }
+  class WorkflowInstance {
+    +id: i64
+    +template_id: i64
+    +entity_type: String
+    +entity_id: i64
+    +status: InstanceStatus
+    +frozen_graph: JSONB
+    +context: JSONB
+    +parent_instance_id: i64
+    +saga_compensation_log: JSONB
+    +initiator_id: i64
+  }
+  class WorkflowTask {
+    +id: i64
+    +instance_id: i64
+    +node_id: String
+    +assignee_id: i64
+    +status: WorkflowTaskStatus
+    +action: String
+    +timeout_action: String
+    +due_at: DateTime
+    +result: JSONB
+  }
+  class WorkflowHistory {
+    +id: i64
+    +instance_id: i64
+    +task_id: i64
+    +node_id: String
+    +event_type: String
+    +actor_id: i64
+    +payload: JSONB
+  }
+  class WorkflowGraph {
+    +graph_version: u32
+    +nodes: Vec~WorkflowNode~
+    +edges: Vec~WorkflowEdge~
+  }
+  class WorkflowNode {
+    +id: String
+    +node_type: NodeType
+    +name: String
+    +config: JSONB
+    +compensate_action: String
+  }
+  class WorkflowEdge {
+    +from: String
+    +to: String
+    +condition: Condition
+  }
+
+  WorkflowGraph *-- WorkflowNode
+  WorkflowGraph *-- WorkflowEdge
+  WorkflowNode --> NodeType
+  WorkflowInstance --> WorkflowTemplate
+  WorkflowTask --> WorkflowInstance
+  WorkflowHistory --> WorkflowInstance
+
+  class WorkflowService {
+    &lt;&lt;interface&gt;&gt;
+    +create_template() i64
+    +publish_template()
+    +start_instance() i64
+    +start_instance_with_context() i64
+    +cancel_instance()
+    +approve_task()
+    +reject_task()
+    +delegate_task() i64
+    +signal()
+    +compensate_instance()
+    +trigger() i64
+    +list_history() Vec
+  }
+
+  class AutoAction {
+    &lt;&lt;interface&gt;&gt;
+    +execute() ActionOutput
+    +compensate()
+  }
+  class WorkflowHook {
+    &lt;&lt;interface&gt;&gt;
+    +on_approved()
+    +on_rejected()
+  }
+  class ActionRegistry {
+    +register()
+    +get() AutoAction
+    +list_defs()
+  }
+  class WorkflowEngine {
+    -pool: PgPool
+    -action_registry: ActionRegistry
+    -event_bus: DomainEventBus
+    -state_machine: StateMachineService
+  }
+  class WorkflowWorker {
+    -pool: PgPool
+    -scan_interval_secs: u64
+  }
+  class GraphLinter {
+    +lint_graph()
+  }
+
+  WorkflowEngine ..|> WorkflowService
+  WorkflowEngine --> DomainEventBus : publishes events
+  WorkflowEngine --> StateMachineService : triggers transitions
+  WorkflowEngine --> ActionRegistry
+  WorkflowWorker --> WorkflowEngine : timeout scanning
+  GraphLinter ..> WorkflowGraph : validates on publish
+
+  note for WorkflowInstance "parent_instance_id: SubProcess parent. saga_compensation_log: completed steps for reverse compensation"
+  note for WorkflowNode "compensate_action: action name for saga rollback, only AutoTask and ServiceTask"
+  note for WorkflowEngine "Depends on shared DomainEventBus + StateMachineService. Orchestrates approvals, auto-tasks, saga compensation"
+    </div>
+  </div>
+</div>
+<script>
+(function(){var s=1,tx=0,ty=0,ms=0.1,xs=8;var c=document.getElementById('zoomContainer'),l=document.getElementById('zoomLabel'),d=false,sx,sy,stx,sty;function a(){var v=c.querySelector('svg');if(v)v.style.transform='scale('+s+') translate('+tx+'px,'+ty+'px)';l.textContent=Math.round(s*100)+'%'}document.getElementById('zoomIn').onclick=function(){s=Math.min(xs,s+0.15);a()};document.getElementById('zoomOut').onclick=function(){s=Math.max(ms,s-0.15);a()};document.getElementById('zoomReset').onclick=function(){s=1;tx=0;ty=0;a()};document.getElementById('zoomFit').onclick=function(){var v=c.querySelector('svg');if(!v)return;var w=c.clientWidth-40,sw=v.getBoundingClientRect().width/s;s=Math.max(ms,Math.min(1.5,w/sw));tx=0;ty=0;a()};c.addEventListener('wheel',function(e){e.preventDefault();s=Math.max(ms,Math.min(xs,s+(e.deltaY>0?-0.08:0.08)));a()},{passive:false});c.addEventListener('mousedown',function(e){if(e.button!==0)return;d=true;c.classList.add('dragging');sx=e.clientX;sy=e.clientY;stx=tx;sty=ty});document.addEventListener('mouseup',function(){d=false;c.classList.remove('dragging')});document.addEventListener('mousemove',function(e){if(!d)return;e.preventDefault();tx=stx+(e.clientX-sx)/s;ty=sty+(e.clientY-sy)/s;a()})})();
+</script>
+
+<div class="mockup">
+  <div class="mockup-header">Workflow Engine V2 — UML Class Diagram</div>
+  <div style="padding: 20px; font-size: 13px; line-height: 1.5;">
+
+    <!-- ================================================================ -->
+    <!-- Section 0: Architecture -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(124,58,237,0.1);">
+      <h3 style="color: #7c3aed;">V2 架构分层</h3>
+      <div class="code" style="font-size: 12.5px; line-height: 1.9;">
+        <span class="cm">┌─────────────────────────────────────────────────────────────┐</span><br>
+        <span class="cm">│</span> <span class="ty">Shared Infrastructure</span>（定义于 00-shared-infrastructure.puml）<span class="cm">│</span><br>
+        <span class="cm">│</span>&nbsp;&nbsp;DomainEventBus + DomainEventHandler + 19 种事件类型&nbsp;&nbsp;<span class="cm">│</span><br>
+        <span class="cm">│</span>&nbsp;&nbsp;StateMachineService + 状态定义/转换规则/变更日志&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm">│</span><br>
+        <span class="cm">└──────────────────────────┬──────────────────────────────────┘</span><br>
+        <span class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│ 依赖</span><br>
+        <span class="cm">┌──────────────────────────▼──────────────────────────────────┐</span><br>
+        <span class="cm">│</span> <span class="ty">Workflow Engine</span>（定义于 08-workflow-engine.puml）<span class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│</span><br>
+        <span class="cm">│</span>&nbsp;&nbsp;WorkflowCore: 9 种节点类型 | Graph | Condition AST&nbsp;&nbsp;<span class="cm">&nbsp;&nbsp;&nbsp;│</span><br>
+        <span class="cm">│</span>&nbsp;&nbsp;Integration: ActionRegistry | HookRegistry | Worker&nbsp;&nbsp;<span class="cm">&nbsp;&nbsp;&nbsp;│</span><br>
+        <span class="cm">│</span>&nbsp;&nbsp;Saga: compensate_action | compensation_log | 逆序回滚&nbsp;&nbsp;<span class="cm">&nbsp;&nbsp;│</span><br>
+        <span class="cm">└─────────────────────────────────────────────────────────────┘</span>
+      </div>
+      <p class="note" style="margin-top: 8px;">
+        <strong>模块边界：</strong>DomainEventBus / StateMachineService / DomainEventHandler 属于共享基础设施层，<br>
+        所有业务模块（Sales、Purchase、WMS、MES...）均可直接使用，不依赖 Workflow Engine。<br>
+        Workflow Engine 是这些共享服务的<strong>消费者</strong>，通过 DomainEventBus 发布事件、通过 StateMachineService 触发状态转换。
+      </p>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 1: V1 vs V2 -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(108,139,239,0.1);">
+      <h3 style="color: #6c8bef;">集成模式对比</h3>
+      <div class="grid2">
+        <div>
+          <p style="color:#e06c75; font-weight: bold; margin-bottom: 4px;">V1 — 同步直接调用（紧耦合）</p>
+          <div class="code" style="font-size: 12px;">
+            SalesOrderService.confirm()<br>
+            &nbsp;&nbsp;├── update status in DB<br>
+            &nbsp;&nbsp;├── <span class="del">InvRes.reserve()</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm">// 直接调用</span><br>
+            &nbsp;&nbsp;├── <span class="del">CostEntry.create()</span>&nbsp;&nbsp;<span class="cm">// 直接调用</span><br>
+            &nbsp;&nbsp;└── <span class="del">DocLink.create_link()</span>&nbsp;<span class="cm">// 直接调用</span><br><br>
+            <span class="cm">问题: Service impl 耦合了其他模块知识<br>
+            新增逻辑必须改 SalesOrderService</span>
+          </div>
+        </div>
+        <div>
+          <p style="color:#6bc76b; font-weight: bold; margin-bottom: 4px;">V2 — 事件驱动（松耦合）</p>
+          <div class="code" style="font-size: 12px;">
+            SalesOrderService.confirm()<br>
+            &nbsp;&nbsp;├── StateMachine.transition("Confirmed")<br>
+            &nbsp;&nbsp;├── update status in DB<br>
+            &nbsp;&nbsp;└── EventBus.<span class="new">publish(SalesOrderConfirmed)</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── InventoryHandler → InvRes.reserve()<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── CostEntryHandler → CostEntry.create()<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── DocLinkHandler → DocLink.create_link()<br><br>
+            <span class="new">好处: SalesOrderService 只关心核心逻辑<br>
+            其他模块通过 handler 自动响应</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 2: Core Entities — 4 tables -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(198,120,221,0.1);">
+      <h3 style="color: #c678dd;">Workflow Core — 四张核心实体表</h3>
+      <p class="note" style="margin-bottom: 10px;">引擎基础，V1 已实现，V2 增强 WorkflowInstance 和 WorkflowNode</p>
+      <div class="grid2">
+
+        <!-- WorkflowTemplate -->
+        <div class="card" style="border-color: #6bc76b; background: rgba(107,199,107,0.05);">
+          <h4 style="color: #6bc76b; margin: 0 0 4px 0;">WorkflowTemplate 流程模板</h4>
+          <p class="note">定义一种业务流程的结构（有向图），一个 entity_type 只能有一个 active 模板</p>
+          <div class="code">
+            <span class="kw">entity</span> <span class="ty">WorkflowTemplate</span> {<br>
+            &nbsp;&nbsp;id: i64 <span class="cm">PK BIGSERIAL</span><br>
+            &nbsp;&nbsp;entity_type: String <span class="cm">// "sales_order" | "work_order" | ...</span><br>
+            &nbsp;&nbsp;name: String <span class="cm">// "销售订单审批流"</span><br>
+            &nbsp;&nbsp;version: i32 <span class="cm">// 每次发布 +1</span><br>
+            &nbsp;&nbsp;status: TemplateStatus <span class="cm">// draft | active | archived</span><br>
+            &nbsp;&nbsp;graph: JSONB <span class="cm">// WorkflowGraph 序列化</span><br>
+            &nbsp;&nbsp;graph_checksum: String? <span class="cm">// 发布时计算的哈希</span><br>
+            &nbsp;&nbsp;trigger_event: String? <span class="cm">// 可选: 绑定 DomainEventType</span><br>
+            &nbsp;&nbsp;created_at, updated_at, deleted_at<br>
+            }<br><br>
+            <span class="kw">enum</span> <span class="ty">TemplateStatus</span> {<br>
+            &nbsp;&nbsp;<span class="new">Draft</span> → <span class="new">Active</span> → Archived<br>
+            &nbsp;&nbsp;<span class="cm">// 只有 Active 的模板可以被实例化</span><br>
+            &nbsp;&nbsp;<span class="cm">// publish_template() 时 Draft → Active</span><br>
+            }
+          </div>
+          <p class="note">
+            <strong>生命周期：</strong>创建为 Draft → publish_template() 经 GraphLinter 校验 → Active<br>
+            <strong>版本控制：</strong>每次 publish version+1，checksum 用于变更检测
+          </p>
+        </div>
+
+        <!-- WorkflowInstance -->
+        <div class="card" style="border-color: #3b82f6; background: rgba(59,130,246,0.05);">
+          <h4 style="color: #3b82f6; margin: 0 0 4px 0;">WorkflowInstance 流程实例</h4>
+          <p class="note">模板的一次运行，frozen_graph 冻结启动时的图结构（不受后续模板修改影响）</p>
+          <div class="code">
+            <span class="kw">entity</span> <span class="ty">WorkflowInstance</span> {<br>
+            &nbsp;&nbsp;id: i64 <span class="cm">PK</span><br>
+            &nbsp;&nbsp;template_id: i64 <span class="cm">FK → templates</span><br>
+            &nbsp;&nbsp;template_version: i32? <span class="cm">// 启动时的模板版本</span><br>
+            &nbsp;&nbsp;entity_type: String <span class="cm">// "sales_order"</span><br>
+            &nbsp;&nbsp;entity_id: i64 <span class="cm">// 关联的业务实体 ID</span><br>
+            &nbsp;&nbsp;status: InstanceStatus<br>
+            &nbsp;&nbsp;frozen_graph: JSONB <span class="cm">// 启动时 snapshot</span><br>
+            &nbsp;&nbsp;context: JSONB <span class="cm">// {entity_snapshot, variables, join_progress}</span><br>
+            &nbsp;&nbsp;suspended_reason: JSONB?<br>
+            &nbsp;&nbsp;initiator_id: i64 <span class="cm">// 启动人</span><br>
+            &nbsp;&nbsp;<span class="new">+ parent_instance_id: i64?</span> <span class="cm">// SubProcess 父实例</span><br>
+            &nbsp;&nbsp;<span class="new">+ saga_compensation_log: JSONB?</span> <span class="cm">// Saga 补偿日志</span><br>
+            &nbsp;&nbsp;created_at, updated_at, completed_at<br>
+            }
+          </div>
+          <p class="note">
+            <strong>context 结构：</strong><code>{entity_snapshot: {...}, variables: {...}, join_progress: {...}}</code><br>
+            <strong>frozen_graph：</strong>启动时从 template.graph 复制，后续模板变更不影响运行中实例
+          </p>
+        </div>
+
+        <!-- WorkflowTask -->
+        <div class="card" style="border-color: #e5a655; background: rgba(229,166,85,0.05);">
+          <h4 style="color: #e5a655; margin: 0 0 4px 0;">WorkflowTask 任务</h4>
+          <p class="note">每个 Approval 节点创建一个 Task，等待人工审批；AutoTask/ServiceTask 不创建 Task（直接执行并推进）</p>
+          <div class="code">
+            <span class="kw">entity</span> <span class="ty">WorkflowTask</span> {<br>
+            &nbsp;&nbsp;id: i64 <span class="cm">PK</span><br>
+            &nbsp;&nbsp;instance_id: i64 <span class="cm">FK → instances</span><br>
+            &nbsp;&nbsp;node_id: String <span class="cm">// 对应 frozen_graph 中的节点 ID</span><br>
+            &nbsp;&nbsp;prev_task_id: i64? <span class="cm">// 前驱任务（delegate/reject 时链式追溯）</span><br>
+            &nbsp;&nbsp;assignee_id: i64? <span class="cm">// 当前审批人</span><br>
+            &nbsp;&nbsp;status: TaskStatus<br>
+            &nbsp;&nbsp;action: String? <span class="cm">// "approve" | "reject" | "delegate"</span><br>
+            &nbsp;&nbsp;timeout_action: String? <span class="cm">// "auto_approve" | "auto_reject" | "notify"</span><br>
+            &nbsp;&nbsp;due_at: DateTime? <span class="cm">// 超时截止时间</span><br>
+            &nbsp;&nbsp;remind_at: DateTime? <span class="cm">// 提醒时间</span><br>
+            &nbsp;&nbsp;result: JSONB? <span class="cm">// {"comment": "同意"}</span><br>
+            &nbsp;&nbsp;created_at, completed_at<br>
+            }
+          </div>
+        </div>
+
+        <!-- WorkflowHistory -->
+        <div class="card" style="border-color: #e06c75; background: rgba(224,108,117,0.05);">
+          <h4 style="color: #e06c75; margin: 0 0 4px 0;">WorkflowHistory 审计历史</h4>
+          <p class="note">追加写（append-only），记录实例级别的每一个事件，永不修改或删除</p>
+          <div class="code">
+            <span class="kw">entity</span> <span class="ty">WorkflowHistory</span> {<br>
+            &nbsp;&nbsp;id: i64 <span class="cm">PK</span><br>
+            &nbsp;&nbsp;instance_id: i64 <span class="cm">FK → instances</span><br>
+            &nbsp;&nbsp;task_id: i64? <span class="cm">// 关联的 Task（如果有）</span><br>
+            &nbsp;&nbsp;node_id: String? <span class="cm">// 当前所在节点</span><br>
+            &nbsp;&nbsp;event_type: String <span class="cm">// 见下表</span><br>
+            &nbsp;&nbsp;actor_id: i64? <span class="cm">// 操作人（0=系统）</span><br>
+            &nbsp;&nbsp;payload: JSONB? <span class="cm">// 事件详情</span><br>
+            &nbsp;&nbsp;created_at: DateTime<br>
+            }<br><br>
+            <span class="kw">event_type 枚举值:</span><br>
+            &nbsp;&nbsp;instance_started/completed/cancelled<br>
+            &nbsp;&nbsp;task_completed/rejected/delegated<br>
+            &nbsp;&nbsp;node_entered<br>
+            &nbsp;&nbsp;auto_task_completed/auto_task_retried<br>
+            &nbsp;&nbsp;join_waiting/join_completed<br>
+            &nbsp;&nbsp;multi_approval_waiting<br>
+            &nbsp;&nbsp;entity_changed<br>
+            &nbsp;&nbsp;timeout_action/reminder<br>
+            &nbsp;&nbsp;hook_executed
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 3: Status Enums -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(229,166,85,0.1);">
+      <h3 style="color: #e5a655;">状态枚举 — 状态机转换规则</h3>
+      <div class="grid3">
+        <div class="card" style="border-color: #6bc76b; background: rgba(107,199,107,0.05); margin-bottom: 0;">
+          <h4 style="color: #6bc76b; margin: 0 0 4px 0;">InstanceStatus 实例状态</h4>
+          <div class="code" style="font-size: 11px;">
+            <span class="cm">Running ──────────────┐</span><br>
+            &nbsp;&nbsp;├→ <span class="ty">Completed</span>&nbsp;&nbsp;&nbsp;<span class="cm">// 到达 End 节点</span><br>
+            &nbsp;&nbsp;├→ <span class="ty">Rejected</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="cm">// reject(terminate)</span><br>
+            &nbsp;&nbsp;├→ <span class="ty">Suspended</span>&nbsp;&nbsp;&nbsp;<span class="cm">// auto_task 失败</span><br>
+            &nbsp;&nbsp;├→ <span class="ty">Cancelled</span>&nbsp;&nbsp;&nbsp;<span class="cm">// 手动取消</span><br>
+            &nbsp;&nbsp;├→ <span class="ty">Terminated</span>&nbsp;&nbsp;<span class="cm">// 系统终止</span><br>
+            &nbsp;&nbsp;├→ <span class="new">Compensating</span><span class="cm">// Saga 补偿中</span><br>
+            &nbsp;&nbsp;└→ <span class="new">Compensated</span>&nbsp;<span class="cm">// Saga 已补偿</span>
+          </div>
+        </div>
+        <div class="card" style="border-color: #3b82f6; background: rgba(59,130,246,0.05); margin-bottom: 0;">
+          <h4 style="color: #3b82f6; margin: 0 0 4px 0;">TaskStatus 任务状态</h4>
+          <div class="code" style="font-size: 11px;">
+            <span class="ty">Pending</span> <span class="cm">// 等待审批</span><br>
+            &nbsp;&nbsp;├→ <span class="ty">Completed</span>&nbsp;&nbsp;<span class="cm">// approve</span><br>
+            &nbsp;&nbsp;├→ <span class="ty">Rejected</span>&nbsp;&nbsp;&nbsp;<span class="cm">// reject</span><br>
+            &nbsp;&nbsp;├→ <span class="ty">Delegated</span>&nbsp;&nbsp;<span class="cm">// 委派给他人</span><br>
+            &nbsp;&nbsp;├→ <span class="ty">TimedOut</span>&nbsp;&nbsp;&nbsp;<span class="cm">// Worker 超时处理</span><br>
+            &nbsp;&nbsp;└→ <span class="ty">Cancelled</span>&nbsp;&nbsp;<span class="cm">// 实例取消时批量取消</span>
+          </div>
+        </div>
+        <div class="card" style="border-color: #c678dd; background: rgba(198,120,221,0.05); margin-bottom: 0;">
+          <h4 style="color: #c678dd; margin: 0 0 4px 0;">TemplateStatus 模板状态</h4>
+          <div class="code" style="font-size: 11px;">
+            <span class="ty">Draft</span> <span class="cm">// 编辑中</span><br>
+            &nbsp;&nbsp;└→ <span class="ty">Active</span> <span class="cm">// publish_template()</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└→ <span class="ty">Archived</span> <span class="cm">// archive_template()</span><br><br>
+            <span class="cm">规则: 只有 Active 可以实例化</span><br>
+            <span class="cm">规则: publish 时 GraphLinter 校验</span><br>
+            <span class="cm">规则: ActionRegistry 验证 action 已注册</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 4: Graph Model + Condition AST -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(59,130,246,0.1);">
+      <h3 style="color: #3b82f6;">Graph 模型 — 流程图定义（JSONB 存储）</h3>
+      <div class="grid2">
+        <div>
+          <div class="code">
+            <span class="kw">struct</span> <span class="ty">WorkflowGraph</span> {<br>
+            &nbsp;&nbsp;graph_version: u32 <span class="cm">// 当前 = 1</span><br>
+            &nbsp;&nbsp;nodes: Vec&lt;WorkflowNode&gt;<br>
+            &nbsp;&nbsp;edges: Vec&lt;WorkflowEdge&gt;<br>
+            }<br><br>
+            <span class="kw">struct</span> <span class="ty">WorkflowNode</span> {<br>
+            &nbsp;&nbsp;id: String <span class="cm">// "approval1" | "auto_reserve"</span><br>
+            &nbsp;&nbsp;node_type: NodeType<br>
+            &nbsp;&nbsp;name: String <span class="cm">// "主管审批" | "库存预留"</span><br>
+            &nbsp;&nbsp;config: JSONB <span class="cm">// 见下表</span><br>
+            &nbsp;&nbsp;<span class="new">compensate_action: String?</span><br>
+            }<br><br>
+            <span class="kw">struct</span> <span class="ty">WorkflowEdge</span> {<br>
+            &nbsp;&nbsp;from: String <span class="cm">// 源节点 ID</span><br>
+            &nbsp;&nbsp;to: String <span class="cm">// 目标节点 ID</span><br>
+            &nbsp;&nbsp;condition: Option&lt;Condition&gt;<br>
+            }
+          </div>
+        </div>
+        <div>
+          <h4 style="color: #e5c07b; margin: 0 0 6px 0;">Condition AST 条件表达式</h4>
+          <div class="code">
+            <span class="kw">enum</span> <span class="ty">Condition</span> {<br>
+            &nbsp;&nbsp;And(Vec&lt;Condition&gt;)<br>
+            &nbsp;&nbsp;Or(Vec&lt;Condition&gt;)<br>
+            &nbsp;&nbsp;Not(Box&lt;Condition&gt;)<br>
+            &nbsp;&nbsp;FieldCompare {<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;field: String <span class="cm">// "entity_snapshot.amount"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;op: CompareOp <span class="cm">// Eq|Neq|Gt|GtEq|Lt|LtEq|In</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;value: JSONB <span class="cm">// 10000</span><br>
+            &nbsp;&nbsp;}<br>
+            &nbsp;&nbsp;Always <span class="cm">// 无条件通过</span><br>
+            &nbsp;&nbsp;Never <span class="cm">// 无条件拒绝</span><br>
+            }<br><br>
+            <span class="kw">struct</span> <span class="ty">EvaluationContext</span> {<br>
+            &nbsp;&nbsp;entity_snapshot: JSONB <span class="cm">// 实体快照</span><br>
+            &nbsp;&nbsp;variables: HashMap <span class="cm">// 流程变量</span><br>
+            }<br><br>
+            <span class="cm">// 示例: 金额 > 50000 时走审批分支</span><br>
+            {"type":"field_compare",<br>
+            &nbsp;"field":"entity_snapshot.amount",<br>
+            &nbsp;"op":"gt", "value":50000}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 5: Node Types Detail -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(107,199,107,0.1);">
+      <h3 style="color: #6bc76b;">NodeType — 9 种节点类型详解</h3>
+      <table class="tbl" style="font-size: 11.5px;">
+        <tr><th>NodeType</th><th>创建 Task?</th><th>config 必填</th><th>说明</th></tr>
+        <tr><td style="color:#6bc76b;">Start</td><td>否</td><td class="cm">无</td><td class="cm">流程起点，有且仅有一个</td></tr>
+        <tr><td style="color:#6bc76b;">End</td><td>否</td><td class="cm">无</td><td class="cm">到达时 instance → Completed</td></tr>
+        <tr><td style="color:#e5a655;">Approval</td><td><strong>是</strong></td><td>fallback_assignee, multi_approval, reject_action, timeout_hours, timeout_action</td><td class="cm">等待人工审批，创建 pending Task</td></tr>
+        <tr><td style="color:#3b82f6;">AutoTask</td><td>否</td><td>action, input_mapping, output_mapping</td><td class="cm">通过 ActionRegistry 执行已注册的动作</td></tr>
+        <tr><td style="color:#3b82f6;">ServiceTask</td><td>否</td><td>service</td><td class="cm">直接调用指定 Service 方法，类型安全</td></tr>
+        <tr><td style="color:#c678dd;">Join</td><td>否</td><td class="cm">无特殊</td><td class="cm">汇聚并行分支，所有入边源节点必须有 completed Task</td></tr>
+        <tr><td style="color:#e06c75;">SubProcess</td><td>否</td><td>sub_entity_type, wait_for_completion</td><td class="cm">启动子 WorkflowInstance，通过 parent_instance_id 关联</td></tr>
+        <tr><td style="color:#e06c75;">TimerWait</td><td>否</td><td>duration_hours 或 until</td><td class="cm">暂停等待时间，Worker 扫描到期后自动推进</td></tr>
+        <tr><td style="color:#e06c75;">SignalCatch</td><td>否</td><td>signal</td><td class="cm">暂停等待外部信号，WorkflowService.signal() 触发推进</td></tr>
+      </table>
+
+      <div style="margin-top: 12px;">
+        <h4 style="color: #e5a655; margin: 0 0 6px 0;">Approval 节点 config 详解</h4>
+        <div class="grid2">
+          <div class="code" style="font-size: 11px;">
+            <span class="cm">// 完整 config 示例</span><br>
+            {<br>
+            &nbsp;&nbsp;"assignee_type": "role",<br>
+            &nbsp;&nbsp;"assignee_value": "manager",<br>
+            &nbsp;&nbsp;"fallback_assignee": 42, <span class="cm">// 必填! assignee 解析失败时兜底</span><br>
+            &nbsp;&nbsp;"multi_approval": "any", <span class="cm">// "any" | "all"</span><br>
+            &nbsp;&nbsp;"reject_action": "terminate", <span class="cm">// "terminate" | "back_to_previous"</span><br>
+            &nbsp;&nbsp;"timeout_hours": 48,<br>
+            &nbsp;&nbsp;"timeout_action": "auto_approve", <span class="cm">// "auto_approve"|"auto_reject"|"notify"</span><br>
+            &nbsp;&nbsp;"remind_hours_before": 4<br>
+            }
+          </div>
+          <div class="code" style="font-size: 11px;">
+            <span class="cm">multi_approval 逻辑:</span><br>
+            <span class="ty">"any"</span> = 任意一人 approve → 推进（默认）<br>
+            <span class="ty">"all"</span> = 所有人 approve → 才推进<br>
+            &nbsp;&nbsp;一人 approve 后检查剩余 pending 数<br>
+            &nbsp;&nbsp;remaining > 0 → 记录 MULTI_APPROVAL_WAITING<br>
+            &nbsp;&nbsp;remaining = 0 → 推进到下一节点<br><br>
+            <span class="cm">reject_action 逻辑:</span><br>
+            <span class="ty">"terminate"</span> = instance → Rejected<br>
+            <span class="ty">"back_to_previous"</span> = 退回上一审批节点<br>
+            &nbsp;&nbsp;找入边的源节点，重新创建 pending Task<br>
+            &nbsp;&nbsp;同时 cancel 同 node_id 其余 pending
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 6: ActionRegistry + Hooks + Worker + Linter -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(198,120,221,0.1);">
+      <h3 style="color: #c678dd;">引擎支撑组件</h3>
+      <div class="grid2">
+
+        <!-- ActionRegistry -->
+        <div class="card" style="border-color: #3b82f6; background: rgba(59,130,246,0.05); margin-bottom: 0;">
+          <h4 style="color: #3b82f6; margin: 0 0 4px 0;">ActionRegistry + AutoAction</h4>
+          <p class="note">注册业务动作，AutoTask 节点通过 config.action 名称查找执行</p>
+          <div class="code" style="font-size: 11px;">
+            <span class="kw">trait</span> <span class="ty">AutoAction</span> {<br>
+            &nbsp;&nbsp;execute(tx, inputs): Result&lt;ActionOutput&gt;<br>
+            &nbsp;&nbsp;<span class="new">compensate(tx, inputs): Result&lt;()&gt;</span> <span class="cm">// V2</span><br>
+            }<br><br>
+            <span class="kw">struct</span> <span class="ty">ActionDef</span> { <span class="cm">// 元数据</span><br>
+            &nbsp;&nbsp;name, label, description<br>
+            &nbsp;&nbsp;inputs: Vec&lt;FieldDef&gt;<br>
+            &nbsp;&nbsp;outputs: Vec&lt;FieldDef&gt;<br>
+            }<br><br>
+            <span class="kw">class</span> <span class="ty">ActionRegistry</span> {<br>
+            &nbsp;&nbsp;register(def, action)<br>
+            &nbsp;&nbsp;get(name) → Arc&lt;dyn AutoAction&gt;<br>
+            &nbsp;&nbsp;is_registered(name) → bool<br>
+            &nbsp;&nbsp;list_defs() → &[ActionDef]<br>
+            &nbsp;&nbsp;validate_startup(templates) <span class="cm">// 启动校验</span><br>
+            }<br><br>
+            <span class="cm">// 表达式映射引擎</span><br>
+            <span class="cm">// input_mapping: {"product_id": "${entity_snapshot.product_id}"}</span><br>
+            <span class="cm">// output_mapping: {"order_id": "production_order_id"}</span><br>
+            <span class="cm">// resolve_mapping() 解析 ${path.to.field} 语法</span>
+          </div>
+          <p class="note"><strong>启动校验：</strong>所有 active 模板引用的 action 必须已注册，否则 panic 拒绝启动（fail-closed）</p>
+        </div>
+
+        <!-- WorkflowHook -->
+        <div class="card" style="border-color: #e5a655; background: rgba(229,166,85,0.05); margin-bottom: 0;">
+          <h4 style="color: #e5a655; margin: 0 0 4px 0;">WorkflowHook 事务后回调</h4>
+          <p class="note">实例完成后（approved/rejected）在事务 commit <strong>之后</strong>异步触发的业务回调</p>
+          <div class="code" style="font-size: 11px;">
+            <span class="kw">trait</span> <span class="ty">WorkflowHook</span> {<br>
+            &nbsp;&nbsp;on_approved(pool, instance): Result<()><br>
+            &nbsp;&nbsp;on_rejected(pool, instance): Result<()><br>
+            }<br><br>
+            <span class="kw">class</span> <span class="ty">HookRegistry</span> {<br>
+            &nbsp;&nbsp;register(entity_type, hook)<br>
+            &nbsp;&nbsp;get(entity_type) → Option&lt;Arc&lt;Hook&gt;&gt;<br>
+            }<br><br>
+            <span class="cm">执行时机:</span><br>
+            &nbsp;&nbsp;approve_task() → tx.commit() 成功后<br>
+            &nbsp;&nbsp;→ fire_hook("approved")<br>
+            &nbsp;&nbsp;→ hook.on_approved(pool, instance)<br><br>
+            <span class="cm">失败处理:</span><br>
+            &nbsp;&nbsp;hook 失败 → 记录 history(hook_executed, {success:false})<br>
+            &nbsp;&nbsp;→ retry_failed_hook() 可手动重试<br>
+            &nbsp;&nbsp;<span class="cm">// 不影响已提交的事务</span>
+          </div>
+          <p class="note"><strong>与 DomainEventBus 的区别：</strong>Hook 是事务后异步回调，用于非关键操作（如通知）；EventBus 是事务内同步分发，用于关键业务操作。</p>
+        </div>
+
+        <!-- WorkflowWorker -->
+        <div class="card" style="border-color: #e06c75; background: rgba(224,108,117,0.05); margin-bottom: 0;">
+          <h4 style="color: #e06c75; margin: 0 0 4px 0;">WorkflowWorker 后台扫描</h4>
+          <p class="note">tokio 后台任务，CancellationToken 控制生命周期</p>
+          <div class="code" style="font-size: 11px;">
+            <span class="kw">class</span> <span class="ty">WorkflowWorker</span> {<br>
+            &nbsp;&nbsp;pool: Arc&lt;PgPool&gt;<br>
+            &nbsp;&nbsp;cancel_token: CancellationToken<br>
+            &nbsp;&nbsp;scan_interval_secs: u64 <span class="cm">// 默认 60s</span><br>
+            }<br><br>
+            <span class="cm">每轮扫描:</span><br>
+            &nbsp;&nbsp;<span class="ty">scan_overdue_tasks()</span><br>
+            &nbsp;&nbsp;├── find_overdue_pending_tx(FOR UPDATE SKIP LOCKED)<br>
+            &nbsp;&nbsp;├── timeout_action == "auto_approve" → 完成+推进<br>
+            &nbsp;&nbsp;├── timeout_action == "auto_reject" → 拒绝+推进<br>
+            &nbsp;&nbsp;└── 其他 → 仅记录 history<br><br>
+            &nbsp;&nbsp;<span class="ty">scan_remindable_tasks()</span><br>
+            &nbsp;&nbsp;├── find_remindable_pending_tx<br>
+            &nbsp;&nbsp;├── 记录 history(reminder)<br>
+            &nbsp;&nbsp;└── clear_remind_at（防止重复提醒）
+          </div>
+        </div>
+
+        <!-- GraphLinter -->
+        <div class="card" style="border-color: #6bc76b; background: rgba(107,199,107,0.05); margin-bottom: 0;">
+          <h4 style="color: #6bc76b; margin: 0 0 4px 0;">GraphLinter 发布前校验</h4>
+          <p class="note">publish_template() 时调用，纯函数，不依赖数据库</p>
+          <div class="code" style="font-size: 11px;">
+            <span class="kw">lint_graph(graph, action_lookup)</span><br><br>
+            <span class="cm">校验规则:</span><br>
+            &nbsp;&nbsp;<span class="ty">R1</span> 有且仅有一个 Start 节点<br>
+            &nbsp;&nbsp;<span class="ty">R2</span> 至少一个 End 节点<br>
+            &nbsp;&nbsp;<span class="ty">R3</span> 边引用的节点必须存在<br>
+            &nbsp;&nbsp;<span class="ty">R4</span> DFS 环检测（不允许环）<br>
+            &nbsp;&nbsp;<span class="ty">R5</span> Approval 必须有 fallback_assignee<br>
+            &nbsp;&nbsp;<span class="ty">R6</span> AutoTask action 必须已注册<br>
+            &nbsp;&nbsp;<span class="ty">R7</span> Join 入边 ≥ 2<br>
+            &nbsp;&nbsp;<span class="ty">R8</span> back_to_previous 只能在单一入边的 Approval<br>
+            &nbsp;&nbsp;<span class="new">R9</span> ServiceTask 必须有 service config<br>
+            &nbsp;&nbsp;<span class="new">R10</span> SubProcess 必须有 sub_entity_type<br>
+            &nbsp;&nbsp;<span class="new">R11</span> TimerWait 必须有 duration 或 until<br>
+            &nbsp;&nbsp;<span class="new">R12</span> SignalCatch 必须有 signal<br>
+            &nbsp;&nbsp;<span class="new">R13</span> compensate_action 必须已注册
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 7: Node Processing Flow -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(59,130,246,0.1);">
+      <h3 style="color: #3b82f6;">节点处理流程 — process_next_node()</h3>
+      <p class="note" style="margin-bottom: 8px;">引擎的核心递归函数：从 Start 节点出发，沿边遍历，根据节点类型执行不同逻辑</p>
+      <div class="code" style="font-size: 12px; line-height: 1.8;">
+        <span class="kw">process_next_node</span>(tx, instance_id, graph, node_id, condition)<br><br>
+        &nbsp;&nbsp;<span class="cm">// 1. 条件判断</span><br>
+        &nbsp;&nbsp;if condition → evaluate_condition(cond, context)<br>
+        &nbsp;&nbsp;└── 条件不满足 → return Ok(())（不推进）<br><br>
+        &nbsp;&nbsp;<span class="cm">// 2. 按节点类型处理</span><br>
+        &nbsp;&nbsp;match node.node_type:<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">Start</span> → error（Start 只能是初始节点）<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">End</span> → instance.status = Completed<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">Approval</span> → 创建 WorkflowTask(Pending, assignee, due_at, remind_at)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">AutoTask</span> → <span class="new">执行 action_registry.get(action).execute(tx, inputs)</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── 递归 process_next_node 所有出边<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="new">ServiceTask → 调用 service 方法</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── 递归 process_next_node 所有出边<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="new">SubProcess → start_instance(sub_entity_type) + 设置 parent_instance_id</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── wait_for_completion=true → 暂停，等待子实例完成信号<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="new">TimerWait → 记录 expected_fire_at，不推进</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── Worker 扫描到期后推进<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="new">SignalCatch → 记录等待的 signal_name，不推进</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── WorkflowService.signal() 匹配后推进<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span class="ty">Join</span> → 检查所有入边源节点是否有 completed Task<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── 全部完成 → 递归 process_next_node 所有出边<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── 未全部完成 → 记录 JOIN_WAITING，等待
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 8: WorkflowService Full Trait -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(107,199,107,0.1);">
+      <h3 style="color: #6bc76b;">WorkflowService — 完整接口</h3>
+      <div class="grid2">
+        <div class="code" style="font-size: 11px;">
+          <span class="kw">trait</span> <span class="ty">WorkflowService</span> {<br>
+          <br>
+          &nbsp;&nbsp;<span class="cm">// ===== 模板管理 =====</span><br>
+          &nbsp;&nbsp;create_template(entity_type, name,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;graph_json, trigger_event?): i64<br>
+          &nbsp;&nbsp;update_template(id, name?,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;graph_json?, trigger_event?)<br>
+          &nbsp;&nbsp;get_template(id): Option&lt;Template&gt;<br>
+          &nbsp;&nbsp;list_templates(entity_type): Vec&lt;Template&gt;<br>
+          &nbsp;&nbsp;publish_template(id) <span class="cm">// + GraphLinter</span><br>
+          &nbsp;&nbsp;archive_template(id)<br>
+          <br>
+          &nbsp;&nbsp;<span class="cm">// ===== 实例管理 =====</span><br>
+          &nbsp;&nbsp;start_instance(entity_type, entity_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;initiator_id): i64<br>
+          &nbsp;&nbsp;<span class="new">start_instance_with_context(</span><br>
+          &nbsp;&nbsp;<span class="new">&nbsp;&nbsp;..., variables: JSONB): i64</span><br>
+          &nbsp;&nbsp;cancel_instance(id, operator_id)<br>
+          &nbsp;&nbsp;get_instance(id): Option&lt;Instance&gt;<br>
+          &nbsp;&nbsp;list_instances(entity_type, entity_id): Vec<br>
+        </div>
+        <div class="code" style="font-size: 11px;">
+          <br>
+          &nbsp;&nbsp;<span class="cm">// ===== 任务操作 =====</span><br>
+          &nbsp;&nbsp;approve_task(task_id, operator_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;comment?)<br>
+          &nbsp;&nbsp;reject_task(task_id, operator_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;comment?)<br>
+          &nbsp;&nbsp;delegate_task(task_id, from, to): i64<br>
+          &nbsp;&nbsp;get_my_tasks(user_id, status?): Vec<br>
+          <br>
+          &nbsp;&nbsp;<span class="cm">// ===== Signal / Timer (V2) =====</span><br>
+          &nbsp;&nbsp;<span class="new">signal(instance_id, signal_name,</span><br>
+          &nbsp;&nbsp;<span class="new">&nbsp;&nbsp;payload: JSONB)</span><br>
+          &nbsp;&nbsp;<span class="new">get_pending_signals(instance_id): Vec</span><br>
+          <br>
+          &nbsp;&nbsp;<span class="cm">// ===== Sub-Process (V2) =====</span><br>
+          &nbsp;&nbsp;<span class="new">get_child_instances(parent_id): Vec</span><br>
+          <br>
+          &nbsp;&nbsp;<span class="cm">// ===== Saga 补偿 (V2) =====</span><br>
+          &nbsp;&nbsp;<span class="new">compensate_instance(id, operator_id)</span><br>
+          <br>
+          &nbsp;&nbsp;<span class="cm">// ===== Admin =====</span><br>
+          &nbsp;&nbsp;retry_auto_task(instance_id, operator_id)<br>
+          &nbsp;&nbsp;retry_failed_hook(instance_id, operator_id)<br>
+          &nbsp;&nbsp;record_entity_change(instance_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;entity_id, change_type, change_detail): Vec<br>
+          <br>
+          &nbsp;&nbsp;<span class="cm">// ===== 历史 &amp; 触发器 =====</span><br>
+          &nbsp;&nbsp;list_history(instance_id): Vec&lt;History&gt;<br>
+          &nbsp;&nbsp;trigger(event, entity_id, initiator_id): i64?<br>
+          &nbsp;&nbsp;list_trigger_events(): Vec&lt;TriggerEventDef&gt;<br>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 9: Domain Events -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(59,130,246,0.1);">
+      <h3 style="color: #3b82f6;">DomainEventBus 领域事件总线 <span class="tag" style="background: #3b82f6; color: #fff;">Shared</span></h3>
+      <p class="note">定义于 <a href="00-shared-infrastructure.html" style="color: #6bc76b;">00-shared-infrastructure</a> — 跨模块解耦的核心机制，Workflow Engine 通过它发布事件</p>
+      <div class="grid2">
+        <div>
+          <div class="code">
+            <span class="kw">entity</span> <span class="ty">DomainEvent</span> {<br>
+            &nbsp;&nbsp;id: i64<br>
+            &nbsp;&nbsp;event_type: DomainEventType<br>
+            &nbsp;&nbsp;aggregate_type: String <span class="cm">// "SalesOrder"</span><br>
+            &nbsp;&nbsp;aggregate_id: i64 <span class="cm">// 42</span><br>
+            &nbsp;&nbsp;payload: JSONB <span class="cm">// {"customer_id":1,...}</span><br>
+            &nbsp;&nbsp;operator_id: i64<br>
+            &nbsp;&nbsp;created_at: DateTime<br>
+            }<br><br>
+            <span class="kw">trait</span> <span class="ty">DomainEventBus</span> {<br>
+            &nbsp;&nbsp;publish(event_type, aggregate_type,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;aggregate_id, payload, operator_id): i64<br>
+            &nbsp;&nbsp;find_events(aggregate_type, id): Vec<br>
+            &nbsp;&nbsp;find_by_type(event_type, since?): Vec<br>
+            }<br><br>
+            <span class="kw">trait</span> <span class="ty">DomainEventHandler</span> {<br>
+            &nbsp;&nbsp;handle(tx, event): Result&lt;()&gt;<br>
+            }
+          </div>
+        </div>
+        <div>
+          <div class="code" style="font-size: 11px;">
+            <span class="kw">enum</span> <span class="ty">DomainEventType</span> { <span class="cm">// 19 种</span><br>
+            &nbsp;&nbsp;<span class="cm">// Sales CRM</span><br>
+            &nbsp;&nbsp;SalesOrderConfirmed<br>
+            &nbsp;&nbsp;SalesOrderShipped<br>
+            &nbsp;&nbsp;SalesReturnReceived<br>
+            &nbsp;&nbsp;<span class="cm">// Purchase SRM</span><br>
+            &nbsp;&nbsp;PurchaseOrderConfirmed<br>
+            &nbsp;&nbsp;ArrivalNoticeReceived<br>
+            &nbsp;&nbsp;PurchasePaymentPaid<br>
+            &nbsp;&nbsp;<span class="cm">// MES</span><br>
+            &nbsp;&nbsp;ProductionPlanReleased<br>
+            &nbsp;&nbsp;WorkOrderReleased<br>
+            &nbsp;&nbsp;WorkOrderCompleted<br>
+            &nbsp;&nbsp;ProductionReceiptConfirmed<br>
+            &nbsp;&nbsp;<span class="cm">// OM</span><br>
+            &nbsp;&nbsp;OutsourcingSent<br>
+            &nbsp;&nbsp;OutsourcingReceived<br>
+            &nbsp;&nbsp;OutsourcingConvertedToInternal<br>
+            &nbsp;&nbsp;<span class="cm">// QMS</span><br>
+            &nbsp;&nbsp;InspectionPassed<br>
+            &nbsp;&nbsp;InspectionFailed<br>
+            &nbsp;&nbsp;MRBDispositioned<br>
+            &nbsp;&nbsp;RMACreated<br>
+            &nbsp;&nbsp;<span class="cm">// FMS</span><br>
+            &nbsp;&nbsp;CashJournalConfirmed<br>
+            &nbsp;&nbsp;WriteOffCompleted<br>
+            }
+          </div>
+          <p class="note">
+            <strong>关键约束：</strong>Append-only | 同步分发（调用者事务内）<br>
+            Handler 失败 → 整个事务回滚 | 未来可升级为异步 outbox
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 10: State Machine -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(229,166,85,0.1);">
+      <h3 style="color: #e5a655;">StateMachineService 状态机 <span class="tag" style="background: #e5a655; color: #fff;">Shared</span></h3>
+      <p class="note">定义于 <a href="00-shared-infrastructure.html" style="color: #6bc76b;">00-shared-infrastructure</a> — 统一管理单据生命周期，Workflow Engine 通过它触发状态转换</p>
+      <div class="grid2">
+        <div class="code">
+          <span class="kw">entity</span> <span class="ty">StateDefinition</span> {<br>
+          &nbsp;&nbsp;id, entity_type, state_name, label<br>
+          &nbsp;&nbsp;is_initial, is_final<br>
+          }<br><br>
+          <span class="kw">entity</span> <span class="ty">StateTransitionDef</span> {<br>
+          &nbsp;&nbsp;id, entity_type<br>
+          &nbsp;&nbsp;from_state → to_state<br>
+          &nbsp;&nbsp;trigger_event: DomainEventType?<br>
+          &nbsp;&nbsp;guard_condition: JSONB?<br>
+          &nbsp;&nbsp;side_effects: JSONB<br>
+          &nbsp;&nbsp;sort_order: i32<br>
+          }<br><br>
+          <span class="kw">entity</span> <span class="ty">EntityStateLog</span> {<br>
+          &nbsp;&nbsp;id, entity_type, entity_id<br>
+          &nbsp;&nbsp;from_state → to_state<br>
+          &nbsp;&nbsp;transition_id: i64 FK<br>
+          &nbsp;&nbsp;operator_id, remark?, created_at<br>
+          }<br><br>
+          <span class="kw">trait</span> <span class="ty">StateMachineService</span> {<br>
+          &nbsp;&nbsp;define_states(entity_type, states)<br>
+          &nbsp;&nbsp;define_transitions(entity_type, transitions)<br>
+          &nbsp;&nbsp;transition(entity_type, entity_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;to_state, operator_id, remark?): StateLog<br>
+          &nbsp;&nbsp;get_current_state(entity_type, entity_id): String<br>
+          &nbsp;&nbsp;get_allowed_transitions(entity_type, state): Vec<br>
+          &nbsp;&nbsp;get_state_history(entity_type, entity_id): Vec<br>
+          }
+        </div>
+        <div>
+          <h4 style="color: #e5a655; margin: 0 0 6px 0;">SalesOrder 示例</h4>
+          <div class="code" style="font-size: 11px; line-height: 1.8;">
+            <span style="color:#6bc76b;">Draft</span>
+            <span class="cm">──Confirmed──→</span>
+            <span style="color:#6bc76b;">Confirmed</span>
+            <span class="cm">──WOReleased──→</span>
+            <span style="color:#6bc76b;">InProduction</span>
+            <span class="cm">──Shipped──→</span>
+            <span style="color:#6bc76b;">Shipped</span>
+            <span class="cm">──WriteOff──→</span>
+            <span style="color:#6bc76b;">Completed</span><br>
+            <br>
+            <span class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↘</span><br>
+            <span class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span><span style="color:#e06c75;">Cancelled</span>
+            <span class="cm">(guard: no_active_wo)</span><br>
+            <span class="cm">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;↗</span><br>
+            <span style="color:#e5c07b;">InProduction ──partial──→ PartiallyShipped ──→ Shipped</span>
+          </div>
+          <h4 style="color: #e5a655; margin: 10px 0 6px 0;">WorkOrder 示例</h4>
+          <div class="code" style="font-size: 11px; line-height: 1.8;">
+            <span style="color:#6bc76b;">Draft</span>
+            <span class="cm">──→</span>
+            <span style="color:#6bc76b;">Planned</span>
+            <span class="cm">──→</span>
+            <span style="color:#6bc76b;">Released</span>
+            <span class="cm">──→</span>
+            <span style="color:#6bc76b;">InProduction</span>
+            <span class="cm">──→</span>
+            <span style="color:#6bc76b;">Completed</span>
+            <span class="cm">──→</span>
+            <span style="color:#6bc76b;">Closed</span>
+          </div>
+          <p class="note">
+            <strong>设计：</strong>定义存 DB 可动态配置 | guard 复用 Condition AST | EntityStateLog 追加写不可变
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 11: Saga -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(224,108,117,0.1);">
+      <h3 style="color: #e06c75;">Saga 补偿机制 <span class="tag" style="background: #e06c75; color: #fff;">NEW</span></h3>
+      <div class="grid2">
+        <div>
+          <div class="code" style="font-size: 11px;">
+            <span class="cm">// WorkflowNode 新增字段</span><br>
+            <span class="new">compensate_action: Option&lt;String&gt;</span><br>
+            <span class="cm">// 引用 ActionRegistry 中注册的补偿动作</span><br><br>
+            <span class="cm">// WorkflowInstance 新增字段</span><br>
+            <span class="new">parent_instance_id: Option&lt;i64&gt;</span><br>
+            <span class="new">saga_compensation_log: Option&lt;JSONB&gt;</span><br><br>
+            <span class="cm">// compensation_log 结构:</span><br>
+            [<br>
+            &nbsp;&nbsp;{"node_id":"confirm","action":"confirm_order",<br>
+            &nbsp;&nbsp;&nbsp;"completed_at":"2026-05-22T10:00:00Z"},<br>
+            &nbsp;&nbsp;{"node_id":"reserve","action":"reserve_inv",<br>
+            &nbsp;&nbsp;&nbsp;"completed_at":"2026-05-22T10:00:01Z"}<br>
+            ]<br><br>
+            <span class="cm">// compensate_instance() 流程:</span><br>
+            &nbsp;&nbsp;1. status → Compensating<br>
+            &nbsp;&nbsp;2. 逆序遍历 compensation_log<br>
+            &nbsp;&nbsp;3. 逐个执行 compensate_action<br>
+            &nbsp;&nbsp;4. 单步失败 → 记录但不阻断<br>
+            &nbsp;&nbsp;5. 全部完成 → status → Compensated
+          </div>
+        </div>
+        <div>
+          <h4 style="color: #e06c75; margin: 0 0 6px 0;">销售全链路 Saga 模板</h4>
+          <div class="code" style="font-size: 11px; line-height: 1.7;">
+            <span class="cm">正序执行:</span><br>
+            <span style="color:#3b82f6;">[Start]</span> →
+            <span style="color:#6bc76b;">[ServiceTask: confirm_order]</span><br>
+            &nbsp;&nbsp;→ <span style="color:#6bc76b;">[ServiceTask: reserve_inventory]</span><br>
+            &nbsp;&nbsp;→ <span style="color:#e5a655;">[Approval: manager_review]</span> <span class="cm">(>50K)</span><br>
+            &nbsp;&nbsp;→ <span style="color:#c678dd;">[SignalCatch: wait_production]</span><br>
+            &nbsp;&nbsp;→ <span style="color:#6bc76b;">[ServiceTask: ship_order]</span><br>
+            &nbsp;&nbsp;→ <span style="color:#6bc76b;">[ServiceTask: record_revenue]</span><br>
+            &nbsp;&nbsp;→ <span style="color:#3b82f6;">[End]</span><br><br>
+            <span class="cm">补偿路径（逆序）:</span><br>
+            <span class="del">record_revenue</span> → reverse_revenue<br>
+            <span class="del">ship_order</span> → cancel_shipment<br>
+            <span class="del">reserve_inventory</span> → cancel_reservation<br>
+            <span class="del">confirm_order</span> → cancel_order
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 12: Event Handler Registry -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(59,130,246,0.1);">
+      <h3 style="color: #3b82f6;">DomainEventType → Handler 注册表</h3>
+      <table class="tbl">
+        <tr><th>事件</th><th>触发时机</th><th>Handler</th><th>操作</th></tr>
+        <tr><td style="color:#e5c07b;">SalesOrderConfirmed</td><td>SO.confirm()</td><td>InventoryReservationHandler</td><td>InvRes.reserve(Soft, TTL=7d)</td></tr>
+        <tr><td style="color:#e5c07b;">SalesOrderConfirmed</td><td>SO.confirm()</td><td>DocLinkHandler</td><td>DocLink(QUO→SO, DERIVED_FROM)</td></tr>
+        <tr><td style="color:#e5c07b;">SalesOrderShipped</td><td>SR.confirm()</td><td>CostEntryHandler</td><td>CostEntry(sales cost: debit COGS / credit inventory)</td></tr>
+        <tr><td style="color:#e5c07b;">SalesOrderShipped</td><td>SR.confirm()</td><td>InventoryTransactionHandler</td><td>IT.record(SalesShipment)</td></tr>
+        <tr><td style="color:#e5c07b;">SalesOrderShipped</td><td>SR.confirm()</td><td>InvResFulfillHandler</td><td>InvRes.fulfill(release Soft)</td></tr>
+        <tr><td style="color:#e5c07b;">ArrivalNoticeReceived</td><td>AN.receive()</td><td>CostEntryHandler</td><td>CostEntry(material cost: debit inventory / credit AP)</td></tr>
+        <tr><td style="color:#e5c07b;">ArrivalNoticeReceived</td><td>AN.receive()</td><td>InvResReleaseHandler</td><td>InvRes.cancel(safety stock)</td></tr>
+        <tr><td style="color:#e5c07b;">WorkOrderReleased</td><td>WO.release()</td><td>InvResReserveHandler</td><td>InvRes.reserve(Hard)</td></tr>
+        <tr><td style="color:#e5c07b;">WorkOrderReleased</td><td>WO.release()</td><td>MaterialRequisitionHandler</td><td>MR.create_for_work_order()</td></tr>
+        <tr><td style="color:#e5c07b;">ProductionReceiptConfirmed</td><td>PR.confirm()</td><td>BackflushHandler</td><td>BF.execute()</td></tr>
+        <tr><td style="color:#e5c07b;">ProductionReceiptConfirmed</td><td>PR.confirm()</td><td>CostEntryHandler</td><td>CostEntry(finished goods)</td></tr>
+        <tr><td style="color:#e5c07b;">ProductionReceiptConfirmed</td><td>PR.confirm()</td><td>InvResFulfillHandler</td><td>InvRes.fulfill(release Hard)</td></tr>
+        <tr><td style="color:#e5c07b;">OutsourcingSent</td><td>OO.send()</td><td>DocLinkHandler</td><td>DocLink(WO→OO, TRIGGERS)</td></tr>
+        <tr><td style="color:#e5c07b;">OutsourcingReceived</td><td>OO.receive()</td><td>CostEntryHandler</td><td>CostEntry(outsource cost)</td></tr>
+        <tr><td style="color:#e5c07b;">InspectionFailed</td><td>IRS.record()</td><td>MRBHandler</td><td>MRB.create()（严重时）</td></tr>
+        <tr><td style="color:#e5c07b;">PaymentApproved</td><td>PAY.approve()</td><td>CostEntryHandler</td><td>CostEntry(cash outflow)</td></tr>
+      </table>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 13: Database -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(107,199,107,0.1);">
+      <h3 style="color: #6bc76b;">数据库变更</h3>
+      <div class="grid2">
+        <div>
+          <p style="color:#6bc76b; font-weight: bold; margin-bottom: 4px;">V1 已有表（4 张）</p>
+          <div class="code" style="font-size: 11px;">
+            <span class="ty">workflow_templates</span><br>
+            &nbsp;&nbsp;id BIGSERIAL PK<br>
+            &nbsp;&nbsp;entity_type VARCHAR(100)<br>
+            &nbsp;&nbsp;name VARCHAR(255)<br>
+            &nbsp;&nbsp;version INT DEFAULT 1<br>
+            &nbsp;&nbsp;status VARCHAR(20) <span class="cm">CHECK(draft/active/archived)</span><br>
+            &nbsp;&nbsp;graph JSONB<br>
+            &nbsp;&nbsp;graph_checksum VARCHAR(64)<br>
+            &nbsp;&nbsp;trigger_event VARCHAR<br>
+            &nbsp;&nbsp;created_at, updated_at, deleted_at<br><br>
+            <span class="ty">workflow_instances</span> <span class="new">+ parent_instance_id, saga_compensation_log</span><br>
+            <span class="ty">workflow_tasks</span><br>
+            <span class="ty">workflow_history</span><br>
+            <span class="cm">// + 6 个索引 + 3 个 CHECK 约束</span>
+          </div>
+        </div>
+        <div>
+          <p style="color:#3b82f6; font-weight: bold; margin-bottom: 4px;">V2 新增表（4 张）</p>
+          <div class="code" style="font-size: 11px;">
+            <span class="new">domain_events</span><br>
+            &nbsp;&nbsp;id BIGSERIAL PK<br>
+            &nbsp;&nbsp;event_type VARCHAR(100) NOT NULL<br>
+            &nbsp;&nbsp;aggregate_type VARCHAR(100) NOT NULL<br>
+            &nbsp;&nbsp;aggregate_id BIGINT NOT NULL<br>
+            &nbsp;&nbsp;payload JSONB<br>
+            &nbsp;&nbsp;operator_id BIGINT NOT NULL<br>
+            &nbsp;&nbsp;created_at TIMESTAMPTZ DEFAULT NOW()<br>
+            &nbsp;&nbsp;<span class="cm">INDEX(aggregate_type, aggregate_id, created_at)</span><br>
+            &nbsp;&nbsp;<span class="cm">INDEX(event_type, created_at)</span><br><br>
+            <span class="new">state_definitions</span><br>
+            &nbsp;&nbsp;UNIQUE(entity_type, state_name)<br><br>
+            <span class="new">state_transition_defs</span><br>
+            &nbsp;&nbsp;INDEX(entity_type, from_state)<br><br>
+            <span class="new">entity_state_logs</span><br>
+            &nbsp;&nbsp;INDEX(entity_type, entity_id, created_at)
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Section 14: Migration Strategy -->
+    <!-- ================================================================ -->
+    <div class="section" style="background: rgba(224,108,117,0.1);">
+      <h3 style="color: #e06c75;">迁移策略</h3>
+      <div class="code" style="font-size: 12px; line-height: 1.9;">
+        <span class="ty">Phase 1: 新增基础设施</span>（不改现有代码）<br>
+        &nbsp;&nbsp;→ 新增 domain_events / state_* / entity_state_logs 表<br>
+        &nbsp;&nbsp;→ 实现 DomainEventBus + StateMachineService<br>
+        &nbsp;&nbsp;→ 所有现有功能不受影响<br><br>
+        <span class="ty">Phase 2: 新模块从第一天使用新架构</span><br>
+        &nbsp;&nbsp;→ Sales/Purchase/MES 等新模块直接用 EventBus + StateMachine<br>
+        &nbsp;&nbsp;→ 注册业务 handler<br><br>
+        <span class="ty">Phase 3: 逐步迁移现有模块</span><br>
+        &nbsp;&nbsp;→ 逐个将 Service impl 中的直接调用改为 EventBus.publish()<br>
+        &nbsp;&nbsp;→ 每次迁移一个事件类型，确保不退化<br><br>
+        <span class="ty">Phase 4: 引入 Saga</span>（可选）<br>
+        &nbsp;&nbsp;→ 为关键长流程定义 Saga 模板<br>
+        &nbsp;&nbsp;→ 在 ActionRegistry 注册 compensate_action
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- Footer Stats -->
+    <!-- ================================================================ -->
+    <div style="text-align: center; padding: 10px; color: #888; font-size: 13px; border-top: 1px solid #333;">
+      <strong>V1:</strong> 4 核心表 | 5 NodeTypes | 17 event_types | ActionRegistry + HookRegistry + Worker + Linter<br>
+      <strong>V2 新增:</strong> 4 NodeTypes | Saga 补偿 | SubProcess / TimerWait / SignalCatch<br>
+      <strong>依赖共享层:</strong> <a href="00-shared-infrastructure.html" style="color: #6bc76b;">DomainEventBus + StateMachineService</a>（19 事件类型 | 状态机）<br>
+      <strong>Workflow 模块:</strong> 3 Service Traits | 29 Core Methods | 4 核心表
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

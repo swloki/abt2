@@ -1,5 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生产模块 (MES) — 类图设计</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .mockup { background: #282a36; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .mockup-header { background: linear-gradient(135deg, #e06c75, #e5a655); color: #fff; padding: 12px 20px; font-weight: bold; font-size: 15px; }
+.mermaid-wrap{background:#282a36;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,0.3);position:relative}
+.mermaid{display:flex;justify-content:center}
+.zoom-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 0 12px 0;background:#282a36}
+.zoom-toolbar button{background:#3b3f5c;border:1px solid #555;color:#cdd6f4;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.zoom-toolbar button:hover{background:#4a4f6c;border-color:#6c8bef}
+.zoom-toolbar .zoom-label{font-size:12px;color:#888;min-width:44px;text-align:center}
+.zoom-container{overflow:hidden;border:1px solid #333;border-radius:8px;cursor:grab;min-height:80vh;max-height:90vh}
+.zoom-container:active{cursor:grabbing}
+.zoom-container.dragging{cursor:grabbing;user-select:none}
+.zoom-container svg{display:block;margin:auto;transform-origin:top center}
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,background:'#282a36',primaryColor:'#3b3f5c',primaryTextColor:'#cdd6f4',lineColor:'#666',clusterBkg:'rgba(108,139,239,0.08)',clusterBorder:'rgba(108,139,239,0.25)'},flowchart:{useMaxWidth:false,htmlLabels:true}});
+</script>
+</head>
+<body>
 <h2>生产模块 (MES) — 类图设计</h2>
-<p class="subtitle">双模式排产 + 工单管理 + 工序报工 + 委外统一 + 用量差异闭环</p>
+<p class="subtitle">双模式排产 + 工单管理 + 工序报工 + 委外(委托 OM) + 用量差异闭环</p>
+
+<div class="mermaid-wrap">
+  <div class="zoom-toolbar">
+    <button id="zoomOut" title="缩小">&#8722;</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn" title="放大">+</button>
+    <button id="zoomReset" title="重置" style="width:auto;padding:0 12px;font-size:12px;">重置</button>
+    <button id="zoomFit" title="适应宽度" style="width:auto;padding:0 12px;font-size:12px;">适应</button>
+    <span style="margin-left:auto;font-size:11px;color:#666;">滚轮缩放 · 拖拽平移</span>
+  </div>
+  <div class="zoom-container" id="zoomContainer">
+    <div class="mermaid">
+classDiagram
+  class PlanType {
+    &lt;&lt;enumeration&gt;&gt;
+    MTO
+    MTS
+  }
+  class PlanStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Confirmed
+    InProgress
+    Completed
+    Cancelled
+  }
+  class PlanItemStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Planned
+    Released
+    InProduction
+    Completed
+    Cancelled
+  }
+  class WorkOrderStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Planned
+    Released
+    InProduction
+    Completed
+    Closed
+    Cancelled
+  }
+  class RoutingStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Pending
+    InProgress
+    Completed
+    Skipped
+  }
+  class ShiftType {
+    &lt;&lt;enumeration&gt;&gt;
+    Day
+    Night
+  }
+  class InspectionType {
+    &lt;&lt;enumeration&gt;&gt;
+    FirstArticle
+    InProcess
+    Final
+  }
+  class InspectionResultType {
+    &lt;&lt;enumeration&gt;&gt;
+    Pass
+    Fail
+    Conditional
+  }
+  class ReceiptStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Confirmed
+    Cancelled
+  }
+
+  class ProductionPlan {
+    +id: i64
+    +doc_number: String
+    +plan_date: Date
+    +plan_type: PlanType
+    +status: PlanStatus
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+
+  class ProductionPlanItem {
+    +id: i64
+    +plan_id: i64
+    +product_id: i64
+    +planned_qty: Decimal
+    +scheduled_start: Date
+    +scheduled_end: Date
+    +sales_order_id: Option~i64~
+    +sales_order_item_id: Option~i64~
+    +bom_snapshot_id: Option~i64~
+    +routing_id: Option~i64~
+    +work_center_id: Option~i64~
+    +priority: i32
+    +status: PlanItemStatus
+  }
+
+  class WorkOrder {
+    +id: i64
+    +doc_number: String
+    +plan_item_id: Option~i64~
+    +product_id: i64
+    +bom_snapshot_id: Option~i64~
+    +routing_id: Option~i64~
+    +planned_qty: Decimal
+    +completed_qty: Decimal
+    +scrap_qty: Decimal
+    +scheduled_start: Date
+    +scheduled_end: Date
+    +actual_start: Option~DateTime~
+    +actual_end: Option~DateTime~
+    +status: WorkOrderStatus
+    +work_center_id: Option~i64~
+    +team_id: Option~i64~
+    +sales_order_id: Option~i64~
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+
+  class WorkOrderRouting {
+    +id: i64
+    +work_order_id: i64
+    +step_no: i32
+    +process_name: String
+    +work_center_id: Option~i64~
+    +standard_time: Option~Decimal~
+    +standard_cost: Option~Decimal~
+    +planned_qty: Decimal
+    +completed_qty: Decimal
+    +defect_qty: Decimal
+    +status: RoutingStatus
+    +is_outsourced: bool
+    +is_inspection_point: bool
+  }
+
+  class WorkReport {
+    +id: i64
+    +doc_number: String
+    +work_order_id: i64
+    +routing_id: i64
+    +report_date: Date
+    +shift: ShiftType
+    +worker_id: i64
+    +completed_qty: Decimal
+    +defect_qty: Decimal
+    +defect_reason: Option~String~
+    +work_hours: Decimal
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+  }
+
+  class OutsourcingOrder {
+    +id: i64
+    +doc_number: String
+    +work_order_id: Option~i64~
+    +routing_id: Option~i64~
+    +supplier_id: i64
+    +product_id: i64
+    +outsourcing_type: OutsourcingType
+    +planned_qty: Decimal
+    +completed_qty: Decimal
+    +unit_price: Decimal
+    +scheduled_date: Option~Date~
+    +status: OutsourcingStatus
+    +virtual_warehouse_id: i64
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+
+  class ProductionInspection {
+    +id: i64
+    +doc_number: String
+    +work_order_id: i64
+    +routing_id: Option~i64~
+    +product_id: i64
+    +inspection_type: InspectionType
+    +sample_qty: Decimal
+    +qualified_qty: Decimal
+    +unqualified_qty: Decimal
+    +result: InspectionResultType
+    +inspector_id: i64
+    +inspection_date: Date
+    +disposition: Option~String~
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+  }
+
+  class ProductionReceipt {
+    +id: i64
+    +doc_number: String
+    +work_order_id: i64
+    +product_id: i64
+    +received_qty: Decimal
+    +warehouse_id: i64
+    +zone_id: Option~i64~
+    +bin_id: Option~i64~
+    +receipt_date: Date
+    +status: ReceiptStatus
+    +backflush_triggered: bool
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+  }
+
+  ProductionPlan "1" *-- "0..*" ProductionPlanItem
+  WorkOrder "1" *-- "0..*" WorkOrderRouting
+
+  class ProductionPlanService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~ProductionPlan~
+    +find_by_id(id) Result~ProductionPlan~
+    +confirm(id, operator_id) Result~ProductionPlan~
+    +release_to_work_orders(plan_id, operator_id) Result~Vec~WorkOrder~~
+    +list(filter) Result~Vec~ProductionPlan~~
+  }
+
+  class WorkOrderService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~WorkOrder~
+    +find_by_id(id) Result~WorkOrder~
+    +release(id, operator_id) Result~WorkOrder~
+    +complete(id, completed_qty, operator_id) Result~WorkOrder~
+    +close(id, operator_id) Result~WorkOrder~
+    +list(filter) Result~Vec~WorkOrder~~
+  }
+
+  class WorkReportService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~WorkReport~
+    +find_by_id(id) Result~WorkReport~
+    +list_by_work_order(work_order_id) Result~Vec~WorkReport~~
+  }
+
+  class ProductionInspectionService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~ProductionInspection~
+    +find_by_id(id) Result~ProductionInspection~
+    +record_result(id, result, operator_id) Result~ProductionInspection~
+  }
+
+  class ProductionReceiptService {
+    &lt;&lt;interface&gt;&gt;
+    +create(work_order_id, received_qty, warehouse_id, operator_id) Result~ProductionReceipt~
+    +find_by_id(id) Result~ProductionReceipt~
+    +confirm(id, operator_id) Result~ProductionReceipt~
+  }
+
+  ProductionPlanService ..> WorkOrderService : release_to_work_orders
+  WorkOrderService ..> WorkReportService : report
+  WorkOrderService ..> OM.OutsourcingOrderService : outsource
+  WorkOrderService ..> ProductionInspectionService : inspect
+  WorkOrderService ..> ProductionReceiptService : receipt
+  ProductionReceiptService ..> BackflushService : trigger backflush
+
+  note for WorkOrderService "release -> InvRes.reserve(Hard) WMS.MaterialRequisitionService.create_for_work_order() complete -> InvRes.fulfill/cancel(release remaining)"
+
+  note for WorkReportService "create -> DocSeq(WorkReport) CostEntry(Labor, debit WIP / credit Labor) Update WorkOrderRouting.completed_qty If is_inspection_point -> QMS.InspectionResultService.create(IPQC)"
+
+  note for OutsourcingOrder "Entity owned by OM module. MES references via OM.OutsourcingOrderService. send -> WMS.InventoryTransferService(to virtual) receive -> WMS.InventoryTransferService(from virtual) receive -> QMS.InspectionResultService.create(IQC)"
+
+  note for ProductionInspectionService "QMS: MES-specific production inspection QMS module provides unified InspectionResultService IPQC: auto-triggered by WorkOrderRouting.is_inspection_point FQC: triggered before ProductionReceipt"
+
+  note for ProductionReceiptService "confirm -> WMS.InventoryTransactionService.record(ProductionReceipt) CostEntry(finished goods cost) BackflushService.execute() InvRes.fulfill/cancel(release Hard) FMS: CostAccountingService.get_work_order_cost"
+    </div>
+  </div>
+</div>
+<script>
+(function(){var s=1,tx=0,ty=0,ms=0.1,xs=8;var c=document.getElementById('zoomContainer'),l=document.getElementById('zoomLabel'),d=false,sx,sy,stx,sty;function a(){var v=c.querySelector('svg');if(v)v.style.transform='scale('+s+') translate('+tx+'px,'+ty+'px)';l.textContent=Math.round(s*100)+'%'}document.getElementById('zoomIn').onclick=function(){s=Math.min(xs,s+0.15);a()};document.getElementById('zoomOut').onclick=function(){s=Math.max(ms,s-0.15);a()};document.getElementById('zoomReset').onclick=function(){s=1;tx=0;ty=0;a()};document.getElementById('zoomFit').onclick=function(){var v=c.querySelector('svg');if(!v)return;var w=c.clientWidth-40,sw=v.getBoundingClientRect().width/s;s=Math.max(ms,Math.min(1.5,w/sw));tx=0;ty=0;a()};c.addEventListener('wheel',function(e){e.preventDefault();s=Math.max(ms,Math.min(xs,s+(e.deltaY>0?-0.08:0.08)));a()},{passive:false});c.addEventListener('mousedown',function(e){if(e.button!==0)return;d=true;c.classList.add('dragging');sx=e.clientX;sy=e.clientY;stx=tx;sty=ty});document.addEventListener('mouseup',function(){d=false;c.classList.remove('dragging')});document.addEventListener('mousemove',function(e){if(!d)return;e.preventDefault();tx=stx+(e.clientX-sx)/s;ty=sty+(e.clientY-sy)/s;a()})})();
+</script>
 
 <div class="mockup">
   <div class="mockup-header">MES Module — UML Class Diagram</div>
@@ -19,7 +336,7 @@
         <span style="color:#6bc76b;">→</span>
         <span style="color:#e5c07b;">ProductionReceipt</span> 完工入库
         <br>
-        <span style="color:#e06c75;">↗ OutsourcingOrder</span> 委外单（虚拟库位模型）
+        <span style="color:#e06c75;">↗ OutsourcingOrder</span> 委外单（由 OM 模块管理，MES 通过 OM 接口调用）
         &nbsp;&nbsp;
         <span style="color:#56b6c2;">↗ ProductionInspection</span> 生产报检
       </div>
@@ -182,8 +499,8 @@
 
       <!-- OutsourcingOrder -->
       <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
-        <h4 style="color: #e06c75; margin: 0 0 6px 0; font-size: 13px;">OutsourcingOrder 委外单</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">委外=虚拟生产库位，发外协=调拨，供应商报工=同模型</p>
+        <h4 style="color: #e06c75; margin: 0 0 6px 0; font-size: 13px;">OutsourcingOrder 委外单 <span style="background:#e06c75;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;">OM 管理</span></h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">实体由 OM 模块管理，MES 通过 OM.OutsourcingOrderService 调用</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">OutsourcingOrder</span> {<br>
           &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
@@ -292,9 +609,15 @@
         <span style="color:#e5a655;">DocumentLink</span> → 计划→工单→报工→入库 | 工单→委外单 | 工单→领料单<br>
         <span style="color:#6bc76b;">InventoryReservation</span> → 工单下达时 HARD 预留物料 | 领料消耗预留 | 完工释放剩余<br>
         <span style="color:#e06c75;">CostEntry</span> → 报工记人工/制费(借:在制品/贷:人工费) | 完工记成品入库 | 倒冲差异记损耗<br>
-        <span style="color:#c678dd;">委外虚拟库位</span> → 发外协=WMS调拨到虚拟仓 | 外协收货=从虚拟仓调回 | 转自制=工单移回内部
+        <span style="color:#c678dd;">委外虚拟库位</span> → 发外协=WMS调拨到虚拟仓 | 外协收货=从虚拟仓调回 | 转自制=工单移回内部<br>
+        <span style="color:#56b6c2;">QMS</span> → 工序报检点(is_inspection_point)自动触发 IPQC | 完工检 FQC | 不良触发 MRB<br>
+        <span style="color:#e06c75;">OM</span> → 工单→委外单 | 转自制→创建内部工单 | 委外收货触发 IQC<br>
+        <span style="color:#98c379;">FMS</span> → 报工/完工成本写入 CostEntry | CostAccounting 归集工单成本(料/工/费)
       </div>
     </div>
 
   </div>
 </div>
+
+</body>
+</html>

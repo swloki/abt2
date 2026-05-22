@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>质量管理模块 (QMS) — 类图设计</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .mockup { background: #282a36; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .mockup-header { background: linear-gradient(135deg, #56b6c2, #98c379); color: #fff; padding: 12px 20px; font-weight: bold; font-size: 15px; }
+.mermaid-wrap{background:#282a36;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,0.3);position:relative}
+.mermaid{display:flex;justify-content:center}
+.zoom-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 0 12px 0;background:#282a36}
+.zoom-toolbar button{background:#3b3f5c;border:1px solid #555;color:#cdd6f4;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.zoom-toolbar button:hover{background:#4a4f6c;border-color:#6c8bef}
+.zoom-toolbar .zoom-label{font-size:12px;color:#888;min-width:44px;text-align:center}
+.zoom-container{overflow:hidden;border:1px solid #333;border-radius:8px;cursor:grab;min-height:80vh;max-height:90vh}
+.zoom-container:active{cursor:grabbing}
+.zoom-container.dragging{cursor:grabbing;user-select:none}
+.zoom-container svg{display:block;margin:auto;transform-origin:top center}
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,background:'#282a36',primaryColor:'#3b3f5c',primaryTextColor:'#cdd6f4',lineColor:'#666',clusterBkg:'rgba(108,139,239,0.08)',clusterBorder:'rgba(108,139,239,0.25)'},flowchart:{useMaxWidth:false,htmlLabels:true}});
+</script>
+</head>
+<body>
+<h2>质量管理模块 (QMS) — 类图设计</h2>
+<p class="subtitle">三道质量关口 + 统一检验注册表 + MRB 不良评审 + RMA 客诉追溯</p>
+
+<div class="mermaid-wrap">
+  <div class="zoom-toolbar">
+    <button id="zoomOut" title="缩小">−</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn" title="放大">+</button>
+    <button id="zoomReset" title="重置" style="width:auto;padding:0 12px;font-size:12px;">重置</button>
+    <button id="zoomFit" title="适应宽度" style="width:auto;padding:0 12px;font-size:12px;">适应</button>
+    <span style="margin-left:auto;font-size:11px;color:#666;">滚轮缩放 · 拖拽平移</span>
+  </div>
+  <div class="zoom-container" id="zoomContainer">
+    <div class="mermaid">
+classDiagram
+  class InspectionType {
+    &lt;&lt;enumeration&gt;&gt;
+    IQC
+    IPQC
+    FQC
+    OQC
+  }
+
+  class InspectionSourceType {
+    &lt;&lt;enumeration&gt;&gt;
+    ArrivalNotice
+    WorkOrderRouting
+    ShippingRequest
+    OutsourcingOrder
+  }
+
+  class InspectionResultType {
+    &lt;&lt;enumeration&gt;&gt;
+    Pass
+    Fail
+    Conditional
+  }
+
+  class InspectionStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Pending
+    Completed
+    Dispositioned
+  }
+
+  class SpecStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Active
+    Inactive
+  }
+
+  class MRBDisposition {
+    &lt;&lt;enumeration&gt;&gt;
+    Scrap
+    Return
+    Degrade
+    Rework
+  }
+
+  class ResponsibleParty {
+    &lt;&lt;enumeration&gt;&gt;
+    Internal
+    Supplier
+    Customer
+  }
+
+  class MRBStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    UnderReview
+    Approved
+    Completed
+  }
+
+  class Severity {
+    &lt;&lt;enumeration&gt;&gt;
+    Minor
+    Major
+    Critical
+  }
+
+  class RMAStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Reported
+    Investigating
+    ActionTaken
+    Closed
+  }
+
+  class InspectionSpecification {
+    +id: i64
+    +doc_number: String
+    +product_id: i64
+    +inspection_type: InspectionType
+    +check_items: JSONB
+    +sample_plan: JSONB
+    +status: SpecStatus
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+
+  class InspectionResult {
+    +id: i64
+    +doc_number: String
+    +spec_id: i64
+    +source_type: InspectionSourceType
+    +source_id: i64
+    +inspection_type: InspectionType
+    +batch_no: String
+    +sample_qty: Decimal
+    +qualified_qty: Decimal
+    +unqualified_qty: Decimal
+    +result: InspectionResultType
+    +check_results: JSONB
+    +inspector_id: i64
+    +inspection_date: Date
+    +status: InspectionStatus
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+  }
+
+  class MRB {
+    +id: i64
+    +doc_number: String
+    +inspection_result_id: i64
+    +product_id: i64
+    +defect_description: String
+    +disposition: MRBDisposition
+    +responsible_party: ResponsibleParty
+    +cost_impact: Decimal
+    +status: MRBStatus
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+
+  class RMA {
+    +id: i64
+    +doc_number: String
+    +customer_id: i64
+    +sales_order_id: Option~i64~
+    +shipping_request_id: Option~i64~
+    +product_id: i64
+    +defect_description: String
+    +severity: Severity
+    +root_cause: Option~String~
+    +corrective_action: Option~String~
+    +status: RMAStatus
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+
+  InspectionResult --> InspectionSpecification : references
+  MRB --> InspectionResult : dispositions
+  RMA --> InspectionResult : traces optional
+
+  class InspectionSpecificationService {
+    &lt;&lt;interface&gt;&gt;
+    +create(spec, operator_id) Result~InspectionSpecification~
+    +find_by_id(id) Result~InspectionSpecification~
+    +find_by_product_and_type(product_id, inspection_type) Result~Option~
+    +update(id, spec, operator_id) Result~InspectionSpecification~
+    +list(filter) Result~Vec~
+  }
+
+  class InspectionResultService {
+    &lt;&lt;interface&gt;&gt;
+    +create(result, operator_id) Result~InspectionResult~
+    +find_by_id(id) Result~InspectionResult~
+    +record_result(id, result, check_results, operator_id) Result~InspectionResult~
+    +list_by_source(source_type, source_id) Result~Vec~
+    +is_passed(source_type, source_id) Result~bool~
+  }
+
+  class MRBService {
+    &lt;&lt;interface&gt;&gt;
+    +create(mrb, operator_id) Result~MRB~
+    +find_by_id(id) Result~MRB~
+    +approve(id, disposition, operator_id) Result~MRB~
+    +list(filter) Result~Vec~
+  }
+
+  class RMAService {
+    &lt;&lt;interface&gt;&gt;
+    +create(rma, operator_id) Result~RMA~
+    +find_by_id(id) Result~RMA~
+    +record_root_cause(id, root_cause, corrective_action, operator_id) Result~RMA~
+    +close(id, operator_id) Result~RMA~
+    +list(filter) Result~Vec~
+  }
+
+  note for InspectionResultService "Quality Gate hard block:\nWMS.ArrivalNoticeService.confirm()\n  -> check is_passed(ArrivalNotice, id) before allowing putaway\nSales.ShippingRequestService.ship()\n  -> check is_passed(ShippingRequest, id) before allowing shipment\nMES.WorkOrderService at inspection_point\n  -> auto-create IPQC\nOM.OutsourcingOrderService.receive()\n  -> auto-create IQC"
+
+  note for MRBService "approve ->\n  CostEntry(Scrap/Rework cost)\n  WMS inventory adjustment (if scrap/degrade)\n  SupplierService notification (if responsible_party = Supplier)"
+
+  note for RMAService "record_root_cause ->\n  DocumentLink(RMA -> WorkOrder -> Routing -> ArrivalNotice)\n  Full traceability chain for defect analysis"
+    </div>
+  </div>
+</div>
+<script>
+(function(){var s=1,tx=0,ty=0,ms=0.1,xs=8;var c=document.getElementById('zoomContainer'),l=document.getElementById('zoomLabel'),d=false,sx,sy,stx,sty;function a(){var v=c.querySelector('svg');if(v)v.style.transform='scale('+s+') translate('+tx+'px,'+ty+'px)';l.textContent=Math.round(s*100)+'%'}document.getElementById('zoomIn').onclick=function(){s=Math.min(xs,s+0.15);a()};document.getElementById('zoomOut').onclick=function(){s=Math.max(ms,s-0.15);a()};document.getElementById('zoomReset').onclick=function(){s=1;tx=0;ty=0;a()};document.getElementById('zoomFit').onclick=function(){var v=c.querySelector('svg');if(!v)return;var w=c.clientWidth-40,sw=v.getBoundingClientRect().width/s;s=Math.max(ms,Math.min(1.5,w/sw));tx=0;ty=0;a()};c.addEventListener('wheel',function(e){e.preventDefault();s=Math.max(ms,Math.min(xs,s+(e.deltaY>0?-0.08:0.08)));a()},{passive:false});c.addEventListener('mousedown',function(e){if(e.button!==0)return;d=true;c.classList.add('dragging');sx=e.clientX;sy=e.clientY;stx=tx;sty=ty});document.addEventListener('mouseup',function(){d=false;c.classList.remove('dragging')});document.addEventListener('mousemove',function(e){if(!d)return;e.preventDefault();tx=stx+(e.clientX-sx)/s;ty=sty+(e.clientY-sy)/s;a()})})();
+</script>
+
+<div class="mockup">
+  <div class="mockup-header">Quality Management (QMS) — UML Class Diagram</div>
+  <div class="mockup-body" style="padding: 20px; font-size: 13px; line-height: 1.5;">
+
+    <!-- Business flow -->
+    <div style="background: rgba(86,182,194,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #56b6c2;">三道质量关口</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
+        <span style="color:#e5a655;">IQC 来料检验</span> ← 紧咬 WMS 来料通知，不合格绝对无法采购入库
+        <br>
+        <span style="color:#6bc76b;">IPQC 过程检验</span> ← MES 首件检查 + 工序巡检，掐断批量报废苗头
+        <br>
+        <span style="color:#c678dd;">FQC/OQC 终检/出货检</span> ← 出厂前批次抽检，不合格不予放行出库
+        <br>
+        <span style="color:#e06c75;">MRB 不良评审</span> ← 报废/退货/降级/返工多方线上会签
+        &nbsp;&nbsp;
+        <span style="color:#6c8bef;">RMA 客诉</span> ← 逆向触发内部质量追溯
+      </div>
+    </div>
+
+    <!-- Row 1: InspectionSpecification + InspectionResult -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- InspectionSpecification -->
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0;">InspectionSpecification 检验规格</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">统一注册表：定义每个产品在各检验阶段要检什么、公差多少、怎么抽样</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InspectionSpecification</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// QS-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;inspection_type: InspectionType<br>
+          &nbsp;&nbsp;check_items: JSONB <span style="color:#888;">// [{item, standard, tolerance, method}]</span><br>
+          &nbsp;&nbsp;sample_plan: JSONB <span style="color:#888;">// {level, aql, mode}</span><br>
+          &nbsp;&nbsp;status: SpecStatus<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionType</span> {<br>
+          &nbsp;&nbsp;IQC <span style="color:#888;">// 来料检验</span><br>
+          &nbsp;&nbsp;IPQC <span style="color:#888;">// 过程检验（首件/巡检）</span><br>
+          &nbsp;&nbsp;FQC <span style="color:#888;">// 终检</span><br>
+          &nbsp;&nbsp;OQC <span style="color:#888;">// 出货检验</span><br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SpecStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, ACTIVE, INACTIVE<br>
+          &nbsp;&nbsp;}
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>设计理念：</strong>IQC/IPQC/FQC/OQC 仅是 inspection_type 枚举值，而非独立实体
+        </p>
+      </div>
+
+      <!-- InspectionResult -->
+      <div style="border: 2px solid #6bc76b; border-radius: 8px; padding: 14px; background: rgba(107,199,107,0.05);">
+        <h4 style="color: #6bc76b; margin: 0 0 6px 0;">InspectionResult 检验结果</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">实测记录：不合格自动阻断下游流转（数据层面硬门，非流程软约束）</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InspectionResult</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// QR-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;spec_id: UUID <span style="color:#888;">FK→inspection_specifications</span><br>
+          &nbsp;&nbsp;source_type: InspectionSourceType<br>
+          &nbsp;&nbsp;source_id: UUID <span style="color:#888;">// 关联的来料通知/工单工序/发货单</span><br>
+          &nbsp;&nbsp;inspection_type: InspectionType<br>
+          &nbsp;&nbsp;batch_no: String<br>
+          &nbsp;&nbsp;sample_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;qualified_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;unqualified_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;result: InspectionResultType<br>
+          &nbsp;&nbsp;check_results: JSONB <span style="color:#888;">// [{item, measured, pass, remark}]</span><br>
+          &nbsp;&nbsp;inspector_id: UUID<br>
+          &nbsp;&nbsp;inspection_date: Date<br>
+          &nbsp;&nbsp;status: InspectionStatus<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionSourceType</span> {<br>
+          &nbsp;&nbsp;ARRIVAL_NOTICE <span style="color:#888;">// 来料通知（→IQC）</span><br>
+          &nbsp;&nbsp;WORK_ORDER_ROUTING <span style="color:#888;">// 工单工序（→IPQC）</span><br>
+          &nbsp;&nbsp;SHIPPING_REQUEST <span style="color:#888;">// 发货申请（→OQC）</span><br>
+          &nbsp;&nbsp;OUTSOURCING_ORDER <span style="color:#888;">// 委外收货（→IQC）</span><br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionResultType</span> {<br>
+          &nbsp;&nbsp;PASS, FAIL, CONDITIONAL<br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionStatus</span> {<br>
+          &nbsp;&nbsp;PENDING, COMPLETED, DISPOSITIONED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: MRB + RMA -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- MRB -->
+      <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
+        <h4 style="color: #e06c75; margin: 0 0 6px 0;">MRB 不良评审</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">组织技术、采购、质检进行多方线上会签，拒绝管理盲区</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">MRB</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// MRB-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;inspection_result_id: UUID <span style="color:#888;">FK→inspection_results</span><br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;defect_description: String<br>
+          &nbsp;&nbsp;disposition: MRBDisposition<br>
+          &nbsp;&nbsp;responsible_party: ResponsibleParty<br>
+          &nbsp;&nbsp;cost_impact: Decimal(10,6)<br>
+          &nbsp;&nbsp;status: MRBStatus<br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">MRBDisposition</span> {<br>
+          &nbsp;&nbsp;SCRAP <span style="color:#888;">// 报废</span><br>
+          &nbsp;&nbsp;RETURN <span style="color:#888;">// 退货</span><br>
+          &nbsp;&nbsp;DEGRADE <span style="color:#888;">// 降级</span><br>
+          &nbsp;&nbsp;REWORK <span style="color:#888;">// 返工</span><br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ResponsibleParty</span> {<br>
+          &nbsp;&nbsp;INTERNAL, SUPPLIER, CUSTOMER<br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">MRBStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, UNDER_REVIEW, APPROVED, COMPLETED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <!-- RMA -->
+      <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+        <h4 style="color: #c678dd; margin: 0 0 6px 0;">RMA 客诉追溯</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">后端客诉逆向触发内部质量追溯，倒逼车间工艺或采购端质量改良</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">RMA</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// RMA-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;customer_id: UUID <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;sales_order_id: UUID? <span style="color:#888;">FK→sales_orders</span><br>
+          &nbsp;&nbsp;shipping_request_id: UUID? <span style="color:#888;">FK→shipping_requests</span><br>
+          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;defect_description: String<br>
+          &nbsp;&nbsp;severity: Severity<br>
+          &nbsp;&nbsp;root_cause: String? <span style="color:#888;">// 根因分析</span><br>
+          &nbsp;&nbsp;corrective_action: String? <span style="color:#888;">// 纠正措施</span><br>
+          &nbsp;&nbsp;status: RMAStatus<br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">Severity</span> {<br>
+          &nbsp;&nbsp;MINOR <span style="color:#888;">// 轻微</span><br>
+          &nbsp;&nbsp;MAJOR <span style="color:#888;">// 重大</span><br>
+          &nbsp;&nbsp;CRITICAL <span style="color:#888;">// 致命</span><br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">RMAStatus</span> {<br>
+          &nbsp;&nbsp;REPORTED, INVESTIGATING<br>
+          &nbsp;&nbsp;ACTION_TAKEN, CLOSED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+    </div>
+
+    <!-- Service Interfaces -->
+    <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05); margin-bottom: 20px;">
+      <h4 style="color: #e5a655; margin: 0 0 8px 0;">Service 接口</h4>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InspectionSpecificationService</span> {<br>
+          &nbsp;&nbsp;create(spec, operator_id): InspectionSpecification<br>
+          &nbsp;&nbsp;find_by_id(id): InspectionSpecification<br>
+          &nbsp;&nbsp;find_by_product_and_type(product_id, inspection_type): Option&lt;InspectionSpecification&gt;<br>
+          &nbsp;&nbsp;update(id, spec, operator_id): InspectionSpecification<br>
+          &nbsp;&nbsp;list(filter): Vec&lt;InspectionSpecification&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InspectionResultService</span> {<br>
+          &nbsp;&nbsp;create(result, operator_id): InspectionResult<br>
+          &nbsp;&nbsp;find_by_id(id): InspectionResult<br>
+          &nbsp;&nbsp;record_result(id, result, check_results, operator_id): InspectionResult<br>
+          &nbsp;&nbsp;list_by_source(source_type, source_id): Vec&lt;InspectionResult&gt;<br>
+          &nbsp;&nbsp;is_passed(source_type, source_id): bool<br>
+          }
+        </div>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">MRBService</span> {<br>
+          &nbsp;&nbsp;create(mrb, operator_id): MRB<br>
+          &nbsp;&nbsp;find_by_id(id): MRB<br>
+          &nbsp;&nbsp;approve(id, disposition, operator_id): MRB<br>
+          &nbsp;&nbsp;list(filter): Vec&lt;MRB&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">RMAService</span> {<br>
+          &nbsp;&nbsp;create(rma, operator_id): RMA<br>
+          &nbsp;&nbsp;find_by_id(id): RMA<br>
+          &nbsp;&nbsp;record_root_cause(id, root_cause, corrective_action, operator_id): RMA<br>
+          &nbsp;&nbsp;close(id, operator_id): RMA<br>
+          &nbsp;&nbsp;list(filter): Vec&lt;RMA&gt;<br>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Cross-module calls -->
+    <div style="padding: 12px; background: rgba(86,182,194,0.1); border-radius: 6px;">
+      <h3 style="margin: 0 0 8px 0; color: #56b6c2;">QMS 模块 × 跨模块交互汇总（质量关卡 = 状态门）</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+        <span style="color:#e5a655;">IQC → WMS</span> 来料通知必须 IQC 通过才能入库（硬门：is_passed(ArrivalNotice, id) == true）<br>
+        <span style="color:#6bc76b;">IPQC → MES</span> 关键工序报检点自动触发（WorkOrderRouting.is_inspection_point == true）<br>
+        <span style="color:#c678dd;">OQC → Sales</span> 发货申请必须 OQC 通过才能出库（硬门：is_passed(ShippingRequest, id) == true）<br>
+        <span style="color:#e06c75;">IQC → OM</span> 委外收货自动触发 IQC 检验（硬门）<br>
+        <span style="color:#56b6c2;">MRB</span> → 不合格处置触发 CostEntry（返工/报废成本）+ WMS 库存调整<br>
+        <span style="color:#c678dd;">RMA</span> → 客诉触发质量追溯，关联原工单/工序/来料批次 | DocumentLink 全链路
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

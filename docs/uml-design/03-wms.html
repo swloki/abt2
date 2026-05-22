@@ -1,5 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>仓储模块 (WMS) — 类图设计</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .mockup { background: #282a36; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .mockup-header { background: linear-gradient(135deg, #c678dd, #6c8bef); color: #fff; padding: 12px 20px; font-weight: bold; font-size: 15px; }
+.mermaid-wrap{background:#282a36;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,0.3);position:relative}
+.mermaid{display:flex;justify-content:center}
+.zoom-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 0 12px 0;background:#282a36}
+.zoom-toolbar button{background:#3b3f5c;border:1px solid #555;color:#cdd6f4;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.zoom-toolbar button:hover{background:#4a4f6c;border-color:#6c8bef}
+.zoom-toolbar .zoom-label{font-size:12px;color:#888;min-width:44px;text-align:center}
+.zoom-container{overflow:hidden;border:1px solid #333;border-radius:8px;cursor:grab;min-height:80vh;max-height:90vh}
+.zoom-container:active{cursor:grabbing}
+.zoom-container.dragging{cursor:grabbing;user-select:none}
+.zoom-container svg{display:block;margin:auto;transform-origin:top center}
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,background:'#282a36',primaryColor:'#3b3f5c',primaryTextColor:'#cdd6f4',lineColor:'#666',clusterBkg:'rgba(108,139,239,0.08)',clusterBorder:'rgba(108,139,239,0.25)'},flowchart:{useMaxWidth:false,htmlLabels:true}});
+</script>
+</head>
+<body>
 <h2>仓储模块 (WMS) — 类图设计</h2>
 <p class="subtitle">三级库位模型 + 策略引擎 + 全业务覆盖 + 用量差异闭环</p>
+
+<div class="mermaid-wrap">
+  <div class="zoom-toolbar">
+    <button id="zoomOut" title="缩小">&#8722;</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn" title="放大">+</button>
+    <button id="zoomReset" title="重置" style="width:auto;padding:0 12px;font-size:12px;">重置</button>
+    <button id="zoomFit" title="适应宽度" style="width:auto;padding:0 12px;font-size:12px;">适应</button>
+    <span style="margin-left:auto;font-size:11px;color:#666;">滚轮缩放 · 拖拽平移</span>
+  </div>
+  <div class="zoom-container" id="zoomContainer">
+    <div class="mermaid">
+classDiagram
+  class WarehouseType {
+    &lt;&lt;enumeration&gt;&gt;
+    RawMaterial
+    FinishedGoods
+    SemiFinished
+    Consumable
+    VirtualOutsource
+  }
+  class ZoneType {
+    &lt;&lt;enumeration&gt;&gt;
+    Receiving
+    Storage
+    Picking
+    Packing
+    Inspection
+    Returns
+  }
+  class BinStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Empty
+    Occupied
+    Locked
+    Disabled
+  }
+  class ArrivalStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Received
+    Inspecting
+    Accepted
+    PartiallyAccepted
+    Rejected
+  }
+  class TransactionType {
+    &lt;&lt;enumeration&gt;&gt;
+    PurchaseReceipt
+    ProductionReceipt
+    SalesShipment
+    MaterialIssue
+    MaterialReturn
+    Backflush
+    Transfer
+    FormConversion
+    Adjustment
+    Lock
+    Unlock
+    Scrap
+  }
+  class RequisitionStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Confirmed
+    Issued
+    Cancelled
+  }
+  class BackflushStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Executed
+    Adjusted
+  }
+  class CycleCountStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Counting
+    Completed
+    Adjusted
+    Cancelled
+  }
+  class TransferStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    InTransit
+    Completed
+    Cancelled
+  }
+  class ConversionDir {
+    &lt;&lt;enumeration&gt;&gt;
+    Consume
+    Produce
+  }
+  class ConversionStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Completed
+    Cancelled
+  }
+  class LockStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Active
+    Released
+    Cancelled
+  }
+  class PutawayType {
+    &lt;&lt;enumeration&gt;&gt;
+    SameMerge
+    Nearest
+    FixedBin
+    EmptyFirst
+  }
+  class PickType {
+    &lt;&lt;enumeration&gt;&gt;
+    FIFO
+    FEFO
+    ShortestPath
+    FullPallet
+  }
+
+  class Warehouse {
+    +id: i64
+    +code: String
+    +name: String
+    +warehouse_type: WarehouseType
+    +status: WarehouseStatus
+    +address: Option~String~
+    +manager_id: Option~i64~
+    +is_virtual: bool
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+  class Zone {
+    +id: i64
+    +warehouse_id: i64
+    +code: String
+    +name: String
+    +zone_type: ZoneType
+    +sort_order: i32
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+  class Bin {
+    +id: i64
+    +zone_id: i64
+    +code: String
+    +name: String
+    +row_no: Option~String~
+    +column_no: Option~String~
+    +layer_no: Option~String~
+    +capacity_limit: Option~Decimal~
+    +status: BinStatus
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+  Warehouse "1" *-- "0..*" Zone
+  Zone "1" *-- "0..*" Bin
+
+  class StockLedger {
+    +id: i64
+    +product_id: i64
+    +warehouse_id: i64
+    +zone_id: i64
+    +bin_id: i64
+    +batch_no: Option~String~
+    +quantity: Decimal
+    +reserved_qty: Decimal
+    +available_qty: Decimal
+    +unit_cost: Option~Decimal~
+    +received_date: Option~Date~
+    +expiry_date: Option~Date~
+    +updated_at: Timestamp
+  }
+
+  class PutawayStrategy {
+    +id: i64
+    +name: String
+    +strategy_type: PutawayType
+    +warehouse_id: Option~i64~
+    +priority: i32
+    +is_active: bool
+  }
+  class PickStrategy {
+    +id: i64
+    +name: String
+    +strategy_type: PickType
+    +warehouse_id: Option~i64~
+    +priority: i32
+    +is_active: bool
+  }
+
+  class ArrivalNotice {
+    +id: i64
+    +doc_number: String
+    +purchase_order_id: Option~i64~
+    +supplier_id: i64
+    +arrival_date: Date
+    +status: ArrivalStatus
+    +warehouse_id: i64
+    +zone_id: Option~i64~
+    +delivery_note: Option~String~
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+  class ArrivalNoticeItem {
+    +id: i64
+    +notice_id: i64
+    +order_item_id: Option~i64~
+    +product_id: i64
+    +declared_qty: Decimal
+    +received_qty: Decimal
+    +accepted_qty: Decimal
+    +batch_no: Option~String~
+  }
+
+  class InventoryTransaction {
+    +id: i64
+    +doc_number: Option~String~
+    +transaction_type: TransactionType
+    +product_id: i64
+    +warehouse_id: i64
+    +zone_id: Option~i64~
+    +bin_id: Option~i64~
+    +batch_no: Option~String~
+    +quantity: Decimal
+    +unit_cost: Option~Decimal~
+    +source_type: DocumentType
+    +source_id: i64
+    +remark: Option~String~
+    +operator_id: i64
+    +created_at: Timestamp
+  }
+
+  class MaterialRequisition {
+    +id: i64
+    +doc_number: String
+    +work_order_id: i64
+    +requisition_date: Date
+    +status: RequisitionStatus
+    +warehouse_id: i64
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+  class MaterialReqItem {
+    +id: i64
+    +requisition_id: i64
+    +product_id: i64
+    +requested_qty: Decimal
+    +issued_qty: Decimal
+    +variance_qty: Decimal
+    +bin_id: Option~i64~
+  }
+
+  class BackflushRecord {
+    +id: i64
+    +doc_number: String
+    +work_order_id: i64
+    +product_id: i64
+    +completed_qty: Decimal
+    +backflush_date: Date
+    +status: BackflushStatus
+    +variance_threshold: Decimal
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+  }
+  class BackflushItem {
+    +id: i64
+    +record_id: i64
+    +component_id: i64
+    +theoretical_qty: Decimal
+    +actual_qty: Decimal
+    +variance_qty: Decimal
+    +variance_rate: Decimal
+    +is_over_threshold: bool
+  }
+
+  class CycleCount {
+    +id: i64
+    +doc_number: String
+    +warehouse_id: i64
+    +zone_id: Option~i64~
+    +count_date: Date
+    +status: CycleCountStatus
+    +is_blind: bool
+    +remark: Option~String~
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+  }
+  class CycleCountItem {
+    +id: i64
+    +count_id: i64
+    +bin_id: i64
+    +product_id: i64
+    +batch_no: Option~String~
+    +system_qty: Decimal
+    +counted_qty: Decimal
+    +variance_qty: Decimal
+    +variance_reason: Option~String~
+    +is_adjusted: bool
+  }
+
+  class InventoryTransfer {
+    +id: i64
+    +doc_number: String
+    +from_warehouse_id: i64
+    +from_zone_id: Option~i64~
+    +from_bin_id: Option~i64~
+    +to_warehouse_id: i64
+    +to_zone_id: Option~i64~
+    +to_bin_id: Option~i64~
+    +transfer_date: Date
+    +status: TransferStatus
+    +operator_id: i64
+    +created_at: Timestamp
+  }
+  class TransferItem {
+    +id: i64
+    +transfer_id: i64
+    +product_id: i64
+    +quantity: Decimal
+    +batch_no: Option~String~
+  }
+
+  class FormConversion {
+    +id: i64
+    +doc_number: String
+    +warehouse_id: i64
+    +conversion_date: Date
+    +status: ConversionStatus
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+  }
+  class ConversionItem {
+    +id: i64
+    +conversion_id: i64
+    +direction: ConversionDir
+    +product_id: i64
+    +quantity: Decimal
+    +unit_cost: Decimal
+    +batch_no: Option~String~
+  }
+
+  class InventoryLock {
+    +id: i64
+    +doc_number: String
+    +product_id: i64
+    +warehouse_id: i64
+    +locked_qty: Decimal
+    +lock_reason: String
+    +customer_id: Option~i64~
+    +status: LockStatus
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+  }
+
+  ArrivalNotice "1" *-- "0..*" ArrivalNoticeItem
+  MaterialRequisition "1" *-- "0..*" MaterialReqItem
+  BackflushRecord "1" *-- "0..*" BackflushItem
+  CycleCount "1" *-- "0..*" CycleCountItem
+  InventoryTransfer "1" *-- "0..*" TransferItem
+  FormConversion "1" *-- "0..*" ConversionItem
+
+  class WarehouseService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~Warehouse~
+    +find_by_id(id) Result~Warehouse~
+    +list(filter) Result~Vec~Warehouse~~
+    +create_zone(warehouse_id, req) Result~Zone~
+    +create_bin(zone_id, req) Result~Bin~
+  }
+  class ArrivalNoticeService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~ArrivalNotice~
+    +find_by_id(id) Result~ArrivalNotice~
+    +receive(id, items) Result~ArrivalNotice~
+    +inspect(id, items, operator_id) Result~ArrivalNotice~
+  }
+  class InventoryTransactionService {
+    &lt;&lt;interface&gt;&gt;
+    +record(txn, operator_id) Result~InventoryTransaction~
+    +find_by_source(source_type, source_id) Result~Vec~InventoryTransaction~~
+    +query_stock(product_id, warehouse_id) Result~StockLedger~
+    +query_available(product_id, warehouse_id) Result~Decimal~
+  }
+  class MaterialRequisitionService {
+    &lt;&lt;interface&gt;&gt;
+    +create_for_work_order(work_order_id, operator_id) Result~MaterialRequisition~
+    +find_by_id(id) Result~MaterialRequisition~
+    +confirm(id, operator_id) Result~MaterialRequisition~
+    +issue(id, items, operator_id) Result~MaterialRequisition~
+  }
+  class BackflushService {
+    &lt;&lt;interface&gt;&gt;
+    +execute(work_order_id, completed_qty, operator_id) Result~BackflushRecord~
+    +find_by_id(id) Result~BackflushRecord~
+  }
+  class CycleCountService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~CycleCount~
+    +find_by_id(id) Result~CycleCount~
+    +count(id, items) Result~CycleCount~
+    +adjust(id, operator_id) Result~CycleCount~
+  }
+  class InventoryTransferService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~InventoryTransfer~
+    +find_by_id(id) Result~InventoryTransfer~
+    +complete(id, operator_id) Result~InventoryTransfer~
+  }
+  class FormConversionService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~FormConversion~
+    +find_by_id(id) Result~FormConversion~
+    +complete(id, operator_id) Result~FormConversion~
+  }
+  class InventoryLockService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~InventoryLock~
+    +find_by_id(id) Result~InventoryLock~
+    +release(id, operator_id) Result~InventoryLock~
+  }
+
+  note for ArrivalNoticeService "confirm requires QMS.InspectionResultService.is_passed(IQC) hard gate IQC fail -> block putaway, trigger QMS.MRBService confirm -> CostEntry(material cost: debit inventory / credit AP) confirm -> InvRes(release safety stock)"
+
+  note for InventoryTransactionService "Append-only, never modify record -> auto update StockLedger query_available = StockLedger.quantity - InvRes.total_reserved() FMS: StockLedger.unit_cost is core data source for CostAccountingService"
+
+  note for MaterialRequisitionService "Called by MES.WorkOrderService.release() issue -> InvRes.fulfill(Hard) issue -> InventoryTransaction.record(MaterialIssue)"
+
+  note for BackflushService "Called by MES.ProductionReceiptService.confirm() execute -> InventoryTransaction.record(Backflush) over threshold -> CostEntry(loss cost)"
+
+  note for InventoryTransferService "Called by MES.OutsourcingOrderService send -> create(to virtual warehouse) receive -> create(from virtual warehouse) OM: OutsourcingOrderService.send/receive -> transfer OM: convert_to_internal -> transfer materials back to internal"
+    </div>
+  </div>
+</div>
+<script>
+(function(){var s=1,tx=0,ty=0,ms=0.1,xs=8;var c=document.getElementById('zoomContainer'),l=document.getElementById('zoomLabel'),d=false,sx,sy,stx,sty;function a(){var v=c.querySelector('svg');if(v)v.style.transform='scale('+s+') translate('+tx+'px,'+ty+'px)';l.textContent=Math.round(s*100)+'%'}document.getElementById('zoomIn').onclick=function(){s=Math.min(xs,s+0.15);a()};document.getElementById('zoomOut').onclick=function(){s=Math.max(ms,s-0.15);a()};document.getElementById('zoomReset').onclick=function(){s=1;tx=0;ty=0;a()};document.getElementById('zoomFit').onclick=function(){var v=c.querySelector('svg');if(!v)return;var w=c.clientWidth-40,sw=v.getBoundingClientRect().width/s;s=Math.max(ms,Math.min(1.5,w/sw));tx=0;ty=0;a()};c.addEventListener('wheel',function(e){e.preventDefault();s=Math.max(ms,Math.min(xs,s+(e.deltaY>0?-0.08:0.08)));a()},{passive:false});c.addEventListener('mousedown',function(e){if(e.button!==0)return;d=true;c.classList.add('dragging');sx=e.clientX;sy=e.clientY;stx=tx;sty=ty});document.addEventListener('mouseup',function(){d=false;c.classList.remove('dragging')});document.addEventListener('mousemove',function(e){if(!d)return;e.preventDefault();tx=stx+(e.clientX-sx)/s;ty=sty+(e.clientY-sy)/s;a()})})();
+</script>
 
 <div class="mockup">
   <div class="mockup-header">WMS Module — UML Class Diagram</div>
@@ -464,9 +946,15 @@
         <span style="color:#6c8bef;">DocumentSequence</span> → AN/MR/BF/CC/TRF/FC/LCK 等所有单据编号<br>
         <span style="color:#e5a655;">DocumentLink</span> → 来料→采购单 | 领料→工单 | 出库→发货申请 | 倒冲→工单<br>
         <span style="color:#6bc76b;">InventoryReservation</span> → 领料消耗HARD预留 | 发货消耗SOFT预留 | 盘点调整后校准<br>
-        <span style="color:#e06c75;">CostEntry</span> → 入库记材料成本 | 出库记销售成本 | 倒冲差异记损耗成本 | 形态转换成本分摊
+        <span style="color:#e06c75;">CostEntry</span> → 入库记材料成本 | 出库记销售成本 | 倒冲差异记损耗成本 | 形态转换成本分摊<br>
+        <span style="color:#56b6c2;">QMS</span> → 来料入库前 IQC 硬门 is_passed(ArrivalNotice) | 不合格阻断入库<br>
+        <span style="color:#e06c75;">OM</span> → 委外=虚拟库位 | 发外协=InventoryTransfer(到虚拟仓) | 收回=从虚拟仓调回<br>
+        <span style="color:#98c379;">FMS</span> → 库存成本为 CostEntry 核心数据源 | CostAccounting 聚合查询基础
       </div>
     </div>
 
   </div>
 </div>
+
+</body>
+</html>

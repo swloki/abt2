@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>财务管理模块 (FMS) — 类图设计</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .mockup { background: #282a36; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .mockup-header { background: linear-gradient(135deg, #98c379, #e5c07b); color: #fff; padding: 12px 20px; font-weight: bold; font-size: 15px; }
+.mermaid-wrap{background:#282a36;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,0.3);position:relative}
+.mermaid{display:flex;justify-content:center}
+.zoom-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 0 12px 0;background:#282a36}
+.zoom-toolbar button{background:#3b3f5c;border:1px solid #555;color:#cdd6f4;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.zoom-toolbar button:hover{background:#4a4f6c;border-color:#6c8bef}
+.zoom-toolbar .zoom-label{font-size:12px;color:#888;min-width:44px;text-align:center}
+.zoom-container{overflow:hidden;border:1px solid #333;border-radius:8px;cursor:grab;min-height:80vh;max-height:90vh}
+.zoom-container:active{cursor:grabbing}
+.zoom-container.dragging{cursor:grabbing;user-select:none}
+.zoom-container svg{display:block;margin:auto;transform-origin:top center}
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,background:'#282a36',primaryColor:'#3b3f5c',primaryTextColor:'#cdd6f4',lineColor:'#666',clusterBkg:'rgba(108,139,239,0.08)',clusterBorder:'rgba(108,139,239,0.25)'},flowchart:{useMaxWidth:false,htmlLabels:true}});
+</script>
+</head>
+<body>
+<h2>财务管理模块 (FMS) — 类图设计</h2>
+<p class="subtitle">出纳日记账 + 按单核销 + 费用报销 + 实时成本核算 + 多维度利润中心归集</p>
+
+<div class="mermaid-wrap">
+  <div class="zoom-toolbar">
+    <button id="zoomOut" title="缩小">−</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn" title="放大">+</button>
+    <button id="zoomReset" title="重置" style="width:auto;padding:0 12px;font-size:12px;">重置</button>
+    <button id="zoomFit" title="适应宽度" style="width:auto;padding:0 12px;font-size:12px;">适应</button>
+    <span style="margin-left:auto;font-size:11px;color:#666;">滚轮缩放 · 拖拽平移</span>
+  </div>
+  <div class="zoom-container" id="zoomContainer">
+    <div class="mermaid">
+classDiagram
+  class JournalType {
+    &lt;&lt;enumeration&gt;&gt;
+    SalesReceipt
+    PurchasePayment
+    Expense
+    Payroll
+    Other
+  }
+
+  class CashDirection {
+    &lt;&lt;enumeration&gt;&gt;
+    Inflow
+    Outflow
+  }
+
+  class CounterpartyType {
+    &lt;&lt;enumeration&gt;&gt;
+    Customer
+    Supplier
+    Employee
+    Other
+  }
+
+  class JournalStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Confirmed
+    Cancelled
+  }
+
+  class WriteOffType {
+    &lt;&lt;enumeration&gt;&gt;
+    SalesReceipt
+    PurchasePayment
+  }
+
+  class ExpenseType {
+    &lt;&lt;enumeration&gt;&gt;
+    Travel
+    Office
+    Transport
+    Meal
+    Other
+  }
+
+  class ExpenseStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Submitted
+    Approved
+    Paid
+    Cancelled
+  }
+
+  class CashJournal {
+    +id: i64
+    +doc_number: String
+    +journal_type: JournalType
+    +direction: CashDirection
+    +amount: Decimal
+    +counterparty_type: CounterpartyType
+    +counterparty_id: i64
+    +source_type: DocumentType
+    +source_id: i64
+    +bank_account: String
+    +transaction_date: Date
+    +period: String
+    +status: JournalStatus
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+
+  class CashJournalLine {
+    +id: i64
+    +journal_id: i64
+    +account_code: String
+    +debit_amount: Decimal
+    +credit_amount: Decimal
+    +cost_center: Option~i64~
+    +profit_center: Option~i64~
+    +remark: String
+  }
+
+  class WriteOff {
+    +id: i64
+    +write_off_type: WriteOffType
+    +cash_journal_id: i64
+    +source_type: DocumentType
+    +source_id: i64
+    +amount: Decimal
+    +write_off_date: Date
+    +operator_id: i64
+    +created_at: Timestamp
+  }
+
+  class ExpenseReimbursement {
+    +id: i64
+    +doc_number: String
+    +applicant_id: i64
+    +department_id: Option~i64~
+    +expense_date: Date
+    +total_amount: Decimal
+    +status: ExpenseStatus
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+
+  class ExpenseReimbursementItem {
+    +id: i64
+    +reimbursement_id: i64
+    +expense_type: ExpenseType
+    +amount: Decimal
+    +description: String
+    +receipt_no: Option~String~
+    +cost_center: Option~i64~
+    +profit_center: Option~i64~
+  }
+
+  CashJournal *-- CashJournalLine : 1 to 2..*
+  ExpenseReimbursement *-- ExpenseReimbursementItem : 1 to 1..*
+
+  class CashJournalService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~CashJournal~
+    +confirm(id, operator_id) Result~CashJournal~
+    +find_by_id(id) Result~CashJournal~
+    +list(filter) Result~Vec~
+    +get_balance(period) Result~Decimal~
+  }
+
+  class WriteOffService {
+    &lt;&lt;interface&gt;&gt;
+    +write_off(journal_id, source_type, source_id, amount, operator_id) Result~WriteOff~
+    +list_by_source(source_type, source_id) Result~Vec~
+    +get_unreconciled_amount(source_type, source_id) Result~Decimal~
+  }
+
+  class ExpenseReimbursementService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, operator_id) Result~ExpenseReimbursement~
+    +submit(id, operator_id) Result~ExpenseReimbursement~
+    +approve(id, operator_id) Result~ExpenseReimbursement~
+    +pay(id, cash_journal_id, operator_id) Result~ExpenseReimbursement~
+    +find_by_id(id) Result~ExpenseReimbursement~
+    +list(filter) Result~Vec~
+  }
+
+  class CostAccountingService {
+    &lt;&lt;interface&gt;&gt;
+    +get_product_cost(product_id, period) Result~ProductCostSummary~
+    +get_work_order_cost(work_order_id) Result~WorkOrderCostSummary~
+    +get_profit_center_summary(period, profit_center) Result~ProfitCenterSummary~
+    +get_margin_analysis(order_id) Result~MarginAnalysis~
+  }
+
+  note for CashJournalService "confirm ->\n  DocSeq(CashJournal)\n  Validate debit total == credit total\n  CostEntry consumption for reporting"
+
+  note for WriteOffService "Sales Receipt WriteOff:\n  source_type = ShippingRequest\n  One shipping request can have multiple partial write-offs\n  unreconciled = total_amount - SUM(write_off.amount)\nPurchase Payment WriteOff:\n  source_type = PurchaseOrder / ArrivalNotice\n  Three-way match: invoice + arrival + payment"
+
+  note for CostAccountingService "Reads from shared CostEntry table:\n  get_product_cost -> SUM by entity_type=Product, period\n  get_work_order_cost -> SUM by entity_type=WorkOrder\n  get_profit_center_summary -> SUM by profit_center, period\n  get_margin_analysis -> compare Quotation.estimated_margin vs actual"
+    </div>
+  </div>
+</div>
+<script>
+(function(){var s=1,tx=0,ty=0,ms=0.1,xs=8;var c=document.getElementById('zoomContainer'),l=document.getElementById('zoomLabel'),d=false,sx,sy,stx,sty;function a(){var v=c.querySelector('svg');if(v)v.style.transform='scale('+s+') translate('+tx+'px,'+ty+'px)';l.textContent=Math.round(s*100)+'%'}document.getElementById('zoomIn').onclick=function(){s=Math.min(xs,s+0.15);a()};document.getElementById('zoomOut').onclick=function(){s=Math.max(ms,s-0.15);a()};document.getElementById('zoomReset').onclick=function(){s=1;tx=0;ty=0;a()};document.getElementById('zoomFit').onclick=function(){var v=c.querySelector('svg');if(!v)return;var w=c.clientWidth-40,sw=v.getBoundingClientRect().width/s;s=Math.max(ms,Math.min(1.5,w/sw));tx=0;ty=0;a()};c.addEventListener('wheel',function(e){e.preventDefault();s=Math.max(ms,Math.min(xs,s+(e.deltaY>0?-0.08:0.08)));a()},{passive:false});c.addEventListener('mousedown',function(e){if(e.button!==0)return;d=true;c.classList.add('dragging');sx=e.clientX;sy=e.clientY;stx=tx;sty=ty});document.addEventListener('mouseup',function(){d=false;c.classList.remove('dragging')});document.addEventListener('mousemove',function(e){if(!d)return;e.preventDefault();tx=stx+(e.clientX-sx)/s;ty=sty+(e.clientY-sy)/s;a()})})();
+</script>
+
+<div class="mockup">
+  <div class="mockup-header">Financial Management (FMS) — UML Class Diagram</div>
+  <div class="mockup-body" style="padding: 20px; font-size: 13px; line-height: 1.5;">
+
+    <!-- Business flow -->
+    <div style="background: rgba(152,195,121,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #98c379;">业财一体核心流转</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
+        <span style="color:#e5a655;">销售回款</span> CashJournal(Inflow) → WriteOff（按出库单核销）→ 自动对应收账款
+        <br>
+        <span style="color:#6bc76b;">采购付款</span> CashJournal(Outflow) → WriteOff（按采购入库单核销）→ 自动对应付账款
+        <br>
+        <span style="color:#c678dd;">费用报销</span> ExpenseReimbursement → 审批通过 → CashJournal(Outflow) → 成本归集
+        <br>
+        <span style="color:#56b6c2;">成本核算</span> CostEntry 统一账本 → 料/工/费完整归集 → 利润中心 P&L
+        <br>
+        <span style="color:#888;">架构方向：统一 cost_entries 分类账，每个产生成本的事件写入同一张表，双层记账</span>
+      </div>
+    </div>
+
+    <!-- Row 1: CashJournal + CashJournalLine -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- CashJournal -->
+      <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05);">
+        <h4 style="color: #98c379; margin: 0 0 6px 0;">CashJournal 出纳日记账</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">管控所有现金流入流出：销售回款、采购付款、费用报销、工资支付，钱账实时对齐</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CashJournal</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// CJ-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;journal_type: JournalType<br>
+          &nbsp;&nbsp;direction: CashDirection<br>
+          &nbsp;&nbsp;amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;counterparty_type: CounterpartyType<br>
+          &nbsp;&nbsp;counterparty_id: UUID<br>
+          &nbsp;&nbsp;source_type: DocumentType<br>
+          &nbsp;&nbsp;source_id: UUID<br>
+          &nbsp;&nbsp;bank_account: String<br>
+          &nbsp;&nbsp;transaction_date: Date<br>
+          &nbsp;&nbsp;period: String <span style="color:#888;">// "2026-05"</span><br>
+          &nbsp;&nbsp;status: JournalStatus<br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">JournalType</span> {<br>
+          &nbsp;&nbsp;SALES_RECEIPT <span style="color:#888;">// 销售回款</span><br>
+          &nbsp;&nbsp;PURCHASE_PAYMENT <span style="color:#888;">// 采购付款</span><br>
+          &nbsp;&nbsp;EXPENSE <span style="color:#888;">// 费用报销</span><br>
+          &nbsp;&nbsp;PAYROLL <span style="color:#888;">// 工资支付</span><br>
+          &nbsp;&nbsp;OTHER <span style="color:#888;">// 其他</span><br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">CashDirection</span> {<br>
+          &nbsp;&nbsp;INFLOW <span style="color:#888;">// 流入</span><br>
+          &nbsp;&nbsp;OUTFLOW <span style="color:#888;">// 流出</span><br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">CounterpartyType</span> {<br>
+          &nbsp;&nbsp;CUSTOMER, SUPPLIER, EMPLOYEE, OTHER<br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">JournalStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, CONFIRMED, CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <!-- CashJournalLine -->
+      <div style="border: 2px solid #6bc76b; border-radius: 8px; padding: 14px; background: rgba(107,199,107,0.05);">
+        <h4 style="color: #6bc76b; margin: 0 0 6px 0;">CashJournalLine 日记账明细</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">双层记账：每笔日记账同时记借方和贷方，支持成本中心和利润中心归集</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CashJournalLine</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;journal_id: UUID <span style="color:#888;">FK→cash_journals</span><br>
+          &nbsp;&nbsp;account_code: String <span style="color:#888;">// 会计科目编码</span><br>
+          &nbsp;&nbsp;debit_amount: Decimal(10,6) <span style="color:#888;">// 借方金额</span><br>
+          &nbsp;&nbsp;credit_amount: Decimal(10,6) <span style="color:#888;">// 贷方金额</span><br>
+          &nbsp;&nbsp;cost_center: UUID? <span style="color:#888;">// 成本中心</span><br>
+          &nbsp;&nbsp;profit_center: UUID? <span style="color:#888;">// 利润中心</span><br>
+          &nbsp;&nbsp;remark: String<br>
+          }
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>记账规则：</strong>每笔 CashJournal 至少两条明细行（一借一贷），借方总额 = 贷方总额
+        </p>
+      </div>
+    </div>
+
+    <!-- Row 2: WriteOff + ExpenseReimbursement -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- WriteOff -->
+      <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05);">
+        <h4 style="color: #e5a655; margin: 0 0 6px 0;">WriteOff 核销</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">销售回款按出库单核销，采购付款按入库单核销，确保每笔钱都有据可查</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WriteOff</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;write_off_type: WriteOffType<br>
+          &nbsp;&nbsp;cash_journal_id: UUID <span style="color:#888;">FK→cash_journals</span><br>
+          &nbsp;&nbsp;source_type: DocumentType<br>
+          &nbsp;&nbsp;source_id: UUID <span style="color:#888;">// 出库单/入库单</span><br>
+          &nbsp;&nbsp;amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;write_off_date: Date<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">WriteOffType</span> {<br>
+          &nbsp;&nbsp;SALES_RECEIPT <span style="color:#888;">// 销售回款核销</span><br>
+          &nbsp;&nbsp;PURCHASE_PAYMENT <span style="color:#888;">// 采购付款核销</span><br>
+          &nbsp;&nbsp;}
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>核销规则：</strong>销售回款按出库单逐笔核销，确保每笔进账精准对齐到具体客户和发货批次
+        </p>
+      </div>
+
+      <!-- ExpenseReimbursement -->
+      <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+        <h4 style="color: #c678dd; margin: 0 0 6px 0;">ExpenseReimbursement 费用报销</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">员工费用报销申请，审批通过后自动生成付款日记账</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ExpenseReimbursement</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;doc_number: String <span style="color:#888;">// ER-2026-05-xxxxx</span><br>
+          &nbsp;&nbsp;applicant_id: UUID <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;department_id: UUID? <span style="color:#888;">// 部门</span><br>
+          &nbsp;&nbsp;expense_date: Date<br>
+          &nbsp;&nbsp;total_amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;status: ExpenseStatus<br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ExpenseReimbursementItem</span> {<br>
+          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;reimbursement_id: UUID <span style="color:#888;">FK→expense_reimbursements</span><br>
+          &nbsp;&nbsp;expense_type: ExpenseType<br>
+          &nbsp;&nbsp;amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;description: String<br>
+          &nbsp;&nbsp;receipt_no: String?<br>
+          &nbsp;&nbsp;cost_center: UUID?<br>
+          &nbsp;&nbsp;profit_center: UUID?<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ExpenseType</span> {<br>
+          &nbsp;&nbsp;TRAVEL, OFFICE, TRANSPORT, MEAL, OTHER<br>
+          &nbsp;&nbsp;}<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ExpenseStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, SUBMITTED, APPROVED, PAID, CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+    </div>
+
+    <!-- Service Interfaces -->
+    <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05); margin-bottom: 20px;">
+      <h4 style="color: #98c379; margin: 0 0 8px 0;">Service 接口</h4>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CashJournalService</span> {<br>
+          &nbsp;&nbsp;create(req, operator_id): CashJournal<br>
+          &nbsp;&nbsp;confirm(id, operator_id): CashJournal<br>
+          &nbsp;&nbsp;find_by_id(id): CashJournal<br>
+          &nbsp;&nbsp;list(filter): Vec&lt;CashJournal&gt;<br>
+          &nbsp;&nbsp;get_balance(period): Decimal<br>
+          }
+          <br><br>
+          <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">WriteOffService</span> {<br>
+          &nbsp;&nbsp;write_off(journal_id, source_type, source_id, amount, operator_id): WriteOff<br>
+          &nbsp;&nbsp;list_by_source(source_type, source_id): Vec&lt;WriteOff&gt;<br>
+          &nbsp;&nbsp;get_unreconciled_amount(source_type, source_id): Decimal<br>
+          }
+        </div>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">ExpenseReimbursementService</span> {<br>
+          &nbsp;&nbsp;create(req, operator_id): ExpenseReimbursement<br>
+          &nbsp;&nbsp;submit(id, operator_id): ExpenseReimbursement<br>
+          &nbsp;&nbsp;approve(id, operator_id): ExpenseReimbursement<br>
+          &nbsp;&nbsp;pay(id, cash_journal_id, operator_id): ExpenseReimbursement<br>
+          &nbsp;&nbsp;find_by_id(id): ExpenseReimbursement<br>
+          &nbsp;&nbsp;list(filter): Vec&lt;ExpenseReimbursement&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CostAccountingService</span> {<br>
+          &nbsp;&nbsp;get_product_cost(product_id, period): ProductCostSummary<br>
+          &nbsp;&nbsp;get_work_order_cost(work_order_id): WorkOrderCostSummary<br>
+          &nbsp;&nbsp;get_profit_center_summary(period, profit_center): ProfitCenterSummary<br>
+          &nbsp;&nbsp;get_margin_analysis(order_id): MarginAnalysis<br>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Cross-module calls -->
+    <div style="padding: 12px; background: rgba(152,195,121,0.1); border-radius: 6px;">
+      <h3 style="margin: 0 0 8px 0; color: #98c379;">FMS 模块 × 跨模块交互汇总</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+        <span style="color:#e5a655;">Sales CRM</span> → 销售回款 CashJournal(Inflow) + WriteOff 核销到 ShippingRequest<br>
+        <span style="color:#6bc76b;">Purchase SRM</span> → 采购付款 CashJournal(Outflow) + WriteOff 核销到 PurchaseOrder/ArrivalNotice<br>
+        <span style="color:#c678dd;">CostEntry 消费</span> → get_product_cost 汇总料/工/费 | get_work_order_cost 归集到工单<br>
+        <span style="color:#e06c75;">利润中心</span> → get_profit_center_summary 按部门归集 P&L | get_margin_analysis 报价-实际毛利差异<br>
+        <span style="color:#56b6c2;">MES</span> → 完工入库触发成品成本 | 报工触发人工成本 | 倒冲差异触发损耗成本<br>
+        <span style="color:#c678dd;">OM</span> → 外协收货触发外协成本<br>
+        <span style="color:#e06c75;">QMS</span> → 不良处置触发返工/报废成本
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

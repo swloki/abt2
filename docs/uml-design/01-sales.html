@@ -1,5 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>销售模块 (CRM) — 类图设计</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .mockup { background: #282a36; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .mockup-header { background: linear-gradient(135deg, #e5a655, #e06c75); color: #fff; padding: 12px 20px; font-weight: bold; font-size: 15px; }
+    .mermaid-wrap{background:#282a36;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,0.3);position:relative}
+    .mermaid{display:flex;justify-content:center}
+    .zoom-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 0 12px 0;background:#282a36}
+    .zoom-toolbar button{background:#3b3f5c;border:1px solid #555;color:#cdd6f4;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+    .zoom-toolbar button:hover{background:#4a4f6c;border-color:#6c8bef}
+    .zoom-toolbar .zoom-label{font-size:12px;color:#888;min-width:44px;text-align:center}
+    .zoom-container{overflow:hidden;border:1px solid #333;border-radius:8px;cursor:grab;min-height:80vh;max-height:90vh}
+    .zoom-container:active{cursor:grabbing}
+    .zoom-container.dragging{cursor:grabbing;user-select:none}
+    .zoom-container svg{display:block;margin:auto;transform-origin:top center}
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,background:'#282a36',primaryColor:'#3b3f5c',primaryTextColor:'#cdd6f4',lineColor:'#666',clusterBkg:'rgba(108,139,239,0.08)',clusterBorder:'rgba(108,139,239,0.25)'},flowchart:{useMaxWidth:false,htmlLabels:true}});
+</script>
+</head>
+<body>
 <h2>销售模块 (CRM) — 类图设计</h2>
 <p class="subtitle">5 个核心实体 + 共享层引用 + 完整业务流转</p>
+
+<div class="mermaid-wrap">
+  <div class="zoom-toolbar">
+    <button id="zoomOut" title="缩小">&#8722;</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn" title="放大">+</button>
+    <button id="zoomReset" title="重置" style="width:auto;padding:0 12px;font-size:12px;">重置</button>
+    <button id="zoomFit" title="适应宽度" style="width:auto;padding:0 12px;font-size:12px;">适应</button>
+    <span style="margin-left:auto;font-size:11px;color:#666;">滚轮缩放 · 拖拽平移</span>
+  </div>
+  <div class="zoom-container" id="zoomContainer">
+    <div class="mermaid">
+classDiagram
+    direction TB
+
+    class QuotationStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Sent
+        Accepted
+        Rejected
+        Expired
+    }
+
+    class SalesOrderStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Confirmed
+        InProduction
+        PartiallyShipped
+        Shipped
+        Completed
+        Cancelled
+    }
+
+    class ShippingStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Confirmed
+        Picking
+        Shipped
+        Cancelled
+    }
+
+    class ReturnStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Confirmed
+        Received
+        Inspecting
+        Completed
+        Cancelled
+    }
+
+    class ReturnDisposition {
+        &lt;&lt;enumeration&gt;&gt;
+        Restock
+        Scrap
+        Rework
+    }
+
+    class ReconciliationStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Sent
+        Confirmed
+        Disputed
+        Settled
+    }
+
+    class Quotation {
+        +id: i64
+        +doc_number: String
+        +customer_id: i64
+        +contact_id: i64
+        +quotation_date: Date
+        +valid_until: Date
+        +status: QuotationStatus
+        +total_amount: Decimal
+        +total_cost: Decimal
+        +estimated_margin: Decimal
+        +payment_terms: String
+        +delivery_terms: String
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class QuotationItem {
+        +id: i64
+        +quotation_id: i64
+        +line_no: i32
+        +product_id: i64
+        +description: String
+        +quantity: Decimal
+        +unit: String
+        +unit_price: Decimal
+        +unit_cost: Decimal
+        +discount_rate: Decimal
+        +amount: Decimal
+        +delivery_date: Option~Date~
+    }
+
+    class SalesOrder {
+        +id: i64
+        +doc_number: String
+        +customer_id: i64
+        +contact_id: i64
+        +order_date: Date
+        +status: SalesOrderStatus
+        +total_amount: Decimal
+        +payment_terms: String
+        +delivery_address: String
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class SalesOrderItem {
+        +id: i64
+        +order_id: i64
+        +line_no: i32
+        +product_id: i64
+        +description: String
+        +quantity: Decimal
+        +unit_price: Decimal
+        +amount: Decimal
+        +delivered_qty: Decimal
+        +returned_qty: Decimal
+        +delivery_date: Option~Date~
+    }
+
+    class ShippingRequest {
+        +id: i64
+        +doc_number: String
+        +order_id: i64
+        +customer_id: i64
+        +request_date: Date
+        +expected_ship_date: Date
+        +status: ShippingStatus
+        +shipping_address: String
+        +carrier: Option~String~
+        +tracking_number: Option~String~
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class ShippingRequestItem {
+        +id: i64
+        +request_id: i64
+        +order_item_id: i64
+        +product_id: i64
+        +requested_qty: Decimal
+        +shipped_qty: Decimal
+        +warehouse_id: i64
+    }
+
+    class SalesReturn {
+        +id: i64
+        +doc_number: String
+        +order_id: i64
+        +shipping_request_id: i64
+        +customer_id: i64
+        +return_date: Date
+        +status: ReturnStatus
+        +return_reason: String
+        +total_amount: Decimal
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class SalesReturnItem {
+        +id: i64
+        +return_id: i64
+        +order_item_id: i64
+        +product_id: i64
+        +returned_qty: Decimal
+        +unit_price: Decimal
+        +amount: Decimal
+        +disposition: ReturnDisposition
+    }
+
+    class Reconciliation {
+        +id: i64
+        +doc_number: String
+        +customer_id: i64
+        +period: String
+        +status: ReconciliationStatus
+        +total_amount: Decimal
+        +confirmed_amount: Decimal
+        +difference: Decimal
+        +remark: String
+        +operator_id: i64
+        +created_at: Timestamp
+        +updated_at: Timestamp
+        +deleted_at: Option~Timestamp~
+    }
+
+    class ReconciliationItem {
+        +id: i64
+        +reconciliation_id: i64
+        +shipping_request_id: i64
+        +product_id: i64
+        +quantity: Decimal
+        +unit_price: Decimal
+        +amount: Decimal
+        +confirmed: bool
+        +remark: Option~String~
+    }
+
+    Quotation *-- QuotationItem
+    SalesOrder *-- SalesOrderItem
+    ShippingRequest *-- ShippingRequestItem
+    SalesReturn *-- SalesReturnItem
+    Reconciliation *-- ReconciliationItem
+
+    SalesOrder --> Quotation : DERIVED_FROM
+    ShippingRequest --> SalesOrder : TRIGGERS
+    SalesReturn --> SalesOrder : REFERENCES
+    SalesReturn --> ShippingRequest : REFERENCES
+    ReconciliationItem --> ShippingRequest : RECONCILES
+
+    class QuotationService {
+        &lt;&lt;interface&gt;&gt;
+        +create(req) Result~Quotation~
+        +find_by_id(id) Result~Quotation~
+        +update(id, req) Result~Quotation~
+        +submit(id, operator_id) Result~Quotation~
+        +accept(id, operator_id) Result~Quotation~
+        +reject(id, operator_id) Result~Quotation~
+        +list(filter) Result~Vec~
+    }
+
+    class SalesOrderService {
+        &lt;&lt;interface&gt;&gt;
+        +create(req) Result~SalesOrder~
+        +create_from_quotation(qid, oid) Result~SalesOrder~
+        +find_by_id(id) Result~SalesOrder~
+        +confirm(id, oid) Result~SalesOrder~
+        +cancel(id, oid) Result~SalesOrder~
+        +list(filter) Result~Vec~
+    }
+
+    class ShippingRequestService {
+        &lt;&lt;interface&gt;&gt;
+        +create_from_order(oid, items, oid2) Result~ShippingRequest~
+        +find_by_id(id) Result~ShippingRequest~
+        +confirm(id, oid) Result~ShippingRequest~
+        +list(filter) Result~Vec~
+    }
+
+    class SalesReturnService {
+        &lt;&lt;interface&gt;&gt;
+        +create(req, oid) Result~SalesReturn~
+        +find_by_id(id) Result~SalesReturn~
+        +confirm(id, oid) Result~SalesReturn~
+        +list(filter) Result~Vec~
+    }
+
+    class SalesReconciliationService {
+        &lt;&lt;interface&gt;&gt;
+        +create(cid, period, oid) Result~Reconciliation~
+        +find_by_id(id) Result~Reconciliation~
+        +confirm(id, oid) Result~Reconciliation~
+        +list(filter) Result~Vec~
+    }
+
+    QuotationService ..> Quotation
+    SalesOrderService ..> SalesOrder
+    ShippingRequestService ..> ShippingRequest
+    SalesReturnService ..> SalesReturn
+    SalesReconciliationService ..> Reconciliation
+    SalesOrderService ..> QuotationService : create_from_quotation
+    SalesReconciliationService ..> ShippingRequestService : query details
+
+    note for QuotationService "Shared: DocSeq(QUO)\nNo CostEntry (quotation phase)\nFMS: get_margin_analysis"
+    note for SalesOrderService "Shared: DocSeq(SO)\nconfirm -> InvRes.reserve(Soft, TTL=7d)\ncreate_from_quotation -> DocLink(DERIVED_FROM)"
+    note for ShippingRequestService "Shared: DocSeq(SR)\nconfirm -> QMS OQC hard gate\nconfirm -> InvRes.fulfill\nconfirm -> CostEntry(COGS)\nconfirm -> WMS.InventoryTransaction"
+    note for SalesReturnService "Shared: DocSeq(SRT)\ncreate -> DocLink(REFERENCES)\nconfirm -> CostEntry(reverse)\nconfirm -> QMS.RMAService if defect"
+    note for SalesReconciliationService "Shared: DocSeq(REC)\ncreate -> DocLink(RECONCILES)\nconfirm -> CostEntry(AR voucher)\nFMS: CashJournal + WriteOff"
+    </div>
+  </div>
+</div>
+<script>
+(function(){var s=1,tx=0,ty=0,ms=0.1,xs=8;var c=document.getElementById('zoomContainer'),l=document.getElementById('zoomLabel'),d=false,sx,sy,stx,sty;function a(){var v=c.querySelector('svg');if(v)v.style.transform='scale('+s+') translate('+tx+'px,'+ty+'px)';l.textContent=Math.round(s*100)+'%'}document.getElementById('zoomIn').onclick=function(){s=Math.min(xs,s+0.15);a()};document.getElementById('zoomOut').onclick=function(){s=Math.max(ms,s-0.15);a()};document.getElementById('zoomReset').onclick=function(){s=1;tx=0;ty=0;a()};document.getElementById('zoomFit').onclick=function(){var v=c.querySelector('svg');if(!v)return;var w=c.clientWidth-40,sw=v.getBoundingClientRect().width/s;s=Math.max(ms,Math.min(1.5,w/sw));tx=0;ty=0;a()};c.addEventListener('wheel',function(e){e.preventDefault();s=Math.max(ms,Math.min(xs,s+(e.deltaY>0?-0.08:0.08)));a()},{passive:false});c.addEventListener('mousedown',function(e){if(e.button!==0)return;d=true;c.classList.add('dragging');sx=e.clientX;sy=e.clientY;stx=tx;sty=ty});document.addEventListener('mouseup',function(){d=false;c.classList.remove('dragging')});document.addEventListener('mousemove',function(e){if(!d)return;e.preventDefault();tx=stx+(e.clientX-sx)/s;ty=sty+(e.clientY-sy)/s;a()})})();
+</script>
 
 <div class="mockup">
   <div class="mockup-header">Sales Module — UML Class Diagram</div>
@@ -153,7 +479,7 @@
           &nbsp;&nbsp;}
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
-          <strong>共享层交互：</strong>InventoryReservation 释放预留 | DocumentLink 关联订单 | CostEntry 记销售成本
+          <strong>共享层交互：</strong>InventoryReservation 释放预留 | DocumentLink 关联订单 | CostEntry 记销售成本 | <span style="color:#56b6c2;">QMS OQC硬门</span>：发货前检查 is_passed
         </p>
       </div>
 
@@ -249,7 +575,7 @@
               DocumentSequence 编号<br>
               DocumentLink 关联发货单（RECONCILES）<br>
               CostEntry 对账确认后生成应收账款凭证<br>
-              <span style="color:#888;">（后续 FMS 模块消费此凭证进行核销）</span>
+              <span style="color:#98c379;">FMS</span>：CashJournal 销售回款 | WriteOff 按出库单核销 | CostAccounting 毛利分析
             </p>
           </div>
         </div>
@@ -258,3 +584,6 @@
 
   </div>
 </div>
+
+</body>
+</html>

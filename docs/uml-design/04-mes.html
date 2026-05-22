@@ -257,42 +257,42 @@ classDiagram
 
   class ProductionPlanService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~ProductionPlan~
+    +create(ctx: ServiceContext, req) Result~ProductionPlan~
     +find_by_id(id) Result~ProductionPlan~
-    +confirm(id, operator_id) Result~ProductionPlan~
-    +release_to_work_orders(plan_id, operator_id) Result~Vec~WorkOrder~~
+    +confirm(ctx: ServiceContext, id) Result~ProductionPlan~
+    +release_to_work_orders(ctx: ServiceContext, plan_id) Result~Vec~WorkOrder~~
     +list(filter) Result~Vec~ProductionPlan~~
   }
 
   class WorkOrderService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~WorkOrder~
+    +create(ctx: ServiceContext, req) Result~WorkOrder~
     +find_by_id(id) Result~WorkOrder~
-    +release(id, operator_id) Result~WorkOrder~
-    +complete(id, completed_qty, operator_id) Result~WorkOrder~
-    +close(id, operator_id) Result~WorkOrder~
+    +release(ctx: ServiceContext, id) Result~WorkOrder~
+    +complete(ctx: ServiceContext, id, completed_qty) Result~WorkOrder~
+    +close(ctx: ServiceContext, id) Result~WorkOrder~
     +list(filter) Result~Vec~WorkOrder~~
   }
 
   class WorkReportService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~WorkReport~
+    +create(ctx: ServiceContext, req) Result~WorkReport~
     +find_by_id(id) Result~WorkReport~
     +list_by_work_order(work_order_id) Result~Vec~WorkReport~~
   }
 
   class ProductionInspectionService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~ProductionInspection~
+    +create(ctx: ServiceContext, req) Result~ProductionInspection~
     +find_by_id(id) Result~ProductionInspection~
-    +record_result(id, result, operator_id) Result~ProductionInspection~
+    +record_result(ctx: ServiceContext, id, result) Result~ProductionInspection~
   }
 
   class ProductionReceiptService {
     &lt;&lt;interface&gt;&gt;
-    +create(work_order_id, received_qty, warehouse_id, operator_id) Result~ProductionReceipt~
+    +create(ctx: ServiceContext, work_order_id, received_qty, warehouse_id) Result~ProductionReceipt~
     +find_by_id(id) Result~ProductionReceipt~
-    +confirm(id, operator_id) Result~ProductionReceipt~
+    +confirm(ctx: ServiceContext, id) Result~ProductionReceipt~
   }
 
   ProductionPlanService ..> WorkOrderService : release_to_work_orders
@@ -301,6 +301,10 @@ classDiagram
   WorkOrderService ..> ProductionInspectionService : inspect
   WorkOrderService ..> ProductionReceiptService : receipt
   ProductionReceiptService ..> BackflushService : trigger backflush
+    WorkOrderService ..> MasterData.BomService : BOM explosion
+    WorkOrderService ..> MasterData.ProductService : product info
+    ProductionPlanService ..> MasterData.ProductService : product info
+    ProductionReceiptService ..> MasterData.ProductService : product info
 
   note for WorkOrderService "release -> InvRes.reserve(Hard) WMS.MaterialRequisitionService.create_for_work_order() complete -> InvRes.fulfill/cancel(release remaining)"
 
@@ -371,7 +375,7 @@ classDiagram
           &nbsp;&nbsp;scheduled_end: Date<br>
           &nbsp;&nbsp;sales_order_id: UUID? <span style="color:#888;">FK→sales_orders (MTO)</span><br>
           &nbsp;&nbsp;sales_order_item_id: UUID? <span style="color:#888;">// 具体行号</span><br>
-          &nbsp;&nbsp;bom_snapshot_id: UUID? <span style="color:#888;">// BOM版本快照</span><br>
+          &nbsp;&nbsp;bom_snapshot_id: UUID? <span style="color:#888;">FK→bom_snapshots BOM发布快照（不可变）</span><br>
           &nbsp;&nbsp;routing_id: UUID? <span style="color:#888;">FK→labor_processes</span><br>
           &nbsp;&nbsp;work_center_id: UUID? <span style="color:#888;">// 生产中心</span><br>
           &nbsp;&nbsp;priority: i32<br>
@@ -402,7 +406,7 @@ classDiagram
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// WO-2026-05-xxxxx</span><br>
           &nbsp;&nbsp;plan_item_id: UUID? <span style="color:#888;">FK→production_plan_items</span><br>
           &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
-          &nbsp;&nbsp;bom_snapshot_id: UUID? <span style="color:#888;">// 冻结的BOM快照</span><br>
+          &nbsp;&nbsp;bom_snapshot_id: UUID? <span style="color:#888;">FK→bom_snapshots BOM发布快照（不可变）</span><br>
           &nbsp;&nbsp;routing_id: UUID? <span style="color:#888;">FK→labor_processes</span><br>
           &nbsp;&nbsp;planned_qty: Decimal(10,6)<br>
           &nbsp;&nbsp;completed_qty: Decimal(10,6)<br>

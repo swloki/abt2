@@ -48,7 +48,7 @@
 </head>
 <body>
 <h2>模块间接口依赖关系 — 总览</h2>
-<p class="subtitle">9 个模块 · 48 个 Service Trait · 187 个核心方法 · 接口先行 · 事件驱动 · 分层实现</p>
+<p class="subtitle">11 个模块 · 58 个 Service Trait · 230 个核心方法 · 接口先行 · 事件驱动 · 分层实现</p>
 
 <!-- Mermaid Diagram -->
 <div class="mermaid-wrap">
@@ -72,7 +72,7 @@ graph TD
     EH[EventHandlerRegistry]
     SM[StateMachineService]
     AL[AuditLogService]
-    ID[IdempotencyService]
+    IXD[IdempotencyService]
   end
 
   subgraph SALES["Sales CRM - 5"]
@@ -138,6 +138,22 @@ graph TD
     HK[WorkflowHook]
   end
 
+  subgraph MD["Master Data - 5"]
+    PDT[ProductService]
+    PPR[ProductPriceService]
+    CAT[CategoryService]
+    BOMS[BomService]
+    BCAT[BomCategoryService]
+  end
+
+  subgraph ID["Identity & Access - 5"]
+    USR[UserService]
+    ROL[RoleService]
+    AUT[AuthService]
+    PRM[PermissionService]
+    DPT[DepartmentService]
+  end
+
   SHARED ==>|use| SALES
   SHARED ==>|use| PURCHASE
   SHARED ==>|use| WMS
@@ -145,6 +161,14 @@ graph TD
   SHARED ==>|use| OM
   SHARED ==>|use| QMS
   SHARED ==>|use| FMS
+
+  MD -.->|product & BOM| SALES
+  MD -.->|product & BOM| PURCHASE
+  MD -.->|product & BOM| WMS
+  MD -.->|product & BOM| MES
+  MD -.->|product & BOM| OM
+
+  ID -.->|auth context| SHARED
 
   SO -.->|publish SalesOrderConfirmed| EB
   SR -.->|publish SalesOrderShipped| EB
@@ -210,8 +234,10 @@ graph TD
   classDef qms fill:#2f4a4a,stroke:#56b6c2,stroke-width:1px,color:#cdd6f4
   classDef fms fill:#2f4a2f,stroke:#98c379,stroke-width:1px,color:#cdd6f4
   classDef wf fill:#3f2f4a,stroke:#7c3aed,stroke-width:2px,color:#cdd6f4
+  classDef masterdata fill:#2f3a4a,stroke:#61afef,stroke-width:1px,color:#cdd6f4
+  classDef identity fill:#3f2f4a,stroke:#f472b6,stroke-width:1px,color:#cdd6f4
 
-  class DS,DL,IR,CE,EB,EH,SM,AL,ID shared
+  class DS,DL,IR,CE,EB,EH,SM,AL,IXD shared
   class QUO,SO,SR,SRET,SREC sales
   class SUP,PQ,PO,PRET,PREC,PAY,MISC purchase
   class WH,AN,IT,MR,BF,CC,TRF,FC,LCK wms
@@ -220,6 +246,8 @@ graph TD
   class ISS,IRS,MRB,RMA qms
   class CJ,WOFF,ER,CA fms
   class WFS,AA,HK wf
+  class PDT,PPR,CAT,BOMS,BCAT masterdata
+  class USR,ROL,AUT,PRM,DPT identity
   </div>
   </div>
 </div>
@@ -255,7 +283,7 @@ graph TD
         ⑤ <strong>质量关卡硬门</strong> — 业务层显式调用 InspectionResultService.is_passed() 检查，不通过则返回错误，阻断下游流转（数据层面阻断，非流程软约束）<br>
         ⑥ <strong>业财一体（独立事务）</strong> — CostEntry 在主业务事务提交后、以独立事务记录。成本为派生数据可重算，失败不阻塞主业务流程<br>
         ⑦ <strong>流程编排</strong> — Workflow Engine 处理审批、多步骤编排和 Saga 补偿<br>
-        ⑧ <strong>全链路审计</strong> — 业务 Service 同事务内直接调用 AuditLogService，字段级 diff + 请求上下文，零遗漏可追溯
+        ⑧ <strong>全链路审计</strong> — 业务 Service 通过 ServiceContext 传递操作元数据，同事务内直接调用 AuditLogService，字段级 diff + 请求上下文，零遗漏可追溯
       </div>
     </div>
 
@@ -266,15 +294,15 @@ graph TD
         <span style="color:#888;">┌──────────────────────────────────────────────────────────────────────┐</span><br>
         <span style="color:#888;">│</span> <span style="color:#e5a655;">SalesOrderService</span>.confirm() <span style="color:#888;">// 业务模块只关心核心逻辑</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;├── <span style="color:#e5a655;">StateMachine</span>.transition("Confirmed") <span style="color:#888;">// 推进状态</span> <span style="color:#888;">│</span><br>
-        <span style="color:#888;">│</span>&nbsp;&nbsp;├── <span style="color:#6bc76b;">InventoryReservation</span>.reserve(SOFT) <span style="color:#e06c75;">← 同步强一致（主事务内）</span> <span style="color:#888;">│</span><br>
+        <span style="color:#888;">│</span>&nbsp;&nbsp;├── <span style="color:#6bc76b;">InventoryReservation</span>.reserve(SOFT) <span style="color:#e06c75;">← InCallerTx 同步强一致（主事务内）</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;└── <span style="color:#3b82f6;">EventBus</span>.publish(<span style="color:#e5c07b;">SalesOrderConfirmed</span>) <span style="color:#888;">// 写 Outbox</span> <span style="color:#888;">│</span><br>
-        <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color:#e06c75;">CostEntryHandler</span> → record cost <span style="color:#98c379;">← 独立事务</span> <span style="color:#888;">│</span><br>
+        <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color:#e06c75;">CostEntryHandler</span> → record cost <span style="color:#98c379;">← IndependentTx 独立事务</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color:#e5a655;">DocLinkHandler</span> → link QUO→SO <span style="color:#3b82f6;">← 异步 Outbox</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <span style="color:#c678dd;">WorkflowTriggerHandler</span> → start WF <span style="color:#3b82f6;">← 异步 Outbox</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">└──────────────────────────────────────────────────────────────────────┘</span><br>
 	        <span style="color:#e06c75;">① 同步强一致（主事务内）</span>：库存预留、质量关卡硬门 — 调用者事务内直接执行，失败即回滚<br>
-	        <span style="color:#98c379;">② 独立事务</span>：成本记录（CostEntry）— 主事务提交后开新事务写入，失败不影响主业务，成本为派生数据可重算<br>
-	        <span style="color:#3b82f6;">③ 异步 Outbox</span>：文档链接、Workflow 触发、通知 — 业务事务内写 Outbox + NOTIFY，EventProcessor 后台消费
+	        <span style="color:#98c379;">② 独立事务 (IndependentTx)</span>：成本记录（CostEntry）— 主事务提交后开新事务写入，失败不影响主业务，成本为派生数据可重算<br>
+	        <span style="color:#3b82f6;">③ 异步 Outbox (AsyncOutbox)</span>：文档链接、Workflow 触发、通知 — 业务事务内写 Outbox + NOTIFY，EventProcessor 后台消费
     </div>
 
     <!-- Module Overview -->
@@ -287,16 +315,16 @@ graph TD
           <h4 style="color: #6c8bef; margin: 0 0 6px 0;">Shared Infrastructure 共享层 (9 个接口)</h4>
           <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">所有模块的公共基础设施，通过 DocumentType 枚举解耦</p>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
-            <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">DocumentSequenceService</span> { next_number }<br>
-            <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">DocumentLinkService</span> { create_link, find_linked }<br>
-            <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InventoryReservationService</span> { reserve, fulfill, cancel }<br>
-            <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CostEntryService</span> { create, find_by_entity }<br>
-            <span style="color:#3b82f6;">interface</span> <span style="color:#e5c07b;">DomainEventBus</span> { publish, find_events, find_by_type }<br>
+            <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">DocumentSequenceService</span> { next_number(ctx) }<br>
+            <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">DocumentLinkService</span> { create_link(ctx), find_linked }<br>
+            <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InventoryReservationService</span> { reserve(ctx), fulfill(ctx), cancel(ctx) }<br>
+            <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CostEntryService</span> { create(ctx), find_by_entity }<br>
+            <span style="color:#3b82f6;">interface</span> <span style="color:#e5c07b;">DomainEventBus</span> { publish(ctx), find_events, find_by_type }<br>
             <span style="color:#3b82f6;">interface</span> <span style="color:#e5c07b;">EventHandlerRegistry</span> { register · dispatch }<br>
             <span style="color:#888;">↑ 负责Handler注册与分发，支持同步（强一致）和异步（Outbox）两种模式</span><br>
-            <span style="color:#e5a655;">interface</span> <span style="color:#e5c07b;">StateMachineService</span> { transition, get_current_state, ... }<br>
-            <span style="color:#56b6c2;">interface</span> <span style="color:#e5c07b;">AuditLogService</span> { record, find_by_entity, find_by_operator }<br>
-            <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">IdempotencyService</span> { check_and_mark, mark_processed, cleanup_expired }<br>
+            <span style="color:#e5a655;">interface</span> <span style="color:#e5c07b;">StateMachineService</span> { transition(ctx), get_current_state, ... }<br>
+            <span style="color:#56b6c2;">interface</span> <span style="color:#e5c07b;">AuditLogService</span> { record(ctx), find_by_entity, find_by_operator }<br>
+            <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">IdempotencyService</span> { check_and_mark(ctx), mark_processed(ctx), cleanup_expired }<br>
             <span style="color:#888;">↑ API级（防重复提交）+ Handler级（Outbox重试幂等）+ 补偿级（Workflow重试幂等）</span>
           </div>
         </div>
@@ -354,6 +382,38 @@ graph TD
             流转链：计划 → 工单 → 报工 → 报检 → 入库 → 倒冲
           </p>
         </div>
+      </div>
+
+      <!-- Master Data + Identity -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px;">
+
+        <!-- Master Data -->
+        <div style="border: 2px solid #61afef; border-radius: 8px; padding: 14px; background: rgba(97,175,239,0.08);">
+          <h4 style="color: #61afef; margin: 0 0 6px 0; font-size: 13px;">Master Data 主数据 (5) <span style="background:#61afef;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;">NEW</span></h4>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+            ProductService<br>
+            ProductPriceService<br>
+            CategoryService<br>
+            BomService · BomCategoryService
+          </div>
+          <p style="color:#aaa; font-size:11px; margin: 6px 0 0 0;">
+            所有业务模块的上游基础数据：产品、分类、BOM、价格
+          </p>
+        </div>
+
+        <!-- Identity & Access -->
+        <div style="border: 2px solid #f472b6; border-radius: 8px; padding: 14px; background: rgba(244,114,182,0.08);">
+          <h4 style="color: #f472b6; margin: 0 0 6px 0; font-size: 13px;">Identity & Access 身份认证 (5) <span style="background:#f472b6;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;">NEW</span></h4>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+            UserService · RoleService<br>
+            AuthService · PermissionService<br>
+            DepartmentService
+          </div>
+          <p style="color:#aaa; font-size:11px; margin: 6px 0 0 0;">
+            JWT认证 | RBAC权限 | 部门树 | 16资源×3动作
+          </p>
+        </div>
+
       </div>
 
       <!-- OM + QMS + FMS + Workflow -->
@@ -419,11 +479,11 @@ graph TD
         <span style="color:#e06c75;">WorkOrderReleased</span> → <span style="color:#e06c75;">InvRes.reserve(HARD)</span> + <span style="color:#e06c75;">MaterialRequisition.create</span><br>
         <span style="color:#e06c75;">ProductionReceiptConfirmed</span> → <span style="color:#e06c75;">InvRes.fulfill(释放HARD)</span> + <span style="color:#e06c75;">Backflush.execute</span><br><br>
 	        <span style="color:#3b82f6;">■ 异步 Outbox（写 Outbox + EventProcessor 后台消费）</span><br>
-	        <span style="color:#e5a655;">SalesOrderConfirmed</span> → <span style="color:#3b82f6;">DocLinkHandler</span> + <span style="color:#3b82f6;">WorkflowTriggerHandler</span><br>
+	        <span style="color:#e5a655;">SalesOrderConfirmed</span> → <span style="color:#3b82f6;">DocLinkHandler <span style="color:#888;">[AsyncOutbox]</span></span> + <span style="color:#3b82f6;">WorkflowTriggerHandler</span><br>
 	        <span style="color:#e5a655;">SalesOrderShipped</span> → <span style="color:#98c379;">CostEntryHandler(COGS) ← 独立事务</span><br>
 	        <span style="color:#6bc76b;">ArrivalNoticeReceived</span> → <span style="color:#98c379;">CostEntryHandler(材料成本) ← 独立事务</span> + <span style="color:#3b82f6;">InvResReleaseHandler(释放安全库存)</span><br>
-	        <span style="color:#e06c75;">ProductionReceiptConfirmed</span> → <span style="color:#98c379;">CostEntryHandler(成品) ← 独立事务</span> + <span style="color:#3b82f6;">DocLinkHandler</span><br>
-	        <span style="color:#e06c75;">OutsourcingReceived</span> → <span style="color:#98c379;">CostEntryHandler(外协成本) ← 独立事务</span> + <span style="color:#3b82f6;">DocLinkHandler</span><br>
+	        <span style="color:#e06c75;">ProductionReceiptConfirmed</span> → <span style="color:#98c379;">CostEntryHandler(成品) ← 独立事务</span> + <span style="color:#3b82f6;">DocLinkHandler <span style="color:#888;">[AsyncOutbox]</span></span><br>
+	        <span style="color:#e06c75;">OutsourcingReceived</span> → <span style="color:#98c379;">CostEntryHandler(外协成本) ← 独立事务</span> + <span style="color:#3b82f6;">DocLinkHandler <span style="color:#888;">[AsyncOutbox]</span></span><br>
         <span style="color:#56b6c2;">InspectionFailed</span> → <span style="color:#3b82f6;">MRBHandler(严重时创建MRB)</span><br><br>
         <span style="color:#56b6c2;">■ 审计（独立路径，非事件驱动）</span><br>
         <span style="color:#888;">业务 Service 在同一事务内直接调用 AuditLogService.record()，携带字段级 diff 和请求上下文，与 EventBus 平行独立</span>
@@ -441,7 +501,7 @@ graph TD
         <span style="color:#e5a655;">ShippingRequestService</span>.confirm()<br>
         &nbsp;&nbsp;→ <span style="color:#56b6c2;">InspectionResultService</span>.is_passed(OQC) <span style="color:#888;">// 质量关卡硬门：显式检查，不通过则返回错误</span><br>
         &nbsp;&nbsp;→ <span style="color:#6c8bef;">InventoryReservationService</span>.fulfill(释放SOFT预留)<br>
-        &nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(销售成本: 借COGS/贷存货) <span style="color:#98c379;">← 独立事务</span><br>
+        &nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(销售成本: 借COGS/贷存货) <span style="color:#98c379;">← IndependentTx 独立事务</span><br>
         &nbsp;&nbsp;→ <span style="color:#c678dd;">InventoryTransactionService</span>.record(SalesShipment)
       </div>
     </div>
@@ -455,7 +515,7 @@ graph TD
         <span style="color:#c678dd;">ArrivalNoticeService</span>.confirm() 入库确认<br>
         &nbsp;&nbsp;→ <span style="color:#56b6c2;">InspectionResultService</span>.is_passed(IQC) <span style="color:#888;">// 质量关卡硬门：显式检查，不通过则返回错误</span><br>
         &nbsp;&nbsp;→ <span style="color:#3b82f6;">EventBus</span>.publish(ArrivalNoticeReceived)<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(材料成本: 借存货/贷应付) <span style="color:#98c379;">← 独立事务</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(材料成本: 借存货/贷应付) <span style="color:#98c379;">← IndependentTx 独立事务</span><br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">InventoryReservationService</span>.fulfill(释放安全库存预留)
       </div>
     </div>
@@ -472,7 +532,7 @@ graph TD
         <span style="color:#e06c75;">ProductionReceiptService</span>.confirm() 完工入库<br>
         &nbsp;&nbsp;→ <span style="color:#3b82f6;">EventBus</span>.publish(ProductionReceiptConfirmed)<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#c678dd;">InventoryTransactionService</span>.record(ProductionReceipt)<br>
-        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(成品入库成本) <span style="color:#98c379;">← 独立事务</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(成品入库成本) <span style="color:#98c379;">← IndependentTx 独立事务</span><br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#c678dd;">BackflushService</span>.execute() 触发倒冲<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">InventoryReservationService</span>.cancel(释放剩余Hard)<br><br>
         <span style="color:#e06c75;">WorkOrderService</span>.outsource() 委外加工<br>
@@ -491,10 +551,27 @@ graph TD
         <span style="color:#e06c75;">OutsourcingOrderService</span>.receive() 外协收货<br>
         &nbsp;&nbsp;→ <span style="color:#3b82f6;">EventBus</span>.publish(OutsourcingReceived)<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#56b6c2;">InspectionResultService</span>.create(IQC) <span style="color:#888;">// 触发来料检验</span><br>
-        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(外协服务成本) <span style="color:#98c379;">← 独立事务</span><br><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">CostEntryService</span>.create(外协服务成本) <span style="color:#98c379;">← IndependentTx 独立事务</span><br><br>
         <span style="color:#e06c75;">OutsourcingOrderService</span>.convert_to_internal() 转自制<br>
         &nbsp;&nbsp;→ <span style="color:#3b82f6;">EventBus</span>.publish(OutsourcingConvertedToInternal)<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#e06c75;">MES.WorkOrderService</span>.create() 创建内部工单
+      </div>
+    </div>
+
+    <!-- Master Data cross-module -->
+    <div style="border-left: 4px solid #61afef; padding: 12px 16px; background: rgba(97,175,239,0.05); margin-bottom: 12px; border-radius: 0 8px 8px 0;">
+      <h4 style="color: #61afef; margin: 0 0 6px 0;">Master Data — 全模块上游基础数据</h4>
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 1.8;">
+        <span style="color:#e5a655;">Sales</span> → <span style="color:#61afef;">ProductService</span>.get_product() 报价/订单行引用产品<br>
+        <span style="color:#e5a655;">Sales</span> → <span style="color:#61afef;">ProductPriceService</span>.get_current_price() 报价自动填充单价<br>
+        <span style="color:#6bc76b;">Purchase</span> → <span style="color:#61afef;">ProductService</span>.get_product() 采购订单行引用产品<br>
+        <span style="color:#c678dd;">WMS</span> → <span style="color:#61afef;">ProductService</span>.get_product() 库存事务的产品维度<br>
+        <span style="color:#e06c75;">MES</span> → <span style="color:#61afef;">BomService</span>.get_snapshot() 工单引用 BomSnapshot（不可变）<br>
+        <span style="color:#e06c75;">MES</span> → <span style="color:#61afef;">ProductService</span>.get_product() 工单/报工引用产品<br>
+        <span style="color:#e06c75;">OM</span> → <span style="color:#61afef;">BomService</span>.get_snapshot() 委外引用 BomSnapshot（不可变）<br>
+        <span style="color:#56b6c2;">QMS</span> → <span style="color:#61afef;">ProductService</span>.get_product() 检验规格绑定产品<br>
+        <span style="color:#61afef;">BomService</span> → <span style="color:#61afef;">ProductService</span>.get_product() BOM 节点引用子件产品<br>
+        <span style="color:#61afef;">BomService</span> → <span style="color:#61afef;">CategoryService</span>.list() BOM 按分类组织
       </div>
     </div>
 
@@ -528,6 +605,8 @@ graph TD
         <thead>
           <tr style="border-bottom: 2px solid #444;">
             <th style="text-align: left; padding: 6px; color: #888;">共享接口</th>
+            <th style="text-align: left; padding: 6px; color: #61afef;">MasterData</th>
+            <th style="text-align: left; padding: 6px; color: #f472b6;">Identity</th>
             <th style="text-align: left; padding: 6px; color: #e5a655;">Sales</th>
             <th style="text-align: left; padding: 6px; color: #6bc76b;">Purchase</th>
             <th style="text-align: left; padding: 6px; color: #c678dd;">WMS</th>
@@ -541,6 +620,8 @@ graph TD
         <tbody>
           <tr style="border-bottom: 1px solid #333;">
             <td style="padding: 6px;"><span style="color:#6c8bef;">DocSeq</span></td>
+            <td style="padding: 6px;">—</td>
+            <td style="padding: 6px;">—</td>
             <td style="padding: 6px;">QUO/SO/SR/SRT/REC</td>
             <td style="padding: 6px;">PQ/PO/PRT/PREC/PAY/MISC</td>
             <td style="padding: 6px;">AN/MR/BF/CC/TRF/FC/LCK</td>
@@ -552,6 +633,8 @@ graph TD
           </tr>
           <tr style="border-bottom: 1px solid #333;">
             <td style="padding: 6px;"><span style="color:#e5a655;">DocLink</span></td>
+            <td style="padding: 6px;">—</td>
+            <td style="padding: 6px;">—</td>
             <td style="padding: 6px;">DERIVED_FROM<br>TRIGGERS<br>RECONCILES</td>
             <td style="padding: 6px;">DERIVED_FROM<br>FULFILLS<br>RECONCILES</td>
             <td style="padding: 6px;">FULFILLS<br>ALLOCATES</td>
@@ -563,6 +646,8 @@ graph TD
           </tr>
           <tr style="border-bottom: 1px solid #333;">
             <td style="padding: 6px;"><span style="color:#6bc76b;">InvRes</span></td>
+            <td style="padding: 6px;">—</td>
+            <td style="padding: 6px;">—</td>
             <td style="padding: 6px;">SO→SOFT<br>SR→释放SOFT</td>
             <td style="padding: 6px;">到货→释放安全库存</td>
             <td style="padding: 6px;">领料→消耗HARD<br>盘点→校准</td>
@@ -574,6 +659,8 @@ graph TD
           </tr>
           <tr style="border-bottom: 1px solid #333;">
             <td style="padding: 6px;"><span style="color:#e06c75;">CostEntry</span></td>
+            <td style="padding: 6px;">—</td>
+            <td style="padding: 6px;">—</td>
             <td style="padding: 6px;">发货→销售成本<br>退货→冲减收入</td>
             <td style="padding: 6px;">入库→材料成本<br>退货→冲减应付</td>
             <td style="padding: 6px;">倒冲差异损耗<br>形态转换分摊</td>
@@ -585,6 +672,8 @@ graph TD
           </tr>
           <tr style="border-bottom: 1px solid #333; background: rgba(59,130,246,0.05);">
             <td style="padding: 6px;"><span style="color:#3b82f6;">EventBus</span></td>
+            <td style="padding: 6px;">—</td>
+            <td style="padding: 6px;">—</td>
             <td style="padding: 6px;">publish<br>Confirmed/Shipped/<br>ReturnReceived</td>
             <td style="padding: 6px;">publish<br>Confirmed/Arrived/<br>PaymentPaid</td>
             <td style="padding: 6px;">—</td>
@@ -596,6 +685,8 @@ graph TD
           </tr>
           <tr style="background: rgba(229,166,85,0.05);">
             <td style="padding: 6px;"><span style="color:#e5a655;">StateMachine</span></td>
+            <td style="padding: 6px;">BOM Draft→Published</td>
+            <td style="padding: 6px;">—</td>
             <td style="padding: 6px;">SO/SR/SRET<br>Draft→Completed</td>
             <td style="padding: 6px;">PO/PAY<br>Draft→Closed</td>
             <td style="padding: 6px;">—</td>
@@ -607,6 +698,8 @@ graph TD
           </tr>
           <tr style="border-bottom: 1px solid #333; background: rgba(86,182,194,0.05);">
             <td style="padding: 6px;"><span style="color:#56b6c2;">AuditLog</span></td>
+            <td style="padding: 6px;"><span style="color:#56b6c2;">direct</span><br>create/update</td>
+            <td style="padding: 6px;"><span style="color:#56b6c2;">direct</span><br>user/role/dept</td>
             <td style="padding: 6px;"><span style="color:#56b6c2;">direct</span><br>create/update/transition</td>
             <td style="padding: 6px;"><span style="color:#56b6c2;">direct</span><br>create/update/transition</td>
             <td style="padding: 6px;"><span style="color:#56b6c2;">direct</span><br>create/update/transaction</td>
@@ -618,6 +711,8 @@ graph TD
           </tr>
           <tr style="background: rgba(198,120,221,0.05);">
             <td style="padding: 6px;"><span style="color:#c678dd;">Idempotency</span></td>
+            <td style="padding: 6px;"><span style="color:#c678dd;">API</span><br>防重复提交</td>
+            <td style="padding: 6px;"><span style="color:#c678dd;">API</span><br>防重复提交</td>
             <td style="padding: 6px;"><span style="color:#c678dd;">API+Handler</span><br>防重复提交+Handler幂等</td>
             <td style="padding: 6px;"><span style="color:#c678dd;">API+Handler</span><br>防重复提交+Handler幂等</td>
             <td style="padding: 6px;"><span style="color:#c678dd;">API+Handler</span><br>防重复提交+Handler幂等</td>
@@ -634,10 +729,18 @@ graph TD
     <!-- Stats -->
     <div style="margin-top: 20px; padding: 12px; background: rgba(108,139,239,0.1); border-radius: 6px;">
       <h3 style="margin: 0 0 8px 0; color: #6c8bef;">接口统计</h3>
-      <div style="display: grid; grid-template-columns: repeat(9, 1fr); gap: 8px; text-align: center;">
+      <div style="display: grid; grid-template-columns: repeat(11, 1fr); gap: 8px; text-align: center;">
         <div style="background: #1a1a2e; padding: 10px; border-radius: 6px;">
           <div style="font-size: 22px; color: #6c8bef; font-weight: bold;">9</div>
           <div style="font-size: 10px; color: #888;">Shared</div>
+        </div>
+        <div style="background: #1a1a2e; padding: 10px; border-radius: 6px;">
+          <div style="font-size: 22px; color: #61afef; font-weight: bold;">5</div>
+          <div style="font-size: 10px; color: #61afef;">MasterData</div>
+        </div>
+        <div style="background: #1a1a2e; padding: 10px; border-radius: 6px;">
+          <div style="font-size: 22px; color: #f472b6; font-weight: bold;">5</div>
+          <div style="font-size: 10px; color: #f472b6;">Identity</div>
         </div>
         <div style="background: #1a1a2e; padding: 10px; border-radius: 6px;">
           <div style="font-size: 22px; color: #e5a655; font-weight: bold;">5</div>
@@ -673,7 +776,7 @@ graph TD
         </div>
       </div>
       <div style="text-align: center; margin-top: 10px; font-size: 13px; color: #e5c07b; font-weight: bold;">
-        合计：48 个 Service Trait · 187 个核心方法
+        合计：58 个 Service Trait · 230 个核心方法
       </div>
     </div>
 

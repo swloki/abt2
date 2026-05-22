@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>主数据模块 (Master Data) — 类图设计 v2</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+    .mockup { background: #282a36; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .mockup-header { background: linear-gradient(135deg, #61afef, #56b6c2); color: #fff; padding: 12px 20px; font-weight: bold; font-size: 15px; }
+.mermaid-wrap{background:#282a36;border-radius:12px;padding:20px;margin-bottom:20px;box-shadow:0 4px 24px rgba(0,0,0,0.3);position:relative}
+.mermaid{display:flex;justify-content:center}
+.zoom-toolbar{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:8px;padding:8px 0 12px 0;background:#282a36}
+.zoom-toolbar button{background:#3b3f5c;border:1px solid #555;color:#cdd6f4;width:32px;height:32px;border-radius:6px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center}
+.zoom-toolbar button:hover{background:#4a4f6c;border-color:#6c8bef}
+.zoom-toolbar .zoom-label{font-size:12px;color:#888;min-width:44px;text-align:center}
+.zoom-container{overflow:hidden;border:1px solid #333;border-radius:8px;cursor:grab;min-height:80vh;max-height:90vh}
+.zoom-container:active{cursor:grabbing}
+.zoom-container.dragging{cursor:grabbing;user-select:none}
+.zoom-container svg{display:block;margin:auto;transform-origin:top center}
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,background:'#282a36',primaryColor:'#3b3f5c',primaryTextColor:'#cdd6f4',lineColor:'#666',clusterBkg:'rgba(108,139,239,0.08)',clusterBorder:'rgba(108,139,239,0.25)'},flowchart:{useMaxWidth:false,htmlLabels:true}});
+</script>
+</head>
+<body>
+<h2>主数据模块 (Master Data) — 类图设计 v2</h2>
+<p class="subtitle">产品目录 + 分类体系 + 价格管理 + BOM 工程数据（快照版本） · 所有业务模块的上游基础数据</p>
+
+<div class="mermaid-wrap">
+  <div class="zoom-toolbar">
+    <button id="zoomOut" title="缩小">&#8722;</button>
+    <span class="zoom-label" id="zoomLabel">100%</span>
+    <button id="zoomIn" title="放大">+</button>
+    <button id="zoomReset" title="重置" style="width:auto;padding:0 12px;font-size:12px;">重置</button>
+    <button id="zoomFit" title="适应宽度" style="width:auto;padding:0 12px;font-size:12px;">适应</button>
+    <span style="margin-left:auto;font-size:11px;color:#666;">滚轮缩放 · 拖拽平移</span>
+  </div>
+  <div class="zoom-container" id="zoomContainer">
+    <div class="mermaid">
+classDiagram
+  class BomStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Draft
+    Published
+  }
+
+  class Product {
+    +product_id: i64
+    +pdt_name: String
+    +product_code: String
+    +unit: String
+    +meta: ProductMeta
+  }
+
+  class ProductMeta {
+    +specification: String
+    +acquire_channel: String
+    +old_code: Option~String~
+  }
+
+  class Category {
+    +category_id: i64
+    +category_name: String
+    +parent_id: i64
+    +path: String
+    +meta: CategoryMeta
+    +created_at: DateTime
+    +updated_at: Option~DateTime~
+  }
+
+  class CategoryMeta {
+    +count: i64
+  }
+
+  class CategoryTree {
+    +category_id: i64
+    +category_name: String
+    +parent_id: i64
+    +path: String
+    +meta: CategoryMeta
+    +children: Vec~CategoryTree~
+  }
+
+  class ProductCategory {
+    +product_id: i64
+    +category_id: i64
+  }
+
+  class PriceLogEntry {
+    +log_id: i64
+    +product_id: i64
+    +new_price: Decimal
+    +operator_id: Option~i64~
+    +remark: Option~String~
+    +created_at: DateTime
+  }
+
+  class Bom {
+    +bom_id: i64
+    +bom_name: String
+    +create_at: DateTime
+    +update_at: Option~DateTime~
+    +bom_detail: BomDetail
+    +bom_category_id: Option~i64~
+    +status: BomStatus
+    +published_at: Option~DateTime~
+    +created_by: Option~i64~
+  }
+
+  class BomDetail {
+    +nodes: Vec~BomNode~
+  }
+
+  class BomNode {
+    +id: i64
+    +product_id: i64
+    +product_code: Option~String~
+    +quantity: f64
+    +parent_id: i64
+    +loss_rate: f64
+    +order: i32
+    +unit: Option~String~
+    +remark: Option~String~
+    +position: Option~String~
+    +work_center: Option~String~
+    +properties: Option~String~
+  }
+
+  class BomCategory {
+    +bom_category_id: i64
+    +bom_category_name: String
+    +created_at: DateTime
+  }
+
+  class BomSnapshot {
+    +snapshot_id: i64
+    +bom_id: i64
+    +bom_name: String
+    +bom_detail: BomDetail
+    +published_at: DateTime
+    +published_by: i64
+  }
+
+  class BomCostReport {
+    +bom_id: i64
+    +bom_name: String
+    +product_code: String
+    +as_of_date: Option~DateTime~
+    +material_costs: Vec~MaterialCostItem~
+    +labor_costs: Vec~LaborCostItem~
+    +warnings: Vec~String~
+  }
+
+  class MaterialCostItem {
+    +node_id: i64
+    +product_id: i64
+    +product_name: String
+    +product_code: String
+    +quantity: f64
+    +unit_price: Option~String~
+  }
+
+  class LaborCostItem {
+    +id: i64
+    +name: String
+    +unit_price: String
+    +quantity: String
+    +sort_order: i32
+    +remark: String
+  }
+
+  class ProductService {
+    &lt;&lt;interface&gt;&gt;
+    +create(product, executor) i64
+    +update(product_id, product, executor)
+    +delete(product_id, executor)
+    +find(product_id) Product
+    +find_by_ids(product_ids) Vec~Product~
+    +query(query) PaginatedResult
+    +exist_code(pool, code) bool
+    +generate_product_code(pool) String
+    +check_product_usage(product_id, page, page_size) BomUsage
+  }
+
+  class ProductPriceService {
+    &lt;&lt;interface&gt;&gt;
+    +update_price(product_id, new_price, operator_id, remark, executor)
+    +get_price_history(query, pool) PaginatedResult
+    +list_all_price_history(query, pool) PaginatedResult
+  }
+
+  class CategoryService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, executor) i64
+    +update(category_id, req, executor)
+    +delete(category_id, executor)
+    +get(category_id) Category
+    +list(query) Vec~Category~
+    +get_tree() Vec~CategoryTree~
+    +get_subtree(category_id) Vec~CategoryTree~
+    +move_to(category_id, new_parent_id, executor)
+    +assign_products(category_id, product_ids, executor)
+    +remove_products(category_id, product_ids, executor)
+  }
+
+  class BomService {
+    &lt;&lt;interface&gt;&gt;
+    +create(name, created_by, bom_category_id, executor) i64
+    +update(bom, executor)
+    +update_metadata(bom_id, name, bom_category_id, executor)
+    +delete(bom_id, executor)
+    +find(bom_id, executor) Bom
+    +query(query) PaginatedResult
+    +add_node(bom_id, node, executor) i64
+    +update_node(bom_id, node, executor)
+    +delete_node(bom_id, node_id, executor) i64
+    +swap_node_position(bom_id, id1, id2, executor)
+    +exists_name(name, caller_id) bool
+    +get_leaf_nodes(bom_id) Vec~BomNode~
+    +save_as(source_bom_id, new_name, created_by, executor) i64
+    +substitute_product(old_product_id, new_product_id, bom_id, overrides, caller_id, executor) SubstitutionResult
+    +get_bom_cost_report(bom_id, as_of_date, executor) BomCostReport
+    +get_bom_labor_cost(bom_id) BomLaborCostReport
+    +publish(bom_id, operator_id, executor) Bom
+    +unpublish(bom_id, operator_id, executor) Bom
+    +get_snapshots(bom_id) Vec~BomSnapshot~
+    +get_snapshot(snapshot_id) BomSnapshot
+  }
+
+  class BomCategoryService {
+    &lt;&lt;interface&gt;&gt;
+    +create(req, executor) i64
+    +update(id, req, executor)
+    +delete(id, executor)
+    +list(query) PaginatedResult
+  }
+
+  Product *-- ProductMeta : meta
+  Category *-- CategoryMeta : meta
+  CategoryTree *-- CategoryMeta : meta
+  CategoryTree o-- CategoryTree : children
+  ProductCategory --> Category : FK
+  ProductCategory --> Product : FK
+  Product "1" --> "0..*" ProductCategory : categories
+  Category "1" --> "0..*" ProductCategory : products
+  Bom *-- BomDetail : bom_detail
+  BomDetail o-- "0..*" BomNode : nodes
+  Bom --> BomCategory : bom_category_id
+  Bom --> BomStatus : status
+  Bom "1" --> "0..*" BomSnapshot : snapshots
+  BomSnapshot *-- BomDetail : bom_detail
+  BomCostReport o-- MaterialCostItem
+  BomCostReport o-- LaborCostItem
+
+  ProductService ..> Product
+  ProductPriceService ..> PriceLogEntry
+  CategoryService ..> Category
+  CategoryService ..> CategoryTree
+  CategoryService ..> ProductCategory
+  BomService ..> Bom
+  BomService ..> BomNode
+  BomService ..> BomCostReport
+  BomService ..> BomSnapshot
+  BomCategoryService ..> BomCategory
+    </div>
+  </div>
+</div>
+<script>
+(function(){var s=1,tx=0,ty=0,ms=0.1,xs=8;var c=document.getElementById('zoomContainer'),l=document.getElementById('zoomLabel'),d=false,sx,sy,stx,sty;function a(){var v=c.querySelector('svg');if(v)v.style.transform='scale('+s+') translate('+tx+'px,'+ty+'px)';l.textContent=Math.round(s*100)+'%'}document.getElementById('zoomIn').onclick=function(){s=Math.min(xs,s+0.15);a()};document.getElementById('zoomOut').onclick=function(){s=Math.max(ms,s-0.15);a()};document.getElementById('zoomReset').onclick=function(){s=1;tx=0;ty=0;a()};document.getElementById('zoomFit').onclick=function(){var v=c.querySelector('svg');if(!v)return;var w=c.clientWidth-40,sw=v.getBoundingClientRect().width/s;s=Math.max(ms,Math.min(1.5,w/sw));tx=0;ty=0;a()};c.addEventListener('wheel',function(e){e.preventDefault();s=Math.max(ms,Math.min(xs,s+(e.deltaY>0?-0.08:0.08)));a()},{passive:false});c.addEventListener('mousedown',function(e){if(e.button!==0)return;d=true;c.classList.add('dragging');sx=e.clientX;sy=e.clientY;stx=tx;sty=ty});document.addEventListener('mouseup',function(){d=false;c.classList.remove('dragging')});document.addEventListener('mousemove',function(e){if(!d)return;e.preventDefault();tx=stx+(e.clientX-sx)/s;ty=sty+(e.clientY-sy)/s;a()})})();
+</script>
+
+<div class="mockup">
+  <div class="mockup-header">Master Data Module — UML Class Diagram</div>
+  <div class="mockup-body" style="padding: 20px; font-size: 13px; line-height: 1.5;">
+
+    <!-- Business flow -->
+    <div style="background: rgba(97,175,239,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #61afef;">核心数据流</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
+        <span style="color:#e5c07b;">Category</span> 分类（树形 + 物化路径）
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">Product</span> 产品（M:N 多分类）
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">Bom</span> 物料清单（草稿/发布）
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">BomNode</span> 节点（树形结构）
+        <br>
+        <span style="color:#e06c75;">↗ BomSnapshot</span> 发布快照（不可变，工单引用）
+        &nbsp;&nbsp;
+        <span style="color:#e06c75;">↗ PriceLogEntry</span> 价格历史（支持时间点查询）
+        &nbsp;&nbsp;
+        <span style="color:#56b6c2;">↗ BomCostReport</span> BOM 成本报告（支持 as_of_date）
+      </div>
+    </div>
+
+    <!-- Row 1: Product + Category -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- Product -->
+      <div style="border: 2px solid #61afef; border-radius: 8px; padding: 14px; background: rgba(97,175,239,0.05);">
+        <h4 style="color: #61afef; margin: 0 0 6px 0;">Product 产品</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">核心基础实体，所有业务模块（库存/BOM/采购/销售/MES）的物料主数据</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Product</span> {<br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;pdt_name: String <span style="color:#888;">// 产品名称</span><br>
+          &nbsp;&nbsp;product_code: String <span style="color:#888;">// 自动生成 x{timestamp}</span><br>
+          &nbsp;&nbsp;unit: String <span style="color:#888;">// 计量单位</span><br>
+          &nbsp;&nbsp;meta: JSONB → ProductMeta<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ProductMeta</span> {<br>
+          &nbsp;&nbsp;specification: String <span style="color:#888;">// 规格型号</span><br>
+          &nbsp;&nbsp;acquire_channel: String <span style="color:#888;">// 获取途径(采购/自制)</span><br>
+          &nbsp;&nbsp;old_code: String? <span style="color:#888;">// 旧编码(迁移兼容)</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductCategory</span> {<br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;category_id: i64 <span style="color:#888;">FK→categories</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">// UNIQUE(product_id, category_id)</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ProductService</span> {<br>
+          &nbsp;&nbsp;create(product, executor) → i64<br>
+          &nbsp;&nbsp;update(product_id, product, executor)<br>
+          &nbsp;&nbsp;delete(product_id, executor)<br>
+          &nbsp;&nbsp;find(product_id) → Option&lt;Product&gt;<br>
+          &nbsp;&nbsp;find_by_ids(ids) → Vec&lt;Product&gt;<br>
+          &nbsp;&nbsp;query(query) → (Vec, total)<br>
+          &nbsp;&nbsp;exist_code(pool, code) → bool<br>
+          &nbsp;&nbsp;generate_product_code(pool) → String<br>
+          &nbsp;&nbsp;check_product_usage(id, page) → (bool, refs, total)<br>
+          }
+        </div>
+      </div>
+
+      <!-- Category -->
+      <div style="border: 2px solid #6bc76b; border-radius: 8px; padding: 14px; background: rgba(107,199,107,0.05);">
+        <h4 style="color: #6bc76b; margin: 0 0 6px 0;">Category 产品分类</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">产品分类树，支持无限层级。通过 ProductCategory 关联表实现产品多分类（一个产品可归属多个分类）。物化路径(path)优化子树查询性能</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Category</span> {<br>
+          &nbsp;&nbsp;category_id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;category_name: String <span style="color:#888;">// 分类名称</span><br>
+          &nbsp;&nbsp;parent_id: i64 <span style="color:#888;">// 父分类(0=顶级)</span><br>
+          &nbsp;&nbsp;path: String <span style="color:#888;">// 物化路径 如 "/1/5/12/"</span><br>
+          &nbsp;&nbsp;meta: JSONB → CategoryMeta<br>
+          &nbsp;&nbsp;created_at: DateTime<br>
+          &nbsp;&nbsp;updated_at: DateTime?<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CategoryMeta</span> {<br>
+          &nbsp;&nbsp;count: i64 <span style="color:#888;">// 关联产品数量</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CategoryTree</span> {<br>
+          &nbsp;&nbsp;category_id, category_name<br>
+          &nbsp;&nbsp;parent_id, path, meta<br>
+          &nbsp;&nbsp;children: Vec&lt;CategoryTree&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">CategoryService</span> {<br>
+          &nbsp;&nbsp;create(req, executor) → i64<br>
+          &nbsp;&nbsp;update(category_id, req, executor)<br>
+          &nbsp;&nbsp;delete(category_id, executor)<br>
+          &nbsp;&nbsp;get(category_id) → Option&lt;Category&gt;<br>
+          &nbsp;&nbsp;list(query) → Vec&lt;Category&gt;<br>
+          &nbsp;&nbsp;get_tree() → Vec&lt;CategoryTree&gt;<br>
+          &nbsp;&nbsp;get_subtree(category_id) → Vec&lt;CategoryTree&gt;<br>
+          &nbsp;&nbsp;move_to(category_id, new_parent_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;executor) <span style="color:#888;">// 级联更新path</span><br>
+          &nbsp;&nbsp;assign_products(category_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;product_ids, executor)<br>
+          &nbsp;&nbsp;remove_products(category_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;product_ids, executor)<br>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: BOM + BomNode -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- BOM -->
+      <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05);">
+        <h4 style="color: #e5a655; margin: 0 0 6px 0;">BOM 物料清单</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">定义产品的物料构成。草稿/发布双状态，发布时生成不可变快照（BomSnapshot）。支持复制、物料替换、成本核算</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Bom</span> {<br>
+          &nbsp;&nbsp;bom_id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;bom_name: String<br>
+          &nbsp;&nbsp;create_at: DateTime<br>
+          &nbsp;&nbsp;update_at: DateTime?<br>
+          &nbsp;&nbsp;bom_detail: BomDetail <span style="color:#888;">// 从 bom_nodes 加载</span><br>
+          &nbsp;&nbsp;bom_category_id: i64? <span style="color:#888;">FK→bom_categories</span><br>
+          &nbsp;&nbsp;status: BomStatus<br>
+          &nbsp;&nbsp;published_at: DateTime?<br>
+          &nbsp;&nbsp;created_by: i64? <span style="color:#888;">FK→users</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">BomStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT <span style="color:#888;">// 仅创建者可见</span><br>
+          &nbsp;&nbsp;PUBLISHED <span style="color:#888;">// 全员可见</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BomCategory</span> {<br>
+          &nbsp;&nbsp;bom_category_id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;bom_category_name: String<br>
+          &nbsp;&nbsp;created_at: DateTime<br>
+          }
+        </div>
+      </div>
+
+      <!-- BomNode -->
+      <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
+        <h4 style="color: #e06c75; margin: 0 0 6px 0;">BomNode BOM 节点</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">树形物料节点。parent_id=0 为根节点（成品），其余为子节点（原材料/半成品）。存储于独立的 bom_nodes 表。order 仅在 parent_id 相同的兄弟节点内有效，通过 swap_node_position 调整</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BomNode</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;bom_id: i64 <span style="color:#888;">FK→boms</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;product_code: String? <span style="color:#888;">// 冗余编码</span><br>
+          &nbsp;&nbsp;quantity: Decimal(10,6)<br>
+          &nbsp;&nbsp;parent_id: i64 <span style="color:#888;">// 0=根节点</span><br>
+          &nbsp;&nbsp;loss_rate: Decimal <span style="color:#888;">// 损耗率</span><br>
+          &nbsp;&nbsp;order: i32 <span style="color:#888;">// 兄弟节点内排序</span><br>
+          &nbsp;&nbsp;unit: String?<br>
+          &nbsp;&nbsp;remark: String?<br>
+          &nbsp;&nbsp;position: String? <span style="color:#888;">// 位置</span><br>
+          &nbsp;&nbsp;work_center: String? <span style="color:#888;">// 工作中心</span><br>
+          &nbsp;&nbsp;properties: String? <span style="color:#888;">// 自定义属性</span><br>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 3: PriceLog + CostReport + BomService -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+      <!-- PriceLogEntry -->
+      <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+        <h4 style="color: #c678dd; margin: 0 0 6px 0; font-size: 13px;">PriceLogEntry 价格日志</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">每次价格变更自动追加记录，不可修改。支持按时间点查询历史价格</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">PriceLogEntry</span> {<br>
+          &nbsp;&nbsp;log_id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;new_price: Decimal(10,6)<br>
+          &nbsp;&nbsp;operator_id: i64?<br>
+          &nbsp;&nbsp;remark: String?<br>
+          &nbsp;&nbsp;created_at: DateTime<br>
+          }<br><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ProductPriceService</span> {<br>
+          &nbsp;&nbsp;update_price(product_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;new_price, operator_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;remark, executor)<br>
+          &nbsp;&nbsp;get_price_history(query, pool)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult<br>
+          &nbsp;&nbsp;list_all_price_history(query,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;pool) → PaginatedResult<br>
+          }
+        </div>
+      </div>
+
+      <!-- BomCostReport -->
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0; font-size: 13px;">BomCostReport BOM 成本报告</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">汇总 BOM 的材料成本和人工成本。支持 as_of_date 按历史时间点核算，含价格缺失预警</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">BomCostReport</span> {<br>
+          &nbsp;&nbsp;bom_id: i64<br>
+          &nbsp;&nbsp;bom_name: String<br>
+          &nbsp;&nbsp;product_code: String<br>
+          &nbsp;&nbsp;as_of_date: DateTime? <span style="color:#888;">// null=最新</span><br>
+          &nbsp;&nbsp;material_costs: Vec<br>
+          &nbsp;&nbsp;labor_costs: Vec<br>
+          &nbsp;&nbsp;warnings: Vec&lt;String&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">MaterialCostItem</span> {<br>
+          &nbsp;&nbsp;node_id, product_id<br>
+          &nbsp;&nbsp;product_name, product_code<br>
+          &nbsp;&nbsp;quantity, unit_price?<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">LaborCostItem</span> {<br>
+          &nbsp;&nbsp;id, name, unit_price<br>
+          &nbsp;&nbsp;quantity, sort_order, remark<br>
+          }
+        </div>
+      </div>
+
+      <!-- BomService key operations -->
+      <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05);">
+        <h4 style="color: #98c379; margin: 0 0 6px 0; font-size: 13px;">BomService 关键操作</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">BOM 全生命周期管理：创建、编辑、发布（生成快照）、复制、替换、成本核算</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#e5a655;">// 发布流程（快照模式）</span><br>
+          <span style="color:#e5c07b;">publish</span>(bom_id, operator_id)<br>
+          &nbsp;&nbsp;Draft → Published<br>
+          &nbsp;&nbsp;<span style="color:#888;">// 自动生成 BomSnapshot</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">// 快照不可变，保留历史</span><br>
+          <span style="color:#e5c07b;">unpublish</span>(bom_id, operator_id)<br>
+          &nbsp;&nbsp;Published → Draft<br>
+          &nbsp;&nbsp;<span style="color:#888;">// 不删除快照</span><br><br>
+          <span style="color:#e5a655;">// 物料替换（事务+锁）</span><br>
+          <span style="color:#e5c07b;">substitute_product</span>(<br>
+          &nbsp;&nbsp;old_product_id, new_product_id,<br>
+          &nbsp;&nbsp;bom_id?, overrides, caller_id)<br>
+          &nbsp;&nbsp;→ (affected_boms, affected_nodes)<br>
+          &nbsp;&nbsp;<span style="color:#888;">// InCallerTx: 调用者提供事务</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">// SELECT FOR UPDATE 防并发</span><br><br>
+          <span style="color:#e5a655;">// 快照查询</span><br>
+          <span style="color:#e5c07b;">get_snapshots</span>(bom_id)<br>
+          &nbsp;&nbsp;→ Vec&lt;BomSnapshot&gt;<br>
+          <span style="color:#e5c07b;">get_snapshot</span>(snapshot_id)<br>
+          &nbsp;&nbsp;→ BomSnapshot
+        </div>
+      </div>
+    </div>
+
+    <!-- Shared layer summary -->
+    <div style="padding: 12px; background: rgba(97,175,239,0.1); border-radius: 6px;">
+      <h3 style="margin: 0 0 8px 0; color: #61afef;">主数据模块 × 下游模块依赖</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+        <span style="color:#61afef;">Product</span> → 所有模块的物料标识：库存、BOM节点、采购明细、销售明细、工单、检验批次<br>
+        <span style="color:#6bc76b;">Category</span> → 产品分类筛选（物化路径 path 支持子树快速查询，通过 ProductCategory M:N 关联）<br>
+        <span style="color:#e5a655;">BOM</span> → <a href="04-mes.html" style="color:#e06c75;">MES</a> 工单引用 BomSnapshot（不可变） | <a href="03-wms.html" style="color:#c678dd;">WMS</a> 领料单物料来源 | 成本核算的材料清单<br>
+        <span style="color:#e06c75;">BomSnapshot</span> → publish 时自动生成，工单/MES 引用 snapshot_id 确保数据不可变。unpublish 不删除快照<br>
+        <span style="color:#e06c75;">BomNode</span> → get_leaf_nodes() 供出库使用 | loss_rate 用于成本差异计算 | order 仅在兄弟节点内有效<br>
+        <span style="color:#c678dd;">PriceLog</span> → <a href="07-fms.html" style="color:#98c379;">FMS</a> CostEntry 材料成本 | BOM 成本报告 unit_price 来源（支持 as_of_date 历史价格）<br>
+        <span style="color:#56b6c2;">权限</span> → PRODUCT / CATEGORY / BOM / PRICE / BOM_COST / BOM_LABOR_COST 6 种资源权限
+      </div>
+    </div>
+
+    <!-- Shared infrastructure integration -->
+    <div style="padding: 12px; background: rgba(152,195,121,0.1); border-radius: 6px; margin-top: 12px;">
+      <h3 style="margin: 0 0 8px 0; color: #98c379;">共享基础设施集成点</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+        <span style="color:#e5c07b;">DocumentSequenceService</span> → ProductService.generate_product_code() 内部调用 next_number() 生成产品编码<br>
+        <span style="color:#e5c07b;">AuditLogService</span> → 所有 create / update / delete / publish / unpublish 操作内调用 record()（同事务内，字段级 diff）<br>
+        <span style="color:#e5c07b;">StateMachineService</span> → BomStatus (Draft ↔ Published) 状态转换通过 transition() 管理<br>
+        <span style="color:#e5c07b;">DomainEventBus</span> → publish 操作完成后发布事件（idempotency_key: bom:{bom_id}:published）<br>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

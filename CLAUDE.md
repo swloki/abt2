@@ -67,20 +67,7 @@ Proto 编译由 `abt-grpc/build.rs` 处理，扫描 `proto/abt/v1/` 并输出到
 
 ### Shared Infrastructure（共享基础设施层）
 
-业务 Service impl 通过调用以下共享服务完成横切关注点（详见 `docs/uml-design/00-shared-infrastructure.html`）：
-
-| 共享服务 | 职责 | 调用时机 |
-|----------|------|----------|
-| `DocumentSequenceService` | 生成单据编号（如 SO-2026-05-00142） | 创建单据时 |
-| `DocumentLinkService` | 记录单据间关联（有向图） | 单据流转时（报价→订单→发货）|
-| `InventoryReservationService` | 库存预留/释放/过期（ATP 可用量） | 订单确认、工单下达、领料时 |
-| `CostEntryService` | 成本累积（双层记账） | 产生成本的业务事件时 |
-| `DomainEventBus` | 事件发布（Outbox 模式）| 业务操作完成后，强制传 `idempotency_key` |
-| `StateMachineService` | 状态转换管理 | 替代 if-else 状态校验 |
-| `AuditLogService` | 操作审计（字段级 diff）| create/update/delete/transition 时，同事务内 |
-| `IdempotencyService` | 幂等去重 | EventProcessor 消费事件前、API 防重复提交 |
-
-**Handler 语义**：同步 handler（库存预留、质量关卡）在调用者事务内执行；异步 handler（成本记录、文档链接、Workflow 触发）通过 Outbox 异步消费。
+业务 Service impl 通过共享服务完成横切关注点。**实现共享基础设施或集成共享服务前，必须先读 `docs/uml-design/README.md`**（接口签名、类型定义、集成规则）。详细类图见 `docs/uml-design/00-shared-infrastructure.html`。
 
 ### Global State
 
@@ -103,10 +90,7 @@ PostgreSQL + sqlx（通过 `sqlx::query!` 宏实现编译期检查）。Migratio
 
 - **模块边界**：跨模块调用只允许通过 Service trait（`abt/src/service/`）和 Model（`abt/src/models/`）。禁止跨模块直接访问 Repository（`abt/src/repositories/`）或 Service impl（`abt/src/implt/`）。同模块内部可自由调用自身 Repository
 - **错误处理**：新服务使用 `thiserror` 定义的 `DomainError` 枚举，返回 `Result<T, DomainError>`；老服务保持 `anyhow::Result<T>`，渐进式迁移。`#[error(transparent)]` + `#[from] anyhow::Error` 保证老代码零改动。gRPC handler 层将 `DomainError` 映射为 `tonic::Status`
-- **分页**：所有查询接口统一返回 `PaginatedResult<T>`（items, total, page, page_size, total_pages）
-- **事件发布**：`DomainEventBus.publish()` 强制传 `idempotency_key`（格式：`{aggregate_type}:{aggregate_id}:{event_type}`），底层 INSERT ON CONFLICT 防重复
-- **审计日志**：`AuditLogService.record()` 在业务 Service 同一事务内调用，记录字段级 diff
-- **状态管理**：使用 `StateMachineService.transition()` 替代 if-else 状态校验；`can_transition()` 供 UI 查询按钮可用性
+- **共享基础设施**：集成共享服务前必须读 `docs/uml-design/README.md`（接口签名、AuditAction / SideEffect / EventPublishRequest 等类型定义、集成规则）
 - 所有 service trait 使用 `async-trait` crate 的 `#[async_trait]`
 - `abt/src/lib.rs` 中 `#![allow(non_snake_case)]` — Proto 生成的名称使用 CamelCase
 - 所有 crate edition 统一为 2024
@@ -128,15 +112,4 @@ PostgreSQL + sqlx（通过 `sqlx::query!` 宏实现编译期检查）。Migratio
 7. 在 `abt-grpc/src/handlers/` 创建 handler（Proto 与 Model 类型互转，DomainError → tonic::Status）
 8. 在 `abt-grpc/src/server.rs` 注册 handler
 9. 在 `abt/migrations/` 添加数据库迁移
-10. **业务集成** — 根据功能需要，在 Service impl 中集成共享基础设施：
-
-| 场景 | 必须调用 |
-|------|----------|
-| 创建单据 | `DocumentSequenceService.next_number()` 生成编号 |
-| 单据状态变更 | `StateMachineService.transition()` + `can_transition()` 校验 |
-| 业务操作产生事件 | `DomainEventBus.publish()`（强制 idempotency_key）|
-| 数据变更（create/update/delete）| `AuditLogService.record()`（同事务内，字段级 diff）|
-| 单据间产生关联 | `DocumentLinkService.create_link()` 或 `batch_create_link()` |
-| 涉及库存占用/释放 | `InventoryReservationService.reserve()` / `fulfill()` / `cancel()` |
-| 产生成本 | `CostEntryService.create()` 或 `batch_create()` |
-| 查询列表 | 返回 `PaginatedResult<T>`，不返回裸 `Vec<T>` |
+10. **业务集成** — 根据功能需要，在 Service impl 中集成共享基础设施。具体接口签名和集成规则见 `docs/uml-design/README.md`

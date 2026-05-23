@@ -172,28 +172,28 @@ classDiagram
 
   class CashJournalService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~CashJournal~
-    +confirm(id, operator_id) Result~CashJournal~
+    +create(ctx: ServiceContext, req) Result~i64~
+    +confirm(ctx: ServiceContext, id) Result~Unit~
     +find_by_id(id) Result~CashJournal~
-    +list(filter) Result~Vec~
+    +list(filter) PaginatedResult~CashJournal~
     +get_balance(period) Result~Decimal~
   }
 
   class WriteOffService {
     &lt;&lt;interface&gt;&gt;
-    +write_off(journal_id, source_type, source_id, amount, operator_id) Result~WriteOff~
+    +write_off(ctx: ServiceContext, journal_id, source_type, source_id, amount) Result~i64~
     +list_by_source(source_type, source_id) Result~Vec~
     +get_unreconciled_amount(source_type, source_id) Result~Decimal~
   }
 
   class ExpenseReimbursementService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~ExpenseReimbursement~
-    +submit(id, operator_id) Result~ExpenseReimbursement~
-    +approve(id, operator_id) Result~ExpenseReimbursement~
-    +pay(id, cash_journal_id, operator_id) Result~ExpenseReimbursement~
+    +create(ctx: ServiceContext, req) Result~i64~
+    +submit(ctx: ServiceContext, id) Result~Unit~
+    +approve(ctx: ServiceContext, id) Result~Unit~
+    +pay(ctx: ServiceContext, id, cash_journal_id) Result~Unit~
     +find_by_id(id) Result~ExpenseReimbursement~
-    +list(filter) Result~Vec~
+    +list(filter) PaginatedResult~ExpenseReimbursement~
   }
 
   class CostAccountingService {
@@ -209,6 +209,8 @@ classDiagram
   note for WriteOffService "Sales Receipt WriteOff:\n  source_type = ShippingRequest\n  One shipping request can have multiple partial write-offs\n  unreconciled = total_amount - SUM(write_off.amount)\nPurchase Payment WriteOff:\n  source_type = PurchaseOrder / ArrivalNotice\n  Three-way match: invoice + arrival + payment"
 
   note for CostAccountingService "Reads from shared CostEntry table:\n  get_product_cost -> SUM by entity_type=Product, period\n  get_work_order_cost -> SUM by entity_type=WorkOrder\n  get_profit_center_summary -> SUM by profit_center, period\n  get_margin_analysis -> compare Quotation.estimated_margin vs actual"
+
+  note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>
@@ -245,21 +247,21 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">管控所有现金流入流出：销售回款、采购付款、费用报销、工资支付，钱账实时对齐</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CashJournal</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// CJ-2026-05-xxxxx</span><br>
           &nbsp;&nbsp;journal_type: JournalType<br>
           &nbsp;&nbsp;direction: CashDirection<br>
-          &nbsp;&nbsp;amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;amount: Decimal(20,4)<br>
           &nbsp;&nbsp;counterparty_type: CounterpartyType<br>
-          &nbsp;&nbsp;counterparty_id: UUID<br>
+          &nbsp;&nbsp;counterparty_id: i64<br>
           &nbsp;&nbsp;source_type: DocumentType<br>
-          &nbsp;&nbsp;source_id: UUID<br>
+          &nbsp;&nbsp;source_id: i64<br>
           &nbsp;&nbsp;bank_account: String<br>
           &nbsp;&nbsp;transaction_date: Date<br>
           &nbsp;&nbsp;period: String <span style="color:#888;">// "2026-05"</span><br>
           &nbsp;&nbsp;status: JournalStatus<br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
@@ -290,13 +292,13 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">双层记账：每笔日记账同时记借方和贷方，支持成本中心和利润中心归集</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CashJournalLine</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;journal_id: UUID <span style="color:#888;">FK→cash_journals</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;journal_id: i64 <span style="color:#888;">FK→cash_journals</span><br>
           &nbsp;&nbsp;account_code: String <span style="color:#888;">// 会计科目编码</span><br>
-          &nbsp;&nbsp;debit_amount: Decimal(10,6) <span style="color:#888;">// 借方金额</span><br>
-          &nbsp;&nbsp;credit_amount: Decimal(10,6) <span style="color:#888;">// 贷方金额</span><br>
-          &nbsp;&nbsp;cost_center: UUID? <span style="color:#888;">// 成本中心</span><br>
-          &nbsp;&nbsp;profit_center: UUID? <span style="color:#888;">// 利润中心</span><br>
+          &nbsp;&nbsp;debit_amount: Decimal(20,4) <span style="color:#888;">// 借方金额</span><br>
+          &nbsp;&nbsp;credit_amount: Decimal(20,4) <span style="color:#888;">// 贷方金额</span><br>
+          &nbsp;&nbsp;cost_center: i64? <span style="color:#888;">// 成本中心</span><br>
+          &nbsp;&nbsp;profit_center: i64? <span style="color:#888;">// 利润中心</span><br>
           &nbsp;&nbsp;remark: String<br>
           }
         </div>
@@ -315,14 +317,14 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">销售回款按出库单核销，采购付款按入库单核销，确保每笔钱都有据可查</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WriteOff</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;write_off_type: WriteOffType<br>
-          &nbsp;&nbsp;cash_journal_id: UUID <span style="color:#888;">FK→cash_journals</span><br>
+          &nbsp;&nbsp;cash_journal_id: i64 <span style="color:#888;">FK→cash_journals</span><br>
           &nbsp;&nbsp;source_type: DocumentType<br>
-          &nbsp;&nbsp;source_id: UUID <span style="color:#888;">// 出库单/入库单</span><br>
-          &nbsp;&nbsp;amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;source_id: i64 <span style="color:#888;">// 出库单/入库单</span><br>
+          &nbsp;&nbsp;amount: Decimal(20,4)<br>
           &nbsp;&nbsp;write_off_date: Date<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">WriteOffType</span> {<br>
@@ -341,28 +343,28 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">员工费用报销申请，审批通过后自动生成付款日记账</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ExpenseReimbursement</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// ER-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;applicant_id: UUID <span style="color:#888;">FK→users</span><br>
-          &nbsp;&nbsp;department_id: UUID? <span style="color:#888;">// 部门</span><br>
+          &nbsp;&nbsp;applicant_id: i64 <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;department_id: i64? <span style="color:#888;">// 部门</span><br>
           &nbsp;&nbsp;expense_date: Date<br>
-          &nbsp;&nbsp;total_amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;total_amount: Decimal(20,4)<br>
           &nbsp;&nbsp;status: ExpenseStatus<br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ExpenseReimbursementItem</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;reimbursement_id: UUID <span style="color:#888;">FK→expense_reimbursements</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;reimbursement_id: i64 <span style="color:#888;">FK→expense_reimbursements</span><br>
           &nbsp;&nbsp;expense_type: ExpenseType<br>
-          &nbsp;&nbsp;amount: Decimal(10,6)<br>
+          &nbsp;&nbsp;amount: Decimal(20,4)<br>
           &nbsp;&nbsp;description: String<br>
           &nbsp;&nbsp;receipt_no: String?<br>
-          &nbsp;&nbsp;cost_center: UUID?<br>
-          &nbsp;&nbsp;profit_center: UUID?<br>
+          &nbsp;&nbsp;cost_center: i64?<br>
+          &nbsp;&nbsp;profit_center: i64?<br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ExpenseType</span> {<br>
           &nbsp;&nbsp;TRAVEL, OFFICE, TRANSPORT, MEAL, OTHER<br>
@@ -380,25 +382,25 @@ classDiagram
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CashJournalService</span> {<br>
-          &nbsp;&nbsp;create(req, operator_id): CashJournal<br>
-          &nbsp;&nbsp;confirm(id, operator_id): CashJournal<br>
+          &nbsp;&nbsp;create(ctx: ServiceContext, req): CashJournal<br>
+          &nbsp;&nbsp;confirm(ctx: ServiceContext, id): CashJournal<br>
           &nbsp;&nbsp;find_by_id(id): CashJournal<br>
           &nbsp;&nbsp;list(filter): Vec&lt;CashJournal&gt;<br>
           &nbsp;&nbsp;get_balance(period): Decimal<br>
           }
           <br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">WriteOffService</span> {<br>
-          &nbsp;&nbsp;write_off(journal_id, source_type, source_id, amount, operator_id): WriteOff<br>
+          &nbsp;&nbsp;write_off(ctx: ServiceContext, journal_id, source_type, source_id, amount): WriteOff<br>
           &nbsp;&nbsp;list_by_source(source_type, source_id): Vec&lt;WriteOff&gt;<br>
           &nbsp;&nbsp;get_unreconciled_amount(source_type, source_id): Decimal<br>
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">ExpenseReimbursementService</span> {<br>
-          &nbsp;&nbsp;create(req, operator_id): ExpenseReimbursement<br>
-          &nbsp;&nbsp;submit(id, operator_id): ExpenseReimbursement<br>
-          &nbsp;&nbsp;approve(id, operator_id): ExpenseReimbursement<br>
-          &nbsp;&nbsp;pay(id, cash_journal_id, operator_id): ExpenseReimbursement<br>
+          &nbsp;&nbsp;create(ctx: ServiceContext, req): ExpenseReimbursement<br>
+          &nbsp;&nbsp;submit(ctx: ServiceContext, id): ExpenseReimbursement<br>
+          &nbsp;&nbsp;approve(ctx: ServiceContext, id): ExpenseReimbursement<br>
+          &nbsp;&nbsp;pay(ctx: ServiceContext, id, cash_journal_id): ExpenseReimbursement<br>
           &nbsp;&nbsp;find_by_id(id): ExpenseReimbursement<br>
           &nbsp;&nbsp;list(filter): Vec&lt;ExpenseReimbursement&gt;<br>
           }<br><br>

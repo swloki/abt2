@@ -119,26 +119,30 @@ classDiagram
 
   class OutsourcingOrderService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~OutsourcingOrder~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~OutsourcingOrder~
-    +send(id, operator_id) Result~OutsourcingOrder~
-    +receive(id, received_qty, operator_id) Result~OutsourcingOrder~
-    +convert_to_internal(id, operator_id) Result~WorkOrder~
-    +list(filter) Result~Vec~OutsourcingOrder~~
+    +send(ctx: ServiceContext, id) Result~Unit~
+    +receive(ctx: ServiceContext, id, received_qty) Result~Unit~
+    +convert_to_internal(ctx: ServiceContext, id) Result~i64~
+    +list(filter) PaginatedResult~OutsourcingOrder~
   }
 
   class OutsourcingTrackingService {
     &lt;&lt;interface&gt;&gt;
-    +record_node(outsourcing_id, node_type, remark, operator_id) Result~OutsourcingTracking~
+    +record_node(ctx: ServiceContext, outsourcing_id, node_type, remark) Result~i64~
     +list_by_outsourcing(outsourcing_id) Result~Vec~OutsourcingTracking~~
     +check_overdue() Result~Vec~OutsourcingTracking~~
   }
 
   OutsourcingOrderService ..> OutsourcingTrackingService : record nodes
+    OutsourcingOrderService ..> MasterData.BomService : BOM node split
+    OutsourcingOrderService ..> MasterData.ProductService : product info
 
   note for OutsourcingOrderService "send -> WMS.InventoryTransferService(to virtual warehouse) OutsourcingTrackingService.record_node(SendMaterial) CostEntry(Outsource, debit WIP / credit AP-Outsource) DocSeq(OutsourcingOrder) DocLink(outsourcing -> work_order) receive -> WMS.InventoryTransferService(from virtual warehouse) OutsourcingTrackingService.record_node(Warehoused) QMS.InspectionResultService.create(IQC) convert_to_internal -> MES.WorkOrderService.create() WMS.InventoryTransferService(materials back)"
 
   note for OutsourcingTrackingService "check_overdue -> Query where planned_at < now() AND node not yet recorded Returns overdue nodes for escalation"
+
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>
@@ -177,21 +181,21 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">支持全委外/工序委外/材料委外/委外返工四种模式，复用 MES 已有实体</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">OutsourcingOrder</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// OO-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;work_order_id: UUID? <span style="color:#888;">FK→work_orders</span><br>
-          &nbsp;&nbsp;routing_id: UUID? <span style="color:#888;">FK→work_order_routings</span><br>
-          &nbsp;&nbsp;supplier_id: UUID <span style="color:#888;">FK→suppliers</span><br>
-          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;work_order_id: i64? <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;routing_id: i64? <span style="color:#888;">FK→work_order_routings</span><br>
+          &nbsp;&nbsp;supplier_id: i64 <span style="color:#888;">FK→suppliers</span><br>
+          &nbsp;&nbsp;product_id: i64<br>
           &nbsp;&nbsp;outsourcing_type: OutsourcingType<br>
-          &nbsp;&nbsp;planned_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;completed_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;unit_price: Decimal(10,6)<br>
+          &nbsp;&nbsp;planned_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;completed_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;unit_price: Decimal(18,6)<br>
           &nbsp;&nbsp;scheduled_date: Date?<br>
           &nbsp;&nbsp;status: OutsourcingStatus<br>
-          &nbsp;&nbsp;virtual_warehouse_id: UUID <span style="color:#888;">// WMS 虚拟库位</span><br>
+          &nbsp;&nbsp;virtual_warehouse_id: i64 <span style="color:#888;">// WMS 虚拟库位</span><br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
@@ -220,13 +224,13 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">追踪每笔委外单的物料发出/回收/在途状态，确保外包资产不流失</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">OutsourcingMaterial</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;outsourcing_id: UUID <span style="color:#888;">FK→outsourcing_orders</span><br>
-          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products（物料）</span><br>
-          &nbsp;&nbsp;planned_qty: Decimal(10,6) <span style="color:#888;">// 应发数量</span><br>
-          &nbsp;&nbsp;sent_qty: Decimal(10,6) <span style="color:#888;">// 已发数量</span><br>
-          &nbsp;&nbsp;returned_qty: Decimal(10,6) <span style="color:#888;">// 已收回数量</span><br>
-          &nbsp;&nbsp;unit_cost: Decimal(10,6) <span style="color:#888;">// 单位成本</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;outsourcing_id: i64 <span style="color:#888;">FK→outsourcing_orders</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products（物料）</span><br>
+          &nbsp;&nbsp;planned_qty: Decimal(18,6) <span style="color:#888;">// 应发数量</span><br>
+          &nbsp;&nbsp;sent_qty: Decimal(18,6) <span style="color:#888;">// 已发数量</span><br>
+          &nbsp;&nbsp;returned_qty: Decimal(18,6) <span style="color:#888;">// 已收回数量</span><br>
+          &nbsp;&nbsp;unit_cost: Decimal(18,6) <span style="color:#888;">// 单位成本</span><br>
           }
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
@@ -243,13 +247,13 @@ classDiagram
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">OutsourcingTracking</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;outsourcing_id: UUID <span style="color:#888;">FK→outsourcing_orders</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;outsourcing_id: i64 <span style="color:#888;">FK→outsourcing_orders</span><br>
           &nbsp;&nbsp;node_type: TrackingNodeType<br>
           &nbsp;&nbsp;tracked_at: DateTime <span style="color:#888;">// 实际时间</span><br>
           &nbsp;&nbsp;planned_at: DateTime? <span style="color:#888;">// 计划时间（SLA）</span><br>
           &nbsp;&nbsp;remark: String?<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">TrackingNodeType</span> {<br>
@@ -291,17 +295,17 @@ classDiagram
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">OutsourcingOrderService</span> {<br>
-          &nbsp;&nbsp;create(req, operator_id): OutsourcingOrder<br>
-          &nbsp;&nbsp;send(id, operator_id): OutsourcingOrder<br>
-          &nbsp;&nbsp;receive(id, received_qty, operator_id): OutsourcingOrder<br>
-          &nbsp;&nbsp;convert_to_internal(id, operator_id): WorkOrder<br>
+          &nbsp;&nbsp;create(ctx: ServiceContext, req): OutsourcingOrder<br>
+          &nbsp;&nbsp;send(ctx: ServiceContext, id): OutsourcingOrder<br>
+          &nbsp;&nbsp;receive(ctx: ServiceContext, id, received_qty): OutsourcingOrder<br>
+          &nbsp;&nbsp;convert_to_internal(ctx: ServiceContext, id): WorkOrder<br>
           &nbsp;&nbsp;find_by_id(id): OutsourcingOrder<br>
           &nbsp;&nbsp;list(filter): Vec&lt;OutsourcingOrder&gt;<br>
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">OutsourcingTrackingService</span> {<br>
-          &nbsp;&nbsp;record_node(outsourcing_id, node_type, remark, operator_id): OutsourcingTracking<br>
+          &nbsp;&nbsp;record_node(ctx: ServiceContext, outsourcing_id, node_type, remark): OutsourcingTracking<br>
           &nbsp;&nbsp;list_by_outsourcing(outsourcing_id): Vec&lt;OutsourcingTracking&gt;<br>
           &nbsp;&nbsp;check_overdue(): Vec&lt;OutsourcingTracking&gt;<br>
           }

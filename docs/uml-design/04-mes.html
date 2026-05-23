@@ -257,42 +257,42 @@ classDiagram
 
   class ProductionPlanService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~ProductionPlan~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~ProductionPlan~
-    +confirm(ctx: ServiceContext, id) Result~ProductionPlan~
+    +confirm(ctx: ServiceContext, id) Result~Unit~
     +release_to_work_orders(ctx: ServiceContext, plan_id) Result~Vec~WorkOrder~~
-    +list(filter) Result~Vec~ProductionPlan~~
+    +list(filter) PaginatedResult~ProductionPlan~
   }
 
   class WorkOrderService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~WorkOrder~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~WorkOrder~
-    +release(ctx: ServiceContext, id) Result~WorkOrder~
-    +complete(ctx: ServiceContext, id, completed_qty) Result~WorkOrder~
-    +close(ctx: ServiceContext, id) Result~WorkOrder~
-    +list(filter) Result~Vec~WorkOrder~~
+    +release(ctx: ServiceContext, id) Result~Unit~
+    +complete(ctx: ServiceContext, id, completed_qty) Result~Unit~
+    +close(ctx: ServiceContext, id) Result~Unit~
+    +list(filter) PaginatedResult~WorkOrder~
   }
 
   class WorkReportService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~WorkReport~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~WorkReport~
     +list_by_work_order(work_order_id) Result~Vec~WorkReport~~
   }
 
   class ProductionInspectionService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~ProductionInspection~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~ProductionInspection~
-    +record_result(ctx: ServiceContext, id, result) Result~ProductionInspection~
+    +record_result(ctx: ServiceContext, id, result) Result~Unit~
   }
 
   class ProductionReceiptService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, work_order_id, received_qty, warehouse_id) Result~ProductionReceipt~
+    +create(ctx: ServiceContext, work_order_id, received_qty, warehouse_id) Result~i64~
     +find_by_id(id) Result~ProductionReceipt~
-    +confirm(ctx: ServiceContext, id) Result~ProductionReceipt~
+    +confirm(ctx: ServiceContext, id) Result~Unit~
   }
 
   ProductionPlanService ..> WorkOrderService : release_to_work_orders
@@ -315,6 +315,8 @@ classDiagram
   note for ProductionInspectionService "QMS: MES-specific production inspection QMS module provides unified InspectionResultService IPQC: auto-triggered by WorkOrderRouting.is_inspection_point FQC: triggered before ProductionReceipt"
 
   note for ProductionReceiptService "confirm -> WMS.InventoryTransactionService.record(ProductionReceipt) CostEntry(finished goods cost) BackflushService.execute() InvRes.fulfill/cancel(release Hard) FMS: CostAccountingService.get_work_order_cost"
+
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>
@@ -355,29 +357,29 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">兼容按单生产(MTO)与按库存备货(MTS)双轨制排产</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionPlan</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// PP-2026-05-xxxxx</span><br>
           &nbsp;&nbsp;plan_date: Date<br>
           &nbsp;&nbsp;plan_type: PlanType<br>
           &nbsp;&nbsp;status: PlanStatus<br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionPlanItem</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;plan_id: UUID <span style="color:#888;">FK→production_plans</span><br>
-          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
-          &nbsp;&nbsp;planned_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;plan_id: i64 <span style="color:#888;">FK→production_plans</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;planned_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;scheduled_start: Date<br>
           &nbsp;&nbsp;scheduled_end: Date<br>
-          &nbsp;&nbsp;sales_order_id: UUID? <span style="color:#888;">FK→sales_orders (MTO)</span><br>
-          &nbsp;&nbsp;sales_order_item_id: UUID? <span style="color:#888;">// 具体行号</span><br>
-          &nbsp;&nbsp;bom_snapshot_id: UUID? <span style="color:#888;">FK→bom_snapshots BOM发布快照（不可变）</span><br>
-          &nbsp;&nbsp;routing_id: UUID? <span style="color:#888;">FK→labor_processes</span><br>
-          &nbsp;&nbsp;work_center_id: UUID? <span style="color:#888;">// 生产中心</span><br>
+          &nbsp;&nbsp;sales_order_id: i64? <span style="color:#888;">FK→sales_orders (MTO)</span><br>
+          &nbsp;&nbsp;sales_order_item_id: i64? <span style="color:#888;">// 具体行号</span><br>
+          &nbsp;&nbsp;bom_snapshot_id: i64? <span style="color:#888;">FK→bom_snapshots BOM发布快照（不可变）</span><br>
+          &nbsp;&nbsp;routing_id: i64? <span style="color:#888;">FK→labor_processes</span><br>
+          &nbsp;&nbsp;work_center_id: i64? <span style="color:#888;">// 生产中心</span><br>
           &nbsp;&nbsp;priority: i32<br>
           &nbsp;&nbsp;status: PlanItemStatus<br>
           }<br><br>
@@ -402,25 +404,25 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">将生产计划细化到批次和班组，是领料与执行的唯一依据</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WorkOrder</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// WO-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;plan_item_id: UUID? <span style="color:#888;">FK→production_plan_items</span><br>
-          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
-          &nbsp;&nbsp;bom_snapshot_id: UUID? <span style="color:#888;">FK→bom_snapshots BOM发布快照（不可变）</span><br>
-          &nbsp;&nbsp;routing_id: UUID? <span style="color:#888;">FK→labor_processes</span><br>
-          &nbsp;&nbsp;planned_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;completed_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;scrap_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;plan_item_id: i64? <span style="color:#888;">FK→production_plan_items</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;bom_snapshot_id: i64? <span style="color:#888;">FK→bom_snapshots BOM发布快照（不可变）</span><br>
+          &nbsp;&nbsp;routing_id: i64? <span style="color:#888;">FK→labor_processes</span><br>
+          &nbsp;&nbsp;planned_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;completed_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;scrap_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;scheduled_start: Date<br>
           &nbsp;&nbsp;scheduled_end: Date<br>
           &nbsp;&nbsp;actual_start: Timestamp?<br>
           &nbsp;&nbsp;actual_end: Timestamp?<br>
           &nbsp;&nbsp;status: WorkOrderStatus<br>
-          &nbsp;&nbsp;work_center_id: UUID? <span style="color:#888;">// 车间/产线</span><br>
-          &nbsp;&nbsp;team_id: UUID? <span style="color:#888;">// 班组</span><br>
-          &nbsp;&nbsp;sales_order_id: UUID? <span style="color:#888;">// MTO关联</span><br>
+          &nbsp;&nbsp;work_center_id: i64? <span style="color:#888;">// 车间/产线</span><br>
+          &nbsp;&nbsp;team_id: i64? <span style="color:#888;">// 班组</span><br>
+          &nbsp;&nbsp;sales_order_id: i64? <span style="color:#888;">// MTO关联</span><br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
@@ -447,16 +449,16 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">基于工艺路线生成，记录每道工序的计划与实际执行情况</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WorkOrderRouting</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;work_order_id: UUID <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;work_order_id: i64 <span style="color:#888;">FK→work_orders</span><br>
           &nbsp;&nbsp;step_no: i32 <span style="color:#888;">// 工序序号</span><br>
           &nbsp;&nbsp;process_name: String <span style="color:#888;">// 贴片/插件/组装...</span><br>
-          &nbsp;&nbsp;work_center_id: UUID?<br>
+          &nbsp;&nbsp;work_center_id: i64?<br>
           &nbsp;&nbsp;standard_time: Decimal? <span style="color:#888;">// 标准工时(小时)</span><br>
           &nbsp;&nbsp;standard_cost: Decimal? <span style="color:#888;">// 标准人工成本</span><br>
-          &nbsp;&nbsp;planned_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;completed_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;defect_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;planned_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;completed_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;defect_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;status: RoutingStatus<br>
           &nbsp;&nbsp;is_outsourced: bool <span style="color:#888;">// 是否委外工序</span><br>
           &nbsp;&nbsp;is_inspection_point: bool <span style="color:#888;">// 是否报检点</span><br>
@@ -474,19 +476,19 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">工人实时提报工序完成进度与不良数，为计件工资和成本核算提供数据</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WorkReport</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// WR-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;work_order_id: UUID <span style="color:#888;">FK→work_orders</span><br>
-          &nbsp;&nbsp;routing_id: UUID <span style="color:#888;">FK→work_order_routings</span><br>
+          &nbsp;&nbsp;work_order_id: i64 <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;routing_id: i64 <span style="color:#888;">FK→work_order_routings</span><br>
           &nbsp;&nbsp;report_date: Date<br>
           &nbsp;&nbsp;shift: ShiftType<br>
-          &nbsp;&nbsp;worker_id: UUID <span style="color:#888;">FK→users</span><br>
-          &nbsp;&nbsp;completed_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;defect_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;worker_id: i64 <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;completed_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;defect_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;defect_reason: String?<br>
           &nbsp;&nbsp;work_hours: Decimal <span style="color:#888;">// 实际工时</span><br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           }<br><br>
@@ -507,21 +509,21 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">实体由 OM 模块管理，MES 通过 OM.OutsourcingOrderService 调用</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">OutsourcingOrder</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// OO-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;work_order_id: UUID? <span style="color:#888;">FK→work_orders</span><br>
-          &nbsp;&nbsp;routing_id: UUID? <span style="color:#888;">FK→work_order_routings</span><br>
-          &nbsp;&nbsp;supplier_id: UUID <span style="color:#888;">FK→suppliers</span><br>
-          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;work_order_id: i64? <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;routing_id: i64? <span style="color:#888;">FK→work_order_routings</span><br>
+          &nbsp;&nbsp;supplier_id: i64 <span style="color:#888;">FK→suppliers</span><br>
+          &nbsp;&nbsp;product_id: i64<br>
           &nbsp;&nbsp;outsourcing_type: OutsourcingType<br>
-          &nbsp;&nbsp;planned_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;completed_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;unit_price: Decimal(10,6)<br>
+          &nbsp;&nbsp;planned_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;completed_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;unit_price: Decimal(18,6)<br>
           &nbsp;&nbsp;scheduled_date: Date?<br>
           &nbsp;&nbsp;status: OutsourcingStatus<br>
-          &nbsp;&nbsp;virtual_warehouse_id: UUID <span style="color:#888;">// 虚拟库位</span><br>
+          &nbsp;&nbsp;virtual_warehouse_id: i64 <span style="color:#888;">// 虚拟库位</span><br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
@@ -547,21 +549,21 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">关键工序或完工后自动触发报检</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionInspection</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// PI-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;work_order_id: UUID<br>
-          &nbsp;&nbsp;routing_id: UUID?<br>
-          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;work_order_id: i64<br>
+          &nbsp;&nbsp;routing_id: i64?<br>
+          &nbsp;&nbsp;product_id: i64<br>
           &nbsp;&nbsp;inspection_type: InspectionType<br>
-          &nbsp;&nbsp;sample_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;qualified_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;unqualified_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;sample_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;qualified_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;unqualified_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;result: InspectionResult<br>
-          &nbsp;&nbsp;inspector_id: UUID<br>
+          &nbsp;&nbsp;inspector_id: i64<br>
           &nbsp;&nbsp;inspection_date: Date<br>
           &nbsp;&nbsp;disposition: String? <span style="color:#888;">// 处置意见</span><br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           }<br><br>
@@ -582,19 +584,19 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">检验合格后入库，触发倒冲和成本归集</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionReceipt</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// PR-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;work_order_id: UUID <span style="color:#888;">FK→work_orders</span><br>
-          &nbsp;&nbsp;product_id: UUID<br>
-          &nbsp;&nbsp;received_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;warehouse_id: UUID<br>
-          &nbsp;&nbsp;zone_id: UUID?<br>
-          &nbsp;&nbsp;bin_id: UUID?<br>
+          &nbsp;&nbsp;work_order_id: i64 <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;received_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;warehouse_id: i64<br>
+          &nbsp;&nbsp;zone_id: i64?<br>
+          &nbsp;&nbsp;bin_id: i64?<br>
           &nbsp;&nbsp;receipt_date: Date<br>
           &nbsp;&nbsp;status: ReceiptStatus<br>
           &nbsp;&nbsp;backflush_triggered: bool <span style="color:#888;">// 是否触发倒冲</span><br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           }<br><br>

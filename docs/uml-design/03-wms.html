@@ -409,62 +409,62 @@ classDiagram
 
   class WarehouseService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~Warehouse~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~Warehouse~
-    +list(filter) Result~Vec~Warehouse~~
-    +create_zone(warehouse_id, req) Result~Zone~
-    +create_bin(zone_id, req) Result~Bin~
+    +list(filter) PaginatedResult~Warehouse~
+    +create_zone(warehouse_id, req) Result~i64~
+    +create_bin(zone_id, req) Result~i64~
   }
   class ArrivalNoticeService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~ArrivalNotice~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~ArrivalNotice~
-    +receive(id, items) Result~ArrivalNotice~
-    +inspect(id, items, operator_id) Result~ArrivalNotice~
+    +receive(id, items) Result~Unit~
+    +inspect(ctx: ServiceContext, id, items) Result~Unit~
   }
   class InventoryTransactionService {
     &lt;&lt;interface&gt;&gt;
-    +record(txn, operator_id) Result~InventoryTransaction~
+    +record(ctx: ServiceContext, txn) Result~i64~
     +find_by_source(source_type, source_id) Result~Vec~InventoryTransaction~~
     +query_stock(product_id, warehouse_id) Result~StockLedger~
     +query_available(product_id, warehouse_id) Result~Decimal~
   }
   class MaterialRequisitionService {
     &lt;&lt;interface&gt;&gt;
-    +create_for_work_order(work_order_id, operator_id) Result~MaterialRequisition~
+    +create_for_work_order(ctx: ServiceContext, work_order_id) Result~i64~
     +find_by_id(id) Result~MaterialRequisition~
-    +confirm(id, operator_id) Result~MaterialRequisition~
-    +issue(id, items, operator_id) Result~MaterialRequisition~
+    +confirm(ctx: ServiceContext, id) Result~Unit~
+    +issue(ctx: ServiceContext, id, items) Result~Unit~
   }
   class BackflushService {
     &lt;&lt;interface&gt;&gt;
-    +execute(work_order_id, completed_qty, operator_id) Result~BackflushRecord~
+    +execute(ctx: ServiceContext, work_order_id, completed_qty) Result~i64~
     +find_by_id(id) Result~BackflushRecord~
   }
   class CycleCountService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~CycleCount~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~CycleCount~
-    +count(id, items) Result~CycleCount~
-    +adjust(id, operator_id) Result~CycleCount~
+    +count(id, items) Result~Unit~
+    +adjust(ctx: ServiceContext, id) Result~Unit~
   }
   class InventoryTransferService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~InventoryTransfer~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~InventoryTransfer~
-    +complete(id, operator_id) Result~InventoryTransfer~
+    +complete(ctx: ServiceContext, id) Result~Unit~
   }
   class FormConversionService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~FormConversion~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~FormConversion~
-    +complete(id, operator_id) Result~FormConversion~
+    +complete(ctx: ServiceContext, id) Result~Unit~
   }
   class InventoryLockService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, operator_id) Result~InventoryLock~
+    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~InventoryLock~
-    +release(id, operator_id) Result~InventoryLock~
+    +release(ctx: ServiceContext, id) Result~Unit~
   }
 
   note for ArrivalNoticeService "confirm requires QMS.InspectionResultService.is_passed(IQC) hard gate IQC fail -> block putaway, trigger QMS.MRBService confirm -> CostEntry(material cost: debit inventory / credit AP) confirm -> InvRes(release safety stock)"
@@ -476,6 +476,8 @@ classDiagram
   note for BackflushService "Called by MES.ProductionReceiptService.confirm() execute -> InventoryTransaction.record(Backflush) over threshold -> CostEntry(loss cost)"
 
   note for InventoryTransferService "Called by MES.OutsourcingOrderService send -> create(to virtual warehouse) receive -> create(from virtual warehouse) OM: OutsourcingOrderService.send/receive -> transfer OM: convert_to_internal -> transfer materials back to internal"
+
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>
@@ -516,16 +518,16 @@ classDiagram
           <h4 style="color: #6c8bef; margin: 0 0 6px 0;">Warehouse 仓库</h4>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
             <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Warehouse</span> {<br>
-            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
             &nbsp;&nbsp;code: String<br>
             &nbsp;&nbsp;name: String<br>
             &nbsp;&nbsp;warehouse_type: WarehouseType<br>
             &nbsp;&nbsp;status: WarehouseStatus<br>
             &nbsp;&nbsp;address: String?<br>
-            &nbsp;&nbsp;manager_id: UUID? <span style="color:#888;">FK→users</span><br>
+            &nbsp;&nbsp;manager_id: i64? <span style="color:#888;">FK→users</span><br>
             &nbsp;&nbsp;is_virtual: bool <span style="color:#888;">// 虚拟仓(委外)</span><br>
             &nbsp;&nbsp;remark: String<br>
-            &nbsp;&nbsp;operator_id: UUID<br>
+            &nbsp;&nbsp;operator_id: i64<br>
             &nbsp;&nbsp;created_at: Timestamp<br>
             &nbsp;&nbsp;updated_at: Timestamp<br>
             &nbsp;&nbsp;deleted_at: Timestamp?<br>
@@ -545,8 +547,8 @@ classDiagram
           <h4 style="color: #e5a655; margin: 0 0 6px 0;">Zone 库区</h4>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
             <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Zone</span> {<br>
-            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-            &nbsp;&nbsp;warehouse_id: UUID <span style="color:#888;">FK→warehouses</span><br>
+            &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;warehouse_id: i64 <span style="color:#888;">FK→warehouses</span><br>
             &nbsp;&nbsp;code: String<br>
             &nbsp;&nbsp;name: String<br>
             &nbsp;&nbsp;zone_type: ZoneType<br>
@@ -571,8 +573,8 @@ classDiagram
           <h4 style="color: #c678dd; margin: 0 0 6px 0;">Bin 储位</h4>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
             <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Bin</span> {<br>
-            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-            &nbsp;&nbsp;zone_id: UUID <span style="color:#888;">FK→zones</span><br>
+            &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;zone_id: i64 <span style="color:#888;">FK→zones</span><br>
             &nbsp;&nbsp;code: String<br>
             &nbsp;&nbsp;name: String<br>
             &nbsp;&nbsp;row_no: String? <span style="color:#888;">// 行</span><br>
@@ -606,16 +608,16 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">物料×批次×储位的实时库存数量</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">StockLedger</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
-          &nbsp;&nbsp;warehouse_id: UUID <span style="color:#888;">FK→warehouses</span><br>
-          &nbsp;&nbsp;zone_id: UUID <span style="color:#888;">FK→zones</span><br>
-          &nbsp;&nbsp;bin_id: UUID <span style="color:#888;">FK→bins</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;warehouse_id: i64 <span style="color:#888;">FK→warehouses</span><br>
+          &nbsp;&nbsp;zone_id: i64 <span style="color:#888;">FK→zones</span><br>
+          &nbsp;&nbsp;bin_id: i64 <span style="color:#888;">FK→bins</span><br>
           &nbsp;&nbsp;batch_no: String?<br>
-          &nbsp;&nbsp;quantity: Decimal(10,6) <span style="color:#888;">// 现有量</span><br>
-          &nbsp;&nbsp;reserved_qty: Decimal(10,6) <span style="color:#888;">// 已预留量</span><br>
-          &nbsp;&nbsp;available_qty: Decimal(10,6) <span style="color:#888;">// = 现有量 - 已预留量</span><br>
-          &nbsp;&nbsp;unit_cost: Decimal(10,6)? <span style="color:#888;">// 移动加权平均成本</span><br>
+          &nbsp;&nbsp;quantity: Decimal(18,6) <span style="color:#888;">// 现有量</span><br>
+          &nbsp;&nbsp;reserved_qty: Decimal(18,6) <span style="color:#888;">// 已预留量</span><br>
+          &nbsp;&nbsp;available_qty: Decimal(18,6) <span style="color:#888;">// = 现有量 - 已预留量</span><br>
+          &nbsp;&nbsp;unit_cost: Decimal(18,6)? <span style="color:#888;">// 移动加权平均成本</span><br>
           &nbsp;&nbsp;received_date: Date?<br>
           &nbsp;&nbsp;expiry_date: Date?<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
@@ -631,11 +633,11 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">上架推荐 + 拣货分配的可配置策略</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">PutawayStrategy</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;name: String<br>
           &nbsp;&nbsp;strategy_type: PutawayType<br>
-          &nbsp;&nbsp;warehouse_id: UUID? <span style="color:#888;">// null=全局</span><br>
-          &nbsp;&nbsp;product_category_id: UUID?<br>
+          &nbsp;&nbsp;warehouse_id: i64? <span style="color:#888;">// null=全局</span><br>
+          &nbsp;&nbsp;product_category_id: i64?<br>
           &nbsp;&nbsp;priority: i32<br>
           &nbsp;&nbsp;is_active: bool<br>
           }<br>
@@ -646,10 +648,10 @@ classDiagram
           &nbsp;&nbsp;EMPTY_FIRST <span style="color:#888;">// 空储位优先</span><br>
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">PickStrategy</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;name: String<br>
           &nbsp;&nbsp;strategy_type: PickType<br>
-          &nbsp;&nbsp;warehouse_id: UUID?<br>
+          &nbsp;&nbsp;warehouse_id: i64?<br>
           &nbsp;&nbsp;priority: i32<br>
           &nbsp;&nbsp;is_active: bool<br>
           }<br>
@@ -673,29 +675,29 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">供应商送货后进入待检区，不计入可用库存，质检合格后转采购入库</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ArrivalNotice</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// AN-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;purchase_order_id: UUID? <span style="color:#888;">FK→purchase_orders</span><br>
-          &nbsp;&nbsp;supplier_id: UUID <span style="color:#888;">FK→suppliers</span><br>
+          &nbsp;&nbsp;purchase_order_id: i64? <span style="color:#888;">FK→purchase_orders</span><br>
+          &nbsp;&nbsp;supplier_id: i64 <span style="color:#888;">FK→suppliers</span><br>
           &nbsp;&nbsp;arrival_date: Date<br>
           &nbsp;&nbsp;status: ArrivalStatus<br>
-          &nbsp;&nbsp;warehouse_id: UUID <span style="color:#888;">FK→warehouses</span><br>
-          &nbsp;&nbsp;zone_id: UUID? <span style="color:#888;">FK→zones (待检区)</span><br>
+          &nbsp;&nbsp;warehouse_id: i64 <span style="color:#888;">FK→warehouses</span><br>
+          &nbsp;&nbsp;zone_id: i64? <span style="color:#888;">FK→zones (待检区)</span><br>
           &nbsp;&nbsp;delivery_note: String? <span style="color:#888;">// 送货单号</span><br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ArrivalNoticeItem</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;notice_id: UUID<br>
-          &nbsp;&nbsp;order_item_id: UUID?<br>
-          &nbsp;&nbsp;product_id: UUID<br>
-          &nbsp;&nbsp;declared_qty: Decimal(10,6) <span style="color:#888;">// 供应商申报量</span><br>
-          &nbsp;&nbsp;received_qty: Decimal(10,6) <span style="color:#888;">// 实收量</span><br>
-          &nbsp;&nbsp;accepted_qty: Decimal(10,6) <span style="color:#888;">// 检验合格量</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;notice_id: i64<br>
+          &nbsp;&nbsp;order_item_id: i64?<br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;declared_qty: Decimal(18,6) <span style="color:#888;">// 供应商申报量</span><br>
+          &nbsp;&nbsp;received_qty: Decimal(18,6) <span style="color:#888;">// 实收量</span><br>
+          &nbsp;&nbsp;accepted_qty: Decimal(18,6) <span style="color:#888;">// 检验合格量</span><br>
           &nbsp;&nbsp;batch_no: String?<br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ArrivalStatus</span> {<br>
@@ -711,20 +713,20 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">所有库存变动的统一记录，不可修改只可追加</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InventoryTransaction</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String?<br>
           &nbsp;&nbsp;transaction_type: TransactionType<br>
-          &nbsp;&nbsp;product_id: UUID<br>
-          &nbsp;&nbsp;warehouse_id: UUID<br>
-          &nbsp;&nbsp;zone_id: UUID?<br>
-          &nbsp;&nbsp;bin_id: UUID?<br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;warehouse_id: i64<br>
+          &nbsp;&nbsp;zone_id: i64?<br>
+          &nbsp;&nbsp;bin_id: i64?<br>
           &nbsp;&nbsp;batch_no: String?<br>
-          &nbsp;&nbsp;quantity: Decimal(10,6) <span style="color:#888;">// +入库/-出库</span><br>
-          &nbsp;&nbsp;unit_cost: Decimal(10,6)?<br>
+          &nbsp;&nbsp;quantity: Decimal(18,6) <span style="color:#888;">// +入库/-出库</span><br>
+          &nbsp;&nbsp;unit_cost: Decimal(18,6)?<br>
           &nbsp;&nbsp;source_type: DocumentType<br>
-          &nbsp;&nbsp;source_id: UUID<br>
+          &nbsp;&nbsp;source_id: i64<br>
           &nbsp;&nbsp;remark: String?<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">TransactionType</span> {<br>
@@ -753,25 +755,25 @@ classDiagram
         <h4 style="color: #98c379; margin: 0 0 6px 0; font-size: 13px;">MaterialRequisition 领料单</h4>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">MaterialRequisition</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// MR-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;work_order_id: UUID <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;work_order_id: i64 <span style="color:#888;">FK→work_orders</span><br>
           &nbsp;&nbsp;requisition_date: Date<br>
           &nbsp;&nbsp;status: RequisitionStatus<br>
-          &nbsp;&nbsp;warehouse_id: UUID<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;warehouse_id: i64<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">MaterialReqItem</span> {<br>
-          &nbsp;&nbsp;id: UUID<br>
-          &nbsp;&nbsp;requisition_id: UUID<br>
-          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;requisition_id: i64<br>
+          &nbsp;&nbsp;product_id: i64<br>
           &nbsp;&nbsp;requested_qty: Decimal <span style="color:#888;">// BOM定额</span><br>
           &nbsp;&nbsp;issued_qty: Decimal <span style="color:#888;">// 实领量</span><br>
           &nbsp;&nbsp;variance_qty: Decimal <span style="color:#888;">// 差异量</span><br>
-          &nbsp;&nbsp;bin_id: UUID?<br>
+          &nbsp;&nbsp;bin_id: i64?<br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">RequisitionStatus</span> {<br>
           &nbsp;&nbsp;DRAFT, CONFIRMED, ISSUED<br>
@@ -785,22 +787,22 @@ classDiagram
         <h4 style="color: #c678dd; margin: 0 0 6px 0; font-size: 13px;">Backflush 倒冲记录</h4>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BackflushRecord</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String<br>
-          &nbsp;&nbsp;work_order_id: UUID <span style="color:#888;">FK→work_orders</span><br>
-          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products (完工品)</span><br>
+          &nbsp;&nbsp;work_order_id: i64 <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products (完工品)</span><br>
           &nbsp;&nbsp;completed_qty: Decimal <span style="color:#888;">// 完工数量</span><br>
           &nbsp;&nbsp;backflush_date: Date<br>
           &nbsp;&nbsp;status: BackflushStatus<br>
           &nbsp;&nbsp;variance_threshold: Decimal <span style="color:#888;">// 差异阈值%</span><br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BackflushItem</span> {<br>
-          &nbsp;&nbsp;id: UUID<br>
-          &nbsp;&nbsp;record_id: UUID<br>
-          &nbsp;&nbsp;component_id: UUID <span style="color:#888;">// BOM子件</span><br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;record_id: i64<br>
+          &nbsp;&nbsp;component_id: i64 <span style="color:#888;">// BOM子件</span><br>
           &nbsp;&nbsp;theoretical_qty: Decimal <span style="color:#888;">// BOM理论用量</span><br>
           &nbsp;&nbsp;actual_qty: Decimal <span style="color:#888;">// 实际倒冲量</span><br>
           &nbsp;&nbsp;variance_qty: Decimal<br>
@@ -818,23 +820,23 @@ classDiagram
         <h4 style="color: #56b6c2; margin: 0 0 6px 0; font-size: 13px;">CycleCount 循环盘点</h4>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CycleCount</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String<br>
-          &nbsp;&nbsp;warehouse_id: UUID<br>
-          &nbsp;&nbsp;zone_id: UUID?<br>
+          &nbsp;&nbsp;warehouse_id: i64<br>
+          &nbsp;&nbsp;zone_id: i64?<br>
           &nbsp;&nbsp;count_date: Date<br>
           &nbsp;&nbsp;status: CycleCountStatus<br>
           &nbsp;&nbsp;is_blind: bool <span style="color:#888;">// 盲盘</span><br>
           &nbsp;&nbsp;remark: String?<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CycleCountItem</span> {<br>
-          &nbsp;&nbsp;id: UUID<br>
-          &nbsp;&nbsp;count_id: UUID<br>
-          &nbsp;&nbsp;bin_id: UUID<br>
-          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;count_id: i64<br>
+          &nbsp;&nbsp;bin_id: i64<br>
+          &nbsp;&nbsp;product_id: i64<br>
           &nbsp;&nbsp;batch_no: String?<br>
           &nbsp;&nbsp;system_qty: Decimal <span style="color:#888;">// 盲盘时隐藏</span><br>
           &nbsp;&nbsp;counted_qty: Decimal<br>
@@ -857,23 +859,23 @@ classDiagram
         <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">InventoryTransfer 库存调拨</h4>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InventoryTransfer</span> {<br>
-          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;id: i64<br>
           &nbsp;&nbsp;doc_number: String<br>
-          &nbsp;&nbsp;from_warehouse_id: UUID<br>
-          &nbsp;&nbsp;from_zone_id: UUID?<br>
-          &nbsp;&nbsp;from_bin_id: UUID?<br>
-          &nbsp;&nbsp;to_warehouse_id: UUID<br>
-          &nbsp;&nbsp;to_zone_id: UUID?<br>
-          &nbsp;&nbsp;to_bin_id: UUID?<br>
+          &nbsp;&nbsp;from_warehouse_id: i64<br>
+          &nbsp;&nbsp;from_zone_id: i64?<br>
+          &nbsp;&nbsp;from_bin_id: i64?<br>
+          &nbsp;&nbsp;to_warehouse_id: i64<br>
+          &nbsp;&nbsp;to_zone_id: i64?<br>
+          &nbsp;&nbsp;to_bin_id: i64?<br>
           &nbsp;&nbsp;transfer_date: Date<br>
           &nbsp;&nbsp;status: TransferStatus<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">TransferItem</span> {<br>
-          &nbsp;&nbsp;id: UUID<br>
-          &nbsp;&nbsp;transfer_id: UUID<br>
-          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;transfer_id: i64<br>
+          &nbsp;&nbsp;product_id: i64<br>
           &nbsp;&nbsp;quantity: Decimal<br>
           &nbsp;&nbsp;batch_no: String?<br>
           }<br><br>
@@ -888,20 +890,20 @@ classDiagram
         <h4 style="color: #98c379; margin: 0 0 6px 0; font-size: 13px;">FormConversion 形态转换</h4>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">FormConversion</span> {<br>
-          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;id: i64<br>
           &nbsp;&nbsp;doc_number: String<br>
-          &nbsp;&nbsp;warehouse_id: UUID<br>
+          &nbsp;&nbsp;warehouse_id: i64<br>
           &nbsp;&nbsp;conversion_date: Date<br>
           &nbsp;&nbsp;status: ConversionStatus<br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ConversionItem</span> {<br>
-          &nbsp;&nbsp;id: UUID<br>
-          &nbsp;&nbsp;conversion_id: UUID<br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;conversion_id: i64<br>
           &nbsp;&nbsp;direction: ConversionDir<br>
-          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;product_id: i64<br>
           &nbsp;&nbsp;quantity: Decimal<br>
           &nbsp;&nbsp;unit_cost: Decimal<br>
           &nbsp;&nbsp;batch_no: String?<br>
@@ -920,15 +922,15 @@ classDiagram
         <h4 style="color: #e06c75; margin: 0 0 6px 0; font-size: 13px;">InventoryLock 库存锁定</h4>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InventoryLock</span> {<br>
-          &nbsp;&nbsp;id: UUID<br>
+          &nbsp;&nbsp;id: i64<br>
           &nbsp;&nbsp;doc_number: String<br>
-          &nbsp;&nbsp;product_id: UUID<br>
-          &nbsp;&nbsp;warehouse_id: UUID<br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;warehouse_id: i64<br>
           &nbsp;&nbsp;locked_qty: Decimal<br>
           &nbsp;&nbsp;lock_reason: String <span style="color:#888;">// 客户预留等</span><br>
-          &nbsp;&nbsp;customer_id: UUID? <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;customer_id: i64? <span style="color:#888;">FK→customers</span><br>
           &nbsp;&nbsp;status: LockStatus<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           }<br><br>
@@ -940,6 +942,10 @@ classDiagram
     </div>
 
     <!-- Shared layer summary -->
+    InventoryTransactionService ..> MasterData.ProductService : product dimension
+    ArrivalNoticeService ..> MasterData.ProductService : product info
+    BackflushService ..> MasterData.BomService : BOM explosion
+    MaterialRequisitionService ..> MasterData.ProductService : product info
     <div style="padding: 12px; background: rgba(107,199,107,0.1); border-radius: 6px;">
       <h3 style="margin: 0 0 8px 0; color: #6bc76b;">WMS 模块 × 共享层交互汇总</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">

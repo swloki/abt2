@@ -58,14 +58,13 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 classDiagram
   class DomainEventBus {
     &lt;&lt;interface&gt;&gt;
-    +publish() i64
+    +publish(req: EventPublishRequest) i64
     +find_events() Vec
     +find_by_type() Vec
   }
   class StateMachineService {
     &lt;&lt;interface&gt;&gt;
-    +define_states()
-    +define_transitions()
+    +configure(entity_type, states, transitions)
     +transition() EntityStateLog
     +get_current_state() String
     +get_allowed_transitions() Vec
@@ -153,18 +152,18 @@ classDiagram
 
   class WorkflowService {
     &lt;&lt;interface&gt;&gt;
-    +create_template() i64
-    +publish_template()
-    +start_instance() i64
-    +start_instance_with_context() i64
-    +cancel_instance()
-    +approve_task()
-    +reject_task()
-    +delegate_task() i64
-    +signal()
-    +compensate_instance()
-    +trigger() i64
-    +list_history() Vec
+    +create_template(ctx: ServiceContext, req) Result~i64~
+    +publish_template(ctx: ServiceContext, id) Result~Unit~
+    +start_instance(ctx: ServiceContext, template_id, variables) Result~i64~
+    +start_instance_with_context(ctx: ServiceContext, template_id, variables, parent_instance_id) Result~i64~
+    +cancel_instance(ctx: ServiceContext, id) Result~Unit~
+    +approve_task(ctx: ServiceContext, id, remark) Result~Unit~
+    +reject_task(ctx: ServiceContext, id, remark) Result~Unit~
+    +delegate_task(ctx: ServiceContext, id, target_user_id) Result~Unit~
+    +signal(ctx: ServiceContext, instance_id, signal_name) Result~Unit~
+    +compensate_instance(ctx: ServiceContext, id) Result~Unit~
+    +trigger(ctx: ServiceContext, event) Result~i64~
+    +list_history(filter) PaginatedResult~WorkflowTask~
   }
 
   class AutoAction {
@@ -206,6 +205,7 @@ classDiagram
   note for WorkflowInstance "parent_instance_id: SubProcess parent. saga_compensation_log: completed steps for reverse compensation"
   note for WorkflowNode "compensate_action: action name for saga rollback, only AutoTask and ServiceTask"
   note for WorkflowEngine "Depends on shared DomainEventBus + StateMachineService. Orchestrates approvals, auto-tasks, saga compensation"
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>
@@ -237,7 +237,7 @@ classDiagram
         <span class="cm">└─────────────────────────────────────────────────────────────┘</span>
       </div>
       <p class="note" style="margin-top: 8px;">
-        <strong>模块边界：</strong>DomainEventBus / StateMachineService / DomainEventHandler 属于共享基础设施层，<br>
+        <strong>模块边界：</strong>DomainEventBus / StateMachineService / DomainEventHandler 属于共享基础设施层，通过 ServiceContext 传递事务上下文和操作元数据，<br>
         所有业务模块（Sales、Purchase、WMS、MES...）均可直接使用，不依赖 Workflow Engine。<br>
         Workflow Engine 是这些共享服务的<strong>消费者</strong>，通过 DomainEventBus 发布事件、通过 StateMachineService 触发状态转换。
       </p>
@@ -267,7 +267,7 @@ classDiagram
             SalesOrderService.confirm()<br>
             &nbsp;&nbsp;├── StateMachine.transition("Confirmed")<br>
             &nbsp;&nbsp;├── update status in DB<br>
-            &nbsp;&nbsp;└── EventBus.<span class="new">publish(SalesOrderConfirmed)</span><br>
+            &nbsp;&nbsp;└── EventBus.<span class="new">publish(EventPublishRequest{ SalesOrderConfirmed })</span><br>
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── InventoryHandler → InvRes.reserve()<br>
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── CostEntryHandler → CostEntry.create()<br>
             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── DocLinkHandler → DocLink.create_link()<br><br>
@@ -766,9 +766,13 @@ classDiagram
             &nbsp;&nbsp;operator_id: i64<br>
             &nbsp;&nbsp;created_at: DateTime<br>
             }<br><br>
+            <span class="kw">struct</span> <span class="ty">EventPublishRequest</span> {<br>
+            &nbsp;&nbsp;event_type, aggregate_type, aggregate_id<br>
+            &nbsp;&nbsp;payload: JSONB, idempotency_key: Option<br>
+            <span class="cm">// operator_id 从 ServiceContext 自动获取</span><br>
+            }<br><br>
             <span class="kw">trait</span> <span class="ty">DomainEventBus</span> {<br>
-            &nbsp;&nbsp;publish(event_type, aggregate_type,<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;aggregate_id, payload, operator_id): i64<br>
+            &nbsp;&nbsp;publish(ctx: ServiceContext, req: EventPublishRequest): i64<br>
             &nbsp;&nbsp;find_events(aggregate_type, id): Vec<br>
             &nbsp;&nbsp;find_by_type(event_type, since?): Vec<br>
             }<br><br>
@@ -832,7 +836,7 @@ classDiagram
           &nbsp;&nbsp;from_state → to_state<br>
           &nbsp;&nbsp;trigger_event: DomainEventType?<br>
           &nbsp;&nbsp;guard_condition: JSONB?<br>
-          &nbsp;&nbsp;side_effects: JSONB<br>
+          &nbsp;&nbsp;side_effects: Vec&lt;SideEffect&gt; <span style="color:#888;">// JSONB 存储</span><br>
           &nbsp;&nbsp;sort_order: i32<br>
           }<br><br>
           <span class="kw">entity</span> <span class="ty">EntityStateLog</span> {<br>
@@ -842,8 +846,7 @@ classDiagram
           &nbsp;&nbsp;operator_id, remark?, created_at<br>
           }<br><br>
           <span class="kw">trait</span> <span class="ty">StateMachineService</span> {<br>
-          &nbsp;&nbsp;define_states(entity_type, states)<br>
-          &nbsp;&nbsp;define_transitions(entity_type, transitions)<br>
+          &nbsp;&nbsp;configure(entity_type, states, transitions) <span style="color:#888;">// 合并原 define_states + define_transitions</span><br>
           &nbsp;&nbsp;transition(entity_type, entity_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;to_state, operator_id, remark?): StateLog<br>
           &nbsp;&nbsp;get_current_state(entity_type, entity_id): String<br>
@@ -1045,7 +1048,7 @@ classDiagram
     <div style="text-align: center; padding: 10px; color: #888; font-size: 13px; border-top: 1px solid #333;">
       <strong>V1:</strong> 4 核心表 | 5 NodeTypes | 17 event_types | ActionRegistry + HookRegistry + Worker + Linter<br>
       <strong>V2 新增:</strong> 4 NodeTypes | Saga 补偿 | SubProcess / TimerWait / SignalCatch<br>
-      <strong>依赖共享层:</strong> <a href="00-shared-infrastructure.html" style="color: #6bc76b;">DomainEventBus + StateMachineService</a>（19 事件类型 | 状态机）<br>
+      <strong>依赖共享层:</strong> <a href="00-shared-infrastructure.html" style="color: #6bc76b;">DomainEventBus + StateMachineService + DeadLetterService + EventPublishRequest</a>（19 事件类型 | 状态机 | 死信队列运维）<br>
       <strong>Workflow 模块:</strong> 3 Service Traits | 29 Core Methods | 4 核心表
     </div>
 

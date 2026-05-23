@@ -192,40 +192,42 @@ classDiagram
   InspectionResult --> InspectionSpecification : references
   MRB --> InspectionResult : dispositions
   RMA --> InspectionResult : traces optional
+    InspectionSpecificationService ..> MasterData.ProductService : product binding
+    InspectionResultService ..> MasterData.ProductService : product info
 
   class InspectionSpecificationService {
     &lt;&lt;interface&gt;&gt;
-    +create(spec, operator_id) Result~InspectionSpecification~
+    +create(ctx: ServiceContext, spec) Result~i64~
     +find_by_id(id) Result~InspectionSpecification~
     +find_by_product_and_type(product_id, inspection_type) Result~Option~
-    +update(id, spec, operator_id) Result~InspectionSpecification~
-    +list(filter) Result~Vec~
+    +update(ctx: ServiceContext, id, spec) Result~Unit~
+    +list(filter) PaginatedResult~InspectionSpecification~
   }
 
   class InspectionResultService {
     &lt;&lt;interface&gt;&gt;
-    +create(result, operator_id) Result~InspectionResult~
+    +create(ctx: ServiceContext, result) Result~i64~
     +find_by_id(id) Result~InspectionResult~
-    +record_result(id, result, check_results, operator_id) Result~InspectionResult~
+    +record_result(ctx: ServiceContext, id, result, check_results) Result~Unit~
     +list_by_source(source_type, source_id) Result~Vec~
     +is_passed(source_type, source_id) Result~bool~
   }
 
   class MRBService {
     &lt;&lt;interface&gt;&gt;
-    +create(mrb, operator_id) Result~MRB~
+    +create(ctx: ServiceContext, mrb) Result~i64~
     +find_by_id(id) Result~MRB~
-    +approve(id, disposition, operator_id) Result~MRB~
-    +list(filter) Result~Vec~
+    +approve(ctx: ServiceContext, id, disposition) Result~Unit~
+    +list(filter) PaginatedResult~MRB~
   }
 
   class RMAService {
     &lt;&lt;interface&gt;&gt;
-    +create(rma, operator_id) Result~RMA~
+    +create(ctx: ServiceContext, rma) Result~i64~
     +find_by_id(id) Result~RMA~
-    +record_root_cause(id, root_cause, corrective_action, operator_id) Result~RMA~
-    +close(id, operator_id) Result~RMA~
-    +list(filter) Result~Vec~
+    +record_root_cause(ctx: ServiceContext, id, root_cause, corrective_action) Result~Unit~
+    +close(ctx: ServiceContext, id) Result~Unit~
+    +list(filter) PaginatedResult~RMA~
   }
 
   note for InspectionResultService "Quality Gate hard block:\nWMS.ArrivalNoticeService.confirm()\n  -> check is_passed(ArrivalNotice, id) before allowing putaway\nSales.ShippingRequestService.ship()\n  -> check is_passed(ShippingRequest, id) before allowing shipment\nMES.WorkOrderService at inspection_point\n  -> auto-create IPQC\nOM.OutsourcingOrderService.receive()\n  -> auto-create IQC"
@@ -233,6 +235,8 @@ classDiagram
   note for MRBService "approve ->\n  CostEntry(Scrap/Rework cost)\n  WMS inventory adjustment (if scrap/degrade)\n  SupplierService notification (if responsible_party = Supplier)"
 
   note for RMAService "record_root_cause ->\n  DocumentLink(RMA -> WorkOrder -> Routing -> ArrivalNotice)\n  Full traceability chain for defect analysis"
+
+  note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>
@@ -269,14 +273,14 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">统一注册表：定义每个产品在各检验阶段要检什么、公差多少、怎么抽样</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InspectionSpecification</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// QS-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;inspection_type: InspectionType<br>
           &nbsp;&nbsp;check_items: JSONB <span style="color:#888;">// [{item, standard, tolerance, method}]</span><br>
           &nbsp;&nbsp;sample_plan: JSONB <span style="color:#888;">// {level, aql, mode}</span><br>
           &nbsp;&nbsp;status: SpecStatus<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
@@ -302,22 +306,22 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">实测记录：不合格自动阻断下游流转（数据层面硬门，非流程软约束）</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InspectionResult</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// QR-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;spec_id: UUID <span style="color:#888;">FK→inspection_specifications</span><br>
+          &nbsp;&nbsp;spec_id: i64 <span style="color:#888;">FK→inspection_specifications</span><br>
           &nbsp;&nbsp;source_type: InspectionSourceType<br>
-          &nbsp;&nbsp;source_id: UUID <span style="color:#888;">// 关联的来料通知/工单工序/发货单</span><br>
+          &nbsp;&nbsp;source_id: i64 <span style="color:#888;">// 关联的来料通知/工单工序/发货单</span><br>
           &nbsp;&nbsp;inspection_type: InspectionType<br>
           &nbsp;&nbsp;batch_no: String<br>
-          &nbsp;&nbsp;sample_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;qualified_qty: Decimal(10,6)<br>
-          &nbsp;&nbsp;unqualified_qty: Decimal(10,6)<br>
+          &nbsp;&nbsp;sample_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;qualified_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;unqualified_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;result: InspectionResultType<br>
           &nbsp;&nbsp;check_results: JSONB <span style="color:#888;">// [{item, measured, pass, remark}]</span><br>
-          &nbsp;&nbsp;inspector_id: UUID<br>
+          &nbsp;&nbsp;inspector_id: i64<br>
           &nbsp;&nbsp;inspection_date: Date<br>
           &nbsp;&nbsp;status: InspectionStatus<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           }<br><br>
@@ -346,17 +350,17 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">组织技术、采购、质检进行多方线上会签，拒绝管理盲区</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">MRB</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// MRB-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;inspection_result_id: UUID <span style="color:#888;">FK→inspection_results</span><br>
-          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;inspection_result_id: i64 <span style="color:#888;">FK→inspection_results</span><br>
+          &nbsp;&nbsp;product_id: i64<br>
           &nbsp;&nbsp;defect_description: String<br>
           &nbsp;&nbsp;disposition: MRBDisposition<br>
           &nbsp;&nbsp;responsible_party: ResponsibleParty<br>
-          &nbsp;&nbsp;cost_impact: Decimal(10,6)<br>
+          &nbsp;&nbsp;cost_impact: Decimal(20,4)<br>
           &nbsp;&nbsp;status: MRBStatus<br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
@@ -382,19 +386,19 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">后端客诉逆向触发内部质量追溯，倒逼车间工艺或采购端质量改良</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">RMA</span> {<br>
-          &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// RMA-2026-05-xxxxx</span><br>
-          &nbsp;&nbsp;customer_id: UUID <span style="color:#888;">FK→customers</span><br>
-          &nbsp;&nbsp;sales_order_id: UUID? <span style="color:#888;">FK→sales_orders</span><br>
-          &nbsp;&nbsp;shipping_request_id: UUID? <span style="color:#888;">FK→shipping_requests</span><br>
-          &nbsp;&nbsp;product_id: UUID<br>
+          &nbsp;&nbsp;customer_id: i64 <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;sales_order_id: i64? <span style="color:#888;">FK→sales_orders</span><br>
+          &nbsp;&nbsp;shipping_request_id: i64? <span style="color:#888;">FK→shipping_requests</span><br>
+          &nbsp;&nbsp;product_id: i64<br>
           &nbsp;&nbsp;defect_description: String<br>
           &nbsp;&nbsp;severity: Severity<br>
           &nbsp;&nbsp;root_cause: String? <span style="color:#888;">// 根因分析</span><br>
           &nbsp;&nbsp;corrective_action: String? <span style="color:#888;">// 纠正措施</span><br>
           &nbsp;&nbsp;status: RMAStatus<br>
           &nbsp;&nbsp;remark: String<br>
-          &nbsp;&nbsp;operator_id: UUID<br>
+          &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
@@ -418,32 +422,32 @@ classDiagram
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InspectionSpecificationService</span> {<br>
-          &nbsp;&nbsp;create(spec, operator_id): InspectionSpecification<br>
+          &nbsp;&nbsp;create(ctx: ServiceContext, spec): InspectionSpecification<br>
           &nbsp;&nbsp;find_by_id(id): InspectionSpecification<br>
           &nbsp;&nbsp;find_by_product_and_type(product_id, inspection_type): Option&lt;InspectionSpecification&gt;<br>
-          &nbsp;&nbsp;update(id, spec, operator_id): InspectionSpecification<br>
+          &nbsp;&nbsp;update(ctx: ServiceContext, id, spec): InspectionSpecification<br>
           &nbsp;&nbsp;list(filter): Vec&lt;InspectionSpecification&gt;<br>
           }<br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InspectionResultService</span> {<br>
-          &nbsp;&nbsp;create(result, operator_id): InspectionResult<br>
+          &nbsp;&nbsp;create(ctx: ServiceContext, result): InspectionResult<br>
           &nbsp;&nbsp;find_by_id(id): InspectionResult<br>
-          &nbsp;&nbsp;record_result(id, result, check_results, operator_id): InspectionResult<br>
+          &nbsp;&nbsp;record_result(ctx: ServiceContext, id, result, check_results): InspectionResult<br>
           &nbsp;&nbsp;list_by_source(source_type, source_id): Vec&lt;InspectionResult&gt;<br>
           &nbsp;&nbsp;is_passed(source_type, source_id): bool<br>
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">MRBService</span> {<br>
-          &nbsp;&nbsp;create(mrb, operator_id): MRB<br>
+          &nbsp;&nbsp;create(ctx: ServiceContext, mrb): MRB<br>
           &nbsp;&nbsp;find_by_id(id): MRB<br>
-          &nbsp;&nbsp;approve(id, disposition, operator_id): MRB<br>
+          &nbsp;&nbsp;approve(ctx: ServiceContext, id, disposition): MRB<br>
           &nbsp;&nbsp;list(filter): Vec&lt;MRB&gt;<br>
           }<br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">RMAService</span> {<br>
-          &nbsp;&nbsp;create(rma, operator_id): RMA<br>
+          &nbsp;&nbsp;create(ctx: ServiceContext, rma): RMA<br>
           &nbsp;&nbsp;find_by_id(id): RMA<br>
-          &nbsp;&nbsp;record_root_cause(id, root_cause, corrective_action, operator_id): RMA<br>
-          &nbsp;&nbsp;close(id, operator_id): RMA<br>
+          &nbsp;&nbsp;record_root_cause(ctx: ServiceContext, id, root_cause, corrective_action): RMA<br>
+          &nbsp;&nbsp;close(ctx: ServiceContext, id): RMA<br>
           &nbsp;&nbsp;list(filter): Vec&lt;RMA&gt;<br>
           }
         </div>

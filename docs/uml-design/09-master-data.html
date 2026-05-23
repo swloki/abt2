@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>主数据模块 (Master Data) — 类图设计 v2</title>
+  <title>主数据模块 (Master Data) — 类图设计 v4</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
@@ -28,8 +28,8 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </script>
 </head>
 <body>
-<h2>主数据模块 (Master Data) — 类图设计 v2</h2>
-<p class="subtitle">产品目录 + 分类体系 + 价格管理 + BOM 工程数据（快照版本） · 所有业务模块的上游基础数据</p>
+<h2>主数据模块 (Master Data) — 类图设计 v4</h2>
+<p class="subtitle">产品目录 + 分类体系 + 价格管理 + BOM 工程数据 + 客商主数据（Customer/Supplier） · 所有业务模块的上游基础数据 · ServiceContext 统一契约 · CQRS 风格拆分</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -112,9 +112,10 @@ classDiagram
     +log_id: i64
     +product_id: i64
     +price_type: PriceType
+    +old_price: Option~Decimal~
     +new_price: Decimal
     +operator_id: Option~i64~
-    +remark: Option~String~
+    +remark: String
     +created_at: DateTime
   }
 
@@ -139,9 +140,9 @@ classDiagram
     +id: i64
     +product_id: i64
     +product_code: Option~String~
-    +quantity: f64
+    +quantity: Decimal
     +parent_id: i64
-    +loss_rate: f64
+    +loss_rate: Decimal
     +order: i32
     +unit: Option~String~
     +remark: Option~String~
@@ -181,82 +182,327 @@ classDiagram
     +product_id: i64
     +product_name: String
     +product_code: String
-    +quantity: f64
-    +unit_price: Option~String~
+    +quantity: Decimal
+    +unit_price: Option~Decimal~
   }
 
   class LaborCostItem {
     +id: i64
     +name: String
-    +unit_price: String
-    +quantity: String
+    +unit_price: Decimal
+    +quantity: Decimal
     +sort_order: i32
     +remark: String
   }
 
+  class BomLaborCostReport {
+    +bom_id: i64
+    +items: Vec~LaborCostItem~
+    +total_cost: Decimal
+  }
+
+  class SubstitutionResult {
+    +affected_boms: i64
+    +affected_nodes: i64
+  }
+
+  %% 请求/响应结构体
+  class CreateProductReq {
+    +name: String
+    +unit: String
+    +status: ProductStatus
+    +external_code: Option~String~
+    +owner_department_id: Option~i64~
+    +meta: ProductMeta
+  }
+
+  class UpdateProductReq {
+    +name: Option~String~
+    +unit: Option~String~
+    +external_code: Option~String~
+    +owner_department_id: Option~i64~
+    +meta: Option~ProductMeta~
+  }
+
+  class CreateBomReq {
+    +name: String
+    +bom_category_id: Option~i64~
+  }
+
+  class UpdateBomReq {
+    +name: Option~String~
+    +bom_category_id: Option~i64~
+  }
+
+  class NewBomNode {
+    +product_id: i64
+    +quantity: Decimal
+    +parent_id: i64
+    +loss_rate: Decimal
+    +order: i32
+    +unit: Option~String~
+    +remark: Option~String~
+    +position: Option~String~
+    +work_center: Option~String~
+    +properties: Option~String~
+  }
+
+  class UpdateBomNodeReq {
+    +quantity: Option~Decimal~
+    +loss_rate: Option~Decimal~
+    +order: Option~i32~
+    +unit: Option~String~
+    +remark: Option~String~
+    +position: Option~String~
+    +work_center: Option~String~
+    +properties: Option~String~
+  }
+
+  class SubstituteReq {
+    +old_product_id: i64
+    +new_product_id: i64
+    +bom_id: Option~i64~
+    +overrides: AttributeOverrides
+  }
+
+  class AttributeOverrides {
+    +quantity: Option~Decimal~
+    +loss_rate: Option~Decimal~
+    +unit: Option~String~
+    +remark: Option~String~
+    +position: Option~String~
+    +work_center: Option~String~
+    +properties: Option~String~
+  }
+
+  %% Service 接口 — 统一 ServiceContext
+  %% PageParams 定义在 00-shared-infrastructure.html
   class ProductService {
     &lt;&lt;interface&gt;&gt;
-    +create(product, executor) i64
-    +update(product_id, product, executor)
-    +delete(product_id, executor)
-    +find(product_id) Product
-    +find_by_ids(product_ids) Vec~Product~
-    +query(query) PaginatedResult
-    +check_product_usage(product_id, query) PaginatedResult
-    +update_status(product_id, status, executor)
+    +create(ctx: ServiceContext, req: CreateProductReq) Result~i64~
+    +update(ctx: ServiceContext, id, req: UpdateProductReq) Result~Unit~
+    +delete(ctx: ServiceContext, id) Result~Unit~
+    +get(ctx: ServiceContext, id) Result~Product~
+    +get_by_ids(ctx: ServiceContext, ids) Vec~Product~
+    +list(ctx: ServiceContext, filter, page: PageParams) PaginatedResult~Product~
+    +check_product_usage(ctx: ServiceContext, id, query) PaginatedResult
   }
 
   class ProductPriceService {
     &lt;&lt;interface&gt;&gt;
-    +update_price(product_id, price_type, new_price, operator_id, remark, executor)
-    +query_price_history(query) PaginatedResult
-    +get_current_price(product_id, price_type) Option~Decimal~
+    +update_price(ctx: ServiceContext, product_id, price_type, new_price, remark: String) Result~Unit~
+    +list_price_history(ctx: ServiceContext, query) PaginatedResult
+    +get_current_price(ctx: ServiceContext, product_id, price_type) Option~Decimal~
+    +get_price_at(ctx: ServiceContext, product_id, price_type, as_of) Option~Decimal~
   }
 
   class CategoryService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, executor) i64
-    +update(category_id, req, executor)
-    +delete(category_id, executor)
-    +get(category_id) Category
-    +list(query) Vec~Category~
-    +get_tree(root_id: Option~i64~) Vec~CategoryTree~
-    +move_to(category_id, new_parent_id, executor)
-    +assign_products(category_id, product_ids, executor)
-    +remove_products(category_id, product_ids, executor)
+    +create(ctx: ServiceContext, req) Result~i64~
+    +update(ctx: ServiceContext, category_id, req) Result~Unit~
+    +delete(ctx: ServiceContext, category_id) Result~Unit~
+    +get(ctx: ServiceContext, category_id) Result~Category~
+    +list(ctx: ServiceContext, filter, page: PageParams) PaginatedResult~Category~
+    +get_tree(ctx: ServiceContext, root_id, depth_limit) Vec~CategoryTree~
+    +move_to(ctx: ServiceContext, category_id, new_parent_id) Result~Unit~
+    +assign_products(ctx: ServiceContext, category_id, product_ids) Result~Unit~
+    +remove_products(ctx: ServiceContext, category_id, product_ids) Result~Unit~
   }
 
-  class BomService {
+  %% BOM 拆分为 4 个 Service（CQRS 风格）
+  class BomQueryService {
     &lt;&lt;interface&gt;&gt;
-    +create(name, created_by, bom_category_id, executor) i64
-    +update(bom_id, req, executor)
-    +delete(bom_id, executor)
-    +find(bom_id, executor) Bom
-    +query(query) PaginatedResult
-    +add_node(bom_id, node, executor) i64
-    +update_node(bom_id, node, executor)
-    +delete_node(bom_id, node_id, executor) i64
-    +swap_node_position(bom_id, id1, id2, executor)
-    +get_leaf_nodes(bom_id) Vec~BomNode~
-    +save_as(source_bom_id, new_name, created_by, executor) i64
-    +substitute_product(old_product_id, new_product_id, bom_id, overrides, caller_id, executor) SubstitutionResult
-    +get_bom_cost_report(bom_id, as_of_date, executor) BomCostReport
-    +get_bom_labor_cost(bom_id) BomLaborCostReport
-    +publish(bom_id, operator_id, executor) Bom
-    +unpublish(bom_id, operator_id, executor) Bom
-    +get_snapshots(bom_id) Vec~BomSnapshot~
-    +get_snapshot(snapshot_id) BomSnapshot
-    +get_snapshot_by_version(bom_id, version) BomSnapshot
+    +get(ctx: ServiceContext, bom_id) Result~Bom~
+    +list(ctx: ServiceContext, query) PaginatedResult~Bom~
+    +get_leaf_nodes(ctx: ServiceContext, bom_id) Vec~BomNode~
+    +get_snapshots(ctx: ServiceContext, bom_id, version, limit: i32) Vec~BomSnapshot~
+    +exists_name(ctx: ServiceContext, name, caller_id) bool
+  }
+
+  class BomCommandService {
+    &lt;&lt;interface&gt;&gt;
+    +create(ctx: ServiceContext, req: CreateBomReq) Result~i64~
+    +update(ctx: ServiceContext, id, req: UpdateBomReq, expected_version) Result~Unit~
+    +delete(ctx: ServiceContext, id) Result~Unit~
+    +publish(ctx: ServiceContext, id) Result~i64~
+    +unpublish(ctx: ServiceContext, id) Result~Unit~
+    +save_as(ctx: ServiceContext, source_id, new_name) Result~i64~
+    +substitute_product(ctx: ServiceContext, req: SubstituteReq) SubstitutionResult
+  }
+
+  class BomNodeService {
+    &lt;&lt;interface&gt;&gt;
+    +add_node(ctx: ServiceContext, bom_id, node: NewBomNode) Result~i64~
+    +update_node(ctx: ServiceContext, bom_id, node_id, req: UpdateBomNodeReq, expected_version) Result~Unit~
+    +delete_node(ctx: ServiceContext, bom_id, node_id) Result~i64~
+    +move_node(ctx: ServiceContext, bom_id, node_id, new_parent_id, before_sibling_id) Result~Unit~
+  }
+
+  class BomCostService {
+    &lt;&lt;interface&gt;&gt;
+    +get_cost_report(ctx: ServiceContext, bom_id, as_of_date) BomCostReport
   }
 
   class BomCategoryService {
     &lt;&lt;interface&gt;&gt;
-    +create(req, executor) i64
-    +update(id, req, executor)
-    +delete(id, executor)
-    +list(query) PaginatedResult
+    +create(ctx: ServiceContext, req) Result~i64~
+    +update(ctx: ServiceContext, id, req) Result~Unit~
+    +delete(ctx: ServiceContext, id) Result~Unit~
+    +list(ctx: ServiceContext, query) PaginatedResult
   }
 
+  %% ==================== 客商主数据 ====================
+
+  class CustomerCategory {
+    &lt;&lt;enumeration&gt;&gt;
+    Distributor
+    DirectCustomer
+    OEM
+    Retailer
+  }
+
+  class CustomerStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Prospective
+    Active
+    Inactive
+    Blacklisted
+  }
+
+  class Customer {
+    +id: i64
+    +code: String
+    +name: String
+    +short_name: Option~String~
+    +category: CustomerCategory
+    +status: CustomerStatus
+    +tax_number: Option~String~
+    +invoice_title: Option~String~
+    +credit_limit: Option~Decimal~
+    +payment_terms: Option~String~
+    +receivable_account: Option~String~
+    +owner_id: Option~i64~
+    +department_id: Option~i64~
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+
+  class CustomerContact {
+    +id: i64
+    +customer_id: i64
+    +name: String
+    +position: Option~String~
+    +phone: Option~String~
+    +email: Option~String~
+    +is_primary: bool
+  }
+
+  class CustomerAddress {
+    +id: i64
+    +customer_id: i64
+    +address_type: String
+    +province: String
+    +city: String
+    +district: Option~String~
+    +detail: String
+    +contact_name: Option~String~
+    +contact_phone: Option~String~
+    +is_default: bool
+  }
+
+  class SupplierCategory {
+    &lt;&lt;enumeration&gt;&gt;
+    RawMaterial
+    Packaging
+    Outsourcing
+    Consumable
+    Service
+  }
+
+  class SupplierStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Prospective
+    Qualified
+    Probation
+    Disqualified
+    Blacklisted
+  }
+
+  class Supplier {
+    +id: i64
+    +code: String
+    +name: String
+    +short_name: Option~String~
+    +category: SupplierCategory
+    +status: SupplierStatus
+    +tax_number: Option~String~
+    +lead_time_days: i32
+    +payment_terms: Option~String~
+    +remark: String
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+    +deleted_at: Option~Timestamp~
+  }
+
+  class SupplierContact {
+    +id: i64
+    +supplier_id: i64
+    +name: String
+    +position: Option~String~
+    +phone: Option~String~
+    +email: Option~String~
+    +is_primary: bool
+  }
+
+  class SupplierBankAccount {
+    +id: i64
+    +supplier_id: i64
+    +bank_name: String
+    +account_name: String
+    +account_number: String
+    +is_default: bool
+  }
+
+  class CustomerService {
+    &lt;&lt;interface&gt;&gt;
+    +create(ctx: ServiceContext, req) Result~i64~
+    +get(ctx: ServiceContext, id) Result~Customer~
+    +update(ctx: ServiceContext, id, req) Result~Unit~
+    +list(ctx: ServiceContext, filter, page: PageParams) PaginatedResult~Customer~
+    +add_contact(ctx: ServiceContext, cid, req) Result~i64~
+    +update_contact(ctx: ServiceContext, cid, contact_id, req) Result~Unit~
+    +delete_contact(ctx: ServiceContext, cid, contact_id) Result~Unit~
+    +list_contacts(ctx: ServiceContext, cid) Vec~CustomerContact~
+    +add_address(ctx: ServiceContext, cid, req) Result~i64~
+    +update_address(ctx: ServiceContext, cid, address_id, req) Result~Unit~
+    +delete_address(ctx: ServiceContext, cid, address_id) Result~Unit~
+    +list_addresses(ctx: ServiceContext, cid) Vec~CustomerAddress~
+    +validate_contact_ownership(ctx: ServiceContext, cid, contact_id) bool
+    +claim(ctx: ServiceContext, id) Result~Unit~
+    +transfer(ctx: ServiceContext, id, new_owner_id, new_department_id) Result~Unit~
+  }
+
+  class SupplierService {
+    &lt;&lt;interface&gt;&gt;
+    +create(ctx: ServiceContext, req) Result~i64~
+    +get(ctx: ServiceContext, id) Result~Supplier~
+    +update(ctx: ServiceContext, id, req) Result~Unit~
+    +list(ctx: ServiceContext, filter, page: PageParams) PaginatedResult~Supplier~
+    +add_contact(ctx: ServiceContext, sid, req) Result~i64~
+    +update_contact(ctx: ServiceContext, sid, contact_id, req) Result~Unit~
+    +delete_contact(ctx: ServiceContext, sid, contact_id) Result~Unit~
+    +list_contacts(ctx: ServiceContext, sid) Vec~SupplierContact~
+    +add_bank_account(ctx: ServiceContext, sid, req) Result~i64~
+    +update_bank_account(ctx: ServiceContext, sid, account_id, req) Result~Unit~
+    +delete_bank_account(ctx: ServiceContext, sid, account_id) Result~Unit~
+    +list_bank_accounts(ctx: ServiceContext, sid) Vec~SupplierBankAccount~
+  }
+
+  %% 实体关系
   Product *-- ProductMeta : meta
   Product --> ProductStatus : status
   Category *-- CategoryMeta : meta
@@ -275,17 +521,42 @@ classDiagram
   BomCostReport o-- MaterialCostItem
   BomCostReport o-- LaborCostItem
 
+  %% Service → 请求结构体
+  ProductService ..> CreateProductReq
+  ProductService ..> UpdateProductReq
   ProductService ..> Product
   ProductPriceService ..> PriceLogEntry
   PriceLogEntry --> PriceType : price_type
   CategoryService ..> Category
   CategoryService ..> CategoryTree
   CategoryService ..> ProductCategory
-  BomService ..> Bom
-  BomService ..> BomNode
-  BomService ..> BomCostReport
-  BomService ..> BomSnapshot
+  BomCommandService ..> CreateBomReq
+  BomCommandService ..> UpdateBomReq
+  BomCommandService ..> SubstituteReq
+  BomCommandService ..> AttributeOverrides
+  BomCommandService ..> SubstitutionResult
+  BomCommandService ..> Bom
+  BomCommandService ..> BomSnapshot
+  BomQueryService ..> Bom
+  BomQueryService ..> BomSnapshot
+  BomNodeService ..> NewBomNode
+  BomNodeService ..> UpdateBomNodeReq
+  BomNodeService ..> BomNode
+  BomCostService ..> BomCostReport
   BomCategoryService ..> BomCategory
+
+  %% 客商关系
+  Customer --> CustomerCategory : category
+  Customer --> CustomerStatus : status
+  Customer *-- CustomerContact : contacts
+  Customer *-- CustomerAddress : addresses
+  CustomerService ..> Customer
+  Supplier --> SupplierCategory : category
+  Supplier --> SupplierStatus : status
+  Supplier *-- SupplierContact : contacts
+  Supplier *-- SupplierBankAccount : bank_accounts
+  SupplierService ..> Supplier
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult\nCustomer 行级安全: list/get 底层必须根据 ctx.data_scope 强制拼接 WHERE 条件，禁止前端越权"
     </div>
   </div>
 </div>
@@ -314,6 +585,188 @@ classDiagram
         <span style="color:#e06c75;">↗ PriceLogEntry</span> 价格历史（支持时间点查询）
         &nbsp;&nbsp;
         <span style="color:#56b6c2;">↗ BomCostReport</span> BOM 成本报告（支持 as_of_date）
+        <br>
+        <span style="color:#c678dd;">Customer</span> 客户（AR 主体，信用管控）
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#c678dd;">CustomerContact</span> 联系人
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#c678dd;">CustomerAddress</span> 收货地址
+        &nbsp;&nbsp;
+        <span style="color:#e06c75;">Supplier</span> 供应商（AP 主体，采购源头）
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e06c75;">SupplierContact</span> 联系人
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e06c75;">SupplierBankAccount</span> 银行账户
+      </div>
+    </div>
+    <div style="background: rgba(249,115,22,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #f97316;">v4 设计改进</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
+        <span style="color:#f971b;">① 客商主数据统一</span> — Customer 和 Supplier 统一归入主数据模块，避免 Sales/Purchase/FMS 间网状依赖，形成星型拓扑<br>
+        <span style="color:#f971b;">② ServiceContext</span> — 所有 Service 方法统一使用 <a href="00-shared-infrastructure.html" style="color:#e5c07b;">ServiceContext</a>（定义见共享基础设施层），与其他模块对齐<br>
+        <span style="color:#f971b;">③ BomService 拆分</span> — 按 CQRS 风格拆为 BomQueryService / BomCommandService / BomNodeService / BomCostService 四个 trait<br>
+        <span style="color:#f971b;">④ 强类型请求结构体</span> — CreateProductReq / UpdateProductReq / CreateBomReq / NewBomNode 等专用请求类型，区分必填与可选字段<br>
+        <span style="color:#f971b;">⑤ 乐观锁</span> — BomCommandService.update / BomNodeService.update_node 要求传入 expected_version，冲突返回 DomainError::ConcurrentConflict。新增 BOM 时 version = 1<br>
+        <span style="color:#f971b;">⑥ 命名统一</span> — find → get（单 ID 查询），query → list（分页查询），publish 返回 BomSnapshot<br>
+        <span style="color:#f971b;">⑦ 领域错误</span> — 使用 <a href="00-shared-infrastructure.html" style="color:#e5c07b;">DomainError</a>（定义见共享基础设施层），核心变体：NotFound / ConcurrentConflict / BusinessRule / InvalidStateTransition
+      </div>
+    </div>
+
+    <!-- Row 0: Customer + Supplier (v4 新增) -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- Customer -->
+      <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+        <h4 style="color: #c678dd; margin: 0 0 6px 0;">Customer 客户</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">客户主档案，AR（应收账款）主体。支持公海/私海客户池、信用额度管控、多收货地址。owner_id=null 为公海客户（全员可见），有值为私海（归属业务员+上级可见）。下游模块：Sales、FMS、WMS</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Customer</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;code: String <span style="color:#888;">// 客户编码，自动生成</span><br>
+          &nbsp;&nbsp;name: String<br>
+          &nbsp;&nbsp;short_name: String?<br>
+          &nbsp;&nbsp;category: CustomerCategory<br>
+          &nbsp;&nbsp;status: CustomerStatus<br>
+          &nbsp;&nbsp;tax_number: String? <span style="color:#888;">// 统一社会信用代码</span><br>
+          &nbsp;&nbsp;invoice_title: String? <span style="color:#888;">// 开票抬头</span><br>
+          &nbsp;&nbsp;credit_limit: Decimal(20,4)? <span style="color:#888;">// 信用额度</span><br>
+          &nbsp;&nbsp;payment_terms: String? <span style="color:#888;">// 账期条件</span><br>
+          &nbsp;&nbsp;receivable_account: String? <span style="color:#888;">// 应收科目编码</span><br>
+          &nbsp;&nbsp;owner_id: i64? <span style="color:#888;">// 客户归属业务员，null=公海客户</span><br>
+          &nbsp;&nbsp;department_id: i64? <span style="color:#888;">// 归属部门，支持部门级共享</span><br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: i64 <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CustomerContact</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;customer_id: i64 <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;name: String<br>
+          &nbsp;&nbsp;position: String?<br>
+          &nbsp;&nbsp;phone: String?<br>
+          &nbsp;&nbsp;email: String?<br>
+          &nbsp;&nbsp;is_primary: bool<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CustomerAddress</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;customer_id: i64 <span style="color:#888;">FK→customers</span><br>
+          &nbsp;&nbsp;address_type: String <span style="color:#888;">// Shipping/Billing</span><br>
+          &nbsp;&nbsp;province: String<br>
+          &nbsp;&nbsp;city: String<br>
+          &nbsp;&nbsp;district: String?<br>
+          &nbsp;&nbsp;detail: String<br>
+          &nbsp;&nbsp;contact_name: String?<br>
+          &nbsp;&nbsp;contact_phone: String?<br>
+          &nbsp;&nbsp;is_default: bool<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">CustomerCategory</span> {<br>
+          &nbsp;&nbsp;DISTRIBUTOR, DIRECT_CUSTOMER<br>
+          &nbsp;&nbsp;OEM, RETAILER<br>
+          }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">CustomerStatus</span> {<br>
+          &nbsp;&nbsp;PROSPECTIVE <span style="color:#888;">// 潜在客户</span><br>
+          &nbsp;&nbsp;ACTIVE <span style="color:#888;">// 活跃</span><br>
+          &nbsp;&nbsp;INACTIVE <span style="color:#888;">// 停用</span><br>
+          &nbsp;&nbsp;BLACKLISTED <span style="color:#888;">// 黑名单</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">CustomerService</span> {<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
+          &nbsp;&nbsp;create(ctx, req) → i64<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部调用 DocumentSequenceService.next_number(ctx, "CUS")</span><br>
+          &nbsp;&nbsp;get(ctx, id) → Customer<br>
+          &nbsp;&nbsp;update(ctx, id, req)<br>
+          &nbsp;&nbsp;list(ctx, filter, page) → PaginatedResult<br>
+          &nbsp;&nbsp;add_contact(ctx, cid, req) → i64<br>
+          &nbsp;&nbsp;update_contact(ctx, cid, contact_id, req)<br>
+          &nbsp;&nbsp;delete_contact(ctx, cid, contact_id)<br>
+          &nbsp;&nbsp;list_contacts(ctx, cid) → Vec&lt;CustomerContact&gt;<br>
+          &nbsp;&nbsp;add_address(ctx, cid, req) → i64<br>
+          &nbsp;&nbsp;update_address(ctx, cid, address_id, req)<br>
+          &nbsp;&nbsp;delete_address(ctx, cid, address_id)<br>
+          &nbsp;&nbsp;list_addresses(ctx, cid) → Vec&lt;CustomerAddress&gt;<br>
+          &nbsp;&nbsp;validate_contact_ownership(ctx, cid, contact_id) → bool<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// Sales 模块校验 contact_id 是否归属该客户</span><br>
+          &nbsp;&nbsp;claim(ctx, id) <span style="color:#888;">// 公海客户认领，设 owner_id=operator_id</span><br>
+          &nbsp;&nbsp;transfer(ctx, id, new_owner_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;new_department_id?) <span style="color:#888;">// 客户转移（高权限）</span><br>
+          }
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>共享层：</strong>DocumentSequence(CUS) | 审计日志 | 领域事件(CustomerBlacklisted → Sales 挂起相关报价单/订单)
+        </p>
+      </div>
+
+      <!-- Supplier -->
+      <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
+        <h4 style="color: #e06c75; margin: 0 0 6px 0;">Supplier 供应商</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">供应商主档案，AP（应付账款）主体。支持准入审核与分级分类，银行账户管理。下游模块：Purchase（采购报价/订单）、FMS（应付/付款）、OM（委外）</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Supplier</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;code: String <span style="color:#888;">// 供应商编码，自动生成</span><br>
+          &nbsp;&nbsp;name: String<br>
+          &nbsp;&nbsp;short_name: String?<br>
+          &nbsp;&nbsp;category: SupplierCategory<br>
+          &nbsp;&nbsp;status: SupplierStatus<br>
+          &nbsp;&nbsp;tax_number: String? <span style="color:#888;">// 统一社会信用代码</span><br>
+          &nbsp;&nbsp;lead_time_days: i32 <span style="color:#888;">// 默认交货天数</span><br>
+          &nbsp;&nbsp;payment_terms: String?<br>
+          &nbsp;&nbsp;remark: String<br>
+          &nbsp;&nbsp;operator_id: i64 <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          &nbsp;&nbsp;deleted_at: Timestamp?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">SupplierContact</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;supplier_id: i64 <span style="color:#888;">FK→suppliers</span><br>
+          &nbsp;&nbsp;name: String<br>
+          &nbsp;&nbsp;position: String?<br>
+          &nbsp;&nbsp;phone: String?<br>
+          &nbsp;&nbsp;email: String?<br>
+          &nbsp;&nbsp;is_primary: bool<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">SupplierBankAccount</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;supplier_id: i64 <span style="color:#888;">FK→suppliers</span><br>
+          &nbsp;&nbsp;bank_name: String<br>
+          &nbsp;&nbsp;account_name: String<br>
+          &nbsp;&nbsp;account_number: String<br>
+          &nbsp;&nbsp;is_default: bool<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SupplierCategory</span> {<br>
+          &nbsp;&nbsp;RAW_MATERIAL, PACKAGING, OUTSOURCING<br>
+          &nbsp;&nbsp;CONSUMABLE, SERVICE<br>
+          }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SupplierStatus</span> {<br>
+          &nbsp;&nbsp;PROSPECTIVE <span style="color:#888;">// 潜在</span><br>
+          &nbsp;&nbsp;QUALIFIED <span style="color:#888;">// 合格</span><br>
+          &nbsp;&nbsp;PROBATION <span style="color:#888;">// 试用期</span><br>
+          &nbsp;&nbsp;DISQUALIFIED <span style="color:#888;">// 不合格</span><br>
+          &nbsp;&nbsp;BLACKLISTED <span style="color:#888;">// 黑名单</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">SupplierService</span> {<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
+          &nbsp;&nbsp;create(ctx, req) → i64<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部调用 DocumentSequenceService.next_number(ctx, "SUP")</span><br>
+          &nbsp;&nbsp;get(ctx, id) → Supplier<br>
+          &nbsp;&nbsp;update(ctx, id, req)<br>
+          &nbsp;&nbsp;list(ctx, filter, page) → PaginatedResult<br>
+          &nbsp;&nbsp;add_contact(ctx, sid, req) → i64<br>
+          &nbsp;&nbsp;update_contact(ctx, sid, contact_id, req)<br>
+          &nbsp;&nbsp;delete_contact(ctx, sid, contact_id)<br>
+          &nbsp;&nbsp;list_contacts(ctx, sid) → Vec&lt;SupplierContact&gt;<br>
+          &nbsp;&nbsp;add_bank_account(ctx, sid, req) → i64<br>
+          &nbsp;&nbsp;update_bank_account(ctx, sid, account_id, req)<br>
+          &nbsp;&nbsp;delete_bank_account(ctx, sid, account_id)<br>
+          &nbsp;&nbsp;list_bank_accounts(ctx, sid) → Vec&lt;SupplierBankAccount&gt;<br>
+          }
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>共享层：</strong>DocumentSequence(SUP) | 审计日志 | 领域事件(SupplierBlacklisted → Purchase 拦截新建 PO, SupplierBankAccountChanged → FMS 付款高风险预警)
+        </p>
       </div>
     </div>
 
@@ -350,16 +803,31 @@ classDiagram
           &nbsp;&nbsp;category_id: i64 <span style="color:#888;">FK→categories</span><br>
           &nbsp;&nbsp;<span style="color:#888;">// UNIQUE(product_id, category_id)</span><br>
           }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CreateProductReq</span> {<br>
+          &nbsp;&nbsp;name: String <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;unit: String <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;status: ProductStatus<br>
+          &nbsp;&nbsp;external_code: String?<br>
+          &nbsp;&nbsp;owner_department_id: i64?<br>
+          &nbsp;&nbsp;meta: ProductMeta<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">UpdateProductReq</span> {<br>
+          &nbsp;&nbsp;name: String? <span style="color:#888;">// 全部可选</span><br>
+          &nbsp;&nbsp;unit: String?<br>
+          &nbsp;&nbsp;external_code: String?<br>
+          &nbsp;&nbsp;owner_department_id: i64?<br>
+          &nbsp;&nbsp;meta: ProductMeta?<br>
+          }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ProductService</span> {<br>
-          &nbsp;&nbsp;create(product, executor) → i64<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部自动生成编码(x+时间戳)</span><br>
-          &nbsp;&nbsp;update(product_id, product, executor)<br>
-          &nbsp;&nbsp;delete(product_id, executor)<br>
-          &nbsp;&nbsp;find(product_id) → Option&lt;Product&gt;<br>
-          &nbsp;&nbsp;find_by_ids(ids) → Vec&lt;Product&gt;<br>
-          &nbsp;&nbsp;query(query) → (Vec, total)<br>
-          &nbsp;&nbsp;check_product_usage(id, query) → PaginatedResult<br>
-          &nbsp;&nbsp;update_status(id, status, executor)<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
+          &nbsp;&nbsp;create(ctx, req: CreateProductReq) → Product<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部调用 DocumentSequenceService.next_number(ctx, "PRODUCT")</span><br>
+          &nbsp;&nbsp;update(ctx, id, req: UpdateProductReq) → Product<br>
+          &nbsp;&nbsp;delete(ctx, id) <span style="color:#888;">// 内部调用 check_product_usage</span><br>
+          &nbsp;&nbsp;get(ctx, id) → Product <span style="color:#888;">// 不存在返回 DomainError::NotFound</span><br>
+          &nbsp;&nbsp;get_by_ids(ctx, ids) → Vec&lt;Product&gt;<br>
+          &nbsp;&nbsp;list(ctx, filter, page) → PaginatedResult<br>
+          &nbsp;&nbsp;check_product_usage(ctx, id, query) → PaginatedResult<br>
           }
         </div>
       </div>
@@ -387,19 +855,22 @@ classDiagram
           &nbsp;&nbsp;children: Vec&lt;CategoryTree&gt;<br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">CategoryService</span> {<br>
-          &nbsp;&nbsp;create(req, executor) → i64<br>
-          &nbsp;&nbsp;update(category_id, req, executor)<br>
-          &nbsp;&nbsp;delete(category_id, executor)<br>
-          &nbsp;&nbsp;get(category_id) → Option&lt;Category&gt;<br>
-          &nbsp;&nbsp;list(query) → Vec&lt;Category&gt;<br>
-          &nbsp;&nbsp;get_tree(root_id?) → Vec&lt;CategoryTree&gt;<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
+          &nbsp;&nbsp;create(ctx, req) → i64<br>
+          &nbsp;&nbsp;update(ctx, category_id, req)<br>
+          &nbsp;&nbsp;delete(ctx, category_id) <span style="color:#888;">// 内部检查子分类和关联产品</span><br>
+          &nbsp;&nbsp;get(ctx, category_id) → Category<br>
+          &nbsp;&nbsp;list(ctx, filter, page) → PaginatedResult<br>
+          &nbsp;&nbsp;get_tree(ctx, root_id?,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;depth_limit?) → Vec&lt;CategoryTree&gt;<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// null=全树, id=子树</span><br>
-          &nbsp;&nbsp;move_to(category_id, new_parent_id,<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;executor) <span style="color:#888;">// 级联更新path</span><br>
-          &nbsp;&nbsp;assign_products(category_id,<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;product_ids, executor)<br>
-          &nbsp;&nbsp;remove_products(category_id,<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;product_ids, executor)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// depth_limit 防止全量树爆炸</span><br>
+          &nbsp;&nbsp;move_to(ctx, category_id, new_parent_id)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 级联更新path (CTE)</span><br>
+          &nbsp;&nbsp;assign_products(ctx, category_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;product_ids)<br>
+          &nbsp;&nbsp;remove_products(ctx, category_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;product_ids)<br>
           }
         </div>
       </div>
@@ -411,7 +882,7 @@ classDiagram
       <!-- BOM -->
       <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05);">
         <h4 style="color: #e5a655; margin: 0 0 6px 0;">BOM 物料清单</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">定义产品的物料构成。草稿/发布双状态，发布时生成不可变快照（BomSnapshot）。支持复制、物料替换、成本核算</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">定义产品的物料构成。草稿/发布双状态，发布时生成不可变快照（BomSnapshot）。支持复制、物料替换、成本核算。version 字段用于乐观锁并发控制</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Bom</span> {<br>
           &nbsp;&nbsp;bom_id: i64 <span style="color:#888;">PK</span><br>
@@ -421,6 +892,7 @@ classDiagram
           &nbsp;&nbsp;bom_detail: BomDetail <span style="color:#888;">// 从 bom_nodes 加载</span><br>
           &nbsp;&nbsp;bom_category_id: i64? <span style="color:#888;">FK→bom_categories</span><br>
           &nbsp;&nbsp;status: BomStatus<br>
+          &nbsp;&nbsp;version: i32 <span style="color:#888;">// 乐观锁版本号</span><br>
           &nbsp;&nbsp;published_at: DateTime?<br>
           &nbsp;&nbsp;created_by: i64? <span style="color:#888;">FK→users</span><br>
           }<br><br>
@@ -432,6 +904,14 @@ classDiagram
           &nbsp;&nbsp;bom_category_id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;bom_category_name: String<br>
           &nbsp;&nbsp;created_at: DateTime<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CreateBomReq</span> {<br>
+          &nbsp;&nbsp;name: String <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;bom_category_id: i64?<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">UpdateBomReq</span> {<br>
+          &nbsp;&nbsp;name: String? <span style="color:#888;">// 全部可选</span><br>
+          &nbsp;&nbsp;bom_category_id: i64?<br>
           }
         </div>
       </div>
@@ -439,14 +919,14 @@ classDiagram
       <!-- BomNode -->
       <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
         <h4 style="color: #e06c75; margin: 0 0 6px 0;">BomNode BOM 节点</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">树形物料节点。parent_id=0 为根节点（成品），其余为子节点（原材料/半成品）。存储于独立的 bom_nodes 表。order 仅在 parent_id 相同的兄弟节点内有效，通过 swap_node_position 调整</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">树形物料节点。parent_id=0 为根节点（成品），其余为子节点（原材料/半成品）。存储于独立的 bom_nodes 表。order 仅在 parent_id 相同的兄弟节点内有效，通过 swap_node_position 调整；插入节点到中间位置时自动后移后续兄弟节点。add_node 时若 order 未指定或冲突，服务层自动按同级最大 order + 1 处理</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BomNode</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;bom_id: i64 <span style="color:#888;">FK→boms</span><br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;product_code: String? <span style="color:#888;">// 冗余编码</span><br>
-          &nbsp;&nbsp;quantity: Decimal(10,6)<br>
+          &nbsp;&nbsp;quantity: Decimal(18,6)<br>
           &nbsp;&nbsp;parent_id: i64 <span style="color:#888;">// 0=根节点</span><br>
           &nbsp;&nbsp;loss_rate: Decimal <span style="color:#888;">// 损耗率</span><br>
           &nbsp;&nbsp;order: i32 <span style="color:#888;">// 兄弟节点内排序</span><br>
@@ -455,12 +935,28 @@ classDiagram
           &nbsp;&nbsp;position: String? <span style="color:#888;">// 位置</span><br>
           &nbsp;&nbsp;work_center: String? <span style="color:#888;">// 工作中心</span><br>
           &nbsp;&nbsp;properties: String? <span style="color:#888;">// 自定义属性</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">NewBomNode</span> {<br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;quantity: Decimal <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;parent_id: i64 <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;loss_rate: Decimal<br>
+          &nbsp;&nbsp;order: i32<br>
+          &nbsp;&nbsp;unit, remark, position<br>
+          &nbsp;&nbsp;work_center, properties<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">UpdateBomNodeReq</span> {<br>
+          &nbsp;&nbsp;quantity: Decimal? <span style="color:#888;">// 全部可选</span><br>
+          &nbsp;&nbsp;loss_rate: Decimal?<br>
+          &nbsp;&nbsp;order: i32?<br>
+          &nbsp;&nbsp;unit, remark, position<br>
+          &nbsp;&nbsp;work_center, properties<br>
           }
         </div>
       </div>
     </div>
 
-    <!-- Row 3: PriceLog + CostReport + BomService -->
+    <!-- Row 3: PriceLog + BomService Split + CostReport -->
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
 
       <!-- PriceLogEntry -->
@@ -477,27 +973,125 @@ classDiagram
           &nbsp;&nbsp;log_id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;price_type: PriceType<br>
-          &nbsp;&nbsp;new_price: Decimal(10,6)<br>
-          &nbsp;&nbsp;operator_id: i64?<br>
-          &nbsp;&nbsp;remark: String?<br>
+          &nbsp;&nbsp;old_price: Decimal? <span style="color:#888;">// 首次设价为 null</span><br>
+          &nbsp;&nbsp;new_price: Decimal(18,6)<br>
+          &nbsp;&nbsp;operator_id: i64? <span style="color:#888;">// 从 ctx 自动获取</span><br>
+          &nbsp;&nbsp;remark: String <span style="color:#888;">// 必填，变更原因</span><br>
           &nbsp;&nbsp;created_at: DateTime<br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ProductPriceService</span> {<br>
-          &nbsp;&nbsp;update_price(product_id, price_type,<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;new_price, operator_id,<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;remark, executor)<br>
-          &nbsp;&nbsp;query_price_history(query)<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
+          &nbsp;&nbsp;update_price(ctx, product_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;price_type, new_price,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;remark: String) <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;list_price_history(ctx, query)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult<br>
-          &nbsp;&nbsp;get_current_price(product_id,<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;price_type) → Decimal?<br>
+          &nbsp;&nbsp;get_current_price(ctx,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;product_id, price_type) → Decimal?<br>
+          &nbsp;&nbsp;get_price_at(ctx, product_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;price_type, as_of) → Decimal? <span style="color:#888;">// 历史时间点</span><br>
           }
         </div>
       </div>
 
-      <!-- BomCostReport -->
+      <!-- BomService Split -->
+      <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05);">
+        <h4 style="color: #98c379; margin: 0 0 6px 0; font-size: 13px;">BomService 拆分（CQRS 风格）</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">按职责拆为 4 个 trait，便于组合、单元测试和独立演化。所有方法统一接受 ServiceContext</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10px;">
+          <span style="color:#61afef;">// 只读查询</span><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomQueryService</span> {<br>
+          &nbsp;&nbsp;get(ctx, bom_id) → Bom<br>
+          &nbsp;&nbsp;list(ctx, query) → PaginatedResult<br>
+          &nbsp;&nbsp;get_leaf_nodes(ctx, bom_id) → Vec<br>
+          &nbsp;&nbsp;get_snapshots(ctx, bom_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;version?, limit=10) → Vec<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// version 指定则返回单条，默认按 DESC 最新 10 条</span><br>
+          &nbsp;&nbsp;exists_name(ctx, name, caller_id?) → bool<br>
+          }<br><br>
+          <span style="color:#e5a655;">// 生命周期写操作</span><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomCommandService</span> {<br>
+          &nbsp;&nbsp;create(ctx, req: CreateBomReq) → i64<br>
+          &nbsp;&nbsp;update(ctx, id, req: UpdateBomReq,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#e06c75;">expected_version</span>) → Bom<br>
+          &nbsp;&nbsp;delete(ctx, id) <span style="color:#888;">// 检查工单引用快照</span><br>
+          &nbsp;&nbsp;publish(ctx, id) → <span style="color:#e06c75;">BomSnapshot</span><br>
+          &nbsp;&nbsp;unpublish(ctx, id) → Bom<br>
+          &nbsp;&nbsp;save_as(ctx, source_id, new_name) → i64<br>
+          &nbsp;&nbsp;substitute_product(ctx,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;req: SubstituteReq)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ SubstitutionResult<br>
+          }
+        </div>
+      </div>
+
+      <!-- BomNode + BomCost -->
       <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
-        <h4 style="color: #56b6c2; margin: 0 0 6px 0; font-size: 13px;">BomCostReport BOM 成本报告</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">汇总 BOM 的材料成本和人工成本。支持 as_of_date 按历史时间点核算，含价格缺失预警</p>
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0; font-size: 13px;">BomNodeService + BomCostService</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">节点树操作和成本核算各自独立 trait，原子性和事务边界清晰</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10px;">
+          <span style="color:#e06c75;">// 节点树操作（原子性要求高）</span><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomNodeService</span> {<br>
+          &nbsp;&nbsp;add_node(ctx, bom_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;node: NewBomNode) → i64<br>
+          &nbsp;&nbsp;update_node(ctx, bom_id, node_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;req: UpdateBomNodeReq,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#e06c75;">expected_version</span>)<br>
+          &nbsp;&nbsp;delete_node(ctx, bom_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;node_id) → i64<br>
+          &nbsp;&nbsp;<span style="color:#e06c75;">move_node</span>(ctx, bom_id, node_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;new_parent_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;before_sibling_id?) <span style="color:#888;">// 跨父节点移动，含 swap</span><br>
+          }<br><br>
+          <span style="color:#98c379;">// 成本核算</span><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomCostService</span> {<br>
+          &nbsp;&nbsp;get_cost_report(ctx, bom_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;as_of_date?) → BomCostReport<br>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4: BomService Key Operations Detail -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+      <!-- Optimistic Locking & Publish Flow -->
+      <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05);">
+        <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">乐观锁与发布流程</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">BOM 更新和节点更新要求客户端传入 expected_version，冲突返回 ConcurrentConflict。publish 返回 BomSnapshot（不可变），语义更准确</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
+          <span style="color:#e5a655;">// 乐观锁机制</span><br>
+          <span style="color:#888;">// 新增 BOM 时 version = 1</span><br>
+          <span style="color:#888;">// UPDATE boms SET ..., version = version + 1</span><br>
+          <span style="color:#888;">// WHERE bom_id = $1 AND version = $2</span><br>
+          <span style="color:#888;">// affected_rows == 0 → DomainError::ConcurrentConflict</span><br>
+          <span style="color:#888;">// Handler 映射为 gRPC Aborted (ABORTED)</span><br>
+          <span style="color:#888;">// 服务端不自动重试，客户端获取最新版本后重新提交</span><br><br>
+          <span style="color:#e5a655;">// 发布流程（BomCommandService.publish）</span><br>
+          <span style="color:#e5c07b;">publish</span>(ctx, bom_id) → BomSnapshot<br>
+          &nbsp;&nbsp;Draft → Published<br>
+          &nbsp;&nbsp;<span style="color:#888;">// version 自增</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">// 自动生成 BomSnapshot(bom_id, version, ...)</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">// 同事务内:</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">//   AuditLog.record(ctx, Publish, ...)</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">//   EventBus.publish(ctx, BomPublished{...})</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">// 返回 BomSnapshot（不可变）</span><br><br>
+          <span style="color:#e5c07b;">unpublish</span>(ctx, bom_id) → Bom<br>
+          &nbsp;&nbsp;Published → Draft<br>
+          &nbsp;&nbsp;<span style="color:#888;">// 不删除快照</span><br><br>
+          <span style="color:#e5a655;">// 物料替换（InCallerTx + FOR UPDATE）</span><br>
+          <span style="color:#e5c07b;">substitute_product</span>(ctx,<br>
+          &nbsp;&nbsp;req: SubstituteReq)<br>
+          &nbsp;&nbsp;→ SubstitutionResult {<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;affected_boms, affected_nodes<br>
+          &nbsp;&nbsp;}
+        </div>
+      </div>
+
+      <!-- CostReport + Substitution structs -->
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0; font-size: 13px;">成本报告与物料替换结构体</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">成本报告支持 as_of_date 按历史时间点核算。物料替换通过 SubstituteReq 封装参数，SubstitutionResult 报告影响范围</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
           <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">BomCostReport</span> {<br>
           &nbsp;&nbsp;bom_id: i64<br>
@@ -516,42 +1110,23 @@ classDiagram
           <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">LaborCostItem</span> {<br>
           &nbsp;&nbsp;id, name, unit_price<br>
           &nbsp;&nbsp;quantity, sort_order, remark<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">SubstituteReq</span> {<br>
+          &nbsp;&nbsp;old_product_id: i64<br>
+          &nbsp;&nbsp;new_product_id: i64<br>
+          &nbsp;&nbsp;bom_id: i64? <span style="color:#888;">// null=全局替换</span><br>
+          &nbsp;&nbsp;overrides: AttributeOverrides<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">AttributeOverrides</span> {<br>
+          &nbsp;&nbsp;quantity: Decimal?<br>
+          &nbsp;&nbsp;loss_rate: Decimal?<br>
+          &nbsp;&nbsp;unit, remark, position<br>
+          &nbsp;&nbsp;work_center, properties<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">SubstitutionResult</span> {<br>
+          &nbsp;&nbsp;affected_boms: i64<br>
+          &nbsp;&nbsp;affected_nodes: i64<br>
           }
-        </div>
-      </div>
-
-      <!-- BomService key operations -->
-      <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05);">
-        <h4 style="color: #98c379; margin: 0 0 6px 0; font-size: 13px;">BomService 关键操作</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">BOM 全生命周期管理：创建、编辑（乐观锁）、发布（生成快照+版本）、复制、替换、成本核算</p>
-        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10.5px;">
-          <span style="color:#e5a655;">// 并发控制</span><br>
-          <span style="color:#888;">// bom.version 乐观锁</span><br>
-          <span style="color:#888;">// UPDATE ... SET version = version + 1</span><br>
-          <span style="color:#888;">// WHERE bom_id = $1 AND version = $2</span><br><br>
-          <span style="color:#e5a655;">// 发布流程（快照模式）</span><br>
-          <span style="color:#e5c07b;">publish</span>(bom_id, operator_id)<br>
-          &nbsp;&nbsp;Draft → Published<br>
-          &nbsp;&nbsp;<span style="color:#888;">// version 自增</span><br>
-          &nbsp;&nbsp;<span style="color:#888;">// 自动生成 BomSnapshot(bom_id, version, ...)</span><br>
-          &nbsp;&nbsp;<span style="color:#888;">// 发布事件: BomPublished</span><br>
-          <span style="color:#e5c07b;">unpublish</span>(bom_id, operator_id)<br>
-          &nbsp;&nbsp;Published → Draft<br>
-          &nbsp;&nbsp;<span style="color:#888;">// 不删除快照</span><br><br>
-          <span style="color:#e5a655;">// 物料替换（InCallerTx + FOR UPDATE）</span><br>
-          <span style="color:#e5c07b;">substitute_product</span>(<br>
-          &nbsp;&nbsp;old_product_id, new_product_id,<br>
-          &nbsp;&nbsp;bom_id?, overrides, caller_id)<br>
-          &nbsp;&nbsp;→ (affected_boms, affected_nodes)<br><br>
-          <span style="color:#e5a655;">// 快照查询</span><br>
-          <span style="color:#e5c07b;">get_snapshots</span>(bom_id)<br>
-          &nbsp;&nbsp;→ Vec&lt;BomSnapshot&gt; <span style="color:#888;">// 按 version DESC</span><br>
-          <span style="color:#e5c07b;">get_snapshot_by_version</span>(<br>
-          &nbsp;&nbsp;bom_id, version) → BomSnapshot<br><br>
-          <span style="color:#e5a655;">// 细粒度事件</span><br>
-          <span style="color:#888;">BomPublished, BomUnpublished</span><br>
-          <span style="color:#888;">BomNodeAdded, BomNodeUpdated</span><br>
-          <span style="color:#888;">BomNodeDeleted, BomSubstituted</span>
         </div>
       </div>
     </div>
@@ -562,11 +1137,13 @@ classDiagram
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
         <span style="color:#61afef;">Product</span> → 所有模块的物料标识 | Active/Inactive/Obsolete 状态控制可见性 | external_code 支持外部编码<br>
         <span style="color:#6bc76b;">Category</span> → 产品分类筛选（物化路径 path 支持子树快速查询，通过 ProductCategory M:N 关联）<br>
-        <span style="color:#e5a655;">BOM</span> → 乐观锁（version 字段） | <a href="04-mes.html" style="color:#e06c75;">MES</a> 工单引用 BomSnapshot（不可变） | <a href="03-wms.html" style="color:#c678dd;">WMS</a> 领料单物料来源<br>
-        <span style="color:#e06c75;">BomSnapshot</span> → publish 时自动生成（version 自增），工单/MES 引用 snapshot_id 或 bom_id + version。unpublish 不删除快照<br>
+        <span style="color:#e5a655;">BOM</span> → 乐观锁（version 字段 + expected_version） | <a href="04-mes.html" style="color:#e06c75;">MES</a> 工单引用 BomSnapshot（不可变） | <a href="03-wms.html" style="color:#c678dd;">WMS</a> 领料单物料来源<br>
+        <span style="color:#e06c75;">BomSnapshot</span> → publish 时自动生成（version 自增），工单/MES 应直接引用 snapshot_id（快照不可变，无需二次查询）。unpublish 不删除快照<br>
         <span style="color:#e06c75;">BomNode</span> → get_leaf_nodes() 供出库使用 | loss_rate 用于成本差异计算 | order 仅在兄弟节点内有效<br>
         <span style="color:#c678dd;">PriceLog</span> → 多价格类型（Purchase/Sales/StandardCost） | <a href="07-fms.html" style="color:#98c379;">FMS</a> CostEntry 材料成本 | 支持 as_of_date 历史价格<br>
-        <span style="color:#56b6c2;">权限</span> → PRODUCT / CATEGORY / BOM / PRICE / BOM_COST / BOM_LABOR_COST 6 种资源权限
+        <span style="color:#56b6c2;">权限</span> → PRODUCT / CATEGORY / BOM / PRICE / BOM_COST / BOM_LABOR_COST 6 种资源权限<br>
+        <span style="color:#c678dd;">Customer</span> → <a href="01-sales.html" style="color:#e5c07b;">Sales</a>（报价/订单/发货/对账关联 customer_id）| <a href="07-fms.html" style="color:#98c379;">FMS</a>（应收账款/信用控制/账龄分析）| <a href="03-wms.html" style="color:#c678dd;">WMS</a>（发货地址）| Blacklisted 事件触发 Sales 挂起<br>
+        <span style="color:#e06c75;">Supplier</span> → <a href="02-purchase.html" style="color:#e5c07b;">Purchase</a>（采购报价/订单/付款关联 supplier_id）| <a href="07-fms.html" style="color:#98c379;">FMS</a>（应付账款/付款核销）| <a href="05-outsourcing.html" style="color:#e5a655;">OM</a>（委外供应商）| Blacklisted 事件触发 Purchase 拦截
       </div>
     </div>
 
@@ -574,10 +1151,11 @@ classDiagram
     <div style="padding: 12px; background: rgba(152,195,121,0.1); border-radius: 6px; margin-top: 12px;">
       <h3 style="margin: 0 0 8px 0; color: #98c379;">共享基础设施集成点</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
-        <span style="color:#e5c07b;">DocumentSequenceService</span> → ProductService.create() 内部自动生成编码（x+时间戳格式）<br>
-        <span style="color:#e5c07b;">AuditLogService</span> → 所有 create / update / delete / publish / unpublish 操作内调用 record()（同事务内，字段级 diff）<br>
-        <span style="color:#e5c07b;">StateMachineService</span> → BomStatus (Draft ↔ Published)、ProductStatus (Active → Inactive → Obsolete) 状态转换管理<br>
-        <span style="color:#e5c07b;">DomainEventBus</span> → 细粒度事件：BomPublished / BomUnpublished / BomNodeAdded / BomNodeUpdated / BomNodeDeleted / BomSubstituted / ProductStatusChanged<br>
+        <span style="color:#e5c07b;">ServiceContext</span> → 所有 Service 方法统一接受 <a href="00-shared-infrastructure.html" style="color:#e5c07b;">ServiceContext</a>，审计/事件自动获取操作元数据<br>
+        <span style="color:#e5c07b;">DocumentSequenceService</span> → ProductService.create(ctx) 调用 next_number(ctx, "PRODUCT") 生成编码，Timestamp 策略输出 x+Unix时间戳格式（如 x1747891200）。CustomerService.create → next_number(ctx, "CUS")，SupplierService.create → next_number(ctx, "SUP")<br>
+        <span style="color:#e5c07b;">AuditLogService</span> → 所有 create / update / delete / publish / unpublish 操作内调用 record(ctx, AuditAction, ...)（同事务内，AuditAction 枚举 + 字段级 diff）<br>
+        <span style="color:#e5c07b;">StateMachineService</span> → BomStatus (Draft ↔ Published)、ProductStatus (Active → Inactive → Obsolete)、CustomerStatus (Prospective → Active ↔ Inactive → Blacklisted)、SupplierStatus (Prospective → Qualified ↔ Probation → Disqualified → Blacklisted) 状态转换管理<br>
+        <span style="color:#e5c07b;">DomainEventBus</span> → publish(ctx, EventPublishRequest{...}) 发布细粒度事件：BomPublished / BomUnpublished / BomNodeAdded / BomNodeUpdated / BomNodeDeleted / BomSubstituted / ProductStatusChanged / CustomerCreated / CustomerBlacklisted / SupplierCreated / SupplierBlacklisted / SupplierBankAccountChanged
       </div>
     </div>
 
@@ -585,9 +1163,118 @@ classDiagram
     <div style="padding: 12px; background: rgba(86,182,194,0.1); border-radius: 6px; margin-top: 12px;">
       <h3 style="margin: 0 0 8px 0; color: #56b6c2;">事务模式（TransactionMode）</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
-        <span style="color:#e5c07b;">InCallerTx</span> — 调用者提供事务：substitute_product, add_node, update_node, delete_node, swap_node_position<br>
-        <span style="color:#e5c07b;">RequiresNew</span> — 方法自管事务：publish（生成快照+事件+审计）, unpublish, create, update, delete<br>
-        <span style="color:#e5c07b;">None</span> — 无事务：find, query, get_snapshots, get_bom_cost_report, get_leaf_nodes<br>
+        <span style="color:#e5a655;">BomCommandService</span><br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">RequiresNew</span> — create, update, delete（检查工单引用快照后删除）, publish（生成快照+事件+审计）, unpublish, save_as<br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">InCallerTx</span> — substitute_product（FOR UPDATE）<br>
+        <span style="color:#e5c07b;">BomNodeService</span><br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">InCallerTx</span> — add_node, update_node, delete_node, move_node<br>
+        <span style="color:#e5c07b;">BomCostService</span><br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">None</span> — get_cost_report<br>
+        <span style="color:#e5c07b;">BomQueryService</span><br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">None</span> — get, list, get_leaf_nodes, get_snapshots, exists_name
+      </div>
+    </div>
+
+    <!-- Events -->
+    <div style="padding: 12px; background: rgba(224,108,117,0.1); border-radius: 6px; margin-top: 12px;">
+      <h3 style="margin: 0 0 8px 0; color: #e06c75;">领域事件</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+        <span style="color:#e06c75;">BomPublished</span> { bom_id, version, snapshot_id, operator_id } — 工单/MES 触发下游流程<br>
+        <span style="color:#e06c75;">BomUnpublished</span> { bom_id, version, operator_id }<br>
+        <span style="color:#e06c75;">BomNodeAdded</span> { bom_id, node_id, product_id }<br>
+        <span style="color:#e06c75;">BomNodeUpdated</span> { bom_id, node_id, changes }<br>
+        <span style="color:#e06c75;">BomNodeDeleted</span> { bom_id, node_id }<br>
+        <span style="color:#e06c75;">BomSubstituted</span> { bom_id, old_product_id, new_product_id, affected_nodes }<br>
+        <span style="color:#e06c75;">ProductStatusChanged</span> { product_id, old_status, new_status }<br>
+        <span style="color:#c678dd;">CustomerCreated</span> { customer_id, code, category } — 新客户建档<br>
+        <span style="color:#c678dd;">CustomerBlacklisted</span> { customer_id } → Sales 模块监听，挂起该客户所有 Draft 状态的报价单和订单<br>
+        <span style="color:#c678dd;">CustomerTransferred</span> { customer_id, old_owner_id, new_owner_id } → 通知原/新业务员<br>
+        <span style="color:#e06c75;">SupplierCreated</span> { supplier_id, code, category } — 新供应商建档<br>
+        <span style="color:#e06c75;">SupplierBlacklisted</span> { supplier_id } → Purchase 模块监听，拦截新建 PO<br>
+        <span style="color:#e06c75;">SupplierBankAccountChanged</span> { supplier_id, old_account?, new_account } → FMS 模块监听，触发付款高风险预警
+      </div>
+    </div>
+
+    <!-- State transition rules -->
+    <div style="padding: 12px; background: rgba(97,175,239,0.1); border-radius: 6px; margin-top: 12px;">
+      <h3 style="margin: 0 0 8px 0; color: #61afef;">状态转换规则</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
+        <span style="color:#61afef;">ProductStatus</span><br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Active ↔ Inactive</span> — 双向，停用/重新启用<br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Active → Obsolete</span> — 作废，不可逆<br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Inactive → Obsolete</span> — 作废，不可逆<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Obsolete → *</span> — 不允许任何转换<br><br>
+        <span style="color:#e5a655;">BomStatus</span><br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Draft → Published</span> — 发布，生成快照，version 自增<br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Published → Draft</span> — 取消发布，不删除快照<br><br>
+        <span style="color:#c678dd;">CustomerStatus</span><br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Prospective → Active</span> — 潜在客户转正<br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Active ↔ Inactive</span> — 停用/重新启用<br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Active → Blacklisted</span> — 拉黑，发布 CustomerBlacklisted 事件<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Blacklisted → *</span> — 不允许自动恢复，需人工审批<br><br>
+        <span style="color:#e06c75;">SupplierStatus</span><br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Prospective → Qualified</span> — 准入通过<br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Qualified ↔ Probation</span> — 试用期降级/恢复<br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">Qualified → Disqualified</span> — 取消资格<br>
+        &nbsp;&nbsp;<span style="color:#6bc76b;">* → Blacklisted</span> — 拉黑，发布 SupplierBlacklisted 事件<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Blacklisted → *</span> — 不允许自动恢复，需人工审批<br>
+      </div>
+    </div>
+
+    <!-- Validation rules -->
+    <div style="padding: 12px; background: rgba(229,166,85,0.1); border-radius: 6px; margin-top: 12px;">
+      <h3 style="margin: 0 0 8px 0; color: #e5a655;">业务校验规则</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
+        <span style="color:#e5a655;">CustomerService.create</span><br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> code 全局唯一（含软删除行，见 DBA Note）<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> 若传入 tax_number，跨表检索 Customer + Supplier。若已存在，<span style="color:#e5c07b;">不阻断但返回 Warning</span>："该税号已在系统中存在客商档案 [code: XXX]"，防止重复建档。Warning 记录至 AuditLog<br><br>
+        <span style="color:#e5a655;">SupplierService.create</span><br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> code 全局唯一（含软删除行，见 DBA Note）<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> 若传入 tax_number，跨表检索 Customer + Supplier。若已存在，<span style="color:#e5c07b;">不阻断但返回 Warning</span>，同上<br><br>
+        <span style="color:#e5a655;">CustomerService.validate_contact_ownership</span><br>
+        &nbsp;&nbsp;Sales 模块创建报价单/订单时，校验 contact_id 是否归属 customer_id，防止张冠李戴。内部实现：list_contacts → 内存比对<br><br>
+        <span style="color:#e5a655;">CustomerService.claim(ctx, id)</span><br>
+        &nbsp;&nbsp;公海客户认领：owner_id=null → owner_id=ctx.operator_id, department_id=ctx.department_id<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> 客户必须为公海状态（owner_id IS NULL）且 status=Active<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> 同一业务员认领上限可配置（防止囤积客户）<br><br>
+        <span style="color:#e5a655;">CustomerService.transfer(ctx, id, new_owner_id, new_department_id)</span><br>
+        &nbsp;&nbsp;客户转移（高权限，需销售总监角色）<br>
+        &nbsp;&nbsp;发布 CustomerTransferred 事件，通知原业务员和新业务员<br><br>
+        <span style="color:#e5a655;">CustomerService.list — 行级数据过滤（Row-Level Security）</span><br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">禁止依赖前端传参过滤</span>，必须根据 ctx.data_scope 在 Repository 层强制拼接 WHERE：<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;DataScope::All → 无额外过滤<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;DataScope::Department → WHERE department_id = ctx.department_id<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;DataScope::Self → WHERE owner_id = ctx.operator_id<br>
+        &nbsp;&nbsp;公海客户（owner_id IS NULL）对所有人可见<br>
+      </div>
+    </div>
+
+    <!-- Bank account risk control -->
+    <div style="padding: 12px; background: rgba(224,108,117,0.15); border-radius: 6px; margin-top: 12px; border: 1px solid #e06c75;">
+      <h3 style="margin: 0 0 8px 0; color: #e06c75;">🚨 银行账户变更风控（P0 高危）</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
+        <span style="color:#e06c75;">风险说明：</span>供应商银行账户变更是 ERP 排名前三的高危欺诈风险点（邮箱篡改/内部回扣）<br><br>
+        <span style="color:#e5c07b;">SupplierService.add_bank_account / update_bank_account：</span><br>
+        &nbsp;&nbsp;1. <span style="color:#56b6c2;">强制 AuditLog</span> — 必须记录操作人 IP、修改前后完整对比（字段级 diff）<br>
+        &nbsp;&nbsp;2. <span style="color:#56b6c2;">事件发布</span> — 发布 SupplierBankAccountChanged 事件<br><br>
+        <span style="color:#e5c07b;">FMS 模块监听 SupplierBankAccountChanged：</span><br>
+        &nbsp;&nbsp;3. <span style="color:#e06c75;">7天拦截规则</span> — 若该供应商在 7 天内发生过银行账户变更，FMS 发起付款时必须<span style="color:#e06c75;">强制触发主管二次复核/短信验证</span>，否则拒绝打款<br>
+        &nbsp;&nbsp;4. <span style="color:#56b6c2;">AuditLog 记录</span> — 复核过程独立留痕，防止内部合谋<br>
+      </div>
+    </div>
+
+    <!-- DBA Note -->
+    <div style="padding: 12px; background: rgba(86,182,194,0.1); border-radius: 6px; margin-top: 12px; border: 1px dashed #56b6c2;">
+      <h3 style="margin: 0 0 8px 0; color: #56b6c2;">DBA Note — 软删除与唯一索引</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
+        <span style="color:#56b6c2;">customers.code / suppliers.code 唯一索引：</span><br>
+        &nbsp;&nbsp;必须使用 <span style="color:#e5c07b;">Partial Unique Index</span>，兼容软删除：<br>
+        &nbsp;&nbsp;<span style="color:#98c379;">CREATE UNIQUE INDEX uk_customers_code ON customers(code) WHERE deleted_at IS NULL;</span><br>
+        &nbsp;&nbsp;<span style="color:#98c379;">CREATE UNIQUE INDEX uk_suppliers_code ON suppliers(code) WHERE deleted_at IS NULL;</span><br><br>
+        <span style="color:#56b6c2;">tax_number 跨表查询优化：</span><br>
+        &nbsp;&nbsp;tax_number 不建跨表唯一约束（允许客户和供应商共用同一税号），但建议建单表索引加速查重：<br>
+        &nbsp;&nbsp;<span style="color:#98c379;">CREATE INDEX idx_customers_tax ON customers(tax_number) WHERE tax_number IS NOT NULL AND deleted_at IS NULL;</span><br>
+        &nbsp;&nbsp;<span style="color:#98c379;">CREATE INDEX idx_suppliers_tax ON suppliers(tax_number) WHERE tax_number IS NOT NULL AND deleted_at IS NULL;</span><br>
       </div>
     </div>
 

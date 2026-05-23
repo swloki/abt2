@@ -29,7 +29,7 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </head>
 <body>
 <h2>共享基础设施层 — 类图总览</h2>
-<p class="subtitle">10 个核心组件 + ServiceContext + 统一错误模型 + 事务模式 + 分页 + 身份认证 · 32 种 DocumentType · 19 种领域事件 · 同步强一致 + Outbox 异步分发 · 覆盖 8 个业务模块</p>
+<p class="subtitle">11 个核心组件 + ServiceContext + 统一错误模型 + 事务模式 + 分页 + 身份认证 · 32 种 DocumentType · 19 种领域事件 · 同步强一致 + Outbox 异步分发 · 覆盖 8 个业务模块</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -125,6 +125,7 @@ classDiagram
         BusinessRule
         Validation
         ConcurrentConflict
+        InvalidStateTransition
         InternalError
     }
 
@@ -136,8 +137,17 @@ classDiagram
     class ServiceContext {
         +executor: PgExecutor
         +operator_id: i64
+        +department_id: Option~i64~
+        +data_scope: DataScope
         +trace_id: Option~String~
         +request_id: Option~String~
+    }
+
+    class DataScope {
+        &lt;&lt;enumeration&gt;&gt;
+        All
+        Department
+        Self
     }
 
     class TransactionMode {
@@ -155,15 +165,33 @@ classDiagram
         total_pages: u32
     }
 
+    class PageParams {
+        +page: u32
+        +page_size: u32
+    }
+
     class BatchResult {
         +success_count: i32
         +failed_items: Vec~BatchFailure~
         +total: i32
+        +mode: BatchMode
+    }
+
+    class BatchMode {
+        &lt;&lt;enumeration&gt;&gt;
+        Atomic
+        ContinueOnError
     }
 
     class BatchFailure {
         +index: i32
         +error: String
+    }
+
+    class SequenceStrategy {
+        &lt;&lt;enumeration&gt;&gt;
+        Sequential
+        Timestamp
     }
 
     class DocumentSequence {
@@ -172,6 +200,7 @@ classDiagram
         +current_value: i32
         +seq_date: NaiveDate
         +padding_len: i32
+        +strategy: SequenceStrategy
         +created_at: DateTime
     }
 
@@ -196,6 +225,7 @@ classDiagram
         +reservation_type: ReservationType
         +source_type: DocumentType
         +source_id: i64
+        +source_line_id: Option~i64~
         +status: ReservationStatus
         +priority: i32
         +expires_at: Option~DateTime~
@@ -234,6 +264,14 @@ classDiagram
         +created_at: DateTime
     }
 
+    class EventPublishRequest {
+        +event_type: DomainEventType
+        +aggregate_type: String
+        +aggregate_id: i64
+        +payload: JSONB
+        +idempotency_key: Option~String~
+    }
+
     class StateDefinition {
         +id: i64
         +entity_type: String
@@ -250,7 +288,7 @@ classDiagram
         +to_state: String
         +trigger_event: Option~DomainEventType~
         +guard_condition: Option~JSONB~
-        +side_effects: JSONB
+        +side_effects: Vec~SideEffect~
         +sort_order: i32
     }
 
@@ -266,11 +304,27 @@ classDiagram
         +created_at: DateTime
     }
 
+    class SideEffect {
+        &lt;&lt;enumeration&gt;&gt;
+        PublishEvent
+        Notify
+        TriggerWorkflow
+        UpdateField
+    }
+
+    class AuditAction {
+        &lt;&lt;enumeration&gt;&gt;
+        Create
+        Update
+        Delete
+        Transition
+    }
+
     class AuditLog {
         +id: i64
         +entity_type: String
         +entity_id: i64
-        +action: String
+        +action: AuditAction
         +changes: Option~JSONB~
         +operator_id: i64
         +context: Option~JSONB~
@@ -295,31 +349,27 @@ classDiagram
 
     class DocumentLinkService {
         &lt;&lt;interface&gt;&gt;
-        +create_link(ctx: ServiceContext) Result~i64~
-        +batch_create_link(ctx: ServiceContext, requests) Result~BatchResult~
+        +create_links(ctx: ServiceContext, requests: Vec~LinkRequest~) Result~BatchResult~
         +find_linked(ctx: ServiceContext, source_type, source_id, page, page_size) PaginatedResult
     }
 
     class InventoryReservationService {
         &lt;&lt;interface&gt;&gt;
-        +reserve(ctx: ServiceContext) Result~i64~
-        +batch_reserve(ctx: ServiceContext, requests) Result~BatchResult~
+        +reserve(ctx: ServiceContext, requests: Vec~ReserveRequest~) Result~BatchResult~
         +fulfill(ctx: ServiceContext, id: i64) Result
         +cancel(ctx: ServiceContext, id: i64) Result
         +total_reserved(ctx: ServiceContext, product_id, warehouse_id?) Result~Decimal~
-        +expire_old(ctx: ServiceContext) Result~u64~
     }
 
     class CostEntryService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext) Result~i64~
-        +batch_create(ctx: ServiceContext, entries) Result~BatchResult~
+        +create_entries(ctx: ServiceContext, entries: Vec~EntryRequest~) Result~BatchResult~
         +find_by_entity(ctx: ServiceContext, entity_type, entity_id, page, page_size) PaginatedResult
     }
 
     class DomainEventBus {
         &lt;&lt;interface&gt;&gt;
-        +publish(ctx: ServiceContext, event_type, aggregate_type, aggregate_id, payload, idempotency_key) Result~i64~
+        +publish(ctx: ServiceContext, req: EventPublishRequest) Result~i64~
         +mark_processed(ctx: ServiceContext, ids: Vec~i64~) Result~u64~
         +mark_failed(ctx: ServiceContext, id, reason) Result
         +find_events(ctx: ServiceContext, query) PaginatedResult
@@ -344,9 +394,7 @@ classDiagram
 
     class StateMachineService {
         &lt;&lt;interface&gt;&gt;
-        +define_states(ctx: ServiceContext) Result
-        +define_transitions(ctx: ServiceContext) Result
-        +can_transition(ctx: ServiceContext, entity_type, entity_id, to_state) Result~bool~
+        +configure(ctx: ServiceContext, entity_type, states, transitions) Result
         +transition(ctx: ServiceContext) Result~EntityStateLog~
         +get_current_state(ctx: ServiceContext, entity_type, entity_id) Result~String~
         +get_allowed_transitions(ctx: ServiceContext, entity_type, state) Result~Vec~
@@ -355,9 +403,8 @@ classDiagram
 
     class AuditLogService {
         &lt;&lt;interface&gt;&gt;
-        +record(ctx: ServiceContext, entity_type, entity_id, action, changes, context) Result~i64~
+        +record(ctx: ServiceContext, entity_type, entity_id, action: AuditAction, changes, context) Result~i64~
         +query_logs(ctx: ServiceContext, query) PaginatedResult
-        +list_audit_logs(ctx: ServiceContext, limit, offset) Vec~AuditLog~
     }
 
     class IdempotencyService {
@@ -392,6 +439,17 @@ classDiagram
         -pool: Arc~PgPool~
     }
 
+    class DeadLetterService {
+        &lt;&lt;interface&gt;&gt;
+        +list_dead_letters(ctx: ServiceContext, page, page_size) PaginatedResult~DomainEvent~
+        +retry_one(ctx: ServiceContext, event_id: i64) Result
+        +archive(ctx: ServiceContext, before: DateTime) Result~u64~
+    }
+
+    class DeadLetterServiceImpl {
+        -pool: Arc~PgPool~
+    }
+
     DocumentSequenceServiceImpl ..|> DocumentSequenceService : implements
     DocumentLinkServiceImpl ..|> DocumentLinkService : implements
     InventoryReservationServiceImpl ..|> InventoryReservationService : implements
@@ -400,8 +458,10 @@ classDiagram
     StateMachineServiceImpl ..|> StateMachineService : implements
     AuditLogServiceImpl ..|> AuditLogService : implements
     IdempotencyServiceImpl ..|> IdempotencyService : implements
+    DeadLetterServiceImpl ..|> DeadLetterService : implements
 
     ServiceContext ..> PgExecutor : wraps
+    ServiceContext --> DataScope : data_scope
     DocumentSequenceService ..> ServiceContext : ctx
     DocumentLinkService ..> ServiceContext : ctx
     InventoryReservationService ..> ServiceContext : ctx
@@ -409,6 +469,7 @@ classDiagram
     DomainEventBus ..> ServiceContext : ctx
     StateMachineService ..> ServiceContext : ctx
     AuditLogService ..> ServiceContext : ctx
+    DeadLetterService ..> ServiceContext : ctx
     IdempotencyService ..> ServiceContext : ctx
 
     EventProcessor --> EventHandlerRegistry
@@ -426,19 +487,26 @@ classDiagram
     DomainEvent --> DomainEventType
     DomainEvent --> EventStatus
     StateTransitionDef --> StateDefinition
+    StateTransitionDef --> SideEffect : side_effects
     EntityStateLog --> StateTransitionDef
 
+    DocumentSequence --> SequenceStrategy : strategy
     DocumentSequenceService ..> DocumentSequence
+    BatchResult --> BatchMode : mode
     DocumentLinkService ..> DocumentLink
     InventoryReservationService ..> InventoryReservation
     CostEntryService ..> CostEntry
     DomainEventBus ..> DomainEvent
+    DomainEventBus ..> EventPublishRequest : accepts
     StateMachineService ..> StateDefinition
     StateMachineService ..> StateTransitionDef
     StateMachineService ..> EntityStateLog
+    AuditLog --> AuditAction : action
     AuditLogService ..> AuditLog
     IdempotencyService ..> IdempotencyRecord
     EventProcessor ..> IdempotencyService
+    EventProcessor ..> DeadLetterService
+    DeadLetterService ..> DomainEvent
 
     class Claims {
         +sub: i64
@@ -561,18 +629,24 @@ classDiagram
     PermissionService ..> ResourceActionDef : references
     RoleService ..> RolePermissionCache : triggers reload
 
-    note for DocumentSequenceService "Format: PREFIX-YYYY-MM-SEQ\nAtomic: INSERT ON CONFLICT DO UPDATE\nCovers 32 DocumentType across 8 modules"
+    note for DocumentSequenceService "Two strategies:
+Sequential (default): PREFIX-YYYY-MM-SEQ (e.g. SO-2026-05-00142)
+Timestamp: x+Unix秒级时间戳 (e.g. x1747891200, for Product)
+Atomic: INSERT ON CONFLICT DO UPDATE
+Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
     note for PgExecutor "底层事务连接类型\ntype PgExecutor<'a> = &'a mut PgConnection\n被 ServiceContext 包装\n不再直接作为 service 参数\n替代 common crate，消除额外依赖层"
-    note for DomainError "统一错误模型 (thiserror)\n#[error] auto Display\n#[from] anyhow 兼容老代码\nNotFound / Duplicate / PermissionDenied\nBusinessRule / Validation / ConcurrentConflict\nInternal: #[from] anyhow 兼容老代码，gRPC 映射时日志记录完整错误链，返回客户端泛化消息\n映射 tonic::Status 语义化错误码\n渐进式迁移：新服务直接用\nServiceError 标记 deprecated，新代码禁止使用"
-    note for DocumentLinkService "Directed graph: source -> target\n7 LinkTypes for audit trail\nbatch_create_link: 订单确认时一次性创建多个关联"
-    note for InventoryReservationService "Available = OnHand - total_reserved()\nHard: WO lock | Soft: Sales TTL\nSafetyStock: permanent\nbatch_reserve: 工单/订单多行批量预留\n并发控制: reserve() 使用 SELECT FOR UPDATE 锁定行\ntotal_reserved() 在事务内加锁保证原子性"
-    note for CostEntryService "Double-entry: debit + credit\nPeriod YYYY-MM\n6 CostTypes across 7 modules\nbatch_create: 单次业务事件批量写入多条分录，返回 BatchResult"
-    note for DomainEventBus "Hybrid dispatch model:\nSync: inventory reservation, quality gates (in caller tx)\nAsync: cost, doclink, workflow, notifications (Outbox)\npublish writes to DB + NOTIFY\n19 event types\nevent_version: payload 结构版本化，支持向后兼容演化\ntrace_id + request_id: 全链路追踪\npublish 强制 idempotency_key 防重复发布\nmark_processed 批量确认已处理事件\nfind_events 统一查询（支持 aggregate_type, event_type, since 过滤）"
+    note for DomainError "统一错误模型 (thiserror)\n#[error] auto Display\n#[from] anyhow 兼容老代码\nNotFound / Duplicate / PermissionDenied\nBusinessRule / Validation / ConcurrentConflict\nInvalidStateTransition: 状态转换不合法\nInternal: #[from] anyhow 兼容老代码，gRPC 映射时日志记录完整错误链，返回客户端泛化消息\n映射 tonic::Status 语义化错误码\n渐进式迁移：新服务直接用\nServiceError 标记 deprecated，新代码禁止使用"
+    note for DocumentLinkService "Directed graph: source -> target\n7 LinkTypes for audit trail\ncreate_links: 批量创建关联（单条传 vec![one]），订单确认时一次性创建多个"
+    note for InventoryReservationService "Available = OnHand - total_reserved()\nHard: WO lock | Soft: Sales TTL\nSafetyStock: permanent\nreserve: 批量预留（单条传 vec![one]），expire_old 改为后台定时任务不暴露\nsource_line_id: 单据行级精确释放（如订单第 N 行的预留）
+并发控制: reserve() 使用 SELECT FOR UPDATE 锁定行\ntotal_reserved() 在事务内加锁保证原子性"
+    note for CostEntryService "Double-entry: debit + credit\nPeriod YYYY-MM\n6 CostTypes across 7 modules\ncreate_entries: 批量写入成本分录（单条传 vec![one]），返回 BatchResult"
+    note for DomainEventBus "Hybrid dispatch model:\nSync: inventory reservation, quality gates (in caller tx)\nAsync: cost, doclink, workflow, notifications (Outbox)\npublish writes to DB + NOTIFY\n19 event types\nevent_version: payload 结构版本化，支持向后兼容演化\ntrace_id + request_id: 全链路追踪\npublish 接受 EventPublishRequest（idempotency_key: Option，None 自动生成）防重复发布\nmark_processed 批量确认已处理事件\nfind_events 统一查询（支持 aggregate_type, event_type, since 过滤）"
     note for EventProcessor "Background tokio task\nLISTEN/NOTIFY for low latency\n定期轮询兜底: 每 30s 扫描 PENDING 且超时事件，防止 NOTIFY 丢失\nExponential backoff on failure\nDead letter after max retries\nstart/stop 替代 run(JoinHandle)\nis_running + last_processed_at 健康检查\nprocess_event 为内部方法，不暴露在接口中"
-    note for StateMachineService "Per-entity state definitions\nStored in DB, loaded on startup\nReplaces scattered if-else\ncan_transition: UI 查询是否允许转换（按钮高亮/禁用）"
-    note for AuditLogService "Called directly by business Service\nSame tx as business operation\nField-level diffs (old -> new)\nISO 9001 / financial compliance\nquery_logs 统一查询接口（支持 entity_type, operator_id, action, time_range 过滤）\nlist_audit_logs 从 PermissionService 迁移至此"
-    note for IdempotencyService "Per-handler idempotency tracking\nPrevents duplicate event processing\nEventProcessor checks before dispatch\nExpired records cleaned up periodically"
-    note for ServiceContext "服务调用上下文\n包装 PgExecutor + 操作元数据\noperator_id → AuditLog/EventBus 自动获取\ntrace_id + request_id → 全链路追踪\n替代裸 PgExecutor 传入 service"
+    note for StateMachineService "Per-entity state definitions\nside_effects: typed SideEffect enum (PublishEvent/Notify/TriggerWorkflow/UpdateField), stored as JSONB\nStored in DB, loaded on startup\nReplaces scattered if-else\nget_allowed_transitions 返回列表，UI 用 .contains() 判断按钮高亮/禁用"
+    note for AuditLogService "Called directly by business Service\naction: AuditAction enum (Create/Update/Delete/Transition)\nSame tx as business operation\nField-level diffs (old -> new)\nISO 9001 / financial compliance\nquery_logs 统一查询接口（支持 entity_type, operator_id, action, time_range 过滤）\nquery_logs 统一查询（替代 list_audit_logs）"
+    note for BatchResult "每个 batch_* 方法固定语义:\ncreate_links: Atomic（全建或全不建）\nreserve: ContinueOnError（部分失败不影响其他行）\ncreate_entries (CostEntry): Atomic（双层记账完整）\nmode 字段标识当前结果的模式"
+    note for DeadLetterService "死信队列运维接口\nretry_count > max_retries → DEAD_LETTER\nlist_dead_letters: 查询死信事件（分页）\nretry_one: 重置状态→PENDING，重新投递\narchive: 归档指定时间前的死信\nEventProcessor 超限后自动标记，人工通过此接口干预"
+    note for ServiceContext "服务调用上下文\n包装 PgExecutor + 操作元数据\noperator_id → AuditLog/EventBus 自动获取\ndepartment_id + data_scope → 行级数据权限(RLS)\ntrace_id + request_id → 全链路追踪\n替代裸 PgExecutor 传入 service"
     note for TransactionMode "显式事务模式声明\nInCallerTx: 调用者事务内\nIndependentTx: 独立事务提交后\nAsyncOutbox: Outbox 异步消费\n每个共享服务方法声明自己的事务模式"
     </div>
   </div>
@@ -592,11 +666,16 @@ classDiagram
         <div>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
             <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">DocumentSequence</span> {<br>
-            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
             &nbsp;&nbsp;prefix: String <span style="color:#888;">// "SO", "PO", "WO"</span><br>
             &nbsp;&nbsp;current_value: i32<br>
             &nbsp;&nbsp;seq_date: Date <span style="color:#888;">// 按日期分段</span><br>
             &nbsp;&nbsp;padding_len: i32 <span style="color:#888;">// 补零位数</span><br>
+            &nbsp;&nbsp;strategy: SequenceStrategy <span style="color:#888;">// sequential | timestamp</span><br>
+            }<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SequenceStrategy</span> {<br>
+            &nbsp;&nbsp;Sequential <span style="color:#888;">// PREFIX-YYYY-MM-SEQ</span><br>
+            &nbsp;&nbsp;Timestamp <span style="color:#888;">// x+Unix时间戳 (产品编码)</span><br>
             }<br><br>
             <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">DocumentType</span> {<br>
             &nbsp;&nbsp;<span style="color:#e5a655;">// Sales CRM</span><br>
@@ -622,13 +701,15 @@ classDiagram
             &nbsp;&nbsp;<span style="color:#98c379;">// FMS 财务</span><br>
             &nbsp;&nbsp;CashJournal=30, WriteOff=31<br>
             &nbsp;&nbsp;ExpenseReimbursement=32<br>
+            &nbsp;&nbsp;<span style="color:#98c379;">// Master Data</span><br>
+            &nbsp;&nbsp;Product=33 <span style="color:#888;">// strategy=Timestamp</span><br>
             }
           </div>
         </div>
         <div>
           <div style="background: rgba(108,139,239,0.15); padding: 12px; border-radius: 6px; height: 100%;">
             <h4 style="margin: 0 0 8px 0; color: #6c8bef;">功能</h4>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">为所有业务单据生成唯一、可读、有序的编号。格式为 <code style="color:#e5c07b;">{前缀}-{年}-{月}-{序号}</code>，如 <code style="color:#e5c07b;">SO-2026-05-00142</code></p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">为所有业务单据和产品生成唯一编号。支持两种策略：<code style="color:#e5c07b;">Sequential</code>（默认，{前缀}-{年}-{月}-{序号}，如 SO-2026-05-00142）和 <code style="color:#e5c07b;">Timestamp</code>（x+Unix时间戳，如 x1747891200，用于产品编码）。策略由 <code style="color:#e5c07b;">DocumentSequence.strategy</code> 字段按 prefix 配置</p>
             <h4 style="margin: 0 0 8px 0; color: #6c8bef;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">杜绝各模块自行编号导致的编号冲突、格式混乱、无法追溯。按日期分段确保每月序号从 001 重新开始</p>
             <h4 style="margin: 0 0 8px 0; color: #6c8bef;">使用场景（按模块）</h4>
@@ -639,7 +720,8 @@ classDiagram
             <span style="color:#e06c75;">MES</span>: PP/WO/WR/OO/PI/PR<br>
             <span style="color:#e06c75;">OM</span>: OO/OT<br>
             <span style="color:#56b6c2;">QMS</span>: QS/QR/MRB/RMA<br>
-            <span style="color:#98c379;">FMS</span>: CJ/WO/ER</p>
+            <span style="color:#98c379;">FMS</span>: CJ/WO/ER<br>
+            <span style="color:#61afef;">MasterData</span>: PRODUCT (Timestamp策略)</p>
           </div>
         </div>
       </div>
@@ -652,16 +734,16 @@ classDiagram
         <div>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 12px;">
             <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">DocumentLink</span> {<br>
-            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
             &nbsp;&nbsp;source_type: DocumentType<br>
-            &nbsp;&nbsp;source_id: UUID<br>
+            &nbsp;&nbsp;source_id: i64<br>
             &nbsp;&nbsp;target_type: DocumentType<br>
-            &nbsp;&nbsp;target_id: UUID<br>
+            &nbsp;&nbsp;target_id: i64<br>
             &nbsp;&nbsp;link_type: LinkType<br>
             &nbsp;&nbsp;path: String <span style="color:#888;">// 物化路径 "SO.42.SR.15"</span><br>
             &nbsp;&nbsp;depth: i32 <span style="color:#888;">// 链路深度</span><br>
             &nbsp;&nbsp;created_at: Timestamp<br>
-            &nbsp;&nbsp;created_by: UUID? <span style="color:#888;">FK→users</span><br>
+            &nbsp;&nbsp;created_by: i64? <span style="color:#888;">FK→users</span><br>
             }<br><br>
             <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">LinkType</span> {<br>
             &nbsp;&nbsp;DERIVED_FROM <span style="color:#888;">// 报价→订单</span><br>
@@ -681,7 +763,7 @@ classDiagram
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">模块间单据关系零散记录在各表里，事后对齐几乎不可能。统一图谱后：一键追溯、BI 报表、ISO 9001 合规审计</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">批量接口</h4>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">batch_create_link</code> — 订单确认时一次性创建多个关联（报价→订单→发货），减少 DB 交互。返回 <code style="color:#e5c07b;">BatchResult</code> 支持部分失败。查询接口 <code style="color:#e5c07b;">find_linked</code> 返回 <code style="color:#e5c07b;">PaginatedResult</code>，支持分页</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">create_links</code> — 批量创建关联（单条传 vec![one]），订单确认时一次性创建多个。返回 <code style="color:#e5c07b;">BatchResult</code>。查询接口 <code style="color:#e5c07b;">find_linked</code> 返回 <code style="color:#e5c07b;">PaginatedResult</code>，支持分页</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">路径加速（path + depth）</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">path</code> 采用物化路径模式（如 <code style="color:#e5c07b;">QUO.1.SO.42.SR.15</code>），<code style="color:#e5c07b;">depth</code> 记录链路层级。创建关联时自动计算：<code style="color:#e5c07b;">path = parent_path + "." + current</code>。单次 LIKE 查询即可获取整条链路，无需递归。适用于质量追溯、批次追溯等深层链路场景</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">使用场景</h4>
@@ -704,13 +786,14 @@ classDiagram
         <div>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 12px;">
             <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">InventoryReservation</span> {<br>
-            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
-            &nbsp;&nbsp;product_id: UUID <span style="color:#888;">FK→products</span><br>
-            &nbsp;&nbsp;warehouse_id: UUID <span style="color:#888;">FK→warehouses</span><br>
-            &nbsp;&nbsp;reserved_qty: Decimal(10,6)<br>
+            &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
+            &nbsp;&nbsp;warehouse_id: i64 <span style="color:#888;">FK→warehouses</span><br>
+            &nbsp;&nbsp;reserved_qty: Decimal(18,6)<br>
             &nbsp;&nbsp;reservation_type: ReservationType<br>
             &nbsp;&nbsp;source_type: DocumentType<br>
-            &nbsp;&nbsp;source_id: UUID<br>
+            &nbsp;&nbsp;source_id: i64<br>
+            &nbsp;&nbsp;source_line_id: i64? <span style="color:#888;">// 单据行级精确释放</span><br>
             &nbsp;&nbsp;status: ReservationStatus<br>
             &nbsp;&nbsp;priority: i32 <span style="color:#888;">// 预留优先级</span><br>
             &nbsp;&nbsp;expires_at: Timestamp? <span style="color:#888;">// TTL自动过期</span><br>
@@ -733,7 +816,7 @@ classDiagram
             <h4 style="margin: 0 0 8px 0; color: #6bc76b;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">当前系统只有库存总量，没有可用量（ATP）。导致：销售接单不知道能不能发、采购不知道该买多少、工单领料时才发现库存不够</p>
             <h4 style="margin: 0 0 8px 0; color: #6bc76b;">批量接口</h4>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">batch_reserve</code> — 工单/销售订单多行批量预留，单次事务内完成，返回 <code style="color:#e5c07b;">BatchResult</code>（含部分失败明细）。<code style="color:#e5c07b;">total_reserved</code> 支持按 warehouse_id 过滤，精确计算仓库级可用量</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">reserve</code> — 批量预留（单条传 vec![one]），单次事务内完成，返回 <code style="color:#e5c07b;">BatchResult</code>。<code style="color:#e5c07b;">total_reserved</code> 支持按 warehouse_id 过滤，精确计算仓库级可用量</p>
             <h4 style="margin: 0 0 8px 0; color: #6bc76b;">并发控制</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">reserve()</code> 使用 <code style="color:#e5c07b;">SELECT ... FOR UPDATE</code> 锁定相关库存行，防止同一产品并发预留导致超卖。<code style="color:#e5c07b;">total_reserved()</code> 在事务内加锁计算，保证可用量读取的强一致性</p>
             <h4 style="margin: 0 0 8px 0; color: #6bc76b;">使用场景</h4>
@@ -755,17 +838,17 @@ classDiagram
         <div>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 12px;">
             <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">CostEntry</span> {<br>
-            &nbsp;&nbsp;id: UUID <span style="color:#888;">PK</span><br>
+            &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
             &nbsp;&nbsp;entity_type: CostEntityType<br>
-            &nbsp;&nbsp;entity_id: UUID<br>
+            &nbsp;&nbsp;entity_id: i64<br>
             &nbsp;&nbsp;cost_type: CostType<br>
-            &nbsp;&nbsp;debit_amount: Decimal(10,6)<br>
-            &nbsp;&nbsp;credit_amount: Decimal(10,6)<br>
-            &nbsp;&nbsp;cost_center: UUID? <span style="color:#888;">// 部门/产线</span><br>
-            &nbsp;&nbsp;profit_center: UUID?<br>
+            &nbsp;&nbsp;debit_amount: Decimal(20,4)<br>
+            &nbsp;&nbsp;credit_amount: Decimal(20,4)<br>
+            &nbsp;&nbsp;cost_center: i64? <span style="color:#888;">// 部门/产线</span><br>
+            &nbsp;&nbsp;profit_center: i64?<br>
             &nbsp;&nbsp;period: String <span style="color:#888;">// "2026-05"</span><br>
             &nbsp;&nbsp;source_type: DocumentType<br>
-            &nbsp;&nbsp;source_id: UUID<br>
+            &nbsp;&nbsp;source_id: i64<br>
             &nbsp;&nbsp;created_at: Timestamp<br>
             }<br><br>
             <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">CostType</span> {<br>
@@ -785,7 +868,7 @@ classDiagram
             <h4 style="margin: 0 0 8px 0; color: #e06c75;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">传统 ERP 陷阱：运营模块先建、财务后加，事后对账痛苦。从第一天起就记录成本，FMS 报表、利润中心 P&L、毛利分析全部从这一张表查询</p>
             <h4 style="margin: 0 0 8px 0; color: #e06c75;">批量接口</h4>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">batch_create</code> — 单次业务事件（如完工入库）同时产生多条成本分录（材料+人工+制费），批量写入，返回 <code style="color:#e5c07b;">BatchResult</code> 支持部分失败。<code style="color:#e5c07b;">find_by_entity</code> 返回 <code style="color:#e5c07b;">PaginatedResult</code></p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">create_entries</code> — 批量写入成本分录（单条传 vec![one]），如完工入库同时产生材料+人工+制费，返回 <code style="color:#e5c07b;">BatchResult</code>。<code style="color:#e5c07b;">find_by_entity</code> 返回 <code style="color:#e5c07b;">PaginatedResult</code></p>
             <h4 style="margin: 0 0 8px 0; color: #e06c75;">成本来源（按模块）</h4>
             <p style="margin: 0; color: #ccc; font-size: 12px;">
             <span style="color:#e5a655;">Sales</span>: 发货→销售成本 | 退货→冲减收入<br>
@@ -829,10 +912,16 @@ classDiagram
             &nbsp;&nbsp;FAILED <span style="color:#888;">// 失败待重试</span><br>
             &nbsp;&nbsp;DEAD_LETTER <span style="color:#888;">// 超过重试上限</span><br>
             }<br><br>
+            <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">EventPublishRequest</span> {<br>
+            &nbsp;&nbsp;event_type: DomainEventType<br>
+            &nbsp;&nbsp;aggregate_type: String<br>
+            &nbsp;&nbsp;aggregate_id: i64<br>
+            &nbsp;&nbsp;payload: JSONB<br>
+            &nbsp;&nbsp;idempotency_key: Option&lt;String&gt; <span style="color:#888;">// None 时自动生成 {aggregate_type}:{aggregate_id}:{event_type}</span><br>
+            }<br><br>
+            <span style="color:#888;">// operator_id 从 ServiceContext 自动获取，不在此传入</span><br><br>
             <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">DomainEventBus</span> {<br>
-            &nbsp;&nbsp;publish(event_type, aggregate_type,<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;aggregate_id, payload, operator_id,<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;idempotency_key): i64<br>
+            &nbsp;&nbsp;publish(ctx, req: EventPublishRequest): i64<br>
             &nbsp;&nbsp;mark_processed(ids: Vec&lt;i64&gt;): u64<br>
             &nbsp;&nbsp;mark_failed(id, reason): Result<br>
             &nbsp;&nbsp;find_events(query): PaginatedResult<br>
@@ -851,6 +940,11 @@ classDiagram
             &nbsp;&nbsp;last_processed_at(): Option&lt;DateTime&gt;<br>
             &nbsp;&nbsp;<span style="color:#888;">// process_event 内部方法</span><br>
             &nbsp;&nbsp;retry_failed(): u64<br>
+            }<br><br>
+            <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">DeadLetterService</span> {<br>
+            &nbsp;&nbsp;list_dead_letters(page, page_size): PaginatedResult<br>
+            &nbsp;&nbsp;retry_one(event_id: i64): Result<br>
+            &nbsp;&nbsp;archive(before: DateTime): u64<br>
             }
           </div>
         </div>
@@ -860,7 +954,7 @@ classDiagram
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">跨模块解耦的核心机制。<strong>Outbox 模式</strong>：业务事务内将事件写入 <code style="color:#e5c07b;">domain_events</code> 表（Outbox），后台 EventProcessor 通过 <code style="color:#e5c07b;">LISTEN/NOTIFY</code> 实时消费并异步分发给注册的 Handler</p>
             <h4 style="margin: 0 0 8px 0; color: #3b82f6;">接口改进</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">
-            <strong>publish 强制 idempotency_key</strong>：调用方生成（如 <code style="color:#e5c07b;">{aggregate_type}:{aggregate_id}:{event_type}</code>），底层 INSERT ON CONFLICT DO NOTHING 防重复发布<br>
+            <strong>publish 改为接受 EventPublishRequest</strong>：参数封装为 struct，<code style="color:#e5c07b;">idempotency_key</code> 为 <code style="color:#e5c07b;">Option</code>，传 <code style="color:#e5c07b;">None</code> 自动生成 <code style="color:#e5c07b;">{aggregate_type}:{aggregate_id}:{event_type}</code>，也可自定义覆盖。底层 INSERT ON CONFLICT DO NOTHING 防重复发布<br>
             <strong>mark_processed 统一批量</strong>：单条传 <code style="color:#e5c07b;">[id]</code>，批量传 <code style="color:#e5c07b;">[id1, id2, ...]</code>，减少 DB 交互<br>
             <strong>find_events 统一查询</strong>：支持 aggregate_type、event_type、since 等可选过滤，返回 <code style="color:#e5c07b;">PaginatedResult</code><br>
             <strong>EventProcessor 生命周期</strong>：<code style="color:#e5c07b;">start()</code> / <code style="color:#e5c07b;">stop()</code> 替代 <code style="color:#e5c07b;">run()→JoinHandle</code>，内部自行 spawn；<code style="color:#e5c07b;">is_running()</code> + <code style="color:#e5c07b;">last_processed_at()</code> 提供健康检查<br>
@@ -891,12 +985,12 @@ classDiagram
             <strong>轮询兜底</strong>: 每 30s 扫描 status=PENDING 且 created_at < now()-30s 的事件，防止 NOTIFY 丢失（NOTIFY 快速通道 + 轮询双保险）<br>
             <strong>分发</strong>: EventHandlerRegistry.dispatch() → 异步 Handler 执行<br>
             <strong>完成</strong>: 成功 → mark_processed() | 失败 → mark_failed() + 指数退避重试<br>
-            <strong>死信</strong>: retry_count > max_retries → DEAD_LETTER（人工介入）</p>
+            <strong>死信</strong>: retry_count > max_retries → DEAD_LETTER（通过 DeadLetterService 人工干预：list_dead_letters 查询、retry_one 重试、archive 归档）</p>
           </div>
         </div>
       </div>
       <div style="margin-top: 10px; padding: 8px 12px; background: rgba(59,130,246,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
-        <strong style="color: #3b82f6;">关键约束：</strong><span style="color:#888;">[TransactionMode: 混合模式]</span> Outbox 模式 — 业务事务内写入事件 | EventProcessor 后台异步消费（start/stop 生命周期管理，process_event 内部化）| LISTEN/NOTIFY 低延迟驱动 + 定期轮询兜底（每 30s 扫描超时事件，防 NOTIFY 丢失） | 失败重试（指数退避）+ 死信队列 | publish 强制 idempotency_key 防重复发布 + IdempotencyService 防重复消费 | mark_processed 统一批量版 | find_events 统一查询（支持多维度过滤） | Handler 独立事务，失败不影响发布方 | 查询统一返回 PaginatedResult
+        <strong style="color: #3b82f6;">关键约束：</strong><span style="color:#888;">[TransactionMode: 混合模式]</span> Outbox 模式 — 业务事务内写入事件 | EventProcessor 后台异步消费（start/stop 生命周期管理，process_event 内部化）| LISTEN/NOTIFY 低延迟驱动 + 定期轮询兜底（每 30s 扫描超时事件，防 NOTIFY 丢失） | 失败重试（指数退避）+ 死信队列（DeadLetterService: list_dead_letters / retry_one / archive） | publish idempotency_key 改为 Option（None 自动生成，可覆盖）防重复发布 + IdempotencyService 防重复消费 | mark_processed 统一批量版 | find_events 统一查询（支持多维度过滤） | Handler 独立事务，失败不影响发布方 | 查询统一返回 PaginatedResult
       </div>
     </div>
 
@@ -919,6 +1013,12 @@ classDiagram
             &nbsp;&nbsp;side_effects: JSONB <span style="color:#888;">// 发布事件等</span><br>
             &nbsp;&nbsp;sort_order: i32<br>
             }<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SideEffect</span> {<br>
+            &nbsp;&nbsp;PUBLISH_EVENT <span style="color:#888;">// { event_type, payload_template }</span><br>
+            &nbsp;&nbsp;NOTIFY <span style="color:#888;">// { role_ids, template }</span><br>
+            &nbsp;&nbsp;TRIGGER_WORKFLOW <span style="color:#888;">// { definition_id }</span><br>
+            &nbsp;&nbsp;UPDATE_FIELD <span style="color:#888;">// { field, value } 如 confirmed_at = now()</span><br>
+            }<br><br>
             <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">EntityStateLog</span> {<br>
             &nbsp;&nbsp;id: i64, entity_type, entity_id<br>
             &nbsp;&nbsp;from_state → to_state<br>
@@ -926,10 +1026,7 @@ classDiagram
             &nbsp;&nbsp;operator_id, remark?, created_at<br>
             }<br><br>
             <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">StateMachineService</span> {<br>
-            &nbsp;&nbsp;define_states(entity_type, states)<br>
-            &nbsp;&nbsp;define_transitions(entity_type, transitions)<br>
-            &nbsp;&nbsp;can_transition(entity_type, entity_id,<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;to_state): bool<br>
+            &nbsp;&nbsp;configure(entity_type, states, transitions): Result <span style="color:#888;">// 启动时一次性</span><br>
             &nbsp;&nbsp;transition(entity_type, entity_id,<br>
             &nbsp;&nbsp;&nbsp;&nbsp;to_state, operator_id, remark?): StateLog<br>
             &nbsp;&nbsp;get_current_state(entity_type, entity_id): String<br>
@@ -942,11 +1039,11 @@ classDiagram
         <div>
           <div style="background: rgba(229,166,85,0.15); padding: 12px; border-radius: 6px; height: 100%;">
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">功能</h4>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">统一管理所有业务单据的生命周期状态。状态定义和转换规则存 DB 可动态配置，guard 条件复用 Condition AST</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">统一管理所有业务单据的生命周期状态。状态定义和转换规则存 DB 可动态配置，guard 条件复用 Condition AST。side_effects 使用 SideEffect 枚举（PublishEvent / Notify / TriggerWorkflow / UpdateField），类型安全，存储为 JSONB</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">各 Service impl 中分散的 if-else 状态校验，难以维护、容易遗漏。统一状态机后：规则集中管理、变更无需改代码、审计日志自动记录</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">运行时查询</h4>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">can_transition(entity_type, entity_id, to_state)</code> — 查询当前实体是否允许转换到目标状态，供 UI 按钮高亮/禁用。<code style="color:#e5c07b;">get_state_history</code> 返回 <code style="color:#e5c07b;">PaginatedResult</code>，支持分页查询状态变更历史</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><code style="color:#e5c07b;">get_allowed_transitions()</code> 返回允许的目标状态列表，UI 用 <code style="color:#e5c07b;">.contains(to_state)</code> 判断按钮高亮/禁用。<code style="color:#e5c07b;">get_state_history</code> 返回 <code style="color:#e5c07b;">PaginatedResult</code>，支持分页查询状态变更历史</p>
             <h4 style="margin: 0 0 8px 0; color: #e5a655;">transition() 校验流程</h4>
             <p style="margin: 0; color: #ccc; font-size: 12px;">
             1. 查询当前状态（from_state）<br>
@@ -964,7 +1061,7 @@ classDiagram
         </div>
       </div>
       <div style="margin-top: 10px; padding: 8px 12px; background: rgba(229,166,85,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
-        <strong style="color: #e5a655;">设计原则：</strong>定义存 DB 可动态配置 | guard 复用 Condition AST | EntityStateLog 追加写不可变 | 替换分散的 if-else 状态校验 | can_transition 供 UI 运行时查询 | get_state_history 支持分页
+        <strong style="color: #e5a655;">设计原则：</strong>定义存 DB 可动态配置 | guard 复用 Condition AST | EntityStateLog 追加写不可变 | 替换分散的 if-else 状态校验 | get_allowed_transitions 供 UI 运行时查询（替代 can_transition） | get_state_history 支持分页
       </div>
     </div>
 
@@ -986,19 +1083,16 @@ classDiagram
             }<br><br>
             <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">AuditLogService</span> {<br>
             &nbsp;&nbsp;record(entity_type, entity_id,<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;action, changes?, operator_id,<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;action: AuditAction, changes?, operator_id,<br>
             &nbsp;&nbsp;&nbsp;&nbsp;context?): i64<br>
-            &nbsp;&nbsp;query_logs(query): PaginatedResult<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 支持 entity_type, operator_id,</span><br>
-            &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// action, time_range 过滤</span><br>
-            &nbsp;&nbsp;list_audit_logs(limit, offset): Vec<br>
+            &nbsp;&nbsp;query_logs(query): PaginatedResult <span style="color:#888;">// 支持所有过滤条件</span><br>
             }
           </div>
         </div>
         <div>
           <div style="background: rgba(86,182,194,0.15); padding: 12px; border-radius: 6px; height: 100%;">
             <h4 style="margin: 0 0 8px 0; color: #56b6c2;">功能</h4>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">以追加写方式记录所有业务实体的状态变更。每次 create、update、delete、状态转换都自动写入审计日志，不可修改或删除</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">以追加写方式记录所有业务实体的状态变更。每次 create、update、delete、状态转换都自动写入审计日志，action 使用 AuditAction 枚举固定值域，不可修改或删除</p>
             <h4 style="margin: 0 0 8px 0; color: #56b6c2;">解决什么问题</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">传统 ERP 审计靠人工补记录、查日志，事后无法还原操作轨迹。统一审计后：ISO 9001 合规、财务审计、问题排查均可一键查询</p>
             <h4 style="margin: 0 0 8px 0; color: #56b6c2;">记录来源（业务 Service 直接调用）</h4>
@@ -1064,7 +1158,7 @@ classDiagram
       <div style="margin-top: 10px; padding: 8px 12px; background: rgba(198,120,221,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
         <strong style="color: #c678dd;">设计原则：</strong>三级幂等（API + Handler + Saga补偿）| idempotency_key UNIQUE 原子性 | 与 domain_events.idempotency_key 互补（事件级 vs 操作级）| 过期记录定期清理<br>
         <strong style="color: #c678dd;">两层幂等 key 说明：</strong>
-        <code style="color:#e5c07b;">DomainEvent.idempotency_key</code> = 事件级去重（默认自动生成 <code style="color:#e5c07b;">{aggregate_type}:{aggregate_id}:{event_type}</code>，也可调用方自定义覆盖，防同一事件重复写入 Outbox）|
+        <code style="color:#e5c07b;">DomainEvent.idempotency_key</code> = 事件级去重（publish 传 None 时自动生成 <code style="color:#e5c07b;">{aggregate_type}:{aggregate_id}:{event_type}</code>，也可调用方自定义覆盖，防同一事件重复写入 Outbox）|
         <code style="color:#e5c07b;">IdempotencyRecord.idempotency_key</code> = <code style="color:#e5c07b;">"{event_id}:{handler}"</code>（处理级去重，防同一事件被同一 handler 重复消费）
       </div>
     </div>
@@ -1081,8 +1175,15 @@ classDiagram
             <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ServiceContext</span> {<br>
             &nbsp;&nbsp;executor: PgExecutor<br>
             &nbsp;&nbsp;operator_id: i64<br>
+            &nbsp;&nbsp;department_id: Option&lt;i64&gt;<br>
+            &nbsp;&nbsp;data_scope: DataScope<br>
             &nbsp;&nbsp;trace_id: Option&lt;String&gt;<br>
             &nbsp;&nbsp;request_id: Option&lt;String&gt;<br>
+}<br><br>
+            <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">DataScope</span> {<br>
+            &nbsp;&nbsp;All <span style="color:#888;">// 全部数据（管理员）</span><br>
+            &nbsp;&nbsp;Department <span style="color:#888;">// 本部门（经理）</span><br>
+            &nbsp;&nbsp;Self <span style="color:#888;">// 仅本人（业务员）</span><br>
 }<br><br>
             <span style="color:#888;">// 显式事务模式声明</span><br>
             <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">TransactionMode</span> {<br>
@@ -1105,6 +1206,8 @@ classDiagram
             &nbsp;&nbsp;Validation(String)<br>
             &nbsp;&nbsp;<span style="color:#c678dd;">#[error("Concurrent conflict")]</span><br>
             &nbsp;&nbsp;ConcurrentConflict<br>
+            &nbsp;&nbsp;<span style="color:#c678dd;">#[error("Invalid state transition: {from} -> {to}")]</span><br>
+            &nbsp;&nbsp;InvalidStateTransition { from: String, to: String }<br>
             &nbsp;&nbsp;<span style="color:#c678dd;">#[error(transparent)]</span><br>
             &nbsp;&nbsp;Internal(#[from] anyhow::Error)<br>
             }<br><br>
@@ -1116,6 +1219,7 @@ classDiagram
             &nbsp;&nbsp;BusinessRule(msg) → FAILED_PRECONDITION<br>
             &nbsp;&nbsp;Validation(msg) → INVALID_ARGUMENT<br>
             &nbsp;&nbsp;ConcurrentConflict → ABORTED<br>
+            &nbsp;&nbsp;InvalidStateTransition → FAILED_PRECONDITION<br>
             &nbsp;&nbsp;Internal(e) → INTERNAL（日志记录完整错误链，返回泛化消息）<br>
             }<br><br>
             <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">PaginatedResult</span>&lt;T&gt; {<br>
@@ -1130,6 +1234,7 @@ classDiagram
             &nbsp;&nbsp;success_count: i32<br>
             &nbsp;&nbsp;failed_items: Vec&lt;BatchFailure&gt;<br>
             &nbsp;&nbsp;total: i32 <span style="color:#888;">// = success_count + failed_items.len()</span><br>
+            &nbsp;&nbsp;mode: BatchMode <span style="color:#888;">// Atomic | ContinueOnError</span><br>
             }<br><br>
             <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">BatchFailure</span> {<br>
             &nbsp;&nbsp;index: i32 <span style="color:#888;">// 原始请求中的位置</span><br>
@@ -1140,10 +1245,10 @@ classDiagram
         <div>
           <div style="background: rgba(249,115,22,0.15); padding: 12px; border-radius: 6px; height: 100%;">
             <h4 style="margin: 0 0 8px 0; color: #f97316;">功能</h4>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>ServiceContext</strong>：服务调用上下文，包装 PgExecutor + operator_id + trace_id + request_id。所有共享服务接受 ServiceContext 作为第一参数，消除逐参数传递 operator_id / trace_id 的冗余。共享服务（如 AuditLog.record、EventBus.publish）在调用者事务内执行，保证强一致</p>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>DomainError</strong>：基于 <code style="color:#e5c07b;">thiserror</code> 定义结构化错误枚举，自动派生 <code style="color:#e5c07b;">Display + Error</code> trait。新增 Validation 变体用于输入校验，Internal 的完整错误链仅记录到日志，不泄露给客户端。<code style="color:#e5c07b;">ServiceError</code> 标记 <code style="color:#e5c07b;">#[deprecated]</code>，新代码统一使用 DomainError</p>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>PaginatedResult</strong>：所有查询接口的标准分页返回结构</p>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>BatchResult</strong>：所有 batch_* 方法的统一返回结构，支持部分失败场景。<code style="color:#e5c07b;">success_count</code> 记录成功数，<code style="color:#e5c07b;">failed_items</code> 记录每个失败项的位置和原因，便于上层精确处理</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>ServiceContext</strong>：服务调用上下文，包装 PgExecutor + operator_id + department_id + data_scope + trace_id + request_id。data_scope (All/Department/Self) 由 Auth 服务从 JWT 解析注入，支持行级数据权限（RLS）。所有共享服务接受 ServiceContext 作为第一参数，消除逐参数传递 operator_id / trace_id 的冗余。共享服务（如 AuditLog.record、EventBus.publish）在调用者事务内执行，保证强一致</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>DomainError</strong>：基于 <code style="color:#e5c07b;">thiserror</code> 定义结构化错误枚举，自动派生 <code style="color:#e5c07b;">Display + Error</code> trait。新增 Validation 变体用于输入校验，Internal 的完整错误链仅记录到日志（含 Error::source 链追溯根因），不泄露给客户端。<code style="color:#e5c07b;">ServiceError</code> 标记 <code style="color:#e5c07b;">#[deprecated]</code>，新代码统一使用 DomainError</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>PaginatedResult</strong>：所有查询接口的标准分页返回结构。<strong>PageParams</strong>：所有分页查询的标准输入参数（page + page_size）</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>BatchResult</strong>：所有 batch_* 方法的统一返回结构。<code style="color:#e5c07b;">mode</code> 标识语义：<code style="color:#e5c07b;">Atomic</code>（全成功或全失败，如 batch_create_link、batch_create 成本分录）或 <code style="color:#e5c07b;">ContinueOnError</code>（部分失败继续，如 batch_reserve）。<code style="color:#e5c07b;">success_count</code> 记录成功数，<code style="color:#e5c07b;">failed_items</code> 记录每个失败项的位置和原因</p>
             <h4 style="margin: 0 0 8px 0; color: #f97316;">PgExecutor 设计要点</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">
             <strong>ServiceContext 封装</strong> — PgExecutor 不再直接传入 service，而是包装在 ServiceContext 中，携带 operator_id / trace_id / request_id<br>
@@ -1158,7 +1263,7 @@ classDiagram
         </div>
       </div>
       <div style="margin-top: 10px; padding: 8px 12px; background: rgba(249,115,22,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
-        <strong style="color: #f97316;">设计原则：</strong>ServiceContext 封装 PgExecutor + 操作元数据（operator_id / trace_id / request_id）| TransactionMode 显式声明事务模式（InCallerTx / IndependentTx / AsyncOutbox）| DomainError 统一错误模型（ServiceError deprecated）| thiserror 自动 Display + Error | #[from] anyhow::Error 兼容老代码 | PaginatedResult 查询统一返回 | BatchResult batch_* 统一返回（部分失败）
+        <strong style="color: #f97316;">设计原则：</strong>ServiceContext 封装 PgExecutor + 操作元数据（operator_id / trace_id / request_id）| TransactionMode 显式声明事务模式（InCallerTx / IndependentTx / AsyncOutbox）| DomainError 统一错误模型（ServiceError deprecated）| thiserror 自动 Display + Error | #[from] anyhow::Error 兼容老代码 | PaginatedResult 查询统一返回 | BatchResult batch_* 统一返回（Atomic 全建全不建 | ContinueOnError 部分失败继续）
       </div>
     </div>
 
@@ -1342,16 +1447,17 @@ classDiagram
     <div style="padding: 12px; background: rgba(108,139,239,0.1); border-radius: 6px;">
       <h3 style="margin: 0 0 8px 0; color: #6c8bef;">组件间协作关系</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
-        <span style="color:#6c8bef;">DocumentSequence</span> ─── 被所有 8 个模块消费 ─→ 生成单据编号（32 种 DocumentType）<br>
+        <span style="color:#6c8bef;">DocumentSequence</span> ─── 被所有 8 个模块消费 ─→ 生成编号（33 种 DocumentType | Sequential 策略 + Timestamp 策略）<br>
         <span style="color:#e5a655;">DocumentLink</span> ──────── 业务流转时写入 ──→ 记录单据间关系链（7 种 LinkType）<br>
         <span style="color:#6bc76b;">InventoryReservation</span> ─ 预留/释放/过期 ──→ 控制库存可用量（4 个模块消费）<br>
         <span style="color:#e06c75;">CostEntry</span> ──────────── 成本事件触发 ──→ 双层记账统一入口（7 个模块写入，FMS 聚合查询）<br>
         <span style="color:#3b82f6;">DomainEventBus</span> ────── 事件发布/订阅 ──→ 跨模块解耦（19 种事件 | 同步强一致 + Outbox 异步分发 | mark_processed 批量版 | find_events 统一查询）<br>
         <span style="color:#3b82f6;">EventHandlerRegistry</span> ── Handler 注册/分发 ──→ 支持同步（库存预留/质量关卡）和异步（Outbox）两种模式<br>
         <span style="color:#e5a655;">StateMachineService</span> ─ 状态转换管理 ──→ 统一单据生命周期（替换分散的 if-else 状态校验）<br>
-        <span style="color:#56b6c2;">AuditLogService</span> ──── 操作审计追踪 ──→ 业务 Service 直接调用（同事务内，字段级 diff，全链路可追溯）| query_logs 统一查询 | list_audit_logs 前端审计页面<br>
+        <span style="color:#56b6c2;">AuditLogService</span> ──── 操作审计追踪 ──→ 业务 Service 直接调用（同事务内，字段级 diff，全链路可追溯）| query_logs 统一查询（支持所有过滤）<br>
         <span style="color:#c678dd;">IdempotencyService</span> ── 幂等去重保障 ──→ 三级幂等：API防重复提交 + Handler防重复消费 + Saga补偿防重复执行<br>
-        <span style="color:#f97316;">ServiceContext</span> ──────────── 服务调用上下文 ──→ 包装 PgExecutor + operator_id + trace_id + request_id，所有共享服务第一参数<br>
+        <span style="color:#a78bfa;">DeadLetterService</span> ── 死信队列运维 ──→ list_dead_letters 查询 / retry_one 重试 / archive 归档（EventProcessor 超限自动标记 DEAD_LETTER，人工通过此接口干预）<br>
+        <span style="color:#f97316;">ServiceContext</span> ──────────── 服务调用上下文 ──→ 包装 PgExecutor + operator_id + department_id + data_scope(行级权限) + trace_id + request_id，所有共享服务第一参数<br>
         <span style="color:#f97316;">TransactionMode</span> ─────── 显式事务模式声明 ──→ InCallerTx（调用者事务）/ IndependentTx（独立事务）/ AsyncOutbox（异步消费）
         <span style="color:#f97316;">DomainError</span> ────────── 统一错误模型 ──→ 唯一标准错误类型（ServiceError deprecated），gRPC 语义化 status code<br>
         <span style="color:#f97316;">PaginatedResult</span> ──── 统一分页结构 ──→ 所有查询接口返回 { items, total, page, page_size, total_pages }<br>
@@ -1364,7 +1470,7 @@ classDiagram
         <br>
         <span style="color:#888;">EventBus + StateMachine 构成事件驱动架构骨架，所有业务模块和 <a href="08-workflow-engine.html" style="color:#6bc76b;">Workflow Engine</a> 均通过它们协作</span><br>
         <span style="color:#888;">所有共享实体通过 DocumentType 枚举与具体业务模块解耦</span><br>
-        <span style="color:#888;">ServiceContext + DomainError + TransactionMode + PaginatedResult 构成统一的接口契约基础，ServiceContext 提供事务上下文 + 操作元数据，TransactionMode 显式声明事务边界，新服务直接采用，老服务渐进迁移</span>
+        <span style="color:#888;">ServiceContext + DomainError + TransactionMode + PaginatedResult + EventPublishRequest + AuditAction + SideEffect 构成统一的接口契约基础，ServiceContext 提供事务上下文 + 操作元数据，TransactionMode 显式声明事务边界，新服务直接采用，老服务渐进迁移</span>
       </div>
     </div>
 

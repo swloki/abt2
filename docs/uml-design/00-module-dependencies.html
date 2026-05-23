@@ -48,7 +48,7 @@
 </head>
 <body>
 <h2>模块间接口依赖关系 — 总览</h2>
-<p class="subtitle">11 个模块 · 58 个 Service Trait · 230 个核心方法 · 接口先行 · 事件驱动 · 分层实现</p>
+<p class="subtitle">11 个模块 · 49 个 Service Trait · 226 个核心方法 · 接口先行 · 事件驱动 · 分层实现 · 客商统一主数据 · 行级数据权限</p>
 
 <!-- Mermaid Diagram -->
 <div class="mermaid-wrap">
@@ -73,6 +73,7 @@ graph TD
     SM[StateMachineService]
     AL[AuditLogService]
     IXD[IdempotencyService]
+    DLS[DeadLetterService]
   end
 
   subgraph SALES["Sales CRM - 5"]
@@ -83,8 +84,7 @@ graph TD
     SREC[SalesReconciliationService]
   end
 
-  subgraph PURCHASE["Purchase SRM - 7"]
-    SUP[SupplierService]
+  subgraph PURCHASE["Purchase SRM - 6"]
     PQ[PurchaseQuotationService]
     PO[PurchaseOrderService]
     PRET[PurchaseReturnService]
@@ -138,12 +138,17 @@ graph TD
     HK[WorkflowHook]
   end
 
-  subgraph MD["Master Data - 5"]
+  subgraph MD["Master Data - 10"]
     PDT[ProductService]
     PPR[ProductPriceService]
     CAT[CategoryService]
-    BOMS[BomService]
+    BQ[BomQueryService]
+    BC[BomCommandService]
+    BN[BomNodeService]
+    BCO[BomCostService]
     BCAT[BomCategoryService]
+    CUS[CustomerService]
+    SUP[SupplierService]
   end
 
   subgraph ID["Identity & Access - 5"]
@@ -162,8 +167,8 @@ graph TD
   SHARED ==>|use| QMS
   SHARED ==>|use| FMS
 
-  MD -.->|product & BOM| SALES
-  MD -.->|product & BOM| PURCHASE
+  MD -.->|product, BOM & customer| SALES
+  MD -.->|product, BOM & supplier| PURCHASE
   MD -.->|product & BOM| WMS
   MD -.->|product & BOM| MES
   MD -.->|product & BOM| OM
@@ -239,14 +244,14 @@ graph TD
 
   class DS,DL,IR,CE,EB,EH,SM,AL,IXD shared
   class QUO,SO,SR,SRET,SREC sales
-  class SUP,PQ,PO,PRET,PREC,PAY,MISC purchase
+  class PQ,PO,PRET,PREC,PAY,MISC purchase
   class WH,AN,IT,MR,BF,CC,TRF,FC,LCK wms
   class PP,WO,WR,PI,PR mes
   class OOM,OT om
   class ISS,IRS,MRB,RMA qms
   class CJ,WOFF,ER,CA fms
   class WFS,AA,HK wf
-  class PDT,PPR,CAT,BOMS,BCAT masterdata
+  class PDT,PPR,CAT,BQ,BC,BN,BCO,BCAT,CUS,SUP masterdata
   class USR,ROL,AUT,PRM,DPT identity
   </div>
   </div>
@@ -295,14 +300,14 @@ graph TD
         <span style="color:#888;">│</span> <span style="color:#e5a655;">SalesOrderService</span>.confirm() <span style="color:#888;">// 业务模块只关心核心逻辑</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;├── <span style="color:#e5a655;">StateMachine</span>.transition("Confirmed") <span style="color:#888;">// 推进状态</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;├── <span style="color:#6bc76b;">InventoryReservation</span>.reserve(SOFT) <span style="color:#e06c75;">← InCallerTx 同步强一致（主事务内）</span> <span style="color:#888;">│</span><br>
-        <span style="color:#888;">│</span>&nbsp;&nbsp;└── <span style="color:#3b82f6;">EventBus</span>.publish(<span style="color:#e5c07b;">SalesOrderConfirmed</span>) <span style="color:#888;">// 写 Outbox</span> <span style="color:#888;">│</span><br>
+        <span style="color:#888;">│</span>&nbsp;&nbsp;└── <span style="color:#3b82f6;">EventBus</span>.publish(<span style="color:#e5c07b;">EventPublishRequest</span>{ SalesOrderConfirmed }) <span style="color:#888;">// 写 Outbox</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color:#e06c75;">CostEntryHandler</span> → record cost <span style="color:#98c379;">← IndependentTx 独立事务</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├── <span style="color:#e5a655;">DocLinkHandler</span> → link QUO→SO <span style="color:#3b82f6;">← 异步 Outbox</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">│</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── <span style="color:#c678dd;">WorkflowTriggerHandler</span> → start WF <span style="color:#3b82f6;">← 异步 Outbox</span> <span style="color:#888;">│</span><br>
         <span style="color:#888;">└──────────────────────────────────────────────────────────────────────┘</span><br>
 	        <span style="color:#e06c75;">① 同步强一致（主事务内）</span>：库存预留、质量关卡硬门 — 调用者事务内直接执行，失败即回滚<br>
 	        <span style="color:#98c379;">② 独立事务 (IndependentTx)</span>：成本记录（CostEntry）— 主事务提交后开新事务写入，失败不影响主业务，成本为派生数据可重算<br>
-	        <span style="color:#3b82f6;">③ 异步 Outbox (AsyncOutbox)</span>：文档链接、Workflow 触发、通知 — 业务事务内写 Outbox + NOTIFY，EventProcessor 后台消费
+	        <span style="color:#3b82f6;">③ 异步 Outbox (AsyncOutbox)</span>：文档链接、Workflow 触发、通知 — 业务事务内写 Outbox + NOTIFY，EventProcessor 后台消费，超限死信由 DeadLetterService 管理
     </div>
 
     <!-- Module Overview -->
@@ -319,11 +324,11 @@ graph TD
             <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">DocumentLinkService</span> { create_link(ctx), find_linked }<br>
             <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InventoryReservationService</span> { reserve(ctx), fulfill(ctx), cancel(ctx) }<br>
             <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CostEntryService</span> { create(ctx), find_by_entity }<br>
-            <span style="color:#3b82f6;">interface</span> <span style="color:#e5c07b;">DomainEventBus</span> { publish(ctx), mark_processed, find_events }<br>
+            <span style="color:#3b82f6;">interface</span> <span style="color:#e5c07b;">DomainEventBus</span> { publish(ctx, req: EventPublishRequest), mark_processed, find_events }<br>
             <span style="color:#3b82f6;">interface</span> <span style="color:#e5c07b;">EventHandlerRegistry</span> { register · dispatch }<br>
             <span style="color:#888;">↑ 负责Handler注册与分发，支持同步（强一致）和异步（Outbox）两种模式</span><br>
             <span style="color:#e5a655;">interface</span> <span style="color:#e5c07b;">StateMachineService</span> { transition(ctx), get_current_state, ... }<br>
-            <span style="color:#56b6c2;">interface</span> <span style="color:#e5c07b;">AuditLogService</span> { record(ctx), query_logs, list_audit_logs }<br>
+            <span style="color:#56b6c2;">interface</span> <span style="color:#e5c07b;">AuditLogService</span> { record(ctx), query_logs, query_logs }<br>
             <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">IdempotencyService</span> { check_and_mark(ctx), mark_processed(ctx), cleanup_expired }<br>
             <span style="color:#888;">↑ API级（防重复提交）+ Handler级（Outbox重试幂等）+ 补偿级（Workflow重试幂等）</span>
           </div>
@@ -343,15 +348,14 @@ graph TD
             </p>
           </div>
           <div style="border: 2px solid #6bc76b; border-radius: 8px; padding: 14px; background: rgba(107,199,107,0.05);">
-            <h4 style="color: #6bc76b; margin: 0 0 6px 0;">Purchase SRM 采购模块 (7 个接口)</h4>
+            <h4 style="color: #6bc76b; margin: 0 0 6px 0;">Purchase SRM 采购模块 (6 个接口)</h4>
             <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
-              SupplierService · PurchaseQuotationService<br>
-              PurchaseOrderService · PurchaseReturnService<br>
-              PurchaseReconciliationService<br>
+              PurchaseQuotationService · PurchaseOrderService<br>
+              PurchaseReturnService · PurchaseReconciliationService<br>
               PaymentRequestService · MiscellaneousRequestService
             </div>
             <p style="color:#aaa; font-size:11px; margin: 6px 0 0 0;">
-              流转链：供应商 → 报价 → 订单 → 来料 → 对账 → 付款 (三单匹配)
+              流转链：供应商(Master Data) → 报价 → 订单 → 来料 → 对账 → 付款 (三单匹配)
             </p>
           </div>
         </div>
@@ -389,15 +393,16 @@ graph TD
 
         <!-- Master Data -->
         <div style="border: 2px solid #61afef; border-radius: 8px; padding: 14px; background: rgba(97,175,239,0.08);">
-          <h4 style="color: #61afef; margin: 0 0 6px 0; font-size: 13px;">Master Data 主数据 (5) <span style="background:#61afef;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;">NEW</span></h4>
+          <h4 style="color: #61afef; margin: 0 0 6px 0; font-size: 13px;">Master Data 主数据 (10) <span style="background:#61afef;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;">v4</span></h4>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
-            ProductService<br>
-            ProductPriceService<br>
+            ProductService · ProductPriceService<br>
             CategoryService<br>
-            BomService · BomCategoryService
+            BomQueryService · BomCommandService<br>
+            BomNodeService · BomCostService · BomCategoryService<br>
+            CustomerService · SupplierService
           </div>
           <p style="color:#aaa; font-size:11px; margin: 6px 0 0 0;">
-            所有业务模块的上游基础数据：产品、分类、BOM、价格
+            所有业务模块的上游基础数据：产品、分类、BOM、价格、客户、供应商
           </p>
         </div>
 
@@ -566,12 +571,12 @@ graph TD
         <span style="color:#e5a655;">Sales</span> → <span style="color:#61afef;">ProductPriceService</span>.get_current_price() 报价自动填充单价<br>
         <span style="color:#6bc76b;">Purchase</span> → <span style="color:#61afef;">ProductService</span>.get_product() 采购订单行引用产品<br>
         <span style="color:#c678dd;">WMS</span> → <span style="color:#61afef;">ProductService</span>.get_product() 库存事务的产品维度<br>
-        <span style="color:#e06c75;">MES</span> → <span style="color:#61afef;">BomService</span>.get_snapshot() 工单引用 BomSnapshot（不可变）<br>
+        <span style="color:#e06c75;">MES</span> → <span style="color:#61afef;">BomQueryService</span>.get_snapshot() 工单引用 BomSnapshot（不可变）<br>
         <span style="color:#e06c75;">MES</span> → <span style="color:#61afef;">ProductService</span>.get_product() 工单/报工引用产品<br>
-        <span style="color:#e06c75;">OM</span> → <span style="color:#61afef;">BomService</span>.get_snapshot() 委外引用 BomSnapshot（不可变）<br>
+        <span style="color:#e06c75;">OM</span> → <span style="color:#61afef;">BomQueryService</span>.get_snapshot() 委外引用 BomSnapshot（不可变）<br>
         <span style="color:#56b6c2;">QMS</span> → <span style="color:#61afef;">ProductService</span>.get_product() 检验规格绑定产品<br>
-        <span style="color:#61afef;">BomService</span> → <span style="color:#61afef;">ProductService</span>.get_product() BOM 节点引用子件产品<br>
-        <span style="color:#61afef;">BomService</span> → <span style="color:#61afef;">CategoryService</span>.list() BOM 按分类组织
+        <span style="color:#61afef;">BomCostService</span> → <span style="color:#61afef;">ProductService</span>.get_product() BOM 节点引用子件产品<br>
+        <span style="color:#61afef;">BomCommandService</span> → <span style="color:#61afef;">CategoryService</span>.list() BOM 按分类组织
       </div>
     </div>
 

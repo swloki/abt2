@@ -154,6 +154,10 @@ impl AppState {
         abt::get_product_watcher_service(self.abt_context)
     }
 
+    pub fn quotation_service(&self) -> impl abt::QuotationService {
+        abt::get_quotation_service(self.abt_context)
+    }
+
     pub fn workflow_service(&self) -> abt::implt::workflow_engine::WorkflowEngine {
         self.workflow_engine.clone()
     }
@@ -196,6 +200,7 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         AbtLaborProcessServiceServer, AbtLaborProcessDictServiceServer, AbtLocationServiceServer, AbtPriceServiceServer,
         AbtProductServiceServer, AbtRoutingServiceServer, AbtSyncServiceServer, AbtTermServiceServer, AbtWarehouseServiceServer,
         AbtWorkflowServiceServer,
+        QuotationServiceServer,
         AuthServiceServer, AbtBomCategoryServiceServer, DepartmentServiceServer,
         PermissionServiceServer, RoleServiceServer, UserServiceServer,
     };
@@ -266,6 +271,9 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(AbtWorkflowServiceServer::with_interceptor(
             crate::handlers::workflow::WorkflowHandler::new(), auth_interceptor,
+        ))
+        .add_service(QuotationServiceServer::with_interceptor(
+            crate::handlers::quotation::QuotationHandler::new(), auth_interceptor,
         ))
         .serve_with_shutdown(addr, async move {
             tokio::signal::ctrl_c().await.expect("failed to listen for ctrl+c");

@@ -1,0 +1,110 @@
+syntax = "proto3";
+package abt.v1;
+
+import "abt/v1/base.proto";
+
+enum SalesOrderStatus {
+  SALES_ORDER_STATUS_UNSPECIFIED = 0;
+  SALES_ORDER_STATUS_DRAFT = 1;
+  SALES_ORDER_STATUS_CONFIRMED = 2;
+  SALES_ORDER_STATUS_IN_PROGRESS = 3;
+  SALES_ORDER_STATUS_COMPLETED = 4;
+  SALES_ORDER_STATUS_CANCELLED = 5;
+}
+
+message SalesOrderItem {
+  int64 item_id = 1;
+  int64 order_id = 2;
+  int64 product_id = 3;
+  string product_code = 4;
+  string product_name = 5;
+  string unit = 6;
+  string unit_price = 7;
+  string quantity = 8;
+  string discount = 9;
+  string subtotal = 10;
+  string shipped_qty = 11;
+  string returned_qty = 12;
+  string remark = 13;
+}
+
+message SalesOrder {
+  int64 order_id = 1;
+  string order_no = 2;
+  int64 quotation_id = 3;
+  string customer_name = 4;
+  string contact_person = 5;
+  string contact_phone = 6;
+  SalesOrderStatus status = 7;
+  string total_amount = 8;
+  string remark = 9;
+  int64 delivery_date = 10;
+  int64 created_at = 11;
+  int64 updated_at = 12;
+  int64 operator_id = 13;
+  repeated SalesOrderItem items = 14;
+}
+
+message CreateSalesOrderRequest {
+  int64 quotation_id = 1;
+  string customer_name = 2;
+  string contact_person = 3;
+  string contact_phone = 4;
+  string remark = 5;
+  int64 delivery_date = 6;
+  repeated CreateSalesOrderItem items = 7;
+}
+
+message CreateSalesOrderItem {
+  int64 product_id = 1;
+  string unit_price = 2;
+  string quantity = 3;
+  string discount = 4;
+  string remark = 5;
+}
+
+message UpdateSalesOrderRequest {
+  int64 order_id = 1;
+  string customer_name = 2;
+  string contact_person = 3;
+  string contact_phone = 4;
+  string remark = 5;
+  int64 delivery_date = 6;
+}
+
+message ListSalesOrdersRequest {
+  optional string keyword = 1;
+  optional SalesOrderStatus status = 2;
+  optional PaginationParams pagination = 3;
+}
+
+message GetSalesOrderRequest {
+  int64 order_id = 1;
+}
+
+message DeleteSalesOrderRequest {
+  int64 order_id = 1;
+}
+
+message UpdateSalesOrderStatusRequest {
+  int64 order_id = 1;
+  SalesOrderStatus status = 2;
+}
+
+message SalesOrderResponse {
+  SalesOrder order = 1;
+}
+
+message SalesOrderListResponse {
+  repeated SalesOrder items = 1;
+  PaginationInfo pagination = 2;
+}
+
+service SalesOrderService {
+  rpc CreateSalesOrder(CreateSalesOrderRequest) returns (U64Response);
+  rpc UpdateSalesOrder(UpdateSalesOrderRequest) returns (BoolResponse);
+  rpc DeleteSalesOrder(DeleteSalesOrderRequest) returns (BoolResponse);
+  rpc GetSalesOrder(GetSalesOrderRequest) returns (SalesOrderResponse);
+  rpc ListSalesOrders(ListSalesOrdersRequest) returns (SalesOrderListResponse);
+  rpc UpdateSalesOrderStatus(UpdateSalesOrderStatusRequest) returns (BoolResponse);
+}

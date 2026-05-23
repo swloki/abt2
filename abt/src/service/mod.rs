@@ -24,6 +24,12 @@ mod notification_service;
 mod product_watcher_service;
 mod scheduled_task_service;
 mod workflow_service;
+mod document_sequence_service;
+mod quotation_service;
+mod sales_order_service;
+mod shipping_request_service;
+mod sales_return_service;
+mod reconciliation_service;
 
 pub use auth_service::AuthService;
 pub use bom_category_service::BomCategoryService;
@@ -50,6 +56,12 @@ pub use notification_service::NotificationService;
 pub use product_watcher_service::ProductWatcherService;
 pub use scheduled_task_service::{ScheduledTask, TaskRunResult, TaskStatus};
 pub use workflow_service::WorkflowService;
+pub use document_sequence_service::DocumentSequenceService;
+pub use quotation_service::{CreateQuotationItemParams, CreateQuotationParams, QuotationService, UpdateQuotationParams};
+pub use sales_order_service::{CreateSalesOrderParams, CreateSalesOrderItemParams, UpdateSalesOrderHeaderParams, SalesOrderService};
+pub use shipping_request_service::{CreateShippingRequestParams, CreateShippingRequestItemParams, UpdateShippingRequestParams, ShippingRequestService};
+pub use sales_return_service::{CreateSalesReturnParams, CreateSalesReturnItemParams, UpdateSalesReturnParams, SalesReturnService};
+pub use reconciliation_service::{CreateReconciliationParams, AdjustmentItemParams, ReconciliationService};
 
 // Re-export executor type from repositories
 pub use crate::repositories::Executor;

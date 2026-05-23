@@ -6,29 +6,30 @@ use sqlx::PgPool;
 use crate::models::WorkflowTask;
 use crate::repositories::Executor;
 
+pub struct TaskInsertParams<'a> {
+    pub instance_id: i64,
+    pub node_id: &'a str,
+    pub prev_task_id: Option<i64>,
+    pub assignee_id: Option<i64>,
+    pub timeout_action: Option<&'a str>,
+    pub due_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub remind_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
 pub struct WorkflowTaskRepo;
 
 impl WorkflowTaskRepo {
-    pub async fn insert(
-        executor: Executor<'_>,
-        instance_id: i64,
-        node_id: &str,
-        prev_task_id: Option<i64>,
-        assignee_id: Option<i64>,
-        timeout_action: Option<&str>,
-        due_at: Option<chrono::DateTime<chrono::Utc>>,
-        remind_at: Option<chrono::DateTime<chrono::Utc>>,
-    ) -> Result<i64> {
+    pub async fn insert(executor: Executor<'_>, p: &TaskInsertParams<'_>) -> Result<i64> {
         let id: i64 = sqlx::query_scalar(
             "INSERT INTO workflow_tasks (instance_id, node_id, prev_task_id, assignee_id, timeout_action, due_at, remind_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
         )
-        .bind(instance_id)
-        .bind(node_id)
-        .bind(prev_task_id)
-        .bind(assignee_id)
-        .bind(timeout_action)
-        .bind(due_at)
-        .bind(remind_at)
+        .bind(p.instance_id)
+        .bind(p.node_id)
+        .bind(p.prev_task_id)
+        .bind(p.assignee_id)
+        .bind(p.timeout_action)
+        .bind(p.due_at)
+        .bind(p.remind_at)
         .fetch_one(executor)
         .await?;
         Ok(id)

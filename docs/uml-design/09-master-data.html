@@ -328,6 +328,7 @@ classDiagram
     +unpublish(ctx: ServiceContext, id) Result~Unit~
     +save_as(ctx: ServiceContext, source_id, new_name) Result~i64~
     +substitute_product(ctx: ServiceContext, req: SubstituteReq) SubstitutionResult
+    +validate_cycle(ctx: ServiceContext, bom_id) Result~Unit~
   }
 
   class BomNodeService {
@@ -1021,6 +1022,7 @@ classDiagram
           &nbsp;&nbsp;substitute_product(ctx,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;req: SubstituteReq)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ SubstitutionResult<br>
+          &nbsp;&nbsp;validate_cycle(ctx, bom_id) → Unit <span style="color:#888;">// DFS 环检测，防止循环依赖 BOM</span><br>
           }
         </div>
       </div>

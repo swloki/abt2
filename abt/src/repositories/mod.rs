@@ -26,6 +26,12 @@ mod workflow_template_repo;
 mod workflow_instance_repo;
 mod workflow_task_repo;
 mod workflow_history_repo;
+mod document_sequence_repo;
+mod quotation_repo;
+mod sales_order_repo;
+mod shipping_request_repo;
+mod sales_return_repo;
+mod reconciliation_repo;
 
 pub use auth_repo::AuthRepo;
 pub use bom_category_repo::BomCategoryRepo;
@@ -50,9 +56,15 @@ pub use inventory_cascade_repo::{
 pub use notification_repo::NotificationRepo;
 pub use product_watcher_repo::ProductWatcherRepo;
 pub use workflow_template_repo::WorkflowTemplateRepo;
-pub use workflow_instance_repo::WorkflowInstanceRepo;
-pub use workflow_task_repo::WorkflowTaskRepo;
+pub use workflow_instance_repo::{InstanceInsertParams, WorkflowInstanceRepo};
+pub use workflow_task_repo::{TaskInsertParams, WorkflowTaskRepo};
 pub use workflow_history_repo::WorkflowHistoryRepo;
+pub use document_sequence_repo::DocumentSequenceRepo;
+pub use quotation_repo::{QuotationInsertParams, QuotationItemRow, QuotationRepo, QuotationUpdateParams};
+pub use sales_order_repo::{SalesOrderInsertParams, SalesOrderItemRow, SalesOrderRepo, SalesOrderUpdateHeaderParams};
+pub use shipping_request_repo::{ShippingRequestInsertParams, ShippingRequestItemRow, ShippingRequestRepo, ShippingRequestUpdateParams};
+pub use sales_return_repo::{SalesReturnInsertParams, SalesReturnItemRow, SalesReturnRepo, SalesReturnUpdateParams};
+pub use reconciliation_repo::{ReconciliationInsertParams, ReconciliationItemRow, ReconciliationRepo};
 
 // Re-export Executor from common
 pub use common::PgExecutor as Executor;

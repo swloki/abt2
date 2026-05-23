@@ -29,8 +29,7 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </head>
 <body>
 <h2>生产模块 (MES) — 类图设计</h2>
-<p class="subtitle">双模式排产 + 工单管理 + 工序报工 + 委外(委托 OM) + 用量差异闭环</p>
-
+<p class="subtitle">双模式排产 + 工单管理 + 生产批次(流转卡) + 工序报工 + 计件工资 + 委外(委托 OM) + 用量差异闭环</p>
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
     <button id="zoomOut" title="缩小">&#8722;</button>
@@ -69,8 +68,6 @@ classDiagram
     Draft
     Planned
     Released
-    InProduction
-    Completed
     Closed
     Cancelled
   }
@@ -104,7 +101,22 @@ classDiagram
     Confirmed
     Cancelled
   }
-
+  class BatchStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Pending
+    InProgress
+    Suspended
+    PendingReceipt
+    Completed
+    Cancelled
+  }
+  class DefectReason {
+    &lt;&lt;enumeration&gt;&gt;
+    MaterialDefect
+    EquipmentFault
+    OperatorError
+    ProcessIssue
+  }
   class ProductionPlan {
     +id: i64
     +doc_number: String
@@ -117,7 +129,6 @@ classDiagram
     +updated_at: Timestamp
     +deleted_at: Option~Timestamp~
   }
-
   class ProductionPlanItem {
     +id: i64
     +plan_id: i64
@@ -133,7 +144,6 @@ classDiagram
     +priority: i32
     +status: PlanItemStatus
   }
-
   class WorkOrder {
     +id: i64
     +doc_number: String
@@ -142,23 +152,36 @@ classDiagram
     +bom_snapshot_id: Option~i64~
     +routing_id: Option~i64~
     +planned_qty: Decimal
-    +completed_qty: Decimal
-    +scrap_qty: Decimal
     +scheduled_start: Date
     +scheduled_end: Date
-    +actual_start: Option~DateTime~
-    +actual_end: Option~DateTime~
     +status: WorkOrderStatus
     +work_center_id: Option~i64~
-    +team_id: Option~i64~
     +sales_order_id: Option~i64~
+    +version: i32
     +remark: String
     +operator_id: i64
     +created_at: Timestamp
     +updated_at: Timestamp
     +deleted_at: Option~Timestamp~
   }
-
+  class ProductionBatch {
+    +id: i64
+    +batch_no: String
+    +card_sn: String
+    +work_order_id: i64
+    +product_id: i64
+    +batch_qty: Decimal
+    +completed_qty: Decimal
+    +scrap_qty: Decimal
+    +team_id: Option~i64~
+    +current_step: i32
+    +actual_start: Option~DateTime~
+    +actual_end: Option~DateTime~
+    +status: BatchStatus
+    +operator_id: i64
+    +created_at: Timestamp
+    +updated_at: Timestamp
+  }
   class WorkOrderRouting {
     +id: i64
     +work_order_id: i64
@@ -167,6 +190,8 @@ classDiagram
     +work_center_id: Option~i64~
     +standard_time: Option~Decimal~
     +standard_cost: Option~Decimal~
+    +unit_price: Option~Decimal~
+    +allowed_loss_rate: Option~Decimal~
     +planned_qty: Decimal
     +completed_qty: Decimal
     +defect_qty: Decimal
@@ -174,25 +199,24 @@ classDiagram
     +is_outsourced: bool
     +is_inspection_point: bool
   }
-
   class WorkReport {
     +id: i64
     +doc_number: String
     +work_order_id: i64
+    +batch_id: i64
     +routing_id: i64
     +report_date: Date
     +shift: ShiftType
     +worker_id: i64
     +completed_qty: Decimal
     +defect_qty: Decimal
-    +defect_reason: Option~String~
+    +defect_reason: Option~DefectReason~
     +work_hours: Decimal
     +remark: String
     +operator_id: i64
     +created_at: Timestamp
     +updated_at: Timestamp
   }
-
   class OutsourcingOrder {
     +id: i64
     +doc_number: String
@@ -213,7 +237,6 @@ classDiagram
     +updated_at: Timestamp
     +deleted_at: Option~Timestamp~
   }
-
   class ProductionInspection {
     +id: i64
     +doc_number: String
@@ -233,11 +256,11 @@ classDiagram
     +created_at: Timestamp
     +updated_at: Timestamp
   }
-
   class ProductionReceipt {
     +id: i64
     +doc_number: String
     +work_order_id: i64
+    +batch_id: Option~i64~
     +product_id: i64
     +received_qty: Decimal
     +warehouse_id: i64
@@ -251,71 +274,110 @@ classDiagram
     +created_at: Timestamp
     +updated_at: Timestamp
   }
-
   ProductionPlan "1" *-- "0..*" ProductionPlanItem
   WorkOrder "1" *-- "0..*" WorkOrderRouting
-
+  WorkOrder "1" *-- "0..*" ProductionBatch
   class ProductionPlanService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~ProductionPlan~
     +confirm(ctx: ServiceContext, id) Result~Unit~
-    +release_to_work_orders(ctx: ServiceContext, plan_id) Result~Vec~WorkOrder~~
+    +release_to_work_orders(ctx: ServiceContext, plan_id) Result~BatchReleaseResult~
     +list(filter) PaginatedResult~ProductionPlan~
   }
-
   class WorkOrderService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~WorkOrder~
-    +release(ctx: ServiceContext, id) Result~Unit~
-    +complete(ctx: ServiceContext, id, completed_qty) Result~Unit~
-    +close(ctx: ServiceContext, id) Result~Unit~
+    +release(ctx: ServiceContext, id, expected_version i32) Result~Unit~
+    +close(ctx: ServiceContext, id, expected_version i32) Result~Unit~
+    +cancel(ctx: ServiceContext, id, expected_version i32) Result~Unit~
     +list(filter) PaginatedResult~WorkOrder~
   }
-
   class WorkReportService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~WorkReport~
     +list_by_work_order(work_order_id) Result~Vec~WorkReport~~
+    +list_by_batch(batch_id) Result~Vec~WorkReport~~
+    +calculate_wage(worker_id, date_range) Result~WageSummary~
   }
-
+  class ProductionBatchService {
+    &lt;&lt;interface&gt;&gt;
+    +create(ctx: ServiceContext, req) Result~i64~
+    +split_work_order(ctx: ServiceContext, work_order_id, splits) Result~Vec~i64~~
+    +find_by_id(id) Result~ProductionBatch~
+    +list_by_work_order(work_order_id) Result~Vec~ProductionBatch~~
+    +confirm_routing_step(ctx: ServiceContext, batch_id, step_no, req) Result~StepConfirmationResult~
+    +advance_to_receipt(ctx: ServiceContext, batch_id) Result~Unit~
+    +suspend(ctx: ServiceContext, batch_id, reason) Result~Unit~
+    +resume(ctx: ServiceContext, batch_id) Result~Unit~
+    +scrap(ctx: ServiceContext, batch_id, reason) Result~Unit~
+  }
   class ProductionInspectionService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
     +find_by_id(id) Result~ProductionInspection~
     +record_result(ctx: ServiceContext, id, result) Result~Unit~
   }
-
   class ProductionReceiptService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, work_order_id, received_qty, warehouse_id) Result~i64~
     +find_by_id(id) Result~ProductionReceipt~
     +confirm(ctx: ServiceContext, id) Result~Unit~
   }
-
   ProductionPlanService ..> WorkOrderService : release_to_work_orders
-  WorkOrderService ..> WorkReportService : report
+  WorkOrderService ..> ProductionBatchService : split batches
+  ProductionBatchService ..> WorkReportService : query reports (write is internal to confirm_routing_step)
   WorkOrderService ..> OM.OutsourcingOrderService : outsource
   WorkOrderService ..> ProductionInspectionService : inspect
   WorkOrderService ..> ProductionReceiptService : receipt
   ProductionReceiptService ..> BackflushService : trigger backflush
+  ProductionBatchService ..> QMS.InspectionResultService : FQC hard gate
     WorkOrderService ..> MasterData.BomService : BOM explosion
     WorkOrderService ..> MasterData.ProductService : product info
     ProductionPlanService ..> MasterData.ProductService : product info
     ProductionReceiptService ..> MasterData.ProductService : product info
+  class BatchReleaseResult {
+    +plan_id: i64
+    +successful_work_orders: Vec~WorkOrder~
+    +failed_items: Vec~BatchFailure~
+    +total: i32
+  }
+  class WageSummary {
+    +worker_id: i64
+    +period_start: Date
+    +period_end: Date
+    +total_amount: Decimal
+    +details: Vec~WageDetail~
+  }
+  class WageDetail {
+    +work_order_id: i64
+    +batch_id: i64
+    +routing_id: i64
+    +process_name: String
+    +report_date: Date
+    +completed_qty: Decimal
+    +defect_qty: Decimal
+    +defect_reason: Option~DefectReason~
+    +unit_price: Decimal
+    +wage_amount: Decimal
+  }
 
-  note for WorkOrderService "release -> InvRes.reserve(Hard) WMS.MaterialRequisitionService.create_for_work_order() complete -> InvRes.fulfill/cancel(release remaining)"
-
-  note for WorkReportService "create -> DocSeq(WorkReport) CostEntry(Labor, debit WIP / credit Labor) Update WorkOrderRouting.completed_qty If is_inspection_point -> QMS.InspectionResultService.create(IPQC)"
-
-  note for OutsourcingOrder "Entity owned by OM module. MES references via OM.OutsourcingOrderService. send -> WMS.InventoryTransferService(to virtual) receive -> WMS.InventoryTransferService(from virtual) receive -> QMS.InspectionResultService.create(IQC)"
-
+  class StepConfirmationResult {
+    +work_report_id: i64
+    +batch_id: i64
+    +step_no: i32
+    +next_step_no: Option~i32~
+    +batch_status: BatchStatus
+    +inspection_triggered: bool
+    +wage_amount: Decimal
+  }
+  note for WorkOrderService "PLANNING LAYER: release -> create ProductionBatch(min 1) InvRes.reserve(Hard) WMS.MaterialRequisitionService.create_for_work_order() close -> all batches completed InvRes.fulfill/cancel(release remaining) 乐观锁 expected_version 校验 冲突返回 ConcurrentConflict completed_qty/scrap_qty = read-only aggregate from ProductionBatch"
+  note for WorkReportService "READ-ONLY QUERY SERVICE: WorkReport creation is handled atomically by ProductionBatchService.confirm_routing_step find/list methods for reporting and auditing calculate_wage: (completed_qty + non_operator_defect_qty) * unit_price DefectReason.affect_wage: MaterialDefect/EquipmentFault/ProcessIssue=true OperatorError=false"
+  note for OutsourcingOrder "Entity owned by OM module. MES references via OM.OutsourcingOrderService. send -> WMS.InventoryTransferService(to virtual) receive -> WMS.InventoryTransferService(from virtual) receive -> QMS.InspectionResultService.create(IQC) Event: MES subscribes OutsourcingReceived handler -> update WorkOrderRouting.completed_qty for outsourced step -> publish BatchStepCompleted event -> advance ProductionBatch.current_step"
   note for ProductionInspectionService "QMS: MES-specific production inspection QMS module provides unified InspectionResultService IPQC: auto-triggered by WorkOrderRouting.is_inspection_point FQC: triggered before ProductionReceipt"
-
-  note for ProductionReceiptService "confirm -> WMS.InventoryTransactionService.record(ProductionReceipt) CostEntry(finished goods cost) BackflushService.execute() InvRes.fulfill/cancel(release Hard) FMS: CostAccountingService.get_work_order_cost"
-
+  note for ProductionBatchService "EXECUTION LAYER: owns completed_qty/scrap_qty/actual_start/actual_end current_step is the routing state machine split_work_order -> DocSeq(ProductionBatch) generate card_sn validate sum(batch_qty) <= work_order.planned_qty confirm_routing_step ATOMIC ENTRY POINT (single transaction): IDEMPOTENCY: UNIQUE(batch_id + step_no + worker_id + shift + report_date) on work_reports duplicate -> return existing StepConfirmationResult (no error, terminal UX) 1. Guard: current_step == step_no - 1 (anti-skip) 2. Check idempotency key -> if exists return cached result 3. DocSeq(WorkReport) + INSERT work_report (req must contain: completed_qty, defect_qty, defect_reason?, worker_id, shift, report_date) 3. SQL ATOMIC INCREMENT WorkOrderRouting.completed_qty/defect_qty 4. If is_inspection_point -> create ProductionInspection(IPQC) + suspend batch 5. Update batch.current_step 6. If last step -> auto advance to PendingReceipt 7. Return StepConfirmationResult (batch_status + inspection_triggered + wage_amount) advance_to_receipt -> validate last step completed update batch.status to PendingReceipt suspend -> pause execution retain HARD reservation resume -> resume from suspended state scrap -> mark batch as scrapped release HARD reservation publish BackflushShortageEvent if needed cancel(WO) -> sync release current batch HARD reservation publish WorkOrderCancelled event -> MES handler async cleanup remaining batches avoid long transaction blocking plan layer"
+    note for ProductionReceiptService "confirm -> PRE-CHECK: QMS.InspectionResultService.is_passed(FQC) fail -> DomainError::BusinessRule(Quality gate not passed) block receipt WMS.InventoryTransactionService.record(ProductionReceipt) CostEntry(finished goods cost) BackflushService.execute() -> on failure: publish BackflushShortageEvent to DeadLetter DO NOT block receipt cost diff -> CostEntry(VARIANCE) InvRes.fulfill/cancel(release Hard) FMS: CostAccountingService.get_work_order_cost"
     note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
@@ -323,11 +385,9 @@ classDiagram
 <script>
 (function(){var s=1,tx=0,ty=0,ms=0.1,xs=8;var c=document.getElementById('zoomContainer'),l=document.getElementById('zoomLabel'),d=false,sx,sy,stx,sty;function a(){var v=c.querySelector('svg');if(v)v.style.transform='scale('+s+') translate('+tx+'px,'+ty+'px)';l.textContent=Math.round(s*100)+'%'}document.getElementById('zoomIn').onclick=function(){s=Math.min(xs,s+0.15);a()};document.getElementById('zoomOut').onclick=function(){s=Math.max(ms,s-0.15);a()};document.getElementById('zoomReset').onclick=function(){s=1;tx=0;ty=0;a()};document.getElementById('zoomFit').onclick=function(){var v=c.querySelector('svg');if(!v)return;var w=c.clientWidth-40,sw=v.getBoundingClientRect().width/s;s=Math.max(ms,Math.min(1.5,w/sw));tx=0;ty=0;a()};c.addEventListener('wheel',function(e){e.preventDefault();s=Math.max(ms,Math.min(xs,s+(e.deltaY>0?-0.08:0.08)));a()},{passive:false});c.addEventListener('mousedown',function(e){if(e.button!==0)return;d=true;c.classList.add('dragging');sx=e.clientX;sy=e.clientY;stx=tx;sty=ty});document.addEventListener('mouseup',function(){d=false;c.classList.remove('dragging')});document.addEventListener('mousemove',function(e){if(!d)return;e.preventDefault();tx=stx+(e.clientX-sx)/s;ty=sty+(e.clientY-sy)/s;a()})})();
 </script>
-
 <div class="mockup">
   <div class="mockup-header">MES Module — UML Class Diagram</div>
   <div class="mockup-body" style="padding: 20px; font-size: 13px; line-height: 1.5;">
-
     <!-- Business flow -->
     <div style="background: rgba(198,120,221,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
       <h3 style="margin: 0 0 8px 0; color: #c678dd;">核心业务流</h3>
@@ -335,6 +395,8 @@ classDiagram
         <span style="color:#e5c07b;">ProductionPlan</span> 生产计划
         <span style="color:#6bc76b;">→</span>
         <span style="color:#e5c07b;">WorkOrder</span> 工单
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#f971b;">ProductionBatch</span> 生产批次（流转卡）
         <span style="color:#6bc76b;">→</span>
         <span style="color:#e5c07b;">WorkOrderRouting</span> 工序
         <span style="color:#6bc76b;">→</span>
@@ -347,10 +409,8 @@ classDiagram
         <span style="color:#56b6c2;">↗ ProductionInspection</span> 生产报检
       </div>
     </div>
-
     <!-- Row 1: ProductionPlan + WorkOrder -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-
       <!-- ProductionPlan -->
       <div style="border: 2px solid #6c8bef; border-radius: 8px; padding: 14px; background: rgba(108,139,239,0.05);">
         <h4 style="color: #6c8bef; margin: 0 0 6px 0;">ProductionPlan 生产计划</h4>
@@ -378,7 +438,7 @@ classDiagram
           &nbsp;&nbsp;sales_order_id: i64? <span style="color:#888;">FK→sales_orders (MTO)</span><br>
           &nbsp;&nbsp;sales_order_item_id: i64? <span style="color:#888;">// 具体行号</span><br>
           &nbsp;&nbsp;bom_snapshot_id: i64? <span style="color:#888;">FK→bom_snapshots BOM发布快照（不可变）</span><br>
-          &nbsp;&nbsp;routing_id: i64? <span style="color:#888;">FK→labor_processes</span><br>
+          &nbsp;&nbsp;routing_id: i64? <span style="color:#888;">溯源引用（快照已固化至 work_order_routings）</span><br>
           &nbsp;&nbsp;work_center_id: i64? <span style="color:#888;">// 生产中心</span><br>
           &nbsp;&nbsp;priority: i32<br>
           &nbsp;&nbsp;status: PlanItemStatus<br>
@@ -397,11 +457,10 @@ classDiagram
           &nbsp;&nbsp;}
         </div>
       </div>
-
       <!-- WorkOrder -->
       <div style="border: 2px solid #6bc76b; border-radius: 8px; padding: 14px; background: rgba(107,199,107,0.05);">
         <h4 style="color: #6bc76b; margin: 0 0 6px 0;">WorkOrder 工单</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">将生产计划细化到批次和班组，是领料与执行的唯一依据</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">计划层实体：定义生产什么、用哪个 BOM/工艺路线、计划数量与排程。执行跟踪由 ProductionBatch 负责</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WorkOrder</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
@@ -409,18 +468,14 @@ classDiagram
           &nbsp;&nbsp;plan_item_id: i64? <span style="color:#888;">FK→production_plan_items</span><br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;bom_snapshot_id: i64? <span style="color:#888;">FK→bom_snapshots BOM发布快照（不可变）</span><br>
-          &nbsp;&nbsp;routing_id: i64? <span style="color:#888;">FK→labor_processes</span><br>
+          &nbsp;&nbsp;routing_id: i64? <span style="color:#888;">溯源引用（快照已固化至 work_order_routings）</span><br>
           &nbsp;&nbsp;planned_qty: Decimal(18,6)<br>
-          &nbsp;&nbsp;completed_qty: Decimal(18,6)<br>
-          &nbsp;&nbsp;scrap_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;scheduled_start: Date<br>
           &nbsp;&nbsp;scheduled_end: Date<br>
-          &nbsp;&nbsp;actual_start: Timestamp?<br>
-          &nbsp;&nbsp;actual_end: Timestamp?<br>
           &nbsp;&nbsp;status: WorkOrderStatus<br>
           &nbsp;&nbsp;work_center_id: i64? <span style="color:#888;">// 车间/产线</span><br>
-          &nbsp;&nbsp;team_id: i64? <span style="color:#888;">// 班组</span><br>
           &nbsp;&nbsp;sales_order_id: i64? <span style="color:#888;">// MTO关联</span><br>
+          &nbsp;&nbsp;version: i32 <span style="color:#888;">// 乐观锁版本号</span><br>
           &nbsp;&nbsp;remark: String<br>
           &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
@@ -431,18 +486,124 @@ classDiagram
           &nbsp;&nbsp;DRAFT <span style="color:#888;">// 待计划</span><br>
           &nbsp;&nbsp;PLANNED <span style="color:#888;">// 已计划</span><br>
           &nbsp;&nbsp;RELEASED <span style="color:#888;">// 已下达</span><br>
-          &nbsp;&nbsp;IN_PRODUCTION <span style="color:#888;">// 生产中</span><br>
-          &nbsp;&nbsp;COMPLETED <span style="color:#888;">// 已完工</span><br>
           &nbsp;&nbsp;CLOSED <span style="color:#888;">// 已关闭</span><br>
           &nbsp;&nbsp;CANCELLED<br>
           &nbsp;&nbsp;}
         </div>
       </div>
     </div>
+        <!-- ProductionBatch (new row) -->
+    <div style="margin-bottom: 20px;">
+      <div style="border: 2px solid #f971b; border-radius: 8px; padding: 14px; background: rgba(249,113,27,0.05);">
+        <h4 style="color: #f971b; margin: 0 0 6px 0;">ProductionBatch 生产批次（工序流转卡）</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">工单按班组/日期拆分为多个批次，每个批次对应一张流转卡（QR 码标签），跟随物料从第一道工序走到最后一道工序</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductionBatch</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;batch_no: String <span style="color:#888;">// WO-2026-05-xxxxx-01</span><br>
+          &nbsp;&nbsp;card_sn: String <span style="color:#888;">// 流转卡序列号（二维码唯一标识）</span><br>
+          &nbsp;&nbsp;work_order_id: i64 <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">// 冗余字段，便于流转卡查询</span><br>
+          &nbsp;&nbsp;batch_qty: Decimal(18,6) <span style="color:#888;">// 本批次数量</span><br>
+          &nbsp;&nbsp;completed_qty: Decimal(18,6) <span style="color:#888;">// 已完成数量（聚合自 WorkReport）</span><br>
+          &nbsp;&nbsp;scrap_qty: Decimal(18,6) <span style="color:#888;">// 报废数量</span><br>
+          &nbsp;&nbsp;team_id: i64? <span style="color:#888;">// 分配班组</span><br>
+          &nbsp;&nbsp;current_step: i32 <span style="color:#888;">// 当前可开工序序号（状态机核心字段）</span><br>
+          &nbsp;&nbsp;actual_start: Timestamp? <span style="color:#888;">// 实际开始时间</span><br>
+          &nbsp;&nbsp;actual_end: Timestamp? <span style="color:#888;">// 实际完成时间</span><br>
+          &nbsp;&nbsp;status: BatchStatus<br>
+          &nbsp;&nbsp;operator_id: i64<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">BatchStatus</span> {<br>
+          &nbsp;&nbsp;PENDING <span style="color:#888;">// 待生产</span><br>
+          &nbsp;&nbsp;IN_PROGRESS <span style="color:#888;">// 进行中</span><br>
+          &nbsp;&nbsp;PENDING_RECEIPT <span style="color:#888;">// 待入库（最后工序完成后自动触发）</span><br>
+          &nbsp;&nbsp;COMPLETED <span style="color:#888;">// 已完成</span><br>
+          &nbsp;&nbsp;CANCELLED<br>
+          &nbsp;&nbsp;}
+        </div>
+        <div style="margin-top: 8px; font-size: 11px; color: #aaa; line-height: 1.6;">
+          <b style="color:#f971b;">核心规则：</b><br>
+          &bull; 执行层实体：跟踪实际生产进度、工序状态机、班组分配<br>
+          &bull; 工单下达后至少创建 1 个批次（1:1 不拆分也合法）<br>
+          &bull; sum(batch_qty) &le; work_order.planned_qty<br>
+          &bull; current_step 由系统自动维护，禁止前端直接修改<br>
+          &bull; 前道工序未完成时拦截下一道报工（防跳序）<br>
+          &bull; 最后一道工序确认后自动推进至 PendingReceipt
+        </div>
+      </div>
+    </div>
 
+    <!-- BatchStatus Transition Table -->
+    <div style="margin-bottom: 20px; border: 1px solid rgba(249,113,27,0.3); border-radius: 8px; padding: 14px; background: rgba(249,113,27,0.05);">
+      <h4 style="color: #f971b; margin: 0 0 8px 0; font-size: 13px;">BatchStatus 状态流转链</h4>
+      <table style="width: 100%; border-collapse: collapse; font-family: monospace; font-size: 11px; color: #ccc;">
+        <thead>
+          <tr style="border-bottom: 1px solid #444;">
+            <th style="text-align: left; padding: 4px 8px; color: #e5c07b;">当前状态</th>
+            <th style="text-align: left; padding: 4px 8px; color: #e5c07b;">目标状态</th>
+            <th style="text-align: left; padding: 4px 8px; color: #e5c07b;">触发方法</th>
+            <th style="text-align: left; padding: 4px 8px; color: #e5c07b;">前置条件</th>
+            <th style="text-align: left; padding: 4px 8px; color: #e5c07b;">副作用</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">Pending</td>
+            <td style="padding: 4px 8px;"><span style="color:#98c379;">InProgress</span></td>
+            <td style="padding: 4px 8px;">confirm_routing_step(step=1)</td>
+            <td style="padding: 4px 8px;">current_step == 0</td>
+            <td style="padding: 4px 8px;">actual_start = now()</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">InProgress</td>
+            <td style="padding: 4px 8px;">InProgress</td>
+            <td style="padding: 4px 8px;">confirm_routing_step(step=N)</td>
+            <td style="padding: 4px 8px;">current_step == step_no - 1</td>
+            <td style="padding: 4px 8px;">原子增量 completed_qty</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">InProgress</td>
+            <td style="padding: 4px 8px;"><span style="color:#e5a655;">PendingReceipt</span></td>
+            <td style="padding: 4px 8px;">advance_to_receipt</td>
+            <td style="padding: 4px 8px;">最后工序已确认</td>
+            <td style="padding: 4px 8px;">通知仓管员</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">PendingReceipt</td>
+            <td style="padding: 4px 8px;"><span style="color:#6bc76b;">Completed</span></td>
+            <td style="padding: 4px 8px;">ProductionReceipt.confirm</td>
+            <td style="padding: 4px 8px;">QMS FQC 硬门通过</td>
+            <td style="padding: 4px 8px;">入库 + 倒冲 + 释放预留</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">InProgress</td>
+            <td style="padding: 4px 8px;"><span style="color:#e06c75;">Suspended</span></td>
+            <td style="padding: 4px 8px;">suspend(reason)</td>
+            <td style="padding: 4px 8px;">可由审批流接管</td>
+            <td style="padding: 4px 8px;">保留 HARD 预留</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">Suspended</td>
+            <td style="padding: 4px 8px;"><span style="color:#98c379;">InProgress</span></td>
+            <td style="padding: 4px 8px;">resume()</td>
+            <td style="padding: 4px 8px;">可由审批流接管</td>
+            <td style="padding: 4px 8px;">无</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 8px;">*</td>
+            <td style="padding: 4px 8px;"><span style="color:#e06c75;">Cancelled</span></td>
+            <td style="padding: 4px 8px;">scrap / cancel(WO)</td>
+            <td style="padding: 4px 8px;">无未领料 / 在途批次</td>
+            <td style="padding: 4px 8px;">释放 HARD 预留</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <!-- Row 2: Routing + WorkReport -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-
       <!-- WorkOrderRouting -->
       <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05);">
         <h4 style="color: #e5a655; margin: 0 0 6px 0;">WorkOrderRouting 工单工序</h4>
@@ -451,11 +612,14 @@ classDiagram
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">WorkOrderRouting</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;work_order_id: i64 <span style="color:#888;">FK→work_orders</span><br>
+          &nbsp;&nbsp;batch_id: i64 <span style="color:#888;">FK→production_batches</span><br>
           &nbsp;&nbsp;step_no: i32 <span style="color:#888;">// 工序序号</span><br>
           &nbsp;&nbsp;process_name: String <span style="color:#888;">// 贴片/插件/组装...</span><br>
           &nbsp;&nbsp;work_center_id: i64?<br>
           &nbsp;&nbsp;standard_time: Decimal? <span style="color:#888;">// 标准工时(小时)</span><br>
           &nbsp;&nbsp;standard_cost: Decimal? <span style="color:#888;">// 标准人工成本</span><br>
+          &nbsp;&nbsp;unit_price: Decimal? <span style="color:#888;">// 计件单价（工资结算依据）</span><br>
+          &nbsp;&nbsp;allowed_loss_rate: Decimal? <span style="color:#888;">// 允许损耗率（如 0.01 = 1%）</span><br>
           &nbsp;&nbsp;planned_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;completed_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;defect_qty: Decimal(18,6)<br>
@@ -469,7 +633,6 @@ classDiagram
           &nbsp;&nbsp;}
         </div>
       </div>
-
       <!-- WorkReport -->
       <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
         <h4 style="color: #c678dd; margin: 0 0 6px 0;">WorkReport 报工记录</h4>
@@ -485,7 +648,7 @@ classDiagram
           &nbsp;&nbsp;worker_id: i64 <span style="color:#888;">FK→users</span><br>
           &nbsp;&nbsp;completed_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;defect_qty: Decimal(18,6)<br>
-          &nbsp;&nbsp;defect_reason: String?<br>
+          &nbsp;&nbsp;defect_reason: DefectReason?<br>
           &nbsp;&nbsp;work_hours: Decimal <span style="color:#888;">// 实际工时</span><br>
           &nbsp;&nbsp;remark: String<br>
           &nbsp;&nbsp;operator_id: i64<br>
@@ -496,13 +659,19 @@ classDiagram
           &nbsp;&nbsp;DAY <span style="color:#888;">// 白班</span><br>
           &nbsp;&nbsp;NIGHT <span style="color:#888;">// 夜班</span><br>
           &nbsp;&nbsp;}
+        <div style="margin-top: 8px; font-size: 11px; color: #aaa; line-height: 1.6;">
+          <b style="color:#c678dd;">DefectReason 不良原因枚举：</b><br>
+          &bull; MaterialDefect 物料不良 &mdash; <span style="color:#98c379;">affect_wage=true</span> 照常计工资<br>
+          &bull; EquipmentFault 设备故障 &mdash; <span style="color:#98c379;">affect_wage=true</span> 照常计工资<br>
+          &bull; OperatorError 操作失误 &mdash; <span style="color:#e06c75;">affect_wage=false</span> 不良品不计工资<br>
+          &bull; ProcessIssue 工艺问题 &mdash; <span style="color:#98c379;">affect_wage=true</span> 照常计工资<br>
+          <b style="color:#c678dd;">工资公式：</b>(completed_qty + non_operator_defect_qty) &times; unit_price
+        </div>
         </div>
       </div>
     </div>
-
     <!-- Row 3: Outsourcing + ProductionInspection + ProductionReceipt -->
     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px;">
-
       <!-- OutsourcingOrder -->
       <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
         <h4 style="color: #e06c75; margin: 0 0 6px 0; font-size: 13px;">OutsourcingOrder 委外单 <span style="background:#e06c75;color:#fff;padding:1px 6px;border-radius:3px;font-size:10px;">OM 管理</span></h4>
@@ -542,7 +711,6 @@ classDiagram
           &nbsp;&nbsp;}
         </div>
       </div>
-
       <!-- ProductionInspection -->
       <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
         <h4 style="color: #56b6c2; margin: 0 0 6px 0; font-size: 13px;">ProductionInspection 生产报检</h4>
@@ -577,7 +745,6 @@ classDiagram
           &nbsp;&nbsp;}
         </div>
       </div>
-
       <!-- ProductionReceipt -->
       <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05);">
         <h4 style="color: #98c379; margin: 0 0 6px 0; font-size: 13px;">ProductionReceipt 完工入库</h4>
@@ -606,12 +773,156 @@ classDiagram
         </div>
       </div>
     </div>
+        <!-- Design Intent & Constraints -->
+    <div style="margin-bottom: 20px; padding: 14px; background: rgba(108,139,239,0.08); border: 1px solid rgba(108,139,239,0.3); border-radius: 8px;">
+      <h3 style="margin: 0 0 10px 0; color: #6c8bef;">设计意图与约束声明</h3>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+
+        <div>
+          <h4 style="color: #e5c07b; margin: 0 0 6px 0; font-size: 12px;">实体归属与快照语义</h4>
+          <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
+            <b style="color:#e5c07b;">WorkOrderRouting</b> = 工单级工艺快照（不可变）<br>
+            &bull; 下达时从主数据复制，后续不同步<br>
+            &bull; completed_qty / defect_qty 由 SQL 原子增量维护<br>
+            &bull; <span style="color:#98c379;">最小实现</span>：当前 Routing 同时承载定义与进度<br>
+            &bull; <span style="color:#888;">后续可拆</span>：RoutingDef(WO 级) + BatchRoutingProgress(批次级)<br><br>
+            <b style="color:#e5c07b;">ProductionBatch.current_step</b> = 工序状态机核心<br>
+            &bull; <span style="color:#e06c75;">禁止业务代码直接赋值</span><br>
+            &bull; 变更必须通过 confirm_routing_step / advance 触发<br>
+            &bull; Guard 校验：step_no == current_step + 1（防跳序）<br>
+            &bull; 同一工序已确认时拒绝重复报工
+          </div>
+        </div>
+
+        <div>
+          <h4 style="color: #e5c07b; margin: 0 0 6px 0; font-size: 12px;">跨模块契约边界</h4>
+          <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
+            <b style="color:#56b6c2;">MES 不持有 OM/QMS 状态</b>，仅消费事件：<br>
+            &bull; OM → MES: OutsourcingReceived 事件<br>
+            &nbsp;&nbsp;handler 推进 Routing.completed_qty + advance batch<br>
+            &bull; QMS → MES: FQC 检验结果（同步查询）<br>
+            &nbsp;&nbsp;ProductionReceipt.confirm 前硬门校验<br><br>
+            <b style="color:#56b6c2;">审批流边界</b>：<br>
+            &bull; suspend() / scrap() 为意图接口<br>
+            &bull; 若需审批：WorkflowEngine 接管<br>
+            &bull; 审批通过 → 回调 Hook → BatchService 执行状态推进
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Concurrency & Batch -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+      <div style="border: 2px solid #e5c07b; border-radius: 8px; padding: 14px; background: rgba(229,192,123,0.05);">
+        <h4 style="color: #e5c07b; margin: 0 0 6px 0; font-size: 13px;">并发控制策略</h4>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.7;">
+          <span style="color:#e5c07b;">① 乐观锁</span> — WorkOrder.version<br>
+          &nbsp;&nbsp;release / close / complete 传入 expected_version<br>
+          &nbsp;&nbsp;冲突返回 DomainError::ConcurrentConflict<br><br>
+          <span style="color:#e5c07b;">② SQL 原子增量</span> — WorkReport 报工<br>
+          &nbsp;&nbsp;WorkOrderRouting 更新使用:<br>
+          &nbsp;&nbsp;<span style="color:#98c379;">SET completed_qty = completed_qty + $delta</span><br>
+          &nbsp;&nbsp;绝不做 read-modify-write<br><br>
+          <span style="color:#e5c07b;">③ 快照语义</span> — 工艺路线<br>
+          &nbsp;&nbsp;WorkOrderRouting 即为快照载体<br>
+          &nbsp;&nbsp;下达时从主数据复制，后续不再同步<br>
+          &nbsp;&nbsp;routing_id 仅作溯源引用
+        </div>
+      </div>
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0; font-size: 13px;">BatchReleaseResult 计划下达结果</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">部分失败场景：某行缺料不影响其他行下达（ContinueOnError 模式，复用共享层 BatchResult）</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.7;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">BatchReleaseResult</span> {<br>
+          &nbsp;&nbsp;plan_id: i64<br>
+          &nbsp;&nbsp;successful_work_orders: Vec&lt;WorkOrder&gt;<br>
+          &nbsp;&nbsp;failed_items: Vec&lt;BatchFailure&gt;<br>
+          &nbsp;&nbsp;total: i32<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">BatchFailure</span> {<br>
+          &nbsp;&nbsp;index: i32<br>
+          &nbsp;&nbsp;error: DomainError<br>
+          &nbsp;&nbsp;<span style="color:#888;">// 例: BusinessRule("INVENTORY_SHORTAGE: ...")</span><br>
+          }
+        </div>
+      </div>
+    </div>
+            <!-- Event Boundary Matrix -->
+    <div style="margin-bottom: 20px; border: 1px solid rgba(198,120,221,0.3); border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+      <h4 style="color: #c678dd; margin: 0 0 8px 0; font-size: 13px;">事件边界：同步硬门 vs 异步 Outbox</h4>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">原则：仅将不影响主流程核心正确性的副作用下沉为异步。库存预留、质量硬门必须同步。</p>
+      <table style="width: 100%; border-collapse: collapse; font-family: monospace; font-size: 11px; color: #ccc;">
+        <thead>
+          <tr style="border-bottom: 1px solid #444;">
+            <th style="text-align: left; padding: 4px 8px; color: #e5c07b;">操作</th>
+            <th style="text-align: left; padding: 4px 8px; color: #e5c07b;">边界</th>
+            <th style="text-align: left; padding: 4px 8px; color: #e5c07b;">说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">库存 HARD 预留</td>
+            <td style="padding: 4px 8px;"><span style="color:#e06c75;">同步</span></td>
+            <td style="padding: 4px 8px;">InvRes.reserve 必须在同一事务内完成</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">QMS FQC 硬门校验</td>
+            <td style="padding: 4px 8px;"><span style="color:#e06c75;">同步</span></td>
+            <td style="padding: 4px 8px;">未通过直接返回 BusinessError 阻断入库</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">防跳序 Guard 校验</td>
+            <td style="padding: 4px 8px;"><span style="color:#e06c75;">同步</span></td>
+            <td style="padding: 4px 8px;">current_step == step_no - 1 在服务层校验</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">报工数量原子增量</td>
+            <td style="padding: 4px 8px;"><span style="color:#e06c75;">同步</span></td>
+            <td style="padding: 4px 8px;">SQL SET qty = qty + delta 在同一事务</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">成本记录 CostEntry</td>
+            <td style="padding: 4px 8px;"><span style="color:#56b6c2;">异步 Outbox</span></td>
+            <td style="padding: 4px 8px;">不影响报工正确性，允许短暂延迟</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">审计日志 AuditLog</td>
+            <td style="padding: 4px 8px;"><span style="color:#e06c75;">同步 InCallerTx</span></td>
+            <td style="padding: 4px 8px;">业务操作同事务直接 record，字段级 diff，合规强一致不可丢弃</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">单据关联 DocumentLink</td>
+            <td style="padding: 4px 8px;"><span style="color:#56b6c2;">异步 Outbox</span></td>
+            <td style="padding: 4px 8px;">WO→PB→WR→PR 关联链可延迟建立</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">倒冲失败告警</td>
+            <td style="padding: 4px 8px;"><span style="color:#56b6c2;">异步 Outbox</span></td>
+            <td style="padding: 4px 8px;">BackflushShortageEvent → DeadLetter 不阻断入库</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #333;">
+            <td style="padding: 4px 8px;">委外收货推进工序</td>
+            <td style="padding: 4px 8px;"><span style="color:#56b6c2;">异步 Outbox</span></td>
+            <td style="padding: 4px 8px;">OM OutsourcingReceived → MES handler</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 8px;">Workflow 审批触发</td>
+            <td style="padding: 4px 8px;"><span style="color:#56b6c2;">异步 Outbox</span></td>
+            <td style="padding: 4px 8px;">suspend/scrap 审批由 WorkflowEngine 接管</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
     <!-- Shared layer summary -->
     <div style="padding: 12px; background: rgba(198,120,221,0.1); border-radius: 6px;">
       <h3 style="margin: 0 0 8px 0; color: #c678dd;">MES 模块 × 共享层交互汇总</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
-        <span style="color:#6c8bef;">DocumentSequence</span> → PP/WO/WR/OO/PI/PR 编号<br>
+        <span style="color:#6c8bef;">DocumentSequence</span> → PP/WO/PB/WR/OO/PI/PR 编号<br>
+        <span style="color:#f971b;">ProductionBatch</span> &rarr; 工单拆批次 | 流转卡(card_sn)状态机 | 防跳序控制(current_step)<br>
+        <span style="color:#c678dd;">计件工资</span> &rarr; WorkReport.completed_qty &times; WorkOrderRouting.unit_price | DefectReason 控制不良品是否计工资 | 损耗率追踪: 每工序 defect_qty vs allowed_loss_rate<br>
         <span style="color:#e5a655;">DocumentLink</span> → 计划→工单→报工→入库 | 工单→委外单 | 工单→领料单<br>
         <span style="color:#6bc76b;">InventoryReservation</span> → 工单下达时 HARD 预留物料 | 领料消耗预留 | 完工释放剩余<br>
         <span style="color:#e06c75;">CostEntry</span> → 报工记人工/制费(借:在制品/贷:人工费) | 完工记成品入库 | 倒冲差异记损耗<br>
@@ -621,9 +932,7 @@ classDiagram
         <span style="color:#98c379;">FMS</span> → 报工/完工成本写入 CostEntry | CostAccounting 归集工单成本(料/工/费)
       </div>
     </div>
-
   </div>
 </div>
-
 </body>
 </html>

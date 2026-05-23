@@ -198,6 +198,36 @@ pub fn get_inventory_cascade_service(ctx: &AppContext) -> impl crate::service::I
     crate::implt::InventoryCascadeServiceImpl::new(Arc::new(ctx.pool().clone()))
 }
 
+/// 获取文档编号服务
+pub fn get_document_sequence_service() -> impl crate::service::DocumentSequenceService {
+    crate::implt::DocumentSequenceServiceImpl::new()
+}
+
+/// 获取报价单服务
+pub fn get_quotation_service(ctx: &AppContext) -> impl crate::service::QuotationService {
+    crate::implt::QuotationServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取销售订单服务
+pub fn get_sales_order_service(ctx: &AppContext) -> impl crate::service::SalesOrderService {
+    crate::implt::SalesOrderServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取发货申请服务
+pub fn get_shipping_request_service(ctx: &AppContext) -> impl crate::service::ShippingRequestService {
+    crate::implt::ShippingRequestServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取退货服务
+pub fn get_sales_return_service(ctx: &AppContext) -> impl crate::service::SalesReturnService {
+    crate::implt::SalesReturnServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
+/// 获取对账单服务
+pub fn get_reconciliation_service(ctx: &AppContext) -> impl crate::service::ReconciliationService {
+    crate::implt::ReconciliationServiceImpl::new(Arc::new(ctx.pool().clone()))
+}
+
 /// 获取通知服务
 pub fn get_notification_service(ctx: &AppContext) -> impl crate::service::NotificationService {
     crate::implt::NotificationServiceImpl::new(Arc::new(ctx.pool().clone()))

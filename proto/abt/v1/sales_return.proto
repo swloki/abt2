@@ -1,0 +1,103 @@
+syntax = "proto3";
+package abt.v1;
+
+import "abt/v1/base.proto";
+
+enum SalesReturnStatus {
+  SALES_RETURN_STATUS_UNSPECIFIED = 0;
+  SALES_RETURN_STATUS_PENDING = 1;
+  SALES_RETURN_STATUS_APPROVED = 2;
+  SALES_RETURN_STATUS_RECEIVED = 3;
+  SALES_RETURN_STATUS_COMPLETED = 4;
+  SALES_RETURN_STATUS_REJECTED = 5;
+}
+
+message SalesReturnItem {
+  int64 item_id = 1;
+  int64 return_id = 2;
+  int64 request_item_id = 3;
+  int64 order_item_id = 4;
+  int64 product_id = 5;
+  string product_code = 6;
+  string product_name = 7;
+  string unit = 8;
+  string unit_price = 9;
+  string quantity = 10;
+  string subtotal = 11;
+  string remark = 12;
+}
+
+message SalesReturn {
+  int64 return_id = 1;
+  string return_no = 2;
+  int64 request_id = 3;
+  int64 order_id = 4;
+  string customer_name = 5;
+  SalesReturnStatus status = 6;
+  string total_amount = 7;
+  string remark = 8;
+  string reason = 9;
+  int64 operator_id = 10;
+  int64 created_at = 11;
+  int64 updated_at = 12;
+  repeated SalesReturnItem items = 13;
+}
+
+message CreateSalesReturnRequest {
+  int64 request_id = 1;
+  string remark = 2;
+  string reason = 3;
+  repeated CreateSalesReturnItem items = 4;
+}
+
+message CreateSalesReturnItem {
+  int64 request_item_id = 1;
+  string quantity = 2;
+  string remark = 3;
+}
+
+message UpdateSalesReturnRequest {
+  int64 return_id = 1;
+  string remark = 2;
+  string reason = 3;
+  repeated CreateSalesReturnItem items = 4;
+}
+
+message ListSalesReturnsRequest {
+  optional string keyword = 1;
+  optional SalesReturnStatus status = 2;
+  optional int64 order_id = 3;
+  optional int64 request_id = 4;
+  optional PaginationParams pagination = 5;
+}
+
+message GetSalesReturnRequest {
+  int64 return_id = 1;
+}
+
+message UpdateSalesReturnStatusRequest {
+  int64 return_id = 1;
+  SalesReturnStatus status = 2;
+}
+
+message DeleteSalesReturnRequest {
+  int64 return_id = 1;
+}
+
+message SalesReturnResponse {
+  SalesReturn return_ = 1;
+}
+
+message SalesReturnListResponse {
+  repeated SalesReturn items = 1;
+  PaginationInfo pagination = 2;
+}
+
+service SalesReturnService {
+  rpc CreateSalesReturn(CreateSalesReturnRequest) returns (U64Response);
+  rpc UpdateSalesReturn(UpdateSalesReturnRequest) returns (BoolResponse);
+  rpc DeleteSalesReturn(DeleteSalesReturnRequest) returns (BoolResponse);
+  rpc GetSalesReturn(GetSalesReturnRequest) returns (SalesReturnResponse);
+  rpc ListSalesReturns(ListSalesReturnsRequest) returns (SalesReturnListResponse);
+  rpc UpdateSalesReturnStatus(UpdateSalesReturnStatusRequest) returns (BoolResponse);
+}

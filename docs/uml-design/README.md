@@ -13,7 +13,7 @@
 | [01-sales.html](01-sales.html) | 销售模块 — 报价、订单、发货、退货、对账（DomainError + 业务校验规则 + 语义化状态方法） | 5 主表 + 5 明细表 |
 | [02-purchase.html](02-purchase.html) | 采购模块 — 采购报价、订单、退货、对账、付款、零星请购（Supplier 已迁至 Master Data） | 6 主表 + 6 明细表 |
 | [03-wms.html](03-wms.html) | 仓储模块 — 三级库位、策略引擎、来料、库存事务、领料、倒冲、盘点、调拨、形态转换、锁库 | 12 主表 + 10 明细表 |
-| [04-mes.html](04-mes.html) | 生产模块 — 计划、工单、工序、报工、报检、完工入库（委外委托 OM） | 6 主表 + 2 明细表 |
+| [04-mes.html](04-mes.html) | 生产模块 — 计划、工单、生产批次(流转卡)、工序、报工、计件工资、报检、完工入库（委外委托 OM） | 7 主表 + 3 明细表 + 3 枚举 |
 | [05-outsourcing.html](05-outsourcing.html) | 委外管理 — 委外单、发料明细、追踪节点、转自制 | 3 主表 + 7 节点类型 |
 | [06-qms.html](06-qms.html) | 质量管理 — 检验规格、检验结果、MRB不良评审、RMA客诉 | 4 主表 + 9 枚举 |
 | [07-fms.html](07-fms.html) | 财务管理 — 日记账、日记账明细、核销、费用报销、成本核算 | 5 主表 + 1 明细表 |
@@ -122,6 +122,11 @@ enum BatchMode {
     ContinueOnError,  // 部分失败继续
 }
 
+struct BatchFailure {
+    index: i32,
+    error: DomainError,  // 复用统一错误模型，不使用裸 String
+}
+
 struct BatchResult {
     success_count: i32,
     failed_items: Vec<BatchFailure>,
@@ -196,10 +201,10 @@ enum DomainError {
 | Sales CRM | 5 | 41 |
 | Purchase SRM | 6 | 20 |
 | WMS | 9 | 28 |
-| MES | 5 | 19 |
+| MES | 6 | 29 |
 | Outsourcing OM | 2 | 9 |
 | Quality QMS | 4 | 16 |
 | Financial FMS | 4 | 15 |
 | Workflow V2 | 3 | 29 |
 | Master Data | 10 | 49 |
-| **合计** | **49** | **226** |
+| **合计** | **50** | **236** |

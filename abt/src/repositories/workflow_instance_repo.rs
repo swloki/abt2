@@ -6,29 +6,30 @@ use sqlx::PgPool;
 use crate::models::WorkflowInstance;
 use crate::repositories::Executor;
 
+pub struct InstanceInsertParams<'a> {
+    pub template_id: i64,
+    pub template_version: Option<i32>,
+    pub entity_type: &'a str,
+    pub entity_id: i64,
+    pub frozen_graph: serde_json::Value,
+    pub context: serde_json::Value,
+    pub initiator_id: i64,
+}
+
 pub struct WorkflowInstanceRepo;
 
 impl WorkflowInstanceRepo {
-    pub async fn insert(
-        executor: Executor<'_>,
-        template_id: i64,
-        template_version: Option<i32>,
-        entity_type: &str,
-        entity_id: i64,
-        frozen_graph: serde_json::Value,
-        context: serde_json::Value,
-        initiator_id: i64,
-    ) -> Result<i64> {
+    pub async fn insert(executor: Executor<'_>, p: &InstanceInsertParams<'_>) -> Result<i64> {
         let id: i64 = sqlx::query_scalar(
             "INSERT INTO workflow_instances (template_id, template_version, entity_type, entity_id, frozen_graph, context, initiator_id) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7) RETURNING id",
         )
-        .bind(template_id)
-        .bind(template_version)
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(frozen_graph)
-        .bind(context)
-        .bind(initiator_id)
+        .bind(p.template_id)
+        .bind(p.template_version)
+        .bind(p.entity_type)
+        .bind(p.entity_id)
+        .bind(&p.frozen_graph)
+        .bind(&p.context)
+        .bind(p.initiator_id)
         .fetch_one(executor)
         .await?;
         Ok(id)

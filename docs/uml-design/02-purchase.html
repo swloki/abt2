@@ -29,7 +29,7 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </head>
 <body>
 <h2>采购模块 (SRM) — 类图设计</h2>
-<p class="subtitle">6 个核心实体 + 共享层引用 + 对账付款闭环</p>
+<p class="subtitle">6 个核心实体 + 共享层引用 + 对账付款闭环 — v2 设计审阅修订</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -68,7 +68,7 @@ classDiagram
         Draft
         Confirmed
         Shipped
-        Refunded
+        Settled
         Cancelled
     }
 
@@ -85,6 +85,13 @@ classDiagram
         BankTransfer
         Cash
         Note
+    }
+
+    class PurchaseReconStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Draft
+        Confirmed
+        Settled
     }
 
     class MiscRequestStatus {
@@ -188,10 +195,7 @@ classDiagram
         +doc_number: String
         +supplier_id: i64
         +period: String
-        +status: String
-        +total_amount: Decimal
-        +confirmed_amount: Decimal
-        +difference: Decimal
+        +status: PurchaseReconStatus
         +remark: String
         +operator_id: i64
         +created_at: Timestamp
@@ -205,6 +209,8 @@ classDiagram
         +order_id: i64
         +order_item_id: i64
         +received_qty: Decimal
+        +returned_qty: Decimal
+        +returned_amount: Decimal
         +unit_price: Decimal
         +amount: Decimal
         +confirmed: bool
@@ -265,46 +271,47 @@ classDiagram
     class PurchaseQuotationService {
         &lt;&lt;interface&gt;&gt;
         +create(ctx: ServiceContext, req) Result~i64~
-        +find_by_id(id) Result~PurchaseQuotation~
-        +list(filter) PaginatedResult~PurchaseQuotation~
-        +compare(pid) Result~Vec~
+        +get(ctx, id) Result~PurchaseQuotation~
+        +activate(ctx: ServiceContext, id) Result~Unit~
+        +list(ctx, filter) PaginatedResult~PurchaseQuotation~
+        +compare(ctx, product_id) Result~Vec~QuotationComparison~~
     }
 
     class PurchaseOrderService {
         &lt;&lt;interface&gt;&gt;
         +create(ctx: ServiceContext, req) Result~i64~
         +create_from_quotation(ctx: ServiceContext, pqid) Result~i64~
-        +find_by_id(id) Result~PurchaseOrder~
+        +get(ctx, id) Result~PurchaseOrder~
         +confirm(ctx: ServiceContext, id) Result~Unit~
-        +list(filter) PaginatedResult~PurchaseOrder~
+        +list(ctx, filter) PaginatedResult~PurchaseOrder~
     }
 
     class PurchaseReturnService {
         &lt;&lt;interface&gt;&gt;
         +create(ctx: ServiceContext, req) Result~i64~
-        +find_by_id(id) Result~PurchaseReturn~
+        +get(ctx, id) Result~PurchaseReturn~
         +confirm(ctx: ServiceContext, id) Result~Unit~
     }
 
     class PurchaseReconciliationService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, sid, period) Result~i64~
-        +find_by_id(id) Result~PurchaseReconciliation~
+        +create(ctx: ServiceContext, supplier_id, period) Result~i64~
+        +get(ctx, id) Result~PurchaseReconciliation~
         +confirm(ctx: ServiceContext, id) Result~Unit~
     }
 
     class PaymentRequestService {
         &lt;&lt;interface&gt;&gt;
         +create(ctx: ServiceContext, req) Result~i64~
-        +find_by_id(id) Result~PaymentRequest~
+        +get(ctx, id) Result~PaymentRequest~
         +approve(ctx: ServiceContext, id) Result~Unit~
-        +mark_paid(ctx: ServiceContext, id) Result~Unit~
+        +mark_paid_by_fms(ctx: ServiceContext, id, payment_doc_no: String) Result~Unit~
     }
 
     class MiscellaneousRequestService {
         &lt;&lt;interface&gt;&gt;
         +create(ctx: ServiceContext, req) Result~i64~
-        +find_by_id(id) Result~MiscellaneousRequest~
+        +get(ctx, id) Result~MiscellaneousRequest~
         +approve(ctx: ServiceContext, id) Result~Unit~
     }
 
@@ -316,10 +323,12 @@ classDiagram
     PurchaseOrderService ..> MasterData.SupplierService : validate supplier status
     PurchaseQuotationService ..> MasterData.SupplierService : supplier info
 
-    note for PurchaseOrderService "confirm -> WMS.ArrivalNoticeService.create()\nShared: DocSeq(PO), DocLink(DERIVED_FROM)"
-    note for PaymentRequestService "Three-way match: receipt + invoice + payment\napprove -> CostEntry(cash outflow)\nShared: DocSeq(PAY)\nFMS: CashJournal(PurchasePayment)"
+    note for PurchaseOrderService "confirm 前置校验：Supplier status ∉ {Blacklisted,Disqualified} | 所有 Item quantity>0 且 unit_price>0 | 若关联 Quotation 则 quotation.status==Active 且 valid_until>now\nconfirm -> publish(PurchaseOrderConfirmed) → Outbox → WMS 异步创建 ArrivalNotice\nShared: DocSeq(PO), DocLink(DERIVED_FROM)"
 
-    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
+    note for PurchaseReturnService "Shipped → Settled 由 PurchaseReconciliation.confirm() 异步驱动，或监听 WMS SupplierReturnReceived 事件\n状态变更时发布 PurchaseReturnSettled 事件，通知 FMS 生成贷项通知单(Credit Memo)\nShared: DocSeq(PRT), DocLink(REFERENCES)"
+    note for PaymentRequestService "Three-way match: receipt + invoice + payment\nValidation: PO.received_qty + Invoice qty/amount match, tolerance_rate configurable\napprove -> CostEntry(cash outflow)\nmark_paid_by_fms: FMS 执行付款后回调，或监听 PaymentExecuted 事件\nShared: DocSeq(PAY)\nFMS: CashJournal(PurchasePayment)\nBoundary: SRM=应付申请+三单匹配, FMS=资金流水+核销"
+
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult | Decimal精度: unit_price/quantity/min_order_qty/estimated_price→(18,6), amount/total_amount/confirmed_amount/difference→(20,4) | 写接口支持 idempotency_key"
     </div>
   </div>
 </div>
@@ -474,12 +483,13 @@ classDiagram
           &nbsp;&nbsp;amount: Decimal(20,4)<br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PurchaseReturnStatus</span> {<br>
-          &nbsp;&nbsp;DRAFT, CONFIRMED, SHIPPED, REFUNDED<br>
+          &nbsp;&nbsp;DRAFT, CONFIRMED, SHIPPED, SETTLED<br>
           &nbsp;&nbsp;CANCELLED<br>
           &nbsp;&nbsp;}
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
-          <strong>共享层：</strong>DocumentLink REFERENCES 原采购单 | CostEntry 冲减应付
+          <strong>共享层：</strong>DocumentLink REFERENCES 原采购单 | CostEntry 冲减应付<br>
+          <strong>状态语义：</strong>Settled 表示退货已结算（关联对账生成贷项通知单），非 FMS 付款动作
         </p>
       </div>
     </div>
@@ -497,7 +507,7 @@ classDiagram
           &nbsp;&nbsp;doc_number: String<br>
           &nbsp;&nbsp;supplier_id: i64 <span style="color:#888;">FK→suppliers</span><br>
           &nbsp;&nbsp;period: String <span style="color:#888;">// "2026-05"</span><br>
-          &nbsp;&nbsp;status: ReconciliationStatus<br>
+          &nbsp;&nbsp;status: PurchaseReconStatus<br>
           &nbsp;&nbsp;total_amount: Decimal(20,4)<br>
           &nbsp;&nbsp;confirmed_amount: Decimal(20,4)<br>
           &nbsp;&nbsp;difference: Decimal(20,4)<br>
@@ -513,10 +523,15 @@ classDiagram
           &nbsp;&nbsp;order_id: i64<br>
           &nbsp;&nbsp;order_item_id: i64<br>
           &nbsp;&nbsp;received_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;returned_qty: Decimal(18,6) <span style="color:#888;">// 退货冲减量</span><br>
+          &nbsp;&nbsp;returned_amount: Decimal(20,4) <span style="color:#888;">// 退货冲减金额</span><br>
           &nbsp;&nbsp;unit_price: Decimal(18,6)<br>
           &nbsp;&nbsp;amount: Decimal(20,4)<br>
           &nbsp;&nbsp;confirmed: bool<br>
-          }
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">PurchaseReconStatus</span> {<br>
+          &nbsp;&nbsp;DRAFT, CONFIRMED, SETTLED<br>
+          &nbsp;&nbsp;}
         </div>
       </div>
 
@@ -601,6 +616,94 @@ classDiagram
         <span style="color:#e06c75;">CostEntry</span> → 入库记材料成本(借:存货/贷:应付) | 退货冲减 | 付款记流出<br>
         <span style="color:#56b6c2;">QMS</span> → 来料入库前 IQC 硬门检查 is_passed(ArrivalNotice) | 不合格触发 MRB<br>
         <span style="color:#98c379;">FMS</span> → CashJournal 采购付款 | WriteOff 按入库单核销 | 三单匹配(入库+发票+付款)
+      </div>
+    </div>
+
+    <!-- Design Review Supplement v2 -->
+    <div style="margin-top: 16px; padding: 14px; background: rgba(198,120,221,0.08); border: 2px solid #c678dd; border-radius: 8px;">
+      <h3 style="margin: 0 0 10px 0; color: #c678dd;">设计审阅补充说明 (v2)</h3>
+
+      <div style="margin-bottom: 12px;">
+        <h4 style="color: #e5a655; margin: 0 0 4px 0; font-size: 13px;">事件驱动解耦</h4>
+        <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+          PurchaseOrder.confirm 前置校验：<br>
+          &nbsp;&nbsp;• SupplierService.get() 校验 status ∉ {Blacklisted, Disqualified}<br>
+          &nbsp;&nbsp;• 所有 Item quantity &gt; 0 且 unit_price &gt; 0<br>
+          &nbsp;&nbsp;• 若关联 PurchaseQuotation，校验 quotation.status == Active 且 valid_until &gt; now<br>
+          &nbsp;&nbsp;• 校验通过后才 publish(<span style="color:#6bc76b;">PurchaseOrderConfirmed</span>) → Outbox → WMS 异步创建 ArrivalNotice<br>
+          禁止跨模块同步 RPC 调用，所有跨模块交互通过 DomainEventBus + Outbox 模式解耦
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h4 style="color: #e5a655; margin: 0 0 4px 0; font-size: 13px;">状态机流转规则</h4>
+        <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+          <strong style="color:#6bc76b;">PurchaseOrderStatus</strong>：Draft/Confirmed → Cancelled | Confirmed → PartiallyReceived → Received → Closed<br>
+          <strong style="color:#e06c75;">PurchaseReturnStatus</strong>：Draft → Confirmed → Shipped → Settled<br>
+          &nbsp;&nbsp;Shipped → Settled 由 PurchaseReconciliation.confirm() 异步驱动，或监听 WMS <span style="color:#6bc76b;">SupplierReturnReceived</span> 事件<br>
+          &nbsp;&nbsp;状态变更时发布 <span style="color:#6bc76b;">PurchaseReturnSettled</span> 事件，通知 FMS 生成贷项通知单(Credit Memo)<br>
+          <strong style="color:#56b6c2;">PurchaseReconStatus</strong>：Draft → Confirmed → Settled（独立于 Sales ReconciliationStatus）<br>
+          <strong style="color:#e5c07b;">PurchaseQuotationStatus</strong>：Draft → Active（activate 方法触发）→ Expired → Cancelled<br>
+          <strong style="color:#98c379;">MiscRequestStatus</strong>：Approved → Purchasing → Received → Closed。如需转正式 PO 在业务层处理，不增加枚举状态
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h4 style="color: #e5a655; margin: 0 0 4px 0; font-size: 13px;">SRM / FMS 边界</h4>
+        <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+          SRM 管"应付申请与三单匹配"，FMS 管"资金流水与核销"<br>
+          PaymentRequest.mark_paid_by_fms() — FMS 执行付款后回调，或监听 <span style="color:#6bc76b;">PaymentExecuted</span> 事件异步更新<br>
+          SRM 不直接执行付款动作，只发起申请并接收 FMS 结果
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h4 style="color: #e5a655; margin: 0 0 4px 0; font-size: 13px;">三单匹配校验规则</h4>
+        <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+          PaymentRequest.create 校验：PO.received_qty（WMS 同步）+ Invoice qty/amount 必须一致<br>
+          支持配置 tolerance_rate（如 ±0.5%），超出则阻断创建
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h4 style="color: #e5a655; margin: 0 0 4px 0; font-size: 13px;">退货冲减对账公式</h4>
+        <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+          应付总额 = ∑(收货金额) − ∑(退货金额) + 调整项<br>
+          PurchaseReconItem 新增 returned_qty / returned_amount 字段，退货款自动抵扣
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h4 style="color: #e5a655; margin: 0 0 4px 0; font-size: 13px;">乐观锁与并发控制</h4>
+        <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+          所有写操作（confirm, approve, update）底层使用 WHERE id = ? AND updated_at = ?<br>
+          失败抛出 DomainError::ConcurrentConflict
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h4 style="color: #e5a655; margin: 0 0 4px 0; font-size: 13px;">行级数据权限 (RLS)</h4>
+        <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+          list 底层强制过滤 DataScope，禁止前端传参越权<br>
+          DataScope::Self → WHERE operator_id = ctx.operator_id<br>
+          DataScope::Department → WHERE department_id IN ctx.allowed_dept_ids
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h4 style="color: #e5a655; margin: 0 0 4px 0; font-size: 13px;">软删除与唯一索引</h4>
+        <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+          PurchaseReconciliation unique(supplier_id, period) 使用 Partial Unique Index<br>
+          CREATE UNIQUE INDEX ... WHERE deleted_at IS NULL
+        </div>
+      </div>
+
+      <div>
+        <h4 style="color: #e5a655; margin: 0 0 4px 0; font-size: 13px;">幂等性设计</h4>
+        <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+          create, confirm, approve 等写接口支持 idempotency_key<br>
+          依赖共享层 IdempotencyService，防止网络重试导致重复创建/审批
+        </div>
       </div>
     </div>
 

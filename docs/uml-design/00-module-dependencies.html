@@ -48,7 +48,7 @@
 </head>
 <body>
 <h2>模块间接口依赖关系 — 总览</h2>
-<p class="subtitle">11 个模块 · 49 个 Service Trait · 226 个核心方法 · 接口先行 · 事件驱动 · 分层实现 · 客商统一主数据 · 行级数据权限</p>
+<p class="subtitle">11 个模块 · 50 个 Service Trait · 236 个核心方法 · 接口先行 · 事件驱动 · 分层实现 · 客商统一主数据 · 行级数据权限</p>
 
 <!-- Mermaid Diagram -->
 <div class="mermaid-wrap">
@@ -105,9 +105,10 @@ graph TD
     LCK[InventoryLockService]
   end
 
-  subgraph MES["MES - 5"]
+  subgraph MES["MES - 6"]
     PP[ProductionPlanService]
     WO[WorkOrderService]
+    PB[ProductionBatchService]
     WR[WorkReportService]
     PI[ProductionInspectionService]
     PR[ProductionReceiptService]
@@ -179,6 +180,7 @@ graph TD
   SR -.->|publish SalesOrderShipped| EB
   PO -.->|publish POConfirmed| EB
   AN -.->|publish ArrivalReceived| EB
+  PB -.->|publish BatchCreated| EB
   WO -.->|publish WOReleased| EB
   PR -.->|publish ReceiptConfirmed| EB
   OOM -.->|publish OutsourcingSent| EB
@@ -189,7 +191,7 @@ graph TD
 
   SO ==>|Draft-Confirmed-Shipped| SM
   PO ==>|Draft-Confirmed-Received| SM
-  WO ==>|Draft-Released-Completed| SM
+  WO ==>|Draft-Planned-Released-Closed| SM
   OOM ==>|Draft-Sent-Received-Closed| SM
   WFS ==>|instance state| SM
 
@@ -206,6 +208,9 @@ graph TD
   PP -->|release_to_WO| WO
   WO -->|trigger requisition| MR
   WO -->|outsource| OOM
+  WO -->|create batch| PB
+  PB -->|confirm step| WR
+  PB -->|advance receipt| PR
   WO -->|inspect| PI
   PR -->|trigger backflush| BF
   PR -->|trigger receipt| IT
@@ -246,7 +251,7 @@ graph TD
   class QUO,SO,SR,SRET,SREC sales
   class PQ,PO,PRET,PREC,PAY,MISC purchase
   class WH,AN,IT,MR,BF,CC,TRF,FC,LCK wms
-  class PP,WO,WR,PI,PR mes
+  class PP,WO,PB,WR,PI,PR mes
   class OOM,OT om
   class ISS,IRS,MRB,RMA qms
   class CJ,WOFF,ER,CA fms
@@ -377,13 +382,14 @@ graph TD
           </p>
         </div>
         <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
-          <h4 style="color: #e06c75; margin: 0 0 6px 0;">MES 生产模块 (5 个接口)</h4>
+          <h4 style="color: #e06c75; margin: 0 0 6px 0;">MES 生产模块 (6 个接口)</h4>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
-            ProductionPlanService · WorkOrderService · WorkReportService<br>
+            ProductionPlanService · WorkOrderService<br>
+            ProductionBatchService · WorkReportService<br>
             ProductionInspectionService · ProductionReceiptService
           </div>
           <p style="color:#aaa; font-size:11px; margin: 6px 0 0 0;">
-            流转链：计划 → 工单 → 报工 → 报检 → 入库 → 倒冲
+            流转链：计划 → 工单 → 批次(流转卡) → 报工 → 报检 → 入库 → 倒冲
           </p>
         </div>
       </div>
@@ -630,7 +636,7 @@ graph TD
             <td style="padding: 6px;">QUO/SO/SR/SRT/REC</td>
             <td style="padding: 6px;">PQ/PO/PRT/PREC/PAY/MISC</td>
             <td style="padding: 6px;">AN/MR/BF/CC/TRF/FC/LCK</td>
-            <td style="padding: 6px;">PP/WO/WR/PI/PR</td>
+            <td style="padding: 6px;">PP/WO/PB/WR/PI/PR</td>
             <td style="padding: 6px;">OO/OT</td>
             <td style="padding: 6px;">QS/QR/MRB/RMA</td>
             <td style="padding: 6px;">CJ/ER</td>
@@ -694,7 +700,7 @@ graph TD
             <td style="padding: 6px;">—</td>
             <td style="padding: 6px;">SO/SR/SRET<br>Draft→Completed</td>
             <td style="padding: 6px;">PO/PAY<br>Draft→Closed</td>
-            <td style="padding: 6px;">—</td>
+            <td style="padding: 6px;">AN/MR/BF/CC<br>TRF/FC/LCK<br>Draft→Completed</td>
             <td style="padding: 6px;">WO/PP<br>Draft→Closed</td>
             <td style="padding: 6px;">OO<br>Draft→Closed</td>
             <td style="padding: 6px;">—</td>

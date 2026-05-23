@@ -75,6 +75,7 @@ classDiagram
     Accepted
     PartiallyAccepted
     Rejected
+    Cancelled
   }
   class TransactionType {
     &lt;&lt;enumeration&gt;&gt;
@@ -410,72 +411,84 @@ classDiagram
   class WarehouseService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
-    +find_by_id(id) Result~Warehouse~
-    +list(filter) PaginatedResult~Warehouse~
-    +create_zone(warehouse_id, req) Result~i64~
-    +create_bin(zone_id, req) Result~i64~
+    +get(ctx: ServiceContext, id) Result~Warehouse~
+    +list(ctx: ServiceContext, filter) PaginatedResult~Warehouse~
+    +create_zone(ctx: ServiceContext, warehouse_id, req) Result~i64~
+    +create_bin(ctx: ServiceContext, zone_id, req) Result~i64~
   }
   class ArrivalNoticeService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
-    +find_by_id(id) Result~ArrivalNotice~
-    +receive(id, items) Result~Unit~
-    +inspect(ctx: ServiceContext, id, items) Result~Unit~
+    +get(ctx: ServiceContext, id) Result~ArrivalNotice~
+    +receive(ctx: ServiceContext, req: ReceiveArrivalNoticeReq) Result~Unit~
+    +inspect(ctx: ServiceContext, req: InspectArrivalNoticeReq) Result~Unit~
+    +cancel(ctx: ServiceContext, id) Result~Unit~
   }
   class InventoryTransactionService {
     &lt;&lt;interface&gt;&gt;
-    +record(ctx: ServiceContext, txn) Result~i64~
-    +find_by_source(source_type, source_id) Result~Vec~InventoryTransaction~~
-    +query_stock(product_id, warehouse_id) Result~StockLedger~
-    +query_available(product_id, warehouse_id) Result~Decimal~
+    +record(ctx: ServiceContext, req: RecordTransactionReq) Result~i64~
+    +find_by_source(ctx: ServiceContext, source_type, source_id) Result~Vec~InventoryTransaction~~
+    +query_stock(ctx: ServiceContext, filter: StockFilter) PaginatedResult~StockLedger~
+    +query_available(ctx: ServiceContext, filter: StockFilter) Result~Decimal~
   }
   class MaterialRequisitionService {
     &lt;&lt;interface&gt;&gt;
     +create_for_work_order(ctx: ServiceContext, work_order_id) Result~i64~
-    +find_by_id(id) Result~MaterialRequisition~
+    +get(ctx: ServiceContext, id) Result~MaterialRequisition~
     +confirm(ctx: ServiceContext, id) Result~Unit~
-    +issue(ctx: ServiceContext, id, items) Result~Unit~
+    +issue(ctx: ServiceContext, req: IssueMaterialReq) Result~Unit~
+    +cancel(ctx: ServiceContext, id) Result~Unit~
   }
   class BackflushService {
     &lt;&lt;interface&gt;&gt;
     +execute(ctx: ServiceContext, work_order_id, completed_qty) Result~i64~
-    +find_by_id(id) Result~BackflushRecord~
+    +get(ctx: ServiceContext, id) Result~BackflushRecord~
   }
   class CycleCountService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
-    +find_by_id(id) Result~CycleCount~
-    +count(id, items) Result~Unit~
+    +get(ctx: ServiceContext, id) Result~CycleCount~
+    +count(ctx: ServiceContext, req: CountCycleCountReq) Result~Unit~
     +adjust(ctx: ServiceContext, id) Result~Unit~
+    +cancel(ctx: ServiceContext, id) Result~Unit~
   }
   class InventoryTransferService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
-    +find_by_id(id) Result~InventoryTransfer~
+    +get(ctx: ServiceContext, id) Result~InventoryTransfer~
     +complete(ctx: ServiceContext, id) Result~Unit~
+    +cancel(ctx: ServiceContext, id) Result~Unit~
   }
   class FormConversionService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
-    +find_by_id(id) Result~FormConversion~
+    +get(ctx: ServiceContext, id) Result~FormConversion~
     +complete(ctx: ServiceContext, id) Result~Unit~
+    +cancel(ctx: ServiceContext, id) Result~Unit~
   }
   class InventoryLockService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
-    +find_by_id(id) Result~InventoryLock~
+    +get(ctx: ServiceContext, id) Result~InventoryLock~
     +release(ctx: ServiceContext, id) Result~Unit~
+    +cancel(ctx: ServiceContext, id) Result~Unit~
   }
 
-  note for ArrivalNoticeService "confirm requires QMS.InspectionResultService.is_passed(IQC) hard gate IQC fail -> block putaway, trigger QMS.MRBService confirm -> CostEntry(material cost: debit inventory / credit AP) confirm -> InvRes(release safety stock)"
+  note for ArrivalNoticeService "StateMachine: Draft->Received->Inspecting->Accepted/PartiallyAccepted/Rejected/CANCELLED(Draft only) confirm requires QMS.InspectionResultService.is_passed(IQC) hard gate IQC fail -> block putaway, trigger QMS.MRBService confirm -> CostEntry(material cost: debit inventory / credit AP) [IndependentTx] confirm -> InvRes(release safety stock)"
 
-  note for InventoryTransactionService "Append-only, never modify record -> auto update StockLedger query_available = StockLedger.quantity - InvRes.total_reserved() FMS: StockLedger.unit_cost is core data source for CostAccountingService"
+  note for InventoryTransactionService "Append-only, never modify record -> auto update StockLedger query_available MUST use StockLedger.quantity - InvRes.total_reserved() (not the denormalized available_qty field) FMS: StockLedger.unit_cost is core data source for CostAccountingService"
 
-  note for MaterialRequisitionService "Called by MES.WorkOrderService.release() issue -> InvRes.fulfill(Hard) issue -> InventoryTransaction.record(MaterialIssue)"
+  note for MaterialRequisitionService "StateMachine: Draft->Confirmed->Issued/Cancelled(Draft/Confirmed) Called by MES.WorkOrderService.release() issue -> InvRes.fulfill(Hard) issue -> InventoryTransaction.record(MaterialIssue)"
 
-  note for BackflushService "Called by MES.ProductionReceiptService.confirm() execute -> InventoryTransaction.record(Backflush) over threshold -> CostEntry(loss cost)"
+  note for BackflushService "StateMachine: Draft->Executed->Adjusted Called by MES.ProductionReceiptService.confirm() execute -> InventoryTransaction.record(Backflush) over threshold -> CostEntry(loss cost) [IndependentTx]"
 
-  note for InventoryTransferService "Called by MES.OutsourcingOrderService send -> create(to virtual warehouse) receive -> create(from virtual warehouse) OM: OutsourcingOrderService.send/receive -> transfer OM: convert_to_internal -> transfer materials back to internal"
+  note for InventoryTransferService "StateMachine: Draft->InTransit->Completed/Cancelled(Draft only) Called by MES.OutsourcingOrderService send -> create(to virtual warehouse) receive -> create(from virtual warehouse) OM: OutsourcingOrderService.send/receive -> transfer OM: convert_to_internal -> transfer materials back to internal"
+
+  note for CycleCountService "StateMachine: Draft->Counting->Completed->Adjusted/Cancelled(Draft/Counting)"
+
+  note for FormConversionService "StateMachine: Draft->Completed/Cancelled(Draft only)"
+
+  note for InventoryLockService "StateMachine: Active->Released/Cancelled(Active only) release=正常释放(cancel=管理员作废(预留量退回))"
 
     note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
@@ -702,7 +715,7 @@ classDiagram
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ArrivalStatus</span> {<br>
           &nbsp;&nbsp;DRAFT, RECEIVED, INSPECTING, ACCEPTED<br>
-          &nbsp;&nbsp;PARTIALLY_ACCEPTED, REJECTED<br>
+          &nbsp;&nbsp;PARTIALLY_ACCEPTED, REJECTED, CANCELLED<br>
           &nbsp;&nbsp;}
         </div>
       </div>
@@ -953,6 +966,7 @@ classDiagram
         <span style="color:#e5a655;">DocumentLink</span> → 来料→采购单 | 领料→工单 | 出库→发货申请 | 倒冲→工单<br>
         <span style="color:#6bc76b;">InventoryReservation</span> → 领料消耗HARD预留 | 发货消耗SOFT预留 | 盘点调整后校准<br>
         <span style="color:#e06c75;">CostEntry</span> → 入库记材料成本 | 出库记销售成本 | 倒冲差异记损耗成本 | 形态转换成本分摊<br>
+        <span style="color:#e5a655;">StateMachine</span> → AN/MR/BF/CC/TRF/FC/LCK 所有单据状态推进<br>
         <span style="color:#56b6c2;">QMS</span> → 来料入库前 IQC 硬门 is_passed(ArrivalNotice) | 不合格阻断入库<br>
         <span style="color:#e06c75;">OM</span> → 委外=虚拟库位 | 发外协=InventoryTransfer(到虚拟仓) | 收回=从虚拟仓调回<br>
         <span style="color:#98c379;">FMS</span> → 库存成本为 CostEntry 核心数据源 | CostAccounting 聚合查询基础

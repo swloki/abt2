@@ -185,7 +185,7 @@ classDiagram
 
     class BatchFailure {
         +index: i32
-        +error: String
+        +error: DomainError
     }
 
     class SequenceStrategy {
@@ -1238,7 +1238,7 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
             }<br><br>
             <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">BatchFailure</span> {<br>
             &nbsp;&nbsp;index: i32 <span style="color:#888;">// 原始请求中的位置</span><br>
-            &nbsp;&nbsp;error: String <span style="color:#888;">// 失败原因</span><br>
+            &nbsp;&nbsp;error: DomainError <span style="color:#888;">// 复用统一错误模型</span><br>
             }
           </div>
         </div>

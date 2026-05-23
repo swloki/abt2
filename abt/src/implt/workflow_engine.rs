@@ -19,6 +19,7 @@ use crate::models::{
     event_type, SYSTEM_USER_ID,
 };
 use crate::repositories::{
+    InstanceInsertParams, TaskInsertParams,
     WorkflowHistoryRepo, WorkflowInstanceRepo, WorkflowTaskRepo, WorkflowTemplateRepo,
 };
 use crate::service::WorkflowService;
@@ -70,13 +71,15 @@ impl WorkflowEngine {
 
         let instance_id = WorkflowInstanceRepo::insert(
             &mut tx,
-            template.id,
-            Some(template.version),
-            &template.entity_type,
-            entity_id,
-            frozen_graph,
-            context,
-            initiator_id,
+            &InstanceInsertParams {
+                template_id: template.id,
+                template_version: Some(template.version),
+                entity_type: &template.entity_type,
+                entity_id,
+                frozen_graph,
+                context,
+                initiator_id,
+            },
         )
         .await?;
 
@@ -471,13 +474,15 @@ impl WorkflowService for WorkflowEngine {
                         let assignee = resolve_assignee(&prev.config);
                         WorkflowTaskRepo::insert(
                             &mut tx,
-                            instance_id,
-                            &prev.id,
-                            Some(task_id),
-                            assignee,
-                            prev.config.get("timeout_action").and_then(|v| v.as_str()),
-                            None,
-                            None,
+                            &TaskInsertParams {
+                                instance_id,
+                                node_id: &prev.id,
+                                prev_task_id: Some(task_id),
+                                assignee_id: assignee,
+                                timeout_action: prev.config.get("timeout_action").and_then(|v| v.as_str()),
+                                due_at: None,
+                                remind_at: None,
+                            },
                         )
                         .await?;
                     }
@@ -552,13 +557,15 @@ impl WorkflowService for WorkflowEngine {
         // 创建新的 pending task
         let new_task_id = WorkflowTaskRepo::insert(
             &mut tx,
-            task.instance_id,
-            &task.node_id,
-            Some(task_id),
-            Some(to_user_id),
-            task.timeout_action.as_deref(),
-            None,
-            None,
+            &TaskInsertParams {
+                instance_id: task.instance_id,
+                node_id: &task.node_id,
+                prev_task_id: Some(task_id),
+                assignee_id: Some(to_user_id),
+                timeout_action: task.timeout_action.as_deref(),
+                due_at: None,
+                remind_at: None,
+            },
         )
         .await?;
 
@@ -797,13 +804,15 @@ fn process_next_node<'a>(
 
             WorkflowTaskRepo::insert(
                 tx,
-                instance_id,
-                node_id,
-                prev_task_id,
-                Some(assignee_id),
-                timeout_action,
-                due_at,
-                remind_at,
+                &TaskInsertParams {
+                    instance_id,
+                    node_id,
+                    prev_task_id,
+                    assignee_id: Some(assignee_id),
+                    timeout_action,
+                    due_at,
+                    remind_at,
+                },
             )
             .await?;
 
@@ -964,9 +973,16 @@ pub async fn advance_after_timeout(
                         if let Some(prev) = prev_node {
                             let assignee = resolve_assignee(&prev.config);
                             WorkflowTaskRepo::insert(
-                                tx, instance_id, &prev.id, Some(task_id), assignee,
-                                prev.config.get("timeout_action").and_then(|v| v.as_str()),
-                                None, None,
+                                tx,
+                                &TaskInsertParams {
+                                    instance_id,
+                                    node_id: &prev.id,
+                                    prev_task_id: Some(task_id),
+                                    assignee_id: assignee,
+                                    timeout_action: prev.config.get("timeout_action").and_then(|v| v.as_str()),
+                                    due_at: None,
+                                    remind_at: None,
+                                },
                             ).await?;
                         }
                     }

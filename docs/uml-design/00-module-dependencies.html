@@ -547,7 +547,7 @@ graph TD
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#c678dd;">BackflushService</span>.execute() 触发倒冲<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#6c8bef;">InventoryReservationService</span>.cancel(释放剩余Hard)<br><br>
         <span style="color:#e06c75;">WorkOrderService</span>.outsource() 委外加工<br>
-        &nbsp;&nbsp;→ <span style="color:#e06c75;">OM.OutsourcingOrderService</span>.create_from_work_order() <span style="color:#888;">// 跨模块调用</span><br>
+        &nbsp;&nbsp;→ <span style="color:#e06c75;">OM.OutsourcingOrderService</span>.create() <span style="color:#888;">// 跨模块调用，传入 work_order_id</span><br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#e06c75;">OM</span> 接管后续流程：发外协、追踪、收货、质检、结算
       </div>
     </div>
@@ -556,6 +556,7 @@ graph TD
     <div style="border-left: 4px solid #e06c75; padding: 12px 16px; background: rgba(224,108,117,0.05); margin-bottom: 12px; border-radius: 0 8px 8px 0;">
       <h4 style="color: #e06c75; margin: 0 0 6px 0;">OM 委外 → WMS/MES/QMS</h4>
       <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 1.8;">
+        <span style="color:#888;">核心流：DRAFT → SENT → RECEIVED → CLOSED（IN_PRODUCTION/DELIVERED 可选）</span><br><br>
         <span style="color:#e06c75;">OutsourcingOrderService</span>.send() 发外协<br>
         &nbsp;&nbsp;→ <span style="color:#3b82f6;">EventBus</span>.publish(OutsourcingSent)<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ <span style="color:#c678dd;">InventoryTransferService</span>.transfer(物料→虚拟仓)<br><br>

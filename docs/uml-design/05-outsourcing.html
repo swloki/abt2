@@ -86,6 +86,7 @@ classDiagram
     +scheduled_date: Option~Date~
     +status: OutsourcingStatus
     +virtual_warehouse_id: i64
+    +version: i32
     +remark: String
     +operator_id: i64
     +created_at: Timestamp
@@ -119,28 +120,32 @@ classDiagram
 
   class OutsourcingOrderService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
-    +find_by_id(id) Result~OutsourcingOrder~
-    +send(ctx: ServiceContext, id) Result~Unit~
-    +receive(ctx: ServiceContext, id, received_qty) Result~Unit~
-    +convert_to_internal(ctx: ServiceContext, id) Result~i64~
-    +list(filter) PaginatedResult~OutsourcingOrder~
+    +create(ctx, req: CreateOutsourcingOrderReq) Result~i64~
+    +update(ctx, req: UpdateOutsourcingOrderReq) Result~Unit~
+    +send(ctx, req: SendOutsourcingReq) Result~Unit~
+    +receive(ctx, req: ReceiveOutsourcingReq) Result~Unit~
+    +convert_to_internal(ctx, req: ConvertToInternalReq) Result~i64~
+    +cancel(ctx, req: CancelOutsourcingReq) Result~Unit~
+    +find_by_id(ctx, id: i64) Result~OutsourcingOrder~
+    +list(ctx, filter: OutsourcingOrderQuery, page: PageParams) Result~PaginatedResult~
   }
 
   class OutsourcingTrackingService {
     &lt;&lt;interface&gt;&gt;
-    +record_node(ctx: ServiceContext, outsourcing_id, node_type, remark) Result~i64~
-    +list_by_outsourcing(outsourcing_id) Result~Vec~OutsourcingTracking~~
-    +check_overdue() Result~Vec~OutsourcingTracking~~
+    +record_node(ctx, req: RecordNodeReq) Result~i64~
+    +list_by_outsourcing(ctx, outsourcing_id: i64, page: PageParams) Result~PaginatedResult~
+    +list_overdue(ctx, filter: OverdueTrackingQuery, page: PageParams) Result~PaginatedResult~
   }
 
   OutsourcingOrderService ..> OutsourcingTrackingService : record nodes
-    OutsourcingOrderService ..> MasterData.BomService : BOM node split
-    OutsourcingOrderService ..> MasterData.ProductService : product info
+  OutsourcingOrderService ..> MasterData.BomService : BOM node split
+  OutsourcingOrderService ..> MasterData.ProductService : product info
 
-  note for OutsourcingOrderService "send -> WMS.InventoryTransferService(to virtual warehouse) OutsourcingTrackingService.record_node(SendMaterial) CostEntry(Outsource, debit WIP / credit AP-Outsource) DocSeq(OutsourcingOrder) DocLink(outsourcing -> work_order) receive -> WMS.InventoryTransferService(from virtual warehouse) OutsourcingTrackingService.record_node(Warehoused) QMS.InspectionResultService.create(IQC) convert_to_internal -> MES.WorkOrderService.create() WMS.InventoryTransferService(materials back)"
+  note for OutsourcingOrderService "update: DRAFT only. Modify fields + sync materials. cancel: StateMachine.transition(Draft→Cancelled) AuditLog.record EventBus.publish(OutsourcingCancelled) send: StateMachine.transition(Draft→Sent) WMS.InventoryTransferService(to virtual warehouse) OutsourcingTrackingService.record_node(SendMaterial) CostEntry(Outsource, debit WIP/credit AP-Outsource) DocSeq(OutsourcingOrder) DocLink(outsourcing→work_order) AuditLog.record(Create) EventBus.publish(OutsourcingSent) receive: StateMachine.transition(Sent/InProduction/Delivered→Received) WMS.InventoryTransferService(from virtual warehouse) OutsourcingTrackingService.record_node(Warehoused) QMS.InspectionResultService.create(IQC) AuditLog.record(Transition) EventBus.publish(OutsourcingReceived) convert_to_internal: StateMachine.transition(Draft/Sent→ConvertedToInternal) MES.WorkOrderService.create() WMS.InventoryTransferService(materials back) AuditLog.record(Transition) EventBus.publish(OutsourcingConvertedToInternal)"
 
-  note for OutsourcingTrackingService "check_overdue -> Query where planned_at < now() AND node not yet recorded Returns overdue nodes for escalation"
+  note for OutsourcingTrackingService "record_node: Validates node ordering (must follow defined sequence) Sends CarrierPickup requires SendMaterial completed Warehoused requires IQCInspected completed list_overdue: Query where planned_at < now() AND tracked_at IS NULL Returns overdue nodes for management dashboard"
+
+  note for OutsourcingOrder "version: i32 — Optimistic locking. Write operations require expected_version param. UPDATE ... SET version = version + 1 WHERE id = $1 AND version = $2"
 
     note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
@@ -158,17 +163,38 @@ classDiagram
     <div style="background: rgba(224,108,117,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
       <h3 style="margin: 0 0 8px 0; color: #e06c75;">核心业务流</h3>
       <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
-        <span style="color:#e5c07b;">OutsourcingOrder</span> 委外单
-        <span style="color:#6bc76b;">──SENT──→</span>
-        <span style="color:#e5c07b;">OutsourcingTracking</span> 节点追踪
-        <span style="color:#6bc76b;">──DELIVERED──→</span>
-        <span style="color:#e5c07b;">IQC 检验</span>
-        <span style="color:#6bc76b;">──RECEIVED──→</span>
+        <span style="color:#e5c07b;">DRAFT</span>
+        <span style="color:#6bc76b;">──send()──→</span>
+        <span style="color:#e5c07b;">SENT</span>
+        <span style="color:#6bc76b;">──receive()──→</span>
+        <span style="color:#e5c07b;">RECEIVED</span>
+        <span style="color:#6bc76b;">──CLOSED──→</span>
         <span style="color:#e5c07b;">CLOSED</span>
         <br>
-        <span style="color:#56b6c2;">↗ 转自制 → WorkOrder（MES 内部工单）</span>
+        <span style="color:#888;">可选中间态（通过追踪节点副作用触发）：</span>
+        <span style="color:#e5c07b;">SENT</span>
+        <span style="color:#56b6c2;">──IN_PRODUCTION──→</span>
+        <span style="color:#e5c07b;">DELIVERED</span>
+        <span style="color:#56b6c2;">──→ RECEIVED</span>
+        <br>
+        <span style="color:#56b6c2;">↗ cancel() → CANCELLED（仅 DRAFT）</span>
+        <br>
+        <span style="color:#56b6c2;">↗ convert_to_internal() → CONVERTED_TO_INTERNAL（DRAFT 或 SENT）</span>
         <br>
         <span style="color:#888;">架构方向：委外供应商 = WMS 虚拟生产库位，发外协 = WMS 调拨，收回 = WMS 调回</span>
+      </div>
+    </div>
+
+    <!-- Shared Infrastructure Integration -->
+    <div style="background: rgba(108,139,239,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #6c8bef;">共享基础设施集成</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
+        <span style="color:#c678dd;">StateMachineService</span> → 所有状态转换（Draft→Sent→Received→Closed 等）统一通过 transition() 管理<br>
+        <span style="color:#c678dd;">AuditLogService</span> → create/send/receive/convert_to_internal 关键操作记录审计日志（同事务）<br>
+        <span style="color:#c678dd;">DomainEventBus</span> → 状态变更后发布领域事件（OutsourcingSent / OutsourcingReceived / OutsourcingConvertedToInternal / OutsourcingCancelled）<br>
+        <span style="color:#c678dd;">DocumentSequenceService</span> → 委外单编号生成（OO-2026-05-xxxxx）<br>
+        <span style="color:#c678dd;">DocumentLinkService</span> → 委外单↔工单 | 委外单↔追踪节点 | 委外单↔调拨单<br>
+        <span style="color:#c678dd;">CostEntryService</span> → 外协成本归集（借:在制品 / 贷:应付外协费）
       </div>
     </div>
 
@@ -194,6 +220,7 @@ classDiagram
           &nbsp;&nbsp;scheduled_date: Date?<br>
           &nbsp;&nbsp;status: OutsourcingStatus<br>
           &nbsp;&nbsp;virtual_warehouse_id: i64 <span style="color:#888;">// WMS 虚拟库位</span><br>
+          &nbsp;&nbsp;version: i32 <span style="color:#56b6c2;">// 乐观锁，写操作需传 expected_version</span><br>
           &nbsp;&nbsp;remark: String<br>
           &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
@@ -214,7 +241,8 @@ classDiagram
           &nbsp;&nbsp;}
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
-          <strong>共享层交互：</strong>DocumentSequence 编号 | CostEntry 外协成本归集 | DocumentLink 关联工单/采购
+          <strong>乐观锁：</strong>UPDATE ... SET version = version + 1 WHERE id = $1 AND version = $2，affected_rows == 0 → DomainError::ConcurrentConflict<br>
+          <strong>状态机：</strong>所有状态转换通过 StateMachineService.transition() 管理，guard_condition 声明式校验前置条件
         </p>
       </div>
 
@@ -235,7 +263,8 @@ classDiagram
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
           <strong>计算公式：</strong>在途数量 = sent_qty - returned_qty<br>
-          <strong>跨模块：</strong>发料/回收通过 WMS.InventoryTransferService 执行
+          <strong>跨模块：</strong>发料/回收通过 WMS.InventoryTransferService 执行<br>
+          <strong>并发控制：</strong>父锁代理 — 子表更新在 OutsourcingOrder 的 version 校验事务内完成，子表无独立 version。Repository 层 UPDATE outsourcing_materials ... WHERE outsourcing_id = $1 依赖父表 WHERE version = $2 自然串行化
         </p>
       </div>
     </div>
@@ -243,7 +272,7 @@ classDiagram
     <!-- Row 2: OutsourcingTracking (full width) -->
     <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05); margin-bottom: 20px;">
       <h4 style="color: #56b6c2; margin: 0 0 6px 0;">OutsourcingTracking 委外追踪节点</h4>
-      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">快递式节点追踪，每个节点有 SLA 时间窗，超时自动升级预警</p>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">快递式节点追踪，每个节点有 SLA 时间窗，超时自动升级预警。节点录入需遵循顺序约束。</p>
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">OutsourcingTracking</span> {<br>
@@ -257,34 +286,122 @@ classDiagram
           &nbsp;&nbsp;created_at: Timestamp<br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">TrackingNodeType</span> {<br>
-          &nbsp;&nbsp;SEND_MATERIAL <span style="color:#888;">// 发料</span><br>
-          &nbsp;&nbsp;CARRIER_PICKUP <span style="color:#888;">// 承运商揽收</span><br>
-          &nbsp;&nbsp;SUPPLIER_RECEIVED <span style="color:#888;">// 供应商接收</span><br>
-          &nbsp;&nbsp;IN_PRODUCTION <span style="color:#888;">// 生产中</span><br>
-          &nbsp;&nbsp;SHIPPED <span style="color:#888;">// 发货</span><br>
-          &nbsp;&nbsp;IQC_INSPECTED <span style="color:#888;">// IQC检验</span><br>
-          &nbsp;&nbsp;WAREHOUSED <span style="color:#888;">// 入库</span><br>
+          &nbsp;&nbsp;SEND_MATERIAL <span style="color:#888;">// 发料（序号 0）</span><br>
+          &nbsp;&nbsp;CARRIER_PICKUP <span style="color:#888;">// 承运商揽收（序号 1）</span><br>
+          &nbsp;&nbsp;SUPPLIER_RECEIVED <span style="color:#888;">// 供应商接收（序号 2）</span><br>
+          &nbsp;&nbsp;IN_PRODUCTION <span style="color:#888;">// 生产中（序号 3）</span><br>
+          &nbsp;&nbsp;SHIPPED <span style="color:#888;">// 发货（序号 4）</span><br>
+          &nbsp;&nbsp;IQC_INSPECTED <span style="color:#888;">// IQC检验（序号 5）</span><br>
+          &nbsp;&nbsp;WAREHOUSED <span style="color:#888;">// 入库（序号 6）</span><br>
           &nbsp;&nbsp;}
         </div>
         <div>
-          <div style="background: rgba(86,182,194,0.15); padding: 12px; border-radius: 6px; margin-bottom: 12px;">
-            <h4 style="margin: 0 0 8px 0; color: #56b6c2;">节点流转链路</h4>
+          <div style="background: rgba(86,182,194,0.15); padding: 12px; border-radius: 6px;">
+            <h4 style="margin: 0 0 8px 0; color: #56b6c2;">节点流转链路与顺序约束</h4>
             <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 2;">
-              发料 → 承运揽收 → 供应商接收 → 生产中 → 发货 → IQC检验 → 入库
+              发料(0) → 承运揽收(1) → 供应商接收(2) → 生产中(3) → 发货(4) → IQC检验(5) → 入库(6)
               <br>
-              <span style="color:#888;">每节点可选配置 SLA 时间窗</span>
+              <span style="color:#888;">record_node 校验规则：目标节点的序号必须 &gt; 已完成节点的最大序号</span>
               <br>
-              <span style="color:#e06c75;">超时 → 自动升级预警</span>
+              <span style="color:#56b6c2;">校验函数：validate_node_sequence(completed_nodes, target) → Result&lt;()&gt;</span>
+              <br>
+              <span style="color:#888;">追踪节点为可选增强，不影响核心状态流（SENT 可直接到 RECEIVED）</span>
+              <br>
+              <span style="color:#e06c75;">超时 → 管理台查询 list_overdue，后续可扩展 Worker 定时扫描</span>
             </div>
           </div>
-          <div style="background: rgba(86,182,194,0.15); padding: 12px; border-radius: 6px;">
-            <h4 style="margin: 0 0 8px 0; color: #56b6c2;">共享层交互</h4>
-            <p style="color: #ccc; font-size: 12px; margin: 0;">
-              DocumentSequence 编号<br>
-              DocumentLink 关联委外单<br>
-              CostEntry 外协收货→外协成本(借:在制品/贷:应付外协费)
-            </p>
-          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Request / Response Structs -->
+    <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05); margin-bottom: 20px;">
+      <h4 style="color: #98c379; margin: 0 0 8px 0;">Request / Response / Query 结构体</h4>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">强类型接口契约，扩展字段无需改接口签名</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+
+        <!-- OutsourcingOrderService Request Structs -->
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#98c379;">// OutsourcingOrderService 请求结构体</span><br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CreateOutsourcingOrderReq</span> {<br>
+          &nbsp;&nbsp;work_order_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;routing_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;supplier_id: i64<br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;outsourcing_type: OutsourcingType<br>
+          &nbsp;&nbsp;planned_qty: Decimal<br>
+          &nbsp;&nbsp;unit_price: Decimal<br>
+          &nbsp;&nbsp;scheduled_date: Option&lt;Date&gt;<br>
+          &nbsp;&nbsp;virtual_warehouse_id: i64<br>
+          &nbsp;&nbsp;remark: Option&lt;String&gt;<br>
+          &nbsp;&nbsp;materials: Vec&lt;OutsourcingMaterialItem&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">UpdateOutsourcingOrderReq</span> {<br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;expected_version: i32<br>
+          &nbsp;&nbsp;supplier_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;planned_qty: Option&lt;Decimal&gt;<br>
+          &nbsp;&nbsp;unit_price: Option&lt;Decimal&gt;<br>
+          &nbsp;&nbsp;scheduled_date: Option&lt;Date&gt;<br>
+          &nbsp;&nbsp;remark: Option&lt;String&gt;<br>
+          &nbsp;&nbsp;materials: Option&lt;Vec&lt;OutsourcingMaterialItem&gt;&gt; <span style="color:#888;">// 全量替换</span><br>
+          } <span style="color:#56b6c2;">// 仅 DRAFT 状态可修改</span><br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">SendOutsourcingReq</span> {<br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;expected_version: i32<br>
+          &nbsp;&nbsp;remark: Option&lt;String&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ReceiveOutsourcingReq</span> {<br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;expected_version: i32<br>
+          &nbsp;&nbsp;received_qty: Decimal<br>
+          &nbsp;&nbsp;warehouse_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;iqc_passed_qty: Option&lt;Decimal&gt;<br>
+          &nbsp;&nbsp;remark: Option&lt;String&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ConvertToInternalReq</span> {<br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;expected_version: i32<br>
+          &nbsp;&nbsp;remark: Option&lt;String&gt;<br>
+          } <span style="color:#56b6c2;">// DRAFT 或 SENT 状态可用</span><br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CancelOutsourcingReq</span> {<br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;expected_version: i32<br>
+          &nbsp;&nbsp;remark: Option&lt;String&gt;<br>
+          } <span style="color:#56b6c2;">// 仅 DRAFT 状态可用</span><br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">OutsourcingMaterialItem</span> {<br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;planned_qty: Decimal<br>
+          &nbsp;&nbsp;unit_cost: Option&lt;Decimal&gt;<br>
+          }
+        </div>
+
+        <!-- Query / Tracking Structs -->
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#98c379;">// 查询结构体</span><br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">OutsourcingOrderQuery</span> {<br>
+          &nbsp;&nbsp;status: Option&lt;OutsourcingStatus&gt;<br>
+          &nbsp;&nbsp;supplier_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;outsourcing_type: Option&lt;OutsourcingType&gt;<br>
+          &nbsp;&nbsp;work_order_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;date_range: Option&lt;(Date, Date)&gt;<br>
+          &nbsp;&nbsp;keyword: Option&lt;String&gt;<br>
+          }<br><br>
+          <span style="color:#98c379;">// OutsourcingTrackingService 请求结构体</span><br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">RecordNodeReq</span> {<br>
+          &nbsp;&nbsp;outsourcing_id: i64<br>
+          &nbsp;&nbsp;node_type: TrackingNodeType<br>
+          &nbsp;&nbsp;tracked_at: Option&lt;DateTime&gt;<br>
+          &nbsp;&nbsp;remark: Option&lt;String&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">OverdueTrackingQuery</span> {<br>
+          &nbsp;&nbsp;supplier_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;node_type: Option&lt;TrackingNodeType&gt;<br>
+          &nbsp;&nbsp;overdue_before: Option&lt;DateTime&gt;<br>
+          }<br><br>
+          <span style="color:#98c379;">// 所有 list 方法返回 PaginatedResult&lt;T&gt;</span><br>
+          <span style="color:#98c379;">// PageParams { page: u32, page_size: u32 }</span><br>
+          <span style="color:#98c379;">// PaginatedResult&lt;T&gt; { items, total, page, page_size, total_pages }</span>
         </div>
       </div>
     </div>
@@ -295,19 +412,154 @@ classDiagram
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">OutsourcingOrderService</span> {<br>
-          &nbsp;&nbsp;create(ctx: ServiceContext, req): OutsourcingOrder<br>
-          &nbsp;&nbsp;send(ctx: ServiceContext, id): OutsourcingOrder<br>
-          &nbsp;&nbsp;receive(ctx: ServiceContext, id, received_qty): OutsourcingOrder<br>
-          &nbsp;&nbsp;convert_to_internal(ctx: ServiceContext, id): WorkOrder<br>
-          &nbsp;&nbsp;find_by_id(id): OutsourcingOrder<br>
-          &nbsp;&nbsp;list(filter): Vec&lt;OutsourcingOrder&gt;<br>
+          &nbsp;&nbsp;create(ctx, req: CreateOutsourcingOrderReq)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;i64&gt;<br>
+          &nbsp;&nbsp;update(ctx, req: UpdateOutsourcingOrderReq)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;()&gt; <span style="color:#56b6c2;">// 仅 DRAFT</span><br>
+          &nbsp;&nbsp;send(ctx, req: SendOutsourcingReq)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;()&gt;<br>
+          &nbsp;&nbsp;receive(ctx, req: ReceiveOutsourcingReq)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;()&gt;<br>
+          &nbsp;&nbsp;convert_to_internal(ctx, req: ConvertToInternalReq)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;i64&gt; <span style="color:#888;">// 新工单 ID</span><br>
+          &nbsp;&nbsp;cancel(ctx, req: CancelOutsourcingReq)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;()&gt; <span style="color:#56b6c2;">// 仅 DRAFT</span><br>
+          &nbsp;&nbsp;find_by_id(ctx, id: i64)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;OutsourcingOrder&gt;<br>
+          &nbsp;&nbsp;list(ctx, filter: OutsourcingOrderQuery,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;page: PageParams)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;PaginatedResult&lt;OutsourcingOrder&gt;&gt;<br>
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">OutsourcingTrackingService</span> {<br>
-          &nbsp;&nbsp;record_node(ctx: ServiceContext, outsourcing_id, node_type, remark): OutsourcingTracking<br>
-          &nbsp;&nbsp;list_by_outsourcing(outsourcing_id): Vec&lt;OutsourcingTracking&gt;<br>
-          &nbsp;&nbsp;check_overdue(): Vec&lt;OutsourcingTracking&gt;<br>
+          &nbsp;&nbsp;record_node(ctx, req: RecordNodeReq)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;i64&gt; <span style="color:#56b6c2;">// 含顺序校验</span><br>
+          &nbsp;&nbsp;list_by_outsourcing(ctx, outsourcing_id: i64,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;page: PageParams)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;PaginatedResult&lt;OutsourcingTracking&gt;&gt;<br>
+          &nbsp;&nbsp;list_overdue(ctx, filter: OverdueTrackingQuery,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;page: PageParams)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;PaginatedResult&lt;OutsourcingTracking&gt;&gt;<br>
+          }
+        </div>
+      </div>
+      <div style="margin-top: 12px; background: rgba(198,120,221,0.1); padding: 10px; border-radius: 6px;">
+        <h4 style="margin: 0 0 6px 0; color: #c678dd; font-size: 12px;">接口约定</h4>
+        <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
+          • 写操作通过 StateMachineService.transition() 管理状态转换，guard_condition 声明式校验前置条件<br>
+          • 写操作后调用 AuditLogService.record() 记录审计日志（同事务）<br>
+          • 写操作后调用 EventBus.publish() 发布领域事件（同步 handler 在调用者事务内执行）<br>
+          • send/receive/convert_to_internal/cancel 需传 expected_version，乐观锁冲突返回 DomainError::ConcurrentConflict<br>
+          • send/receive/convert_to_internal 内所有操作（状态转换 + WMS调用 + 追踪记录 + 审计 + 事件发布）必须在同一数据库事务内完成，任一步失败整体回滚<br>
+          • update 和 cancel 仅 DRAFT 状态可用；convert_to_internal 在 DRAFT 或 SENT 状态可用<br>
+          • 核心状态流：DRAFT → SENT → RECEIVED → CLOSED，IN_PRODUCTION / DELIVERED 为可选中间态（通过追踪节点副作用触发）<br>
+          • convert_to_internal 返回新工单 ID（InCallerTx 同步创建工单），同时发布 OutsourcingConvertedToInternal 事件<br>
+          • record_node 内部调用 validate_node_sequence() 校验节点顺序
+        </div>
+      </div>
+    </div>
+
+    <!-- State Machine Guard Conditions -->
+    <div style="border: 2px solid #61afef; border-radius: 8px; padding: 14px; background: rgba(97,175,239,0.05); margin-bottom: 20px;">
+      <h4 style="color: #61afef; margin: 0 0 8px 0;">状态机 Guard 条件（OutsourcingStatus）</h4>
+      <p style="color:#aaa; font-size:11px; margin:0 0 10px 0;">StateMachineService.transition() 中配置的 guard_condition 规则，声明式校验状态转换前置条件</p>
+      <div style="font-family: monospace; font-size: 11px; color: #e0e0e0;">
+        <table style="width: 100%; border-collapse: collapse; background: #1a1a2e; border-radius: 6px; overflow: hidden;">
+          <thead>
+            <tr style="background: rgba(97,175,239,0.15);">
+              <th style="padding: 8px 12px; text-align: left; color: #61afef; border-bottom: 1px solid #333;">转换路径</th>
+              <th style="padding: 8px 12px; text-align: left; color: #61afef; border-bottom: 1px solid #333;">Guard 条件</th>
+              <th style="padding: 8px 12px; text-align: left; color: #61afef; border-bottom: 1px solid #333;">业务含义</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 6px 12px; color: #e5c07b;">DRAFT → SENT</td>
+              <td style="padding: 6px 12px; color: #98c379;">planned_qty > 0 AND supplier_id IS NOT NULL</td>
+              <td style="padding: 6px 12px; color: #888;">必须有数量和供应商</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 6px 12px; color: #e5c07b;">SENT → RECEIVED</td>
+              <td style="padding: 6px 12px; color: #98c379;">received_qty > 0</td>
+              <td style="padding: 6px 12px; color: #888;">核心路径，可直接收货</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 6px 12px; color: #e5c07b;">SENT → IN_PRODUCTION</td>
+              <td style="padding: 6px 12px; color: #98c379;">TrackingNode(SUPPLIER_RECEIVED) exists</td>
+              <td style="padding: 6px 12px; color: #888;">可选，追踪节点副作用触发</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 6px 12px; color: #e5c07b;">IN_PRODUCTION → DELIVERED</td>
+              <td style="padding: 6px 12px; color: #98c379;">TrackingNode(SHIPPED) exists</td>
+              <td style="padding: 6px 12px; color: #888;">可选，追踪节点副作用触发</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 6px 12px; color: #e5c07b;">DELIVERED → RECEIVED</td>
+              <td style="padding: 6px 12px; color: #98c379;">received_qty > 0</td>
+              <td style="padding: 6px 12px; color: #888;">可选路径的终点</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 6px 12px; color: #e5c07b;">RECEIVED → CLOSED</td>
+              <td style="padding: 6px 12px; color: #98c379;">completed_qty >= planned_qty</td>
+              <td style="padding: 6px 12px; color: #888;">全部收货完成</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222;">
+              <td style="padding: 6px 12px; color: #e5c07b;">DRAFT/SENT → CONVERTED_TO_INTERNAL</td>
+              <td style="padding: 6px 12px; color: #98c379;">outsourcing_type IN (FULL, PROCESS)</td>
+              <td style="padding: 6px 12px; color: #888;">仅全委外/工序委外可转自制</td>
+            </tr>
+            <tr>
+              <td style="padding: 6px 12px; color: #e5c07b;">DRAFT → CANCELLED</td>
+              <td style="padding: 6px 12px; color: #98c379;">status == DRAFT</td>
+              <td style="padding: 6px 12px; color: #888;">仅草稿可取消</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Event Payloads -->
+    <div style="border: 2px solid #d19a66; border-radius: 8px; padding: 14px; background: rgba(209,154,102,0.05); margin-bottom: 20px;">
+      <h4 style="color: #d19a66; margin: 0 0 8px 0;">领域事件 Payload 定义</h4>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">EventBus.publish() 发布的事件 payload 关键字段，实现时定义强类型结构体</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px;">
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#d19a66;">OutsourcingSent</span><br>
+          <span style="color:#888;">// send() 成功后发布</span><br>
+          {<br>
+          &nbsp;&nbsp;outsourcing_id: i64<br>
+          &nbsp;&nbsp;doc_number: String<br>
+          &nbsp;&nbsp;supplier_id: i64<br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;planned_qty: Decimal<br>
+          &nbsp;&nbsp;virtual_warehouse_id: i64<br>
+          &nbsp;&nbsp;material_ids: Vec&lt;i64&gt;<br>
+          }
+        </div>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#d19a66;">OutsourcingReceived</span><br>
+          <span style="color:#888;">// receive() 成功后发布</span><br>
+          {<br>
+          &nbsp;&nbsp;outsourcing_id: i64<br>
+          &nbsp;&nbsp;doc_number: String<br>
+          &nbsp;&nbsp;received_qty: Decimal<br>
+          &nbsp;&nbsp;iqc_passed_qty: Decimal<br>
+          &nbsp;&nbsp;warehouse_id: i64<br>
+          &nbsp;&nbsp;supplier_id: i64<br>
+          &nbsp;&nbsp;unit_price: Decimal<br>
+          }
+        </div>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#d19a66;">OutsourcingConvertedToInternal</span><br>
+          <span style="color:#888;">// convert_to_internal() 后发布</span><br>
+          {<br>
+          &nbsp;&nbsp;outsourcing_id: i64<br>
+          &nbsp;&nbsp;doc_number: String<br>
+          &nbsp;&nbsp;new_work_order_id: i64<br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;planned_qty: Decimal<br>
+          &nbsp;&nbsp;remaining_materials: Vec&lt;MaterialRemain&gt;<br>
           }
         </div>
       </div>
@@ -317,12 +569,15 @@ classDiagram
     <div style="padding: 12px; background: rgba(224,108,117,0.1); border-radius: 6px;">
       <h3 style="margin: 0 0 8px 0; color: #e06c75;">OM 模块 × 跨模块交互汇总</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
-        <span style="color:#6c8bef;">MES.WorkOrderService</span> → 委外单来源（工单→委外） | 转自制时创建内部工单<br>
-        <span style="color:#6bc76b;">WMS.InventoryTransferService</span> → 发外协=调拨到虚拟仓 | 收回=从虚拟仓调回<br>
+        <span style="color:#6c8bef;">MES.WorkOrderService</span> → 委外单来源（工单→委外） | 转自制时同步创建内部工单（InCallerTx）<br>
+        <span style="color:#6bc76b;">WMS.InventoryTransferService</span> → 发外协=调拨到虚拟仓 | 收回=从虚拟仓调回（InCallerTx）<br>
         <span style="color:#e5a655;">SRM.SupplierService</span> → 委外供应商信息引用<br>
         <span style="color:#56b6c2;">QMS.InspectionResultService</span> → 委外收货自动触发 IQC 检验<br>
-        <span style="color:#e06c75;">CostEntry</span> → 外协收货时记外协成本(借:在制品/贷:应付外协费)<br>
-        <span style="color:#c678dd;">DocumentLink</span> → 委外单↔工单 | 委外单↔追踪节点 | 委外单↔调拨单
+        <span style="color:#e06c75;">CostEntryService</span> → 外协收货时记外协成本(借:在制品/贷:应付外协费)<br>
+        <span style="color:#c678dd;">DocumentLinkService</span> → 委外单↔工单 | 委外单↔追踪节点 | 委外单↔调拨单<br>
+        <span style="color:#98c379;">StateMachineService</span> → OutsourcingStatus 状态转换管理 | guard_condition 校验<br>
+        <span style="color:#98c379;">AuditLogService</span> → 关键操作审计日志记录<br>
+        <span style="color:#98c379;">DomainEventBus</span> → OutsourcingSent / OutsourcingReceived / OutsourcingConvertedToInternal / OutsourcingCancelled
       </div>
     </div>
 

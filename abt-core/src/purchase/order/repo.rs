@@ -7,7 +7,7 @@ use super::model::{
     PurchaseOrderQuery,
 };
 use crate::purchase::enums::PurchaseOrderStatus;
-use crate::shared::types::pagination::PageParams;
+use crate::shared::types::pagination::{DataScope, PageParams};
 
 pub struct PurchaseOrderRepo;
 
@@ -64,29 +64,38 @@ impl PurchaseOrderRepo {
         .await
     }
 
-    /// 动态条件分页查询
+    /// 动态条件分页查询（支持 DataScope 行级权限过滤）
     pub async fn query(
         executor: &mut sqlx::postgres::PgConnection,
         q: &PurchaseOrderQuery,
         page: &PageParams,
+        scope: (DataScope, i64, Option<i64>),
     ) -> Result<(Vec<PurchaseOrder>, u64), sqlx::Error> {
-        let where_clause = "
-            WHERE deleted_at IS NULL
+        let (data_scope, operator_id, _department_id) = scope;
+        let scope_clause = match data_scope {
+            DataScope::SelfOnly => "AND operator_id = $7",
+            _ => "",
+        };
+        let where_clause = format!(
+            "WHERE deleted_at IS NULL
               AND ($1::bigint IS NULL OR supplier_id = $1)
               AND ($2::smallint IS NULL OR status = $2)
               AND ($3::date IS NULL OR order_date >= $3)
               AND ($4::date IS NULL OR order_date <= $4)
-        ";
+              {scope_clause}"
+        );
 
         // Count
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM purchase_orders {where_clause}");
-        let count_row = sqlx::query(&count_sql)
+        let mut count_query = sqlx::query(&count_sql)
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.order_date_start)
-            .bind(q.order_date_end)
-            .fetch_one(&mut *executor)
-            .await?;
+            .bind(q.order_date_end);
+        if matches!(data_scope, DataScope::SelfOnly) {
+            count_query = count_query.bind(operator_id);
+        }
+        let count_row = count_query.fetch_one(&mut *executor).await?;
         let total: i64 = count_row.try_get("cnt")?;
 
         // Data
@@ -100,15 +109,17 @@ impl PurchaseOrderRepo {
              ORDER BY created_at DESC
              LIMIT $5 OFFSET $6"
         );
-        let rows = sqlx::query_as::<_, PurchaseOrder>(&data_sql)
+        let mut data_query = sqlx::query_as::<_, PurchaseOrder>(&data_sql)
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.order_date_start)
             .bind(q.order_date_end)
             .bind(limit)
-            .bind(offset)
-            .fetch_all(&mut *executor)
-            .await?;
+            .bind(offset);
+        if matches!(data_scope, DataScope::SelfOnly) {
+            data_query = data_query.bind(operator_id);
+        }
+        let rows = data_query.fetch_all(&mut *executor).await?;
 
         Ok((rows, total as u64))
     }
@@ -191,6 +202,31 @@ impl PurchaseOrderItemRepo {
             "#,
         )
         .bind(order_id)
+        .fetch_all(executor)
+        .await
+    }
+
+    /// 按供应商查询所有已收货（Confirmed/PartiallyReceived/Received）订单明细
+    pub async fn list_received_by_supplier(
+        executor: &mut sqlx::postgres::PgConnection,
+        supplier_id: i64,
+    ) -> Result<Vec<PurchaseOrderItem>, sqlx::Error> {
+        sqlx::query_as::<_, PurchaseOrderItem>(
+            r#"
+            SELECT poi.id, poi.order_id, poi.line_no, poi.product_id, poi.description,
+                   poi.quantity, poi.unit_price, poi.amount, poi.received_qty,
+                   poi.inspected_qty, poi.returned_qty, poi.quotation_item_id,
+                   poi.expected_delivery_date
+            FROM purchase_order_items poi
+            JOIN purchase_orders po ON po.id = poi.order_id
+            WHERE po.supplier_id = $1
+              AND po.status IN (2, 3, 4)
+              AND po.deleted_at IS NULL
+              AND poi.received_qty > 0
+            ORDER BY po.order_date, poi.line_no
+            "#,
+        )
+        .bind(supplier_id)
         .fetch_all(executor)
         .await
     }

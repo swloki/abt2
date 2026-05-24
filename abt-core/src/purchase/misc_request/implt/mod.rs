@@ -14,6 +14,7 @@ use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::idempotency::service::IdempotencyService;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -27,6 +28,8 @@ pub struct MiscellaneousRequestServiceImpl {
     state_machine: Arc<dyn StateMachineService>,
     event_bus: Arc<dyn DomainEventBus>,
     audit_log: Arc<dyn AuditLogService>,
+    #[allow(dead_code)]
+    idempotency: Arc<dyn IdempotencyService>,
 }
 
 impl MiscellaneousRequestServiceImpl {
@@ -36,8 +39,9 @@ impl MiscellaneousRequestServiceImpl {
         state_machine: Arc<dyn StateMachineService>,
         event_bus: Arc<dyn DomainEventBus>,
         audit_log: Arc<dyn AuditLogService>,
+        idempotency: Arc<dyn IdempotencyService>,
     ) -> Self {
-        Self { pool, doc_seq, state_machine, event_bus, audit_log }
+        Self { pool, doc_seq, state_machine, event_bus, audit_log, idempotency }
     }
 }
 
@@ -47,7 +51,9 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateMiscRequestRequest,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
+        let _ = idempotency_key;
         // 1. 生成单据编号
         let doc_number = self.doc_seq
             .next_number(ctx.reborrow(), DocumentType::MiscellaneousRequest)
@@ -103,7 +109,9 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
+        idempotency_key: Option<String>,
     ) -> Result<(), DomainError> {
+        let _ = idempotency_key;
         // 1. 状态转换 Draft -> Approved
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Approved", None)

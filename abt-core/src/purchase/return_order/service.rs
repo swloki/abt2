@@ -10,9 +10,10 @@ pub trait PurchaseReturnService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreatePurchaseReturnRequest,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError>;
 
     async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PurchaseReturn, DomainError>;
 
-    async fn confirm(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn confirm(&self, ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError>;
 }

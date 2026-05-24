@@ -11,17 +11,19 @@ pub trait PurchaseOrderService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreatePurchaseOrderRequest,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError>;
 
     async fn create_from_quotation(
         &self,
         ctx: ServiceContext<'_>,
         quotation_id: i64,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError>;
 
     async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PurchaseOrder, DomainError>;
 
-    async fn confirm(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn confirm(&self, ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError>;
 
     async fn list(
         &self,

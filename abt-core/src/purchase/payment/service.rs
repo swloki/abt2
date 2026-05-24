@@ -10,16 +10,18 @@ pub trait PaymentRequestService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreatePaymentRequestRequest,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError>;
 
     async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PaymentRequest, DomainError>;
 
-    async fn approve(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn approve(&self, ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError>;
 
     async fn mark_paid_by_fms(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
         payment_doc_no: String,
+        idempotency_key: Option<String>,
     ) -> Result<(), DomainError>;
 }

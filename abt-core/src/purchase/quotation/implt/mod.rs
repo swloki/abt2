@@ -14,6 +14,7 @@ use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::idempotency::service::IdempotencyService;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -28,6 +29,8 @@ pub struct PurchaseQuotationServiceImpl {
     state_machine: Arc<dyn StateMachineService>,
     event_bus: Arc<dyn DomainEventBus>,
     audit_log: Arc<dyn AuditLogService>,
+    #[allow(dead_code)]
+    idempotency: Arc<dyn IdempotencyService>,
 }
 
 impl PurchaseQuotationServiceImpl {
@@ -37,8 +40,9 @@ impl PurchaseQuotationServiceImpl {
         state_machine: Arc<dyn StateMachineService>,
         event_bus: Arc<dyn DomainEventBus>,
         audit_log: Arc<dyn AuditLogService>,
+        idempotency: Arc<dyn IdempotencyService>,
     ) -> Self {
-        Self { pool, doc_seq, state_machine, event_bus, audit_log }
+        Self { pool, doc_seq, state_machine, event_bus, audit_log, idempotency }
     }
 }
 
@@ -48,7 +52,9 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreatePurchaseQuotationRequest,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
+        let _ = idempotency_key;
         // 1. 生成单据编号
         let doc_number = self.doc_seq
             .next_number(ctx.reborrow(), DocumentType::PurchaseQuotation)
@@ -98,7 +104,9 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
+        idempotency_key: Option<String>,
     ) -> Result<(), DomainError> {
+        let _ = idempotency_key;
         // 1. 状态转换 Draft -> Active
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Active", None)
@@ -132,7 +140,8 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         query: PurchaseQuotationQuery,
     ) -> Result<PaginatedResult<PurchaseQuotation>, DomainError> {
         let params = PageParams::new(1, 20);
-        let (items, total) = PurchaseQuotationRepo::query(&mut *ctx.executor, &query, &params)
+        let scope = (ctx.data_scope, ctx.operator_id, ctx.department_id);
+        let (items, total) = PurchaseQuotationRepo::query(&mut *ctx.executor, &query, &params, scope)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 

@@ -1,12 +1,14 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use rust_decimal::Decimal;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
 use super::model::{CreatePaymentRequestRequest, PaymentRequest};
 use super::repo::PaymentRequestRepo;
 use super::service::PaymentRequestService;
+use crate::purchase::reconciliation::repo::PurchaseReconciliationRepo;
 use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::audit::AuditAction;
@@ -14,11 +16,24 @@ use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::idempotency::service::IdempotencyService;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 
 const ENTITY_TYPE: &str = "PaymentRequest";
+
+/// 三单匹配容差率 ±0.5%
+const TOLERANCE_RATE: Decimal = Decimal::from_parts(5, 0, 0, false, 3); // 0.005
+
+fn within_tolerance(a: Decimal, b: Decimal) -> bool {
+    if b == Decimal::ZERO {
+        return a == Decimal::ZERO;
+    }
+    let diff = (a - b).abs();
+    let threshold = b * TOLERANCE_RATE;
+    diff <= threshold
+}
 
 pub struct PaymentRequestServiceImpl {
     #[allow(dead_code)]
@@ -27,6 +42,8 @@ pub struct PaymentRequestServiceImpl {
     state_machine: Arc<dyn StateMachineService>,
     event_bus: Arc<dyn DomainEventBus>,
     audit_log: Arc<dyn AuditLogService>,
+    #[allow(dead_code)]
+    idempotency: Arc<dyn IdempotencyService>,
 }
 
 impl PaymentRequestServiceImpl {
@@ -36,6 +53,7 @@ impl PaymentRequestServiceImpl {
         state_machine: Arc<dyn StateMachineService>,
         event_bus: Arc<dyn DomainEventBus>,
         audit_log: Arc<dyn AuditLogService>,
+        idempotency: Arc<dyn IdempotencyService>,
     ) -> Self {
         Self {
             pool,
@@ -43,6 +61,7 @@ impl PaymentRequestServiceImpl {
             state_machine,
             event_bus,
             audit_log,
+            idempotency,
         }
     }
 }
@@ -53,14 +72,34 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreatePaymentRequestRequest,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
-        // 1. 三单匹配校验：发票金额 vs 申请金额（简化版）
+        let _ = idempotency_key;
+        // 1. 三单匹配校验
+        // 1a. 若关联对账单，查对账单 confirmed_amount 作为收货侧金额
+        if let Some(recon_id) = req.reconciliation_id {
+            let recon = PurchaseReconciliationRepo::get_by_id(&mut *ctx.executor, recon_id)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?
+                .ok_or_else(|| DomainError::not_found("PurchaseReconciliation"))?;
+
+            // 付款金额 vs 对账确认金额（收货侧）容差校验
+            if !within_tolerance(req.amount, recon.confirmed_amount) {
+                return Err(DomainError::validation(format!(
+                    "付款金额 {} 与对账确认金额 {} 偏差超过容差 ±0.5%",
+                    req.amount, recon.confirmed_amount
+                )));
+            }
+        }
+
+        // 1b. 发票金额 vs 付款金额容差校验
         if let Some(invoice_amount) = req.invoice_amount
-            && invoice_amount < req.amount
+            && !within_tolerance(req.amount, invoice_amount)
         {
-            return Err(DomainError::validation(
-                "付款申请金额不能超过发票金额",
-            ));
+            return Err(DomainError::validation(format!(
+                "付款金额 {} 与发票金额 {} 偏差超过容差 ±0.5%",
+                req.amount, invoice_amount
+            )));
         }
 
         // 2. 生成单据编号
@@ -101,7 +140,8 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn approve(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn approve(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
+        let _ = idempotency_key;
         // 1. 状态转换 Draft -> Approved
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Approved", None)
@@ -134,7 +174,9 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         payment_doc_no: String,
+        idempotency_key: Option<String>,
     ) -> Result<(), DomainError> {
+        let _ = idempotency_key;
         // 1. 获取当前记录（用于乐观锁）
         let payment = PaymentRequestRepo::get_by_id(&mut *ctx.executor, id)
             .await

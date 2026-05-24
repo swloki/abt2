@@ -10,9 +10,10 @@ pub trait MiscellaneousRequestService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateMiscRequestRequest,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError>;
 
     async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<MiscellaneousRequest, DomainError>;
 
-    async fn approve(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn approve(&self, ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError>;
 }

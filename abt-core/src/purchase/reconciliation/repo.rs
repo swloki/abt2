@@ -186,6 +186,24 @@ impl PurchaseReconItemRepo {
         .fetch_all(executor)
         .await
     }
+
+    /// 确认单条对账明细（confirmed = true）
+    pub async fn confirm_item(
+        executor: &mut sqlx::postgres::PgConnection,
+        item_id: i64,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            UPDATE purchase_recon_items
+            SET confirmed = true
+            WHERE id = $1
+            "#,
+        )
+        .bind(item_id)
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
 }
 
 /// 对账明细插入参数（由 service 层构建）

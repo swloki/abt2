@@ -13,11 +13,12 @@ pub trait PurchaseQuotationService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreatePurchaseQuotationRequest,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError>;
 
     async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PurchaseQuotation, DomainError>;
 
-    async fn activate(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn activate(&self, ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError>;
 
     async fn list(
         &self,

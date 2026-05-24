@@ -19,6 +19,7 @@ use crate::shared::enums::event::DomainEventType;
 use crate::shared::enums::link_type::LinkType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::idempotency::service::IdempotencyService;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -33,6 +34,8 @@ pub struct PurchaseReturnServiceImpl {
     event_bus: Arc<dyn DomainEventBus>,
     audit_log: Arc<dyn AuditLogService>,
     doc_link: Arc<dyn DocumentLinkService>,
+    #[allow(dead_code)]
+    idempotency: Arc<dyn IdempotencyService>,
 }
 
 impl PurchaseReturnServiceImpl {
@@ -43,6 +46,7 @@ impl PurchaseReturnServiceImpl {
         event_bus: Arc<dyn DomainEventBus>,
         audit_log: Arc<dyn AuditLogService>,
         doc_link: Arc<dyn DocumentLinkService>,
+        idempotency: Arc<dyn IdempotencyService>,
     ) -> Self {
         Self {
             pool,
@@ -51,6 +55,7 @@ impl PurchaseReturnServiceImpl {
             event_bus,
             audit_log,
             doc_link,
+            idempotency,
         }
     }
 }
@@ -61,7 +66,9 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreatePurchaseReturnRequest,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
+        let _ = idempotency_key;
         // 1. 验证关联订单存在
         let _order = PurchaseOrderRepo::get_by_id(&mut *ctx.executor, req.order_id)
             .await
@@ -135,7 +142,8 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
+        let _ = idempotency_key;
         // 1. 状态转换 Draft -> Confirmed
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Confirmed", None)

@@ -17,6 +17,7 @@ use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::idempotency::service::IdempotencyService;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -30,6 +31,8 @@ pub struct PurchaseReconciliationServiceImpl {
     state_machine: Arc<dyn StateMachineService>,
     event_bus: Arc<dyn DomainEventBus>,
     audit_log: Arc<dyn AuditLogService>,
+    #[allow(dead_code)]
+    idempotency: Arc<dyn IdempotencyService>,
 }
 
 impl PurchaseReconciliationServiceImpl {
@@ -39,6 +42,7 @@ impl PurchaseReconciliationServiceImpl {
         state_machine: Arc<dyn StateMachineService>,
         event_bus: Arc<dyn DomainEventBus>,
         audit_log: Arc<dyn AuditLogService>,
+        idempotency: Arc<dyn IdempotencyService>,
     ) -> Self {
         Self {
             pool,
@@ -46,6 +50,7 @@ impl PurchaseReconciliationServiceImpl {
             state_machine,
             event_bus,
             audit_log,
+            idempotency,
         }
     }
 }
@@ -57,7 +62,9 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         mut ctx: ServiceContext<'_>,
         supplier_id: i64,
         period: String,
+        idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
+        let _ = idempotency_key;
         // 1. 生成单据编号
         let doc_number = self
             .doc_seq
@@ -139,7 +146,8 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
+        let _ = idempotency_key;
         // 1. 获取对账单及明细
         let recon = PurchaseReconciliationRepo::get_by_id(&mut *ctx.executor, id)
             .await

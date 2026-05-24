@@ -6,7 +6,7 @@ use super::model::{
     PurchaseQuotationItem, PurchaseQuotationQuery, QuotationComparison,
 };
 use crate::purchase::enums::PurchaseQuotationStatus;
-use crate::shared::types::pagination::PageParams;
+use crate::shared::types::pagination::{DataScope, PageParams};
 
 pub struct PurchaseQuotationRepo;
 
@@ -58,29 +58,58 @@ impl PurchaseQuotationRepo {
         .await
     }
 
-    /// 动态条件分页查询
+    /// 通过报价明细 id 反查关联的报价单
+    pub async fn get_by_item_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        quotation_item_id: i64,
+    ) -> Result<Option<PurchaseQuotation>, sqlx::Error> {
+        sqlx::query_as::<_, PurchaseQuotation>(
+            r#"
+            SELECT q.id, q.doc_number, q.supplier_id, q.quotation_date, q.valid_from,
+                   q.valid_until, q.status, q.remark, q.operator_id,
+                   q.created_at, q.updated_at, q.deleted_at
+            FROM purchase_quotations q
+            JOIN purchase_quotation_items qi ON qi.quotation_id = q.id
+            WHERE qi.id = $1 AND q.deleted_at IS NULL
+            "#,
+        )
+        .bind(quotation_item_id)
+        .fetch_optional(executor)
+        .await
+    }
+
+    /// 动态条件分页查询（支持 DataScope 行级权限过滤）
     pub async fn query(
         executor: &mut sqlx::postgres::PgConnection,
         q: &PurchaseQuotationQuery,
         page: &PageParams,
+        scope: (DataScope, i64, Option<i64>),
     ) -> Result<(Vec<PurchaseQuotation>, u64), sqlx::Error> {
-        let where_clause = "
-            WHERE deleted_at IS NULL
+        let (data_scope, operator_id, _department_id) = scope;
+        let scope_clause = match data_scope {
+            DataScope::SelfOnly => "AND operator_id = $7",
+            _ => "",
+        };
+        let where_clause = format!(
+            "WHERE deleted_at IS NULL
               AND ($1::bigint IS NULL OR supplier_id = $1)
               AND ($2::smallint IS NULL OR status = $2)
               AND ($3::date IS NULL OR quotation_date >= $3)
               AND ($4::date IS NULL OR quotation_date <= $4)
-        ";
+              {scope_clause}"
+        );
 
         // Count
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM purchase_quotations {where_clause}");
-        let count_row = sqlx::query(&count_sql)
+        let mut count_query = sqlx::query(&count_sql)
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.quotation_date_start)
-            .bind(q.quotation_date_end)
-            .fetch_one(&mut *executor)
-            .await?;
+            .bind(q.quotation_date_end);
+        if matches!(data_scope, DataScope::SelfOnly) {
+            count_query = count_query.bind(operator_id);
+        }
+        let count_row = count_query.fetch_one(&mut *executor).await?;
         let total: i64 = count_row.try_get("cnt")?;
 
         // Data
@@ -93,15 +122,17 @@ impl PurchaseQuotationRepo {
              ORDER BY created_at DESC
              LIMIT $5 OFFSET $6"
         );
-        let rows = sqlx::query_as::<_, PurchaseQuotation>(&data_sql)
+        let mut data_query = sqlx::query_as::<_, PurchaseQuotation>(&data_sql)
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.quotation_date_start)
             .bind(q.quotation_date_end)
             .bind(limit)
-            .bind(offset)
-            .fetch_all(&mut *executor)
-            .await?;
+            .bind(offset);
+        if matches!(data_scope, DataScope::SelfOnly) {
+            data_query = data_query.bind(operator_id);
+        }
+        let rows = data_query.fetch_all(&mut *executor).await?;
 
         Ok((rows, total as u64))
     }

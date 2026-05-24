@@ -138,7 +138,7 @@ impl DocumentType {
             Self::Rma => "RMA",
             // FMS 财务
             Self::CashJournal => "CJ",
-            Self::WriteOff => "WO",
+            Self::WriteOff => "WOF",
             Self::ExpenseReimbursement => "ER",
             // Master Data — Timestamp 策略
             Self::Product => "x",

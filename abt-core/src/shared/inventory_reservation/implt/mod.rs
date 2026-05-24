@@ -7,6 +7,7 @@ use sqlx::postgres::PgPool;
 use super::model::ReserveRequest;
 use super::repo::InventoryReservationRepo;
 use super::service::InventoryReservationService;
+use crate::shared::enums::DocumentType;
 use crate::shared::types::batch::{BatchFailure, BatchResult};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -100,5 +101,28 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
         InventoryReservationRepo::total_reserved(&mut *ctx.executor, product_id, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn cancel_by_source(
+        &self,
+        ctx: ServiceContext<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+    ) -> Result<u64, DomainError> {
+        InventoryReservationRepo::cancel_by_source(&mut *ctx.executor, source_type, source_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn fulfill_by_source_line(
+        &self,
+        ctx: ServiceContext<'_>,
+        source_type: DocumentType,
+        source_line_id: i64,
+    ) -> Result<(), DomainError> {
+        InventoryReservationRepo::fulfill_by_source_line(&mut *ctx.executor, source_type, source_line_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(())
     }
 }

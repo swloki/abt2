@@ -44,6 +44,17 @@ pub enum DomainEventType {
     SupplierCreated = 30,
     SupplierBlacklisted = 31,
     SupplierBankAccountChanged = 32,
+    // Sales — Quotation
+    QuotationCreated = 33,
+    QuotationSubmitted = 34,
+    QuotationAccepted = 35,
+    QuotationRejected = 36,
+    QuotationExpired = 37,
+    // Sales — Order
+    SalesOrderCreated = 38,
+    SalesOrderCancelled = 39,
+    // Sales — Shipping
+    ShipmentShipped = 40,
 }
 
 impl DomainEventType {
@@ -67,6 +78,11 @@ impl DomainEventType {
             29 => Some(Self::CustomerTransferred),
             30 => Some(Self::SupplierCreated), 31 => Some(Self::SupplierBlacklisted),
             32 => Some(Self::SupplierBankAccountChanged),
+            33 => Some(Self::QuotationCreated), 34 => Some(Self::QuotationSubmitted),
+            35 => Some(Self::QuotationAccepted), 36 => Some(Self::QuotationRejected),
+            37 => Some(Self::QuotationExpired),
+            38 => Some(Self::SalesOrderCreated), 39 => Some(Self::SalesOrderCancelled),
+            40 => Some(Self::ShipmentShipped),
             _ => None,
         }
     }

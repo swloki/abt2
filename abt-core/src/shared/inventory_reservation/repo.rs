@@ -2,7 +2,7 @@ use rust_decimal::Decimal;
 use sqlx::{FromRow, Row};
 
 use super::model::{InventoryReservation, ReserveRequest};
-use crate::shared::enums::ReservationStatus;
+use crate::shared::enums::{DocumentType, ReservationStatus};
 
 pub struct InventoryReservationRepo;
 
@@ -120,5 +120,51 @@ impl InventoryReservationRepo {
 
         let total: Decimal = row.try_get("total")?;
         Ok(total)
+    }
+
+    /// 按来源取消全部 Active 预留
+    pub async fn cancel_by_source(
+        executor: &mut sqlx::postgres::PgConnection,
+        source_type: DocumentType,
+        source_id: i64,
+    ) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query(
+            r#"
+            UPDATE inventory_reservations
+            SET status = $1
+            WHERE source_type = $2 AND source_id = $3 AND status = $4
+            "#,
+        )
+        .bind(ReservationStatus::Cancelled)
+        .bind(source_type)
+        .bind(source_id)
+        .bind(ReservationStatus::Active)
+        .execute(&mut *executor)
+        .await?;
+
+        Ok(result.rows_affected())
+    }
+
+    /// 按来源行履行 Active 预留
+    pub async fn fulfill_by_source_line(
+        executor: &mut sqlx::postgres::PgConnection,
+        source_type: DocumentType,
+        source_line_id: i64,
+    ) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query(
+            r#"
+            UPDATE inventory_reservations
+            SET status = $1
+            WHERE source_type = $2 AND source_line_id = $3 AND status = $4
+            "#,
+        )
+        .bind(ReservationStatus::Fulfilled)
+        .bind(source_type)
+        .bind(source_line_id)
+        .bind(ReservationStatus::Active)
+        .execute(&mut *executor)
+        .await?;
+
+        Ok(result.rows_affected())
     }
 }

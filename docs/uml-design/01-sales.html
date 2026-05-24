@@ -82,6 +82,7 @@ classDiagram
         Inspecting
         Completed
         Cancelled
+        Rejected
     }
 
     class ReturnDisposition {
@@ -145,7 +146,9 @@ classDiagram
         +order_date: Date
         +status: SalesOrderStatus
         +total_amount: Decimal
+        +total_cost: Decimal
         +payment_terms: String
+        +delivery_terms: String
         +delivery_address: String
         +remark: String
         +operator_id: i64
@@ -161,9 +164,12 @@ classDiagram
         +product_id: i64
         +description: String
         +quantity: Decimal
+        +unit: String
         +unit_price: Decimal
+        +unit_cost: Decimal
+        +discount_rate: Decimal
         +amount: Decimal
-        +delivered_qty: Decimal
+        +shipped_qty: Decimal
         +returned_qty: Decimal
         +delivery_date: Option~Date~
     }
@@ -188,12 +194,14 @@ classDiagram
 
     class ShippingRequestItem {
         +id: i64
-        +request_id: i64
+        +shipping_request_id: i64
+        +line_no: i32
         +order_item_id: i64
         +product_id: i64
         +requested_qty: Decimal
         +shipped_qty: Decimal
         +warehouse_id: i64
+        +description: String
     }
 
     class SalesReturn {
@@ -310,6 +318,7 @@ classDiagram
         +receive(ctx: ServiceContext, id) Result~Unit~
         +complete(ctx: ServiceContext, id) Result~Unit~
         +reject(ctx: ServiceContext, id) Result~Unit~
+        +cancel(ctx: ServiceContext, id) Result~Unit~
         +inspect(ctx: ServiceContext, id) Result~Unit~
         +list(filter) PaginatedResult~SalesReturn~
     }
@@ -442,7 +451,9 @@ classDiagram
           &nbsp;&nbsp;order_date: Date<br>
           &nbsp;&nbsp;status: SalesOrderStatus<br>
           &nbsp;&nbsp;total_amount: Decimal(20,4)<br>
+          &nbsp;&nbsp;total_cost: Decimal(20,4) <span style="color:#888;">// BOM展开成本</span><br>
           &nbsp;&nbsp;payment_terms: String<br>
+          &nbsp;&nbsp;delivery_terms: String <span style="color:#888;">// 交货条款</span><br>
           &nbsp;&nbsp;delivery_address: String<br>
           &nbsp;&nbsp;remark: String<br>
           &nbsp;&nbsp;operator_id: i64 <span style="color:#888;">FK→users</span><br>
@@ -457,9 +468,12 @@ classDiagram
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;description: String<br>
           &nbsp;&nbsp;quantity: Decimal(18,6)<br>
+          &nbsp;&nbsp;unit: String<br>
           &nbsp;&nbsp;unit_price: Decimal(18,6)<br>
+          &nbsp;&nbsp;unit_cost: Decimal(18,6) <span style="color:#888;">// BOM展开成本</span><br>
+          &nbsp;&nbsp;discount_rate: Decimal(5,2)<br>
           &nbsp;&nbsp;amount: Decimal(20,4)<br>
-          &nbsp;&nbsp;delivered_qty: Decimal(18,6) <span style="color:#888;">// 已发货量</span><br>
+          &nbsp;&nbsp;shipped_qty: Decimal(18,6) <span style="color:#888;">// 已发货量</span><br>
           &nbsp;&nbsp;returned_qty: Decimal(18,6) <span style="color:#888;">// 已退货量</span><br>
           &nbsp;&nbsp;delivery_date: Date?<br>
           }<br><br>
@@ -498,12 +512,14 @@ classDiagram
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ShippingRequestItem</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
-          &nbsp;&nbsp;request_id: i64 <span style="color:#888;">FK→shipping_requests</span><br>
+          &nbsp;&nbsp;shipping_request_id: i64 <span style="color:#888;">FK→shipping_requests</span><br>
+          &nbsp;&nbsp;line_no: i32<br>
           &nbsp;&nbsp;order_item_id: i64 <span style="color:#888;">FK→sales_order_items</span><br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;requested_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;shipped_qty: Decimal(18,6) <span style="color:#888;">// 实际出库量</span><br>
           &nbsp;&nbsp;warehouse_id: i64 <span style="color:#888;">FK→warehouses</span><br>
+          &nbsp;&nbsp;description: String<br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ShippingStatus</span> {<br>
           &nbsp;&nbsp;DRAFT, CONFIRMED, PICKING, SHIPPED<br>
@@ -548,7 +564,7 @@ classDiagram
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ReturnStatus</span> {<br>
           &nbsp;&nbsp;DRAFT, CONFIRMED, RECEIVED, INSPECTING<br>
-          &nbsp;&nbsp;COMPLETED, CANCELLED<br>
+          &nbsp;&nbsp;COMPLETED, CANCELLED, REJECTED<br>
           &nbsp;&nbsp;}<br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ReturnDisposition</span> {<br>
           &nbsp;&nbsp;RESTOCK, SCRAP, REWORK<br>

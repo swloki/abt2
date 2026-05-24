@@ -1,4 +1,4 @@
-/// 32 种领域事件
+/// 37 种领域事件
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i16)]
 pub enum DomainEventType {
@@ -44,6 +44,12 @@ pub enum DomainEventType {
     SupplierCreated = 30,
     SupplierBlacklisted = 31,
     SupplierBankAccountChanged = 32,
+    // Purchase — additional events
+    PurchaseQuotationActivated = 33,
+    MiscellaneousRequestApproved = 34,
+    PurchaseReturnConfirmed = 35,
+    PurchaseReconciliationConfirmed = 36,
+    PaymentRequestApproved = 37,
 }
 
 impl DomainEventType {
@@ -67,6 +73,11 @@ impl DomainEventType {
             29 => Some(Self::CustomerTransferred),
             30 => Some(Self::SupplierCreated), 31 => Some(Self::SupplierBlacklisted),
             32 => Some(Self::SupplierBankAccountChanged),
+            33 => Some(Self::PurchaseQuotationActivated),
+            34 => Some(Self::MiscellaneousRequestApproved),
+            35 => Some(Self::PurchaseReturnConfirmed),
+            36 => Some(Self::PurchaseReconciliationConfirmed),
+            37 => Some(Self::PaymentRequestApproved),
             _ => None,
         }
     }

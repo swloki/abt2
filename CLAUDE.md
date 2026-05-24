@@ -47,10 +47,13 @@ cargo test -p abt -- test_name  # 运行单个测试
 
 ```
 common/       — 共享类型别名（PgExecutor for sqlx）
-abt/          — 核心业务逻辑库（cdylib + rlib）
+abt/          — 旧核心业务逻辑库（cdylib + rlib），将逐步被 abt-core 取代
+abt-core/     — 新核心业务逻辑库，实现 docs/uml-design/ 中设计的所有新功能
 abt-grpc/     — gRPC 服务端
 proto/        — Protobuf 服务定义
 ```
+
+**`abt` vs `abt-core` 关系**：`docs/uml-design/` 中的设计功能统一在 `abt-core` 中实现，使用独立数据库 `abt_v2`（通过 `ABT_CORE_DATABASE_URL` 环境变量配置）。旧 `abt` crate 的功能后续会被 `abt-core` 逐步替代。**新功能一律在 `abt-core` 中开发，不要修改 `abt` crate。**
 
 ### Layered Design
 

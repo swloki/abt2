@@ -7,15 +7,17 @@ use crate::shared::types::error::DomainError;
 #[async_trait]
 pub trait PaymentRequestService: Send + Sync {
     async fn create(
+        &self,
         ctx: ServiceContext<'_>,
         req: CreatePaymentRequestRequest,
     ) -> Result<i64, DomainError>;
 
-    async fn get(ctx: ServiceContext<'_>, id: i64) -> Result<PaymentRequest, DomainError>;
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PaymentRequest, DomainError>;
 
-    async fn approve(ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn approve(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
 
     async fn mark_paid_by_fms(
+        &self,
         ctx: ServiceContext<'_>,
         id: i64,
         payment_doc_no: String,

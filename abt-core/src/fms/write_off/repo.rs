@@ -1,0 +1,111 @@
+use anyhow::Result;
+use common::PgExecutor;
+use rust_decimal::Decimal;
+
+use super::model::*;
+use crate::shared::enums::document_type::DocumentType;
+use crate::shared::types::PageParams;
+use super::super::enums::WriteOffType;
+
+const WRITE_OFF_COLUMNS: &str = "id, write_off_type, cash_journal_id, source_type, source_id, amount, write_off_date, idempotency_key, operator_id, created_at";
+
+// ---------------------------------------------------------------------------
+// WriteOffRepo
+// ---------------------------------------------------------------------------
+
+pub struct WriteOffRepo;
+
+impl WriteOffRepo {
+    /// Insert a write-off record. Returns the generated id.
+    /// Callers rely on the unique index on idempotency_key for dedup.
+    pub async fn create(
+        executor: PgExecutor<'_>,
+        write_off_type: WriteOffType,
+        req: &WriteOffReq,
+        write_off_date: chrono::NaiveDate,
+        operator_id: i64,
+    ) -> Result<i64> {
+        let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            r#"INSERT INTO write_offs
+               (write_off_type, cash_journal_id, source_type, source_id, amount, write_off_date, idempotency_key, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+               RETURNING id"#,
+        )
+        .bind(write_off_type)
+        .bind(req.cash_journal_id)
+        .bind(req.source_type)
+        .bind(req.source_id)
+        .bind(req.amount)
+        .bind(write_off_date)
+        .bind(&req.idempotency_key)
+        .bind(operator_id)
+        .fetch_one(executor)
+        .await?;
+        Ok(row)
+    }
+
+    /// List write-offs by source document with pagination.
+    /// Returns (items, total_count).
+    pub async fn list_by_source(
+        executor: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+        page: &PageParams,
+    ) -> Result<(Vec<WriteOff>, u64)> {
+        // Count
+        let total: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(*) FROM write_offs WHERE source_type = $1 AND source_id = $2"#,
+        )
+        .bind(source_type)
+        .bind(source_id)
+        .fetch_one(&mut *executor)
+        .await?;
+
+        // Data
+        let items = sqlx::query_as::<sqlx::Postgres, WriteOff>(
+            &format!(
+                "SELECT {WRITE_OFF_COLUMNS} FROM write_offs \
+                 WHERE source_type = $1 AND source_id = $2 \
+                 ORDER BY id DESC LIMIT $3 OFFSET $4"
+            ),
+        )
+        .bind(source_type)
+        .bind(source_id)
+        .bind(page.page_size as i64)
+        .bind(page.offset() as i64)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        Ok((items, total as u64))
+    }
+
+    /// Sum all write-off amounts for a given source document.
+    pub async fn sum_written_off_by_source(
+        executor: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+    ) -> Result<Decimal> {
+        let total: Decimal = sqlx::query_scalar(
+            r#"SELECT COALESCE(SUM(amount), 0) FROM write_offs WHERE source_type = $1 AND source_id = $2"#,
+        )
+        .bind(source_type)
+        .bind(source_id)
+        .fetch_one(executor)
+        .await?;
+        Ok(total)
+    }
+
+    /// Sum all write-off amounts for a given cash journal.
+    pub async fn sum_written_off_by_journal(
+        executor: PgExecutor<'_>,
+        cash_journal_id: i64,
+    ) -> Result<Decimal> {
+        let total: Decimal = sqlx::query_scalar(
+            r#"SELECT COALESCE(SUM(amount), 0) FROM write_offs WHERE cash_journal_id = $1"#,
+        )
+        .bind(cash_journal_id)
+        .fetch_one(executor)
+        .await?;
+        Ok(total)
+    }
+}

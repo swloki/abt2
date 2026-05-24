@@ -13,7 +13,7 @@ impl CategoryRepo {
         category_name: &str,
         parent_id: i64,
         path: &str,
-        meta: &serde_json::Value,
+        meta: &CategoryMeta,
     ) -> Result<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             "INSERT INTO categories (category_name, parent_id, path, meta) VALUES ($1, $2, $3, $4) RETURNING category_id",
@@ -96,6 +96,7 @@ impl CategoryRepo {
         Ok(cats)
     }
 
+    #[allow(unused_assignments)]
     pub async fn query(&self, executor: PgExecutor<'_>, filter: &CategoryQuery, page: &PageParams) -> Result<PaginatedResult<Category>> {
         let mut conditions = vec!["1=1".to_string()];
         let mut param_idx = 1u32;
@@ -179,7 +180,7 @@ impl CategoryRepo {
     }
 
     pub async fn update_meta_count(&self, executor: PgExecutor<'_>, category_id: i64, count: i64) -> Result<()> {
-        let meta = serde_json::to_value(CategoryMeta { count })?;
+        let meta = CategoryMeta { count };
         sqlx::query("UPDATE categories SET meta = $1 WHERE category_id = $2")
             .bind(&meta)
             .bind(category_id)

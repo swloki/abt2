@@ -31,6 +31,7 @@ impl ProductRepo {
         Ok(row)
     }
 
+    #[allow(unused_assignments)]
     pub async fn update(
         &self,
         executor: PgExecutor<'_>,
@@ -45,7 +46,6 @@ impl ProductRepo {
         if req.external_code.is_some() { sets.push(format!("external_code = ${param_idx}")); param_idx += 1; }
         if req.owner_department_id.is_some() { sets.push(format!("owner_department_id = ${param_idx}")); param_idx += 1; }
         if req.meta.is_some() { sets.push(format!("meta = ${param_idx}")); param_idx += 1; }
-        if req.status.is_some() { sets.push(format!("status = ${param_idx}")); param_idx += 1; }
 
         if sets.is_empty() {
             return Ok(());
@@ -63,7 +63,6 @@ impl ProductRepo {
             let json = serde_json::to_value(v)?;
             q = q.bind(json);
         }
-        if let Some(v) = req.status { q = q.bind(v.as_i16()); }
 
         q.execute(executor).await?;
         Ok(())
@@ -100,6 +99,7 @@ impl ProductRepo {
         Ok(products)
     }
 
+    #[allow(unused_assignments)]
     pub async fn query(
         &self,
         executor: PgExecutor<'_>,

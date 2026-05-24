@@ -44,7 +44,7 @@ pub trait BomCommandService: Send + Sync {
         expected_version: i32,
     ) -> Result<(), DomainError>;
     async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
-    async fn publish(&self, ctx: ServiceContext<'_>, id: i64) -> Result<BomSnapshot, DomainError>;
+    async fn publish(&self, ctx: ServiceContext<'_>, id: i64) -> Result<i64, DomainError>;
     async fn unpublish(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
     async fn save_as(
         &self,

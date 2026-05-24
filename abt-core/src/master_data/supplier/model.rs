@@ -73,21 +73,25 @@ impl<'de> serde::Deserialize<'de> for SupplierStatus {
     }
 }
 
-/// Supplier category classification
+/// Supplier category: RawMaterial, Packaging, Outsourcing, Consumable, Service
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i16)]
 pub enum SupplierCategory {
-    Material = 1,
-    Service = 2,
-    Logistics = 3,
+    RawMaterial = 1,
+    Packaging = 2,
+    Outsourcing = 3,
+    Consumable = 4,
+    Service = 5,
 }
 
 impl SupplierCategory {
     pub fn from_i16(v: i16) -> Option<Self> {
         match v {
-            1 => Some(Self::Material),
-            2 => Some(Self::Service),
-            3 => Some(Self::Logistics),
+            1 => Some(Self::RawMaterial),
+            2 => Some(Self::Packaging),
+            3 => Some(Self::Outsourcing),
+            4 => Some(Self::Consumable),
+            5 => Some(Self::Service),
             _ => None,
         }
     }
@@ -139,45 +143,49 @@ impl<'de> serde::Deserialize<'de> for SupplierCategory {
 /// Supplier master entity
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct Supplier {
-    pub supplier_id: i64,
-    pub supplier_code: String,
-    pub supplier_name: String,
+    #[sqlx(rename = "supplier_id")]
+    pub id: i64,
+    #[sqlx(rename = "supplier_code")]
+    pub code: String,
+    #[sqlx(rename = "supplier_name")]
+    pub name: String,
+    pub short_name: Option<String>,
     pub category: SupplierCategory,
     pub status: SupplierStatus,
     pub tax_number: Option<String>,
-    pub remark: Option<String>,
-    pub operator_id: Option<i64>,
-    pub created_at: Option<DateTime<Utc>>,
-    pub updated_at: Option<DateTime<Utc>>,
+    pub lead_time_days: i32,
+    pub payment_terms: Option<String>,
+    pub remark: String,
+    pub operator_id: i64,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
 }
 
 /// Supplier contact person
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct SupplierContact {
-    pub contact_id: i64,
+    #[sqlx(rename = "contact_id")]
+    pub id: i64,
     pub supplier_id: i64,
-    pub contact_name: String,
+    #[sqlx(rename = "contact_name")]
+    pub name: String,
+    pub position: Option<String>,
     pub phone: Option<String>,
     pub email: Option<String>,
-    pub position: Option<String>,
     pub is_primary: bool,
-    pub created_at: Option<DateTime<Utc>>,
-    pub updated_at: Option<DateTime<Utc>>,
 }
 
 /// Supplier bank account
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct SupplierBankAccount {
-    pub account_id: i64,
+    #[sqlx(rename = "account_id")]
+    pub id: i64,
     pub supplier_id: i64,
     pub bank_name: String,
     pub account_name: String,
     pub account_number: String,
-    pub branch: Option<String>,
     pub is_default: bool,
-    pub created_at: Option<DateTime<Utc>>,
-    pub updated_at: Option<DateTime<Utc>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -187,17 +195,23 @@ pub struct SupplierBankAccount {
 #[derive(Debug, Clone)]
 pub struct CreateSupplierReq {
     pub supplier_name: String,
+    pub short_name: Option<String>,
     pub category: SupplierCategory,
     pub tax_number: Option<String>,
+    pub lead_time_days: Option<i32>,
+    pub payment_terms: Option<String>,
     pub remark: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct UpdateSupplierReq {
     pub supplier_name: Option<String>,
+    pub short_name: Option<String>,
     pub category: Option<SupplierCategory>,
     pub status: Option<SupplierStatus>,
     pub tax_number: Option<String>,
+    pub lead_time_days: Option<i32>,
+    pub payment_terms: Option<String>,
     pub remark: Option<String>,
 }
 
@@ -231,7 +245,6 @@ pub struct CreateBankAccountReq {
     pub bank_name: String,
     pub account_name: String,
     pub account_number: String,
-    pub branch: Option<String>,
     pub is_default: bool,
 }
 
@@ -240,12 +253,5 @@ pub struct UpdateBankAccountReq {
     pub bank_name: Option<String>,
     pub account_name: Option<String>,
     pub account_number: Option<String>,
-    pub branch: Option<String>,
     pub is_default: Option<bool>,
-}
-
-#[derive(Debug, Clone)]
-pub struct CreateSupplierResult {
-    pub id: i64,
-    pub warnings: Vec<String>,
 }

@@ -9,7 +9,7 @@ pub trait CustomerService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateCustomerReq,
-    ) -> Result<CreateCustomerResult, DomainError>;
+    ) -> Result<i64, DomainError>;
 
     async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Customer, DomainError>;
 

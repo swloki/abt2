@@ -2,14 +2,31 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// 分类元数据 (JSONB)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CategoryMeta {
     pub count: i64,
 }
 
-impl Default for CategoryMeta {
-    fn default() -> Self {
-        Self { count: 0 }
+impl sqlx::Type<sqlx::Postgres> for CategoryMeta {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        <serde_json::Value as sqlx::Type<sqlx::Postgres>>::type_info()
+    }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Postgres> for CategoryMeta {
+    fn encode_by_ref(
+        &self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
+        let val = serde_json::to_value(self)?;
+        <serde_json::Value as sqlx::Encode<'q, sqlx::Postgres>>::encode_by_ref(&val, buf)
+    }
+}
+
+impl<'r> sqlx::Decode<'r, sqlx::Postgres> for CategoryMeta {
+    fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let val = <serde_json::Value as sqlx::Decode<'r, sqlx::Postgres>>::decode(value)?;
+        Ok(serde_json::from_value(val)?)
     }
 }
 
@@ -20,8 +37,8 @@ pub struct Category {
     pub category_name: String,
     pub parent_id: i64,
     pub path: String,
-    pub meta: serde_json::Value,
-    pub created_at: Option<DateTime<Utc>>,
+    pub meta: CategoryMeta,
+    pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
 }
 

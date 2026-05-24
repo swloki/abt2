@@ -45,6 +45,7 @@ pub enum DocumentType {
     Product = 33,
     Customer = 34,
     Supplier = 35,
+    Bom = 36,
 }
 
 impl DocumentType {
@@ -85,6 +86,7 @@ impl DocumentType {
             33 => Some(Self::Product),
             34 => Some(Self::Customer),
             35 => Some(Self::Supplier),
+            36 => Some(Self::Bom),
             _ => None,
         }
     }
@@ -139,6 +141,7 @@ impl DocumentType {
             Self::Product => "x",
             Self::Customer => "CUS",
             Self::Supplier => "SUP",
+            Self::Bom => "BOM",
         }
     }
 }

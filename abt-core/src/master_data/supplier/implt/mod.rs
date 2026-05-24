@@ -49,11 +49,12 @@ impl SupplierServiceImpl {
 impl SupplierService for SupplierServiceImpl {
     // -- Supplier CRUD ---------------------------------------------------------
 
+    #[allow(clippy::collapsible_if)]
     async fn create(
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateSupplierReq,
-    ) -> Result<CreateSupplierResult, DomainError> {
+    ) -> Result<i64, DomainError> {
         let code = self
             .doc_seq
             .next_number(ctx.reborrow(), DocumentType::Supplier)
@@ -67,7 +68,7 @@ impl SupplierService for SupplierServiceImpl {
                     .repo
                     .check_tax_number_exists(ctx.executor, tax)
                     .await
-                    .map_err(|e| DomainError::Internal(e.into()))?;
+                    .map_err(DomainError::Internal)?;
                 if exists {
                     warnings.push(format!("tax_number '{tax}' already exists in suppliers or customers"));
                 }
@@ -76,9 +77,9 @@ impl SupplierService for SupplierServiceImpl {
 
         let id = self
             .repo
-            .create(ctx.executor, &code, &req, Some(ctx.operator_id))
+            .create(ctx.executor, &code, &req, ctx.operator_id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            .map_err(DomainError::Internal)?;
 
         // Init state machine — Prospective
         self.state_machine
@@ -123,17 +124,18 @@ impl SupplierService for SupplierServiceImpl {
             )
             .await?;
 
-        Ok(CreateSupplierResult { id, warnings })
+        Ok(id)
     }
 
     async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Supplier, DomainError> {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?
+            .map_err(DomainError::Internal)?
             .ok_or_else(|| DomainError::not_found("Supplier"))
     }
 
+    #[allow(clippy::collapsible_if)]
     async fn update(
         &self,
         mut ctx: ServiceContext<'_>,
@@ -144,7 +146,7 @@ impl SupplierService for SupplierServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?
+            .map_err(DomainError::Internal)?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
         // Handle status transition
@@ -186,7 +188,7 @@ impl SupplierService for SupplierServiceImpl {
         self.repo
             .update(ctx.executor, id, &req)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            .map_err(DomainError::Internal)?;
 
         self.audit
             .record(
@@ -211,14 +213,14 @@ impl SupplierService for SupplierServiceImpl {
         self.repo
             .query(ctx.executor, &filter, &page)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))
+            .map_err(DomainError::Internal)
     }
 
     // -- Contacts --------------------------------------------------------------
 
     async fn add_contact(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: ServiceContext<'_>,
         sid: i64,
         req: CreateContactReq,
     ) -> Result<i64, DomainError> {
@@ -226,14 +228,14 @@ impl SupplierService for SupplierServiceImpl {
         self.repo
             .find_by_id(ctx.executor, sid)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?
+            .map_err(DomainError::Internal)?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
         let contact_id = self
             .contact_repo
             .create(ctx.executor, sid, &req)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            .map_err(DomainError::Internal)?;
 
         self.audit
             .record(
@@ -251,7 +253,7 @@ impl SupplierService for SupplierServiceImpl {
 
     async fn update_contact(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: ServiceContext<'_>,
         sid: i64,
         contact_id: i64,
         req: UpdateContactReq,
@@ -261,7 +263,7 @@ impl SupplierService for SupplierServiceImpl {
             .contact_repo
             .find_by_id(ctx.executor, contact_id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?
+            .map_err(DomainError::Internal)?
             .ok_or_else(|| DomainError::not_found("SupplierContact"))?;
 
         if existing.supplier_id != sid {
@@ -271,7 +273,7 @@ impl SupplierService for SupplierServiceImpl {
         self.contact_repo
             .update(ctx.executor, contact_id, sid, &req)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            .map_err(DomainError::Internal)?;
 
         self.audit
             .record(
@@ -289,7 +291,7 @@ impl SupplierService for SupplierServiceImpl {
 
     async fn delete_contact(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: ServiceContext<'_>,
         sid: i64,
         contact_id: i64,
     ) -> Result<(), DomainError> {
@@ -298,7 +300,7 @@ impl SupplierService for SupplierServiceImpl {
             .contact_repo
             .find_by_id(ctx.executor, contact_id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?
+            .map_err(DomainError::Internal)?
             .ok_or_else(|| DomainError::not_found("SupplierContact"))?;
 
         if existing.supplier_id != sid {
@@ -308,7 +310,7 @@ impl SupplierService for SupplierServiceImpl {
         self.contact_repo
             .delete(ctx.executor, contact_id, sid)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            .map_err(DomainError::Internal)?;
 
         self.audit
             .record(
@@ -332,7 +334,7 @@ impl SupplierService for SupplierServiceImpl {
         self.contact_repo
             .find_by_supplier_id(ctx.executor, sid)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))
+            .map_err(DomainError::Internal)
     }
 
     // -- Bank Accounts (P0 high-risk) ------------------------------------------
@@ -347,14 +349,14 @@ impl SupplierService for SupplierServiceImpl {
         self.repo
             .find_by_id(ctx.executor, sid)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?
+            .map_err(DomainError::Internal)?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
         let account_id = self
             .bank_account_repo
             .create(ctx.executor, sid, &req)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            .map_err(DomainError::Internal)?;
 
         // P0: mandatory audit with field-level detail
         let changes = serde_json::json!({
@@ -398,6 +400,7 @@ impl SupplierService for SupplierServiceImpl {
         Ok(account_id)
     }
 
+    #[allow(clippy::collapsible_if)]
     async fn update_bank_account(
         &self,
         mut ctx: ServiceContext<'_>,
@@ -410,7 +413,7 @@ impl SupplierService for SupplierServiceImpl {
             .bank_account_repo
             .update(ctx.executor, account_id, sid, &req)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?
+            .map_err(DomainError::Internal)?
             .ok_or_else(|| DomainError::not_found("SupplierBankAccount"))?;
 
         // P0: mandatory audit with field-level diff
@@ -437,14 +440,6 @@ impl SupplierService for SupplierServiceImpl {
                     "old": before.account_number,
                     "new": new_val,
                     "sensitive": true,
-                }));
-            }
-        }
-        if let Some(ref new_val) = req.branch {
-            if before.branch.as_deref() != Some(new_val.as_str()) {
-                field_diffs.insert("branch".into(), serde_json::json!({
-                    "old": before.branch,
-                    "new": new_val,
                 }));
             }
         }
@@ -508,7 +503,7 @@ impl SupplierService for SupplierServiceImpl {
             .bank_account_repo
             .find_by_id(ctx.executor, account_id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?
+            .map_err(DomainError::Internal)?
             .ok_or_else(|| DomainError::not_found("SupplierBankAccount"))?;
 
         if existing.supplier_id != sid {
@@ -518,7 +513,7 @@ impl SupplierService for SupplierServiceImpl {
         self.bank_account_repo
             .delete(ctx.executor, account_id, sid)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            .map_err(DomainError::Internal)?;
 
         // P0: mandatory audit
         let changes = serde_json::json!({
@@ -567,6 +562,6 @@ impl SupplierService for SupplierServiceImpl {
         self.bank_account_repo
             .find_by_supplier_id(ctx.executor, sid)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))
+            .map_err(DomainError::Internal)
     }
 }

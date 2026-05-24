@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
 
 /// 价格类型
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -71,7 +70,7 @@ pub struct PriceLogEntry {
     pub new_price: Decimal,
     pub operator_id: Option<i64>,
     pub remark: String,
-    pub created_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
 }
 
 /// 价格查询过滤

@@ -68,6 +68,29 @@ pub struct ProductMeta {
     pub old_code: Option<String>,
 }
 
+impl sqlx::Type<sqlx::Postgres> for ProductMeta {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        <serde_json::Value as sqlx::Type<sqlx::Postgres>>::type_info()
+    }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Postgres> for ProductMeta {
+    fn encode_by_ref(
+        &self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
+        let val = serde_json::to_value(self)?;
+        <serde_json::Value as sqlx::Encode<'q, sqlx::Postgres>>::encode_by_ref(&val, buf)
+    }
+}
+
+impl<'r> sqlx::Decode<'r, sqlx::Postgres> for ProductMeta {
+    fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let val = <serde_json::Value as sqlx::Decode<'r, sqlx::Postgres>>::decode(value)?;
+        Ok(serde_json::from_value(val)?)
+    }
+}
+
 /// 产品实体
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct Product {
@@ -78,7 +101,7 @@ pub struct Product {
     pub status: ProductStatus,
     pub external_code: Option<String>,
     pub owner_department_id: Option<i64>,
-    pub meta: serde_json::Value,
+    pub meta: ProductMeta,
     pub created_at: Option<DateTime<Utc>>,
     pub updated_at: Option<DateTime<Utc>>,
     pub deleted_at: Option<DateTime<Utc>>,
@@ -103,7 +126,6 @@ pub struct UpdateProductReq {
     pub external_code: Option<String>,
     pub owner_department_id: Option<i64>,
     pub meta: Option<ProductMeta>,
-    pub status: Option<ProductStatus>,
 }
 
 /// 产品查询过滤

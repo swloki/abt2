@@ -9,6 +9,7 @@ use crate::shared::types::{PageParams, PaginatedResult};
 pub struct PriceRepo;
 
 impl PriceRepo {
+    #[allow(clippy::too_many_arguments)]
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
@@ -67,6 +68,7 @@ impl PriceRepo {
         Ok(entry)
     }
 
+    #[allow(unused_assignments)]
     pub async fn query(
         &self,
         executor: PgExecutor<'_>,

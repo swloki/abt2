@@ -43,6 +43,8 @@ pub enum DocumentType {
     ExpenseReimbursement = 32,
     // Master Data
     Product = 33,
+    Customer = 34,
+    Supplier = 35,
 }
 
 impl DocumentType {
@@ -81,6 +83,8 @@ impl DocumentType {
             31 => Some(Self::WriteOff),
             32 => Some(Self::ExpenseReimbursement),
             33 => Some(Self::Product),
+            34 => Some(Self::Customer),
+            35 => Some(Self::Supplier),
             _ => None,
         }
     }
@@ -133,6 +137,8 @@ impl DocumentType {
             Self::ExpenseReimbursement => "ER",
             // Master Data — Timestamp 策略
             Self::Product => "x",
+            Self::Customer => "CUS",
+            Self::Supplier => "SUP",
         }
     }
 }

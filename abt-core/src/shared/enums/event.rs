@@ -1,4 +1,4 @@
-/// 19 种领域事件
+/// 32 种领域事件
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i16)]
 pub enum DomainEventType {
@@ -27,6 +27,23 @@ pub enum DomainEventType {
     // FMS
     CashJournalConfirmed = 18,
     WriteOffCompleted = 19,
+    // Master Data — BOM
+    BomPublished = 20,
+    BomUnpublished = 21,
+    BomNodeAdded = 22,
+    BomNodeUpdated = 23,
+    BomNodeDeleted = 24,
+    BomSubstituted = 25,
+    // Master Data — Product
+    ProductStatusChanged = 26,
+    // Master Data — Customer
+    CustomerCreated = 27,
+    CustomerBlacklisted = 28,
+    CustomerTransferred = 29,
+    // Master Data — Supplier
+    SupplierCreated = 30,
+    SupplierBlacklisted = 31,
+    SupplierBankAccountChanged = 32,
 }
 
 impl DomainEventType {
@@ -41,7 +58,16 @@ impl DomainEventType {
             13 => Some(Self::ConvertedToInternal), 14 => Some(Self::InspectionPassed),
             15 => Some(Self::InspectionFailed), 16 => Some(Self::MRBDispositioned),
             17 => Some(Self::RMACreated), 18 => Some(Self::CashJournalConfirmed),
-            19 => Some(Self::WriteOffCompleted), _ => None,
+            19 => Some(Self::WriteOffCompleted),
+            20 => Some(Self::BomPublished), 21 => Some(Self::BomUnpublished),
+            22 => Some(Self::BomNodeAdded), 23 => Some(Self::BomNodeUpdated),
+            24 => Some(Self::BomNodeDeleted), 25 => Some(Self::BomSubstituted),
+            26 => Some(Self::ProductStatusChanged),
+            27 => Some(Self::CustomerCreated), 28 => Some(Self::CustomerBlacklisted),
+            29 => Some(Self::CustomerTransferred),
+            30 => Some(Self::SupplierCreated), 31 => Some(Self::SupplierBlacklisted),
+            32 => Some(Self::SupplierBankAccountChanged),
+            _ => None,
         }
     }
     pub fn as_i16(self) -> i16 { self as i16 }

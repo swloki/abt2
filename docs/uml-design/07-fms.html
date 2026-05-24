@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>财务管理模块 (FMS) — 类图设计</title>
+  <title>财务管理模块 (FMS) — 类图设计 v2</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
@@ -28,8 +28,8 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </script>
 </head>
 <body>
-<h2>财务管理模块 (FMS) — 类图设计</h2>
-<p class="subtitle">出纳日记账 + 按单核销 + 费用报销 + 实时成本核算 + 多维度利润中心归集</p>
+<h2>财务管理模块 (FMS) — 类图设计 v2</h2>
+<p class="subtitle">出纳日记账 + 按单核销 + 费用报销 + 实时成本核算 + 多维度利润中心归集 · v2：强类型 Filter + BalanceSummary + 幂等键 + TransactionMode + CounterpartyRef + 工作流解耦</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -64,6 +64,13 @@ classDiagram
     Supplier
     Employee
     Other
+  }
+
+  class CounterpartyRef {
+    &lt;&lt;Rust enum&gt;&gt;
+    Customer(i64)
+    Supplier(i64)
+    Employee(i64)
   }
 
   class JournalStatus {
@@ -113,6 +120,7 @@ classDiagram
     +status: JournalStatus
     +remark: String
     +operator_id: i64
+    +version: i32
     +created_at: Timestamp
     +updated_at: Timestamp
     +deleted_at: Option~Timestamp~
@@ -151,6 +159,7 @@ classDiagram
     +status: ExpenseStatus
     +remark: String
     +operator_id: i64
+    +version: i32
     +created_at: Timestamp
     +updated_at: Timestamp
     +deleted_at: Option~Timestamp~
@@ -170,46 +179,75 @@ classDiagram
   CashJournal *-- CashJournalLine : 1 to 2..*
   ExpenseReimbursement *-- ExpenseReimbursementItem : 1 to 1..*
 
+  class CashJournalFilter {
+    +period: Option~String~
+    +journal_type: Option~JournalType~
+    +status: Vec~JournalStatus~
+    +counterparty_id: Option~i64~
+    +transaction_date_from: Option~Date~
+    +transaction_date_to: Option~Date~
+  }
+
+  class ExpenseFilter {
+    +status: Vec~ExpenseStatus~
+    +applicant_id: Option~i64~
+    +department_id: Option~i64~
+    +expense_date_from: Option~Date~
+    +expense_date_to: Option~Date~
+  }
+
+  class BalanceSummary {
+    +total_inflow: Decimal
+    +total_outflow: Decimal
+    +net_balance: Decimal
+    +currency: String
+  }
+
+  class WriteOffReq {
+    +cash_journal_id: i64
+    +source_type: DocumentType
+    +source_id: i64
+    +amount: Decimal
+    +idempotency_key: Option~String~
+  }
+
   class CashJournalService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
-    +confirm(ctx: ServiceContext, id) Result~Unit~
-    +find_by_id(id) Result~CashJournal~
-    +list(filter) PaginatedResult~CashJournal~
-    +get_balance(period) Result~Decimal~
+    +confirm(ctx: ServiceContext, id, idempotency_key: Option~String~) Result~Unit~
+    +get(ctx: ServiceContext, id) Result~CashJournal~
+    +list(ctx: ServiceContext, filter: CashJournalFilter, page: PageParams) PaginatedResult~CashJournal~
+    +get_balance(ctx: ServiceContext, period) Result~BalanceSummary~
   }
 
   class WriteOffService {
     &lt;&lt;interface&gt;&gt;
-    +write_off(ctx: ServiceContext, journal_id, source_type, source_id, amount) Result~i64~
-    +list_by_source(source_type, source_id) Result~Vec~
-    +get_unreconciled_amount(source_type, source_id) Result~Decimal~
+    +write_off(ctx: ServiceContext, req: WriteOffReq) Result~i64~
+    +list_by_source(ctx: ServiceContext, source_type, source_id, page: PageParams) PaginatedResult~WriteOff~
+    +get_unreconciled_amount(ctx: ServiceContext, source_type, source_id) Result~Decimal~
   }
 
   class ExpenseReimbursementService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
-    +submit(ctx: ServiceContext, id) Result~Unit~
-    +approve(ctx: ServiceContext, id) Result~Unit~
-    +pay(ctx: ServiceContext, id, cash_journal_id) Result~Unit~
-    +find_by_id(id) Result~ExpenseReimbursement~
-    +list(filter) PaginatedResult~ExpenseReimbursement~
+    +get(ctx: ServiceContext, id) Result~ExpenseReimbursement~
+    +list(ctx: ServiceContext, filter: ExpenseFilter, page: PageParams) PaginatedResult~ExpenseReimbursement~
+    +generate_payment_journal(ctx: ServiceContext, expense_id: i64) Result~i64~
   }
 
   class CostAccountingService {
     &lt;&lt;interface&gt;&gt;
-    +get_product_cost(product_id, period) Result~ProductCostSummary~
-    +get_work_order_cost(work_order_id) Result~WorkOrderCostSummary~
-    +get_profit_center_summary(period, profit_center) Result~ProfitCenterSummary~
-    +get_margin_analysis(order_id) Result~MarginAnalysis~
+    +get_product_cost(ctx: ServiceContext, product_id: i64, period: String) Result~ProductCostSummary~
+    +get_work_order_cost(ctx: ServiceContext, work_order_id: i64) Result~WorkOrderCostSummary~
+    +get_profit_center_summary(ctx: ServiceContext, profit_center_id: i64, from: String, to: String, page: PageParams) PaginatedResult~ProfitCenterSummary~
+    +get_margin_analysis(ctx: ServiceContext, order_id: i64) Result~MarginAnalysis~
   }
 
-  note for CashJournalService "confirm ->\n  DocSeq(CashJournal)\n  Validate debit total == credit total\n  CostEntry consumption for reporting"
-
-  note for WriteOffService "Sales Receipt WriteOff:\n  source_type = ShippingRequest\n  One shipping request can have multiple partial write-offs\n  unreconciled = total_amount - SUM(write_off.amount)\nPurchase Payment WriteOff:\n  source_type = PurchaseOrder / ArrivalNotice\n  Three-way match: invoice + arrival + payment"
-
-  note for CostAccountingService "Reads from shared CostEntry table:\n  get_product_cost -> SUM by entity_type=Product, period\n  get_work_order_cost -> SUM by entity_type=WorkOrder\n  get_profit_center_summary -> SUM by profit_center, period\n  get_margin_analysis -> compare Quotation.estimated_margin vs actual"
-
+  note for CashJournal "DB 层: counterparty_type + counterparty_id 两列\nRust Model: CounterpartyRef 枚举（Repository 层拆包/装包）"
+  note for CashJournalService "TransactionMode: InCallerTx (create, confirm)\nconfirm flow (same COMMIT boundary):\n  1. IdempotencyService check\n  2. Lock journal FOR UPDATE\n  3. Aggregate lines debit/credit totals\n  4. Validate totals balanced\n  5. Update status = Confirmed + AuditLog\n  6. Publish CashJournalConfirmed event\nCostEntry consumption for reporting"
+  note for WriteOffService "TransactionMode: InCallerTx (write_off)\nAnti-over-write-off (P0):\n  Lock source FOR UPDATE -> check unreconciled >= amount\n  DB CHECK constraint (unreconciled_amount >= 0) as safety net\n  get_unreconciled_amount is read-only snapshot\n  OverWriteOff -> DomainError::BusinessRule\nIdempotency: unique index on write_offs(idempotency_key)\n  WHERE idempotency_key IS NOT NULL (no IdempotencyService needed)\nSales Receipt WriteOff:\n  source_type = ShippingRequest\n  One shipping request can have multiple partial write-offs\n  unreconciled = total_amount - SUM(write_off.amount)\nPurchase Payment WriteOff:\n  source_type = PurchaseOrder / ArrivalNotice\n  Three-way match: invoice + arrival + payment\nEvent: WriteOffCompleted"
+  note for ExpenseReimbursementService "TransactionMode: InCallerTx (create)\nTransactionMode: IndependentTx (generate_payment_journal)\n  Hook fires async AFTER caller tx.commit()\n  IndependentTx: opens own tx from pool\n  Creates CashJournal internally, returns journal_id\n  Saga compensation on failure:\n    Rollback created CashJournal\n    Expense status stays Approved (Hook retries)\n    Dead-letter after max retries: manual intervention\n  Precondition: ExpenseStatus == Approved\n  Error handling: return Result, Hook retries or dead-letter\n  NO tx.rollback propagation to caller\nStatus transitions:\n  Draft->Submitted->Approved: StateMachineService.transition()\n  Approved->Paid: generate_payment_journal internally\n  PROHIBITED: external modules modifying status directly\nOptimistic locking: version field on confirm/generate_payment_journal\nEvent: ExpensePaymentGenerated"
+  note for CostAccountingService "TransactionMode: None (read-only)\nIsolation: READ COMMITTED (default, no OLTP blocking)\nCost data is eventually consistent derived value, NOT real-time\nFor real-time cost blocking, use SalesOrder pre-reservation flow\nHigh-freq queries: consider materialized view or cache (TTL=5min)\nReads from shared CostEntry table:\n  get_product_cost -> SUM by entity_type=Product, period\n  get_work_order_cost -> SUM by entity_type=WorkOrder\n  get_profit_center_summary -> SUM by profit_center, date range\n  get_margin_analysis -> compare estimated vs actual margin"
   note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
@@ -219,7 +257,7 @@ classDiagram
 </script>
 
 <div class="mockup">
-  <div class="mockup-header">Financial Management (FMS) — UML Class Diagram</div>
+  <div class="mockup-header">Financial Management (FMS) — UML Class Diagram v2</div>
   <div class="mockup-body" style="padding: 20px; font-size: 13px; line-height: 1.5;">
 
     <!-- Business flow -->
@@ -230,11 +268,11 @@ classDiagram
         <br>
         <span style="color:#6bc76b;">采购付款</span> CashJournal(Outflow) → WriteOff（按采购入库单核销）→ 自动对应付账款
         <br>
-        <span style="color:#c678dd;">费用报销</span> ExpenseReimbursement → 审批通过 → CashJournal(Outflow) → 成本归集
+        <span style="color:#c678dd;">费用报销</span> ExpenseReimbursement → StateMachine（审批流）→ generate_payment_journal → 成本归集
         <br>
         <span style="color:#56b6c2;">成本核算</span> CostEntry 统一账本 → 料/工/费完整归集 → 利润中心 P&L
         <br>
-        <span style="color:#888;">架构方向：统一 cost_entries 分类账，每个产生成本的事件写入同一张表，双层记账</span>
+        <span style="color:#888;">架构方向：统一 cost_entries 分类账，每个产生成本的事件写入同一张表，双层记账 · 财务写操作 InCallerTx + idempotency_key，查询服务 TransactionMode::None</span>
       </div>
     </div>
 
@@ -262,6 +300,7 @@ classDiagram
           &nbsp;&nbsp;status: JournalStatus<br>
           &nbsp;&nbsp;remark: String<br>
           &nbsp;&nbsp;operator_id: i64<br>
+          &nbsp;&nbsp;version: i32 <span style="color:#888;">// 乐观锁</span><br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
@@ -284,6 +323,9 @@ classDiagram
           &nbsp;&nbsp;DRAFT, CONFIRMED, CANCELLED<br>
           &nbsp;&nbsp;}
         </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>Rust 模型层：</strong>counterparty_type + counterparty_id → <code style="color:#e5c07b;">CounterpartyRef</code> 枚举（Repository 层拆包/装包，DB 层不变）
+        </p>
       </div>
 
       <!-- CashJournalLine -->
@@ -335,12 +377,18 @@ classDiagram
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
           <strong>核销规则：</strong>销售回款按出库单逐笔核销，确保每笔进账精准对齐到具体客户和发货批次
         </p>
+        <p style="color:#e06c75; font-size:11px; margin: 4px 0 0 0;">
+          <strong>P0 防超核销：</strong>FOR UPDATE 锁源单据可用余额 → 校验 unreconciled ≥ amount → DB CHECK 约束兜底 → 超核销抛 DomainError::BusinessRule
+        </p>
+        <p style="color:#aaa; font-size:11px; margin: 4px 0 0 0;">
+          <strong>幂等策略：</strong>write_offs 表唯一索引 <code style="color:#e5c07b;">uk_write_offs_idempotency ON (idempotency_key) WHERE idempotency_key IS NOT NULL</code>，无需调用 IdempotencyService
+        </p>
       </div>
 
       <!-- ExpenseReimbursement -->
       <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
         <h4 style="color: #c678dd; margin: 0 0 6px 0;">ExpenseReimbursement 费用报销</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">员工费用报销申请，审批通过后自动生成付款日记账</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">员工费用报销申请，审批通过后由 WorkflowEngine AutoAction 触发 generate_payment_journal 内部创建付款日记账</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ExpenseReimbursement</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
@@ -352,6 +400,7 @@ classDiagram
           &nbsp;&nbsp;status: ExpenseStatus<br>
           &nbsp;&nbsp;remark: String<br>
           &nbsp;&nbsp;operator_id: i64<br>
+          &nbsp;&nbsp;version: i32 <span style="color:#888;">// 乐观锁</span><br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
@@ -373,6 +422,71 @@ classDiagram
           &nbsp;&nbsp;DRAFT, SUBMITTED, APPROVED, PAID, CANCELLED<br>
           &nbsp;&nbsp;}
         </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>工作流解耦：</strong>submit/approve 由 StateMachineService.transition() 驱动，FMS 只负责领域操作（create/get/list + generate_payment_journal）
+        </p>
+        <p style="color:#e5c07b; font-size:11px; margin: 4px 0 0 0;">
+          <strong>AutoAction：</strong>generate_payment_journal 由 WorkflowEngine Hook 调用（禁止前端直调），内部创建 CashJournal，失败返回 Result 由 Hook 重试/死信
+        </p>
+        <p style="color:#aaa; font-size:11px; margin: 4px 0 0 0;">
+          <strong>Saga 补偿：</strong>失败回滚已创建 CashJournal · Expense 保持 Approved 等待重试 · 超过重试上限进死信队列人工介入
+        </p>
+        <p style="color:#aaa; font-size:11px; margin: 4px 0 0 0;">
+          <strong>状态推进：</strong>Draft→Submitted→Approved 由 StateMachineService 驱动 · Approved→Paid 由 generate_payment_journal 内部更新 · 禁止外部直接修改 status · 乐观锁 version 防并发冲突
+        </p>
+      </div>
+    </div>
+
+    <!-- Row 3: Request & Filter Types -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- Filter structs -->
+      <div style="border: 2px solid #61afef; border-radius: 8px; padding: 14px; background: rgba(97,175,239,0.05);">
+        <h4 style="color: #61afef; margin: 0 0 6px 0;">强类型查询 Filter</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">替代裸参数，编译期类型安全，对齐 09-master-data / 06-qms Filter 约定</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CashJournalFilter</span> {<br>
+          &nbsp;&nbsp;period: Option&lt;String&gt;, <span style="color:#888;">// "2026-05"</span><br>
+          &nbsp;&nbsp;journal_type: Option&lt;JournalType&gt;,<br>
+          &nbsp;&nbsp;status: Vec&lt;JournalStatus&gt;,<br>
+          &nbsp;&nbsp;counterparty_id: Option&lt;i64&gt;,<br>
+          &nbsp;&nbsp;transaction_date_from: Option&lt;Date&gt;,<br>
+          &nbsp;&nbsp;transaction_date_to: Option&lt;Date&gt;,<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ExpenseFilter</span> {<br>
+          &nbsp;&nbsp;status: Vec&lt;ExpenseStatus&gt;,<br>
+          &nbsp;&nbsp;applicant_id: Option&lt;i64&gt;,<br>
+          &nbsp;&nbsp;department_id: Option&lt;i64&gt;,<br>
+          &nbsp;&nbsp;expense_date_from: Option&lt;Date&gt;,<br>
+          &nbsp;&nbsp;expense_date_to: Option&lt;Date&gt;,<br>
+          }
+        </div>
+      </div>
+
+      <!-- BalanceSummary + WriteOffReq -->
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0;">返回结构体 &amp; 请求结构体</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">结构化返回替代裸 Decimal，强类型请求替代散参</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">BalanceSummary</span> {<br>
+          &nbsp;&nbsp;total_inflow: Decimal,<br>
+          &nbsp;&nbsp;total_outflow: Decimal,<br>
+          &nbsp;&nbsp;net_balance: Decimal,<br>
+          &nbsp;&nbsp;currency: String, <span style="color:#888;">// 预留多币种</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">WriteOffReq</span> {<br>
+          &nbsp;&nbsp;cash_journal_id: i64,<br>
+          &nbsp;&nbsp;source_type: DocumentType,<br>
+          &nbsp;&nbsp;source_id: i64,<br>
+          &nbsp;&nbsp;amount: Decimal,<br>
+          &nbsp;&nbsp;idempotency_key: Option&lt;String&gt;, <span style="color:#888;">// 防重复核销</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">CounterpartyRef</span> { <span style="color:#888;">// Rust 模型层</span><br>
+          &nbsp;&nbsp;Customer(i64),<br>
+          &nbsp;&nbsp;Supplier(i64),<br>
+          &nbsp;&nbsp;Employee(i64),<br>
+          }
+        </div>
       </div>
     </div>
 
@@ -382,36 +496,88 @@ classDiagram
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CashJournalService</span> {<br>
-          &nbsp;&nbsp;create(ctx: ServiceContext, req): CashJournal<br>
-          &nbsp;&nbsp;confirm(ctx: ServiceContext, id): CashJournal<br>
-          &nbsp;&nbsp;find_by_id(id): CashJournal<br>
-          &nbsp;&nbsp;list(filter): Vec&lt;CashJournal&gt;<br>
-          &nbsp;&nbsp;get_balance(period): Decimal<br>
-          }
-          <br><br>
+          &nbsp;&nbsp;create(ctx, req): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
+          &nbsp;&nbsp;confirm(ctx, id, idempotency_key?): Result&lt;()&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 锁定→聚合借贷→校验→状态变更→审计→事件，同一 COMMIT</span><br>
+          &nbsp;&nbsp;get(ctx, id): Result&lt;CashJournal&gt;<br>
+          &nbsp;&nbsp;list(ctx, filter: CashJournalFilter, page): PaginatedResult<br>
+          &nbsp;&nbsp;get_balance(ctx, period): Result&lt;BalanceSummary&gt;<br>
+          }<br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">WriteOffService</span> {<br>
-          &nbsp;&nbsp;write_off(ctx: ServiceContext, journal_id, source_type, source_id, amount): WriteOff<br>
-          &nbsp;&nbsp;list_by_source(source_type, source_id): Vec&lt;WriteOff&gt;<br>
-          &nbsp;&nbsp;get_unreconciled_amount(source_type, source_id): Decimal<br>
+          &nbsp;&nbsp;write_off(ctx, req: WriteOffReq): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// FOR UPDATE 锁源单据 → 校验未核销余额 → DB CHECK 兜底</span><br>
+          &nbsp;&nbsp;list_by_source(ctx, source_type, source_id, page): PaginatedResult<br>
+          &nbsp;&nbsp;get_unreconciled_amount(ctx, source_type, source_id): Result&lt;Decimal&gt; <span style="color:#888;">// 只读快照</span><br>
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">ExpenseReimbursementService</span> {<br>
-          &nbsp;&nbsp;create(ctx: ServiceContext, req): ExpenseReimbursement<br>
-          &nbsp;&nbsp;submit(ctx: ServiceContext, id): ExpenseReimbursement<br>
-          &nbsp;&nbsp;approve(ctx: ServiceContext, id): ExpenseReimbursement<br>
-          &nbsp;&nbsp;pay(ctx: ServiceContext, id, cash_journal_id): ExpenseReimbursement<br>
-          &nbsp;&nbsp;find_by_id(id): ExpenseReimbursement<br>
-          &nbsp;&nbsp;list(filter): Vec&lt;ExpenseReimbursement&gt;<br>
-          }<br><br>
+          &nbsp;&nbsp;create(ctx, req): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
+          &nbsp;&nbsp;get(ctx, id): Result&lt;ExpenseReimbursement&gt;<br>
+          &nbsp;&nbsp;list(ctx, filter: ExpenseFilter, page): PaginatedResult<br>
+          &nbsp;&nbsp;generate_payment_journal(ctx, expense_id): Result&lt;i64&gt; <span style="color:#e5c07b;">[IndependentTx]</span> <span style="color:#e06c75;">internal</span><br>
+          }<br>
+          <span style="color:#888;">// Draft→Submitted→Approved: StateMachineService.transition()</span><br>
+          <span style="color:#888;">// Approved→Paid: generate_payment_journal 内部更新</span><br>
+          <span style="color:#888;">// 禁止外部模块直接修改 ExpenseReimbursement.status</span><br>
+          <span style="color:#888;">// Hook 异步触发，独立事务，失败返回 Result 由 Hook 重试/死信</span><br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CostAccountingService</span> {<br>
-          &nbsp;&nbsp;get_product_cost(product_id, period): ProductCostSummary<br>
-          &nbsp;&nbsp;get_work_order_cost(work_order_id): WorkOrderCostSummary<br>
-          &nbsp;&nbsp;get_profit_center_summary(period, profit_center): ProfitCenterSummary<br>
-          &nbsp;&nbsp;get_margin_analysis(order_id): MarginAnalysis<br>
-          }
+          &nbsp;&nbsp;get_product_cost(ctx, product_id, period): Result&lt;ProductCostSummary&gt; <span style="color:#888;">[None]</span><br>
+          &nbsp;&nbsp;get_work_order_cost(ctx, work_order_id): Result&lt;WorkOrderCostSummary&gt; <span style="color:#888;">[None]</span><br>
+          &nbsp;&nbsp;get_profit_center_summary(ctx, profit_center_id, from, to, page): PaginatedResult <span style="color:#888;">[None]</span><br>
+          &nbsp;&nbsp;get_margin_analysis(ctx, order_id): Result&lt;MarginAnalysis&gt; <span style="color:#888;">[None]</span><br>
+          }<br>
+          <span style="color:#888;">// READ COMMITTED 隔离，最终一致派生值，非实时强一致</span><br>
+          <span style="color:#888;">// 高频查询建议物化视图或缓存 (TTL=5min)</span>
         </div>
       </div>
+    </div>
+
+    <!-- TransactionMode summary -->
+    <div style="background: rgba(86,182,194,0.08); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #56b6c2;">TransactionMode &amp; 幂等约束汇总</h3>
+      <table style="width: 100%; border-collapse: collapse; font-size: 12px; color: #e0e0e0;">
+        <tr style="border-bottom: 1px solid #333;">
+          <th style="text-align: left; padding: 6px 10px; color: #888;">Service</th>
+          <th style="text-align: left; padding: 6px 10px; color: #888;">Method</th>
+          <th style="text-align: left; padding: 6px 10px; color: #888;">TransactionMode</th>
+          <th style="text-align: left; padding: 6px 10px; color: #888;">Idempotency</th>
+        </tr>
+        <tr style="border-bottom: 1px solid #222;">
+          <td style="padding: 4px 10px;" rowspan="2">CashJournalService</td>
+          <td style="padding: 4px 10px;">create</td>
+          <td style="padding: 4px 10px;"><span style="color:#56b6c2;">InCallerTx</span></td>
+          <td style="padding: 4px 10px;">DocSeq 天然幂等</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #222;">
+          <td style="padding: 4px 10px;">confirm</td>
+          <td style="padding: 4px 10px;"><span style="color:#56b6c2;">InCallerTx</span></td>
+          <td style="padding: 4px 10px;"><span style="color:#e5c07b;">idempotency_key</span> 必填</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #222;">
+          <td style="padding: 4px 10px;">WriteOffService</td>
+          <td style="padding: 4px 10px;">write_off</td>
+          <td style="padding: 4px 10px;"><span style="color:#56b6c2;">InCallerTx</span></td>
+          <td style="padding: 4px 10px;"><span style="color:#e5c07b;">idempotency_key</span> 唯一索引（无需 IdempotencyService）</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #222;">
+          <td style="padding: 4px 10px;" rowspan="2">ExpenseReimbursementService</td>
+          <td style="padding: 4px 10px;">create</td>
+          <td style="padding: 4px 10px;"><span style="color:#56b6c2;">InCallerTx</span></td>
+          <td style="padding: 4px 10px;">DocSeq 天然幂等</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #222;">
+          <td style="padding: 4px 10px;">generate_payment_journal</td>
+          <td style="padding: 4px 10px;"><span style="color:#e5c07b;">IndependentTx</span></td>
+          <td style="padding: 4px 10px;"><span style="color:#e5c07b;">expense_id</span> 唯一约束 · Hook 异步触发</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 10px;">CostAccountingService</td>
+          <td style="padding: 4px 10px;">all methods</td>
+          <td style="padding: 4px 10px;"><span style="color:#888;">None (read-only)</span></td>
+          <td style="padding: 4px 10px;">N/A</td>
+        </tr>
+      </table>
     </div>
 
     <!-- Cross-module calls -->
@@ -424,7 +590,30 @@ classDiagram
         <span style="color:#e06c75;">利润中心</span> → get_profit_center_summary 按部门归集 P&L | get_margin_analysis 报价-实际毛利差异<br>
         <span style="color:#56b6c2;">MES</span> → 完工入库触发成品成本 | 报工触发人工成本 | 倒冲差异触发损耗成本<br>
         <span style="color:#c678dd;">OM</span> → 外协收货触发外协成本<br>
-        <span style="color:#e06c75;">QMS</span> → 不良处置触发返工/报废成本
+        <span style="color:#e06c75;">QMS</span> → 不良处置触发返工/报废成本<br>
+        <span style="color:#7c3aed;">Workflow</span> → StateMachineService 驱动报销审批流 → Approval Hook 触发 generate_payment_journal（Saga 补偿）<br>
+        <span style="color:#888;">共享层集成</span> → DocSeq(CashJournal/ExpenseReimbursement) | AuditLog 同事务 | DomainEventBus 异步 | IdempotencyService 防重复
+      </div>
+    </div>
+
+    <!-- Domain Events & Error Mapping -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px;">
+      <div style="padding: 12px; background: rgba(124,58,237,0.08); border-radius: 6px;">
+        <h3 style="margin: 0 0 8px 0; color: #7c3aed;">领域事件（注册到 DomainEventType）</h3>
+        <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+          <span style="color:#98c379;">CashJournalConfirmed</span> — 日记账确认后触发下游对账与成本归集<br>
+          <span style="color:#e5a655;">WriteOffCompleted</span> — 核销完成触发应收/应付更新<br>
+          <span style="color:#c678dd;">ExpensePaymentGenerated</span> — 报销付款日记账生成后触发状态流转为 Paid
+        </div>
+      </div>
+      <div style="padding: 12px; background: rgba(224,108,117,0.08); border-radius: 6px;">
+        <h3 style="margin: 0 0 8px 0; color: #e06c75;">错误映射（DomainError → gRPC Status）</h3>
+        <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+          <span style="color:#e06c75;">超核销</span> → DomainError::BusinessRule("OverWriteOff")<br>
+          <span style="color:#e06c75;">借贷不平</span> → DomainError::BusinessRule("UnbalancedEntry")<br>
+          <span style="color:#e06c75;">重复提交</span> → DomainError::Duplicate("IdempotencyKey")<br>
+          <span style="color:#e06c75;">前置状态不满足</span> → DomainError::BusinessRule("InvalidState")
+        </div>
       </div>
     </div>
 

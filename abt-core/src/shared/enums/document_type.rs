@@ -46,6 +46,8 @@ pub enum DocumentType {
     Customer = 34,
     Supplier = 35,
     Bom = 36,
+    // Purchase SRM — Reconciliation (separate from Sales)
+    PurchaseReconciliation = 37,
 }
 
 impl DocumentType {
@@ -87,6 +89,7 @@ impl DocumentType {
             34 => Some(Self::Customer),
             35 => Some(Self::Supplier),
             36 => Some(Self::Bom),
+            37 => Some(Self::PurchaseReconciliation),
             _ => None,
         }
     }
@@ -142,6 +145,8 @@ impl DocumentType {
             Self::Customer => "CUS",
             Self::Supplier => "SUP",
             Self::Bom => "BOM",
+            // Purchase SRM — Reconciliation
+            Self::PurchaseReconciliation => "PRC",
         }
     }
 }

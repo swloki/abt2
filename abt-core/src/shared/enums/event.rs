@@ -1,4 +1,4 @@
-/// 32 种领域事件
+/// 领域事件
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i16)]
 pub enum DomainEventType {
@@ -55,6 +55,13 @@ pub enum DomainEventType {
     SalesOrderCancelled = 39,
     // Sales — Shipping
     ShipmentShipped = 40,
+    // Purchase — additional events
+    PurchaseQuotationActivated = 41,
+    MiscellaneousRequestApproved = 42,
+    PurchaseReturnConfirmed = 43,
+    PurchaseReconciliationConfirmed = 44,
+    PaymentRequestApproved = 45,
+    PurchaseReturnSettled = 46,
 }
 
 impl DomainEventType {
@@ -83,6 +90,12 @@ impl DomainEventType {
             37 => Some(Self::QuotationExpired),
             38 => Some(Self::SalesOrderCreated), 39 => Some(Self::SalesOrderCancelled),
             40 => Some(Self::ShipmentShipped),
+            41 => Some(Self::PurchaseQuotationActivated),
+            42 => Some(Self::MiscellaneousRequestApproved),
+            43 => Some(Self::PurchaseReturnConfirmed),
+            44 => Some(Self::PurchaseReconciliationConfirmed),
+            45 => Some(Self::PaymentRequestApproved),
+            46 => Some(Self::PurchaseReturnSettled),
             _ => None,
         }
     }

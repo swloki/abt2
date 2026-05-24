@@ -72,9 +72,10 @@ impl PurchaseOrderRepo {
         scope: (DataScope, i64, Option<i64>),
     ) -> Result<(Vec<PurchaseOrder>, u64), sqlx::Error> {
         let (data_scope, operator_id, _department_id) = scope;
+        // purchase_orders 无 department_id，Department 降级为 SelfOnly
         let scope_clause = match data_scope {
-            DataScope::SelfOnly => "AND operator_id = $7",
-            _ => "",
+            DataScope::All => "",
+            _ => "AND operator_id = $7",
         };
         let where_clause = format!(
             "WHERE deleted_at IS NULL
@@ -92,7 +93,7 @@ impl PurchaseOrderRepo {
             .bind(q.status)
             .bind(q.order_date_start)
             .bind(q.order_date_end);
-        if matches!(data_scope, DataScope::SelfOnly) {
+        if !matches!(data_scope, DataScope::All) {
             count_query = count_query.bind(operator_id);
         }
         let count_row = count_query.fetch_one(&mut *executor).await?;
@@ -116,7 +117,7 @@ impl PurchaseOrderRepo {
             .bind(q.order_date_end)
             .bind(limit)
             .bind(offset);
-        if matches!(data_scope, DataScope::SelfOnly) {
+        if !matches!(data_scope, DataScope::All) {
             data_query = data_query.bind(operator_id);
         }
         let rows = data_query.fetch_all(&mut *executor).await?;
@@ -220,13 +221,16 @@ impl PurchaseOrderItemRepo {
             FROM purchase_order_items poi
             JOIN purchase_orders po ON po.id = poi.order_id
             WHERE po.supplier_id = $1
-              AND po.status IN (2, 3, 4)
+              AND (po.status = $2 OR po.status = $3 OR po.status = $4)
               AND po.deleted_at IS NULL
               AND poi.received_qty > 0
             ORDER BY po.order_date, poi.line_no
             "#,
         )
         .bind(supplier_id)
+        .bind(PurchaseOrderStatus::Confirmed)
+        .bind(PurchaseOrderStatus::PartiallyReceived)
+        .bind(PurchaseOrderStatus::Received)
         .fetch_all(executor)
         .await
     }

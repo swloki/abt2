@@ -8,7 +8,9 @@ use sqlx::postgres::PgPool;
 use super::model::{CreatePurchaseReturnRequest, PurchaseReturn};
 use super::repo::{PurchaseReturnItemRepo, PurchaseReturnRepo};
 use super::service::PurchaseReturnService;
+use crate::purchase::enums::{PurchaseOrderStatus, PurchaseReturnStatus};
 use crate::purchase::order::repo::PurchaseOrderRepo;
+use crate::shared::idempotency::service::key_to_i64;
 use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::document_link::service::DocumentLinkService;
@@ -68,12 +70,29 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         req: CreatePurchaseReturnRequest,
         idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
-        let _ = idempotency_key;
-        // 1. 验证关联订单存在
-        let _order = PurchaseOrderRepo::get_by_id(&mut *ctx.executor, req.order_id)
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReturn:create").await? {
+                return Err(DomainError::duplicate("PurchaseReturn"));
+            }
+        }
+        // 1. 验证关联订单存在且状态允许退货
+        let order = PurchaseOrderRepo::get_by_id(&mut *ctx.executor, req.order_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("PurchaseOrder"))?;
+
+        if !matches!(
+            order.status,
+            PurchaseOrderStatus::Confirmed
+                | PurchaseOrderStatus::PartiallyReceived
+                | PurchaseOrderStatus::Received
+        ) {
+            return Err(DomainError::validation(format!(
+                "订单状态为 {:?}，不允许创建退货单",
+                order.status
+            )));
+        }
 
         // 2. 计算退货总金额
         let total_amount: Decimal = req
@@ -143,13 +162,37 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
     }
 
     async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
-        let _ = idempotency_key;
-        // 1. 状态转换 Draft -> Confirmed
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReturn:confirm").await? {
+                return Err(DomainError::duplicate("PurchaseReturn"));
+            }
+        }
+        // 1. 获取当前记录（用于乐观锁）
+        let ret = PurchaseReturnRepo::get_by_id(&mut *ctx.executor, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+
+        // 2. 状态转换 Draft -> Confirmed
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Confirmed", None)
             .await?;
 
-        // 2. 发布领域事件
+        // 3. 更新实体表状态
+        let rows = PurchaseReturnRepo::update_status(
+            &mut *ctx.executor,
+            id,
+            PurchaseReturnStatus::Confirmed,
+            &ret.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        // 4. 发布领域事件
         self.event_bus
             .publish(
                 ctx.reborrow(),

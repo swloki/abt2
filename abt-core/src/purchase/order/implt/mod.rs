@@ -12,8 +12,9 @@ use super::repo::{PurchaseOrderItemRepo, PurchaseOrderRepo};
 use super::service::PurchaseOrderService;
 use crate::master_data::supplier::model::SupplierStatus;
 use crate::master_data::supplier::service::SupplierService;
-use crate::purchase::enums::PurchaseQuotationStatus;
+use crate::purchase::enums::{PurchaseOrderStatus, PurchaseQuotationStatus};
 use crate::purchase::quotation::repo::{PurchaseQuotationItemRepo, PurchaseQuotationRepo};
+use crate::shared::idempotency::service::key_to_i64;
 use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::document_link::service::DocumentLinkService;
@@ -78,7 +79,12 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         req: CreatePurchaseOrderRequest,
         idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
-        let _ = idempotency_key;
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseOrder:create").await? {
+                return Err(DomainError::duplicate("PurchaseOrder"));
+            }
+        }
         // 1. 生成单据编号
         let doc_number = self
             .doc_seq
@@ -127,7 +133,12 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         quotation_id: i64,
         idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
-        let _ = idempotency_key;
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseOrder:create_from_quotation").await? {
+                return Err(DomainError::duplicate("PurchaseOrder"));
+            }
+        }
         // 1. 获取报价单并验证状态
         let quotation = PurchaseQuotationRepo::get_by_id(&mut *ctx.executor, quotation_id)
             .await
@@ -240,7 +251,12 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
     }
 
     async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
-        let _ = idempotency_key;
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseOrder:confirm").await? {
+                return Err(DomainError::duplicate("PurchaseOrder"));
+            }
+        }
         // 1. 获取订单及明细
         let order = PurchaseOrderRepo::get_by_id(&mut *ctx.executor, id)
             .await
@@ -303,6 +319,19 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Confirmed", None)
             .await?;
+
+        // 5.1 更新实体表状态
+        let rows = PurchaseOrderRepo::update_status(
+            &mut *ctx.executor,
+            id,
+            PurchaseOrderStatus::Confirmed,
+            &order.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
 
         // 6. 发布领域事件
         self.event_bus

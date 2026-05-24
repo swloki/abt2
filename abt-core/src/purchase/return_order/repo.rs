@@ -132,26 +132,38 @@ impl PurchaseReturnRepo {
         Ok(result.rows_affected())
     }
 
-    /// 按供应商查询所有已发货（Shipped）状态的退货单
-    pub async fn list_shipped_by_supplier(
+    /// 按供应商和订单列表查询已发货（Shipped）状态的退货单
+    pub async fn list_shipped_by_supplier_for_orders(
         executor: &mut sqlx::postgres::PgConnection,
         supplier_id: i64,
+        order_ids: &[i64],
     ) -> Result<Vec<PurchaseReturn>, sqlx::Error> {
-        sqlx::query_as::<_, PurchaseReturn>(
+        if order_ids.is_empty() {
+            return Ok(vec![]);
+        }
+        // 动态构建参数化 IN 子句
+        let placeholders: Vec<String> = (0..order_ids.len()).map(|i| format!("${}", i + 3)).collect();
+        let sql = format!(
             r#"
             SELECT id, doc_number, order_id, supplier_id, return_date, status,
                    return_reason, total_amount, remark, operator_id,
                    created_at, updated_at, deleted_at
             FROM purchase_returns
             WHERE supplier_id = $1
-              AND status = 3
+              AND status = $2
+              AND order_id IN ({})
               AND deleted_at IS NULL
             ORDER BY return_date
             "#,
-        )
-        .bind(supplier_id)
-        .fetch_all(executor)
-        .await
+            placeholders.join(", ")
+        );
+        let mut query = sqlx::query_as::<_, PurchaseReturn>(&sql)
+            .bind(supplier_id)
+            .bind(PurchaseReturnStatus::Shipped);
+        for &oid in order_ids {
+            query = query.bind(oid);
+        }
+        query.fetch_all(executor).await
     }
 }
 

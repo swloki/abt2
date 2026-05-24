@@ -86,9 +86,10 @@ impl PurchaseQuotationRepo {
         scope: (DataScope, i64, Option<i64>),
     ) -> Result<(Vec<PurchaseQuotation>, u64), sqlx::Error> {
         let (data_scope, operator_id, _department_id) = scope;
+        // purchase_quotations 无 department_id，Department 降级为 SelfOnly
         let scope_clause = match data_scope {
-            DataScope::SelfOnly => "AND operator_id = $7",
-            _ => "",
+            DataScope::All => "",
+            _ => "AND operator_id = $7",
         };
         let where_clause = format!(
             "WHERE deleted_at IS NULL
@@ -106,7 +107,7 @@ impl PurchaseQuotationRepo {
             .bind(q.status)
             .bind(q.quotation_date_start)
             .bind(q.quotation_date_end);
-        if matches!(data_scope, DataScope::SelfOnly) {
+        if !matches!(data_scope, DataScope::All) {
             count_query = count_query.bind(operator_id);
         }
         let count_row = count_query.fetch_one(&mut *executor).await?;
@@ -129,7 +130,7 @@ impl PurchaseQuotationRepo {
             .bind(q.quotation_date_end)
             .bind(limit)
             .bind(offset);
-        if matches!(data_scope, DataScope::SelfOnly) {
+        if !matches!(data_scope, DataScope::All) {
             data_query = data_query.bind(operator_id);
         }
         let rows = data_query.fetch_all(&mut *executor).await?;

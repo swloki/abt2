@@ -8,7 +8,9 @@ use sqlx::postgres::PgPool;
 use super::model::{CreatePaymentRequestRequest, PaymentRequest};
 use super::repo::PaymentRequestRepo;
 use super::service::PaymentRequestService;
+use crate::purchase::enums::PaymentStatus;
 use crate::purchase::reconciliation::repo::PurchaseReconciliationRepo;
+use crate::shared::idempotency::service::key_to_i64;
 use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::audit::AuditAction;
@@ -74,7 +76,12 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         req: CreatePaymentRequestRequest,
         idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
-        let _ = idempotency_key;
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PaymentRequest:create").await? {
+                return Err(DomainError::duplicate("PaymentRequest"));
+            }
+        }
         // 1. 三单匹配校验
         // 1a. 若关联对账单，查对账单 confirmed_amount 作为收货侧金额
         if let Some(recon_id) = req.reconciliation_id {
@@ -141,13 +148,37 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
     }
 
     async fn approve(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
-        let _ = idempotency_key;
-        // 1. 状态转换 Draft -> Approved
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PaymentRequest:approve").await? {
+                return Err(DomainError::duplicate("PaymentRequest"));
+            }
+        }
+        // 1. 获取当前记录（用于乐观锁）
+        let payment = PaymentRequestRepo::get_by_id(&mut *ctx.executor, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+
+        // 2. 状态转换 Draft -> Approved
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Approved", None)
             .await?;
 
-        // 2. 发布领域事件
+        // 3. 更新实体表状态
+        let rows = PaymentRequestRepo::update_status(
+            &mut *ctx.executor,
+            id,
+            PaymentStatus::Approved,
+            &payment.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        // 4. 发布领域事件
         self.event_bus
             .publish(
                 ctx.reborrow(),
@@ -176,7 +207,12 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         payment_doc_no: String,
         idempotency_key: Option<String>,
     ) -> Result<(), DomainError> {
-        let _ = idempotency_key;
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PaymentRequest:mark_paid_by_fms").await? {
+                return Err(DomainError::duplicate("PaymentRequest"));
+            }
+        }
         // 1. 获取当前记录（用于乐观锁）
         let payment = PaymentRequestRepo::get_by_id(&mut *ctx.executor, id)
             .await
@@ -195,7 +231,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
             .await?;
 
         // 3. 标记已付款（写入 FMS 付款单号）
-        PaymentRequestRepo::mark_paid(
+        let rows = PaymentRequestRepo::mark_paid(
             &mut *ctx.executor,
             id,
             &payment_doc_no,
@@ -203,6 +239,9 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
 
         // 4. 审计日志
         self.audit_log

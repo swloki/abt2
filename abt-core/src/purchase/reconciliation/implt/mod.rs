@@ -8,6 +8,8 @@ use sqlx::postgres::PgPool;
 use super::model::PurchaseReconciliation;
 use super::repo::{NewReconItem, PurchaseReconItemRepo, PurchaseReconciliationRepo};
 use super::service::PurchaseReconciliationService;
+use crate::purchase::enums::{PurchaseReconStatus, PurchaseReturnStatus};
+use crate::shared::idempotency::service::key_to_i64;
 use crate::purchase::order::repo::PurchaseOrderItemRepo;
 use crate::purchase::return_order::repo::PurchaseReturnRepo;
 use crate::shared::audit_log::service::AuditLogService;
@@ -64,7 +66,12 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         period: String,
         idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
-        let _ = idempotency_key;
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReconciliation:create").await? {
+                return Err(DomainError::duplicate("PurchaseReconciliation"));
+            }
+        }
         // 1. 生成单据编号
         let doc_number = self
             .doc_seq
@@ -147,7 +154,12 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
     }
 
     async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
-        let _ = idempotency_key;
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReconciliation:confirm").await? {
+                return Err(DomainError::duplicate("PurchaseReconciliation"));
+            }
+        }
         // 1. 获取对账单及明细
         let recon = PurchaseReconciliationRepo::get_by_id(&mut *ctx.executor, id)
             .await
@@ -158,24 +170,49 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 2. 计算确认金额：sum(received amounts) - sum(returned amounts)
+        // 2. 计算确认金额和差异
         let confirmed_amount: Decimal = recon_items
             .iter()
             .map(|i| i.amount - i.returned_amount)
             .sum();
+        let difference = recon.total_amount - confirmed_amount;
 
-        // 3. 更新确认标识（逐行标记 confirmed = true）
+        // 3. 写回确认金额和差异到主表
+        let rows = PurchaseReconciliationRepo::update_confirmed_amount(
+            &mut *ctx.executor,
+            id,
+            confirmed_amount,
+            difference,
+            &recon.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        // 3.1 重新读取以获取 update_confirmed_amount 设置的 updated_at = NOW()
+        let recon = PurchaseReconciliationRepo::get_by_id(&mut *ctx.executor, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+
+        // 4. 更新确认标识（逐行标记 confirmed = true）
         for item in &recon_items {
             PurchaseReconItemRepo::confirm_item(&mut *ctx.executor, item.id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
 
-        // 4. 驱动关联退货单状态：Shipped -> Settled
-        //    查找与该供应商相关的已发货退货单
-        let returns = PurchaseReturnRepo::list_shipped_by_supplier(
+        // 5. 驱动关联退货单状态：Shipped -> Settled（仅限本对账单涉及的订单）
+        let mut order_ids: Vec<i64> = recon_items.iter().map(|i| i.order_id).collect();
+        order_ids.sort();
+        order_ids.dedup();
+
+        let returns = PurchaseReturnRepo::list_shipped_by_supplier_for_orders(
             &mut *ctx.executor,
             recon.supplier_id,
+            &order_ids,
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -190,12 +227,55 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
                     Some(&format!("对账单 {} 确认结算", recon.doc_number)),
                 )
                 .await?;
+
+            // 同步更新退货单实体表状态
+            let rows = PurchaseReturnRepo::update_status(
+                &mut *ctx.executor,
+                ret.id,
+                PurchaseReturnStatus::Settled,
+                &ret.updated_at,
+            )
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+            if rows == 0 {
+                return Err(DomainError::ConcurrentConflict);
+            }
+
+            // 发布退货结算事件，通知 FMS 生成贷项通知单
+            self.event_bus
+                .publish(
+                    ctx.reborrow(),
+                    EventPublishRequest {
+                        event_type: DomainEventType::PurchaseReturnSettled,
+                        aggregate_type: "PurchaseReturn".to_string(),
+                        aggregate_id: ret.id,
+                        payload: json!({
+                            "reconciliation_id": id,
+                            "reconciliation_doc_number": recon.doc_number,
+                        }),
+                        idempotency_key: None,
+                    },
+                )
+                .await?;
         }
 
-        // 5. 状态转换 Draft -> Confirmed
+        // 6. 状态转换 Draft -> Confirmed
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Confirmed", None)
             .await?;
+
+        // 7. 更新实体表状态
+        let rows = PurchaseReconciliationRepo::update_status(
+            &mut *ctx.executor,
+            id,
+            PurchaseReconStatus::Confirmed,
+            &recon.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
 
         // 6. 发布领域事件
         self.event_bus

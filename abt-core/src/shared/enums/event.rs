@@ -50,6 +50,7 @@ pub enum DomainEventType {
     PurchaseReturnConfirmed = 35,
     PurchaseReconciliationConfirmed = 36,
     PaymentRequestApproved = 37,
+    PurchaseReturnSettled = 38,
 }
 
 impl DomainEventType {
@@ -78,6 +79,7 @@ impl DomainEventType {
             35 => Some(Self::PurchaseReturnConfirmed),
             36 => Some(Self::PurchaseReconciliationConfirmed),
             37 => Some(Self::PaymentRequestApproved),
+            38 => Some(Self::PurchaseReturnSettled),
             _ => None,
         }
     }

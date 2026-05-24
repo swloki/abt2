@@ -130,6 +130,31 @@ impl PurchaseReconciliationRepo {
 
         Ok(result.rows_affected())
     }
+
+    /// 更新确认金额和差异（乐观锁）
+    pub async fn update_confirmed_amount(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        confirmed_amount: Decimal,
+        difference: Decimal,
+        updated_at: &DateTime<Utc>,
+    ) -> Result<u64, sqlx::Error> {
+        let result = sqlx::query(
+            r#"
+            UPDATE purchase_reconciliations
+            SET confirmed_amount = $1, difference = $2, updated_at = NOW()
+            WHERE id = $3 AND updated_at = $4 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(confirmed_amount)
+        .bind(difference)
+        .bind(id)
+        .bind(updated_at)
+        .execute(executor)
+        .await?;
+
+        Ok(result.rows_affected())
+    }
 }
 
 // ---------------------------------------------------------------------------

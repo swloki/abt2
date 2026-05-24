@@ -15,6 +15,8 @@ use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::idempotency::service::IdempotencyService;
+use crate::purchase::enums::PurchaseQuotationStatus;
+use crate::shared::idempotency::service::key_to_i64;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -54,7 +56,12 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         req: CreatePurchaseQuotationRequest,
         idempotency_key: Option<String>,
     ) -> Result<i64, DomainError> {
-        let _ = idempotency_key;
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseQuotation:create").await? {
+                return Err(DomainError::duplicate("PurchaseQuotation"));
+            }
+        }
         // 1. 生成单据编号
         let doc_number = self.doc_seq
             .next_number(ctx.reborrow(), DocumentType::PurchaseQuotation)
@@ -106,13 +113,37 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         id: i64,
         idempotency_key: Option<String>,
     ) -> Result<(), DomainError> {
-        let _ = idempotency_key;
-        // 1. 状态转换 Draft -> Active
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseQuotation:activate").await? {
+                return Err(DomainError::duplicate("PurchaseQuotation"));
+            }
+        }
+        // 1. 获取当前记录（用于乐观锁）
+        let quotation = PurchaseQuotationRepo::get_by_id(&mut *ctx.executor, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+
+        // 2. 状态转换 Draft -> Active
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Active", None)
             .await?;
 
-        // 2. 发布领域事件
+        // 3. 更新实体表状态
+        let rows = PurchaseQuotationRepo::update_status(
+            &mut *ctx.executor,
+            id,
+            PurchaseQuotationStatus::Active,
+            &quotation.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        // 4. 发布领域事件
         self.event_bus
             .publish(
                 ctx.reborrow(),

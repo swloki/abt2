@@ -33,3 +33,13 @@ pub trait IdempotencyService: Send + Sync {
         before: DateTime<Utc>,
     ) -> Result<u64, DomainError>;
 }
+
+/// Convert a string idempotency key to i64 for use with check_and_mark.
+/// Uses a deterministic hash; collision is negligible in practice.
+pub fn key_to_i64(key: &str) -> i64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    key.hash(&mut hasher);
+    hasher.finish() as i64
+}

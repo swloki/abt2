@@ -1,0 +1,67 @@
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use rust_decimal::Decimal;
+use sqlx::postgres::PgPool;
+
+use super::model::{StockFilter, StockLedger, UpsertStockReq};
+use super::repo::StockLedgerRepo;
+use super::service::StockLedgerService;
+use crate::shared::types::context::ServiceContext;
+use crate::shared::types::error::DomainError;
+use crate::shared::types::pagination::PaginatedResult;
+
+pub struct StockLedgerServiceImpl {
+    #[allow(dead_code)]
+    pool: Arc<PgPool>,
+}
+
+impl StockLedgerServiceImpl {
+    pub fn new(pool: Arc<PgPool>) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait]
+impl StockLedgerService for StockLedgerServiceImpl {
+    async fn upsert(
+        &self,
+        ctx: ServiceContext<'_>,
+        req: UpsertStockReq,
+    ) -> Result<(), DomainError> {
+        let result = StockLedgerRepo::upsert(&mut *ctx.executor, &req)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        if result.quantity < Decimal::ZERO {
+            return Err(DomainError::BusinessRule(
+                "库存数量不能为负".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    async fn query(
+        &self,
+        ctx: ServiceContext<'_>,
+        filter: StockFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<StockLedger>, DomainError> {
+        StockLedgerRepo::query(&mut *ctx.executor, &filter, page, page_size)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn query_available(
+        &self,
+        ctx: ServiceContext<'_>,
+        product_id: i64,
+        warehouse_id: Option<i64>,
+    ) -> Result<Decimal, DomainError> {
+        StockLedgerRepo::total_available(&mut *ctx.executor, product_id, warehouse_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+}

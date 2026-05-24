@@ -1,0 +1,503 @@
+use std::sync::Arc;
+
+use rust_decimal::Decimal;
+
+use crate::sales::sales_order::repo::SalesOrderItemRepo;
+use crate::sales::sales_return::model::*;
+use crate::sales::sales_return::repo::{SalesReturnItemRepo, SalesReturnRepo};
+use crate::sales::sales_return::service::SalesReturnService;
+use crate::sales::shipping_request::service::ShippingRequestService;
+use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::cost_entry::model::EntryRequest;
+use crate::shared::cost_entry::service::CostEntryService;
+use crate::shared::document_link::model::LinkRequest;
+use crate::shared::document_link::service::DocumentLinkService;
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::audit::AuditAction;
+use crate::shared::enums::cost::{CostEntityType, CostType};
+use crate::shared::enums::document_type::DocumentType;
+use crate::shared::enums::event::DomainEventType;
+use crate::shared::enums::link_type::LinkType;
+use crate::shared::event_bus::model::EventPublishRequest;
+use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+
+pub struct SalesReturnServiceImpl {
+    repo: SalesReturnRepo,
+    item_repo: SalesReturnItemRepo,
+    order_item_repo: SalesOrderItemRepo,
+    doc_seq: Arc<dyn DocumentSequenceService>,
+    state_machine: Arc<dyn StateMachineService>,
+    audit: Arc<dyn AuditLogService>,
+    event_bus: Arc<dyn DomainEventBus>,
+    shipping_svc: Arc<dyn ShippingRequestService>,
+    doc_link: Arc<dyn DocumentLinkService>,
+    cost_entry: Arc<dyn CostEntryService>,
+}
+
+impl SalesReturnServiceImpl {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        repo: SalesReturnRepo,
+        item_repo: SalesReturnItemRepo,
+        order_item_repo: SalesOrderItemRepo,
+        doc_seq: Arc<dyn DocumentSequenceService>,
+        state_machine: Arc<dyn StateMachineService>,
+        audit: Arc<dyn AuditLogService>,
+        event_bus: Arc<dyn DomainEventBus>,
+        shipping_svc: Arc<dyn ShippingRequestService>,
+        doc_link: Arc<dyn DocumentLinkService>,
+        cost_entry: Arc<dyn CostEntryService>,
+    ) -> Self {
+        Self {
+            repo,
+            item_repo,
+            order_item_repo,
+            doc_seq,
+            state_machine,
+            audit,
+            event_bus,
+            shipping_svc,
+            doc_link,
+            cost_entry,
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl SalesReturnService for SalesReturnServiceImpl {
+    async fn create(
+        &self,
+        mut ctx: ServiceContext<'_>,
+        req: CreateReturnReq,
+    ) -> Result<i64, DomainError> {
+        // Validate shipping request is Shipped
+        let shipping = self.shipping_svc.find_by_id(ctx.reborrow(), req.shipping_request_id).await?;
+        if shipping.status != crate::sales::shipping_request::model::ShippingStatus::Shipped {
+            return Err(DomainError::business_rule(
+                "Shipping request must be Shipped to create return",
+            ));
+        }
+
+        if shipping.order_id != req.order_id {
+            return Err(DomainError::validation(
+                "Shipping request does not belong to the specified order",
+            ));
+        }
+
+        // Get order items for validation and price lookup
+        let order_items = self
+            .order_item_repo
+            .find_by_order_id(ctx.executor, req.order_id)
+            .await
+            .map_err(DomainError::Internal)?;
+
+        let mut return_inputs = Vec::with_capacity(req.items.len());
+        let mut total_amount = Decimal::ZERO;
+
+        // Get existing return items for this order to calculate already_returned_qty
+        // For now, validate against shipped_qty directly
+        for item in &req.items {
+            let order_item = order_items
+                .iter()
+                .find(|oi| oi.id == item.order_item_id)
+                .ok_or_else(|| {
+                    DomainError::validation(format!(
+                        "Order item {} not found in order {}",
+                        item.order_item_id, req.order_id
+                    ))
+                })?;
+
+            let max_returnable = order_item.shipped_qty - order_item.returned_qty;
+            if item.returned_qty > max_returnable {
+                return Err(DomainError::business_rule(format!(
+                    "Item {} return qty {} exceeds returnable {}",
+                    item.order_item_id, item.returned_qty, max_returnable
+                )));
+            }
+
+            let amount = item.returned_qty * order_item.unit_price;
+            total_amount += amount;
+
+            return_inputs.push(ReturnItemInput {
+                order_item_id: item.order_item_id,
+                product_id: order_item.product_id,
+                returned_qty: item.returned_qty,
+                unit_price: order_item.unit_price,
+                amount,
+                disposition: item.disposition,
+            });
+        }
+
+        let doc_number = self
+            .doc_seq
+            .next_number(ctx.reborrow(), DocumentType::SalesReturn)
+            .await?;
+
+        let id = self
+            .repo
+            .create(
+                ctx.executor,
+                &doc_number,
+                req.order_id,
+                req.shipping_request_id,
+                req.customer_id,
+                &req.return_reason,
+                total_amount,
+                "",
+                ctx.operator_id,
+            )
+            .await
+            .map_err(DomainError::Internal)?;
+
+        self.item_repo
+            .create_batch(ctx.executor, id, &return_inputs)
+            .await
+            .map_err(DomainError::Internal)?;
+
+        self.doc_link
+            .create_links(
+                ctx.reborrow(),
+                vec![LinkRequest {
+                    source_type: DocumentType::SalesReturn,
+                    source_id: id,
+                    target_type: DocumentType::ShippingRequest,
+                    target_id: req.shipping_request_id,
+                    link_type: LinkType::References,
+                }],
+            )
+            .await?;
+
+        self.state_machine
+            .transition(ctx.reborrow(), "ReturnStatus", id, "Draft", None)
+            .await
+            .ok();
+
+        self.audit
+            .record(
+                ctx.reborrow(),
+                "SalesReturn",
+                id,
+                AuditAction::Create,
+                Some(serde_json::json!({
+                    "order_id": req.order_id,
+                    "shipping_request_id": req.shipping_request_id,
+                })),
+                None,
+            )
+            .await?;
+
+        Ok(id)
+    }
+
+    async fn find_by_id(
+        &self,
+        ctx: ServiceContext<'_>,
+        id: i64,
+    ) -> Result<SalesReturn, DomainError> {
+        self.repo
+            .find_by_id(ctx.executor, id)
+            .await
+            .map_err(DomainError::Internal)?
+            .ok_or_else(|| DomainError::not_found("SalesReturn"))
+    }
+
+    async fn approve(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+        let existing = self
+            .repo
+            .find_by_id(ctx.executor, id)
+            .await
+            .map_err(DomainError::Internal)?
+            .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
+
+        if existing.status != ReturnStatus::Draft {
+            return Err(DomainError::business_rule("Only Draft returns can be approved"));
+        }
+
+        self.state_machine
+            .transition(ctx.reborrow(), "ReturnStatus", id, "Confirmed", None)
+            .await?;
+
+        self.repo
+            .update_status(ctx.executor, id, ReturnStatus::Confirmed)
+            .await
+            .map_err(DomainError::Internal)?;
+
+        self.audit
+            .record(
+                ctx.reborrow(),
+                "SalesReturn",
+                id,
+                AuditAction::Transition,
+                Some(serde_json::json!({ "from": "Draft", "to": "Confirmed" })),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn receive(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+        let existing = self
+            .repo
+            .find_by_id(ctx.executor, id)
+            .await
+            .map_err(DomainError::Internal)?
+            .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
+
+        if existing.status != ReturnStatus::Confirmed {
+            return Err(DomainError::business_rule("Only Confirmed returns can be received"));
+        }
+
+        self.state_machine
+            .transition(ctx.reborrow(), "ReturnStatus", id, "Received", None)
+            .await?;
+
+        self.repo
+            .update_status(ctx.executor, id, ReturnStatus::Received)
+            .await
+            .map_err(DomainError::Internal)?;
+
+        self.audit
+            .record(
+                ctx.reborrow(),
+                "SalesReturn",
+                id,
+                AuditAction::Transition,
+                Some(serde_json::json!({ "from": "Confirmed", "to": "Received" })),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn inspect(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+        let existing = self
+            .repo
+            .find_by_id(ctx.executor, id)
+            .await
+            .map_err(DomainError::Internal)?
+            .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
+
+        if existing.status != ReturnStatus::Received {
+            return Err(DomainError::business_rule("Only Received returns can be inspected"));
+        }
+
+        self.state_machine
+            .transition(ctx.reborrow(), "ReturnStatus", id, "Inspecting", None)
+            .await?;
+
+        self.repo
+            .update_status(ctx.executor, id, ReturnStatus::Inspecting)
+            .await
+            .map_err(DomainError::Internal)?;
+
+        self.audit
+            .record(
+                ctx.reborrow(),
+                "SalesReturn",
+                id,
+                AuditAction::Transition,
+                Some(serde_json::json!({ "from": "Received", "to": "Inspecting" })),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn complete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+        let existing = self
+            .repo
+            .find_by_id(ctx.executor, id)
+            .await
+            .map_err(DomainError::Internal)?
+            .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
+
+        if existing.status != ReturnStatus::Inspecting {
+            return Err(DomainError::business_rule("Only Inspecting returns can be completed"));
+        }
+
+        let return_items = self
+            .item_repo
+            .find_by_return_id(ctx.executor, id)
+            .await
+            .map_err(DomainError::Internal)?;
+
+        // Update order_item.returned_qty
+        for item in &return_items {
+            self.order_item_repo
+                .update_returned_qty(ctx.executor, item.order_item_id, item.returned_qty)
+                .await
+                .map_err(DomainError::Internal)?;
+        }
+
+        // Create reverse CostEntry (credit side) — use unit_cost to match forward COGS entry
+        let order_items = self
+            .order_item_repo
+            .find_by_order_id(ctx.executor, existing.order_id)
+            .await
+            .map_err(DomainError::Internal)?;
+
+        let period = chrono::Utc::now().format("%Y-%m").to_string();
+        let mut cost_entries = Vec::with_capacity(return_items.len());
+        for item in &return_items {
+            let unit_cost = order_items
+                .iter()
+                .find(|oi| oi.id == item.order_item_id)
+                .map(|oi| oi.unit_cost)
+                .unwrap_or(Decimal::ZERO);
+
+            cost_entries.push(EntryRequest {
+                entity_type: CostEntityType::SalesOrder,
+                entity_id: existing.order_id,
+                cost_type: CostType::Material,
+                debit_amount: Decimal::ZERO,
+                credit_amount: item.returned_qty * unit_cost,
+                cost_center: None,
+                profit_center: None,
+                period: period.clone(),
+                source_type: DocumentType::SalesReturn,
+                source_id: id,
+            });
+        }
+
+        if !cost_entries.is_empty() {
+            self.cost_entry
+                .create_entries(ctx.reborrow(), cost_entries)
+                .await?;
+        }
+
+        // QMS RMAService placeholder — skip since QMS not yet implemented
+
+        self.state_machine
+            .transition(ctx.reborrow(), "ReturnStatus", id, "Completed", None)
+            .await?;
+
+        self.repo
+            .update_status(ctx.executor, id, ReturnStatus::Completed)
+            .await
+            .map_err(DomainError::Internal)?;
+
+        self.audit
+            .record(
+                ctx.reborrow(),
+                "SalesReturn",
+                id,
+                AuditAction::Transition,
+                Some(serde_json::json!({ "from": "Inspecting", "to": "Completed" })),
+                None,
+            )
+            .await?;
+
+        self.event_bus
+            .publish(
+                ctx.reborrow(),
+                EventPublishRequest {
+                    event_type: DomainEventType::SalesReturnReceived,
+                    aggregate_type: "SalesReturn".to_string(),
+                    aggregate_id: id,
+                    payload: serde_json::json!({
+                        "return_id": id,
+                        "doc_number": existing.doc_number,
+                        "order_id": existing.order_id,
+                    }),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn reject(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+        let existing = self
+            .repo
+            .find_by_id(ctx.executor, id)
+            .await
+            .map_err(DomainError::Internal)?
+            .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
+
+        if existing.status != ReturnStatus::Draft {
+            return Err(DomainError::business_rule("Only Draft returns can be rejected"));
+        }
+
+        self.state_machine
+            .transition(ctx.reborrow(), "ReturnStatus", id, "Rejected", None)
+            .await?;
+
+        self.repo
+            .update_status(ctx.executor, id, ReturnStatus::Rejected)
+            .await
+            .map_err(DomainError::Internal)?;
+
+        self.audit
+            .record(
+                ctx.reborrow(),
+                "SalesReturn",
+                id,
+                AuditAction::Transition,
+                Some(serde_json::json!({ "from": "Draft", "to": "Rejected" })),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn cancel(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+        let existing = self
+            .repo
+            .find_by_id(ctx.executor, id)
+            .await
+            .map_err(DomainError::Internal)?
+            .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
+
+        if existing.status != ReturnStatus::Inspecting {
+            return Err(DomainError::business_rule("Only Inspecting returns can be cancelled"));
+        }
+
+        self.state_machine
+            .transition(ctx.reborrow(), "ReturnStatus", id, "Cancelled", None)
+            .await?;
+
+        self.repo
+            .update_status(ctx.executor, id, ReturnStatus::Cancelled)
+            .await
+            .map_err(DomainError::Internal)?;
+
+        self.audit
+            .record(
+                ctx.reborrow(),
+                "SalesReturn",
+                id,
+                AuditAction::Transition,
+                Some(serde_json::json!({ "from": "Inspecting", "to": "Cancelled" })),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn list(
+        &self,
+        ctx: ServiceContext<'_>,
+        filter: ReturnQuery,
+        page: PageParams,
+    ) -> Result<PaginatedResult<SalesReturn>, DomainError> {
+        self.repo
+            .query(
+                ctx.executor,
+                &filter,
+                &page,
+                ctx.data_scope,
+                ctx.operator_id,
+                ctx.department_id,
+            )
+            .await
+            .map_err(DomainError::Internal)
+    }
+}

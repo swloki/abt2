@@ -131,6 +131,28 @@ impl PurchaseReturnRepo {
 
         Ok(result.rows_affected())
     }
+
+    /// 按供应商查询所有已发货（Shipped）状态的退货单
+    pub async fn list_shipped_by_supplier(
+        executor: &mut sqlx::postgres::PgConnection,
+        supplier_id: i64,
+    ) -> Result<Vec<PurchaseReturn>, sqlx::Error> {
+        sqlx::query_as::<_, PurchaseReturn>(
+            r#"
+            SELECT id, doc_number, order_id, supplier_id, return_date, status,
+                   return_reason, total_amount, remark, operator_id,
+                   created_at, updated_at, deleted_at
+            FROM purchase_returns
+            WHERE supplier_id = $1
+              AND status = 3
+              AND deleted_at IS NULL
+            ORDER BY return_date
+            "#,
+        )
+        .bind(supplier_id)
+        .fetch_all(executor)
+        .await
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,0 +1,215 @@
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use rust_decimal::Decimal;
+use serde_json::json;
+use sqlx::postgres::PgPool;
+
+use super::model::PurchaseReconciliation;
+use super::repo::{NewReconItem, PurchaseReconItemRepo, PurchaseReconciliationRepo};
+use super::service::PurchaseReconciliationService;
+use crate::purchase::order::repo::PurchaseOrderItemRepo;
+use crate::purchase::return_order::repo::PurchaseReturnRepo;
+use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::audit::AuditAction;
+use crate::shared::enums::document_type::DocumentType;
+use crate::shared::enums::event::DomainEventType;
+use crate::shared::event_bus::model::EventPublishRequest;
+use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::types::context::ServiceContext;
+use crate::shared::types::error::DomainError;
+
+const ENTITY_TYPE: &str = "PurchaseReconciliation";
+
+pub struct PurchaseReconciliationServiceImpl {
+    #[allow(dead_code)]
+    pool: Arc<PgPool>,
+    doc_seq: Arc<dyn DocumentSequenceService>,
+    state_machine: Arc<dyn StateMachineService>,
+    event_bus: Arc<dyn DomainEventBus>,
+    audit_log: Arc<dyn AuditLogService>,
+}
+
+impl PurchaseReconciliationServiceImpl {
+    pub fn new(
+        pool: Arc<PgPool>,
+        doc_seq: Arc<dyn DocumentSequenceService>,
+        state_machine: Arc<dyn StateMachineService>,
+        event_bus: Arc<dyn DomainEventBus>,
+        audit_log: Arc<dyn AuditLogService>,
+    ) -> Self {
+        Self {
+            pool,
+            doc_seq,
+            state_machine,
+            event_bus,
+            audit_log,
+        }
+    }
+}
+
+#[async_trait]
+impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
+    async fn create(
+        &self,
+        mut ctx: ServiceContext<'_>,
+        supplier_id: i64,
+        period: String,
+    ) -> Result<i64, DomainError> {
+        // 1. 生成单据编号
+        let doc_number = self
+            .doc_seq
+            .next_number(ctx.reborrow(), DocumentType::PurchaseReconciliation)
+            .await?;
+
+        // 2. 查询该供应商当期所有已收货订单明细
+        //    通过 PurchaseOrderItemRepo 获取已确认/已收货状态的订单明细
+        let order_items = PurchaseOrderItemRepo::list_received_by_supplier(
+            &mut *ctx.executor,
+            supplier_id,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 3. 构建对账明细
+        let recon_items: Vec<NewReconItem> = order_items
+            .iter()
+            .map(|item| {
+                let amount = item.received_qty * item.unit_price;
+                NewReconItem {
+                    order_id: item.order_id,
+                    order_item_id: item.id,
+                    received_qty: item.received_qty,
+                    returned_qty: item.returned_qty,
+                    returned_amount: item.returned_qty * item.unit_price,
+                    unit_price: item.unit_price,
+                    amount,
+                }
+            })
+            .collect();
+
+        // 4. 计算对账总金额
+        let total_amount: Decimal = recon_items.iter().map(|i| i.amount).sum();
+
+        // 5. 插入主表
+        let id = PurchaseReconciliationRepo::insert(
+            &mut *ctx.executor,
+            supplier_id,
+            &period,
+            total_amount,
+            &doc_number,
+            "",
+            ctx.operator_id,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 6. 插入对账明细
+        if !recon_items.is_empty() {
+            PurchaseReconItemRepo::insert_items(&mut *ctx.executor, id, &recon_items)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+        }
+
+        // 7. 审计日志
+        self.audit_log
+            .record(
+                ctx,
+                ENTITY_TYPE,
+                id,
+                AuditAction::Create,
+                None,
+                None,
+            )
+            .await?;
+
+        Ok(id)
+    }
+
+    async fn get(
+        &self,
+        ctx: ServiceContext<'_>,
+        id: i64,
+    ) -> Result<PurchaseReconciliation, DomainError> {
+        PurchaseReconciliationRepo::get_by_id(ctx.executor, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
+    }
+
+    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+        // 1. 获取对账单及明细
+        let recon = PurchaseReconciliationRepo::get_by_id(&mut *ctx.executor, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+
+        let recon_items = PurchaseReconItemRepo::list_by_reconciliation_id(&mut *ctx.executor, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 2. 计算确认金额：sum(received amounts) - sum(returned amounts)
+        let confirmed_amount: Decimal = recon_items
+            .iter()
+            .map(|i| i.amount - i.returned_amount)
+            .sum();
+
+        // 3. 更新确认标识（逐行标记 confirmed = true）
+        for item in &recon_items {
+            PurchaseReconItemRepo::confirm_item(&mut *ctx.executor, item.id)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+        }
+
+        // 4. 驱动关联退货单状态：Shipped -> Settled
+        //    查找与该供应商相关的已发货退货单
+        let returns = PurchaseReturnRepo::list_shipped_by_supplier(
+            &mut *ctx.executor,
+            recon.supplier_id,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        for ret in &returns {
+            self.state_machine
+                .transition(
+                    ctx.reborrow(),
+                    "PurchaseReturn",
+                    ret.id,
+                    "Settled",
+                    Some(&format!("对账单 {} 确认结算", recon.doc_number)),
+                )
+                .await?;
+        }
+
+        // 5. 状态转换 Draft -> Confirmed
+        self.state_machine
+            .transition(ctx.reborrow(), ENTITY_TYPE, id, "Confirmed", None)
+            .await?;
+
+        // 6. 发布领域事件
+        self.event_bus
+            .publish(
+                ctx.reborrow(),
+                EventPublishRequest {
+                    event_type: DomainEventType::PurchaseReconciliationConfirmed,
+                    aggregate_type: ENTITY_TYPE.to_string(),
+                    aggregate_id: id,
+                    payload: json!({
+                        "confirmed_amount": confirmed_amount.to_string(),
+                    }),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
+        // 7. 审计日志
+        self.audit_log
+            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .await?;
+
+        Ok(())
+    }
+}

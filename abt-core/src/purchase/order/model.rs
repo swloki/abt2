@@ -73,6 +73,7 @@ pub struct CreatePurchaseOrderRequest {
 }
 
 /// 创建订单明细请求
+#[derive(Debug, Clone)]
 pub struct CreateOrderItemRequest {
     pub product_id: i64,
     pub line_no: i32,

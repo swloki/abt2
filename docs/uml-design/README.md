@@ -15,7 +15,7 @@
 | [03-wms.html](03-wms.html) | 仓储模块 — 三级库位、策略引擎、来料、库存事务、领料、倒冲、盘点、调拨、形态转换、锁库 | 12 主表 + 10 明细表 |
 | [04-mes.html](04-mes.html) | 生产模块 — 计划、工单、生产批次(流转卡)、工序、报工、计件工资、报检、完工入库（委外委托 OM） | 7 主表 + 3 明细表 + 3 枚举 |
 | [05-outsourcing.html](05-outsourcing.html) | 委外管理 — 委外单、发料明细、追踪节点、转自制 | 3 主表 + 7 节点类型 |
-| [06-qms.html](06-qms.html) | 质量管理 — 检验规格、检验结果、MRB不良评审、RMA客诉 | 4 主表 + 9 枚举 |
+| [06-qms.html](06-qms.html) | 质量管理 v2.3 — 检验规格、检验结果、MRB不良评审、RMA客诉（QualityGateService独立 + QualityGateStatus + Req/Filter + 乐观锁 + 工作流集成 + execute_disposition + InCallerTx硬门 + Guard Conditions + 幂等约束 + JSONB强类型） | 5 Service + 4 主表 + 10 枚举 + 8 Req + 4 Filter + 3 JSONB类型 |
 | [07-fms.html](07-fms.html) | 财务管理 — 日记账、日记账明细、核销、费用报销、成本核算 | 5 主表 + 1 明细表 |
 | [08-workflow-engine.html](08-workflow-engine.html) | 工作流引擎 V2 — 依赖共享层事件/状态机，Saga 补偿 + 增强节点 | 3 Service + 4 核心实体 |
 | [09-master-data.html](09-master-data.html) | 主数据模块 v4 — 产品目录、分类、价格、BOM、客户(Customer)、供应商(Supplier)（CQRS 拆分 + ServiceContext + 乐观锁 + 客商统一主数据） | 10 Service + 21 核心实体 + 10 请求结构体 |

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>质量管理模块 (QMS) — 类图设计</title>
+  <title>质量管理模块 (QMS) — 类图设计 v2.3</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
@@ -28,8 +28,8 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </script>
 </head>
 <body>
-<h2>质量管理模块 (QMS) — 类图设计</h2>
-<p class="subtitle">三道质量关口 + 统一检验注册表 + MRB 不良评审 + RMA 客诉追溯</p>
+<h2>质量管理模块 (QMS) — 类图设计 v2.3</h2>
+<p class="subtitle">三道质量关口 + 统一检验注册表 + MRB 不良评审 + RMA 客诉追溯 · ServiceContext 统一契约 · Request/Filter Struct · QualityGateStatus · 状态机驱动 · 工作流集成</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -71,6 +71,13 @@ classDiagram
     Pending
     Completed
     Dispositioned
+  }
+
+  class QualityGateStatus {
+    &lt;&lt;enumeration&gt;&gt;
+    Passed
+    Failed
+    NotRequired
   }
 
   class SpecStatus {
@@ -123,9 +130,10 @@ classDiagram
     +doc_number: String
     +product_id: i64
     +inspection_type: InspectionType
-    +check_items: JSONB
-    +sample_plan: JSONB
+    +check_items: Vec~CheckItem~
+    +sample_plan: SamplePlan
     +status: SpecStatus
+    +version: i32
     +operator_id: i64
     +created_at: Timestamp
     +updated_at: Timestamp
@@ -144,7 +152,7 @@ classDiagram
     +qualified_qty: Decimal
     +unqualified_qty: Decimal
     +result: InspectionResultType
-    +check_results: JSONB
+    +check_results: Vec~CheckResult~
     +inspector_id: i64
     +inspection_date: Date
     +status: InspectionStatus
@@ -177,6 +185,7 @@ classDiagram
     +sales_order_id: Option~i64~
     +shipping_request_id: Option~i64~
     +product_id: i64
+    +linked_inspection_result_id: Option~i64~
     +defect_description: String
     +severity: Severity
     +root_cause: Option~String~
@@ -192,51 +201,179 @@ classDiagram
   InspectionResult --> InspectionSpecification : references
   MRB --> InspectionResult : dispositions
   RMA --> InspectionResult : traces optional
-    InspectionSpecificationService ..> MasterData.ProductService : product binding
-    InspectionResultService ..> MasterData.ProductService : product info
+  InspectionSpecificationService ..> MasterData.ProductService : product binding
+  InspectionResultService ..> MasterData.ProductService : product info
+  QualityGateService ..> InspectionResultService : reads results
 
+  %% ===== JSONB Strong Types =====
+  class CheckItem {
+    +item: String
+    +standard: String
+    +tolerance: String
+    +method: String
+  }
+
+  class SamplePlan {
+    +level: String
+    +aql: Decimal
+    +mode: String
+  }
+
+  class CheckResult {
+    +item: String
+    +measured: String
+    +pass: bool
+    +remark: Option~String~
+  }
+
+  %% ===== Request Structs =====
+  class CreateInspectionSpecificationReq {
+    +product_id: i64
+    +inspection_type: InspectionType
+    +check_items: Vec~CheckItem~
+    +sample_plan: SamplePlan
+  }
+
+  class UpdateInspectionSpecificationReq {
+    +check_items: Option~Vec~CheckItem~~
+    +sample_plan: Option~SamplePlan~
+    +status: Option~SpecStatus~
+    +expected_version: i32
+  }
+
+  class CreateInspectionResultReq {
+    +spec_id: i64
+    +source_type: InspectionSourceType
+    +source_id: i64
+    +batch_no: String
+    +sample_qty: Decimal
+  }
+
+  class RecordInspectionResultReq {
+    +result: InspectionResultType
+    +qualified_qty: Decimal
+    +unqualified_qty: Decimal
+    +check_results: Vec~CheckResult~
+    +inspector_id: i64
+    +inspection_date: Date
+  }
+
+  class CreateMRBReq {
+    +inspection_result_id: i64
+    +product_id: i64
+    +defect_description: String
+    +disposition: MRBDisposition
+    +responsible_party: ResponsibleParty
+    +cost_impact: Decimal
+    +remark: String
+  }
+
+  class ExecuteDispositionReq {
+    +disposition: MRBDisposition
+    +remark: Option~String~
+  }
+
+  class CreateRMAReq {
+    +customer_id: i64
+    +sales_order_id: Option~i64~
+    +shipping_request_id: Option~i64~
+    +product_id: i64
+    +linked_inspection_result_id: Option~i64~
+    +defect_description: String
+    +severity: Severity
+    +remark: String
+  }
+
+  class RecordRootCauseReq {
+    +root_cause: String
+    +corrective_action: String
+  }
+
+  %% ===== Filter Structs =====
+  class InspectionSpecFilter {
+    +product_id: Option~i64~
+    +inspection_type: Option~InspectionType~
+    +status: Option~SpecStatus~
+    +keyword: Option~String~
+  }
+
+  class InspectionResultFilter {
+    +source_type: Option~InspectionSourceType~
+    +source_id: Option~i64~
+    +inspection_type: Option~InspectionType~
+    +result: Option~InspectionResultType~
+    +status: Option~InspectionStatus~
+    +date_from: Option~Date~
+    +date_to: Option~Date~
+  }
+
+  class MRBFilter {
+    +inspection_result_id: Option~i64~
+    +product_id: Option~i64~
+    +disposition: Option~MRBDisposition~
+    +status: Option~MRBStatus~
+    +responsible_party: Option~ResponsibleParty~
+  }
+
+  class RMAFilter {
+    +customer_id: Option~i64~
+    +product_id: Option~i64~
+    +severity: Option~Severity~
+    +status: Option~RMAStatus~
+    +date_from: Option~Date~
+    +date_to: Option~Date~
+  }
+
+  %% ===== Service Interfaces =====
   class InspectionSpecificationService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, spec) Result~i64~
-    +find_by_id(id) Result~InspectionSpecification~
-    +find_by_product_and_type(product_id, inspection_type) Result~Option~
-    +update(ctx: ServiceContext, id, spec) Result~Unit~
-    +list(filter) PaginatedResult~InspectionSpecification~
+    +create(ctx, req: CreateInspectionSpecificationReq) Result~i64~
+    +get(ctx, id) Result~InspectionSpecification~
+    +find_by_product_and_type(ctx, product_id, inspection_type) Result~Option~
+    +update(ctx, id, req: UpdateInspectionSpecificationReq) Result~Unit~
+    +list(ctx, filter: InspectionSpecFilter, page: PageParams) PaginatedResult~InspectionSpecification~
   }
 
   class InspectionResultService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, result) Result~i64~
-    +find_by_id(id) Result~InspectionResult~
-    +record_result(ctx: ServiceContext, id, result, check_results) Result~Unit~
-    +list_by_source(source_type, source_id) Result~Vec~
-    +is_passed(source_type, source_id) Result~bool~
+    +create(ctx, req: CreateInspectionResultReq) Result~i64~
+    +get(ctx, id) Result~InspectionResult~
+    +record_result(ctx, id, req: RecordInspectionResultReq) Result~QualityGateStatus~
+    +list_by_source(ctx, filter: InspectionResultFilter, page: PageParams) PaginatedResult~InspectionResult~
+  }
+
+  class QualityGateService {
+    &lt;&lt;interface&gt;&gt;
+    +check_gate(ctx, source_type, source_id) Result~QualityGateStatus~
   }
 
   class MRBService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, mrb) Result~i64~
-    +find_by_id(id) Result~MRB~
-    +approve(ctx: ServiceContext, id, disposition) Result~Unit~
-    +list(filter) PaginatedResult~MRB~
+    +create(ctx, req: CreateMRBReq) Result~i64~
+    +get(ctx, id) Result~MRB~
+    +submit_for_review(ctx, id) Result~Unit~
+    +execute_disposition(ctx, id, req: ExecuteDispositionReq) Result~Unit~
+    +list(ctx, filter: MRBFilter, page: PageParams) PaginatedResult~MRB~
   }
 
   class RMAService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, rma) Result~i64~
-    +find_by_id(id) Result~RMA~
-    +record_root_cause(ctx: ServiceContext, id, root_cause, corrective_action) Result~Unit~
-    +close(ctx: ServiceContext, id) Result~Unit~
-    +list(filter) PaginatedResult~RMA~
+    +create(ctx, req: CreateRMAReq) Result~i64~
+    +get(ctx, id) Result~RMA~
+    +record_root_cause(ctx, id, req: RecordRootCauseReq) Result~Unit~
+    +close(ctx, id) Result~Unit~
+    +list(ctx, filter: RMAFilter, page: PageParams) PaginatedResult~RMA~
   }
 
-  note for InspectionResultService "Quality Gate hard block:\nWMS.ArrivalNoticeService.confirm()\n  -> check is_passed(ArrivalNotice, id) before allowing putaway\nSales.ShippingRequestService.ship()\n  -> check is_passed(ShippingRequest, id) before allowing shipment\nMES.WorkOrderService at inspection_point\n  -> auto-create IPQC\nOM.OutsourcingOrderService.receive()\n  -> auto-create IQC"
+  note for InspectionResultService "Quality Gate — QualityGateService.check_gate():\n  Passed → 放行(含 Conditional) | Failed → 阻断(含 Pending) | NotRequired → 免检\n  record_result() 同时返回 QualityGateStatus（省一次 round-trip）\n\n  TransactionMode:\n  record_result → IndependentTx\n  幂等约束: DB UNIQUE(source_type, source_id, inspection_type)\n  实现层: IdempotencyService::check_and_mark 防网络重试\n\n  InspectionSourceType 映射:\n  ArrivalNotice → DocumentType::ArrivalNotice\n  WorkOrderRouting → DocumentType::WorkOrderRouting\n  ShippingRequest → DocumentType::ShippingRequest\n  OutsourcingOrder → DocumentType::OutsourcingOrder"
 
-  note for MRBService "approve ->\n  CostEntry(Scrap/Rework cost)\n  WMS inventory adjustment (if scrap/degrade)\n  SupplierService notification (if responsible_party = Supplier)"
+  note for QualityGateService "独立 trait — WMS/MES/OQC 仅依赖此接口\n  TransactionMode: InCallerTx（调用方事务内读取，保证硬门一致性）\n  WMS.confirm() → check_gate() 必须在同一事务内"
 
-  note for RMAService "record_root_cause ->\n  DocumentLink(RMA -> WorkOrder -> Routing -> ArrivalNotice)\n  Full traceability chain for defect analysis"
+  note for MRBService "submit_for_review → 创建工作流实例（WorkflowEngine）\n  → 状态 Draft → UnderReview\n  → 路由到技术/采购/质检多角色审批节点\n\n  execute_disposition → 仅 WorkflowHook.on_approved 回调触发，禁止前端直调\n  → StateMachineService.transition('MRB', id, 'Approved')\n  → DomainEventBus.publish(MRBDispositioned)\n  → CostEntry + WMS inventory adjustment\n  → AuditLogService.record(Transition)\n\n  TransactionMode: IndependentTx"
 
-  note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
+  note for RMAService "record_root_cause → 同时触发 Investigating → ActionTaken 状态转换\n  close → StateMachineService.transition('RMA', id, 'Closed')\n  → DocumentLink(RMA → WorkOrder → Routing → ArrivalNotice)\n\n  TransactionMode: IndependentTx"
+
+  note for InspectionSpecificationService "状态流转: Draft → Active → Inactive\n  状态转换通过 StateMachineService 驱动\n  写操作同事务调用 AuditLogService.record()\n  update 使用 expected_version 乐观锁防覆盖\n\n  TransactionMode:\n  create → IndependentTx\n  update → IndependentTx\n  (读操作无事务)"
     </div>
   </div>
 </div>
@@ -245,8 +382,36 @@ classDiagram
 </script>
 
 <div class="mockup">
-  <div class="mockup-header">Quality Management (QMS) — UML Class Diagram</div>
+  <div class="mockup-header">Quality Management (QMS) v2.3 — UML Class Diagram</div>
   <div class="mockup-body" style="padding: 20px; font-size: 13px; line-height: 1.5;">
+
+    <!-- Changelog -->
+    <div style="background: rgba(229,166,85,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #e5a655;">版本变更记录</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #e0e0e0; line-height: 1.8;">
+        <strong>v2.3</strong><br>
+        <span style="color:#6bc76b;">+</span> QualityGateService 独立 trait（接口隔离，WMS/MES 只依赖此接口）<br>
+        <span style="color:#6bc76b;">+</span> RMA 增加 linked_inspection_result_id（正向→逆向追溯链）<br>
+        <span style="color:#6bc76b;">+</span> 状态机 Guard Conditions（数量守恒校验 + 审批权限校验）<br><br>
+        <strong>v2.2</strong><br>
+        <span style="color:#6bc76b;">+</span> check_gate → InCallerTx（调用方事务内读取，保证硬门一致性）<br>
+        <span style="color:#6bc76b;">+</span> approve → execute_disposition（仅 WorkflowHook.on_approved 回调触发）<br>
+        <span style="color:#6bc76b;">+</span> Conditional → Passed 语义映射明确化<br>
+        <span style="color:#6bc76b;">+</span> 事件类型细化：InspectionPassed / InspectionFailed / MRBDispositioned<br>
+        <span style="color:#6bc76b;">+</span> 幂等 key 规范化为 qms:record:{source_type}:{source_id}<br><br>
+        <strong>v2.1</strong><br>
+        <span style="color:#6bc76b;">+</span> 4 个 Filter Struct（InspectionSpecFilter / InspectionResultFilter / MRBFilter / RMAFilter）<br>
+        <span style="color:#6bc76b;">+</span> UpdateInspectionSpecificationReq 增加 expected_version 乐观锁<br>
+        <span style="color:#6bc76b;">+</span> record_result 返回 QualityGateStatus（省 round-trip）<br>
+        <span style="color:#6bc76b;">+</span> MRBService 新增 submit_for_review（多方会签通过 WorkflowEngine 编排）<br>
+        <span style="color:#6bc76b;">+</span> TransactionMode 注释标注（IndependentTx）<br>
+        <span style="color:#6bc76b;">+</span> InspectionSourceType ↔ DocumentType 映射声明<br>
+        <span style="color:#6bc76b;">+</span> IdempotencyService 集成声明（API 级防重）<br>
+        <span style="color:#6bc76b;">+</span> RMA record_root_cause 自动触发 Investigating → ActionTaken<br>
+        <span style="color:#6bc76b;">+</span> 工程约定段落（JSONB derive、错误链、事件类型）<br><br>
+        <strong>v2</strong> — QualityGateStatus + Request Struct + ServiceContext 全补全 + 状态机声明 + JSONB 强类型
+      </div>
+    </div>
 
     <!-- Business flow -->
     <div style="background: rgba(86,182,194,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
@@ -258,10 +423,32 @@ classDiagram
         <br>
         <span style="color:#c678dd;">FQC/OQC 终检/出货检</span> ← 出厂前批次抽检，不合格不予放行出库
         <br>
-        <span style="color:#e06c75;">MRB 不良评审</span> ← 报废/退货/降级/返工多方线上会签
+        <span style="color:#e06c75;">MRB 不良评审</span> ← 报废/退货/降级/返工多方线上会签（WorkflowEngine 编排）
         &nbsp;&nbsp;
         <span style="color:#6c8bef;">RMA 客诉</span> ← 逆向触发内部质量追溯
       </div>
+    </div>
+
+    <!-- Quality Gate Status -->
+    <div style="background: rgba(108,139,239,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #6c8bef;">Quality Gate 质量关卡 — check_gate() 三值判定</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+        <div style="border: 1px solid #6bc76b; border-radius: 6px; padding: 10px; background: rgba(107,199,107,0.08);">
+          <div style="color: #6bc76b; font-weight: bold; font-size: 13px;">Passed 放行</div>
+          <div style="color: #aaa; font-size: 11px; margin-top: 4px;">存在活跃检验规格，且检验结果为 Pass/Conditional</div>
+        </div>
+        <div style="border: 1px solid #e06c75; border-radius: 6px; padding: 10px; background: rgba(224,108,117,0.08);">
+          <div style="color: #e06c75; font-weight: bold; font-size: 13px;">Failed 阻断</div>
+          <div style="color: #aaa; font-size: 11px; margin-top: 4px;">存在活跃检验规格，但检验结果为 Fail 或尚在 Pending</div>
+        </div>
+        <div style="border: 1px solid #56b6c2; border-radius: 6px; padding: 10px; background: rgba(86,182,194,0.08);">
+          <div style="color: #56b6c2; font-weight: bold; font-size: 13px;">NotRequired 免检</div>
+          <div style="color: #aaa; font-size: 11px; margin-top: 4px;">无活跃检验规格（产品未配置检验要求），允许放行</div>
+        </div>
+      </div>
+      <p style="color:#e5a655; font-size:11px; margin: 8px 0 0 0;">
+        <strong>强制规则：</strong>调用方（如 WMS.confirm）禁止直接检查 bool，必须通过 check_gate() 获取明确状态后决策。Pending 状态归入 Failed（待检 = 不放行）。Conditional（让步接收）归入 Passed（业务语义：有条件放行 = 放行）。
+      </p>
     </div>
 
     <!-- Row 1: InspectionSpecification + InspectionResult -->
@@ -277,27 +464,19 @@ classDiagram
           &nbsp;&nbsp;doc_number: String <span style="color:#888;">// QS-2026-05-xxxxx</span><br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;inspection_type: InspectionType<br>
-          &nbsp;&nbsp;check_items: JSONB <span style="color:#888;">// [{item, standard, tolerance, method}]</span><br>
-          &nbsp;&nbsp;sample_plan: JSONB <span style="color:#888;">// {level, aql, mode}</span><br>
+          &nbsp;&nbsp;check_items: Vec&lt;CheckItem&gt; <span style="color:#888;">// 强类型 JSONB</span><br>
+          &nbsp;&nbsp;sample_plan: SamplePlan <span style="color:#888;">// 强类型 JSONB</span><br>
           &nbsp;&nbsp;status: SpecStatus<br>
+          &nbsp;&nbsp;<span style="color:#56b6c2;">version: i32</span> <span style="color:#888;">// 乐观锁版本号</span><br>
           &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
           }<br><br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionType</span> {<br>
-          &nbsp;&nbsp;IQC <span style="color:#888;">// 来料检验</span><br>
-          &nbsp;&nbsp;IPQC <span style="color:#888;">// 过程检验（首件/巡检）</span><br>
-          &nbsp;&nbsp;FQC <span style="color:#888;">// 终检</span><br>
-          &nbsp;&nbsp;OQC <span style="color:#888;">// 出货检验</span><br>
-          &nbsp;&nbsp;}<br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SpecStatus</span> {<br>
-          &nbsp;&nbsp;DRAFT, ACTIVE, INACTIVE<br>
-          &nbsp;&nbsp;}
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionType</span> { IQC, IPQC, FQC, OQC }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SpecStatus</span> { DRAFT, ACTIVE, INACTIVE }<br><br>
+          <span style="color:#c678dd;">状态流转</span> <span style="color:#888;">Draft → Active → Inactive（StateMachineService 驱动）</span>
         </div>
-        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
-          <strong>设计理念：</strong>IQC/IPQC/FQC/OQC 仅是 inspection_type 枚举值，而非独立实体
-        </p>
       </div>
 
       <!-- InspectionResult -->
@@ -317,7 +496,7 @@ classDiagram
           &nbsp;&nbsp;qualified_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;unqualified_qty: Decimal(18,6)<br>
           &nbsp;&nbsp;result: InspectionResultType<br>
-          &nbsp;&nbsp;check_results: JSONB <span style="color:#888;">// [{item, measured, pass, remark}]</span><br>
+          &nbsp;&nbsp;check_results: Vec&lt;CheckResult&gt; <span style="color:#888;">// 强类型 JSONB</span><br>
           &nbsp;&nbsp;inspector_id: i64<br>
           &nbsp;&nbsp;inspection_date: Date<br>
           &nbsp;&nbsp;status: InspectionStatus<br>
@@ -325,18 +504,11 @@ classDiagram
           &nbsp;&nbsp;created_at: Timestamp<br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           }<br><br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionSourceType</span> {<br>
-          &nbsp;&nbsp;ARRIVAL_NOTICE <span style="color:#888;">// 来料通知（→IQC）</span><br>
-          &nbsp;&nbsp;WORK_ORDER_ROUTING <span style="color:#888;">// 工单工序（→IPQC）</span><br>
-          &nbsp;&nbsp;SHIPPING_REQUEST <span style="color:#888;">// 发货申请（→OQC）</span><br>
-          &nbsp;&nbsp;OUTSOURCING_ORDER <span style="color:#888;">// 委外收货（→IQC）</span><br>
-          &nbsp;&nbsp;}<br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionResultType</span> {<br>
-          &nbsp;&nbsp;PASS, FAIL, CONDITIONAL<br>
-          &nbsp;&nbsp;}<br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionStatus</span> {<br>
-          &nbsp;&nbsp;PENDING, COMPLETED, DISPOSITIONED<br>
-          &nbsp;&nbsp;}
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionSourceType</span> { ARRIVAL_NOTICE, WORK_ORDER_ROUTING, SHIPPING_REQUEST, OUTSOURCING_ORDER }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionResultType</span> { PASS, FAIL, CONDITIONAL }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">InspectionStatus</span> { PENDING, COMPLETED, DISPOSITIONED }<br><br>
+          <span style="color:#c678dd;">状态流转</span> <span style="color:#888;">Pending → Completed → Dispositioned</span><br>
+          <span style="color:#c678dd;">幂等约束</span> <span style="color:#888;">UNIQUE(source_type, source_id, inspection_type) WHERE deleted_at IS NULL</span>
         </div>
       </div>
     </div>
@@ -347,7 +519,7 @@ classDiagram
       <!-- MRB -->
       <div style="border: 2px solid #e06c75; border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05);">
         <h4 style="color: #e06c75; margin: 0 0 6px 0;">MRB 不良评审</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">组织技术、采购、质检进行多方线上会签，拒绝管理盲区</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">多方线上会签，通过 WorkflowEngine 编排审批流（路由/超时/委派）</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">MRB</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
@@ -365,25 +537,19 @@ classDiagram
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
           }<br><br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">MRBDisposition</span> {<br>
-          &nbsp;&nbsp;SCRAP <span style="color:#888;">// 报废</span><br>
-          &nbsp;&nbsp;RETURN <span style="color:#888;">// 退货</span><br>
-          &nbsp;&nbsp;DEGRADE <span style="color:#888;">// 降级</span><br>
-          &nbsp;&nbsp;REWORK <span style="color:#888;">// 返工</span><br>
-          &nbsp;&nbsp;}<br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ResponsibleParty</span> {<br>
-          &nbsp;&nbsp;INTERNAL, SUPPLIER, CUSTOMER<br>
-          &nbsp;&nbsp;}<br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">MRBStatus</span> {<br>
-          &nbsp;&nbsp;DRAFT, UNDER_REVIEW, APPROVED, COMPLETED<br>
-          &nbsp;&nbsp;}
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">MRBDisposition</span> { SCRAP, RETURN, DEGRADE, REWORK }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ResponsibleParty</span> { INTERNAL, SUPPLIER, CUSTOMER }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">MRBStatus</span> { DRAFT, UNDER_REVIEW, APPROVED, COMPLETED }<br><br>
+          <span style="color:#c678dd;">状态流转</span> <span style="color:#888;">Draft → UnderReview → Approved → Completed</span><br>
+          <span style="color:#56b6c2;">submit_for_review</span> <span style="color:#888;">→ 创建 WorkflowEngine 审批实例</span><br>
+          <span style="color:#56b6c2;">execute_disposition</span> <span style="color:#888;">→ 仅 WorkflowHook 回调触发，禁止前端直调</span>
         </div>
       </div>
 
       <!-- RMA -->
       <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
         <h4 style="color: #c678dd; margin: 0 0 6px 0;">RMA 客诉追溯</h4>
-        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">后端客诉逆向触发内部质量追溯，倒逼车间工艺或采购端质量改良</p>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">逆向触发内部质量追溯，倒逼车间工艺或采购端质量改良</p>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">RMA</span> {<br>
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
@@ -392,6 +558,7 @@ classDiagram
           &nbsp;&nbsp;sales_order_id: i64? <span style="color:#888;">FK→sales_orders</span><br>
           &nbsp;&nbsp;shipping_request_id: i64? <span style="color:#888;">FK→shipping_requests</span><br>
           &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;<span style="color:#56b6c2;">linked_inspection_result_id: i64?</span> <span style="color:#888;">FK→inspection_results，正向→逆向追溯</span><br>
           &nbsp;&nbsp;defect_description: String<br>
           &nbsp;&nbsp;severity: Severity<br>
           &nbsp;&nbsp;root_cause: String? <span style="color:#888;">// 根因分析</span><br>
@@ -403,15 +570,156 @@ classDiagram
           &nbsp;&nbsp;updated_at: Timestamp<br>
           &nbsp;&nbsp;deleted_at: Timestamp?<br>
           }<br><br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">Severity</span> {<br>
-          &nbsp;&nbsp;MINOR <span style="color:#888;">// 轻微</span><br>
-          &nbsp;&nbsp;MAJOR <span style="color:#888;">// 重大</span><br>
-          &nbsp;&nbsp;CRITICAL <span style="color:#888;">// 致命</span><br>
-          &nbsp;&nbsp;}<br>
-          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">RMAStatus</span> {<br>
-          &nbsp;&nbsp;REPORTED, INVESTIGATING<br>
-          &nbsp;&nbsp;ACTION_TAKEN, CLOSED<br>
-          &nbsp;&nbsp;}
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">Severity</span> { MINOR, MAJOR, CRITICAL }<br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">RMAStatus</span> { REPORTED, INVESTIGATING, ACTION_TAKEN, CLOSED }<br><br>
+          <span style="color:#c678dd;">状态流转</span> <span style="color:#888;">Reported → Investigating → ActionTaken → Closed</span><br>
+          <span style="color:#56b6c2;">record_root_cause</span> <span style="color:#888;">→ 自动触发 Investigating → ActionTaken</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- JSONB Strong Types -->
+    <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05); margin-bottom: 20px;">
+      <h4 style="color: #98c379; margin: 0 0 8px 0;">JSONB 强类型结构体</h4>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">禁止在 Service 签名中透传 String 或 serde_json::Value。JSONB 列在 Model 层使用强类型，Repo 层自动序列化/反序列化。</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CheckItem</span> {<br>
+          &nbsp;&nbsp;item: String<br>
+          &nbsp;&nbsp;standard: String<br>
+          &nbsp;&nbsp;tolerance: String<br>
+          &nbsp;&nbsp;method: String<br>
+          }
+        </div>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">SamplePlan</span> {<br>
+          &nbsp;&nbsp;level: String<br>
+          &nbsp;&nbsp;aql: Decimal<br>
+          &nbsp;&nbsp;mode: String<br>
+          }
+        </div>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CheckResult</span> {<br>
+          &nbsp;&nbsp;item: String<br>
+          &nbsp;&nbsp;measured: String<br>
+          &nbsp;&nbsp;pass: bool<br>
+          &nbsp;&nbsp;remark: Option&lt;String&gt;<br>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Request Structs -->
+    <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05); margin-bottom: 20px;">
+      <h4 style="color: #e5a655; margin: 0 0 8px 0;">Request Structs — 写操作参数封装</h4>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CreateInspectionSpecificationReq</span> {<br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;inspection_type: InspectionType<br>
+          &nbsp;&nbsp;check_items: Vec&lt;CheckItem&gt;<br>
+          &nbsp;&nbsp;sample_plan: SamplePlan<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">UpdateInspectionSpecificationReq</span> {<br>
+          &nbsp;&nbsp;check_items: Option&lt;Vec&lt;CheckItem&gt;&gt;<br>
+          &nbsp;&nbsp;sample_plan: Option&lt;SamplePlan&gt;<br>
+          &nbsp;&nbsp;status: Option&lt;SpecStatus&gt;<br>
+          &nbsp;&nbsp;<span style="color:#56b6c2;">expected_version: i32</span> <span style="color:#888;">// 乐观锁</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CreateInspectionResultReq</span> {<br>
+          &nbsp;&nbsp;spec_id: i64<br>
+          &nbsp;&nbsp;source_type: InspectionSourceType<br>
+          &nbsp;&nbsp;source_id: i64<br>
+          &nbsp;&nbsp;batch_no: String<br>
+          &nbsp;&nbsp;sample_qty: Decimal<br>
+          }
+        </div>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">RecordInspectionResultReq</span> {<br>
+          &nbsp;&nbsp;result: InspectionResultType<br>
+          &nbsp;&nbsp;qualified_qty: Decimal<br>
+          &nbsp;&nbsp;unqualified_qty: Decimal<br>
+          &nbsp;&nbsp;check_results: Vec&lt;CheckResult&gt;<br>
+          &nbsp;&nbsp;inspector_id: i64<br>
+          &nbsp;&nbsp;inspection_date: Date<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CreateMRBReq</span> {<br>
+          &nbsp;&nbsp;inspection_result_id: i64<br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;defect_description: String<br>
+          &nbsp;&nbsp;disposition: MRBDisposition<br>
+          &nbsp;&nbsp;responsible_party: ResponsibleParty<br>
+          &nbsp;&nbsp;cost_impact: Decimal<br>
+          &nbsp;&nbsp;remark: String<br>
+          }
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 12px;">
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ExecuteDispositionReq</span> {<br>
+          &nbsp;&nbsp;disposition: MRBDisposition<br>
+          &nbsp;&nbsp;remark: Option&lt;String&gt;<br>
+          }
+        </div>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CreateRMAReq</span> {<br>
+          &nbsp;&nbsp;customer_id: i64<br>
+          &nbsp;&nbsp;sales_order_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;shipping_request_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;product_id: i64<br>
+          &nbsp;&nbsp;<span style="color:#56b6c2;">linked_inspection_result_id: Option&lt;i64&gt;</span><br>
+          &nbsp;&nbsp;defect_description: String<br>
+          &nbsp;&nbsp;severity: Severity<br>
+          &nbsp;&nbsp;remark: String<br>
+          }
+        </div>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">RecordRootCauseReq</span> {<br>
+          &nbsp;&nbsp;root_cause: String<br>
+          &nbsp;&nbsp;corrective_action: String<br>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Structs -->
+    <div style="border: 2px solid #61afef; border-radius: 8px; padding: 14px; background: rgba(97,175,239,0.05); margin-bottom: 20px;">
+      <h4 style="color: #61afef; margin: 0 0 8px 0;">Filter Structs — 查询参数封装</h4>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">所有 Filter 字段为 Option，仅非 None 字段参与筛选。派生 serde/prost，便于 gRPC 自动生成。</p>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">InspectionSpecFilter</span> {<br>
+          &nbsp;&nbsp;product_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;inspection_type: Option&lt;InspectionType&gt;<br>
+          &nbsp;&nbsp;status: Option&lt;SpecStatus&gt;<br>
+          &nbsp;&nbsp;keyword: Option&lt;String&gt; <span style="color:#888;">// doc_number 模糊匹配</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">InspectionResultFilter</span> {<br>
+          &nbsp;&nbsp;source_type: Option&lt;InspectionSourceType&gt;<br>
+          &nbsp;&nbsp;source_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;inspection_type: Option&lt;InspectionType&gt;<br>
+          &nbsp;&nbsp;result: Option&lt;InspectionResultType&gt;<br>
+          &nbsp;&nbsp;status: Option&lt;InspectionStatus&gt;<br>
+          &nbsp;&nbsp;date_from: Option&lt;Date&gt;<br>
+          &nbsp;&nbsp;date_to: Option&lt;Date&gt;<br>
+          }
+        </div>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">MRBFilter</span> {<br>
+          &nbsp;&nbsp;inspection_result_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;product_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;disposition: Option&lt;MRBDisposition&gt;<br>
+          &nbsp;&nbsp;status: Option&lt;MRBStatus&gt;<br>
+          &nbsp;&nbsp;responsible_party: Option&lt;ResponsibleParty&gt;<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">RMAFilter</span> {<br>
+          &nbsp;&nbsp;customer_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;product_id: Option&lt;i64&gt;<br>
+          &nbsp;&nbsp;severity: Option&lt;Severity&gt;<br>
+          &nbsp;&nbsp;status: Option&lt;RMAStatus&gt;<br>
+          &nbsp;&nbsp;date_from: Option&lt;Date&gt;<br>
+          &nbsp;&nbsp;date_to: Option&lt;Date&gt;<br>
+          }
         </div>
       </div>
     </div>
@@ -422,48 +730,141 @@ classDiagram
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InspectionSpecificationService</span> {<br>
-          &nbsp;&nbsp;create(ctx: ServiceContext, spec): InspectionSpecification<br>
-          &nbsp;&nbsp;find_by_id(id): InspectionSpecification<br>
-          &nbsp;&nbsp;find_by_product_and_type(product_id, inspection_type): Option&lt;InspectionSpecification&gt;<br>
-          &nbsp;&nbsp;update(ctx: ServiceContext, id, spec): InspectionSpecification<br>
-          &nbsp;&nbsp;list(filter): Vec&lt;InspectionSpecification&gt;<br>
+          &nbsp;&nbsp;create(ctx, req: CreateInspectionSpecificationReq): Result&lt;i64&gt;<br>
+          &nbsp;&nbsp;get(ctx, id): Result&lt;InspectionSpecification&gt;<br>
+          &nbsp;&nbsp;find_by_product_and_type(ctx, product_id, inspection_type): Result&lt;Option&gt;<br>
+          &nbsp;&nbsp;update(ctx, id, req: UpdateInspectionSpecificationReq): Result&lt;Unit&gt;<br>
+          &nbsp;&nbsp;list(ctx, filter: InspectionSpecFilter, page: PageParams): PaginatedResult<br>
           }<br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InspectionResultService</span> {<br>
-          &nbsp;&nbsp;create(ctx: ServiceContext, result): InspectionResult<br>
-          &nbsp;&nbsp;find_by_id(id): InspectionResult<br>
-          &nbsp;&nbsp;record_result(ctx: ServiceContext, id, result, check_results): InspectionResult<br>
-          &nbsp;&nbsp;list_by_source(source_type, source_id): Vec&lt;InspectionResult&gt;<br>
-          &nbsp;&nbsp;is_passed(source_type, source_id): bool<br>
+          &nbsp;&nbsp;create(ctx, req: CreateInspectionResultReq): Result&lt;i64&gt;<br>
+          &nbsp;&nbsp;get(ctx, id): Result&lt;InspectionResult&gt;<br>
+          &nbsp;&nbsp;record_result(ctx, id, req: RecordInspectionResultReq): <span style="color:#56b6c2;">Result&lt;QualityGateStatus&gt;</span><br>
+          &nbsp;&nbsp;list_by_source(ctx, filter: InspectionResultFilter, page: PageParams): PaginatedResult<br>
+          }<br><br>
+          <span style="color:#56b6c2;">interface</span> <span style="color:#56b6c2;">QualityGateService</span> {<br>
+          &nbsp;&nbsp;check_gate(ctx, source_type, source_id): Result&lt;QualityGateStatus&gt;<br>
+          &nbsp;&nbsp;<span style="color:#888;">// 独立 trait，WMS/MES/OQC 仅依赖此接口</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">// InCallerTx — 调用方事务内读取</span><br>
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">MRBService</span> {<br>
-          &nbsp;&nbsp;create(ctx: ServiceContext, mrb): MRB<br>
-          &nbsp;&nbsp;find_by_id(id): MRB<br>
-          &nbsp;&nbsp;approve(ctx: ServiceContext, id, disposition): MRB<br>
-          &nbsp;&nbsp;list(filter): Vec&lt;MRB&gt;<br>
+          &nbsp;&nbsp;create(ctx, req: CreateMRBReq): Result&lt;i64&gt;<br>
+          &nbsp;&nbsp;get(ctx, id): Result&lt;MRB&gt;<br>
+          &nbsp;&nbsp;<span style="color:#56b6c2;">submit_for_review</span>(ctx, id): Result&lt;Unit&gt;<br>
+          &nbsp;&nbsp;execute_disposition(ctx, id, req: ExecuteDispositionReq): Result&lt;Unit&gt; <span style="color:#888;">// 仅 WorkflowHook 回调</span><br>
+          &nbsp;&nbsp;list(ctx, filter: MRBFilter, page: PageParams): PaginatedResult<br>
           }<br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">RMAService</span> {<br>
-          &nbsp;&nbsp;create(ctx: ServiceContext, rma): RMA<br>
-          &nbsp;&nbsp;find_by_id(id): RMA<br>
-          &nbsp;&nbsp;record_root_cause(ctx: ServiceContext, id, root_cause, corrective_action): RMA<br>
-          &nbsp;&nbsp;close(ctx: ServiceContext, id): RMA<br>
-          &nbsp;&nbsp;list(filter): Vec&lt;RMA&gt;<br>
+          &nbsp;&nbsp;create(ctx, req: CreateRMAReq): Result&lt;i64&gt;<br>
+          &nbsp;&nbsp;get(ctx, id): Result&lt;RMA&gt;<br>
+          &nbsp;&nbsp;record_root_cause(ctx, id, req: RecordRootCauseReq): Result&lt;Unit&gt;<br>
+          &nbsp;&nbsp;close(ctx, id): Result&lt;Unit&gt;<br>
+          &nbsp;&nbsp;list(ctx, filter: RMAFilter, page: PageParams): PaginatedResult<br>
           }
         </div>
+      </div>
+      <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+        <strong>约定：</strong>ctx = ServiceContext 首参 | Result&lt;T&gt; = Result&lt;T, DomainError&gt; | Unit = () | PageParams 见 00-shared-infrastructure.html
+      </p>
+    </div>
+
+    <!-- TransactionMode + Shared Infra Integration -->
+    <div style="border: 2px solid #6c8bef; border-radius: 8px; padding: 14px; background: rgba(108,139,239,0.05); margin-bottom: 20px;">
+      <h4 style="color: #6c8bef; margin: 0 0 8px 0;">事务模式 + 共享基础设施集成</h4>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <h5 style="color: #e0e0e0; margin: 0 0 6px 0; font-size: 12px;">TransactionMode 声明</h5>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.8;">
+            <span style="color:#56b6c2;">InCallerTx</span>（质量硬门）：<br>
+            &nbsp;&nbsp;check_gate — 调用方事务内读取，保证硬门一致性<br>
+            &nbsp;&nbsp;WMS.confirm() → check_gate() 必须在同一事务内<br><br>
+            <span style="color:#e5a655;">IndependentTx</span>（写操作）：<br>
+            &nbsp;&nbsp;create / update / record_result<br>
+            &nbsp;&nbsp;submit_for_review / execute_disposition<br>
+            &nbsp;&nbsp;record_root_cause / close<br><br>
+            <span style="color:#888;">写操作内部自行管理事务边界。</span><br>
+            <span style="color:#888;">跨模块副作用通过 DomainEventBus</span><br>
+            <span style="color:#888;">异步解耦。</span>
+          </div>
+        </div>
+        <div>
+          <h5 style="color: #e0e0e0; margin: 0 0 6px 0; font-size: 12px;">集成调用矩阵</h5>
+          <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.8;">
+            <span style="color:#e5a655;">DocumentSequence</span> → create 时生成编号<br>
+            <span style="color:#e5a655;">StateMachine</span> → 所有状态转换<br>
+            <span style="color:#e5a655;">AuditLog</span> → 写操作同事务内<br>
+            <span style="color:#e5a655;">DomainEventBus</span> → 操作完成后<br>
+            &nbsp;&nbsp;InspectionPassed → WMS 放行、MES 继续流转<br>
+            &nbsp;&nbsp;InspectionFailed → MRBHandler 自动创建 MRB<br>
+            &nbsp;&nbsp;MRBDispositioned → CostEntry + WMS 库存调整<br>
+            <span style="color:#e5a655;">DocumentLink</span> → RMA 追溯链<br>
+            <span style="color:#e5a655;">CostEntry</span> → MRB 报废/返工成本<br>
+            <span style="color:#e5a655;">Idempotency</span> → record_result 防重<br>
+            <span style="color:#e5a655;">WorkflowEngine</span> → MRB 多方会签
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- InspectionSourceType ↔ DocumentType -->
+    <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05); margin-bottom: 20px;">
+      <h4 style="color: #56b6c2; margin: 0 0 8px 0;">InspectionSourceType ↔ DocumentType 映射</h4>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">QMS 内部使用 InspectionSourceType 语义明确，但与共享层交互时必须通过 DocumentType。实现层提供 from_document_type() 映射，上游单据演进不影响质量关卡。</p>
+      <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.8;">
+        InspectionSourceType::ArrivalNotice &nbsp;&nbsp;&nbsp;↔ DocumentType::ArrivalNotice<br>
+        InspectionSourceType::WorkOrderRouting ↔ DocumentType::WorkOrderRouting<br>
+        InspectionSourceType::ShippingRequest &nbsp;&nbsp;↔ DocumentType::ShippingRequest<br>
+        InspectionSourceType::OutsourcingOrder &nbsp;↔ DocumentType::OutsourcingOrder<br><br>
+        <span style="color:#888;">// 调用方传入 DocumentType，QMS 内部转换为 InspectionSourceType</span><br>
+        <span style="color:#888;">// 新增单据类型时只需扩展映射函数，不影响已有检验逻辑</span>
+      </div>
+    </div>
+
+    <!-- State Machine -->
+    <div style="border: 2px solid #6c8bef; border-radius: 8px; padding: 14px; background: rgba(108,139,239,0.05); margin-bottom: 20px;">
+      <h4 style="color: #6c8bef; margin: 0 0 8px 0;">状态机流转声明（StateMachineService 驱动）</h4>
+      <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.8;">
+        <span style="color:#56b6c2;">InspectionSpecification</span>: Draft → Active → Inactive<br>
+        <span style="color:#6bc76b;">InspectionResult</span>: Pending → Completed → Dispositioned<br>
+        &nbsp;&nbsp;<span style="color:#e5a655;">Guard:</span> Pending → Completed 需 qualified_qty + unqualified_qty == sample_qty<br>
+        <span style="color:#e06c75;">MRB</span>: Draft → <span style="color:#56b6c2;">UnderReview</span> → Approved → Completed<br>
+        &nbsp;&nbsp;<span style="color:#888;">↑ submit_for_review 触发 WorkflowEngine 审批实例</span><br>
+        &nbsp;&nbsp;<span style="color:#888;">↑ execute_disposition 由 WorkflowHook.on_approved 回调触发</span><br>
+        &nbsp;&nbsp;<span style="color:#e5a655;">Guard:</span> UnderReview → Approved 需当前用户有审批权限 + 所有审批节点已完成<br>
+        <span style="color:#c678dd;">RMA</span>: Reported → Investigating → ActionTaken → Closed<br>
+        &nbsp;&nbsp;<span style="color:#888;">↑ record_root_cause 自动触发 Investigating → ActionTaken</span>
+      </div>
+    </div>
+
+    <!-- Engineering Conventions -->
+    <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05); margin-bottom: 20px;">
+      <h4 style="color: #98c379; margin: 0 0 8px 0;">工程约定（实现层约束）</h4>
+      <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 2;">
+        <span style="color:#e5a655;">JSONB 强类型</span> CheckItem / SamplePlan / CheckResult 派生 Serialize + Deserialize + Clone + Debug + PartialEq<br>
+        <span style="color:#e5a655;">错误链</span> 使用 thiserror 定义 QmsError，通过 #[from] 兼容 DomainError::Internal(anyhow::Error)，gRPC interceptor 统一映射<br>
+        <span style="color:#e5a655;">审计</span> create / record_result / approve / close 实现末尾同事务调用 AuditLogService::record(ctx, entity_type, id, action, diff, context)<br>
+        <span style="color:#e5a655;">事件</span> record_result → InspectionPassed / InspectionFailed; execute_disposition → MRBDispositioned; RMA.close 按需发布 RMAClosed<br>
+        <span style="color:#e5a655;">check_gate 语义</span> Conditional（让步接收）→ 映射为 Passed；Pending（待检）→ 映射为 Failed；无活跃规格 → NotRequired<br>
+        <span style="color:#e5a655;">幂等</span> record_result 实现层调用 IdempotencyService::check_and_mark(ctx, "qms:record:{source_type}:{source_id}", "RecordResult")<br>
+        <span style="color:#e5a655;">gRPC</span> 所有 Req/Filter 结构体与 Proto 定义 1:1 映射，prost 自动生成<br>
+        <span style="color:#e5a655;">Guard 层级</span> 业务不变量（数量守恒等）在 Service 层前置校验，StateMachine 只负责拓扑推进，禁止依赖状态机配置兜底<br>
+        <span style="color:#e5a655;">异步边界</span> execute_disposition 内 CostEntry/WMS 库存调整必须通过 DomainEventBus 异步消费，禁止同步直调<br>
+        <span style="color:#e5a655;">RMA 追溯</span> create 时若携带 linked_inspection_result_id，同事务构建 DocumentLink（RMA → InspectionResult）
       </div>
     </div>
 
     <!-- Cross-module calls -->
     <div style="padding: 12px; background: rgba(86,182,194,0.1); border-radius: 6px;">
-      <h3 style="margin: 0 0 8px 0; color: #56b6c2;">QMS 模块 × 跨模块交互汇总（质量关卡 = 状态门）</h3>
+      <h3 style="margin: 0 0 8px 0; color: #56b6c2;">QMS 模块 × 跨模块交互汇总</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
-        <span style="color:#e5a655;">IQC → WMS</span> 来料通知必须 IQC 通过才能入库（硬门：is_passed(ArrivalNotice, id) == true）<br>
+        <span style="color:#e5a655;">IQC → WMS</span> 来料通知必须 IQC 通过才能入库（硬门：check_gate(ArrivalNotice, id) == Passed || NotRequired）<br>
         <span style="color:#6bc76b;">IPQC → MES</span> 关键工序报检点自动触发（WorkOrderRouting.is_inspection_point == true）<br>
-        <span style="color:#c678dd;">OQC → Sales</span> 发货申请必须 OQC 通过才能出库（硬门：is_passed(ShippingRequest, id) == true）<br>
+        <span style="color:#c678dd;">OQC → Sales</span> 发货申请必须 OQC 通过才能出库（硬门：check_gate(ShippingRequest, id) == Passed || NotRequired）<br>
         <span style="color:#e06c75;">IQC → OM</span> 委外收货自动触发 IQC 检验（硬门）<br>
-        <span style="color:#56b6c2;">MRB</span> → 不合格处置触发 CostEntry（返工/报废成本）+ WMS 库存调整<br>
-        <span style="color:#c678dd;">RMA</span> → 客诉触发质量追溯，关联原工单/工序/来料批次 | DocumentLink 全链路
+        <span style="color:#56b6c2;">MRB</span> → submit_for_review 创建 WorkflowEngine 审批实例 → execute_disposition(WF回调) 触发 CostEntry + WMS 库存调整 + AuditLog<br>
+        <span style="color:#c678dd;">RMA</span> → record_root_cause 触发 DocumentLink 全链路追溯（RMA → WorkOrder → Routing → ArrivalNotice）
       </div>
     </div>
 

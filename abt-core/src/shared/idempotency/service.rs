@@ -1,6 +1,35 @@
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use serde_json::Value as JsonValue;
+
+use super::super::types::context::ServiceContext;
+use super::super::types::error::DomainError;
 
 #[async_trait]
-pub trait IdempotencyService : Send + Sync {
-    // TODO: define interface methods
+pub trait IdempotencyService: Send + Sync {
+    /// 检查并标记事件处理中。
+    /// - true = 首次处理，应继续业务逻辑
+    /// - false = 重复事件，应跳过
+    async fn check_and_mark(
+        &self,
+        ctx: ServiceContext<'_>,
+        event_id: i64,
+        handler_name: &str,
+    ) -> Result<bool, DomainError>;
+
+    /// 标记事件处理完成，存储可选结果
+    async fn mark_processed(
+        &self,
+        ctx: ServiceContext<'_>,
+        event_id: i64,
+        handler_name: &str,
+        result: Option<JsonValue>,
+    ) -> Result<(), DomainError>;
+
+    /// 清理过期的幂等记录，返回删除条数
+    async fn cleanup_expired(
+        &self,
+        ctx: ServiceContext<'_>,
+        before: DateTime<Utc>,
+    ) -> Result<u64, DomainError>;
 }

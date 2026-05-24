@@ -3,5 +3,5 @@ pub mod model;
 pub mod repo;
 pub mod service;
 
-// pub use model::*;  // TODO: uncomment when models are defined
+pub use model::{CostEntry, EntryRequest};
 pub use service::CostEntryService;

@@ -16,13 +16,18 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 # Database - PostgreSQL
-sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chrono", "macros", "uuid", "json", "rust_decimal"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls", "chrono", "macros", "uuid", "json", "rust_decimal", "derive"] }
 
 # Date/time
 chrono = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }
+thiserror = "2"
+
+# Auth
+argon2 = "0.5"
+jsonwebtoken = "9"
 
 # Logging
 tracing = { workspace = true }

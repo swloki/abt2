@@ -47,7 +47,7 @@ CREATE TABLE zones (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ,
 
-    UNIQUE (warehouse_id, code) WHERE deleted_at IS NULL
+    UNIQUE (warehouse_id, code)
 );
 
 -- ============================================================================
@@ -70,7 +70,7 @@ CREATE TABLE bins (
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at              TIMESTAMPTZ,
 
-    UNIQUE (zone_id, code) WHERE deleted_at IS NULL
+    UNIQUE (zone_id, code)
 );
 
 -- ============================================================================
@@ -117,11 +117,10 @@ CREATE TABLE stock_ledger (
     unit_cost       DECIMAL(10,6),
     received_date   DATE,
     expiry_date     DATE,
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    UNIQUE (product_id, warehouse_id, zone_id, bin_id, COALESCE(batch_no, ''))
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE UNIQUE INDEX idx_stock_ledger_unique ON stock_ledger (product_id, warehouse_id, zone_id, bin_id, COALESCE(batch_no, ''));
 CREATE INDEX idx_stock_product ON stock_ledger (product_id);
 CREATE INDEX idx_stock_warehouse ON stock_ledger (warehouse_id);
 
@@ -402,53 +401,40 @@ CREATE TABLE inventory_locks (
 -- ============================================================================
 
 INSERT INTO state_transition_defs (entity_type, from_state, to_state, trigger_event, guard_condition, side_effects) VALUES
--- ArrivalNotice: Draft -> Received
-('arrival_notice', 1, 2, NULL, NULL, NULL),
--- ArrivalNotice: Received -> Inspecting
-('arrival_notice', 2, 3, NULL, NULL, NULL),
--- ArrivalNotice: Inspecting -> Accepted
-('arrival_notice', 3, 4, NULL, NULL, NULL),
--- ArrivalNotice: Inspecting -> PartiallyAccepted
-('arrival_notice', 3, 5, NULL, NULL, NULL),
--- ArrivalNotice: Inspecting -> Rejected
-('arrival_notice', 3, 6, NULL, NULL, NULL),
--- ArrivalNotice: Draft -> Cancelled
-('arrival_notice', 1, 7, NULL, NULL, NULL),
--- MaterialRequisition: Draft -> Confirmed
-('material_requisition', 1, 2, NULL, NULL, NULL),
--- MaterialRequisition: Confirmed -> Issued
-('material_requisition', 2, 3, NULL, NULL, NULL),
--- MaterialRequisition: Draft -> Cancelled
-('material_requisition', 1, 4, NULL, NULL, NULL),
--- MaterialRequisition: Confirmed -> Cancelled
-('material_requisition', 2, 4, NULL, NULL, NULL),
--- BackflushRecord: Draft -> Executed
-('backflush_record', 1, 2, NULL, NULL, NULL),
--- BackflushRecord: Executed -> Adjusted
-('backflush_record', 2, 3, NULL, NULL, NULL),
--- CycleCount: Draft -> Counting
-('cycle_count', 1, 2, NULL, NULL, NULL),
--- CycleCount: Counting -> Completed
-('cycle_count', 2, 3, NULL, NULL, NULL),
--- CycleCount: Completed -> Adjusted
-('cycle_count', 3, 4, NULL, NULL, NULL),
--- CycleCount: Draft -> Cancelled
-('cycle_count', 1, 5, NULL, NULL, NULL),
--- CycleCount: Counting -> Cancelled
-('cycle_count', 2, 5, NULL, NULL, NULL),
--- InventoryTransfer: Draft -> InTransit
-('inventory_transfer', 1, 2, NULL, NULL, NULL),
--- InventoryTransfer: InTransit -> Completed
-('inventory_transfer', 2, 3, NULL, NULL, NULL),
--- InventoryTransfer: Draft -> Cancelled
-('inventory_transfer', 1, 4, NULL, NULL, NULL),
--- FormConversion: Draft -> Completed
-('form_conversion', 1, 2, NULL, NULL, NULL),
--- FormConversion: Draft -> Cancelled
-('form_conversion', 1, 3, NULL, NULL, NULL),
--- InventoryLock: Active -> Released
-('inventory_lock', 1, 2, NULL, NULL, NULL),
--- InventoryLock: Active -> Cancelled
-('inventory_lock', 1, 3, NULL, NULL, NULL);
+-- ArrivalNotice
+('ArrivalNotice', 'Draft', 'Received', NULL, NULL, '[]'),
+('ArrivalNotice', 'Received', 'Inspecting', NULL, NULL, '[]'),
+('ArrivalNotice', 'Inspecting', 'Accepted', NULL, NULL, '[]'),
+('ArrivalNotice', 'Inspecting', 'PartiallyAccepted', NULL, NULL, '[]'),
+('ArrivalNotice', 'Inspecting', 'Rejected', NULL, NULL, '[]'),
+('ArrivalNotice', 'Draft', 'Cancelled', NULL, NULL, '[]'),
+-- MaterialRequisition
+('MaterialRequisition', 'Draft', 'Confirmed', NULL, NULL, '[]'),
+('MaterialRequisition', 'Confirmed', 'Issued', NULL, NULL, '[]'),
+('MaterialRequisition', 'Draft', 'Cancelled', NULL, NULL, '[]'),
+('MaterialRequisition', 'Confirmed', 'Cancelled', NULL, NULL, '[]'),
+-- BackflushRecord
+('BackflushRecord', 'Draft', 'Executed', NULL, NULL, '[]'),
+('BackflushRecord', 'Executed', 'Adjusted', NULL, NULL, '[]'),
+-- CycleCount
+('CycleCount', 'Draft', 'Counting', NULL, NULL, '[]'),
+('CycleCount', 'Counting', 'Completed', NULL, NULL, '[]'),
+('CycleCount', 'Completed', 'Adjusted', NULL, NULL, '[]'),
+('CycleCount', 'Draft', 'Cancelled', NULL, NULL, '[]'),
+('CycleCount', 'Counting', 'Cancelled', NULL, NULL, '[]'),
+-- InventoryTransfer
+('InventoryTransfer', 'Draft', 'InTransit', NULL, NULL, '[]'),
+('InventoryTransfer', 'InTransit', 'Completed', NULL, NULL, '[]'),
+('InventoryTransfer', 'Draft', 'Cancelled', NULL, NULL, '[]'),
+-- FormConversion
+('FormConversion', 'Draft', 'Completed', NULL, NULL, '[]'),
+('FormConversion', 'Draft', 'Cancelled', NULL, NULL, '[]'),
+-- InventoryLock
+('InventoryLock', 'Active', 'Released', NULL, NULL, '[]'),
+('InventoryLock', 'Active', 'Cancelled', NULL, NULL, '[]');
+
+-- Partial unique indexes (soft-delete safe uniqueness)
+CREATE UNIQUE INDEX idx_zones_unique_active ON zones (warehouse_id, code) WHERE deleted_at IS NULL;
+CREATE UNIQUE INDEX idx_bins_unique_active ON bins (zone_id, code) WHERE deleted_at IS NULL;
 
 COMMIT;

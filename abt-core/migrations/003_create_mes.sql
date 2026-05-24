@@ -77,7 +77,7 @@ CREATE TABLE work_orders (
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at      TIMESTAMPTZ,
 
-    UNIQUE (doc_number) WHERE deleted_at IS NULL
+    UNIQUE (doc_number)
 );
 
 CREATE INDEX idx_work_orders_status ON work_orders (status) WHERE deleted_at IS NULL;
@@ -230,49 +230,34 @@ CREATE INDEX idx_receipts_batch ON production_receipts (batch_id);
 -- ============================================================================
 
 INSERT INTO state_transition_defs (entity_type, from_state, to_state, trigger_event, guard_condition, side_effects) VALUES
--- ProductionPlan: Draft -> Confirmed
-('production_plan', '1', '2', NULL, NULL, NULL),
--- ProductionPlan: Confirmed -> InProgress
-('production_plan', '2', '3', NULL, NULL, NULL),
--- ProductionPlan: InProgress -> Completed
-('production_plan', '3', '4', NULL, NULL, NULL),
--- ProductionPlan: Draft -> Cancelled
-('production_plan', '1', '5', NULL, NULL, NULL),
--- ProductionPlan: Confirmed -> Cancelled
-('production_plan', '2', '5', NULL, NULL, NULL),
--- WorkOrder: Draft -> Planned
-('work_order', '1', '2', NULL, NULL, NULL),
--- WorkOrder: Draft -> Released
-('work_order', '1', '3', NULL, NULL, NULL),
--- WorkOrder: Planned -> Released
-('work_order', '2', '3', NULL, NULL, NULL),
--- WorkOrder: Released -> Closed
-('work_order', '3', '4', NULL, NULL, NULL),
--- WorkOrder: Draft -> Cancelled
-('work_order', '1', '5', NULL, NULL, NULL),
--- WorkOrder: Planned -> Cancelled
-('work_order', '2', '5', NULL, NULL, NULL),
--- WorkOrder: Released -> Cancelled
-('work_order', '3', '5', NULL, NULL, NULL),
--- ProductionBatch: Pending -> InProgress
-('production_batch', '1', '2', NULL, NULL, NULL),
--- ProductionBatch: InProgress -> InProgress (step advance)
-('production_batch', '2', '2', NULL, NULL, NULL),
--- ProductionBatch: InProgress -> Suspended
-('production_batch', '2', '3', NULL, NULL, NULL),
--- ProductionBatch: Suspended -> InProgress
-('production_batch', '3', '2', NULL, NULL, NULL),
--- ProductionBatch: InProgress -> PendingReceipt
-('production_batch', '2', '4', NULL, NULL, NULL),
--- ProductionBatch: PendingReceipt -> Completed
-('production_batch', '4', '5', NULL, NULL, NULL),
--- ProductionBatch: Pending -> Cancelled
-('production_batch', '1', '6', NULL, NULL, NULL),
--- ProductionBatch: InProgress -> Cancelled
-('production_batch', '2', '6', NULL, NULL, NULL),
--- ProductionReceipt: Draft -> Confirmed
-('production_receipt', '1', '2', NULL, NULL, NULL),
--- ProductionReceipt: Draft -> Cancelled
-('production_receipt', '1', '3', NULL, NULL, NULL);
+-- ProductionPlan
+('ProductionPlan', 'Draft', 'Confirmed', NULL, NULL, '[]'),
+('ProductionPlan', 'Confirmed', 'InProgress', NULL, NULL, '[]'),
+('ProductionPlan', 'InProgress', 'Completed', NULL, NULL, '[]'),
+('ProductionPlan', 'Draft', 'Cancelled', NULL, NULL, '[]'),
+('ProductionPlan', 'Confirmed', 'Cancelled', NULL, NULL, '[]'),
+-- WorkOrder
+('WorkOrder', 'Draft', 'Planned', NULL, NULL, '[]'),
+('WorkOrder', 'Draft', 'Released', NULL, NULL, '[]'),
+('WorkOrder', 'Planned', 'Released', NULL, NULL, '[]'),
+('WorkOrder', 'Released', 'Closed', NULL, NULL, '[]'),
+('WorkOrder', 'Draft', 'Cancelled', NULL, NULL, '[]'),
+('WorkOrder', 'Planned', 'Cancelled', NULL, NULL, '[]'),
+('WorkOrder', 'Released', 'Cancelled', NULL, NULL, '[]'),
+-- ProductionBatch
+('ProductionBatch', 'Pending', 'InProgress', NULL, NULL, '[]'),
+('ProductionBatch', 'InProgress', 'InProgress', NULL, NULL, '[]'),
+('ProductionBatch', 'InProgress', 'Suspended', NULL, NULL, '[]'),
+('ProductionBatch', 'Suspended', 'InProgress', NULL, NULL, '[]'),
+('ProductionBatch', 'InProgress', 'PendingReceipt', NULL, NULL, '[]'),
+('ProductionBatch', 'PendingReceipt', 'Completed', NULL, NULL, '[]'),
+('ProductionBatch', 'Pending', 'Cancelled', NULL, NULL, '[]'),
+('ProductionBatch', 'InProgress', 'Cancelled', NULL, NULL, '[]'),
+-- ProductionReceipt
+('ProductionReceipt', 'Draft', 'Confirmed', NULL, NULL, '[]'),
+('ProductionReceipt', 'Draft', 'Cancelled', NULL, NULL, '[]');
+
+-- Partial unique indexes (soft-delete safe uniqueness)
+CREATE UNIQUE INDEX idx_work_orders_doc_active ON work_orders (doc_number) WHERE deleted_at IS NULL;
 
 COMMIT;

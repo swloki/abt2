@@ -1,6 +1,7 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 
+use crate::shared::enums::document_type::DocumentType;
 use super::super::enums::{
     CashDirection, CounterpartyRef, CounterpartyType, JournalStatus, JournalType,
 };
@@ -19,7 +20,7 @@ pub struct CashJournal {
     pub amount: Decimal,
     pub counterparty_type: CounterpartyType,
     pub counterparty_id: i64,
-    pub source_type: i16,
+    pub source_type: DocumentType,
     pub source_id: i64,
     pub bank_account: String,
     pub transaction_date: NaiveDate,
@@ -64,7 +65,7 @@ pub struct CreateCashJournalReq {
     pub direction: CashDirection,
     pub amount: Decimal,
     pub counterparty: CounterpartyRef,
-    pub source_type: i16,
+    pub source_type: DocumentType,
     pub source_id: i64,
     pub bank_account: String,
     pub transaction_date: NaiveDate,

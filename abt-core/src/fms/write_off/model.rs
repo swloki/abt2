@@ -33,6 +33,7 @@ pub struct WriteOffReq {
     pub cash_journal_id: i64,
     pub source_type: DocumentType,
     pub source_id: i64,
+    pub source_total: Decimal,
     pub amount: Decimal,
     pub idempotency_key: Option<String>,
 }

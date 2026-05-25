@@ -47,6 +47,22 @@ impl CashJournalService for CashJournalServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreateCashJournalReq,
     ) -> Result<i64, DomainError> {
+        if req.amount <= rust_decimal::Decimal::ZERO {
+            return Err(DomainError::validation("amount must be greater than zero"));
+        }
+        if req.lines.is_empty() {
+            return Err(DomainError::validation("at least one journal line is required"));
+        }
+
+        // Header amount must equal sum of line debit (and credit) totals
+        let total_debit: rust_decimal::Decimal = req.lines.iter().map(|l| l.debit_amount).sum();
+        let total_credit: rust_decimal::Decimal = req.lines.iter().map(|l| l.credit_amount).sum();
+        if total_debit != req.amount || total_credit != req.amount {
+            return Err(DomainError::validation(
+                "header amount must equal line debit and credit totals",
+            ));
+        }
+
         let doc_number = self
             .doc_seq
             .next_number(ctx.reborrow(), DocumentType::CashJournal)
@@ -62,8 +78,7 @@ impl CashJournalService for CashJournalServiceImpl {
 
         self.state_machine
             .transition(ctx.reborrow(), "JournalStatus", id, "Draft", None)
-            .await
-            .ok();
+            .await?;
 
         self.audit
             .record(
@@ -114,9 +129,12 @@ impl CashJournalService for CashJournalServiceImpl {
             .await
             .map_err(DomainError::Internal)?;
 
-        // Step 4: Validate balanced entry
+        // Step 4: Validate balanced entry with non-zero totals
         if total_debit != total_credit {
             return Err(DomainError::business_rule("UnbalancedEntry"));
+        }
+        if total_debit == rust_decimal::Decimal::ZERO {
+            return Err(DomainError::business_rule("ZeroEntry"));
         }
 
         // Step 5: State transition

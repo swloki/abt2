@@ -1,7 +1,10 @@
 use std::sync::Arc;
 
 use chrono::Utc;
+use sqlx::PgPool;
 
+use crate::fms::cash_journal::repo::CashJournalRepo;
+use crate::fms::enums::JournalStatus;
 use crate::fms::write_off::model::*;
 use crate::fms::write_off::repo::WriteOffRepo;
 use crate::fms::write_off::service::WriteOffService;
@@ -17,23 +20,33 @@ use crate::fms::enums::WriteOffType;
 pub struct WriteOffServiceImpl {
     audit: Arc<dyn AuditLogService>,
     event_bus: Arc<dyn DomainEventBus>,
+    pool: Arc<PgPool>,
 }
 
 impl WriteOffServiceImpl {
     pub fn new(
         audit: Arc<dyn AuditLogService>,
         event_bus: Arc<dyn DomainEventBus>,
+        pool: Arc<PgPool>,
     ) -> Self {
-        Self { audit, event_bus }
+        Self { audit, event_bus, pool }
     }
 
     /// Derive WriteOffType from the source document type.
     fn derive_write_off_type(source_type: DocumentType) -> WriteOffType {
         match source_type {
+            // Sales → SalesReceipt
             DocumentType::ShippingRequest
             | DocumentType::SalesOrder
             | DocumentType::Reconciliation
             | DocumentType::SalesReturn => WriteOffType::SalesReceipt,
+            // Purchase → PurchasePayment
+            DocumentType::PurchaseQuotation
+            | DocumentType::PurchaseOrder
+            | DocumentType::PurchaseReturn
+            | DocumentType::PaymentRequest
+            | DocumentType::Invoice => WriteOffType::PurchasePayment,
+            // Other document types default to PurchasePayment
             _ => WriteOffType::PurchasePayment,
         }
     }
@@ -43,7 +56,7 @@ impl WriteOffServiceImpl {
 impl WriteOffService for WriteOffServiceImpl {
     async fn write_off(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: ServiceContext<'_>,
         req: WriteOffReq,
     ) -> Result<i64, DomainError> {
         // Validate amount > 0
@@ -54,9 +67,50 @@ impl WriteOffService for WriteOffServiceImpl {
         let write_off_type = Self::derive_write_off_type(req.source_type);
         let today = Utc::now().date_naive();
 
+        // Begin independent transaction to guarantee advisory lock scope
+        let mut tx = self.pool.begin().await.map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;
+
+        // Validate cash_journal exists and is Confirmed
+        let journal = CashJournalRepo::get_by_id(&mut tx, req.cash_journal_id)
+            .await
+            .map_err(DomainError::Internal)?
+            .ok_or_else(|| DomainError::not_found("CashJournal"))?;
+
+        if journal.status != JournalStatus::Confirmed {
+            return Err(DomainError::business_rule("CashJournal must be Confirmed"));
+        }
+
+        // Per-journal over-write-off check: total write-offs against this journal must not exceed its amount
+        let journal_written = WriteOffRepo::sum_written_off_by_journal(&mut tx, req.cash_journal_id)
+            .await
+            .map_err(DomainError::Internal)?;
+        if journal_written + req.amount > journal.amount {
+            return Err(DomainError::business_rule("OverWriteOffByJournal"));
+        }
+
+        // Anti-over-write-off (P0):
+        // Advisory lock serializes concurrent write_offs for the same source,
+        // then validate unreconciled >= amount
+        let already_written = WriteOffRepo::lock_and_sum_written_off(
+            &mut tx,
+            req.source_type,
+            req.source_id,
+        )
+        .await
+        .map_err(DomainError::Internal)?;
+
+        let unreconciled = req.source_total - already_written;
+        if unreconciled < req.amount {
+            // Release lock before returning error
+            WriteOffRepo::release_advisory_lock(&mut tx, req.source_type, req.source_id)
+                .await
+                .ok();
+            return Err(DomainError::business_rule("OverWriteOff"));
+        }
+
         // Insert — DB unique index on idempotency_key handles dedup
         let id = match WriteOffRepo::create(
-            ctx.executor,
+            &mut tx,
             write_off_type,
             &req,
             today,
@@ -70,50 +124,69 @@ impl WriteOffService for WriteOffServiceImpl {
                 if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>()
                     && db_err.code().as_deref() == Some("23505")
                 {
-                    return Err(DomainError::duplicate("WriteOff"));
+                    WriteOffRepo::release_advisory_lock(&mut tx, req.source_type, req.source_id)
+                        .await
+                        .ok();
+                    return Err(DomainError::duplicate("IdempotencyKey"));
                 }
+                WriteOffRepo::release_advisory_lock(&mut tx, req.source_type, req.source_id)
+                    .await
+                    .ok();
                 return Err(DomainError::Internal(e));
             }
         };
 
-        // Audit log
-        self.audit
-            .record(
-                ctx.reborrow(),
-                "WriteOff",
-                id,
-                AuditAction::Create,
-                Some(serde_json::json!({
-                    "write_off_type": write_off_type.as_str(),
-                    "cash_journal_id": req.cash_journal_id,
-                    "source_type": req.source_type.as_i16(),
-                    "source_id": req.source_id,
-                    "amount": req.amount,
-                })),
-                None,
-            )
-            .await?;
+        // Release advisory lock before commit (lock is no longer needed after insert)
+        WriteOffRepo::release_advisory_lock(&mut tx, req.source_type, req.source_id)
+            .await
+            .ok();
 
-        // Publish domain event
-        self.event_bus
-            .publish(
-                ctx.reborrow(),
-                EventPublishRequest {
-                    event_type: DomainEventType::WriteOffCompleted,
-                    aggregate_type: "WriteOff".to_string(),
-                    aggregate_id: id,
-                    payload: serde_json::json!({
-                        "write_off_id": id,
+        // Audit log
+        {
+            let mut tx_ctx = ServiceContext::new(
+                &mut *tx as common::PgExecutor<'_>,
+                ctx.operator_id,
+            );
+            self.audit
+                .record(
+                    tx_ctx.reborrow(),
+                    "WriteOff",
+                    id,
+                    AuditAction::Create,
+                    Some(serde_json::json!({
                         "write_off_type": write_off_type.as_str(),
                         "cash_journal_id": req.cash_journal_id,
                         "source_type": req.source_type.as_i16(),
                         "source_id": req.source_id,
                         "amount": req.amount,
-                    }),
-                    idempotency_key: req.idempotency_key,
-                },
-            )
-            .await?;
+                    })),
+                    None,
+                )
+                .await?;
+
+            // Publish domain event
+            self.event_bus
+                .publish(
+                    tx_ctx.reborrow(),
+                    EventPublishRequest {
+                        event_type: DomainEventType::WriteOffCompleted,
+                        aggregate_type: "WriteOff".to_string(),
+                        aggregate_id: id,
+                        payload: serde_json::json!({
+                            "write_off_id": id,
+                            "write_off_type": write_off_type.as_str(),
+                            "cash_journal_id": req.cash_journal_id,
+                            "source_type": req.source_type.as_i16(),
+                            "source_id": req.source_id,
+                            "amount": req.amount,
+                        }),
+                        idempotency_key: req.idempotency_key,
+                    },
+                )
+                .await?;
+        }
+
+        tx.commit().await.map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;
 
         Ok(id)
     }
@@ -138,12 +211,13 @@ impl WriteOffService for WriteOffServiceImpl {
         ctx: ServiceContext<'_>,
         source_type: DocumentType,
         source_id: i64,
+        source_total: rust_decimal::Decimal,
     ) -> Result<rust_decimal::Decimal, DomainError> {
         let total_written_off =
             WriteOffRepo::sum_written_off_by_source(ctx.executor, source_type, source_id)
                 .await
                 .map_err(DomainError::Internal)?;
 
-        Ok(total_written_off)
+        Ok(source_total - total_written_off)
     }
 }

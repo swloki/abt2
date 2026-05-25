@@ -317,6 +317,7 @@ pub enum CounterpartyRef {
     Customer(i64),
     Supplier(i64),
     Employee(i64),
+    Other(i64),
 }
 
 impl CounterpartyRef {
@@ -325,7 +326,7 @@ impl CounterpartyRef {
             CounterpartyType::Customer => Self::Customer(id),
             CounterpartyType::Supplier => Self::Supplier(id),
             CounterpartyType::Employee => Self::Employee(id),
-            CounterpartyType::Other => Self::Customer(id), // fallback
+            CounterpartyType::Other => Self::Other(id),
         }
     }
 
@@ -334,12 +335,13 @@ impl CounterpartyRef {
             Self::Customer(id) => (CounterpartyType::Customer, id),
             Self::Supplier(id) => (CounterpartyType::Supplier, id),
             Self::Employee(id) => (CounterpartyType::Employee, id),
+            Self::Other(id) => (CounterpartyType::Other, id),
         }
     }
 
     pub fn id(&self) -> i64 {
         match self {
-            Self::Customer(id) | Self::Supplier(id) | Self::Employee(id) => *id,
+            Self::Customer(id) | Self::Supplier(id) | Self::Employee(id) | Self::Other(id) => *id,
         }
     }
 }

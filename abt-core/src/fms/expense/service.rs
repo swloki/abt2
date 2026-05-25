@@ -20,7 +20,11 @@ pub trait ExpenseReimbursementService: Send + Sync {
         page: PageParams,
     ) -> Result<PaginatedResult<ExpenseReimbursement>, DomainError>;
 
-    /// Internal method called by WorkflowEngine Hook.
-    /// Opens its own transaction from PgPool — does NOT take ServiceContext.
-    async fn generate_payment_journal(&self, expense_id: i64) -> Result<i64, DomainError>;
+    /// Internal method called by WorkflowEngine Hook (IndependentTx).
+    /// Opens its own transaction from PgPool internally.
+    async fn generate_payment_journal(
+        &self,
+        ctx: ServiceContext<'_>,
+        expense_id: i64,
+    ) -> Result<i64, DomainError>;
 }

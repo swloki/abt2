@@ -138,9 +138,21 @@ impl ExpenseReimbursementRepo {
 
         let scope_param = match data_scope {
             DataScope::All => None,
-            DataScope::Department | DataScope::SelfOnly => {
+            DataScope::Department => {
+                if let Some(dept_id) = _scope_department_id {
+                    param_idx += 1;
+                    conditions.push(format!("department_id = ${param_idx}"));
+                    Some(dept_id)
+                } else {
+                    // No department info available, fall back to operator scope
+                    param_idx += 1;
+                    conditions.push(format!("applicant_id = ${param_idx}"));
+                    Some(scope_operator_id)
+                }
+            }
+            DataScope::SelfOnly => {
                 param_idx += 1;
-                conditions.push(format!("operator_id = ${param_idx}"));
+                conditions.push(format!("applicant_id = ${param_idx}"));
                 Some(scope_operator_id)
             }
         };

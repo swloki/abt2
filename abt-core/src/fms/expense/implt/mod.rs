@@ -3,8 +3,9 @@ use std::sync::Arc;
 use chrono::Datelike;
 use sqlx::PgPool;
 
+use crate::fms::cash_journal::repo::{CashJournalLineRepo, CashJournalRepo};
 use crate::fms::enums::{
-    CashDirection, CounterpartyType, ExpenseStatus, JournalStatus, JournalType,
+    CashDirection, ExpenseStatus, JournalStatus, JournalType,
 };
 use crate::fms::expense::model::*;
 use crate::fms::expense::repo::{ExpenseReimbursementItemRepo, ExpenseReimbursementRepo};
@@ -53,9 +54,26 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreateExpenseReq,
     ) -> Result<i64, DomainError> {
+        if req.items.is_empty() {
+            return Err(DomainError::validation("at least one expense item is required"));
+        }
+
+        // Validate each item amount is positive
+        for item in &req.items {
+            if item.amount <= rust_decimal::Decimal::ZERO {
+                return Err(DomainError::validation(
+                    "expense item amount must be greater than zero",
+                ));
+            }
+        }
+
         // Step 1: Calculate total_amount from items
         let total_amount: rust_decimal::Decimal =
             req.items.iter().map(|i| i.amount).sum();
+
+        if total_amount <= rust_decimal::Decimal::ZERO {
+            return Err(DomainError::validation("total amount must be greater than zero"));
+        }
 
         // Step 2: Generate doc number
         let doc_number = self
@@ -82,8 +100,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         // Step 5: State machine transition to Draft
         self.state_machine
             .transition(ctx.reborrow(), "ExpenseStatus", id, "Draft", None)
-            .await
-            .ok();
+            .await?;
 
         // Step 6: Audit log
         self.audit
@@ -129,13 +146,17 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
     }
 
     /// IndependentTx — opens its own transaction from PgPool.
-    /// Called by WorkflowEngine Hook (no ServiceContext available).
-    async fn generate_payment_journal(&self, expense_id: i64) -> Result<i64, DomainError> {
+    /// Called by WorkflowEngine Hook with ServiceContext for interface alignment.
+    async fn generate_payment_journal(
+        &self,
+        _ctx: ServiceContext<'_>,
+        expense_id: i64,
+    ) -> Result<i64, DomainError> {
         // Step 1: Begin independent transaction
         let mut tx = self.pool.begin().await.map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;
 
         // Step 2: Fetch expense (must be Approved)
-        let expense = ExpenseReimbursementRepo::get_by_id(&mut *tx, expense_id)
+        let expense = ExpenseReimbursementRepo::get_by_id(&mut tx, expense_id)
             .await
             .map_err(DomainError::Internal)?
             .ok_or_else(|| DomainError::not_found("ExpenseReimbursement"))?;
@@ -144,73 +165,96 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             return Err(DomainError::business_rule("InvalidState"));
         }
 
-        // Step 3: Create CashJournal directly via SQL (Outflow, Expense type)
-        let journal_id: i64 = sqlx::query_scalar(
-            r#"INSERT INTO cash_journals
-               (doc_number, journal_type, direction, amount,
-                counterparty_type, counterparty_id, source_type, source_id,
-                bank_account, transaction_date, period, status, remark, operator_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-               RETURNING id"#,
-        )
-        .bind(&expense.doc_number)
-        .bind(JournalType::Expense)
-        .bind(CashDirection::Outflow)
-        .bind(expense.total_amount)
-        .bind(CounterpartyType::Employee)
-        .bind(expense.applicant_id)
-        .bind(DocumentType::ExpenseReimbursement.as_i16())
-        .bind(expense.id)
-        .bind("")
-        .bind(chrono::Local::now().date_naive())
-        .bind(format!(
-            "{}-{:02}",
-            chrono::Local::now().year(),
-            chrono::Local::now().month()
-        ))
-        .bind(JournalStatus::Confirmed)
-        .bind(&expense.remark)
-        .bind(expense.operator_id)
-        .fetch_one(&mut *tx)
-        .await
-        .map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;
+        // Step 3: Generate a proper CJ doc_number via DocumentSequenceService
+        let cj_doc_number = {
+            let mut cj_ctx = ServiceContext::new(
+                &mut *tx as common::PgExecutor<'_>,
+                expense.operator_id,
+            );
+            self.doc_seq
+                .next_number(cj_ctx.reborrow(), DocumentType::CashJournal)
+                .await?
+        };
 
-        // Step 4: Create CashJournal lines (one debit + one credit)
-        sqlx::query(
-            r#"INSERT INTO cash_journal_lines
-               (journal_id, account_code, debit_amount, credit_amount, cost_center, profit_center, remark)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
-        )
-        .bind(journal_id)
-        .bind("应付职工薪酬")
-        .bind(expense.total_amount)
-        .bind(rust_decimal::Decimal::ZERO)
-        .bind::<Option<i64>>(None)
-        .bind::<Option<i64>>(None)
-        .bind("报销付款 — 借方")
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;
+        // Step 4: Build CashJournal request and create via Repo
+        let now = chrono::Utc::now();
+        let journal_req = crate::fms::cash_journal::model::CreateCashJournalReq {
+            journal_type: JournalType::Expense,
+            direction: CashDirection::Outflow,
+            amount: expense.total_amount,
+            counterparty: crate::fms::enums::CounterpartyRef::Employee(expense.applicant_id),
+            source_type: DocumentType::ExpenseReimbursement,
+            source_id: expense.id,
+            bank_account: String::new(),
+            transaction_date: now.date_naive(),
+            period: format!("{}-{:02}", now.year(), now.month()),
+            remark: expense.remark.clone(),
+            lines: vec![
+                crate::fms::cash_journal::model::CashJournalLineInput {
+                    account_code: "应付职工薪酬".to_string(),
+                    debit_amount: expense.total_amount,
+                    credit_amount: rust_decimal::Decimal::ZERO,
+                    cost_center: None,
+                    profit_center: None,
+                    remark: "报销付款 — 借方".to_string(),
+                },
+                crate::fms::cash_journal::model::CashJournalLineInput {
+                    account_code: "银行存款".to_string(),
+                    debit_amount: rust_decimal::Decimal::ZERO,
+                    credit_amount: expense.total_amount,
+                    cost_center: None,
+                    profit_center: None,
+                    remark: "报销付款 — 贷方".to_string(),
+                },
+            ],
+        };
 
-        sqlx::query(
-            r#"INSERT INTO cash_journal_lines
-               (journal_id, account_code, debit_amount, credit_amount, cost_center, profit_center, remark)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
-        )
-        .bind(journal_id)
-        .bind("银行存款")
-        .bind(rust_decimal::Decimal::ZERO)
-        .bind(expense.total_amount)
-        .bind::<Option<i64>>(None)
-        .bind::<Option<i64>>(None)
-        .bind("报销付款 — 贷方")
-        .execute(&mut *tx)
-        .await
-        .map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;
+        // Validate balanced entry (debit == credit, non-zero) before inserting
+        let total_debit: rust_decimal::Decimal =
+            journal_req.lines.iter().map(|l| l.debit_amount).sum();
+        let total_credit: rust_decimal::Decimal =
+            journal_req.lines.iter().map(|l| l.credit_amount).sum();
+        if total_debit != total_credit {
+            return Err(DomainError::business_rule("UnbalancedEntry"));
+        }
+        if total_debit == rust_decimal::Decimal::ZERO {
+            return Err(DomainError::business_rule("ZeroEntry"));
+        }
 
-        // Step 5: Update expense status to Paid with optimistic lock
+        let journal_id = CashJournalRepo::create(
+            &mut tx,
+            &cj_doc_number,
+            &journal_req,
+            expense.operator_id,
+        )
+        .await
+        .map_err(DomainError::Internal)?;
+
+        CashJournalLineRepo::batch_insert(
+            &mut tx,
+            journal_id,
+            &journal_req.lines,
+        )
+        .await
+        .map_err(DomainError::Internal)?;
+
+        // Step 5: Set journal status directly to Confirmed — check rows affected
+        let journal_rows = CashJournalRepo::update_status(
+            &mut tx,
+            journal_id,
+            JournalStatus::Confirmed,
+            1, // initial version after create
+        )
+        .await
+        .map_err(DomainError::Internal)?;
+
+        if journal_rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        // Step 6: Update expense status to Paid with optimistic lock
         let rows = ExpenseReimbursementRepo::update_status(
-            &mut *tx,
+            &mut tx,
             expense.id,
             ExpenseStatus::Paid,
             expense.version,
@@ -222,34 +266,35 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // Step 6: Commit transaction
+        // Step 7: Commit transaction
         tx.commit().await.map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;
 
-        // Step 7: Publish event (outside tx) — create a temporary ServiceContext
-        // Use a fresh tx from pool for the event bus publish
-        let mut publish_tx = self.pool.begin().await.map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;
-        let publish_ctx = ServiceContext::new(&mut *publish_tx as common::PgExecutor<'_>, expense.operator_id);
-
-        self.event_bus
-            .publish(
-                publish_ctx,
-                EventPublishRequest {
-                    event_type: DomainEventType::ExpensePaymentGenerated,
-                    aggregate_type: "ExpenseReimbursement".to_string(),
-                    aggregate_id: expense.id,
-                    payload: serde_json::json!({
-                        "expense_id": expense.id,
-                        "doc_number": expense.doc_number,
-                        "total_amount": expense.total_amount,
-                        "cash_journal_id": journal_id,
-                        "applicant_id": expense.applicant_id,
-                    }),
-                    idempotency_key: Some(format!("ExpensePayment:{}", expense.id)),
-                },
-            )
-            .await?;
-
-        publish_tx.commit().await.map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;
+        // Step 8: Publish event — failure does not affect committed business data
+        if let Ok(mut event_conn) = self.pool.acquire().await {
+            let event_ctx = ServiceContext::new(
+                &mut *event_conn as common::PgExecutor<'_>,
+                expense.operator_id,
+            );
+            self.event_bus
+                .publish(
+                    event_ctx,
+                    EventPublishRequest {
+                        event_type: DomainEventType::ExpensePaymentGenerated,
+                        aggregate_type: "ExpenseReimbursement".to_string(),
+                        aggregate_id: expense.id,
+                        payload: serde_json::json!({
+                            "expense_id": expense.id,
+                            "doc_number": expense.doc_number,
+                            "total_amount": expense.total_amount,
+                            "cash_journal_id": journal_id,
+                            "applicant_id": expense.applicant_id,
+                        }),
+                        idempotency_key: Some(format!("ExpensePayment:{}", expense.id)),
+                    },
+                )
+                .await
+                .ok();
+        }
 
         Ok(journal_id)
     }

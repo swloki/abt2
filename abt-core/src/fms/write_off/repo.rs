@@ -79,7 +79,7 @@ impl WriteOffRepo {
         Ok((items, total as u64))
     }
 
-    /// Sum all write-off amounts for a given source document.
+    /// Sum all write-off amounts for a given source document (plain read).
     pub async fn sum_written_off_by_source(
         executor: PgExecutor<'_>,
         source_type: DocumentType,
@@ -93,6 +93,45 @@ impl WriteOffRepo {
         .fetch_one(executor)
         .await?;
         Ok(total)
+    }
+
+    /// Acquire a session-level advisory lock keyed on (source_type, source_id),
+    /// then sum all write-off amounts for that source.
+    /// Uses pg_advisory_lock (session-level) which works regardless of transaction context.
+    /// Caller MUST call release_advisory_lock after the operation completes.
+    pub async fn lock_and_sum_written_off(
+        executor: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+    ) -> Result<Decimal> {
+        sqlx::query("SELECT pg_advisory_lock($1, $2)")
+            .bind(source_type.as_i16() as i64)
+            .bind(source_id)
+            .execute(&mut *executor)
+            .await?;
+
+        let total: Decimal = sqlx::query_scalar(
+            r#"SELECT COALESCE(SUM(amount), 0) FROM write_offs WHERE source_type = $1 AND source_id = $2"#,
+        )
+        .bind(source_type)
+        .bind(source_id)
+        .fetch_one(&mut *executor)
+        .await?;
+        Ok(total)
+    }
+
+    /// Release the session-level advisory lock acquired by lock_and_sum_written_off.
+    pub async fn release_advisory_lock(
+        executor: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+    ) -> Result<()> {
+        sqlx::query("SELECT pg_advisory_unlock($1, $2)")
+            .bind(source_type.as_i16() as i64)
+            .bind(source_id)
+            .execute(&mut *executor)
+            .await?;
+        Ok(())
     }
 
     /// Sum all write-off amounts for a given cash journal.

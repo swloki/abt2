@@ -168,6 +168,7 @@ impl CashJournalRepo {
 
         let scope_param = match data_scope {
             DataScope::All => None,
+            // cash_journals has no department_id column; Department falls back to operator_id
             DataScope::Department | DataScope::SelfOnly => {
                 param_idx += 1;
                 conditions.push(format!("operator_id = ${param_idx}"));

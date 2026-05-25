@@ -24,12 +24,14 @@ pub trait WriteOffService: Send + Sync {
         page: PageParams,
     ) -> Result<PaginatedResult<WriteOff>, DomainError>;
 
-    /// Get the total written-off amount for a given source document.
-    /// The caller compares this with the source total to compute unreconciled amount.
+    /// Get the unreconciled amount for a given source document.
+    /// Returns source_total - SUM(write_off.amount).
+    /// The caller must provide the source_total since source documents live in other modules.
     async fn get_unreconciled_amount(
         &self,
         ctx: ServiceContext<'_>,
         source_type: DocumentType,
         source_id: i64,
+        source_total: Decimal,
     ) -> Result<Decimal, DomainError>;
 }

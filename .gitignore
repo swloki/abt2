@@ -9,4 +9,5 @@ target/
 tdocker/abt-grpc
 .context
 .claude
+.superpowers
 sql/

@@ -3,8 +3,8 @@
 ## Constraints（必须遵守）
 
 - **使用中文沟通**
-- **禁止修改前端代码**（`E:\work\front\abt_front` 目录下所有文件），只改后端
 - **不要用 `cargo run` 启动服务**，服务已在运行中。验证代码正确性主要用 `cargo clippy`
+- 前端代码在 `abt-web/` 目录下，使用 Astro + React 技术栈
 
 ## Project Overview
 

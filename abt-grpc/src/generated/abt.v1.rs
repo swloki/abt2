@@ -12385,6 +12385,1736 @@ pub mod abt_notification_service_server {
     }
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct OutsourcingMaterial {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(int64, tag = "2")]
+    pub outsourcing_id: i64,
+    #[prost(int64, tag = "3")]
+    pub product_id: i64,
+    #[prost(string, tag = "4")]
+    pub planned_qty: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub sent_qty: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub returned_qty: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub unit_cost: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct OutsourcingTracking {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(int64, tag = "2")]
+    pub outsourcing_id: i64,
+    #[prost(enumeration = "TrackingNodeType", tag = "3")]
+    pub node_type: i32,
+    #[prost(int64, tag = "4")]
+    pub tracked_at: i64,
+    #[prost(int64, optional, tag = "5")]
+    pub planned_at: ::core::option::Option<i64>,
+    #[prost(string, optional, tag = "6")]
+    pub remark: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int64, tag = "7")]
+    pub operator_id: i64,
+    #[prost(int64, tag = "8")]
+    pub created_at: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OutsourcingOrder {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(string, tag = "2")]
+    pub doc_number: ::prost::alloc::string::String,
+    #[prost(int64, optional, tag = "3")]
+    pub work_order_id: ::core::option::Option<i64>,
+    #[prost(int64, optional, tag = "4")]
+    pub routing_id: ::core::option::Option<i64>,
+    #[prost(int64, tag = "5")]
+    pub supplier_id: i64,
+    #[prost(int64, tag = "6")]
+    pub product_id: i64,
+    #[prost(enumeration = "OutsourcingType", tag = "7")]
+    pub outsourcing_type: i32,
+    #[prost(string, tag = "8")]
+    pub planned_qty: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub completed_qty: ::prost::alloc::string::String,
+    #[prost(string, tag = "10")]
+    pub unit_price: ::prost::alloc::string::String,
+    /// YYYYMMDD as int32
+    #[prost(int32, optional, tag = "11")]
+    pub scheduled_date: ::core::option::Option<i32>,
+    #[prost(enumeration = "OutsourcingStatus", tag = "12")]
+    pub status: i32,
+    #[prost(int64, tag = "13")]
+    pub virtual_warehouse_id: i64,
+    #[prost(int32, tag = "14")]
+    pub version: i32,
+    #[prost(string, tag = "15")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "16")]
+    pub operator_id: i64,
+    #[prost(int64, tag = "17")]
+    pub created_at: i64,
+    #[prost(int64, tag = "18")]
+    pub updated_at: i64,
+    #[prost(message, repeated, tag = "19")]
+    pub materials: ::prost::alloc::vec::Vec<OutsourcingMaterial>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct OutsourcingMaterialItem {
+    #[prost(int64, tag = "1")]
+    pub product_id: i64,
+    #[prost(string, tag = "2")]
+    pub planned_qty: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "3")]
+    pub unit_cost: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateOutsourcingOrderRequest {
+    #[prost(int64, optional, tag = "1")]
+    pub work_order_id: ::core::option::Option<i64>,
+    #[prost(int64, optional, tag = "2")]
+    pub routing_id: ::core::option::Option<i64>,
+    #[prost(int64, tag = "3")]
+    pub supplier_id: i64,
+    #[prost(int64, tag = "4")]
+    pub product_id: i64,
+    #[prost(enumeration = "OutsourcingType", tag = "5")]
+    pub outsourcing_type: i32,
+    #[prost(string, tag = "6")]
+    pub planned_qty: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub unit_price: ::prost::alloc::string::String,
+    #[prost(int32, optional, tag = "8")]
+    pub scheduled_date: ::core::option::Option<i32>,
+    #[prost(int64, tag = "9")]
+    pub virtual_warehouse_id: i64,
+    #[prost(string, optional, tag = "10")]
+    pub remark: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "11")]
+    pub materials: ::prost::alloc::vec::Vec<OutsourcingMaterialItem>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdateOutsourcingOrderRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(int32, tag = "2")]
+    pub expected_version: i32,
+    #[prost(int64, optional, tag = "3")]
+    pub supplier_id: ::core::option::Option<i64>,
+    #[prost(string, optional, tag = "4")]
+    pub planned_qty: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "5")]
+    pub unit_price: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "6")]
+    pub scheduled_date: ::core::option::Option<i32>,
+    #[prost(string, optional, tag = "7")]
+    pub remark: ::core::option::Option<::prost::alloc::string::String>,
+    /// full replace
+    #[prost(message, repeated, tag = "8")]
+    pub materials: ::prost::alloc::vec::Vec<OutsourcingMaterialItem>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct SendOutsourcingRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(int32, tag = "2")]
+    pub expected_version: i32,
+    #[prost(string, optional, tag = "3")]
+    pub remark: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ReceiveOutsourcingRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(int32, tag = "2")]
+    pub expected_version: i32,
+    #[prost(string, tag = "3")]
+    pub received_qty: ::prost::alloc::string::String,
+    #[prost(int64, optional, tag = "4")]
+    pub warehouse_id: ::core::option::Option<i64>,
+    #[prost(string, optional, tag = "5")]
+    pub iqc_passed_qty: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "6")]
+    pub remark: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ConvertToInternalRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(int32, tag = "2")]
+    pub expected_version: i32,
+    #[prost(string, optional, tag = "3")]
+    pub remark: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CancelOutsourcingRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+    #[prost(int32, tag = "2")]
+    pub expected_version: i32,
+    #[prost(string, optional, tag = "3")]
+    pub remark: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetOutsourcingOrderRequest {
+    #[prost(int64, tag = "1")]
+    pub id: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListOutsourcingOrdersRequest {
+    #[prost(enumeration = "OutsourcingStatus", optional, tag = "1")]
+    pub status: ::core::option::Option<i32>,
+    #[prost(int64, optional, tag = "2")]
+    pub supplier_id: ::core::option::Option<i64>,
+    #[prost(enumeration = "OutsourcingType", optional, tag = "3")]
+    pub outsourcing_type: ::core::option::Option<i32>,
+    #[prost(int64, optional, tag = "4")]
+    pub work_order_id: ::core::option::Option<i64>,
+    /// YYYYMMDD
+    #[prost(int32, optional, tag = "5")]
+    pub date_start: ::core::option::Option<i32>,
+    /// YYYYMMDD
+    #[prost(int32, optional, tag = "6")]
+    pub date_end: ::core::option::Option<i32>,
+    #[prost(string, optional, tag = "7")]
+    pub keyword: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(message, optional, tag = "8")]
+    pub pagination: ::core::option::Option<PaginationParams>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OutsourcingOrderResponse {
+    #[prost(message, optional, tag = "1")]
+    pub order: ::core::option::Option<OutsourcingOrder>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OutsourcingOrderListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<OutsourcingOrder>,
+    #[prost(message, optional, tag = "2")]
+    pub pagination: ::core::option::Option<PaginationInfo>,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct RecordTrackingNodeRequest {
+    #[prost(int64, tag = "1")]
+    pub outsourcing_id: i64,
+    #[prost(enumeration = "TrackingNodeType", tag = "2")]
+    pub node_type: i32,
+    #[prost(int64, optional, tag = "3")]
+    pub tracked_at: ::core::option::Option<i64>,
+    #[prost(string, optional, tag = "4")]
+    pub remark: ::core::option::Option<::prost::alloc::string::String>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListTrackingNodesRequest {
+    #[prost(int64, tag = "1")]
+    pub outsourcing_id: i64,
+    #[prost(message, optional, tag = "2")]
+    pub pagination: ::core::option::Option<PaginationParams>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListOverdueTrackingsRequest {
+    #[prost(int64, optional, tag = "1")]
+    pub supplier_id: ::core::option::Option<i64>,
+    #[prost(enumeration = "TrackingNodeType", optional, tag = "2")]
+    pub node_type: ::core::option::Option<i32>,
+    #[prost(int64, optional, tag = "3")]
+    pub overdue_before: ::core::option::Option<i64>,
+    #[prost(message, optional, tag = "4")]
+    pub pagination: ::core::option::Option<PaginationParams>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct OutsourcingTrackingListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<OutsourcingTracking>,
+    #[prost(message, optional, tag = "2")]
+    pub pagination: ::core::option::Option<PaginationInfo>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum OutsourcingType {
+    Unspecified = 0,
+    Full = 1,
+    Process = 2,
+    Material = 3,
+    Rework = 4,
+}
+impl OutsourcingType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "OUTSOURCING_TYPE_UNSPECIFIED",
+            Self::Full => "OUTSOURCING_TYPE_FULL",
+            Self::Process => "OUTSOURCING_TYPE_PROCESS",
+            Self::Material => "OUTSOURCING_TYPE_MATERIAL",
+            Self::Rework => "OUTSOURCING_TYPE_REWORK",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "OUTSOURCING_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "OUTSOURCING_TYPE_FULL" => Some(Self::Full),
+            "OUTSOURCING_TYPE_PROCESS" => Some(Self::Process),
+            "OUTSOURCING_TYPE_MATERIAL" => Some(Self::Material),
+            "OUTSOURCING_TYPE_REWORK" => Some(Self::Rework),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum OutsourcingStatus {
+    Unspecified = 0,
+    Draft = 1,
+    Sent = 2,
+    InProduction = 3,
+    Delivered = 4,
+    Received = 5,
+    Closed = 6,
+    ConvertedToInternal = 7,
+    Cancelled = 8,
+}
+impl OutsourcingStatus {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "OUTSOURCING_STATUS_UNSPECIFIED",
+            Self::Draft => "OUTSOURCING_STATUS_DRAFT",
+            Self::Sent => "OUTSOURCING_STATUS_SENT",
+            Self::InProduction => "OUTSOURCING_STATUS_IN_PRODUCTION",
+            Self::Delivered => "OUTSOURCING_STATUS_DELIVERED",
+            Self::Received => "OUTSOURCING_STATUS_RECEIVED",
+            Self::Closed => "OUTSOURCING_STATUS_CLOSED",
+            Self::ConvertedToInternal => "OUTSOURCING_STATUS_CONVERTED_TO_INTERNAL",
+            Self::Cancelled => "OUTSOURCING_STATUS_CANCELLED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "OUTSOURCING_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
+            "OUTSOURCING_STATUS_DRAFT" => Some(Self::Draft),
+            "OUTSOURCING_STATUS_SENT" => Some(Self::Sent),
+            "OUTSOURCING_STATUS_IN_PRODUCTION" => Some(Self::InProduction),
+            "OUTSOURCING_STATUS_DELIVERED" => Some(Self::Delivered),
+            "OUTSOURCING_STATUS_RECEIVED" => Some(Self::Received),
+            "OUTSOURCING_STATUS_CLOSED" => Some(Self::Closed),
+            "OUTSOURCING_STATUS_CONVERTED_TO_INTERNAL" => Some(Self::ConvertedToInternal),
+            "OUTSOURCING_STATUS_CANCELLED" => Some(Self::Cancelled),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum TrackingNodeType {
+    Unspecified = 0,
+    SendMaterial = 1,
+    CarrierPickup = 2,
+    SupplierReceived = 3,
+    InProduction = 4,
+    Shipped = 5,
+    IqcInspected = 6,
+    Warehoused = 7,
+}
+impl TrackingNodeType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "TRACKING_NODE_TYPE_UNSPECIFIED",
+            Self::SendMaterial => "TRACKING_NODE_TYPE_SEND_MATERIAL",
+            Self::CarrierPickup => "TRACKING_NODE_TYPE_CARRIER_PICKUP",
+            Self::SupplierReceived => "TRACKING_NODE_TYPE_SUPPLIER_RECEIVED",
+            Self::InProduction => "TRACKING_NODE_TYPE_IN_PRODUCTION",
+            Self::Shipped => "TRACKING_NODE_TYPE_SHIPPED",
+            Self::IqcInspected => "TRACKING_NODE_TYPE_IQC_INSPECTED",
+            Self::Warehoused => "TRACKING_NODE_TYPE_WAREHOUSED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "TRACKING_NODE_TYPE_UNSPECIFIED" => Some(Self::Unspecified),
+            "TRACKING_NODE_TYPE_SEND_MATERIAL" => Some(Self::SendMaterial),
+            "TRACKING_NODE_TYPE_CARRIER_PICKUP" => Some(Self::CarrierPickup),
+            "TRACKING_NODE_TYPE_SUPPLIER_RECEIVED" => Some(Self::SupplierReceived),
+            "TRACKING_NODE_TYPE_IN_PRODUCTION" => Some(Self::InProduction),
+            "TRACKING_NODE_TYPE_SHIPPED" => Some(Self::Shipped),
+            "TRACKING_NODE_TYPE_IQC_INSPECTED" => Some(Self::IqcInspected),
+            "TRACKING_NODE_TYPE_WAREHOUSED" => Some(Self::Warehoused),
+            _ => None,
+        }
+    }
+}
+/// Generated client implementations.
+pub mod outsourcing_order_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    #[derive(Debug, Clone)]
+    pub struct OutsourcingOrderServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl OutsourcingOrderServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> OutsourcingOrderServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> OutsourcingOrderServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            OutsourcingOrderServiceClient::new(
+                InterceptedService::new(inner, interceptor),
+            )
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        pub async fn create_outsourcing_order(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateOutsourcingOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingOrderService/CreateOutsourcingOrder",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.OutsourcingOrderService",
+                        "CreateOutsourcingOrder",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_outsourcing_order(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateOutsourcingOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingOrderService/UpdateOutsourcingOrder",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.OutsourcingOrderService",
+                        "UpdateOutsourcingOrder",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn send_outsourcing(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SendOutsourcingRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingOrderService/SendOutsourcing",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new("abt.v1.OutsourcingOrderService", "SendOutsourcing"),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn receive_outsourcing(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ReceiveOutsourcingRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingOrderService/ReceiveOutsourcing",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.OutsourcingOrderService",
+                        "ReceiveOutsourcing",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn convert_to_internal(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ConvertToInternalRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingOrderService/ConvertToInternal",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.OutsourcingOrderService",
+                        "ConvertToInternal",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn cancel_outsourcing(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CancelOutsourcingRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingOrderService/CancelOutsourcing",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.OutsourcingOrderService",
+                        "CancelOutsourcing",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_outsourcing_order(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetOutsourcingOrderRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::OutsourcingOrderResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingOrderService/GetOutsourcingOrder",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.OutsourcingOrderService",
+                        "GetOutsourcingOrder",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_outsourcing_orders(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListOutsourcingOrdersRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::OutsourcingOrderListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingOrderService/ListOutsourcingOrders",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.OutsourcingOrderService",
+                        "ListOutsourcingOrders",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod outsourcing_order_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with OutsourcingOrderServiceServer.
+    #[async_trait]
+    pub trait OutsourcingOrderService: std::marker::Send + std::marker::Sync + 'static {
+        async fn create_outsourcing_order(
+            &self,
+            request: tonic::Request<super::CreateOutsourcingOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn update_outsourcing_order(
+            &self,
+            request: tonic::Request<super::UpdateOutsourcingOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn send_outsourcing(
+            &self,
+            request: tonic::Request<super::SendOutsourcingRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn receive_outsourcing(
+            &self,
+            request: tonic::Request<super::ReceiveOutsourcingRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn convert_to_internal(
+            &self,
+            request: tonic::Request<super::ConvertToInternalRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn cancel_outsourcing(
+            &self,
+            request: tonic::Request<super::CancelOutsourcingRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn get_outsourcing_order(
+            &self,
+            request: tonic::Request<super::GetOutsourcingOrderRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::OutsourcingOrderResponse>,
+            tonic::Status,
+        >;
+        async fn list_outsourcing_orders(
+            &self,
+            request: tonic::Request<super::ListOutsourcingOrdersRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::OutsourcingOrderListResponse>,
+            tonic::Status,
+        >;
+    }
+    #[derive(Debug)]
+    pub struct OutsourcingOrderServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> OutsourcingOrderServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>>
+    for OutsourcingOrderServiceServer<T>
+    where
+        T: OutsourcingOrderService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/abt.v1.OutsourcingOrderService/CreateOutsourcingOrder" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateOutsourcingOrderSvc<T: OutsourcingOrderService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: OutsourcingOrderService,
+                    > tonic::server::UnaryService<super::CreateOutsourcingOrderRequest>
+                    for CreateOutsourcingOrderSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateOutsourcingOrderRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingOrderService>::create_outsourcing_order(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateOutsourcingOrderSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.OutsourcingOrderService/UpdateOutsourcingOrder" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateOutsourcingOrderSvc<T: OutsourcingOrderService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: OutsourcingOrderService,
+                    > tonic::server::UnaryService<super::UpdateOutsourcingOrderRequest>
+                    for UpdateOutsourcingOrderSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateOutsourcingOrderRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingOrderService>::update_outsourcing_order(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateOutsourcingOrderSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.OutsourcingOrderService/SendOutsourcing" => {
+                    #[allow(non_camel_case_types)]
+                    struct SendOutsourcingSvc<T: OutsourcingOrderService>(pub Arc<T>);
+                    impl<
+                        T: OutsourcingOrderService,
+                    > tonic::server::UnaryService<super::SendOutsourcingRequest>
+                    for SendOutsourcingSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SendOutsourcingRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingOrderService>::send_outsourcing(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SendOutsourcingSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.OutsourcingOrderService/ReceiveOutsourcing" => {
+                    #[allow(non_camel_case_types)]
+                    struct ReceiveOutsourcingSvc<T: OutsourcingOrderService>(pub Arc<T>);
+                    impl<
+                        T: OutsourcingOrderService,
+                    > tonic::server::UnaryService<super::ReceiveOutsourcingRequest>
+                    for ReceiveOutsourcingSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ReceiveOutsourcingRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingOrderService>::receive_outsourcing(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ReceiveOutsourcingSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.OutsourcingOrderService/ConvertToInternal" => {
+                    #[allow(non_camel_case_types)]
+                    struct ConvertToInternalSvc<T: OutsourcingOrderService>(pub Arc<T>);
+                    impl<
+                        T: OutsourcingOrderService,
+                    > tonic::server::UnaryService<super::ConvertToInternalRequest>
+                    for ConvertToInternalSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ConvertToInternalRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingOrderService>::convert_to_internal(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ConvertToInternalSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.OutsourcingOrderService/CancelOutsourcing" => {
+                    #[allow(non_camel_case_types)]
+                    struct CancelOutsourcingSvc<T: OutsourcingOrderService>(pub Arc<T>);
+                    impl<
+                        T: OutsourcingOrderService,
+                    > tonic::server::UnaryService<super::CancelOutsourcingRequest>
+                    for CancelOutsourcingSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CancelOutsourcingRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingOrderService>::cancel_outsourcing(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CancelOutsourcingSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.OutsourcingOrderService/GetOutsourcingOrder" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetOutsourcingOrderSvc<T: OutsourcingOrderService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: OutsourcingOrderService,
+                    > tonic::server::UnaryService<super::GetOutsourcingOrderRequest>
+                    for GetOutsourcingOrderSvc<T> {
+                        type Response = super::OutsourcingOrderResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetOutsourcingOrderRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingOrderService>::get_outsourcing_order(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetOutsourcingOrderSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.OutsourcingOrderService/ListOutsourcingOrders" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListOutsourcingOrdersSvc<T: OutsourcingOrderService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: OutsourcingOrderService,
+                    > tonic::server::UnaryService<super::ListOutsourcingOrdersRequest>
+                    for ListOutsourcingOrdersSvc<T> {
+                        type Response = super::OutsourcingOrderListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListOutsourcingOrdersRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingOrderService>::list_outsourcing_orders(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListOutsourcingOrdersSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for OutsourcingOrderServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "abt.v1.OutsourcingOrderService";
+    impl<T> tonic::server::NamedService for OutsourcingOrderServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
+/// Generated client implementations.
+pub mod outsourcing_tracking_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    #[derive(Debug, Clone)]
+    pub struct OutsourcingTrackingServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl OutsourcingTrackingServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> OutsourcingTrackingServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> OutsourcingTrackingServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            OutsourcingTrackingServiceClient::new(
+                InterceptedService::new(inner, interceptor),
+            )
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        pub async fn record_tracking_node(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RecordTrackingNodeRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingTrackingService/RecordTrackingNode",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.OutsourcingTrackingService",
+                        "RecordTrackingNode",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_tracking_nodes(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListTrackingNodesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::OutsourcingTrackingListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingTrackingService/ListTrackingNodes",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.OutsourcingTrackingService",
+                        "ListTrackingNodes",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_overdue_trackings(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListOverdueTrackingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::OutsourcingTrackingListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.OutsourcingTrackingService/ListOverdueTrackings",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.OutsourcingTrackingService",
+                        "ListOverdueTrackings",
+                    ),
+                );
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod outsourcing_tracking_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with OutsourcingTrackingServiceServer.
+    #[async_trait]
+    pub trait OutsourcingTrackingService: std::marker::Send + std::marker::Sync + 'static {
+        async fn record_tracking_node(
+            &self,
+            request: tonic::Request<super::RecordTrackingNodeRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn list_tracking_nodes(
+            &self,
+            request: tonic::Request<super::ListTrackingNodesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::OutsourcingTrackingListResponse>,
+            tonic::Status,
+        >;
+        async fn list_overdue_trackings(
+            &self,
+            request: tonic::Request<super::ListOverdueTrackingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::OutsourcingTrackingListResponse>,
+            tonic::Status,
+        >;
+    }
+    #[derive(Debug)]
+    pub struct OutsourcingTrackingServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> OutsourcingTrackingServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>>
+    for OutsourcingTrackingServiceServer<T>
+    where
+        T: OutsourcingTrackingService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/abt.v1.OutsourcingTrackingService/RecordTrackingNode" => {
+                    #[allow(non_camel_case_types)]
+                    struct RecordTrackingNodeSvc<T: OutsourcingTrackingService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: OutsourcingTrackingService,
+                    > tonic::server::UnaryService<super::RecordTrackingNodeRequest>
+                    for RecordTrackingNodeSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RecordTrackingNodeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingTrackingService>::record_tracking_node(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RecordTrackingNodeSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.OutsourcingTrackingService/ListTrackingNodes" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListTrackingNodesSvc<T: OutsourcingTrackingService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: OutsourcingTrackingService,
+                    > tonic::server::UnaryService<super::ListTrackingNodesRequest>
+                    for ListTrackingNodesSvc<T> {
+                        type Response = super::OutsourcingTrackingListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListTrackingNodesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingTrackingService>::list_tracking_nodes(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListTrackingNodesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.OutsourcingTrackingService/ListOverdueTrackings" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListOverdueTrackingsSvc<T: OutsourcingTrackingService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: OutsourcingTrackingService,
+                    > tonic::server::UnaryService<super::ListOverdueTrackingsRequest>
+                    for ListOverdueTrackingsSvc<T> {
+                        type Response = super::OutsourcingTrackingListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListOverdueTrackingsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as OutsourcingTrackingService>::list_overdue_trackings(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListOverdueTrackingsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for OutsourcingTrackingServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "abt.v1.OutsourcingTrackingService";
+    impl<T> tonic::server::NamedService for OutsourcingTrackingServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct PriceLogEntryResponse {
     #[prost(int64, tag = "1")]
     pub log_id: i64,

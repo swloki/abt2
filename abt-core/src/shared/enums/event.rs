@@ -62,6 +62,8 @@ pub enum DomainEventType {
     PurchaseReconciliationConfirmed = 44,
     PaymentRequestApproved = 45,
     PurchaseReturnSettled = 46,
+    // OM — Outsourcing
+    OutsourcingCancelled = 47,
 }
 
 impl DomainEventType {
@@ -96,6 +98,7 @@ impl DomainEventType {
             44 => Some(Self::PurchaseReconciliationConfirmed),
             45 => Some(Self::PaymentRequestApproved),
             46 => Some(Self::PurchaseReturnSettled),
+            47 => Some(Self::OutsourcingCancelled),
             _ => None,
         }
     }

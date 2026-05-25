@@ -1,0 +1,221 @@
+syntax = "proto3";
+package abt.v1;
+
+import "abt/v1/base.proto";
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum OutsourcingType {
+  OUTSOURCING_TYPE_UNSPECIFIED = 0;
+  OUTSOURCING_TYPE_FULL = 1;
+  OUTSOURCING_TYPE_PROCESS = 2;
+  OUTSOURCING_TYPE_MATERIAL = 3;
+  OUTSOURCING_TYPE_REWORK = 4;
+}
+
+enum OutsourcingStatus {
+  OUTSOURCING_STATUS_UNSPECIFIED = 0;
+  OUTSOURCING_STATUS_DRAFT = 1;
+  OUTSOURCING_STATUS_SENT = 2;
+  OUTSOURCING_STATUS_IN_PRODUCTION = 3;
+  OUTSOURCING_STATUS_DELIVERED = 4;
+  OUTSOURCING_STATUS_RECEIVED = 5;
+  OUTSOURCING_STATUS_CLOSED = 6;
+  OUTSOURCING_STATUS_CONVERTED_TO_INTERNAL = 7;
+  OUTSOURCING_STATUS_CANCELLED = 8;
+}
+
+enum TrackingNodeType {
+  TRACKING_NODE_TYPE_UNSPECIFIED = 0;
+  TRACKING_NODE_TYPE_SEND_MATERIAL = 1;
+  TRACKING_NODE_TYPE_CARRIER_PICKUP = 2;
+  TRACKING_NODE_TYPE_SUPPLIER_RECEIVED = 3;
+  TRACKING_NODE_TYPE_IN_PRODUCTION = 4;
+  TRACKING_NODE_TYPE_SHIPPED = 5;
+  TRACKING_NODE_TYPE_IQC_INSPECTED = 6;
+  TRACKING_NODE_TYPE_WAREHOUSED = 7;
+}
+
+// ---------------------------------------------------------------------------
+// Entities
+// ---------------------------------------------------------------------------
+
+message OutsourcingMaterial {
+  int64 id = 1;
+  int64 outsourcing_id = 2;
+  int64 product_id = 3;
+  string planned_qty = 4;
+  string sent_qty = 5;
+  string returned_qty = 6;
+  string unit_cost = 7;
+}
+
+message OutsourcingTracking {
+  int64 id = 1;
+  int64 outsourcing_id = 2;
+  TrackingNodeType node_type = 3;
+  int64 tracked_at = 4;
+  optional int64 planned_at = 5;
+  optional string remark = 6;
+  int64 operator_id = 7;
+  int64 created_at = 8;
+}
+
+message OutsourcingOrder {
+  int64 id = 1;
+  string doc_number = 2;
+  optional int64 work_order_id = 3;
+  optional int64 routing_id = 4;
+  int64 supplier_id = 5;
+  int64 product_id = 6;
+  OutsourcingType outsourcing_type = 7;
+  string planned_qty = 8;
+  string completed_qty = 9;
+  string unit_price = 10;
+  optional int32 scheduled_date = 11;          // YYYYMMDD as int32
+  OutsourcingStatus status = 12;
+  int64 virtual_warehouse_id = 13;
+  int32 version = 14;
+  string remark = 15;
+  int64 operator_id = 16;
+  int64 created_at = 17;
+  int64 updated_at = 18;
+  repeated OutsourcingMaterial materials = 19;
+}
+
+// ---------------------------------------------------------------------------
+// OutsourcingOrderService — Request / Response
+// ---------------------------------------------------------------------------
+
+message OutsourcingMaterialItem {
+  int64 product_id = 1;
+  string planned_qty = 2;
+  optional string unit_cost = 3;
+}
+
+message CreateOutsourcingOrderRequest {
+  optional int64 work_order_id = 1;
+  optional int64 routing_id = 2;
+  int64 supplier_id = 3;
+  int64 product_id = 4;
+  OutsourcingType outsourcing_type = 5;
+  string planned_qty = 6;
+  string unit_price = 7;
+  optional int32 scheduled_date = 8;
+  int64 virtual_warehouse_id = 9;
+  optional string remark = 10;
+  repeated OutsourcingMaterialItem materials = 11;
+}
+
+message UpdateOutsourcingOrderRequest {
+  int64 id = 1;
+  int32 expected_version = 2;
+  optional int64 supplier_id = 3;
+  optional string planned_qty = 4;
+  optional string unit_price = 5;
+  optional int32 scheduled_date = 6;
+  optional string remark = 7;
+  repeated OutsourcingMaterialItem materials = 8;   // full replace
+}
+
+message SendOutsourcingRequest {
+  int64 id = 1;
+  int32 expected_version = 2;
+  optional string remark = 3;
+}
+
+message ReceiveOutsourcingRequest {
+  int64 id = 1;
+  int32 expected_version = 2;
+  string received_qty = 3;
+  optional int64 warehouse_id = 4;
+  optional string iqc_passed_qty = 5;
+  optional string remark = 6;
+}
+
+message ConvertToInternalRequest {
+  int64 id = 1;
+  int32 expected_version = 2;
+  optional string remark = 3;
+}
+
+message CancelOutsourcingRequest {
+  int64 id = 1;
+  int32 expected_version = 2;
+  optional string remark = 3;
+}
+
+message GetOutsourcingOrderRequest {
+  int64 id = 1;
+}
+
+message ListOutsourcingOrdersRequest {
+  optional OutsourcingStatus status = 1;
+  optional int64 supplier_id = 2;
+  optional OutsourcingType outsourcing_type = 3;
+  optional int64 work_order_id = 4;
+  optional int32 date_start = 5;                      // YYYYMMDD
+  optional int32 date_end = 6;                        // YYYYMMDD
+  optional string keyword = 7;
+  optional PaginationParams pagination = 8;
+}
+
+message OutsourcingOrderResponse {
+  OutsourcingOrder order = 1;
+}
+
+message OutsourcingOrderListResponse {
+  repeated OutsourcingOrder items = 1;
+  PaginationInfo pagination = 2;
+}
+
+// ---------------------------------------------------------------------------
+// OutsourcingTrackingService — Request / Response
+// ---------------------------------------------------------------------------
+
+message RecordTrackingNodeRequest {
+  int64 outsourcing_id = 1;
+  TrackingNodeType node_type = 2;
+  optional int64 tracked_at = 3;
+  optional string remark = 4;
+}
+
+message ListTrackingNodesRequest {
+  int64 outsourcing_id = 1;
+  optional PaginationParams pagination = 2;
+}
+
+message ListOverdueTrackingsRequest {
+  optional int64 supplier_id = 1;
+  optional TrackingNodeType node_type = 2;
+  optional int64 overdue_before = 3;
+  optional PaginationParams pagination = 4;
+}
+
+message OutsourcingTrackingListResponse {
+  repeated OutsourcingTracking items = 1;
+  PaginationInfo pagination = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Services
+// ---------------------------------------------------------------------------
+
+service OutsourcingOrderService {
+  rpc CreateOutsourcingOrder(CreateOutsourcingOrderRequest) returns (U64Response);
+  rpc UpdateOutsourcingOrder(UpdateOutsourcingOrderRequest) returns (BoolResponse);
+  rpc SendOutsourcing(SendOutsourcingRequest) returns (BoolResponse);
+  rpc ReceiveOutsourcing(ReceiveOutsourcingRequest) returns (BoolResponse);
+  rpc ConvertToInternal(ConvertToInternalRequest) returns (U64Response);
+  rpc CancelOutsourcing(CancelOutsourcingRequest) returns (BoolResponse);
+  rpc GetOutsourcingOrder(GetOutsourcingOrderRequest) returns (OutsourcingOrderResponse);
+  rpc ListOutsourcingOrders(ListOutsourcingOrdersRequest) returns (OutsourcingOrderListResponse);
+}
+
+service OutsourcingTrackingService {
+  rpc RecordTrackingNode(RecordTrackingNodeRequest) returns (U64Response);
+  rpc ListTrackingNodes(ListTrackingNodesRequest) returns (OutsourcingTrackingListResponse);
+  rpc ListOverdueTrackings(ListOverdueTrackingsRequest) returns (OutsourcingTrackingListResponse);
+}

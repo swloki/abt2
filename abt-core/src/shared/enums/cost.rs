@@ -28,6 +28,7 @@ pub enum CostEntityType {
     SalesOrder = 3,
     PurchaseOrder = 4,
     Inspection = 5,
+    OutsourcingOrder = 6,
 }
 
 impl CostEntityType {
@@ -35,7 +36,7 @@ impl CostEntityType {
         match v {
             1 => Some(Self::Product), 2 => Some(Self::WorkOrder),
             3 => Some(Self::SalesOrder), 4 => Some(Self::PurchaseOrder),
-            5 => Some(Self::Inspection), _ => None,
+            5 => Some(Self::Inspection), 6 => Some(Self::OutsourcingOrder), _ => None,
         }
     }
     pub fn as_i16(self) -> i16 { self as i16 }

@@ -11,3 +11,4 @@ tdocker/abt-grpc
 .claude
 .superpowers
 sql/
+dist/

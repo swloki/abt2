@@ -4,7 +4,7 @@
 
 - **使用中文沟通**
 - **不要用 `cargo run` 启动服务**，服务已在运行中。验证代码正确性主要用 `cargo clippy`
-- 前端代码在 `abt-web/` 目录下，使用 Astro + React 技术栈
+- 前端代码在 `abt-web/` 目录下，使用 Astro + Svelte 技术栈
 
 ## Project Overview
 

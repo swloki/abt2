@@ -12,17 +12,19 @@ use super::service::CycleCountService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::PaginatedResult;
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::DocumentType;
 use crate::wms::enums::CycleCountStatus;
-use crate::wms::stubs::DocumentSequenceStub;
 
 pub struct CycleCountServiceImpl {
     #[allow(dead_code)]
     pool: Arc<PgPool>,
+    doc_seq: Arc<dyn DocumentSequenceService>,
 }
 
 impl CycleCountServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(pool: Arc<PgPool>, doc_seq: Arc<dyn DocumentSequenceService>) -> Self {
+        Self { pool, doc_seq }
     }
 
     fn status_name(s: CycleCountStatus) -> String {
@@ -47,7 +49,7 @@ impl CycleCountService for CycleCountServiceImpl {
             return Err(DomainError::validation("盘点单明细不能为空"));
         }
 
-        let doc_number = DocumentSequenceStub::next_number(ctx.reborrow(), "CC-")
+        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::CycleCount)
             .await
             .unwrap_or_else(|_| format!("CC{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 

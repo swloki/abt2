@@ -8,24 +8,36 @@ use super::super::enums::WorkOrderStatus;
 use super::model::*;
 use super::repo::WorkOrderRepo;
 use super::service::WorkOrderService;
+use crate::master_data::bom::service::BomQueryService;
 use crate::mes::production_batch::model::WorkOrderRouting;
 use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
-use crate::mes::stubs::{
-    BomServiceStub, DocumentSequenceStub, InventoryReservationStub,
-    WmsMaterialRequisitionStub, ReservationType,
-};
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::{DocumentType, ReservationType};
+use crate::shared::inventory_reservation::model::ReserveRequest;
+use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::PaginatedResult;
+use crate::wms::material_requisition::service::MaterialRequisitionService;
 
 pub struct WorkOrderServiceImpl {
     #[allow(dead_code)]
     pool: Arc<PgPool>,
+    doc_seq: Arc<dyn DocumentSequenceService>,
+    inv_res: Arc<dyn InventoryReservationService>,
+    material_req: Arc<dyn MaterialRequisitionService>,
+    bom: Arc<dyn BomQueryService>,
 }
 
 impl WorkOrderServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(
+        pool: Arc<PgPool>,
+        doc_seq: Arc<dyn DocumentSequenceService>,
+        inv_res: Arc<dyn InventoryReservationService>,
+        material_req: Arc<dyn MaterialRequisitionService>,
+        bom: Arc<dyn BomQueryService>,
+    ) -> Self {
+        Self { pool, doc_seq, inv_res, material_req, bom }
     }
 }
 
@@ -36,7 +48,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreateWorkOrderReq,
     ) -> Result<i64, DomainError> {
-        let doc_number = DocumentSequenceStub::next_number(ctx.reborrow(), "WO-")
+        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("WO{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
@@ -105,35 +117,34 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // 3. 获取 BOM 快照（工序 + 组件）
-        let bom_snapshot = BomServiceStub::get_bom_snapshot(ctx.reborrow(), work_order.product_id)
-            .await
-            .unwrap_or_else(|_| crate::mes::stubs::BomSnapshot {
-                routing_steps: vec![],
-                components: vec![],
-            });
+        // 3. 获取 BOM 叶子节点（组件）
+        let bom_nodes = if let Some(bom_id) = work_order.bom_snapshot_id {
+            self.bom.get_leaf_nodes(ctx.reborrow(), bom_id).await.unwrap_or_default()
+        } else {
+            vec![]
+        };
 
-        // 4. 从 BOM 快照创建 WorkOrderRouting（工单级，非批次级）
-        if !bom_snapshot.routing_steps.is_empty() {
-            let routing_steps: Vec<WorkOrderRouting> = bom_snapshot
-                .routing_steps
+        // 4. 从 BOM 节点创建 WorkOrderRouting
+        if !bom_nodes.is_empty() {
+            let routing_steps: Vec<WorkOrderRouting> = bom_nodes
                 .iter()
-                .map(|step| WorkOrderRouting {
+                .enumerate()
+                .map(|(i, node)| WorkOrderRouting {
                     id: 0,
                     work_order_id: id,
-                    step_no: step.step_no,
-                    process_name: step.process_name.clone(),
-                    work_center_id: step.work_center_id,
-                    standard_time: step.standard_time,
-                    standard_cost: step.standard_cost,
-                    unit_price: step.unit_price,
-                    allowed_loss_rate: step.allowed_loss_rate,
-                    planned_qty: step.planned_qty,
+                    step_no: (i + 1) as i32,
+                    process_name: node.product_code.clone().unwrap_or_default(),
+                    work_center_id: None,
+                    standard_time: None,
+                    standard_cost: None,
+                    unit_price: None,
+                    allowed_loss_rate: Some(node.loss_rate),
+                    planned_qty: node.quantity,
                     completed_qty: Decimal::ZERO,
                     defect_qty: Decimal::ZERO,
                     status: super::super::enums::RoutingStatus::Pending,
-                    is_outsourced: step.is_outsourced,
-                    is_inspection_point: step.is_inspection_point,
+                    is_outsourced: false,
+                    is_inspection_point: false,
                 })
                 .collect();
 
@@ -150,9 +161,9 @@ impl WorkOrderService for WorkOrderServiceImpl {
             team_id: None,
         };
 
-        let batch_no = DocumentSequenceStub::next_number(
+        let batch_no = self.doc_seq.next_number(
             ctx.reborrow(),
-            &format!("{}/", work_order.doc_number),
+            DocumentType::WorkOrder,
         )
         .await
         .unwrap_or_else(|_| format!("{}-01", work_order.doc_number));
@@ -170,31 +181,29 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 6. 库存 HARD 预留（planned_qty）
-        // Note: warehouse_id 不在 WorkOrder 上，预留通过 stub 占位
-        let _ = InventoryReservationStub::reserve(
+        let _ = self.inv_res.reserve(
             ctx.reborrow(),
-            work_order.product_id,
-            0, // warehouse_id 由领料单决定
-            work_order.planned_qty,
-            ReservationType::Hard,
+            vec![ReserveRequest {
+                product_id: work_order.product_id,
+                warehouse_id: 0,
+                reserved_qty: work_order.planned_qty,
+                reservation_type: ReservationType::Hard,
+                source_type: DocumentType::WorkOrder,
+                source_id: id,
+                source_line_id: None,
+                priority: 0,
+                expires_at: None,
+            }],
         )
         .await;
 
         // 7. 创建领料单
-        let _ = WmsMaterialRequisitionStub::create_for_work_order(
-            ctx.reborrow(),
-            id,
-            work_order.product_id,
-            0, // warehouse_id 由领料单决定
-            work_order.planned_qty,
-        )
-        .await;
+        let _ = self.material_req.create_for_work_order(ctx.reborrow(), id).await;
 
         Ok(())
     }
 
     /// 关闭工单：Released -> Closed
-    /// 前置条件：所有生产批次已完成
     async fn close(
         &self,
         mut ctx: ServiceContext<'_>,
@@ -213,7 +222,6 @@ impl WorkOrderService for WorkOrderServiceImpl {
             });
         }
 
-        // 验证所有批次已完成
         let batches = ProductionBatchRepo::list_by_work_order(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -244,7 +252,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        let _ = InventoryReservationStub::release(ctx.reborrow(), "work_order", id).await;
+        let _ = self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, id).await;
 
         Ok(())
     }
@@ -285,7 +293,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        let _ = InventoryReservationStub::release(ctx.reborrow(), "work_order", id).await;
+        let _ = self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, id).await;
         let _ = WorkOrderRepo::soft_delete(&mut *ctx.executor, id).await;
         let _ = WorkOrderRepo::soft_delete_batches(&mut *ctx.executor, id).await;
 

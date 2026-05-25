@@ -9,17 +9,19 @@ use super::service::InventoryLockService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::PaginatedResult;
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::DocumentType;
 use crate::wms::enums::LockStatus;
-use crate::wms::stubs::DocumentSequenceStub;
 
 pub struct InventoryLockServiceImpl {
     #[allow(dead_code)]
     pool: Arc<PgPool>,
+    doc_seq: Arc<dyn DocumentSequenceService>,
 }
 
 impl InventoryLockServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(pool: Arc<PgPool>, doc_seq: Arc<dyn DocumentSequenceService>) -> Self {
+        Self { pool, doc_seq }
     }
 }
 
@@ -34,7 +36,7 @@ impl InventoryLockService for InventoryLockServiceImpl {
             return Err(DomainError::validation("锁定数量必须大于零"));
         }
 
-        let doc_number = DocumentSequenceStub::next_number(ctx.reborrow(), "LK-")
+        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::InventoryLock)
             .await
             .unwrap_or_else(|_| format!("LK{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 

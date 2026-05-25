@@ -19,6 +19,8 @@ use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::link_type::LinkType;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::fms::cash_journal::model::CreateCashJournalReq;
+use crate::fms::cash_journal::service::CashJournalService;
 
 pub struct ReconciliationServiceImpl {
     repo: ReconciliationRepo,
@@ -28,6 +30,7 @@ pub struct ReconciliationServiceImpl {
     audit: Arc<dyn AuditLogService>,
     doc_link: Arc<dyn DocumentLinkService>,
     cost_entry: Arc<dyn CostEntryService>,
+    cash_journal: Arc<dyn CashJournalService>,
 }
 
 impl ReconciliationServiceImpl {
@@ -40,6 +43,7 @@ impl ReconciliationServiceImpl {
         audit: Arc<dyn AuditLogService>,
         doc_link: Arc<dyn DocumentLinkService>,
         cost_entry: Arc<dyn CostEntryService>,
+        cash_journal: Arc<dyn CashJournalService>,
     ) -> Self {
         Self {
             repo,
@@ -49,6 +53,7 @@ impl ReconciliationServiceImpl {
             audit,
             doc_link,
             cost_entry,
+            cash_journal,
         }
     }
 }
@@ -469,7 +474,24 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .await
             .map_err(DomainError::Internal)?;
 
-        // FMS placeholder: CashJournal + WriteOff will be triggered here when FMS is implemented
+        // FMS: 对账结算时创建现金日记账 + 核销
+        let _ = self.cash_journal.create(
+            ctx.reborrow(),
+            CreateCashJournalReq {
+                journal_type: crate::fms::enums::JournalType::SalesReceipt,
+                direction: crate::fms::enums::CashDirection::Inflow,
+                amount: Decimal::ZERO,
+                counterparty: crate::fms::enums::CounterpartyRef::Customer(0),
+                source_type: DocumentType::Reconciliation,
+                source_id: id,
+                bank_account: String::new(),
+                transaction_date: chrono::Local::now().date_naive(),
+                period: chrono::Local::now().format("%Y-%m").to_string(),
+                remark: String::new(),
+                lines: vec![],
+            },
+        )
+        .await;
 
         self.audit
             .record(

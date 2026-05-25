@@ -22,6 +22,8 @@ use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::qms::rma::model::CreateRmaReq;
+use crate::qms::rma::service::RmaService;
 
 pub struct SalesReturnServiceImpl {
     repo: SalesReturnRepo,
@@ -34,6 +36,7 @@ pub struct SalesReturnServiceImpl {
     shipping_svc: Arc<dyn ShippingRequestService>,
     doc_link: Arc<dyn DocumentLinkService>,
     cost_entry: Arc<dyn CostEntryService>,
+    rma: Arc<dyn RmaService>,
 }
 
 impl SalesReturnServiceImpl {
@@ -49,6 +52,7 @@ impl SalesReturnServiceImpl {
         shipping_svc: Arc<dyn ShippingRequestService>,
         doc_link: Arc<dyn DocumentLinkService>,
         cost_entry: Arc<dyn CostEntryService>,
+        rma: Arc<dyn RmaService>,
     ) -> Self {
         Self {
             repo,
@@ -61,6 +65,7 @@ impl SalesReturnServiceImpl {
             shipping_svc,
             doc_link,
             cost_entry,
+            rma,
         }
     }
 }
@@ -370,7 +375,21 @@ impl SalesReturnService for SalesReturnServiceImpl {
                 .await?;
         }
 
-        // QMS RMAService placeholder — skip since QMS not yet implemented
+        // QMS: 创建 RMA 记录关联退货
+        let _ = self.rma.create(
+            ctx.reborrow(),
+            CreateRmaReq {
+                customer_id: 0,
+                sales_order_id: None,
+                shipping_request_id: None,
+                product_id: 0,
+                linked_inspection_result_id: None,
+                defect_description: format!("SalesReturn #{}", id),
+                severity: crate::qms::enums::Severity::Minor,
+                remark: String::new(),
+            },
+        )
+        .await;
 
         self.state_machine
             .transition(ctx.reborrow(), "ReturnStatus", id, "Completed", None)

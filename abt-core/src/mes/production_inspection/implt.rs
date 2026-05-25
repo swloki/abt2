@@ -7,18 +7,20 @@ use super::model::*;
 use super::repo::ProductionInspectionRepo;
 use super::service::ProductionInspectionService;
 use super::super::enums::InspectionResultType;
-use crate::mes::stubs::DocumentSequenceStub;
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::DocumentType;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 
 pub struct ProductionInspectionServiceImpl {
     #[allow(dead_code)]
     pool: Arc<PgPool>,
+    doc_seq: Arc<dyn DocumentSequenceService>,
 }
 
 impl ProductionInspectionServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(pool: Arc<PgPool>, doc_seq: Arc<dyn DocumentSequenceService>) -> Self {
+        Self { pool, doc_seq }
     }
 }
 
@@ -29,7 +31,7 @@ impl ProductionInspectionService for ProductionInspectionServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreateInspectionReq,
     ) -> Result<i64, DomainError> {
-        let doc_number = DocumentSequenceStub::next_number(ctx.reborrow(), "PI-")
+        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ProductionInspection)
             .await
             .unwrap_or_else(|_| format!("PI{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 

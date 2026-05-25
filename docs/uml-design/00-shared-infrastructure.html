@@ -29,7 +29,7 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </head>
 <body>
 <h2>共享基础设施层 — 类图总览</h2>
-<p class="subtitle">11 个核心组件 + ServiceContext + 统一错误模型 + 事务模式 + 分页 + 身份认证 · 32 种 DocumentType · 19 种领域事件 · 同步强一致 + Outbox 异步分发 · 覆盖 8 个业务模块</p>
+<p class="subtitle">11 个核心组件 + ServiceContext + 统一错误模型 + 事务模式 + 分页 + 身份认证 · 33 种 DocumentType · 19 种领域事件 · 同步强一致 + Outbox 异步分发 · 覆盖 8 个业务模块</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -629,6 +629,170 @@ classDiagram
     PermissionService ..> ResourceActionDef : references
     RoleService ..> RolePermissionCache : triggers reload
 
+    %% ==================== 通知服务 ====================
+
+    class NotificationType {
+        &lt;&lt;enumeration&gt;&gt;
+        System
+        Business
+        Alert
+    }
+
+    class Notification {
+        +id: i64
+        +user_id: i64
+        +title: String
+        +content: String
+        +notification_type: NotificationType
+        +is_read: bool
+        +source_type: Option~String~
+        +source_id: Option~i64~
+        +created_at: DateTime
+    }
+
+    class NotificationQuery {
+        +notification_type: Option~NotificationType~
+        +is_read: Option~bool~
+        +page: u32
+        +page_size: u32
+    }
+
+    class UnreadCountByType {
+        +notification_type: NotificationType
+        +count: i64
+    }
+
+    class NotificationService {
+        &lt;&lt;interface&gt;&gt;
+        +list_notifications(ctx: ServiceContext, user_id: i64, query: NotificationQuery) PaginatedResult~Notification~
+        +mark_as_read(ctx: ServiceContext, notification_id: i64, user_id: i64) bool
+        +mark_all_as_read(ctx: ServiceContext, user_id: i64, notification_type: Option~NotificationType~) u64
+        +get_unread_count(ctx: ServiceContext, user_id: i64) (i64, Vec~UnreadCountByType~)
+        +create_notification(ctx: ServiceContext, user_id: i64, title: String, content: String, notification_type: NotificationType, source_type: Option~String~, source_id: Option~i64~) i64
+    }
+
+    Notification --> NotificationType : type
+    NotificationService ..> Notification
+    NotificationService ..> NotificationQuery
+    NotificationService ..> UnreadCountByType
+
+    %% ==================== Excel 导入导出 ====================
+
+    class ImportSource {
+        &lt;&lt;enumeration&gt;&gt;
+        Path(PathBuf)
+        Bytes(Vec~u8~)
+    }
+
+    class ImportResult {
+        +success_count: usize
+        +failed_count: usize
+        +errors: Vec~String~
+        +row_errors: Vec~RowError~
+    }
+
+    class RowError {
+        +row_index: usize
+        +column_name: String
+        +reason: String
+        +raw_value: Option~String~
+    }
+
+    class ImportProgress {
+        +current: usize
+        +total: usize
+    }
+
+    class ExportQuery {
+        +format: String
+        +page: u32
+        +page_size: u32
+    }
+
+    class ExcelImportService {
+        &lt;&lt;interface&gt;&gt;
+        +start_import(ctx, source: ImportSource) Result~i64~
+        +get_import_progress(ctx, id: i64) Result~ImportProgress~
+        +list_import_history(ctx, page, page_size) Result~PaginatedResult~ImportResult~~
+        +cancel_import(ctx, id: i64) Result
+    }
+
+    class ExcelExportService {
+        &lt;&lt;interface&gt;&gt;
+        +start_export(ctx, query: ExportQuery) Result~i64~
+        +get_export_status(ctx, id: i64) Result~ImportProgress~
+        +download(ctx, id: i64) Result~Vec~u8~~
+        +list_export_history(ctx, page, page_size) Result~PaginatedResult~ImportResult~~
+    }
+
+    ImportResult *-- "0..*" RowError : row_errors
+    ExcelImportService ..> ImportSource
+    ExcelImportService ..> ImportResult
+    ExcelImportService ..> ImportProgress
+    ExcelExportService ..> ExportQuery
+    ExcelExportService ..> ImportProgress
+    ExcelExportService ..> ImportResult
+
+    %% ==================== 定时任务 ====================
+
+    class TaskRunResult {
+        +processed: usize
+        +succeeded: usize
+        +message: String
+    }
+
+    class ScheduledTaskDef {
+        +task_id: i64
+        +name: String
+        +interval_secs: i64
+        +timeout_secs: i64
+        +is_enabled: bool
+        +last_run_at: Option~DateTime~
+        +last_elapsed_ms: Option~i64~
+        +last_result: Option~String~
+        +last_error: Option~String~
+        +total_runs: i64
+    }
+
+    class TaskRunLog {
+        +run_id: i64
+        +task_id: i64
+        +status: i16
+        +started_at: DateTime
+        +finished_at: Option~DateTime~
+        +elapsed_ms: Option~i64~
+        +result: Option~String~
+        +error: Option~String~
+    }
+
+    class ScheduledTask {
+        &lt;&lt;interface&gt;&gt;
+        +name() String
+        +interval_secs() u64
+        +timeout_secs() u64
+        +run_once(ctx) Result~TaskRunResult~
+    }
+
+    class TaskSchedulerService {
+        &lt;&lt;interface&gt;&gt;
+        +register_task(ctx, name, interval_secs, timeout_secs) Result~i64~
+        +execute_task(ctx, name) Result~TaskRunResult~
+        +list_tasks(ctx) Result~Vec~ScheduledTaskDef~~
+        +get_task_history(ctx, name, limit) Result~Vec~TaskRunLog~~
+    }
+
+    TaskSchedulerService o-- "0..*" ScheduledTask : manages
+    ScheduledTask ..> TaskRunResult : returns
+    TaskSchedulerService ..> ScheduledTaskDef
+    TaskSchedulerService ..> TaskRunLog
+    TaskRunLog --> ScheduledTaskDef : task_id
+
+    note for NotificationService "跨模块消息通知\nNotificationType: System(系统)/Business(业务)/Alert(预警)\ncreate_notification 由 EventHandler/业务 Service 调用\nsource_type + source_id 关联原始单据（如 sales_order:123）\nmark_all_as_read 支持按类型批量已读\nPhase 2 扩展预留: notify_by_role(role_ids) 通过 RolePermissionCache 解析目标用户列表 | notify_by_department(dept_ids)\n事务模式: create_notification → IndependentTx（通知写入不阻塞业务主事务）| list/mark_as_read/get_unread_count → ReadOnly"
+    note for ExcelImportService "通用 Excel 导入 trait（异步 start+poll 模式）\nstart_import: 提交导入任务，返回任务 ID（后台执行）\nget_import_progress: 查询导入进度（current/total）\nlist_import_history: 分页查询历史导入记录\nImportSource 支持 Path 和 Bytes 两种来源\nRowError 行级错误详情（行号+列名+原因）\n内存安全：流式读取（calamine streaming），禁止全量 load_to_end，OOM 阈值 10MB\n事务边界：分批提交（batch_size=500），单批失败不影响已提交批次，整体返回 ImportResult\n审计集成：导入批次生成唯一 batch_no，同事务内 AuditLogService.record(entity_type='ExcelImport', action=Create, context={file_name, batch_no, operator_id})\n去重：batch_no 作为 IdempotencyService key，防止重复导入"
+    note for ExcelExportService "通用 Excel 导出 trait（异步 start+poll 模式）\nstart_export: 提交导出任务，返回任务 ID（后台执行）\nget_export_status: 查询导出进度（复用 ImportProgress）\ndownload: 下载导出文件（返回 Vec~u8~ 字节流）\nlist_export_history: 分页查询历史导出记录\nExportQuery: format/page/page_size 查询参数"
+    note for ScheduledTask "后台定时任务 trait\n每个任务独立实现（如 StockAlertTask）\nrun_once 单次执行，由 TaskSchedulerService 调度\ndefault interval=300s, timeout=60s\n分布式防重：run_once 内部必须获取 pg_try_advisory_xact_lock(hash(task_name))，获取失败则跳过（多副本安全）\n使用事务级锁（pg_try_advisory_xact_lock）而非会话级锁，锁随事务结束自动释放\n系统上下文：无 JWT 操作人，构造 ServiceContext::system()（operator_id=0, data_scope=DataScope::All）\nTaskSchedulerService 管理 tokio::spawn 生命周期"
+    note for TaskSchedulerService "定时任务调度器\nregister_task 注册任务（持久化到 DB，返回 task_id）\nexecute_task 手动触发一次执行\nlist_tasks 查询所有已注册任务（返回 ScheduledTaskDef）\nget_task_history 查询任务执行历史（返回 TaskRunLog）\nScheduledTaskDef 持久化任务定义：task_id/name/interval_secs/timeout_secs/is_enabled/last_run_at/last_elapsed_ms/last_result/last_error/total_runs\nTaskRunLog 执行日志：run_id/task_id/status(i16)/started_at/finished_at/elapsed_ms/result/error\n分布式安全：pg_try_advisory_xact_lock(hash(task_name)) 确保全局单实例执行\n事务级锁（非会话级），锁随事务结束自动释放"
+
     note for DocumentSequenceService "Two strategies:
 Sequential (default): PREFIX-YYYY-MM-SEQ (e.g. SO-2026-05-00142)
 Timestamp: x+Unix秒级时间戳 (e.g. x1747891200, for Product)
@@ -640,7 +804,7 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
     note for InventoryReservationService "Available = OnHand - total_reserved()\nHard: WO lock | Soft: Sales TTL\nSafetyStock: permanent\nreserve: 批量预留（单条传 vec![one]），expire_old 改为后台定时任务不暴露\nsource_line_id: 单据行级精确释放（如订单第 N 行的预留）
 并发控制: reserve() 使用 SELECT FOR UPDATE 锁定行\ntotal_reserved() 在事务内加锁保证原子性"
     note for CostEntryService "Double-entry: debit + credit\nPeriod YYYY-MM\n6 CostTypes across 7 modules\ncreate_entries: 批量写入成本分录（单条传 vec![one]），返回 BatchResult"
-    note for DomainEventBus "Hybrid dispatch model:\nSync: inventory reservation, quality gates (in caller tx)\nAsync: cost, doclink, workflow, notifications (Outbox)\npublish writes to DB + NOTIFY\n19 event types\nevent_version: payload 结构版本化，支持向后兼容演化\ntrace_id + request_id: 全链路追踪\npublish 接受 EventPublishRequest（idempotency_key: Option，None 自动生成）防重复发布\nmark_processed 批量确认已处理事件\nfind_events 统一查询（支持 aggregate_type, event_type, since 过滤）"
+    note for DomainEventBus "Hybrid dispatch model:\nSync: inventory reservation, quality gates (in caller tx)\nAsync: cost, doclink, workflow, notifications (Outbox)\npublish writes to DB + NOTIFY\n26 event types (19 original + 7 new from Master Data v5)\nNew: RoutingCreated/Updated/Deleted, BomRoutingChanged, LaborProcessDictCreated/Updated/Deleted\nevent_version: payload 结构版本化，支持向后兼容演化\ntrace_id + request_id: 全链路追踪\npublish 接受 EventPublishRequest（idempotency_key: Option，None 自动生成）防重复发布\nmark_processed 批量确认已处理事件\nfind_events 统一查询（支持 aggregate_type, event_type, since 过滤）"
     note for EventProcessor "Background tokio task\nLISTEN/NOTIFY for low latency\n定期轮询兜底: 每 30s 扫描 PENDING 且超时事件，防止 NOTIFY 丢失\nExponential backoff on failure\nDead letter after max retries\nstart/stop 替代 run(JoinHandle)\nis_running + last_processed_at 健康检查\nprocess_event 为内部方法，不暴露在接口中"
     note for StateMachineService "Per-entity state definitions\nside_effects: typed SideEffect enum (PublishEvent/Notify/TriggerWorkflow/UpdateField), stored as JSONB\nStored in DB, loaded on startup\nReplaces scattered if-else\nget_allowed_transitions 返回列表，UI 用 .contains() 判断按钮高亮/禁用"
     note for AuditLogService "Called directly by business Service\naction: AuditAction enum (Create/Update/Delete/Transition)\nSame tx as business operation\nField-level diffs (old -> new)\nISO 9001 / financial compliance\nquery_logs 统一查询接口（支持 entity_type, operator_id, action, time_range 过滤）\nquery_logs 统一查询（替代 list_audit_logs）"
@@ -1443,6 +1607,143 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
       </div>
     </div>    </div>
 
+    <!-- Notification Service -->
+    <div style="border: 2px solid #f472b6; border-radius: 8px; padding: 14px; background: rgba(244,114,182,0.05); margin-bottom: 20px;">
+      <h3 style="color: #f472b6; margin: 0 0 6px 0;">NotificationService 通知服务</h3>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">跨模块消息通知。由 EventHandler 或业务 Service 调用 create_notification 创建。支持按类型统计未读数、批量已读。预留 role/department 群发扩展点</p>
+      <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+        <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">NotificationType</span> {<br>
+        &nbsp;&nbsp;System <span style="color:#888;">// 系统通知</span><br>
+        &nbsp;&nbsp;Business <span style="color:#888;">// 业务通知（状态变更）</span><br>
+        &nbsp;&nbsp;Alert <span style="color:#888;">// 预警通知（库存预警）</span><br>
+        }<br><br>
+        <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Notification</span> {<br>
+        &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+        &nbsp;&nbsp;user_id: i64 <span style="color:#888;">FK→users</span><br>
+        &nbsp;&nbsp;title: String<br>
+        &nbsp;&nbsp;content: String<br>
+        &nbsp;&nbsp;notification_type: NotificationType<br>
+        &nbsp;&nbsp;is_read: bool<br>
+        &nbsp;&nbsp;source_type: String? <span style="color:#888;">// 关联单据类型</span><br>
+        &nbsp;&nbsp;source_id: i64? <span style="color:#888;">// 关联单据 ID</span><br>
+        &nbsp;&nbsp;created_at: DateTime<br>
+        }<br><br>
+        <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">NotificationService</span> {<br>
+        &nbsp;&nbsp;list_notifications(ctx, user_id, query)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult&lt;Notification&gt;<br>
+        &nbsp;&nbsp;mark_as_read(ctx, notification_id, user_id) → bool<br>
+        &nbsp;&nbsp;mark_all_as_read(ctx, user_id, notification_type?) → u64<br>
+        &nbsp;&nbsp;get_unread_count(ctx, user_id)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ (total: i64, Vec&lt;UnreadCountByType&gt;)<br>
+        &nbsp;&nbsp;create_notification(ctx, user_id, title,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;content, type, source_type?, source_id?) → i64<br>
+        }
+      </div>
+      <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+        <strong>集成：</strong>EventHandler 监听事件 → create_notification | StockAlertTask → Alert 类型通知 | source_type+source_id 关联原始单据<br>
+        <strong>事务模式：</strong>create_notification → IndependentTx（通知写入不阻塞业务主事务）| list/mark_as_read/get_unread_count → ReadOnly<br>
+        <strong>Phase 2 预留：</strong>notify_by_role(role_ids) 通过 RolePermissionCache 解析目标用户列表 | notify_by_department(dept_ids) 群发
+      </p>
+    </div>
+
+    <!-- Excel Import/Export -->
+    <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05); margin-bottom: 20px;">
+      <h3 style="color: #98c379; margin: 0 0 6px 0;">ExcelImportService / ExcelExportService Excel 导入导出框架</h3>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">异步 start+poll 模式：调用方提交任务获得 ID，后台异步执行，前端轮询进度。支持取消导入、分页查询历史记录</p>
+      <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+        <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">ImportSource</span> { Path(PathBuf), Bytes(Vec&lt;u8&gt;) }<br><br>
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ImportProgress</span> {<br>
+        &nbsp;&nbsp;current: usize<br>
+        &nbsp;&nbsp;total: usize<br>
+        }<br><br>
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ImportResult</span> {<br>
+        &nbsp;&nbsp;success_count, failed_count: usize<br>
+        &nbsp;&nbsp;errors: Vec&lt;String&gt;<br>
+        &nbsp;&nbsp;row_errors: Vec&lt;RowError&gt;<br>
+        }<br><br>
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">RowError</span> { row_index, column_name, reason, raw_value?: Option&lt;String&gt; }<br><br>
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ExportQuery</span> { format: String, page: u32, page_size: u32 }<br><br>
+        <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ExcelImportService</span>: Send + Sync {<br>
+        &nbsp;&nbsp;start_import(ctx, source: ImportSource) → Result&lt;i64&gt; <span style="color:#888;">// 提交导入任务，返回 ID</span><br>
+        &nbsp;&nbsp;get_import_progress(ctx, id: i64) → Result&lt;ImportProgress&gt;<br>
+        &nbsp;&nbsp;list_import_history(ctx, page, page_size)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;PaginatedResult&lt;ImportResult&gt;&gt;<br>
+        &nbsp;&nbsp;cancel_import(ctx, id: i64) → Result&lt;()&gt;<br>
+        }<br><br>
+        <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ExcelExportService</span>: Send + Sync {<br>
+        &nbsp;&nbsp;start_export(ctx, query: ExportQuery) → Result&lt;i64&gt; <span style="color:#888;">// 提交导出任务，返回 ID</span><br>
+        &nbsp;&nbsp;get_export_status(ctx, id: i64) → Result&lt;ImportProgress&gt;<br>
+        &nbsp;&nbsp;download(ctx, id: i64) → Result&lt;Vec&lt;u8&gt;&gt; <span style="color:#888;">// 下载文件字节流</span><br>
+        &nbsp;&nbsp;list_export_history(ctx, page, page_size)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;PaginatedResult&lt;ImportResult&gt;&gt;<br>
+        }
+      </div>
+      <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+        <strong>异步模式：</strong>start_import/start_export 返回任务 ID，后台异步执行 | get_import_progress/get_export_status 轮询进度 | download 获取导出文件 | cancel_import 取消进行中的导入<br>
+        <strong>已知实现：</strong>LaborProcessExcelImport | Bytes 来源支持测试<br>
+        <strong>内存安全：</strong>流式读取（calamine streaming），禁止全量 load_to_end，OOM 阈值 10MB<br>
+        <strong>事务边界：</strong>分批提交（batch_size=500），单批失败不影响已提交批次，整体返回 ImportResult<br>
+        <strong>审计集成：</strong>导入批次生成唯一 batch_no，同事务内 AuditLogService.record(entity_type="ExcelImport", action=Create, context={file_name, batch_no, operator_id})<br>
+        <strong>去重：</strong>batch_no 作为 IdempotencyService key，防止重复导入
+      </p>
+    </div>
+
+    <!-- Scheduled Task -->
+    <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05); margin-bottom: 20px;">
+      <h3 style="color: #e5a655; margin: 0 0 6px 0;">ScheduledTask / TaskSchedulerService 定时任务框架</h3>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">通用后台定时任务 trait，每个任务独立实现。TaskSchedulerService 持久化任务定义到 DB，支持手动触发和历史查询。pg_try_advisory_xact_lock 防止多副本重复执行</p>
+      <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">TaskRunResult</span> {<br>
+        &nbsp;&nbsp;processed: usize<br>
+        &nbsp;&nbsp;succeeded: usize<br>
+        &nbsp;&nbsp;message: String<br>
+        }<br><br>
+        <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ScheduledTaskDef</span> { <span style="color:#888;">// 持久化任务定义</span><br>
+        &nbsp;&nbsp;task_id: i64 <span style="color:#888;">PK</span><br>
+        &nbsp;&nbsp;name: String <span style="color:#888;">UNIQUE</span><br>
+        &nbsp;&nbsp;interval_secs: i64<br>
+        &nbsp;&nbsp;timeout_secs: i64<br>
+        &nbsp;&nbsp;is_enabled: bool<br>
+        &nbsp;&nbsp;last_run_at: Option&lt;DateTime&gt;<br>
+        &nbsp;&nbsp;last_elapsed_ms: Option&lt;i64&gt;<br>
+        &nbsp;&nbsp;last_result: Option&lt;String&gt;<br>
+        &nbsp;&nbsp;last_error: Option&lt;String&gt;<br>
+        &nbsp;&nbsp;total_runs: i64<br>
+        }<br><br>
+        <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">TaskRunLog</span> { <span style="color:#888;">// 执行历史日志</span><br>
+        &nbsp;&nbsp;run_id: i64 <span style="color:#888;">PK</span><br>
+        &nbsp;&nbsp;task_id: i64 <span style="color:#888;">FK→ScheduledTaskDef</span><br>
+        &nbsp;&nbsp;status: i16 <span style="color:#888;">// Pending=0, Running=1, Completed=2, Failed=3</span><br>
+        &nbsp;&nbsp;started_at: DateTime<br>
+        &nbsp;&nbsp;finished_at: Option&lt;DateTime&gt;<br>
+        &nbsp;&nbsp;elapsed_ms: Option&lt;i64&gt;<br>
+        &nbsp;&nbsp;result: Option&lt;String&gt;<br>
+        &nbsp;&nbsp;error: Option&lt;String&gt;<br>
+        }<br><br>
+        <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ScheduledTask</span>: Send + Sync {<br>
+        &nbsp;&nbsp;name() → &amp;str <span style="color:#888;">// 如 "stock_alert"</span><br>
+        &nbsp;&nbsp;interval_secs() → u64 <span style="color:#888;">// default 300</span><br>
+        &nbsp;&nbsp;timeout_secs() → u64 <span style="color:#888;">// default 60</span><br>
+        &nbsp;&nbsp;run_once(ctx) → Result&lt;TaskRunResult&gt;<br>
+        }<br><br>
+        <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">TaskSchedulerService</span>: Send + Sync {<br>
+        &nbsp;&nbsp;register_task(ctx, name, interval_secs, timeout_secs)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;i64&gt; <span style="color:#888;">// 持久化任务定义，返回 task_id</span><br>
+        &nbsp;&nbsp;execute_task(ctx, name) → Result&lt;TaskRunResult&gt; <span style="color:#888;">// 手动触发</span><br>
+        &nbsp;&nbsp;list_tasks(ctx) → Result&lt;Vec&lt;ScheduledTaskDef&gt;&gt;<br>
+        &nbsp;&nbsp;get_task_history(ctx, name, limit)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;Vec&lt;TaskRunLog&gt;&gt;<br>
+        }
+      </div>
+      <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+        <strong>已知实现：</strong>StockAlertTask（库存预警 → NotificationService） | <strong>持久化：</strong>任务定义和执行日志均存 DB，重启不丢失<br>
+        <strong>分布式防重：</strong>run_once 内部必须获取 pg_try_advisory_xact_lock(hash(task_name))，获取失败则跳过（多副本安全）<br>
+        <strong>事务级锁：</strong>使用 pg_try_advisory_xact_lock（而非 pg_try_advisory_lock），锁随事务结束自动释放，无需手动 UNLOCK<br>
+        <strong>系统上下文：</strong>后台任务无 JWT 操作人，构造 ServiceContext::system()（operator_id=0, data_scope=DataScope::All）<br>
+        <strong>执行状态：</strong>TaskRunLog.status: Pending(0) / Running(1) / Completed(2) / Failed(3)
+      </p>
+    </div>
+
     <!-- Relationships -->
     <div style="padding: 12px; background: rgba(108,139,239,0.1); border-radius: 6px;">
       <h3 style="margin: 0 0 8px 0; color: #6c8bef;">组件间协作关系</h3>
@@ -1467,6 +1768,11 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
         <span style="color:#f472b6;">AuthService</span> ────────── JWT 认证 ──→ login/refresh_token/get_user_claims，Claims 只存 ID（role_ids/department_ids），权限细节由 RolePermissionCache 内存缓存提供<br>
         <span style="color:#f472b6;">PermissionService</span> ── 权限校验 ──→ check_permission 单条校验 | batch_check_permissions 批量校验（列表接口用，避免 N+1）| 两者均走 user→roles→role_permissions 链路聚合<br>
         <span style="color:#f472b6;">DepartmentService</span> ── 部门 CRUD + 用户关联 ──→ assign_departments/remove_departments 管理用户-部门多对多<br>
+        <span style="color:#f472b6;">NotificationService</span> ── 跨模块消息通知 ──→ create_notification(IndependentTx) 由 EventHandler/业务 Service 调用 | list/mark_as_read/get_unread_count(ReadOnly) 前端消费 | NotificationType(System/Business/Alert) + source_type+source_id 关联原始单据 | Phase 2: notify_by_role / notify_by_department 群发扩展<br>
+        <span style="color:#98c379;">ExcelImportService</span> ── 通用 Excel 导入 trait（异步 start+poll） ──→ start_import/get_import_progress/list_import_history/cancel_import | ImportSource(Path/Bytes) | ImportProgress + ImportResult + RowError 行级错误 | 流式读取防 OOM(10MB 阈值) | 分批提交(batch_size=500) | batch_no 审计 + 幂等去重<br>
+        <span style="color:#98c379;">ExcelExportService</span> ── 通用 Excel 导出 trait（异步 start+poll） ──→ start_export/get_export_status/download/list_export_history | ExportQuery(format/page/page_size) | 复用 ImportProgress 查询进度<br>
+        <span style="color:#e5a655;">ScheduledTask</span> ──────── 后台定时任务 trait ──→ name/interval_secs/timeout_secs/run_once(ctx) | StockAlertTask 已知实现 | pg_try_advisory_xact_lock 防多副本重复执行（事务级锁） | ServiceContext::system() 专用上下文<br>
+        <span style="color:#e5a655;">TaskSchedulerService</span> ─ 任务调度器 ──→ register_task/execute_task/list_tasks/get_task_history | ScheduledTaskDef 持久化任务定义 | TaskRunLog 执行历史 | 分布式安全: pg_try_advisory_xact_lock 确保全局单实例执行<br>
         <br>
         <span style="color:#888;">EventBus + StateMachine 构成事件驱动架构骨架，所有业务模块和 <a href="08-workflow-engine.html" style="color:#6bc76b;">Workflow Engine</a> 均通过它们协作</span><br>
         <span style="color:#888;">所有共享实体通过 DocumentType 枚举与具体业务模块解耦</span><br>

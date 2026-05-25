@@ -490,6 +490,42 @@ classDiagram
 
   note for InventoryLockService "StateMachine: Active->Released/Cancelled(Active only) release=正常释放(cancel=管理员作废(预留量退回))"
 
+  class CascadeInventoryResult {
+    +product_id: i64
+    +product_code: String
+    +product_name: String
+    +bom_groups: Vec~BomCascadeGroup~
+  }
+
+  class BomCascadeGroup {
+    +bom_id: i64
+    +bom_name: String
+    +children: Vec~ChildNodeInventory~
+  }
+
+  class ChildNodeInventory {
+    +node_id: i64
+    +product_id: i64
+    +product_code: String
+    +product_name: String
+    +unit: Option~String~
+    +quantity: Decimal
+    +total_stock: Decimal
+    +loss_rate: Decimal
+    +order: i32
+    +parent_node_id: Option~i64~
+  }
+
+  class InventoryCascadeService {
+    &lt;&lt;interface&gt;&gt;
+    +cascade_inventory(ctx: ServiceContext, product_id: Option~i64~, product_code: Option~String~, max_results: i32) Result~CascadeInventoryResult~
+  }
+
+  CascadeInventoryResult *-- "0..*" BomCascadeGroup : bom_groups
+  BomCascadeGroup *-- "0..*" ChildNodeInventory : children
+  InventoryCascadeService ..> CascadeInventoryResult
+  ChildNodeInventory --> MasterData.BomNode : node_id
+
     note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
@@ -952,6 +988,51 @@ classDiagram
           &nbsp;&nbsp;}
         </div>
       </div>
+    </div>
+
+    <!-- Inventory Cascade -->
+    <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05); margin-bottom: 20px;">
+      <h4 style="color: #56b6c2; margin: 0 0 6px 0;">InventoryCascadeService 级联库存查询</h4>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">BOM 展开查询：给定一个成品，展开其所有 BOM 子件并汇总各子件的当前库存总量。用于快速判断成品是否可排产、缺料分析</p>
+      <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CascadeInventoryResult</span> {<br>
+        &nbsp;&nbsp;product_id: i64<br>
+        &nbsp;&nbsp;product_code: String<br>
+        &nbsp;&nbsp;product_name: String<br>
+        &nbsp;&nbsp;bom_groups: Vec&lt;BomCascadeGroup&gt; <span style="color:#888;">// 按 BOM 分组</span><br>
+        }<br><br>
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">BomCascadeGroup</span> {<br>
+        &nbsp;&nbsp;bom_id: i64<br>
+        &nbsp;&nbsp;bom_name: String<br>
+        &nbsp;&nbsp;children: Vec&lt;ChildNodeInventory&gt;<br>
+        }<br><br>
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ChildNodeInventory</span> {<br>
+        &nbsp;&nbsp;node_id: i64 <span style="color:#888;">FK→bom_nodes</span><br>
+        &nbsp;&nbsp;product_id: i64<br>
+        &nbsp;&nbsp;product_code: String<br>
+        &nbsp;&nbsp;product_name: String<br>
+        &nbsp;&nbsp;unit: String?<br>
+        &nbsp;&nbsp;quantity: Decimal(18,6) <span style="color:#888;">// BOM 用量</span><br>
+        &nbsp;&nbsp;total_stock: Decimal <span style="color:#888;">// 当前库存汇总</span><br>
+        &nbsp;&nbsp;loss_rate: Decimal <span style="color:#888;">// 损耗率</span><br>
+        &nbsp;&nbsp;order: i32 <span style="color:#888;">// BOM 节点排序</span><br>
+        &nbsp;&nbsp;parent_node_id: i64?<br>
+        }<br><br>
+        <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">InventoryCascadeService</span> {<br>
+        &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
+        &nbsp;&nbsp;cascade_inventory(ctx,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;product_id: i64?, product_code: String?,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;max_results: i32)<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;→ CascadeInventoryResult<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// product_id/product_code 二选一</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 查找所有 BOM → 展开子节点 → 聚合库存</span><br>
+        &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// max_results 限制返回节点数（防大 BOM 爆炸）</span><br>
+        }
+      </div>
+      <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+        <strong>查询逻辑：</strong>Product → BomQueryService.list(product_id) → 遍历 BomNode → 聚合 InventoryTransactionService 总库存<br>
+        <strong>事务模式：</strong>None（只读查询） | <strong>用途：</strong>排产前缺料分析、采购建议、BOM 库存看板
+      </p>
     </div>
 
     <!-- Shared layer summary -->

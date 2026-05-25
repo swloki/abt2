@@ -14,7 +14,11 @@ use super::service::OutsourcingOrderService;
 use crate::om::enums::{OutsourcingStatus, OutsourcingType};
 use crate::om::outsourcing_tracking::model::RecordNodeReq;
 use crate::om::outsourcing_tracking::service::OutsourcingTrackingService;
-use crate::om::stubs::{InspectionResultStub, QualityGateStub, WorkOrderStub};
+use crate::mes::work_order::model::CreateWorkOrderReq;
+use crate::mes::work_order::service::WorkOrderService;
+use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
+use crate::qms::inspection_result::model::{CreateInspectionResultReq, InspectionResultFilter};
+use crate::qms::inspection_result::service::InspectionResultService;
 use crate::wms::transfer::model::{CreateTransferItemReq, CreateTransferReq};
 use crate::wms::transfer::service::TransferService;
 use crate::shared::audit_log::service::AuditLogService;
@@ -50,6 +54,8 @@ pub struct OutsourcingOrderServiceImpl {
     idempotency: Arc<dyn IdempotencyService>,
     tracking_service: Arc<dyn OutsourcingTrackingService>,
     transfer_service: Arc<dyn TransferService>,
+    qms: Arc<dyn InspectionResultService>,
+    work_order: Arc<dyn WorkOrderService>,
 }
 
 impl OutsourcingOrderServiceImpl {
@@ -65,6 +71,8 @@ impl OutsourcingOrderServiceImpl {
         idempotency: Arc<dyn IdempotencyService>,
         tracking_service: Arc<dyn OutsourcingTrackingService>,
         transfer_service: Arc<dyn TransferService>,
+        qms: Arc<dyn InspectionResultService>,
+        work_order: Arc<dyn WorkOrderService>,
     ) -> Self {
         Self {
             pool,
@@ -77,6 +85,8 @@ impl OutsourcingOrderServiceImpl {
             idempotency,
             tracking_service,
             transfer_service,
+            qms,
+            work_order,
         }
     }
 }
@@ -380,24 +390,36 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             .transition(ctx.reborrow(), ENTITY_TYPE, req.id, "Received", req.remark.as_deref())
             .await?;
 
-        // QMS: 创建 IQC 检验结果 (stub)
+        // QMS: 创建 IQC 检验结果
         let iqc_qty = req.iqc_passed_qty.unwrap_or(req.received_qty);
-        InspectionResultStub::create_iqc(
+        self.qms.create(
             ctx.reborrow(),
-            ENTITY_TYPE,
-            req.id,
-            req.received_qty,
-            iqc_qty,
+            CreateInspectionResultReq {
+                spec_id: 0,
+                source_type: InspectionSourceType::OutsourcingOrder,
+                source_id: req.id,
+                batch_no: String::new(),
+                sample_qty: req.received_qty,
+            },
         )
         .await?;
 
-        // QMS: 质量门禁检查
-        let iqc_passed = QualityGateStub::is_passed(
+        // QMS: 质量门禁检查 — 查询检验结果
+        let qms_results = self.qms.list_by_source(
             ctx.reborrow(),
-            ENTITY_TYPE,
-            req.id,
+            InspectionResultFilter {
+                source_type: Some(InspectionSourceType::OutsourcingOrder),
+                source_id: Some(req.id),
+                ..Default::default()
+            },
+            PageParams { page: 1, page_size: 100 },
         )
         .await?;
+
+        let iqc_passed = qms_results.items.is_empty()
+            || qms_results.items.iter().all(|r| {
+                r.status == InspectionStatus::Completed && r.result == InspectionResultType::Pass
+            });
         if !iqc_passed {
             return Err(DomainError::business_rule("IQC 检验未通过，无法入库"));
         }
@@ -595,19 +617,33 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // MES: 创建内部工单 (stub)
-        let new_wo_id = WorkOrderStub::create_from_outsourcing(
+        // MES: 创建内部工单
+        let scheduled_start = chrono::Local::now().date_naive();
+        let scheduled_end = scheduled_start + chrono::Duration::days(7);
+        let new_wo_id = self.work_order.create(
             ctx.reborrow(),
-            req.id,
-            order.product_id,
-            order.planned_qty,
+            CreateWorkOrderReq {
+                plan_item_id: None,
+                product_id: order.product_id,
+                bom_snapshot_id: None,
+                routing_id: None,
+                planned_qty: order.planned_qty,
+                scheduled_start,
+                scheduled_end,
+                work_center_id: None,
+                sales_order_id: None,
+                remark: Some(format!("从委外单 #{} 转自制", req.id)),
+            },
         )
         .await?;
 
-        // 获取原始仓库 ID 用于材料回调
-        let wo_info = WorkOrderStub::get_info(ctx.reborrow(), order.work_order_id.unwrap_or(0))
-            .await?;
-        let return_warehouse_id = wo_info.warehouse_id;
+        // 获取原始工单的仓库信息
+        let wo = if let Some(orig_wo_id) = order.work_order_id {
+            self.work_order.find_by_id(ctx.reborrow(), orig_wo_id).await.ok()
+        } else {
+            None
+        };
+        let return_warehouse_id = wo.and_then(|w| w.work_center_id).unwrap_or(0);
 
         // WMS: 材料回调 — 创建调拨单、发货、完成
         let materials = OutsourcingMaterialRepo::list_by_outsourcing_id(&mut *ctx.executor, req.id)

@@ -48,6 +48,10 @@ pub enum DocumentType {
     Bom = 36,
     // Purchase SRM — Reconciliation (separate from Sales)
     PurchaseReconciliation = 37,
+    // Master Data — 工艺路线子域
+    LaborProcessDict = 38,
+    Routing = 39,
+    BomLaborProcess = 40,
 }
 
 impl DocumentType {
@@ -90,6 +94,9 @@ impl DocumentType {
             35 => Some(Self::Supplier),
             36 => Some(Self::Bom),
             37 => Some(Self::PurchaseReconciliation),
+            38 => Some(Self::LaborProcessDict),
+            39 => Some(Self::Routing),
+            40 => Some(Self::BomLaborProcess),
             _ => None,
         }
     }
@@ -147,6 +154,10 @@ impl DocumentType {
             Self::Bom => "BOM",
             // Purchase SRM — Reconciliation
             Self::PurchaseReconciliation => "PRC",
+            // Master Data — 工艺路线子域
+            Self::LaborProcessDict => "LPD",
+            Self::Routing => "RTG",
+            Self::BomLaborProcess => "BLP",
         }
     }
 }

@@ -44,6 +44,18 @@ impl<'a> ServiceContext<'a> {
         self
     }
 
+    /// 系统级上下文 — 用于定时任务、后台进程等无用户操作场景
+    pub fn system(executor: PgExecutor<'a>) -> Self {
+        Self {
+            executor,
+            operator_id: 0,
+            department_id: None,
+            data_scope: DataScope::All,
+            trace_id: Some("system".to_string()),
+            request_id: Some(uuid::Uuid::new_v4().to_string()),
+        }
+    }
+
     /// 从现有 context 中 reborrow executor，避免手动重复构造
     pub fn reborrow(&mut self) -> ServiceContext<'_> {
         ServiceContext {

@@ -146,7 +146,7 @@ impl MrbService for MrbServiceImpl {
         Ok(())
     }
 
-    /// 临时 approve — WorkflowEngine 尚为 stub
+    /// MRB approve: UnderReview -> Approved
     async fn approve(
         &self,
         mut ctx: ServiceContext<'_>,

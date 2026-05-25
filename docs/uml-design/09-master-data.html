@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>主数据模块 (Master Data) — 类图设计 v4</title>
+  <title>主数据模块 (Master Data) — 类图设计 v5</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
@@ -28,8 +28,8 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </script>
 </head>
 <body>
-<h2>主数据模块 (Master Data) — 类图设计 v4</h2>
-<p class="subtitle">产品目录 + 分类体系 + 价格管理 + BOM 工程数据 + 客商主数据（Customer/Supplier） · 所有业务模块的上游基础数据 · ServiceContext 统一契约 · CQRS 风格拆分</p>
+<h2>主数据模块 (Master Data) — 类图设计 v5</h2>
+<p class="subtitle">产品目录 + 分类体系 + 价格管理 + BOM 工程数据 + 客商主数据 + 工艺路线 + 劳务工序（Customer/Supplier/Routing/LaborProcess） · 所有业务模块的上游基础数据 · ServiceContext 统一契约 · CQRS 风格拆分</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -557,6 +557,187 @@ classDiagram
   Supplier *-- SupplierContact : contacts
   Supplier *-- SupplierBankAccount : bank_accounts
   SupplierService ..> Supplier
+
+  %% ==================== 工艺路线 & 劳务工序 ====================
+
+  class Routing {
+    +id: i64
+    +name: String
+    +description: Option~String~
+    +operator_id: i64
+    +created_at: DateTime
+    +updated_at: Option~DateTime~
+    +deleted_at: Option~DateTime~
+  }
+
+  class RoutingStep {
+    +id: i64
+    +routing_id: i64
+    +process_code: String
+    +step_order: i32
+    +is_required: bool
+    +remark: Option~String~
+    +created_at: DateTime
+    +updated_at: Option~DateTime~
+  }
+
+  class BomRouting {
+    +id: i64
+    +product_code: String
+    +routing_id: i64
+    +operator_id: Option~i64~
+    +created_at: DateTime
+    +updated_at: Option~DateTime~
+  }
+
+  class LaborProcessDict {
+    +id: i64
+    +code: String
+    +name: String
+    +description: Option~String~
+    +sort_order: i32
+    +operator_id: i64
+    +created_at: DateTime
+    +updated_at: Option~DateTime~
+    +deleted_at: Option~DateTime~
+  }
+
+  class BomLaborProcess {
+    +id: i64
+    +product_code: String
+    +labor_process_dict_id: i64
+    +process_code: Option~String~
+    +name: String
+    +unit_price: Decimal(18,6)
+    +quantity: Decimal(18,6)
+    +sort_order: i32
+    +remark: Option~String~
+    +operator_id: i64
+    +created_at: DateTime
+    +updated_at: Option~DateTime~
+    +deleted_at: Option~DateTime~
+  }
+
+  class RoutingStepInput {
+    +process_code: String
+    +step_order: i32
+    +is_required: bool
+    +remark: Option~String~
+  }
+
+  class CreateRoutingReq {
+    +name: String
+    +description: Option~String~
+    +steps: Vec~RoutingStepInput~
+  }
+
+  class UpdateRoutingReq {
+    +name: Option~String~
+    +description: Option~String~
+    +steps: Option~Vec~RoutingStepInput~~
+  }
+
+  class ListRoutingQuery {
+    +keyword: Option~String~
+    +page: u32
+    +page_size: u32
+  }
+
+  class RoutingDetail {
+    +routing: Routing
+    +steps: Vec~RoutingStep~
+  }
+
+  class CreateLaborProcessDictReq {
+    +name: String
+    +description: Option~String~
+    +sort_order: i32
+  }
+
+  class UpdateLaborProcessDictReq {
+    +id: i64
+    +name: String
+    +description: Option~String~
+    +sort_order: i32
+  }
+
+  class ListLaborProcessDictQuery {
+    +keyword: Option~String~
+    +page: u32
+    +page_size: u32
+  }
+
+  class CreateLaborProcessReq {
+    +product_code: String
+    +labor_process_dict_id: i64
+    +process_code: Option~String~
+    +name: String
+    +unit_price: Decimal(18,6)
+    +quantity: Decimal(18,6)
+    +sort_order: i32
+    +remark: Option~String~
+  }
+
+  class UpdateLaborProcessReq {
+    +id: i64
+    +labor_process_dict_id: Option~i64~
+    +process_code: Option~String~
+    +name: Option~String~
+    +unit_price: Option~Decimal~
+    +quantity: Option~Decimal~
+    +sort_order: Option~i32~
+    +remark: Option~String~
+  }
+
+  class ListLaborProcessQuery {
+    +product_code: String
+    +keyword: Option~String~
+    +page: u32
+    +page_size: u32
+  }
+
+  class RoutingService {
+    &lt;&lt;interface&gt;&gt;
+    +list(ctx: ServiceContext, query: ListRoutingQuery) PaginatedResult~Routing~
+    +get_detail(ctx: ServiceContext, id) Result~RoutingDetail~
+    +create(ctx: ServiceContext, req: CreateRoutingReq) Result~i64~
+    +update(ctx: ServiceContext, id: i64, req: UpdateRoutingReq) Result~Unit~
+    +delete(ctx: ServiceContext, id) Result~Unit~
+    +find_matching_routing(ctx: ServiceContext, process_codes: Vec~String~) Result~Option~RoutingDetail~~
+    +set_bom_routing(ctx: ServiceContext, product_code: String, routing_id: i64) Result~Unit~
+    +get_bom_routing(ctx: ServiceContext, product_code: String) Result~Option~RoutingDetail~
+    +list_boms_by_routing(ctx: ServiceContext, routing_id: i64) Result~Vec~BomRouting~
+  }
+
+  class LaborProcessDictService {
+    &lt;&lt;interface&gt;&gt;
+    +list(ctx: ServiceContext, query: ListLaborProcessDictQuery) PaginatedResult~LaborProcessDict~
+    +create(ctx: ServiceContext, req: CreateLaborProcessDictReq) Result~i64~
+    +update(ctx: ServiceContext, req: UpdateLaborProcessDictReq) Result~Unit~
+    +delete(ctx: ServiceContext, id) Result~u64~
+  }
+
+  class BomLaborProcessService {
+    &lt;&lt;interface&gt;&gt;
+    +list(ctx: ServiceContext, query: ListLaborProcessQuery) PaginatedResult~BomLaborProcess~
+    +create(ctx: ServiceContext, req: CreateLaborProcessReq) Result~i64~
+    +update(ctx: ServiceContext, req: UpdateLaborProcessReq) Result~Unit~
+    +delete(ctx: ServiceContext, id: i64) Result~Unit~
+  }
+
+  %% 工艺路线关系
+  Routing "1" *-- "0..*" RoutingStep : steps
+  BomRouting --> Routing : FK
+  RoutingStep --> LaborProcessDict : process_code
+  BomLaborProcess --> LaborProcessDict : labor_process_dict_id
+  RoutingService ..> Routing
+  RoutingService ..> RoutingStep
+  RoutingService ..> BomRouting
+  RoutingService ..> CreateRoutingReq
+  RoutingService ..> UpdateRoutingReq
+  LaborProcessDictService ..> LaborProcessDict
+  BomLaborProcessService ..> BomLaborProcess
+
     note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult\nCustomer 行级安全: list/get 底层必须根据 ctx.data_scope 强制拼接 WHERE 条件，禁止前端越权"
     </div>
   </div>
@@ -586,6 +767,16 @@ classDiagram
         <span style="color:#e06c75;">↗ PriceLogEntry</span> 价格历史（支持时间点查询）
         &nbsp;&nbsp;
         <span style="color:#56b6c2;">↗ BomCostReport</span> BOM 成本报告（支持 as_of_date）
+        <br>
+        <span style="color:#e5c07b;">LaborProcessDict</span> 工序字典（全局主数据）
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">Routing</span> 工艺路线模板
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e5c07b;">BomRouting</span> 路线绑定（产品↔路线）
+        <span style="color:#6bc76b;">→</span>
+        <span style="color:#e06c75;">MES WorkOrderRouting</span> 运行时快照
+        &nbsp;&nbsp;
+        <span style="color:#56b6c2;">BomLaborProcess</span> 劳务工序 → BomCostReport.labor_costs
         <br>
         <span style="color:#c678dd;">Customer</span> 客户（AR 主体，信用管控）
         <span style="color:#6bc76b;">→</span>
@@ -1145,7 +1336,10 @@ classDiagram
         <span style="color:#c678dd;">PriceLog</span> → 多价格类型（Purchase/Sales/StandardCost） | <a href="07-fms.html" style="color:#98c379;">FMS</a> CostEntry 材料成本 | 支持 as_of_date 历史价格<br>
         <span style="color:#56b6c2;">权限</span> → PRODUCT / CATEGORY / BOM / PRICE / BOM_COST / BOM_LABOR_COST 6 种资源权限<br>
         <span style="color:#c678dd;">Customer</span> → <a href="01-sales.html" style="color:#e5c07b;">Sales</a>（报价/订单/发货/对账关联 customer_id）| <a href="07-fms.html" style="color:#98c379;">FMS</a>（应收账款/信用控制/账龄分析）| <a href="03-wms.html" style="color:#c678dd;">WMS</a>（发货地址）| Blacklisted 事件触发 Sales 挂起<br>
-        <span style="color:#e06c75;">Supplier</span> → <a href="02-purchase.html" style="color:#e5c07b;">Purchase</a>（采购报价/订单/付款关联 supplier_id）| <a href="07-fms.html" style="color:#98c379;">FMS</a>（应付账款/付款核销）| <a href="05-outsourcing.html" style="color:#e5a655;">OM</a>（委外供应商）| Blacklisted 事件触发 Purchase 拦截
+        <span style="color:#e06c75;">Supplier</span> → <a href="02-purchase.html" style="color:#e5c07b;">Purchase</a>（采购报价/订单/付款关联 supplier_id）| <a href="07-fms.html" style="color:#98c379;">FMS</a>（应付账款/付款核销）| <a href="05-outsourcing.html" style="color:#e5a655;">OM</a>（委外供应商）| Blacklisted 事件触发 Purchase 拦截<br>
+        <span style="color:#e5c07b;">Routing</span> → 可复用工序模板 | BomRouting 绑定产品 | <a href="04-mes.html" style="color:#e06c75;">MES</a> 工单创建时快照 RoutingSteps → WorkOrderRouting | find_matching_routing 支持 Excel 自动匹配<br>
+        <span style="color:#c678dd;">LaborProcessDict</span> → 全局工序编码主数据 | RoutingStep.process_code + BomLaborProcess.process_code 双引用 | 删除前级联校验<br>
+        <span style="color:#56b6c2;">BomLaborProcess</span> → 按产品管理劳务工序 | BomCostReport.labor_costs 数据来源 | MES WorkOrderRouting.unit_price 引用
       </div>
     </div>
 
@@ -1277,6 +1471,274 @@ classDiagram
         &nbsp;&nbsp;tax_number 不建跨表唯一约束（允许客户和供应商共用同一税号），但建议建单表索引加速查重：<br>
         &nbsp;&nbsp;<span style="color:#98c379;">CREATE INDEX idx_customers_tax ON customers(tax_number) WHERE tax_number IS NOT NULL AND deleted_at IS NULL;</span><br>
         &nbsp;&nbsp;<span style="color:#98c379;">CREATE INDEX idx_suppliers_tax ON suppliers(tax_number) WHERE tax_number IS NOT NULL AND deleted_at IS NULL;</span><br>
+      </div>
+    </div>
+
+    <!-- Row 5: Routing + LaborProcessDict -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+
+      <!-- Routing 工艺路线 -->
+      <div style="border: 2px solid #e5c07b; border-radius: 8px; padding: 14px; background: rgba(229,192,123,0.05);">
+        <h4 style="color: #e5c07b; margin: 0 0 6px 0;">Routing 工艺路线</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">可复用的工序组合模板，定义产品的制造流程。通过 BomRouting 绑定到产品（BOM）。MES 创建工单时快照 RoutingSteps 到 WorkOrderRouting。process_code 引用 LaborProcessDict</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Routing</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;name: String <span style="color:#888;">// 路线名称</span><br>
+          &nbsp;&nbsp;description: String? <span style="color:#888;">// 描述</span><br>
+          &nbsp;&nbsp;operator_id: i64 <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: DateTime<br>
+          &nbsp;&nbsp;updated_at: DateTime?<br>
+          &nbsp;&nbsp;deleted_at: DateTime? <span style="color:#888;">// 软删除</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">RoutingStep</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;routing_id: i64 <span style="color:#888;">FK→routings</span><br>
+          &nbsp;&nbsp;process_code: String <span style="color:#888;">FK→labor_process_dicts.code</span><br>
+          &nbsp;&nbsp;step_order: i32 <span style="color:#888;">// 工序顺序</span><br>
+          &nbsp;&nbsp;is_required: bool <span style="color:#888;">// 是否必经工序</span><br>
+          &nbsp;&nbsp;remark: String?<br>
+          &nbsp;&nbsp;created_at: DateTime<br>
+          &nbsp;&nbsp;updated_at: DateTime?<br>
+          }<br><br>
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BomRouting</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;product_code: String <span style="color:#888;">// 产品编码</span><br>
+          &nbsp;&nbsp;routing_id: i64 <span style="color:#888;">FK→routings</span><br>
+          &nbsp;&nbsp;operator_id: i64? <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: DateTime<br>
+          &nbsp;&nbsp;updated_at: DateTime?<br>
+          &nbsp;&nbsp;<span style="color:#888;">// UNIQUE(product_code)</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">RoutingStepInput</span> {<br>
+          &nbsp;&nbsp;process_code: String<br>
+          &nbsp;&nbsp;step_order: i32<br>
+          &nbsp;&nbsp;is_required: bool<br>
+          &nbsp;&nbsp;remark: String?<br>
+          }<br><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">RoutingService</span> {<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
+          &nbsp;&nbsp;list(ctx, query: ListRoutingQuery)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult&lt;Routing&gt;<br>
+          &nbsp;&nbsp;get_detail(ctx, id)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ RoutingDetail<br>
+          &nbsp;&nbsp;create(ctx, req: CreateRoutingReq) → i64<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 校验 process_code 必须存在于 LaborProcessDict</span><br>
+          &nbsp;&nbsp;update(ctx, id, req: UpdateRoutingReq)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 整体替换 steps（先删后插）</span><br>
+          &nbsp;&nbsp;delete(ctx, id) → Unit<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 校验无 BOM 绑定、无工单引用</span><br>
+          &nbsp;&nbsp;find_matching_routing(ctx,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;process_codes: Vec&lt;String&gt;)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Option&lt;RoutingDetail&gt; <span style="color:#888;">// 自动匹配路线</span><br>
+          &nbsp;&nbsp;set_bom_routing(ctx,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;product_code, routing_id)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// UPSERT bom_routings</span><br>
+          &nbsp;&nbsp;get_bom_routing(ctx, product_code)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ Option&lt;RoutingDetail&gt;<br>
+          &nbsp;&nbsp;list_boms_by_routing(ctx,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;routing_id) → Vec&lt;BomRouting&gt;<br>
+          }
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>共享层：</strong>审计日志 | 领域事件(RoutingCreated/Updated/Deleted, BomRoutingChanged) | <strong>MES 集成：</strong>WorkOrderRouting 快照 RoutingSteps → 工单报工
+        </p>
+      </div>
+
+      <!-- LaborProcessDict 工序字典 -->
+      <div style="border: 2px solid #c678dd; border-radius: 8px; padding: 14px; background: rgba(198,120,221,0.05);">
+        <h4 style="color: #c678dd; margin: 0 0 6px 0;">LaborProcessDict 工序字典</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">全局工序主数据，定义标准工序编码和名称。被 RoutingStep 和 BomLaborProcess 引用。删除前校验引用</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">LaborProcessDict</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;code: String <span style="color:#888;">// 工序编码，全局唯一</span><br>
+          &nbsp;&nbsp;name: String <span style="color:#888;">// 工序名称</span><br>
+          &nbsp;&nbsp;description: String?<br>
+          &nbsp;&nbsp;sort_order: i32 <span style="color:#888;">// 显示排序</span><br>
+          &nbsp;&nbsp;operator_id: i64 <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: DateTime<br>
+          &nbsp;&nbsp;updated_at: DateTime?<br>
+          &nbsp;&nbsp;deleted_at: DateTime? <span style="color:#888;">// 软删除</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CreateLaborProcessDictReq</span> {<br>
+          &nbsp;&nbsp;name: String <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;description: String?<br>
+          &nbsp;&nbsp;sort_order: i32<br>
+          &nbsp;&nbsp;<span style="color:#888;">// code 由 DocumentSequence 自动生成</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">UpdateLaborProcessDictReq</span> {<br>
+          &nbsp;&nbsp;id: i64<br>
+          &nbsp;&nbsp;name: String<br>
+          &nbsp;&nbsp;description: String?<br>
+          &nbsp;&nbsp;sort_order: i32<br>
+          }<br><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">LaborProcessDictService</span> {<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
+          &nbsp;&nbsp;list(ctx, query: ListLaborProcessDictQuery)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult&lt;LaborProcessDict&gt;<br>
+          &nbsp;&nbsp;create(ctx, req) → i64<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// code = next_number(ctx, "PROC")</span><br>
+          &nbsp;&nbsp;update(ctx, req)<br>
+          &nbsp;&nbsp;delete(ctx, id) → u64<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 校验无 routing_steps/bom_labor_processes 引用</span><br>
+          }
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>引用方：</strong>RoutingStep.process_code | BomLaborProcess.process_code | <strong>共享层：</strong>DocumentSequence(PROC) | 审计日志
+        </p>
+      </div>
+    </div>
+
+    <!-- Row 6: LaborProcess + Routing Integration -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+      <!-- BomLaborProcess BOM劳务工序 -->
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h4 style="color: #56b6c2; margin: 0 0 6px 0;">BomLaborProcessService BOM 劳务工序</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">按产品管理的劳务工序列表，定义各产品的工序单价、数量。LaborCostItem 数据来源。支持 Excel 批量导入（自动匹配/创建工艺路线）</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">BomLaborProcess</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;product_code: String <span style="color:#888;">// 产品编码</span><br>
+          &nbsp;&nbsp;labor_process_dict_id: i64 <span style="color:#888;">FK→labor_process_dicts.id</span><br>
+          &nbsp;&nbsp;process_code: String? <span style="color:#888;">FK→labor_process_dicts.code</span><br>
+          &nbsp;&nbsp;name: String <span style="color:#888;">// 工序名称（冗余/自定义）</span><br>
+          &nbsp;&nbsp;unit_price: Decimal(18,6) <span style="color:#888;">// 单价</span><br>
+          &nbsp;&nbsp;quantity: Decimal(18,6) <span style="color:#888;">// 数量</span><br>
+          &nbsp;&nbsp;sort_order: i32 <span style="color:#888;">// 排序</span><br>
+          &nbsp;&nbsp;remark: String?<br>
+          &nbsp;&nbsp;operator_id: i64 <span style="color:#888;">FK→users</span><br>
+          &nbsp;&nbsp;created_at: DateTime<br>
+          &nbsp;&nbsp;updated_at: DateTime?<br>
+          &nbsp;&nbsp;deleted_at: DateTime? <span style="color:#888;">// 软删除</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">CreateLaborProcessReq</span> {<br>
+          &nbsp;&nbsp;product_code: String <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;labor_process_dict_id: i64 <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;process_code: String?<br>
+          &nbsp;&nbsp;name: String <span style="color:#888;">// 必填</span><br>
+          &nbsp;&nbsp;unit_price: Decimal<br>
+          &nbsp;&nbsp;quantity: Decimal<br>
+          &nbsp;&nbsp;sort_order: i32<br>
+          &nbsp;&nbsp;remark: String?<br>
+          }<br><br>
+          <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomLaborProcessService</span> {<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
+          &nbsp;&nbsp;list(ctx, query: ListLaborProcessQuery)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult&lt;BomLaborProcess&gt;<br>
+          &nbsp;&nbsp;create(ctx, req) → i64<br>
+          &nbsp;&nbsp;update(ctx, id, req)<br>
+          &nbsp;&nbsp;delete(ctx, id) → Unit<br>
+          }
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>下游：</strong>BomCostReport.labor_costs ← BomLaborProcess | <a href="04-mes.html" style="color:#e06c75;">MES</a> WorkOrderRouting.unit_price ← 引用 | Excel 批量导入
+        </p>
+      </div>
+
+      <!-- Routing + LaborProcess Integration -->
+      <div style="border: 2px solid #98c379; border-radius: 8px; padding: 14px; background: rgba(152,195,121,0.05);">
+        <h4 style="color: #98c379; margin: 0 0 6px 0;">工艺路线 × BOM × MES 集成流</h4>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">三个实体的协作关系：定义层（Master Data）→ 运行时快照（MES）</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+          <span style="color:#98c379;">数据流：</span><br>
+          <span style="color:#c678dd;">LaborProcessDict</span> 工序字典（全局主数据）<br>
+          <span style="color:#6bc76b;">↓</span> code 被引用<br>
+          <span style="color:#e5c07b;">Routing</span> + <span style="color:#e5c07b;">RoutingStep</span> 工艺路线模板<br>
+          <span style="color:#6bc76b;">↓</span> BomRouting 绑定到产品<br>
+          <span style="color:#e5c07b;">Bom</span> 物料清单（引用路线）<br>
+          <span style="color:#6bc76b;">↓</span> MES 创建工单时快照<br>
+          <span style="color:#e06c75;">WorkOrderRouting</span> 工单工序（不可变）<br>
+          <span style="color:#6bc76b;">↓</span> 报工推进<br>
+          <span style="color:#e06c75;">WorkReport</span> 报工记录<br><br>
+          <span style="color:#98c379;">并流：</span><br>
+          <span style="color:#56b6c2;">BomLaborProcess</span> 劳务工序（按产品）<br>
+          <span style="color:#6bc76b;">↓</span> unit_price × quantity<br>
+          <span style="color:#e06c75;">BomCostReport.labor_costs</span> 人工成本<br><br>
+          <span style="color:#98c379;">Excel 导入流程：</span><br>
+          <span style="color:#e5c07b;">导入劳务工序 Excel</span><br>
+          &nbsp;&nbsp;→ 按产品分组<br>
+          &nbsp;&nbsp;→ <span style="color:#c678dd;">find_matching_routing</span>(process_codes)<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;匹配 → 绑定 BomRouting<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;未匹配 → 自动创建 Routing + Steps<br>
+          &nbsp;&nbsp;→ 返回 <span style="color:#56b6c2;">PerProductRoutingResult</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;(matched_existing_routing, routing_id)
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>事件：</strong>RoutingCreated / RoutingUpdated / RoutingDeleted / BomRoutingChanged / LaborProcessDictCreated/Updated/Deleted
+        </p>
+      </div>
+    </div>
+
+    <!-- v5 Design Notes -->
+    <div style="background: rgba(249,115,22,0.1); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
+      <h3 style="margin: 0 0 8px 0; color: #f97316;">v5 设计改进</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
+        <span style="color:#f971b;">① RoutingService</span> — 工艺路线定义层，独立于 MES WorkOrderRouting（运行时快照）。支持路线模板 CRUD + BOM 绑定 + 自动匹配（find_matching_routing）<br>
+        <span style="color:#f971b;">② LaborProcessDictService</span> — 全局工序主数据字典，统一编码管理。RoutingStep.process_code 和 BomLaborProcess.process_code 共同引用<br>
+        <span style="color:#f971b;">③ LaborProcessService</span> — 按产品管理的劳务工序（单价/数量），连接 BOM 和成本核算。Excel 批量导入时自动匹配/创建 Routing<br>
+        <span style="color:#f971b;">④ 三层解耦</span> — LaborProcessDict（定义层）→ Routing（模板层）→ WorkOrderRouting（运行时快照层），避免直接耦合 MES
+      </div>
+    </div>
+
+    <!-- Validation rules for Routing/LaborProcess -->
+    <div style="padding: 12px; background: rgba(229,166,85,0.1); border-radius: 6px; margin-top: 12px;">
+      <h3 style="margin: 0 0 8px 0; color: #e5a655;">工艺路线 & 劳务工序 — 业务校验规则</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
+        <span style="color:#e5a655;">RoutingService.create</span><br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> steps 中所有 process_code 必须存在于 labor_process_dicts<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> steps.step_order 同一 routing 内不可重复<br><br>
+        <span style="color:#e5a655;">RoutingService.delete</span><br>
+        &nbsp;&nbsp;软删除（SET deleted_at = NOW()）<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> 无 bom_routings 绑定（否则返回 BusinessRule("路线已被 BOM 绑定")）<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> MES 无工单引用该路线（查询 work_order_routings）<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Partial Unique Index:</span> uk_routings_name ON routings(name) WHERE deleted_at IS NULL<br><br>
+        <span style="color:#e5a655;">RoutingService.find_matching_routing</span><br>
+        &nbsp;&nbsp;按 process_codes 集合精确匹配现有路线<br>
+        &nbsp;&nbsp;匹配逻辑：忽略 step_order 顺序，仅比较 code 集合<br>
+        &nbsp;&nbsp;返回 Option&lt;RoutingDetail&gt;（含 routing + steps）<br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">MES 快照时使用原始 step_order</span>，匹配逻辑不改变顺序<br><br>
+        <span style="color:#e5a655;">RoutingService.set_bom_routing</span><br>
+        &nbsp;&nbsp;UPSERT bom_routings（product_code 唯一，每个产品只绑定一条路线）<br>
+        &nbsp;&nbsp;发布 BomRoutingChanged 事件<br><br>
+        <span style="color:#e5a655;">LaborProcessDictService.delete</span><br>
+        &nbsp;&nbsp;软删除（SET deleted_at = NOW()）<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> 无 routing_steps 引用（WHERE process_code = ? AND deleted_at IS NULL）<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> 无 bom_labor_processes 引用（WHERE process_code = ? AND deleted_at IS NULL）<br>
+        &nbsp;&nbsp;<span style="color:#e06c75;">Partial Unique Index:</span> uk_labor_process_dicts_code ON labor_process_dicts(code) WHERE deleted_at IS NULL<br><br>
+        <span style="color:#e5a655;">BomLaborProcessService.delete</span><br>
+        &nbsp;&nbsp;软删除（SET deleted_at = NOW()）<br>
+      </div>
+    </div>
+
+    <!-- Events for Routing/LaborProcess -->
+    <div style="padding: 12px; background: rgba(224,108,117,0.1); border-radius: 6px; margin-top: 12px;">
+      <h3 style="margin: 0 0 8px 0; color: #e06c75;">领域事件（新增）</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
+        <span style="color:#e5c07b;">RoutingCreated</span> { routing_id: i64, name: String, step_count: u32, operator_id: i64 } — 路线创建<br>
+        <span style="color:#e5c07b;">RoutingUpdated</span> { routing_id: i64, name: String, operator_id: i64 } — 路线更新（steps 整体替换）<br>
+        <span style="color:#e5c07b;">RoutingDeleted</span> { routing_id: i64, operator_id: i64 } — 路线软删除<br>
+        <span style="color:#56b6c2;">BomRoutingChanged</span> { product_code: String, routing_id: Option&lt;i64&gt;, operator_id: i64 } — BOM 路线绑定/解绑 → MES 监听做校验提醒<br>
+        <span style="color:#c678dd;">LaborProcessDictCreated</span> { dict_id: i64, code: String, name: String, operator_id: i64 } — 工序字典新建<br>
+        <span style="color:#c678dd;">LaborProcessDictUpdated</span> { dict_id: i64, code: String, name: String, operator_id: i64 } — 工序字典更新<br>
+        <span style="color:#c678dd;">LaborProcessDictDeleted</span> { dict_id: i64, code: String, operator_id: i64 } — 工序字典软删除
+      </div>
+    </div>
+
+    <!-- Transaction modes for new services -->
+    <div style="padding: 12px; background: rgba(86,182,194,0.1); border-radius: 6px; margin-top: 12px;">
+      <h3 style="margin: 0 0 8px 0; color: #56b6c2;">事务模式（新增）</h3>
+      <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 2;">
+        <span style="color:#e5c07b;">RoutingService</span><br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">IndependentTx</span> — create, update, delete（含引用校验 + 软删除）, set_bom_routing<br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">ReadOnly</span> — list, get_detail, find_matching_routing, get_bom_routing, list_boms_by_routing<br>
+        <span style="color:#c678dd;">LaborProcessDictService</span><br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">IndependentTx</span> — create, update, delete（软删除）<br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">ReadOnly</span> — list<br>
+        <span style="color:#56b6c2;">BomLaborProcessService</span><br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">IndependentTx</span> — create, update, delete（软删除）<br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">ReadOnly</span> — list
       </div>
     </div>
 

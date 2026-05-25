@@ -13,6 +13,9 @@ use crate::shared::cost_entry::model::EntryRequest;
 use crate::shared::cost_entry::service::CostEntryService;
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::document_link::service::DocumentLinkService;
+use crate::qms::inspection_result::service::InspectionResultService;
+use crate::qms::inspection_result::model::InspectionResultFilter;
+use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::cost::{CostEntityType, CostType};
@@ -38,6 +41,7 @@ pub struct ShippingRequestServiceImpl {
     doc_link: Arc<dyn DocumentLinkService>,
     inv_res: Arc<dyn InventoryReservationService>,
     cost_entry: Arc<dyn CostEntryService>,
+    qms: Arc<dyn InspectionResultService>,
 }
 
 impl ShippingRequestServiceImpl {
@@ -55,6 +59,7 @@ impl ShippingRequestServiceImpl {
         doc_link: Arc<dyn DocumentLinkService>,
         inv_res: Arc<dyn InventoryReservationService>,
         cost_entry: Arc<dyn CostEntryService>,
+        qms: Arc<dyn InspectionResultService>,
     ) -> Self {
         Self {
             repo,
@@ -69,6 +74,7 @@ impl ShippingRequestServiceImpl {
             doc_link,
             inv_res,
             cost_entry,
+            qms,
         }
     }
 }
@@ -237,7 +243,26 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             return Err(DomainError::business_rule("Only Draft shipping requests can be confirmed"));
         }
 
-        // QMS OQC gate placeholder — skip since QMS not yet implemented
+        // QMS OQC hard gate: 查询发货请求的检验结果
+        let qms_results = self.qms.list_by_source(
+            ctx.reborrow(),
+            InspectionResultFilter {
+                source_type: Some(InspectionSourceType::ShippingRequest),
+                source_id: Some(id),
+                ..Default::default()
+            },
+            crate::shared::types::pagination::PageParams { page: 1, page_size: 100 },
+        )
+        .await?;
+
+        if !qms_results.items.is_empty() {
+            let all_passed = qms_results.items.iter().all(|r| {
+                r.status == InspectionStatus::Completed && r.result == InspectionResultType::Pass
+            });
+            if !all_passed {
+                return Err(DomainError::business_rule("OQC 检验未通过，无法发货"));
+            }
+        }
 
         self.state_machine
             .transition(ctx.reborrow(), "ShippingStatus", id, "Confirmed", None)

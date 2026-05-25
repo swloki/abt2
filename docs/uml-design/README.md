@@ -8,17 +8,17 @@
 
 | 文件 | 内容 | 实体数 |
 |------|------|--------|
-| [00-module-dependencies.html](00-module-dependencies.html) | 模块间接口依赖关系总览 | 9 模块 + 51 Service trait |
-| [00-shared-infrastructure.html](00-shared-infrastructure.html) | 共享基础设施层 — 文档编号、文档关联、库存预留、成本账本、领域事件(Outbox)、状态机、审计日志、幂等去重 | 8 核心 + 9 枚举 |
+| [00-module-dependencies.html](00-module-dependencies.html) | 模块间接口依赖关系总览 | 9 模块 + 54 Service trait |
+| [00-shared-infrastructure.html](00-shared-infrastructure.html) | 共享基础设施层 — 文档编号、文档关联、库存预留、成本账本、领域事件(Outbox)、状态机、审计日志、幂等去重、通知服务、Excel导入导出、定时任务 | 8 核心 + 通知 + Excel + 定时任务 + 9 枚举 |
 | [01-sales.html](01-sales.html) | 销售模块 — 报价、订单、发货、退货、对账（DomainError + 业务校验规则 + 语义化状态方法） | 5 主表 + 5 明细表 |
 | [02-purchase.html](02-purchase.html) | 采购模块 — 采购报价、订单、退货、对账、付款、零星请购（Supplier 已迁至 Master Data） | 6 主表 + 6 明细表 |
-| [03-wms.html](03-wms.html) | 仓储模块 — 三级库位、策略引擎、来料、库存事务、领料、倒冲、盘点、调拨、形态转换、锁库 | 12 主表 + 10 明细表 |
+| [03-wms.html](03-wms.html) | 仓储模块 — 三级库位、策略引擎、来料、库存事务、领料、倒冲、盘点、调拨、形态转换、锁库、级联库存查询 | 12 主表 + 10 明细表 + 1 查询服务 |
 | [04-mes.html](04-mes.html) | 生产模块 — 计划、工单、生产批次(流转卡)、工序、报工、计件工资、报检、完工入库（委外委托 OM） | 7 主表 + 3 明细表 + 3 枚举 |
 | [05-outsourcing.html](05-outsourcing.html) | 委外管理 — 委外单、发料明细、追踪节点、转自制 | 3 主表 + 7 节点类型 |
 | [06-qms.html](06-qms.html) | 质量管理 v2.3 — 检验规格、检验结果、MRB不良评审、RMA客诉（QualityGateService独立 + QualityGateStatus + Req/Filter + 乐观锁 + 工作流集成 + execute_disposition + InCallerTx硬门 + Guard Conditions + 幂等约束 + JSONB强类型） | 5 Service + 4 主表 + 10 枚举 + 8 Req + 4 Filter + 3 JSONB类型 |
 | [07-fms.html](07-fms.html) | 财务管理 v2 — 日记账、日记账明细、核销、费用报销、成本核算（强类型 Filter + BalanceSummary + 幂等键 + TransactionMode + CounterpartyRef + 工作流解耦） | 5 主表 + 1 明细表 + 4 请求/返回结构体 |
 | [08-workflow-engine.html](08-workflow-engine.html) | 工作流引擎 V2 — 依赖共享层事件/状态机，Saga 补偿 + 增强节点 | 3 Service + 4 核心实体 |
-| [09-master-data.html](09-master-data.html) | 主数据模块 v4 — 产品目录、分类、价格、BOM、客户(Customer)、供应商(Supplier)（CQRS 拆分 + ServiceContext + 乐观锁 + 客商统一主数据） | 10 Service + 21 核心实体 + 10 请求结构体 |
+| [09-master-data.html](09-master-data.html) | 主数据模块 v5 — 产品目录、分类、价格、BOM、客户(Customer)、供应商(Supplier)、工艺路线(Routing)、工序字典(LaborProcessDict)、劳务工序(BomLaborProcess)（CQRS 拆分 + ServiceContext + 乐观锁 + 客商统一主数据 + 三层工艺解耦） | 13 Service + 28 核心实体 + 16 请求结构体 |
 
 ## 查看方式
 
@@ -57,6 +57,9 @@
 | `AuditLogService` | 操作审计（字段级 diff）| 数据变更时，同事务内 |
 | `IdempotencyService` | 幂等去重 | EventProcessor 消费事件前、API 防重复提交 |
 | `DeadLetterService` | 死信队列运维 | EventProcessor 超限后查询/重试/归档 |
+| `NotificationService` | 跨模块消息通知 | 业务事件触发通知、前端轮询未读数 |
+| `ExcelImportService` / `ExcelExportService` | Excel 导入导出框架 | 每个导入/导出操作独立实现 |
+| `ScheduledTask` / `TaskSchedulerService` | 定时任务框架 | 后台任务调度（如库存预警） |
 
 ### 关键接口签名
 
@@ -197,14 +200,16 @@ enum DomainError {
 
 | 模块 | Service trait 数量 | 核心方法数 |
 |------|-------------------|-----------|
-| Shared | 9 | 20 |
+| Shared | 15 | 36 |
 | Sales CRM | 5 | 41 |
 | Purchase SRM | 6 | 20 |
-| WMS | 9 | 28 |
+| WMS | 10 | 30 |
 | MES | 6 | 29 |
 | Outsourcing OM | 2 | 9 |
 | Quality QMS | 4 | 16 |
 | Financial FMS | 4 | 15 |
 | Workflow V2 | 3 | 29 |
-| Master Data | 10 | 49 |
-| **合计** | **50** | **236** |
+| Master Data | 13 | 71 |
+| **合计** | **68** | **296** |
+
+> **v5 新增事件（DomainEventType 扩展）**：RoutingCreated, RoutingUpdated, RoutingDeleted, BomRoutingChanged, LaborProcessDictCreated, LaborProcessDictUpdated, LaborProcessDictDeleted（原 19 → 26 种）

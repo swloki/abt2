@@ -10,23 +10,41 @@ use super::model::{
 };
 use super::repo::ArrivalNoticeRepo;
 use super::service::ArrivalNoticeService;
+use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
+use crate::qms::inspection_result::model::InspectionResultFilter;
+use crate::qms::inspection_result::service::InspectionResultService;
+use crate::shared::cost_entry::model::EntryRequest;
+use crate::shared::cost_entry::service::CostEntryService;
+use crate::shared::document_link::model::LinkRequest;
+use crate::shared::document_link::service::DocumentLinkService;
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::{CostEntityType, CostType, DocumentType, LinkType};
+use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::ArrivalStatus;
-use crate::wms::stubs::{
-    CostEntryStub, CostEntryReq, DocumentLinkStub, DocumentSequenceStub,
-    InventoryReservationStub, QualityGateStub,
-};
 
 pub struct ArrivalNoticeServiceImpl {
     #[allow(dead_code)]
     pool: Arc<PgPool>,
+    doc_seq: Arc<dyn DocumentSequenceService>,
+    doc_link: Arc<dyn DocumentLinkService>,
+    cost_entry: Arc<dyn CostEntryService>,
+    inv_res: Arc<dyn InventoryReservationService>,
+    qms: Arc<dyn InspectionResultService>,
 }
 
 impl ArrivalNoticeServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(
+        pool: Arc<PgPool>,
+        doc_seq: Arc<dyn DocumentSequenceService>,
+        doc_link: Arc<dyn DocumentLinkService>,
+        cost_entry: Arc<dyn CostEntryService>,
+        inv_res: Arc<dyn InventoryReservationService>,
+        qms: Arc<dyn InspectionResultService>,
+    ) -> Self {
+        Self { pool, doc_seq, doc_link, cost_entry, inv_res, qms }
     }
 }
 
@@ -41,7 +59,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
             return Err(DomainError::validation("来料通知必须包含至少一条明细"));
         }
 
-        let doc_number = DocumentSequenceStub::next_number(ctx.reborrow(), "AN-")
+        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ArrivalNotice)
             .await
             .unwrap_or_else(|_| generate_doc_number_fallback());
 
@@ -56,12 +74,15 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
         // DocumentLink: 来料 → 采购单
         if let Some(po_id) = req.purchase_order_id {
-            let _ = DocumentLinkStub::link(
+            let _ = self.doc_link.create_links(
                 ctx.reborrow(),
-                "arrival_notice",
-                notice.id,
-                "purchase_order",
-                po_id,
+                vec![LinkRequest {
+                    source_type: DocumentType::ArrivalNotice,
+                    source_id: notice.id,
+                    target_type: DocumentType::PurchaseOrder,
+                    target_id: po_id,
+                    link_type: LinkType::Fulfills,
+                }],
             )
             .await;
         }
@@ -192,11 +213,15 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
         let preliminary_status = determine_inspection_result(&items);
 
-        // IQC 硬门禁：不合格时阻止 Accepted/PartiallyAccepted，强制降为 Rejected
-        // 设计要求：confirm requires QMS.InspectionResultService.is_passed(IQC) hard gate
-        let quality_passed = QualityGateStub::is_passed(ctx.reborrow(), "arrival_notice", req.id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+        // IQC 硬门禁：查询 QMS 检验结果，判定是否通过
+        let quality_passed = check_qms_gate(
+            &self.qms,
+            ctx.reborrow(),
+            InspectionSourceType::ArrivalNotice,
+            req.id,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
 
         let final_status = if !quality_passed
             && (preliminary_status == ArrivalStatus::Accepted
@@ -209,23 +234,30 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
         // confirm -> CostEntry(材料成本: debit inventory / credit AP) [IndependentTx]
         if final_status == ArrivalStatus::Accepted || final_status == ArrivalStatus::PartiallyAccepted {
-            let _ = CostEntryStub::record(
+            let total_accepted = items.iter().map(|i| i.accepted_qty).fold(Decimal::ZERO, |a, b| a + b);
+            let period = chrono::Local::now().format("%Y-%m").to_string();
+
+            let _ = self.cost_entry.create_entries(
                 ctx.reborrow(),
-                CostEntryReq {
-                    cost_type: "material_cost".to_string(),
-                    debit_account: "inventory".to_string(),
-                    credit_account: "accounts_payable".to_string(),
-                    amount: items.iter().map(|i| i.accepted_qty).fold(Decimal::ZERO, |a, b| a + b),
-                    source_type: "arrival_notice".to_string(),
+                vec![EntryRequest {
+                    entity_type: CostEntityType::PurchaseOrder,
+                    entity_id: req.id,
+                    cost_type: CostType::Material,
+                    debit_amount: total_accepted,
+                    credit_amount: total_accepted,
+                    cost_center: None,
+                    profit_center: None,
+                    period,
+                    source_type: DocumentType::ArrivalNotice,
                     source_id: req.id,
-                },
+                }],
             )
             .await;
 
             // confirm -> InvRes(release safety stock)
-            let _ = InventoryReservationStub::release(
+            let _ = self.inv_res.cancel_by_source(
                 ctx.reborrow(),
-                "arrival_notice",
+                DocumentType::ArrivalNotice,
                 req.id,
             )
             .await;
@@ -265,6 +297,33 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
         Ok(())
     }
+}
+
+/// 检查 QMS 质量关卡：查询 source 关联的检验结果，判断是否全部通过
+async fn check_qms_gate(
+    qms: &Arc<dyn InspectionResultService>,
+    ctx: ServiceContext<'_>,
+    source_type: InspectionSourceType,
+    source_id: i64,
+) -> Result<bool, DomainError> {
+    let results = qms.list_by_source(
+        ctx,
+        InspectionResultFilter {
+            source_type: Some(source_type),
+            source_id: Some(source_id),
+            ..Default::default()
+        },
+        crate::shared::types::pagination::PageParams { page: 1, page_size: 100 },
+    )
+    .await?;
+
+    if results.items.is_empty() {
+        return Ok(true);
+    }
+
+    Ok(results.items.iter().all(|r| {
+        r.status == InspectionStatus::Completed && r.result == InspectionResultType::Pass
+    }))
 }
 
 /// 根据明细行检验结果判定最终状态

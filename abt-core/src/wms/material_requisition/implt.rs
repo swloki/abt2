@@ -6,29 +6,36 @@ use sqlx::postgres::PgPool;
 use super::model::{IssueMaterialReq, MaterialRequisition, RequisitionFilter};
 use super::repo::MaterialRequisitionRepo;
 use super::service::MaterialRequisitionService;
+use crate::mes::work_order::service::WorkOrderService;
+use crate::shared::document_link::model::LinkRequest;
+use crate::shared::document_link::service::DocumentLinkService;
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::{DocumentType, LinkType};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::RequisitionStatus;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
 use crate::wms::inventory_transaction::service::InventoryTransactionService;
-use crate::wms::stubs::{
-    DocumentLinkStub, DocumentSequenceStub, InventoryReservationStub, ReservationType,
-    WorkOrderStub,
-};
 
 pub struct MaterialRequisitionServiceImpl {
     #[allow(dead_code)]
     pool: Arc<PgPool>,
     inventory_transaction_svc: Arc<dyn InventoryTransactionService>,
+    doc_seq: Arc<dyn DocumentSequenceService>,
+    doc_link: Arc<dyn DocumentLinkService>,
+    work_order: Arc<dyn WorkOrderService>,
 }
 
 impl MaterialRequisitionServiceImpl {
     pub fn new(
         pool: Arc<PgPool>,
         inventory_transaction_svc: Arc<dyn InventoryTransactionService>,
+        doc_seq: Arc<dyn DocumentSequenceService>,
+        doc_link: Arc<dyn DocumentLinkService>,
+        work_order: Arc<dyn WorkOrderService>,
     ) -> Self {
-        Self { pool, inventory_transaction_svc }
+        Self { pool, inventory_transaction_svc, doc_seq, doc_link, work_order }
     }
 }
 
@@ -39,14 +46,14 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         mut ctx: ServiceContext<'_>,
         work_order_id: i64,
     ) -> Result<i64, DomainError> {
-        let doc_number = DocumentSequenceStub::next_number(ctx.reborrow(), "MR-")
+        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::MaterialRequisition)
             .await
             .unwrap_or_else(|_| format!("MR{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
         let requisition_date = chrono::Local::now().date_naive();
 
-        let wo_info = WorkOrderStub::get_info(ctx.reborrow(), work_order_id).await?;
-        let warehouse_id = wo_info.warehouse_id;
+        let wo = self.work_order.find_by_id(ctx.reborrow(), work_order_id).await?;
+        let warehouse_id = wo.work_center_id.unwrap_or(0);
 
         let requisition = MaterialRequisitionRepo::insert(
             &mut *ctx.executor,
@@ -59,12 +66,15 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-        let _ = DocumentLinkStub::link(
+        let _ = self.doc_link.create_links(
             ctx.reborrow(),
-            "material_requisition",
-            requisition.id,
-            "work_order",
-            work_order_id,
+            vec![LinkRequest {
+                source_type: DocumentType::MaterialRequisition,
+                source_id: requisition.id,
+                target_type: DocumentType::WorkOrder,
+                target_id: work_order_id,
+                link_type: LinkType::Fulfills,
+            }],
         )
         .await;
 
@@ -127,7 +137,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
     }
 
     /// 发料：Confirmed → Issued
-    /// 设计：issue -> InvRes.fulfill(Hard) + InventoryTransaction.record(MaterialIssue)
+    /// 设计：issue -> InventoryTransaction.record(MaterialIssue)
     async fn issue(
         &self,
         mut ctx: ServiceContext<'_>,
@@ -145,7 +155,6 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             });
         }
 
-        // 获取所有明细（用于查找 product_id）
         let existing_items = MaterialRequisitionRepo::get_items(&mut *ctx.executor, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -171,18 +180,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-            // issue -> InvRes.fulfill(Hard)
-            let _ = InventoryReservationStub::fulfill(
-                ctx.reborrow(),
-                found_item.product_id,
-                requisition.warehouse_id,
-                item.issued_qty,
-                ReservationType::Hard,
-            )
-            .await;
-
             // issue -> InventoryTransaction.record(MaterialIssue)
-            // 领料为出库，quantity 为负值
             let _ = self.inventory_transaction_svc.record(
                 ctx.reborrow(),
                 RecordTransactionReq {

@@ -4,10 +4,13 @@ use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
 use super::super::enums::PlanStatus;
-use super::super::stubs::DocumentSequenceStub;
 use super::model::*;
 use super::repo::ProductionPlanRepo;
 use super::service::ProductionPlanService;
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::DocumentType;
+use crate::mes::work_order::model::CreateWorkOrderReq;
+use crate::mes::work_order::service::WorkOrderService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::PaginatedResult;
@@ -15,11 +18,17 @@ use crate::shared::types::pagination::PaginatedResult;
 pub struct ProductionPlanServiceImpl {
     #[allow(dead_code)]
     pool: Arc<PgPool>,
+    doc_seq: Arc<dyn DocumentSequenceService>,
+    work_order: Arc<dyn WorkOrderService>,
 }
 
 impl ProductionPlanServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(
+        pool: Arc<PgPool>,
+        doc_seq: Arc<dyn DocumentSequenceService>,
+        work_order: Arc<dyn WorkOrderService>,
+    ) -> Self {
+        Self { pool, doc_seq, work_order }
     }
 }
 
@@ -30,7 +39,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreatePlanReq,
     ) -> Result<i64, DomainError> {
-        let doc_number = DocumentSequenceStub::next_number(ctx.reborrow(), "PP-")
+        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ProductionPlan)
             .await
             .unwrap_or_else(|_| format!("PP{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
@@ -89,16 +98,49 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
 
     async fn release_to_work_orders(
         &self,
-        _ctx: ServiceContext<'_>,
+        mut ctx: ServiceContext<'_>,
         plan_id: i64,
     ) -> Result<BatchReleaseResult, DomainError> {
-        // TODO: 待 WorkOrder 模块实现后，将计划行下达为工单（循环依赖解决后再接入）
-        Ok(BatchReleaseResult {
-            plan_id,
-            successful_work_orders: vec![],
-            failed_items: vec![],
-            total: 0,
-        })
+        let items = ProductionPlanRepo::get_items_by_plan_id(&mut *ctx.executor, plan_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        let mut successful = Vec::new();
+        let mut failed = Vec::new();
+
+        for item in &items {
+            let scheduled_start = chrono::Local::now().date_naive();
+            let scheduled_end = scheduled_start + chrono::Duration::days(7);
+
+            match self.work_order.create(
+                ctx.reborrow(),
+                CreateWorkOrderReq {
+                    plan_item_id: Some(item.id),
+                    product_id: item.product_id,
+                    bom_snapshot_id: None,
+                    routing_id: None,
+                    planned_qty: item.planned_qty,
+                    scheduled_start,
+                    scheduled_end,
+                    work_center_id: None,
+                    sales_order_id: None,
+                    remark: None,
+                },
+            ).await {
+                Ok(wo_id) => {
+                    if let Ok(wo) = self.work_order.find_by_id(ctx.reborrow(), wo_id).await {
+                        successful.push(wo);
+                    }
+                }
+                Err(e) => failed.push(BatchFailure {
+                    index: item.id as i32,
+                    error: e,
+                }),
+            }
+        }
+
+        let total = items.len() as i32;
+        Ok(BatchReleaseResult { plan_id, successful_work_orders: successful, failed_items: failed, total })
     }
 
     async fn list(

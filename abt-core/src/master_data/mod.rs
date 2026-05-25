@@ -4,3 +4,6 @@ pub mod price;
 pub mod bom;
 pub mod customer;
 pub mod supplier;
+pub mod labor_process_dict;
+pub mod routing;
+pub mod bom_labor_process;

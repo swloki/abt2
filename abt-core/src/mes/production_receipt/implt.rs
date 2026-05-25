@@ -8,22 +8,47 @@ use super::repo::ProductionReceiptRepo;
 use super::service::ProductionReceiptService;
 use super::super::enums::*;
 use crate::mes::production_batch::repo::ProductionBatchRepo;
-use crate::mes::stubs::{
-    AuditLogStub, BackflushStub, CostEntryStub, CostEntryReq, DocumentSequenceStub,
-    InventoryReservationStub, QmsInspectionStub, ReservationType, WmsInventoryTransactionStub,
-    WmsTransactionType,
-};
+use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
+use crate::qms::inspection_result::model::InspectionResultFilter;
+use crate::qms::inspection_result::service::InspectionResultService;
+use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::cost_entry::model::EntryRequest;
+use crate::shared::cost_entry::service::CostEntryService;
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::{AuditAction, CostEntityType, CostType, DocumentType};
+use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::pagination::PageParams;
+use crate::wms::backflush::service::BackflushService;
+use crate::wms::inventory_transaction::model::RecordTransactionReq;
+use crate::wms::inventory_transaction::service::InventoryTransactionService;
+use crate::wms::enums::TransactionType;
 
 pub struct ProductionReceiptServiceImpl {
     #[allow(dead_code)]
     pool: Arc<PgPool>,
+    doc_seq: Arc<dyn DocumentSequenceService>,
+    qms: Arc<dyn InspectionResultService>,
+    inv_txn: Arc<dyn InventoryTransactionService>,
+    cost_entry: Arc<dyn CostEntryService>,
+    backflush: Arc<dyn BackflushService>,
+    inv_res: Arc<dyn InventoryReservationService>,
+    audit: Arc<dyn AuditLogService>,
 }
 
 impl ProductionReceiptServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(
+        pool: Arc<PgPool>,
+        doc_seq: Arc<dyn DocumentSequenceService>,
+        qms: Arc<dyn InspectionResultService>,
+        inv_txn: Arc<dyn InventoryTransactionService>,
+        cost_entry: Arc<dyn CostEntryService>,
+        backflush: Arc<dyn BackflushService>,
+        inv_res: Arc<dyn InventoryReservationService>,
+        audit: Arc<dyn AuditLogService>,
+    ) -> Self {
+        Self { pool, doc_seq, qms, inv_txn, cost_entry, backflush, inv_res, audit }
     }
 }
 
@@ -48,7 +73,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             }
         }
 
-        // Determine product_id: use req.product_id if provided, otherwise derive from batch/work order
+        // Determine product_id
         let product_id = if req.product_id != 0 {
             req.product_id
         } else if let Some(bid) = req.batch_id {
@@ -58,7 +83,6 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
             batch.product_id
         } else {
-            // Fallback: get from work order's first batch
             let batches = ProductionBatchRepo::list_by_work_order(&mut *ctx.executor, req.work_order_id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
@@ -68,7 +92,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 .ok_or_else(|| DomainError::not_found("ProductionBatch for WorkOrder"))?
         };
 
-        let doc_number = DocumentSequenceStub::next_number(ctx.reborrow(), "PR-")
+        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ProductionReceipt)
             .await
             .unwrap_or_else(|_| format!("PR{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
@@ -124,14 +148,29 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 1. QMS FQC hard gate
-        let fqc_passed = QmsInspectionStub::is_passed(
+        // 1. QMS FQC hard gate — 查询检验结果
+        let fqc_results = self.qms.list_by_source(
             ctx.reborrow(),
-            "production_receipt",
-            id,
+            InspectionResultFilter {
+                source_type: Some(InspectionSourceType::ArrivalNotice),
+                source_id: Some(id),
+                ..Default::default()
+            },
+            PageParams { page: 1, page_size: 100 },
         )
         .await
-        .unwrap_or(true);
+        .unwrap_or_else(|_| crate::shared::types::pagination::PaginatedResult {
+            items: vec![],
+            total: 0,
+            page: 1,
+            page_size: 100,
+            total_pages: 0,
+        });
+
+        let fqc_passed = fqc_results.items.is_empty()
+            || fqc_results.items.iter().all(|r| {
+                r.status == InspectionStatus::Completed && r.result == InspectionResultType::Pass
+            });
 
         if !fqc_passed {
             return Err(DomainError::BusinessRule(
@@ -140,52 +179,63 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         }
 
         // 2. WMS inventory transaction — production receipt (入库)
-        let _ = WmsInventoryTransactionStub::record(
+        let _ = self.inv_txn.record(
             ctx.reborrow(),
-            WmsTransactionType::ProductionReceipt,
-            receipt.product_id,
-            receipt.warehouse_id,
-            receipt.received_qty,
-            "production_receipt",
-            id,
-        )
-        .await;
-
-        // 3. Cost entry — finished goods receipt cost
-        let _ = CostEntryStub::record(
-            ctx.reborrow(),
-            CostEntryReq {
-                cost_type: "production_receipt".to_string(),
-                debit_account: "inventory".to_string(),
-                credit_account: "wip".to_string(),
-                amount: rust_decimal::Decimal::ZERO, // TODO: calculate from actual cost
+            RecordTransactionReq {
+                doc_number: None,
+                transaction_type: TransactionType::ProductionReceipt,
+                product_id: receipt.product_id,
+                warehouse_id: receipt.warehouse_id,
+                zone_id: receipt.zone_id,
+                bin_id: receipt.bin_id,
+                batch_no: None,
+                quantity: receipt.received_qty,
+                unit_cost: None,
                 source_type: "production_receipt".to_string(),
                 source_id: id,
+                remark: None,
             },
         )
         .await;
 
+        // 3. Cost entry — finished goods receipt cost
+        let period = chrono::Local::now().format("%Y-%m").to_string();
+        let _ = self.cost_entry.create_entries(
+            ctx.reborrow(),
+            vec![EntryRequest {
+                entity_type: CostEntityType::WorkOrder,
+                entity_id: receipt.work_order_id,
+                cost_type: CostType::Material,
+                debit_amount: receipt.received_qty,
+                credit_amount: receipt.received_qty,
+                cost_center: None,
+                profit_center: None,
+                period,
+                source_type: DocumentType::ProductionReceipt,
+                source_id: id,
+            }],
+        )
+        .await;
+
         // 4. Backflush — failure does not block receipt
-        let backflush_result = BackflushStub::execute(
+        let backflush_result = self.backflush.execute(
             ctx.reborrow(),
             receipt.work_order_id,
-            receipt.product_id,
             receipt.received_qty,
         )
         .await;
 
         if let Err(e) = backflush_result {
-            // Log but don't block — backflush failure goes to DeadLetter
-            let _ = AuditLogStub::record(
+            let _ = self.audit.record(
                 ctx.reborrow(),
-                "BACKFLUSH_FAILED",
                 "production_receipt",
                 id,
-                &format!("Backflush failed: {:?}", e),
+                AuditAction::Update,
+                Some(serde_json::json!({ "backflush_error": format!("{:?}", e) })),
+                None,
             )
             .await;
         } else {
-            // Backflush succeeded — set flag
             let _ = ProductionReceiptRepo::set_backflush_triggered(
                 &mut *ctx.executor,
                 id,
@@ -195,12 +245,10 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         }
 
         // 5. Release hard reservation
-        let _ = InventoryReservationStub::fulfill(
+        let _ = self.inv_res.cancel_by_source(
             ctx.reborrow(),
-            receipt.product_id,
-            receipt.warehouse_id,
-            receipt.received_qty,
-            ReservationType::Hard,
+            DocumentType::WorkOrder,
+            receipt.work_order_id,
         )
         .await;
 

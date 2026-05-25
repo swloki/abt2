@@ -16,18 +16,26 @@ use crate::mes::enums::*;
 use crate::mes::work_order::repo::WorkOrderRepo;
 use crate::mes::production_inspection::model::CreateInspectionReq;
 use crate::mes::production_inspection::repo::ProductionInspectionRepo;
-use crate::mes::stubs::{DocumentSequenceStub, InventoryReservationStub};
+use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::enums::DocumentType;
+use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 
 pub struct ProductionBatchServiceImpl {
     #[allow(dead_code)]
     pool: Arc<PgPool>,
+    doc_seq: Arc<dyn DocumentSequenceService>,
+    inv_res: Arc<dyn InventoryReservationService>,
 }
 
 impl ProductionBatchServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
-        Self { pool }
+    pub fn new(
+        pool: Arc<PgPool>,
+        doc_seq: Arc<dyn DocumentSequenceService>,
+        inv_res: Arc<dyn InventoryReservationService>,
+    ) -> Self {
+        Self { pool, doc_seq, inv_res }
     }
 }
 
@@ -39,11 +47,11 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreateBatchReq,
     ) -> Result<i64, DomainError> {
-        let batch_no = DocumentSequenceStub::next_number(ctx.reborrow(), "PB-")
+        let batch_no = self.doc_seq.next_number(ctx.reborrow(), DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("PB{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
-        let card_sn = DocumentSequenceStub::next_number(ctx.reborrow(), "CS-")
+        let card_sn = self.doc_seq.next_number(ctx.reborrow(), DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("CS{}", chrono::Utc::now().format("%Y%m%d%H%M%S%3f")));
 
@@ -172,7 +180,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         let wage_amount = (req.completed_qty + non_operator_defect_qty) * unit_price;
 
         // --- e. 幂等 INSERT work_reports ---
-        let doc_number = DocumentSequenceStub::next_number(ctx.reborrow(), "WR-")
+        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::WorkReport)
             .await
             .unwrap_or_else(|_| format!("WR{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
@@ -235,7 +243,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 disposition: None,
                 remark: Some(format!("工序 {step_no} 自动触发 IPQC")),
             };
-            let inspection_doc = DocumentSequenceStub::next_number(ctx.reborrow(), "PI-")
+            let inspection_doc = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ProductionInspection)
                 .await
                 .unwrap_or_else(|_| format!("PI{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
@@ -427,7 +435,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 释放 HARD 预留
-        let _ = InventoryReservationStub::release(ctx.reborrow(), "production_batch", batch_id).await;
+        let _ = self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, batch_id).await;
 
         Ok(())
     }

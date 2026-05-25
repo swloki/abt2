@@ -64,6 +64,8 @@ pub enum DomainEventType {
     PurchaseReturnSettled = 46,
     // OM — Outsourcing
     OutsourcingCancelled = 47,
+    // FMS — additional events
+    ExpensePaymentGenerated = 48,
 }
 
 impl DomainEventType {
@@ -99,6 +101,7 @@ impl DomainEventType {
             45 => Some(Self::PaymentRequestApproved),
             46 => Some(Self::PurchaseReturnSettled),
             47 => Some(Self::OutsourcingCancelled),
+            48 => Some(Self::ExpensePaymentGenerated),
             _ => None,
         }
     }

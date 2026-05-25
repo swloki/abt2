@@ -145,6 +145,7 @@ classDiagram
     +source_id: i64
     +amount: Decimal
     +write_off_date: Date
+    +idempotency_key: Option~String~
     +operator_id: i64
     +created_at: Timestamp
   }
@@ -207,6 +208,7 @@ classDiagram
     +cash_journal_id: i64
     +source_type: DocumentType
     +source_id: i64
+    +source_total: Decimal
     +amount: Decimal
     +idempotency_key: Option~String~
   }
@@ -224,7 +226,7 @@ classDiagram
     &lt;&lt;interface&gt;&gt;
     +write_off(ctx: ServiceContext, req: WriteOffReq) Result~i64~
     +list_by_source(ctx: ServiceContext, source_type, source_id, page: PageParams) PaginatedResult~WriteOff~
-    +get_unreconciled_amount(ctx: ServiceContext, source_type, source_id) Result~Decimal~
+    +get_unreconciled_amount(ctx: ServiceContext, source_type, source_id, source_total: Decimal) Result~Decimal~
   }
 
   class ExpenseReimbursementService {
@@ -245,7 +247,7 @@ classDiagram
 
   note for CashJournal "DB 层: counterparty_type + counterparty_id 两列\nRust Model: CounterpartyRef 枚举（Repository 层拆包/装包）"
   note for CashJournalService "TransactionMode: InCallerTx (create, confirm)\nconfirm flow (same COMMIT boundary):\n  1. IdempotencyService check\n  2. Lock journal FOR UPDATE\n  3. Aggregate lines debit/credit totals\n  4. Validate totals balanced\n  5. Update status = Confirmed + AuditLog\n  6. Publish CashJournalConfirmed event\nCostEntry consumption for reporting"
-  note for WriteOffService "TransactionMode: InCallerTx (write_off)\nAnti-over-write-off (P0):\n  Lock source FOR UPDATE -> check unreconciled >= amount\n  DB CHECK constraint (unreconciled_amount >= 0) as safety net\n  get_unreconciled_amount is read-only snapshot\n  OverWriteOff -> DomainError::BusinessRule\nIdempotency: unique index on write_offs(idempotency_key)\n  WHERE idempotency_key IS NOT NULL (no IdempotencyService needed)\nSales Receipt WriteOff:\n  source_type = ShippingRequest\n  One shipping request can have multiple partial write-offs\n  unreconciled = total_amount - SUM(write_off.amount)\nPurchase Payment WriteOff:\n  source_type = PurchaseOrder / ArrivalNotice\n  Three-way match: invoice + arrival + payment\nEvent: WriteOffCompleted"
+  note for WriteOffService "TransactionMode: InCallerTx (write_off)\nAnti-over-write-off (P0):\n  pg_advisory_xact_lock(source_type, source_id) serializes concurrent writes\n  Check unreconciled >= amount\n  DB CHECK constraint (amount > 0) as safety net\n  get_unreconciled_amount is read-only snapshot\n  OverWriteOff -> DomainError::BusinessRule\n  source_total provided by caller (gRPC handler queries source module)\n  unreconciled = source_total - SUM(write_off.amount)\nIdempotency: unique index on write_offs(idempotency_key)\n  WHERE idempotency_key IS NOT NULL (no IdempotencyService needed)\nSales Receipt WriteOff:\n  source_type = ShippingRequest\n  One shipping request can have multiple partial write-offs\nPurchase Payment WriteOff:\n  source_type = PurchaseOrder / ArrivalNotice\n  Three-way match: invoice + arrival + payment\nEvent: WriteOffCompleted"
   note for ExpenseReimbursementService "TransactionMode: InCallerTx (create)\nTransactionMode: IndependentTx (generate_payment_journal)\n  Hook fires async AFTER caller tx.commit()\n  IndependentTx: opens own tx from pool\n  Creates CashJournal internally, returns journal_id\n  Saga compensation on failure:\n    Rollback created CashJournal\n    Expense status stays Approved (Hook retries)\n    Dead-letter after max retries: manual intervention\n  Precondition: ExpenseStatus == Approved\n  Error handling: return Result, Hook retries or dead-letter\n  NO tx.rollback propagation to caller\nStatus transitions:\n  Draft->Submitted->Approved: StateMachineService.transition()\n  Approved->Paid: generate_payment_journal internally\n  PROHIBITED: external modules modifying status directly\nOptimistic locking: version field on confirm/generate_payment_journal\nEvent: ExpensePaymentGenerated"
   note for CostAccountingService "TransactionMode: None (read-only)\nIsolation: READ COMMITTED (default, no OLTP blocking)\nCost data is eventually consistent derived value, NOT real-time\nFor real-time cost blocking, use SalesOrder pre-reservation flow\nHigh-freq queries: consider materialized view or cache (TTL=5min)\nReads from shared CostEntry table:\n  get_product_cost -> SUM by entity_type=Product, period\n  get_work_order_cost -> SUM by entity_type=WorkOrder\n  get_profit_center_summary -> SUM by profit_center, date range\n  get_margin_analysis -> compare estimated vs actual margin"
   note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
@@ -366,6 +368,7 @@ classDiagram
           &nbsp;&nbsp;source_id: i64 <span style="color:#888;">// 出库单/入库单</span><br>
           &nbsp;&nbsp;amount: Decimal(20,4)<br>
           &nbsp;&nbsp;write_off_date: Date<br>
+          &nbsp;&nbsp;idempotency_key: String?<br>
           &nbsp;&nbsp;operator_id: i64<br>
           &nbsp;&nbsp;created_at: Timestamp<br>
           }<br><br>
@@ -378,7 +381,7 @@ classDiagram
           <strong>核销规则：</strong>销售回款按出库单逐笔核销，确保每笔进账精准对齐到具体客户和发货批次
         </p>
         <p style="color:#e06c75; font-size:11px; margin: 4px 0 0 0;">
-          <strong>P0 防超核销：</strong>FOR UPDATE 锁源单据可用余额 → 校验 unreconciled ≥ amount → DB CHECK 约束兜底 → 超核销抛 DomainError::BusinessRule
+          <strong>P0 防超核销：</strong>pg_advisory_xact_lock(source_type, source_id) 串行化并发核销 → 校验 unreconciled ≥ amount → DB CHECK 约束兜底 → 超核销抛 DomainError::BusinessRule
         </p>
         <p style="color:#aaa; font-size:11px; margin: 4px 0 0 0;">
           <strong>幂等策略：</strong>write_offs 表唯一索引 <code style="color:#e5c07b;">uk_write_offs_idempotency ON (idempotency_key) WHERE idempotency_key IS NOT NULL</code>，无需调用 IdempotencyService
@@ -478,6 +481,7 @@ classDiagram
           &nbsp;&nbsp;cash_journal_id: i64,<br>
           &nbsp;&nbsp;source_type: DocumentType,<br>
           &nbsp;&nbsp;source_id: i64,<br>
+          &nbsp;&nbsp;source_total: Decimal, <span style="color:#888;">// 源单据总额（gRPC handler 从源模块查询填入）</span><br>
           &nbsp;&nbsp;amount: Decimal,<br>
           &nbsp;&nbsp;idempotency_key: Option&lt;String&gt;, <span style="color:#888;">// 防重复核销</span><br>
           }<br><br>
@@ -505,9 +509,9 @@ classDiagram
           }<br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">WriteOffService</span> {<br>
           &nbsp;&nbsp;write_off(ctx, req: WriteOffReq): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
-          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// FOR UPDATE 锁源单据 → 校验未核销余额 → DB CHECK 兜底</span><br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// pg_advisory_xact_lock 串行化并发核销 → 校验未核销余额 → DB CHECK 兜底</span><br>
           &nbsp;&nbsp;list_by_source(ctx, source_type, source_id, page): PaginatedResult<br>
-          &nbsp;&nbsp;get_unreconciled_amount(ctx, source_type, source_id): Result&lt;Decimal&gt; <span style="color:#888;">// 只读快照</span><br>
+          &nbsp;&nbsp;get_unreconciled_amount(ctx, source_type, source_id, source_total): Result&lt;Decimal&gt; <span style="color:#888;">// 只读快照，返回 source_total - SUM</span><br>
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">

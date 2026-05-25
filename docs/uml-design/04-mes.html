@@ -321,7 +321,7 @@ classDiagram
   }
   class ProductionReceiptService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, work_order_id, received_qty, warehouse_id) Result~i64~
+    +create(ctx: ServiceContext, req: CreateReceiptReq) Result~i64~
     +find_by_id(id) Result~ProductionReceipt~
     +confirm(ctx: ServiceContext, id) Result~Unit~
   }

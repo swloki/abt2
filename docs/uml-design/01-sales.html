@@ -180,11 +180,11 @@ classDiagram
         +order_id: i64
         +customer_id: i64
         +request_date: Date
-        +expected_ship_date: Date
+        +expected_ship_date: Option~Date~
         +status: ShippingStatus
         +shipping_address: String
-        +carrier: Option~String~
-        +tracking_number: Option~String~
+        +carrier: String
+        +tracking_number: String
         +remark: String
         +operator_id: i64
         +created_at: Timestamp
@@ -252,6 +252,7 @@ classDiagram
         +id: i64
         +reconciliation_id: i64
         +shipping_request_id: i64
+        +sales_order_id: i64
         +product_id: i64
         +quantity: Decimal
         +unit_price: Decimal
@@ -282,10 +283,8 @@ classDiagram
         +reject(ctx: ServiceContext, id) Result~Unit~
         +expire(ctx: ServiceContext, id) Result~Unit~
         +batch_expire_overdue(ctx: ServiceContext) Result~i32~
+        +list_items(quotation_id) Result~Vec~QuotationItem~~
         +list(filter) PaginatedResult~Quotation~
-    }
-
-    class SalesOrderService {
         &lt;&lt;interface&gt;&gt;
         +create(ctx: ServiceContext, req) Result~i64~
         +create_from_quotation(ctx: ServiceContext, qid) Result~i64~
@@ -316,10 +315,10 @@ classDiagram
         +find_by_id(id) Result~SalesReturn~
         +approve(ctx: ServiceContext, id) Result~Unit~
         +receive(ctx: ServiceContext, id) Result~Unit~
+        +inspect(ctx: ServiceContext, id) Result~Unit~
         +complete(ctx: ServiceContext, id) Result~Unit~
         +reject(ctx: ServiceContext, id) Result~Unit~
         +cancel(ctx: ServiceContext, id) Result~Unit~
-        +inspect(ctx: ServiceContext, id) Result~Unit~
         +list(filter) PaginatedResult~SalesReturn~
     }
 
@@ -356,7 +355,7 @@ classDiagram
     note for SalesOrderService "Shared: DocSeq(SO)\nconfirm -> InvRes.reserve(Soft, TTL=7d)\ncreate_from_quotation -> DocLink(DERIVED_FROM)\nValidation: quotation Accepted & not expired\nValidation: MasterData.CustomerService.validate_contact_ownership(ctx, customer_id, contact_id)\nValidation: customer_id must be visible per ctx.data_scope (RLS)\nsales_rep_id: default=ctx.operator_id or from Quotation, locked on create"
     note for ShippingRequestService "Shared: DocSeq(SR)\nconfirm -> QMS OQC hard gate\nship -> publish(ShipmentShipped) event\nhandlers async: InvRes.fulfill + CostEntry(COGS) + WMS.InventoryTx\nValidation: qty &lt;= order_qty - shipped_qty"
     note for SalesReturnService "Shared: DocSeq(SRT)\ncreate -> DocLink(REFERENCES)\ncomplete -> CostEntry(reverse) + QMS.RMAService\nValidation: return_qty &lt;= shipped_qty - returned_qty"
-    note for SalesReconciliationService "Shared: DocSeq(REC)\ncreate -> DocLink(RECONCILES)\nconfirm -> CostEntry(AR voucher)\nFMS: CashJournal + WriteOff\nValidation: unique(customer, period)"
+    note for SalesReconciliationService "Shared: DocSeq(REC)\ncreate -> DocLink(RECONCILES)\nconfirm -> CostEntry(AR voucher)\nsettle -> FMS CashJournal + WriteOff\nValidation: unique(customer, period)"
 
     note "Convention:\n1. Result~T~ = Result&lt;T, DomainError&gt;\n2. Unit = () (空元组)\n3. ctx = ServiceContext (包装 PgExecutor + operator_id)\n4. 写操作返回 i64 或 Unit\n5. 读操作返回完整实体或 PaginatedResult"
     </div>
@@ -451,10 +450,10 @@ classDiagram
           &nbsp;&nbsp;order_date: Date<br>
           &nbsp;&nbsp;status: SalesOrderStatus<br>
           &nbsp;&nbsp;total_amount: Decimal(20,4)<br>
-          &nbsp;&nbsp;total_cost: Decimal(20,4) <span style="color:#888;">// BOM展开成本</span><br>
-          &nbsp;&nbsp;payment_terms: String<br>
+          &nbsp;&nbsp;total_cost: Decimal(20,4) <span style="color:#888;">// 订单总成本（用于 COGS）</span><br>
+          &nbsp;&nbsp;payment_terms: String <span style="color:#888;">// 付款条件</span><br>
           &nbsp;&nbsp;delivery_terms: String <span style="color:#888;">// 交货条款</span><br>
-          &nbsp;&nbsp;delivery_address: String<br>
+          &nbsp;&nbsp;delivery_address: String <span style="color:#888;">// 收货地址</span><br>
           &nbsp;&nbsp;remark: String<br>
           &nbsp;&nbsp;operator_id: i64 <span style="color:#888;">FK→users</span><br>
           &nbsp;&nbsp;created_at: Timestamp<br>
@@ -468,10 +467,10 @@ classDiagram
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;description: String<br>
           &nbsp;&nbsp;quantity: Decimal(18,6)<br>
-          &nbsp;&nbsp;unit: String<br>
+          &nbsp;&nbsp;unit: String <span style="color:#888;">// 计量单位</span><br>
           &nbsp;&nbsp;unit_price: Decimal(18,6)<br>
-          &nbsp;&nbsp;unit_cost: Decimal(18,6) <span style="color:#888;">// BOM展开成本</span><br>
-          &nbsp;&nbsp;discount_rate: Decimal(5,2)<br>
+          &nbsp;&nbsp;unit_cost: Decimal(18,6) <span style="color:#888;">// 单位成本</span><br>
+          &nbsp;&nbsp;discount_rate: Decimal(5,2) <span style="color:#888;">// 折扣率%</span><br>
           &nbsp;&nbsp;amount: Decimal(20,4)<br>
           &nbsp;&nbsp;shipped_qty: Decimal(18,6) <span style="color:#888;">// 已发货量</span><br>
           &nbsp;&nbsp;returned_qty: Decimal(18,6) <span style="color:#888;">// 已退货量</span><br>
@@ -499,11 +498,11 @@ classDiagram
           &nbsp;&nbsp;order_id: i64 <span style="color:#888;">FK→sales_orders</span><br>
           &nbsp;&nbsp;customer_id: i64 <span style="color:#888;">FK→customers (Master Data)</span><br>
           &nbsp;&nbsp;request_date: Date<br>
-          &nbsp;&nbsp;expected_ship_date: Date<br>
+          &nbsp;&nbsp;expected_ship_date: Date? <span style="color:#888;">// 预计发货日期，可空</span><br>
           &nbsp;&nbsp;status: ShippingStatus<br>
           &nbsp;&nbsp;shipping_address: String<br>
-          &nbsp;&nbsp;carrier: String? <span style="color:#888;">// 物流商</span><br>
-          &nbsp;&nbsp;tracking_number: String?<br>
+          &nbsp;&nbsp;carrier: String <span style="color:#888;">// 物流商</span><br>
+          &nbsp;&nbsp;tracking_number: String<br>
           &nbsp;&nbsp;remark: String<br>
           &nbsp;&nbsp;operator_id: i64 <span style="color:#888;">FK→users</span><br>
           &nbsp;&nbsp;created_at: Timestamp<br>
@@ -601,6 +600,7 @@ classDiagram
           &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
           &nbsp;&nbsp;reconciliation_id: i64 <span style="color:#888;">FK→reconciliations</span><br>
           &nbsp;&nbsp;shipping_request_id: i64 <span style="color:#888;">FK→shipping_requests</span><br>
+          &nbsp;&nbsp;sales_order_id: i64 <span style="color:#888;">FK→sales_orders // 用于 CostEntry 关联</span><br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;quantity: Decimal(18,6)<br>
           &nbsp;&nbsp;unit_price: Decimal(18,6)<br>
@@ -682,7 +682,8 @@ classDiagram
               <h4 style="margin: 0 0 6px 0; color: #6bc76b; font-size: 12px;">SalesOrderStatus</h4>
               <span style="color:#98c379;">Draft</span> → <span style="color:#56b6c2;">Confirmed</span> <span style="color:#888;">| confirm()</span><br>
               <span style="color:#56b6c2;">Confirmed</span> → <span style="color:#c678dd;">InProduction</span> <span style="color:#888;">| start_progress()</span><br>
-              <span style="color:#c678dd;">InProduction</span> → <span style="color:#6bc76b;">Completed</span> <span style="color:#888;">| complete()</span><br>
+              <span style="color:#c678dd;">InProduction</span> → <span style="color:#e5c07b;">PartiallyShipped</span> / <span style="color:#6bc76b;">Shipped</span> <span style="color:#888;">| SR.ship() 自动联动</span><br>
+              <span style="color:#6bc76b;">Shipped</span> → <span style="color:#6bc76b;">Completed</span> <span style="color:#888;">| complete() 需所有行 shipped_qty ≥ quantity</span><br>
               <span style="color:#98c379;">Draft</span> / <span style="color:#56b6c2;">Confirmed</span> → <span style="color:#e06c75;">Cancelled</span> <span style="color:#888;">| cancel()</span>
             </div>
 
@@ -696,8 +697,8 @@ classDiagram
 
             <div style="font-family: monospace; background: #1a1a2e; padding: 10px; border-radius: 6px; font-size: 11.5px;">
               <h4 style="margin: 0 0 6px 0; color: #e06c75; font-size: 12px;">ReturnStatus</h4>
-              <span style="color:#98c379;">Draft</span> → <span style="color:#56b6c2;">Approved</span> <span style="color:#888;">| approve()</span><br>
-              <span style="color:#56b6c2;">Approved</span> → <span style="color:#c678dd;">Received</span> <span style="color:#888;">| receive()</span><br>
+              <span style="color:#98c379;">Draft</span> → <span style="color:#56b6c2;">Confirmed</span> <span style="color:#888;">| approve()</span><br>
+              <span style="color:#56b6c2;">Confirmed</span> → <span style="color:#c678dd;">Received</span> <span style="color:#888;">| receive()</span><br>
               <span style="color:#c678dd;">Received</span> → <span style="color:#56b6c2;">Inspecting</span> <span style="color:#888;">| inspect() 触发 QMS 质检</span><br>
               <span style="color:#56b6c2;">Inspecting</span> → <span style="color:#6bc76b;">Completed</span> <span style="color:#888;">| complete() 按 disposition 处理</span><br>
               <span style="color:#56b6c2;">Inspecting</span> → <span style="color:#e06c75;">Cancelled</span> <span style="color:#888;">| cancel() 质检不合格</span><br>
@@ -739,7 +740,7 @@ classDiagram
                 <li><code style="color:#e5c07b;">create_from_quotation</code>: 报价单 <code>valid_until</code> 不得已过期</li>
                 <li><code style="color:#e5c07b;">update_header</code>: 仅 Draft 状态可修改</li>
                 <li><code style="color:#e5c07b;">confirm</code>: 触发 <code>InventoryReservation.reserve(Soft)</code></li>
-                <li><code style="color:#e5c07b;">complete</code>: 所有行 <code>delivered_qty &ge; quantity</code></li>
+                <li><code style="color:#e5c07b;">complete</code>: 所有行 <code>shipped_qty &ge; quantity</code></li>
               </ul>
             </div>
 

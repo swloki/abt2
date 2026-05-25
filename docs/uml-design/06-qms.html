@@ -344,7 +344,7 @@ classDiagram
 
   class QualityGateService {
     &lt;&lt;interface&gt;&gt;
-    +check_gate(ctx, source_type, source_id) Result~QualityGateStatus~
+    +check_gate(ctx, source_type, source_id, inspection_type) Result~QualityGateStatus~
   }
 
   class MRBService {
@@ -352,6 +352,7 @@ classDiagram
     +create(ctx, req: CreateMRBReq) Result~i64~
     +get(ctx, id) Result~MRB~
     +submit_for_review(ctx, id) Result~Unit~
+    +approve(ctx, id) Result~Unit~
     +execute_disposition(ctx, id, req: ExecuteDispositionReq) Result~Unit~
     +list(ctx, filter: MRBFilter, page: PageParams) PaginatedResult~MRB~
   }
@@ -743,7 +744,7 @@ classDiagram
           &nbsp;&nbsp;list_by_source(ctx, filter: InspectionResultFilter, page: PageParams): PaginatedResult<br>
           }<br><br>
           <span style="color:#56b6c2;">interface</span> <span style="color:#56b6c2;">QualityGateService</span> {<br>
-          &nbsp;&nbsp;check_gate(ctx, source_type, source_id): Result&lt;QualityGateStatus&gt;<br>
+          &nbsp;&nbsp;check_gate(ctx, source_type, source_id, inspection_type): Result&lt;QualityGateStatus&gt;<br>
           &nbsp;&nbsp;<span style="color:#888;">// 独立 trait，WMS/MES/OQC 仅依赖此接口</span><br>
           &nbsp;&nbsp;<span style="color:#888;">// InCallerTx — 调用方事务内读取</span><br>
           }
@@ -753,6 +754,7 @@ classDiagram
           &nbsp;&nbsp;create(ctx, req: CreateMRBReq): Result&lt;i64&gt;<br>
           &nbsp;&nbsp;get(ctx, id): Result&lt;MRB&gt;<br>
           &nbsp;&nbsp;<span style="color:#56b6c2;">submit_for_review</span>(ctx, id): Result&lt;Unit&gt;<br>
+          &nbsp;&nbsp;approve(ctx, id): Result&lt;Unit&gt; <span style="color:#888;">// 临时 — WorkflowEngine 尚为 stub</span><br>
           &nbsp;&nbsp;execute_disposition(ctx, id, req: ExecuteDispositionReq): Result&lt;Unit&gt; <span style="color:#888;">// 仅 WorkflowHook 回调</span><br>
           &nbsp;&nbsp;list(ctx, filter: MRBFilter, page: PageParams): PaginatedResult<br>
           }<br><br>
@@ -778,7 +780,7 @@ classDiagram
           <h5 style="color: #e0e0e0; margin: 0 0 6px 0; font-size: 12px;">TransactionMode 声明</h5>
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 1.8;">
             <span style="color:#56b6c2;">InCallerTx</span>（质量硬门）：<br>
-            &nbsp;&nbsp;check_gate — 调用方事务内读取，保证硬门一致性<br>
+            &nbsp;&nbsp;check_gate(source_type, source_id, inspection_type) — 调用方事务内读取，保证硬门一致性<br>
             &nbsp;&nbsp;WMS.confirm() → check_gate() 必须在同一事务内<br><br>
             <span style="color:#e5a655;">IndependentTx</span>（写操作）：<br>
             &nbsp;&nbsp;create / update / record_result<br>
@@ -846,7 +848,7 @@ classDiagram
         <span style="color:#e5a655;">错误链</span> 使用 thiserror 定义 QmsError，通过 #[from] 兼容 DomainError::Internal(anyhow::Error)，gRPC interceptor 统一映射<br>
         <span style="color:#e5a655;">审计</span> create / record_result / approve / close 实现末尾同事务调用 AuditLogService::record(ctx, entity_type, id, action, diff, context)<br>
         <span style="color:#e5a655;">事件</span> record_result → InspectionPassed / InspectionFailed; execute_disposition → MRBDispositioned; RMA.close 按需发布 RMAClosed<br>
-        <span style="color:#e5a655;">check_gate 语义</span> Conditional（让步接收）→ 映射为 Passed；Pending（待检）→ 映射为 Failed；无活跃规格 → NotRequired<br>
+        <span style="color:#e5a655;">check_gate 语义</span> 增加 inspection_type 参数，区分同一来源的不同检验类型（IQC/IPQC/FQC/OQC） Conditional（让步接收）→ 映射为 Passed；Pending（待检）→ 映射为 Failed；无活跃规格 → NotRequired<br>
         <span style="color:#e5a655;">幂等</span> record_result 实现层调用 IdempotencyService::check_and_mark(ctx, "qms:record:{source_type}:{source_id}", "RecordResult")<br>
         <span style="color:#e5a655;">gRPC</span> 所有 Req/Filter 结构体与 Proto 定义 1:1 映射，prost 自动生成<br>
         <span style="color:#e5a655;">Guard 层级</span> 业务不变量（数量守恒等）在 Service 层前置校验，StateMachine 只负责拓扑推进，禁止依赖状态机配置兜底<br>
@@ -859,9 +861,9 @@ classDiagram
     <div style="padding: 12px; background: rgba(86,182,194,0.1); border-radius: 6px;">
       <h3 style="margin: 0 0 8px 0; color: #56b6c2;">QMS 模块 × 跨模块交互汇总</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
-        <span style="color:#e5a655;">IQC → WMS</span> 来料通知必须 IQC 通过才能入库（硬门：check_gate(ArrivalNotice, id) == Passed || NotRequired）<br>
+        <span style="color:#e5a655;">IQC → WMS</span> 来料通知必须 IQC 通过才能入库（硬门：check_gate(ArrivalNotice, id, Iqc) == Passed || NotRequired）<br>
         <span style="color:#6bc76b;">IPQC → MES</span> 关键工序报检点自动触发（WorkOrderRouting.is_inspection_point == true）<br>
-        <span style="color:#c678dd;">OQC → Sales</span> 发货申请必须 OQC 通过才能出库（硬门：check_gate(ShippingRequest, id) == Passed || NotRequired）<br>
+        <span style="color:#c678dd;">OQC → Sales</span> 发货申请必须 OQC 通过才能出库（硬门：check_gate(ShippingRequest, id, Oqc) == Passed || NotRequired）<br>
         <span style="color:#e06c75;">IQC → OM</span> 委外收货自动触发 IQC 检验（硬门）<br>
         <span style="color:#56b6c2;">MRB</span> → submit_for_review 创建 WorkflowEngine 审批实例 → execute_disposition(WF回调) 触发 CostEntry + WMS 库存调整 + AuditLog<br>
         <span style="color:#c678dd;">RMA</span> → record_root_cause 触发 DocumentLink 全链路追溯（RMA → WorkOrder → Routing → ArrivalNotice）

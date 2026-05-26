@@ -474,7 +474,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             ?;
 
         // FMS: 对账结算时创建现金日记账 + 核销
-        let _ = self.cash_journal.create(
+        self.cash_journal.create(
             ctx.reborrow(),
             CreateCashJournalReq {
                 journal_type: crate::fms::enums::JournalType::SalesReceipt,
@@ -490,7 +490,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
                 lines: vec![],
             },
         )
-        .await;
+        .await?;
 
         self.audit
             .record(

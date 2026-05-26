@@ -375,7 +375,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         }
 
         // QMS: 创建 RMA 记录关联退货
-        let _ = self.rma.create(
+        self.rma.create(
             ctx.reborrow(),
             CreateRmaReq {
                 customer_id: 0,
@@ -388,7 +388,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
                 remark: String::new(),
             },
         )
-        .await;
+        .await?;
 
         self.state_machine
             .transition(ctx.reborrow(), "ReturnStatus", id, "Completed", None)

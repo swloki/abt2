@@ -182,7 +182,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 6. 库存 HARD 预留（planned_qty）
-        let _ = self.inv_res.reserve(
+        self.inv_res.reserve(
             ctx.reborrow(),
             vec![ReserveRequest {
                 product_id: work_order.product_id,
@@ -196,10 +196,10 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 expires_at: None,
             }],
         )
-        .await;
+        .await?;
 
         // 7. 创建领料单
-        let _ = self.material_req.create_for_work_order(ctx.reborrow(), id).await;
+        self.material_req.create_for_work_order(ctx.reborrow(), id).await?;
 
         Ok(())
     }
@@ -253,7 +253,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        let _ = self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, id).await;
+        self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, id).await?;
 
         Ok(())
     }
@@ -294,9 +294,9 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        let _ = self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, id).await;
-        let _ = WorkOrderRepo::soft_delete(&mut *ctx.executor, id).await;
-        let _ = WorkOrderRepo::soft_delete_batches(&mut *ctx.executor, id).await;
+        self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, id).await?;
+        WorkOrderRepo::soft_delete(&mut *ctx.executor, id).await.map_err(|e| DomainError::Internal(e.into()))?;
+        WorkOrderRepo::soft_delete_batches(&mut *ctx.executor, id).await.map_err(|e| DomainError::Internal(e.into()))?;
 
         Ok(())
     }

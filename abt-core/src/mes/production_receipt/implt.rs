@@ -232,7 +232,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .await;
 
         if let Err(e) = backflush_result {
-            let _ = self
+            if let Err(audit_err) = self
                 .audit
                 .record(
                     ctx.reborrow(),
@@ -242,10 +242,14 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                     Some(serde_json::json!({ "backflush_error": format!("{:?}", e) })),
                     None,
                 )
-                .await;
+                .await
+            {
+                tracing::warn!("audit log for backflush error failed: {audit_err}");
+            }
         } else {
-            let _ =
-                ProductionReceiptRepo::set_backflush_triggered(&mut *ctx.executor, id, true).await;
+            ProductionReceiptRepo::set_backflush_triggered(&mut *ctx.executor, id, true)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
         }
 
         // 5. Release hard reservation

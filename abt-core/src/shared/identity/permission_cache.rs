@@ -102,7 +102,9 @@ impl RolePermissionCache {
 
     /// Merge permissions across multiple roles
     pub async fn get_merged_permissions(&self, role_ids: &[i64]) -> HashSet<String> {
-        let _ = self.ensure_fresh().await;
+        if let Err(e) = self.ensure_fresh().await {
+            tracing::warn!("permission cache refresh failed: {e}");
+        }
         let state = self.state.read().await;
         let mut merged = HashSet::new();
         for &role_id in role_ids {

@@ -436,7 +436,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 释放 HARD 预留
-        let _ = self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, batch_id).await;
+        self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, batch_id).await?;
 
         Ok(())
     }

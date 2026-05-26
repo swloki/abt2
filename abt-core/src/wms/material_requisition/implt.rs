@@ -67,7 +67,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-        let _ = self.doc_link.create_links(
+        self.doc_link.create_links(
             ctx.reborrow(),
             vec![LinkRequest {
                 source_type: DocumentType::MaterialRequisition,
@@ -77,7 +77,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
                 link_type: LinkType::Fulfills,
             }],
         )
-        .await;
+        .await?;
 
         Ok(requisition.id)
     }
@@ -182,7 +182,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
             // issue -> InventoryTransaction.record(MaterialIssue)
-            let _ = self.inventory_transaction_svc.record(
+            self.inventory_transaction_svc.record(
                 ctx.reborrow(),
                 RecordTransactionReq {
                     doc_number: None,
@@ -199,7 +199,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
                     remark: None,
                 },
             )
-            .await;
+            .await?;
         }
 
         let affected = MaterialRequisitionRepo::update_status(

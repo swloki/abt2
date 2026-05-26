@@ -75,7 +75,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
         // DocumentLink: 来料 → 采购单
         if let Some(po_id) = req.purchase_order_id {
-            let _ = self.doc_link.create_links(
+            self.doc_link.create_links(
                 ctx.reborrow(),
                 vec![LinkRequest {
                     source_type: DocumentType::ArrivalNotice,
@@ -85,7 +85,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
                     link_type: LinkType::Fulfills,
                 }],
             )
-            .await;
+            .await?;
         }
 
         Ok(notice.id)
@@ -238,7 +238,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
             let total_accepted = items.iter().map(|i| i.accepted_qty).fold(Decimal::ZERO, |a, b| a + b);
             let period = chrono::Local::now().format("%Y-%m").to_string();
 
-            let _ = self.cost_entry.create_entries(
+            self.cost_entry.create_entries(
                 ctx.reborrow(),
                 vec![EntryRequest {
                     entity_type: CostEntityType::PurchaseOrder,
@@ -253,15 +253,15 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
                     source_id: req.id,
                 }],
             )
-            .await;
+            .await?;
 
             // confirm -> InvRes(release safety stock)
-            let _ = self.inv_res.cancel_by_source(
+            self.inv_res.cancel_by_source(
                 ctx.reborrow(),
                 DocumentType::ArrivalNotice,
                 req.id,
             )
-            .await;
+            .await?;
         }
 
         ArrivalNoticeRepo::update_status(&mut *ctx.executor, req.id, final_status)

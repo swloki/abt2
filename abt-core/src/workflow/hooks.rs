@@ -72,7 +72,7 @@ async fn record_hook_history(
         (false, None, retry) => json!({"success": false, "event": event, "retry": retry}),
     };
     if let Ok(mut conn) = pool.acquire().await {
-        let _ = WorkflowHistoryRepo::insert(
+        if let Err(e) = WorkflowHistoryRepo::insert(
             conn.as_mut(),
             instance_id,
             None,
@@ -81,7 +81,10 @@ async fn record_hook_history(
             operator_id,
             Some(payload),
         )
-        .await;
+        .await
+        {
+            tracing::warn!("workflow history insert failed: {e}");
+        }
     }
 }
 

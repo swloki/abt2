@@ -157,7 +157,9 @@ impl EventProcessor {
 
         let handle = self.handle.write().expect("lock poisoned").take();
         if let Some(h) = handle {
-            let _ = h.await;
+            if let Err(e) = h.await {
+                tracing::warn!("event processor task failed: {e}");
+            }
         }
     }
 
@@ -286,12 +288,12 @@ impl EventProcessor {
                     .await
                     .map_err(|e| DomainError::Internal(e.into()))?;
 
-                let _ = IdempotencyRepo::mark_processed(
+                IdempotencyRepo::mark_processed(
                     &mut conn,
                     event.id,
                     "EventProcessor",
                     None,
-                ).await;
+                ).await.map_err(|e| DomainError::Internal(e.into()))?;
             }
             Err(e) => {
                 let reason = e.to_string();

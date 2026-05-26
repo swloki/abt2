@@ -112,7 +112,7 @@ impl BackflushService for BackflushServiceImpl {
             // 超阈值 → CostEntry(损耗成本) [IndependentTx]
             if is_over_threshold {
                 let period = chrono::Local::now().format("%Y-%m").to_string();
-                let _ = self.cost_entry.create_entries(
+                self.cost_entry.create_entries(
                     ctx.reborrow(),
                     vec![EntryRequest {
                         entity_type: CostEntityType::WorkOrder,
@@ -127,11 +127,11 @@ impl BackflushService for BackflushServiceImpl {
                         source_id: record.id,
                     }],
                 )
-                .await;
+                .await?;
             }
 
             // execute -> InventoryTransaction.record(Backflush)
-            let _ = self.inventory_transaction_svc.record(
+            self.inventory_transaction_svc.record(
                 ctx.reborrow(),
                 RecordTransactionReq {
                     doc_number: None,
@@ -148,7 +148,7 @@ impl BackflushService for BackflushServiceImpl {
                     remark: None,
                 },
             )
-            .await;
+            .await?;
         }
 
         // 3. 更新状态为 Executed

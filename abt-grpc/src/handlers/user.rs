@@ -2,7 +2,7 @@
 
 use abt_core::shared::identity::UserService;
 use abt_core::shared::types::context::ServiceContext;
-use common::error;
+use crate::error;
 use tonic::{Request, Response};
 
 use crate::generated::abt::v1::{user_service_server::UserService as GrpcUserService, *};

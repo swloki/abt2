@@ -168,7 +168,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         // Step 3: Generate a proper CJ doc_number via DocumentSequenceService
         let cj_doc_number = {
             let mut cj_ctx = ServiceContext::new(
-                &mut *tx as common::PgExecutor<'_>,
+                &mut *tx as crate::shared::types::PgExecutor<'_>,
                 expense.operator_id,
             );
             self.doc_seq
@@ -272,7 +272,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         // Step 8: Publish event — failure does not affect committed business data
         if let Ok(mut event_conn) = self.pool.acquire().await {
             let event_ctx = ServiceContext::new(
-                &mut *event_conn as common::PgExecutor<'_>,
+                &mut *event_conn as crate::shared::types::PgExecutor<'_>,
                 expense.operator_id,
             );
             self.event_bus

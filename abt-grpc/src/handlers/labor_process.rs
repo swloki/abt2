@@ -3,7 +3,7 @@
 use abt_core::master_data::bom_labor_process::BomLaborProcessService;
 use abt_core::shared::types::{PageParams, ServiceContext};
 use abt_macros::require_permission;
-use common::error;
+use crate::error;
 use rust_decimal::Decimal;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response};

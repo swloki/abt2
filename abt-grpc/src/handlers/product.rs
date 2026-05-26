@@ -2,7 +2,7 @@
 
 use abt_core::master_data::product::ProductService;
 use abt_core::shared::types::{PageParams, ServiceContext};
-use common::error;
+use crate::error;
 use tonic::{Request, Response};
 use abt_macros::require_permission;
 use crate::handlers::domain_to_status;

@@ -1,6 +1,7 @@
 //! ABT gRPC Server
 
 pub mod config;
+pub mod error;
 pub mod generated;
 pub mod handlers;
 pub mod interceptors;

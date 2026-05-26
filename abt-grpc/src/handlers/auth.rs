@@ -9,7 +9,7 @@ use crate::generated::abt::v1::{
 use crate::handlers::GrpcResult;
 use crate::interceptors::auth::{extract_auth, extract_user_id_from_header};
 use crate::server::AppState;
-use common::error;
+use crate::error;
 
 use abt_core::shared::identity::{AuthService, UserService};
 

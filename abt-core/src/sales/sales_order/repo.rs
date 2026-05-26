@@ -1,4 +1,4 @@
-use common::PgExecutor;
+use crate::shared::types::PgExecutor;
 use rust_decimal::Decimal;
 use crate::shared::types::RepoResult;
 

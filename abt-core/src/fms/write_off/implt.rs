@@ -145,7 +145,7 @@ impl WriteOffService for WriteOffServiceImpl {
         // Audit log
         {
             let mut tx_ctx = ServiceContext::new(
-                &mut *tx as common::PgExecutor<'_>,
+                &mut *tx as crate::shared::types::PgExecutor<'_>,
                 ctx.operator_id,
             );
             self.audit

@@ -1,5 +1,5 @@
 use abt_core::shared::identity::{PermissionService, RESOURCE_ACTION_DEFS, ResourceActionDef};
-use common::error;
+use crate::error;
 use tonic::{Request, Response};
 
 use crate::generated::abt::v1::{

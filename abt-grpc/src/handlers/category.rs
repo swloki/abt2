@@ -6,12 +6,12 @@ use abt_core::shared::types::{PageParams, ServiceContext};
 use crate::generated::abt::v1::{
     abt_category_service_server::AbtCategoryService as GrpcCategoryService, *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{domain_to_status, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::permissions::PermissionCode;
 use crate::server::AppState;
 use abt_macros::require_permission;
-use common::error;
+use crate::error;
 use tonic::{Request, Response};
 
 pub struct CategoryHandler;
@@ -25,22 +25,6 @@ impl CategoryHandler {
 impl Default for CategoryHandler {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-fn domain_to_status(e: abt_core::shared::types::DomainError) -> tonic::Status {
-    use abt_core::shared::types::DomainError;
-    match e {
-        DomainError::NotFound(msg) => tonic::Status::not_found(msg),
-        DomainError::Duplicate(msg) => tonic::Status::already_exists(msg),
-        DomainError::PermissionDenied(msg) => tonic::Status::permission_denied(msg),
-        DomainError::BusinessRule(msg) => tonic::Status::failed_precondition(msg),
-        DomainError::Validation(msg) => tonic::Status::invalid_argument(msg),
-        DomainError::ConcurrentConflict => tonic::Status::aborted("Concurrent conflict"),
-        DomainError::InvalidStateTransition { from, to } => {
-            tonic::Status::failed_precondition(format!("Invalid state transition: {from} -> {to}"))
-        }
-        DomainError::Internal(e) => tonic::Status::internal(e.to_string()),
     }
 }
 

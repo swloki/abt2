@@ -2,7 +2,7 @@
 
 use abt_core::master_data::price::ProductPriceService;
 use abt_core::shared::types::{PageParams, ServiceContext};
-use common::error;
+use crate::error;
 use rust_decimal::Decimal;
 use tonic::{Request, Response};
 

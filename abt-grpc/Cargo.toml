@@ -23,7 +23,9 @@ tokio-util = "0.7"
 # 项目内部
 abt-core = { path = "../abt-core" }
 abt-macros = { path = "../abt-macros" }
-common = { path = "../common" }
+
+# gRPC rich errors
+tonic-types = "0.14"
 
 # Database
 sqlx = { version = "0.8", features = ["postgres", "runtime-tokio-rustls"] }

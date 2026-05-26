@@ -2,7 +2,7 @@
 
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::shared::types::ServiceContext;
-use common::error;
+use crate::error;
 use tonic::{Request, Response};
 use crate::generated::abt::v1::{
     abt_location_service_server::AbtLocationService as GrpcLocationService,

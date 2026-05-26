@@ -12,7 +12,7 @@ use crate::interceptors::auth::extract_auth;
 use crate::permissions::PermissionCode;
 use crate::server::AppState;
 use abt_macros::require_permission;
-use common::error;
+use crate::error;
 use tonic::{Request, Response};
 
 pub struct TermHandler;

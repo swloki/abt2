@@ -2,7 +2,7 @@
 
 use abt_core::shared::identity::department_service::DepartmentService;
 use abt_core::shared::types::context::ServiceContext;
-use common::error;
+use crate::error;
 use tonic::{Request, Response};
 
 use crate::generated::abt::v1::{

@@ -79,9 +79,7 @@ impl DepartmentService for DepartmentServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
     ) -> Result<Vec<Department>, DomainError> {
-        IdentityRepo::list_departments(&mut *ctx.executor)
-            .await
-            .map_err(Into::into)
+        IdentityRepo::list_departments(&mut *ctx.executor).await
     }
 
     async fn assign_departments(
@@ -132,9 +130,7 @@ impl DepartmentService for DepartmentServiceImpl {
         ctx: ServiceContext<'_>,
         user_id: i64,
     ) -> Result<Vec<Department>, DomainError> {
-        IdentityRepo::get_user_departments(&mut *ctx.executor, user_id)
-            .await
-            .map_err(Into::into)
+        IdentityRepo::get_user_departments(&mut *ctx.executor, user_id).await
     }
 }
 

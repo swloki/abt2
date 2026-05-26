@@ -26,7 +26,7 @@ use abt_core::master_data::bom::service::{
 };
 use abt_core::shared::types::{PageParams, ServiceContext};
 use abt_macros::require_permission;
-use common::error;
+use crate::error;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response};
 

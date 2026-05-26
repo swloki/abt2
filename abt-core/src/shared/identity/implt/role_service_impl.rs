@@ -77,9 +77,7 @@ impl RoleService for RoleServiceImpl {
     }
 
     async fn list_roles(&self, ctx: ServiceContext<'_>) -> Result<Vec<Role>, DomainError> {
-        IdentityRepo::list_roles(&mut *ctx.executor)
-            .await
-            .map_err(Into::into)
+        IdentityRepo::list_roles(&mut *ctx.executor).await
     }
 
     async fn assign_permissions(

@@ -9,7 +9,7 @@ use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
 use crate::permissions::PermissionCode;
-use common::error;
+use crate::error;
 use tonic::{Request, Response, Status};
 
 use abt_core::wms::inventory::{
@@ -509,7 +509,7 @@ impl GrpcInventoryService for InventoryHandler {
         };
 
         if product_id.is_none() && product_code.is_none() {
-            return Err(common::error::validation(
+            return Err(crate::error::validation(
                 "product_identifier",
                 "必须提供 product_id 或 product_code",
             ));

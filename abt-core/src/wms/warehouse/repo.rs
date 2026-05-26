@@ -1,4 +1,4 @@
-use common::PgExecutor;
+use crate::shared::types::PgExecutor;
 use sqlx::{FromRow, Row};
 use crate::shared::types::RepoResult;
 

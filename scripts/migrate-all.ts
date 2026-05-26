@@ -67,6 +67,15 @@ async function resetSequence(pool: pg.Pool, table: string, pkCol: string) {
   );
 }
 
+/** 检查源表是否包含指定列 */
+async function columnExists(pool: pg.Pool, table: string, column: string): Promise<boolean> {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = $2 LIMIT 1`,
+    [table, column],
+  );
+  return rows.length > 0;
+}
+
 // ============================================================================
 // Migration
 // ============================================================================
@@ -82,7 +91,6 @@ async function main() {
     const { rows } = await abtPool.query(
       "SELECT department_id, department_name, department_code, description, is_active, is_default, created_at, updated_at FROM departments ORDER BY department_id",
     );
-    // 先删除 seed 的默认部门，用旧库的真实数据替代
     await v2Pool.query("DELETE FROM departments WHERE department_code = 'DEFAULT'");
     const data = rows.map((r) => [
       Number(r.department_id),
@@ -105,12 +113,11 @@ async function main() {
     console.log(`  departments: ${n}/${rows.length} 条`);
   }
 
-  // 0b. users（用旧库的 password_hash 替代 seed 的 placeholder）
+  // 0b. users
   {
     const { rows } = await abtPool.query(
       "SELECT user_id, username, password_hash, display_name, is_active, is_super_admin, created_at, updated_at FROM users ORDER BY user_id",
     );
-    // 删除 seed 的 placeholder admin
     await v2Pool.query("DELETE FROM users WHERE username = 'admin'");
     const data = rows.map((r) => [
       Number(r.user_id),
@@ -133,19 +140,22 @@ async function main() {
     console.log(`  users: ${n}/${rows.length} 条`);
   }
 
-  // 0c. roles（合并旧库角色和 seed 的系统角色）
+  // 0c. roles
   {
+    const hasParentRole = await columnExists(abtPool, "roles", "parent_role_id");
+    const selectCols = hasParentRole
+      ? "role_id, role_name, role_code, is_system_role, parent_role_id, description, created_at, updated_at"
+      : "role_id, role_name, role_code, is_system_role, description, created_at, updated_at";
     const { rows } = await abtPool.query(
-      "SELECT role_id, role_name, role_code, is_system_role, parent_role_id, description, created_at, updated_at FROM roles ORDER BY role_id",
+      `SELECT ${selectCols} FROM roles ORDER BY role_id`,
     );
-    // 删除 seed 的系统角色，用旧库数据替代
     await v2Pool.query("DELETE FROM roles WHERE role_code IN ('super_admin', 'admin', 'viewer')");
     const data = rows.map((r) => [
       Number(r.role_id),
       r.role_name,
       r.role_code,
       r.is_system_role ?? false,
-      r.parent_role_id ? Number(r.parent_role_id) : null,
+      hasParentRole && r.parent_role_id ? Number(r.parent_role_id) : null,
       r.description ?? null,
       r.created_at,
       r.updated_at,
@@ -350,7 +360,7 @@ async function main() {
 
   // ── 5. 仓库 ──────────────────────────────────────────────────────
   console.log("── 5. warehouses ──");
-  const warehouseMapping = new Map<number, number>(); // old_id → new_id (1:1)
+  const warehouseMapping = new Map<number, number>();
   {
     const { rows } = await abtPool.query(
       "SELECT warehouse_id, warehouse_name, warehouse_code, status, created_at, updated_at, deleted_at FROM warehouse ORDER BY warehouse_id",
@@ -363,7 +373,7 @@ async function main() {
         r.warehouse_code,
         r.warehouse_name,
         1, // warehouse_type = General
-        r.status === "active" ? 1 : 2, // status
+        r.status === "active" ? 1 : 2,
         null, // address
         null, // manager_id
         false, // is_virtual
@@ -390,7 +400,7 @@ async function main() {
   const locationMapping = new Map<number, { warehouseId: number; zoneId: number; binId: number }>();
   {
     const { rows } = await abtPool.query(
-      "SELECT location_id, warehouse_id, location_code, location_name, capacity, created_at, deleted_at, status FROM location ORDER BY location_id",
+      "SELECT location_id, warehouse_id, location_code, location_name, capacity, created_at, updated_at, deleted_at, status FROM location ORDER BY location_id",
     );
     // 先插 zones
     const zoneData = rows.map((r) => {
@@ -421,7 +431,7 @@ async function main() {
     // 为每个 zone 创建一个默认 bin（stock_ledger.bin_id NOT NULL）
     const binData = rows.map((r) => {
       const zoneId = Number(r.location_id);
-      const binId = zoneId; // 用同一个 ID 作为 bin_id
+      const binId = zoneId;
       locationMapping.set(zoneId, {
         warehouseId: Number(r.warehouse_id),
         zoneId,
@@ -456,9 +466,19 @@ async function main() {
   // ── 7. BOM ───────────────────────────────────────────────────────
   console.log("── 7. boms ──");
   {
-    const { rows } = await abtPool.query(
-      "SELECT bom_id, bom_name, create_at, update_at, bom_detail, bom_category_id, status, published_at, created_by FROM bom ORDER BY bom_id",
-    );
+    // 动态检测 bom 表列（029 添加了 status/published_at/created_by，030 回滚了它们）
+    const hasStatus = await columnExists(abtPool, "bom", "status");
+    const hasPublishedAt = await columnExists(abtPool, "bom", "published_at");
+    const hasCreatedBy = await columnExists(abtPool, "bom", "created_by");
+
+    const extraCols: string[] = [];
+    if (hasStatus) extraCols.push("status");
+    if (hasPublishedAt) extraCols.push("published_at");
+    if (hasCreatedBy) extraCols.push("created_by");
+
+    const selectSql = `SELECT bom_id, bom_name, create_at, update_at, bom_detail, bom_category_id${extraCols.length > 0 ? ", " + extraCols.join(", ") : ""} FROM bom ORDER BY bom_id`;
+    const { rows } = await abtPool.query(selectSql);
+
     const data = rows.map((r) => [
       Number(r.bom_id),
       r.bom_name,
@@ -466,10 +486,10 @@ async function main() {
       r.update_at,
       r.bom_detail ? JSON.stringify(r.bom_detail) : '{"nodes":[]}',
       r.bom_category_id ? Number(r.bom_category_id) : null,
-      r.status === "published" ? 2 : 1, // Draft=1, Published=2
+      hasStatus && r.status === "published" ? 2 : 1,
       1, // version
-      r.published_at,
-      r.created_by ? Number(r.created_by) : null,
+      hasPublishedAt ? r.published_at : null,
+      hasCreatedBy && r.created_by ? Number(r.created_by) : null,
     ]);
     const n = await batchInsert(
       v2Pool,
@@ -479,14 +499,14 @@ async function main() {
       ["bom_id"],
     );
     await resetSequence(v2Pool, "boms", "bom_id");
-    console.log(`  ${n}/${rows.length} 条\n`);
+    console.log(`  ${n}/${rows.length} 条${extraCols.length < 3 ? ` (注意: 缺少列 ${["status", "published_at", "created_by"].filter(c => !extraCols.includes(c)).join(", ")})` : ""}\n`);
   }
 
   // ── 8. BOM 节点 ──────────────────────────────────────────────────
   console.log("── 8. bom_nodes ──");
   {
     const { rows } = await abtPool.query(
-      "SELECT id, bom_id, product_id, product_code, quantity, parent_id, loss_rate, \"order\", unit, remark, position, work_center, properties FROM bom_nodes ORDER BY id",
+      `SELECT id, bom_id, product_id, product_code, quantity, parent_id, loss_rate, "order", unit, remark, position, work_center, properties FROM bom_nodes ORDER BY id`,
     );
     const data = rows.map((r) => [
       Number(r.id),
@@ -549,21 +569,27 @@ async function main() {
       codeToDictId.set(d.code, Number(d.id));
     }
 
-    const { rows } = await abtPool.query(
-      "SELECT id, product_code, name, unit_price, quantity, sort_order, remark, created_at, updated_at, process_code FROM bom_labor_process ORDER BY id",
-    );
+    const hasProcessCode = await columnExists(abtPool, "bom_labor_process", "process_code");
+    const selectSql = hasProcessCode
+      ? "SELECT id, product_code, name, unit_price, quantity, sort_order, remark, created_at, updated_at, process_code FROM bom_labor_process ORDER BY id"
+      : "SELECT id, product_code, name, unit_price, quantity, sort_order, remark, created_at, updated_at FROM bom_labor_process ORDER BY id";
+
+    const { rows } = await abtPool.query(selectSql);
     let skipped = 0;
     const data: any[][] = [];
     for (const r of rows) {
-      const dictId = r.process_code ? codeToDictId.get(r.process_code) : null;
-      if (!dictId && r.process_code) {
+      const processCode = hasProcessCode ? r.process_code : null;
+      const dictId = processCode ? codeToDictId.get(processCode) : null;
+      // 跳过 process_code 存在但无法匹配字典的记录（而非插入 dict_id=0）
+      if (processCode && !dictId) {
         skipped++;
+        continue;
       }
       data.push([
         Number(r.id),
         r.product_code,
         dictId ?? 0, // labor_process_dict_id
-        r.process_code ?? null,
+        processCode ?? null,
         r.name,
         r.unit_price,
         r.quantity,
@@ -632,9 +658,10 @@ async function main() {
         Number(r.product_id),
         loc.warehouseId,
         loc.zoneId,
-        loc.binId, // 使用默认 bin_id
-        r.batch_no ?? "",
+        loc.binId,
+        r.batch_no ?? null, // 保持 NULL 而非空字符串
         r.quantity,
+        r.safety_stock ?? 0, // 安全库存
         0, // reserved_qty
         r.quantity, // available_qty
         null, // unit_cost
@@ -646,7 +673,7 @@ async function main() {
     const n = await batchInsert(
       v2Pool,
       "stock_ledger",
-      ["id", "product_id", "warehouse_id", "zone_id", "bin_id", "batch_no", "quantity", "reserved_qty", "available_qty", "unit_cost", "received_date", "expiry_date", "updated_at"],
+      ["id", "product_id", "warehouse_id", "zone_id", "bin_id", "batch_no", "safety_stock", "quantity", "reserved_qty", "available_qty", "unit_cost", "received_date", "expiry_date", "updated_at"],
       data,
       ["id"],
     );
@@ -657,9 +684,23 @@ async function main() {
   // ── 13. 库存日志 → inventory_transactions ────────────────────────
   console.log("── 13. inventory_log → inventory_transactions ──");
   {
+    // 修复: 正确映射 operation_type → transaction_type
+    // 目标枚举: 1=PurchaseReceipt, 2=ProductionReceipt, 3=SalesShipment, 4=MaterialIssue,
+    //           5=MaterialReturn, 6=Backflush, 7=Transfer, 8=FormConversion, 9=Adjustment
     const opTypeMap: Record<string, number> = {
-      in: 1, out: 2, transfer: 3, adjustment: 4,
+      in: 1,         // 入库 → PurchaseReceipt
+      out: 4,        // 出库 → MaterialIssue
+      transfer: 7,   // 调拨 → Transfer
+      adjustment: 9, // 调整 → Adjustment
     };
+
+    // 构建 username → user_id 映射，用于还原 operator 信息
+    const { rows: userRows } = await v2Pool.query("SELECT user_id, username FROM users");
+    const usernameToId = new Map<string, number>();
+    for (const u of userRows) {
+      usernameToId.set(u.username, Number(u.user_id));
+    }
+
     const { rows } = await abtPool.query(
       "SELECT log_id, inventory_id, product_id, location_id, change_qty, before_qty, after_qty, operation_type, ref_order_type, ref_order_id, operator, remark, created_at FROM inventory_log ORDER BY log_id",
     );
@@ -671,7 +712,28 @@ async function main() {
         skipped++;
         continue;
       }
-      const txnType = opTypeMap[r.operation_type] ?? 4; // default adjustment
+      const txnType = opTypeMap[r.operation_type] ?? 9; // 默认 Adjustment
+
+      // 尝试通过 username 查找 operator_id
+      let operatorId = 0;
+      if (r.operator) {
+        const found = usernameToId.get(r.operator);
+        if (found) operatorId = found;
+      }
+
+      // 安全解析 ref_order_id: VARCHAR → BIGINT
+      let sourceId = 0;
+      if (r.ref_order_id) {
+        const parsed = parseInt(r.ref_order_id, 10);
+        if (!isNaN(parsed)) sourceId = parsed;
+      }
+
+      // 在 remark 中保留原始操作人信息（如果无法匹配 user_id）
+      let remark = r.remark ?? "";
+      if (r.operator && operatorId === 0) {
+        remark = remark ? `${remark} [原始操作人: ${r.operator}]` : `[原始操作人: ${r.operator}]`;
+      }
+
       data.push([
         Number(r.log_id),
         null, // doc_number
@@ -679,14 +741,14 @@ async function main() {
         Number(r.product_id),
         loc.warehouseId,
         loc.zoneId,
-        loc.binId, // 使用默认 bin_id
+        loc.binId,
         null, // batch_no
         r.change_qty,
         null, // unit_cost
         r.ref_order_type ?? "",
-        Number(r.ref_order_id) || 0, // source_id
-        r.remark ?? "",
-        0, // operator_id
+        sourceId,
+        remark,
+        operatorId,
         r.created_at,
       ]);
     }
@@ -733,36 +795,226 @@ async function main() {
     console.log(`  ${n}/${rows.length} 条\n`);
   }
 
-  // ── 验证 ─────────────────────────────────────────────────────────
-  console.log("=== 验证 ===\n");
-  const checks: [string, string][] = [
-    ["users", "user_id"],
-    ["roles", "role_id"],
-    ["departments", "department_id"],
-    ["user_roles", "user_id"],
-    ["role_permissions", "role_id"],
-    ["products", "product_id"],
-    ["price_log", "log_id"],
-    ["labor_process_dicts", "id"],
-    ["routings", "id"],
-    ["routing_steps", "id"],
-    ["bom_categories", "bom_category_id"],
-    ["boms", "bom_id"],
-    ["bom_nodes", "node_id"],
-    ["bom_routings", "id"],
-    ["bom_labor_processes", "id"],
-    ["warehouses", "id"],
-    ["zones", "id"],
-    ["bins", "id"],
-    ["stock_ledger", "id"],
-    ["notifications", "notification_id"],
-  ];
-  for (const [table, _pk] of checks) {
-    const { rows: cnt } = await v2Pool.query(`SELECT COUNT(*)::int AS c FROM ${table}`);
-    console.log(`  abt_v2.${table}: ${cnt[0].c} 条`);
+  // ── 15. 产品监听 ────────────────────────────────────────────────
+  console.log("── 15. product_watchers ──");
+  {
+    const { rows } = await abtPool.query(
+      "SELECT user_id, product_id, safety_stock_override, alert_active, last_notified_at, created_at, updated_at FROM product_watchers ORDER BY user_id, product_id",
+    );
+    const data = rows.map((r) => [
+      Number(r.user_id),
+      Number(r.product_id),
+      r.safety_stock_override ?? null,
+      r.alert_active ?? false,
+      r.last_notified_at ?? null,
+      r.created_at,
+      r.updated_at,
+    ]);
+    const n = await batchInsert(
+      v2Pool,
+      "product_watchers",
+      ["user_id", "product_id", "safety_stock_override", "alert_active", "last_notified_at", "created_at", "updated_at"],
+      data,
+      ["user_id", "product_id"],
+    );
+    console.log(`  ${n}/${rows.length} 条\n`);
   }
 
-  console.log("\n迁移完成。");
+  // ── 16. H3云同步状态 ────────────────────────────────────────────
+  console.log("── 16. h3yun_sync_state ──");
+  {
+    const { rows } = await abtPool.query(
+      "SELECT id, entity_type, entity_id, h3yun_object_id, last_synced_at, content_hash, created_at FROM h3yun_sync_state ORDER BY id",
+    );
+    const data = rows.map((r) => [
+      Number(r.id),
+      r.entity_type,
+      Number(r.entity_id),
+      r.h3yun_object_id ?? null,
+      r.last_synced_at ?? null,
+      r.content_hash ?? null,
+      r.created_at,
+    ]);
+    const n = await batchInsert(
+      v2Pool,
+      "h3yun_sync_state",
+      ["id", "entity_type", "entity_id", "h3yun_object_id", "last_synced_at", "content_hash", "created_at"],
+      data,
+      ["id"],
+    );
+    await resetSequence(v2Pool, "h3yun_sync_state", "id");
+    console.log(`  ${n}/${rows.length} 条\n`);
+  }
+
+  // ── 17. 工作流 ──────────────────────────────────────────────────
+  console.log("── 17. workflow ──");
+  {
+    // 17a. workflow_templates
+    const hasTriggerEvent = await columnExists(abtPool, "workflow_templates", "trigger_event");
+    const tmplSelect = hasTriggerEvent
+      ? "SELECT id, entity_type, name, version, status, graph, graph_checksum, trigger_event, created_at, updated_at, deleted_at FROM workflow_templates ORDER BY id"
+      : "SELECT id, entity_type, name, version, status, graph, graph_checksum, created_at, updated_at, deleted_at FROM workflow_templates ORDER BY id";
+    const { rows: tmpls } = await abtPool.query(tmplSelect);
+    const tmplData = tmpls.map((r: any) => [
+      Number(r.id),
+      r.entity_type,
+      r.name,
+      Number(r.version ?? 1),
+      r.status,
+      r.graph ? JSON.stringify(r.graph) : null,
+      r.graph_checksum ?? null,
+      hasTriggerEvent ? r.trigger_event ?? null : null,
+      r.created_at,
+      r.updated_at,
+      r.deleted_at,
+    ]);
+    const tn = await batchInsert(
+      v2Pool,
+      "workflow_templates",
+      ["id", "entity_type", "name", "version", "status", "graph", "graph_checksum", "trigger_event", "created_at", "updated_at", "deleted_at"],
+      tmplData,
+      ["id"],
+    );
+    await resetSequence(v2Pool, "workflow_templates", "id");
+    console.log(`  workflow_templates: ${tn}/${tmpls.length} 条`);
+
+    // 17b. workflow_instances
+    const { rows: insts } = await abtPool.query(
+      "SELECT id, template_id, template_version, entity_type, entity_id, status, frozen_graph, context, suspended_reason, initiator_id, created_at, updated_at, last_advanced_at, completed_at FROM workflow_instances ORDER BY id",
+    );
+    const instData = insts.map((r: any) => [
+      Number(r.id),
+      Number(r.template_id),
+      r.template_version ? Number(r.template_version) : null,
+      r.entity_type,
+      Number(r.entity_id),
+      r.status,
+      r.frozen_graph ? JSON.stringify(r.frozen_graph) : null,
+      r.context ? JSON.stringify(r.context) : null,
+      r.suspended_reason ? JSON.stringify(r.suspended_reason) : null,
+      Number(r.initiator_id),
+      r.created_at,
+      r.updated_at,
+      r.last_advanced_at,
+      r.completed_at,
+    ]);
+    const in_ = await batchInsert(
+      v2Pool,
+      "workflow_instances",
+      ["id", "template_id", "template_version", "entity_type", "entity_id", "status", "frozen_graph", "context", "suspended_reason", "initiator_id", "created_at", "updated_at", "last_advanced_at", "completed_at"],
+      instData,
+      ["id"],
+    );
+    await resetSequence(v2Pool, "workflow_instances", "id");
+    console.log(`  workflow_instances: ${in_}/${insts.length} 条`);
+
+    // 17c. workflow_tasks
+    const { rows: tasks } = await abtPool.query(
+      "SELECT id, instance_id, node_id, prev_task_id, assignee_id, status, action, timeout_action, due_at, remind_at, result, created_at, completed_at FROM workflow_tasks ORDER BY id",
+    );
+    const taskData = tasks.map((r: any) => [
+      Number(r.id),
+      Number(r.instance_id),
+      r.node_id,
+      r.prev_task_id ? Number(r.prev_task_id) : null,
+      r.assignee_id ? Number(r.assignee_id) : null,
+      r.status,
+      r.action ?? null,
+      r.timeout_action ?? null,
+      r.due_at,
+      r.remind_at,
+      r.result ? JSON.stringify(r.result) : null,
+      r.created_at,
+      r.completed_at,
+    ]);
+    const tkn = await batchInsert(
+      v2Pool,
+      "workflow_tasks",
+      ["id", "instance_id", "node_id", "prev_task_id", "assignee_id", "status", "action", "timeout_action", "due_at", "remind_at", "result", "created_at", "completed_at"],
+      taskData,
+      ["id"],
+    );
+    await resetSequence(v2Pool, "workflow_tasks", "id");
+    console.log(`  workflow_tasks: ${tkn}/${tasks.length} 条`);
+
+    // 17d. workflow_history
+    const { rows: hist } = await abtPool.query(
+      "SELECT id, instance_id, task_id, node_id, event_type, actor_id, payload, created_at FROM workflow_history ORDER BY id",
+    );
+    const histData = hist.map((r: any) => [
+      Number(r.id),
+      Number(r.instance_id),
+      r.task_id ? Number(r.task_id) : null,
+      r.node_id ?? null,
+      r.event_type,
+      r.actor_id ? Number(r.actor_id) : null,
+      r.payload ? JSON.stringify(r.payload) : null,
+      r.created_at,
+    ]);
+    const hn = await batchInsert(
+      v2Pool,
+      "workflow_history",
+      ["id", "instance_id", "task_id", "node_id", "event_type", "actor_id", "payload", "created_at"],
+      histData,
+      ["id"],
+    );
+    await resetSequence(v2Pool, "workflow_history", "id");
+    console.log(`  workflow_history: ${hn}/${hist.length} 条\n`);
+  }
+
+  // ── 注意：以下表因 schema 差异过大，无法直接迁移 ──────────────
+  // - document_sequences: abt(doc_type/prefix/reset_rule) vs abt_v2(prefix/seq_date/strategy)，结构完全不同
+  // - quotations/sales_orders/shipping_requests/sales_returns: abt 用 customer_name(VARCHAR)，
+  //   abt_v2 用 customer_id(BIGINT NOT NULL)，且 abt_v2 多出 sales_rep_id/contact_id 等必填字段
+  // - reconciliation_statements → reconciliations: period 格式不同（year+month vs VARCHAR(7)），
+  //   且 abt_v2 的 reconciliation_items 关联 shipping_request_id/sales_order_id
+  // - permission_audit_logs → audit_logs: abt_v2 是分区表，列结构不同
+
+  // ── 验证 ─────────────────────────────────────────────────────────
+  console.log("=== 验证：源表 vs 目标表行数对比 ===\n");
+  const checks: { srcTable: string; dstTable: string; srcPk: string; dstPk: string }[] = [
+    { srcTable: "users", dstTable: "users", srcPk: "user_id", dstPk: "user_id" },
+    { srcTable: "roles", dstTable: "roles", srcPk: "role_id", dstPk: "role_id" },
+    { srcTable: "departments", dstTable: "departments", srcPk: "department_id", dstPk: "department_id" },
+    { srcTable: "user_roles", dstTable: "user_roles", srcPk: "user_id", dstPk: "user_id" },
+    { srcTable: "role_permissions", dstTable: "role_permissions", srcPk: "role_id", dstPk: "role_id" },
+    { srcTable: "user_departments", dstTable: "user_departments", srcPk: "user_id", dstPk: "user_id" },
+    { srcTable: "products", dstTable: "products", srcPk: "product_id", dstPk: "product_id" },
+    { srcTable: "product_price", dstTable: "price_log", srcPk: "id", dstPk: "log_id" },
+    { srcTable: "labor_process_dict", dstTable: "labor_process_dicts", srcPk: "id", dstPk: "id" },
+    { srcTable: "routing", dstTable: "routings", srcPk: "id", dstPk: "id" },
+    { srcTable: "routing_step", dstTable: "routing_steps", srcPk: "id", dstPk: "id" },
+    { srcTable: "bom_category", dstTable: "bom_categories", srcPk: "bom_category_id", dstPk: "bom_category_id" },
+    { srcTable: "bom", dstTable: "boms", srcPk: "bom_id", dstPk: "bom_id" },
+    { srcTable: "bom_nodes", dstTable: "bom_nodes", srcPk: "id", dstPk: "node_id" },
+    { srcTable: "bom_routing", dstTable: "bom_routings", srcPk: "id", dstPk: "id" },
+    { srcTable: "bom_labor_process", dstTable: "bom_labor_processes", srcPk: "id", dstPk: "id" },
+    { srcTable: "warehouse", dstTable: "warehouses", srcPk: "warehouse_id", dstPk: "id" },
+    { srcTable: "location", dstTable: "zones", srcPk: "location_id", dstPk: "id" },
+    { srcTable: "inventory", dstTable: "stock_ledger", srcPk: "inventory_id", dstPk: "id" },
+    { srcTable: "inventory_log", dstTable: "inventory_transactions", srcPk: "log_id", dstPk: "id" },
+    { srcTable: "notifications", dstTable: "notifications", srcPk: "notification_id", dstPk: "notification_id" },
+    { srcTable: "product_watchers", dstTable: "product_watchers", srcPk: "user_id", dstPk: "user_id" },
+    { srcTable: "h3yun_sync_state", dstTable: "h3yun_sync_state", srcPk: "id", dstPk: "id" },
+    { srcTable: "workflow_templates", dstTable: "workflow_templates", srcPk: "id", dstPk: "id" },
+    { srcTable: "workflow_instances", dstTable: "workflow_instances", srcPk: "id", dstPk: "id" },
+    { srcTable: "workflow_tasks", dstTable: "workflow_tasks", srcPk: "id", dstPk: "id" },
+    { srcTable: "workflow_history", dstTable: "workflow_history", srcPk: "id", dstPk: "id" },
+  ];
+
+  let allOk = true;
+  for (const { srcTable, dstTable } of checks) {
+    const { rows: srcCnt } = await abtPool.query(`SELECT COUNT(*)::int AS c FROM ${srcTable}`);
+    const { rows: dstCnt } = await v2Pool.query(`SELECT COUNT(*)::int AS c FROM ${dstTable}`);
+    const src = srcCnt[0].c;
+    const dst = dstCnt[0].c;
+    const ok = src === dst ? "✓" : "✗";
+    if (src !== dst) allOk = false;
+    console.log(`  ${ok} abt.${srcTable} → abt_v2.${dstTable}: ${src} → ${dst}`);
+  }
+
+  console.log(`\n${allOk ? "全部验证通过" : "存在差异，请检查上方标记为 ✗ 的表"}。\n`);
+  console.log("迁移完成。");
   await abtPool.end();
   await v2Pool.end();
 }

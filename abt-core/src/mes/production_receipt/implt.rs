@@ -3,10 +3,10 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
+use super::super::enums::*;
 use super::model::*;
 use super::repo::ProductionReceiptRepo;
 use super::service::ProductionReceiptService;
-use super::super::enums::*;
 use crate::mes::production_batch::repo::ProductionBatchRepo;
 use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
 use crate::qms::inspection_result::model::InspectionResultFilter;
@@ -17,14 +17,14 @@ use crate::shared::cost_entry::service::CostEntryService;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::{AuditAction, CostEntityType, CostType, DocumentType};
 use crate::shared::inventory_reservation::service::InventoryReservationService;
-use crate::shared::types::context::ServiceContext;
 use crate::shared::types::Result;
+use crate::shared::types::context::ServiceContext;
+use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::PageParams;
 use crate::wms::backflush::service::BackflushService;
+use crate::wms::enums::TransactionType;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
 use crate::wms::inventory_transaction::service::InventoryTransactionService;
-use crate::wms::enums::TransactionType;
-use crate::shared::types::error::DomainError;
 
 pub struct ProductionReceiptServiceImpl {
     #[allow(dead_code)]
@@ -49,17 +49,22 @@ impl ProductionReceiptServiceImpl {
         inv_res: Arc<dyn InventoryReservationService>,
         audit: Arc<dyn AuditLogService>,
     ) -> Self {
-        Self { pool, doc_seq, qms, inv_txn, cost_entry, backflush, inv_res, audit }
+        Self {
+            pool,
+            doc_seq,
+            qms,
+            inv_txn,
+            cost_entry,
+            backflush,
+            inv_res,
+            audit,
+        }
     }
 }
 
 #[async_trait]
 impl ProductionReceiptService for ProductionReceiptServiceImpl {
-    async fn create(
-        &self,
-        mut ctx: ServiceContext<'_>,
-        req: CreateReceiptReq,
-    ) -> Result<i64> {
+    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateReceiptReq) -> Result<i64> {
         // Verify batch status if provided
         if let Some(bid) = req.batch_id {
             let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, bid)
@@ -84,16 +89,19 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
             batch.product_id
         } else {
-            let batches = ProductionBatchRepo::list_by_work_order(&mut *ctx.executor, req.work_order_id)
-                .await
-                .map_err(|e| DomainError::Internal(e.into()))?;
+            let batches =
+                ProductionBatchRepo::list_by_work_order(&mut *ctx.executor, req.work_order_id)
+                    .await
+                    .map_err(|e| DomainError::Internal(e.into()))?;
             batches
                 .first()
                 .map(|b| b.product_id)
                 .ok_or_else(|| DomainError::not_found("ProductionBatch for WorkOrder"))?
         };
 
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ProductionReceipt)
+        let doc_number = self
+            .doc_seq
+            .next_number(ctx.reborrow(), DocumentType::ProductionReceipt)
             .await
             .unwrap_or_else(|_| format!("PR{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
@@ -116,22 +124,14 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         Ok(receipt.id)
     }
 
-    async fn find_by_id(
-        &self,
-        ctx: ServiceContext<'_>,
-        id: i64,
-    ) -> Result<ProductionReceipt> {
+    async fn find_by_id(&self, ctx: ServiceContext<'_>, id: i64) -> Result<ProductionReceipt> {
         ProductionReceiptRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionReceipt"))
     }
 
-    async fn confirm(
-        &self,
-        mut ctx: ServiceContext<'_>,
-        id: i64,
-    ) -> Result<()> {
+    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let receipt = ProductionReceiptRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -150,23 +150,28 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 1. QMS FQC hard gate — 查询检验结果
-        let fqc_results = self.qms.list_by_source(
-            ctx.reborrow(),
-            InspectionResultFilter {
-                source_type: Some(InspectionSourceType::ArrivalNotice),
-                source_id: Some(id),
-                ..Default::default()
-            },
-            PageParams { page: 1, page_size: 100 },
-        )
-        .await
-        .unwrap_or_else(|_| crate::shared::types::pagination::PaginatedResult {
-            items: vec![],
-            total: 0,
-            page: 1,
-            page_size: 100,
-            total_pages: 0,
-        });
+        let fqc_results = self
+            .qms
+            .list_by_source(
+                ctx.reborrow(),
+                InspectionResultFilter {
+                    source_type: Some(InspectionSourceType::ArrivalNotice),
+                    source_id: Some(id),
+                    ..Default::default()
+                },
+                PageParams {
+                    page: 1,
+                    page_size: 100,
+                },
+            )
+            .await
+            .unwrap_or_else(|_| crate::shared::types::pagination::PaginatedResult {
+                items: vec![],
+                total: 0,
+                page: 1,
+                page_size: 100,
+                total_pages: 0,
+            });
 
         let fqc_passed = fqc_results.items.is_empty()
             || fqc_results.items.iter().all(|r| {
@@ -180,78 +185,80 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         }
 
         // 2. WMS inventory transaction — production receipt (入库)
-        let _ = self.inv_txn.record(
-            ctx.reborrow(),
-            RecordTransactionReq {
-                doc_number: None,
-                transaction_type: TransactionType::ProductionReceipt,
-                product_id: receipt.product_id,
-                warehouse_id: receipt.warehouse_id,
-                zone_id: receipt.zone_id,
-                bin_id: receipt.bin_id,
-                batch_no: None,
-                quantity: receipt.received_qty,
-                unit_cost: None,
-                source_type: "production_receipt".to_string(),
-                source_id: id,
-                remark: None,
-            },
-        )
-        .await;
+        let _ = self
+            .inv_txn
+            .record(
+                ctx.reborrow(),
+                RecordTransactionReq {
+                    doc_number: None,
+                    transaction_type: TransactionType::ProductionReceipt,
+                    product_id: receipt.product_id,
+                    warehouse_id: receipt.warehouse_id,
+                    zone_id: receipt.zone_id,
+                    bin_id: receipt.bin_id,
+                    batch_no: None,
+                    quantity: receipt.received_qty,
+                    unit_cost: None,
+                    source_type: "production_receipt".to_string(),
+                    source_id: id,
+                    remark: None,
+                },
+            )
+            .await;
 
         // 3. Cost entry — finished goods receipt cost
         let period = chrono::Local::now().format("%Y-%m").to_string();
-        let _ = self.cost_entry.create_entries(
-            ctx.reborrow(),
-            vec![EntryRequest {
-                entity_type: CostEntityType::WorkOrder,
-                entity_id: receipt.work_order_id,
-                cost_type: CostType::Material,
-                debit_amount: receipt.received_qty,
-                credit_amount: receipt.received_qty,
-                cost_center: None,
-                profit_center: None,
-                period,
-                source_type: DocumentType::ProductionReceipt,
-                source_id: id,
-            }],
-        )
-        .await;
+        let _ = self
+            .cost_entry
+            .create_entries(
+                ctx.reborrow(),
+                vec![EntryRequest {
+                    entity_type: CostEntityType::WorkOrder,
+                    entity_id: receipt.work_order_id,
+                    cost_type: CostType::Material,
+                    debit_amount: receipt.received_qty,
+                    credit_amount: receipt.received_qty,
+                    cost_center: None,
+                    profit_center: None,
+                    period,
+                    source_type: DocumentType::ProductionReceipt,
+                    source_id: id,
+                }],
+            )
+            .await;
 
         // 4. Backflush — failure does not block receipt
-        let backflush_result = self.backflush.execute(
-            ctx.reborrow(),
-            receipt.work_order_id,
-            receipt.received_qty,
-        )
-        .await;
+        let backflush_result = self
+            .backflush
+            .execute(ctx.reborrow(), receipt.work_order_id, receipt.received_qty)
+            .await;
 
         if let Err(e) = backflush_result {
-            let _ = self.audit.record(
-                ctx.reborrow(),
-                "production_receipt",
-                id,
-                AuditAction::Update,
-                Some(serde_json::json!({ "backflush_error": format!("{:?}", e) })),
-                None,
-            )
-            .await;
+            let _ = self
+                .audit
+                .record(
+                    ctx.reborrow(),
+                    "production_receipt",
+                    id,
+                    AuditAction::Update,
+                    Some(serde_json::json!({ "backflush_error": format!("{:?}", e) })),
+                    None,
+                )
+                .await;
         } else {
-            let _ = ProductionReceiptRepo::set_backflush_triggered(
-                &mut *ctx.executor,
-                id,
-                true,
-            )
-            .await;
+            let _ =
+                ProductionReceiptRepo::set_backflush_triggered(&mut *ctx.executor, id, true).await;
         }
 
         // 5. Release hard reservation
-        let _ = self.inv_res.cancel_by_source(
-            ctx.reborrow(),
-            DocumentType::WorkOrder,
-            receipt.work_order_id,
-        )
-        .await;
+        let _ = self
+            .inv_res
+            .cancel_by_source(
+                ctx.reborrow(),
+                DocumentType::WorkOrder,
+                receipt.work_order_id,
+            )
+            .await;
 
         // 6. Update batch status to Completed
         if let Some(batch_id) = receipt.batch_id {

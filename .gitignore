@@ -12,3 +12,4 @@ tdocker/abt-grpc
 .superpowers
 sql/
 dist/
+scripts/convert-labor-excel/convert-labor-excel.exe

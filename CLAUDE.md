@@ -98,6 +98,7 @@ PostgreSQL + sqlx（通过 `sqlx::query!` 宏实现编译期检查）。Migratio
 
 - **模块边界**：跨模块调用只允许通过 Service trait（`abt/src/service/`）和 Model（`abt/src/models/`）。禁止跨模块直接访问 Repository（`abt/src/repositories/`）或 Service impl（`abt/src/implt/`）。同模块内部可自由调用自身 Repository
 - **错误处理**：新服务使用 `thiserror` 定义的 `DomainError` 枚举，返回 `Result<T, DomainError>`；老服务保持 `anyhow::Result<T>`，渐进式迁移。`#[error(transparent)]` + `#[from] anyhow::Error` 保证老代码零改动。gRPC handler 层将 `DomainError` 映射为 `tonic::Status`
+- **禁止静默丢弃错误**：严禁使用 `let _ = expr.await;` 或 `let _ = result;` 来忽略错误。所有错误必须通过 `?` 传播、`map_err` 转换、或 `if let Err(e) { ... }` 显式处理（至少记录日志）
 - **共享基础设施**：集成共享服务前必须读 `docs/uml-design/README.md`（接口签名、AuditAction / SideEffect / EventPublishRequest 等类型定义、集成规则）
 - 所有 service trait 使用 `async-trait` crate 的 `#[async_trait]`
 - `abt/src/lib.rs` 中 `#![allow(non_snake_case)]` — Proto 生成的名称使用 CamelCase

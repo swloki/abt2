@@ -9,6 +9,7 @@ common = { path = "../common" }
 
 # Async runtime
 tokio = { workspace = true }
+tokio-util = "0.7"
 async-trait = { workspace = true }
 
 # Serialization
@@ -37,3 +38,10 @@ rust_decimal = { workspace = true }
 
 # UUID
 uuid = { version = "1", features = ["v4", "serde"] }
+
+# HTTP client (H3Yun sync)
+reqwest = { version = "0.12", features = ["json"] }
+
+# Excel
+calamine = { workspace = true }
+rust_xlsxwriter = { workspace = true }

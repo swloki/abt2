@@ -7,7 +7,7 @@ use tonic::{Request, Response};
 use crate::generated::abt::v1::{
     abt_sync_service_server::AbtSyncService as GrpcSyncService, *,
 };
-use crate::handlers::{dt_to_string, GrpcResult};
+use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::permissions::PermissionCode;
 use crate::server::AppState;
@@ -39,23 +39,27 @@ impl GrpcSyncService for SyncHandler {
         }
 
         let state = AppState::get().await;
-        let pool = state.pool();
-        let client = abt::h3yun::get_h3yun_client();
+        let pool = state.core_pool();
+        let client = abt_core::h3yun::H3YunClient::new();
 
-        // 查询产品
-        let product = abt::repositories::ProductRepo::find_by_id(&pool, req.product_id)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::validation("product_id", "产品不存在"))?;
+        // 查询产品 (abt_v2)
+        let product = {
+            use abt_core::master_data::product::repo::ProductRepo;
+            let mut conn = pool.acquire().await.map_err(error::sqlx_err_to_status)?;
+            ProductRepo.find_by_id(&mut conn, req.product_id)
+                .await
+                .map_err(error::err_to_status)?
+                .ok_or_else(|| error::validation("product_id", "产品不存在"))?
+        };
 
         // 查询分类路径
         let category_path =
-            abt::h3yun::product_sync::fetch_category_path(&pool, req.product_id).await;
+            abt_core::h3yun::product_sync::fetch_category_path(&pool, req.product_id).await;
 
         // 直接执行同步
-        match abt::h3yun::product_sync::sync_product(
+        match abt_core::h3yun::product_sync::sync_product(
             &pool,
-            client,
+            &client,
             &product,
             category_path.as_ref(),
         )
@@ -79,51 +83,42 @@ impl GrpcSyncService for SyncHandler {
         &self,
         _request: Request<SyncAllRequest>,
     ) -> GrpcResult<SyncResponse> {
+        use abt_core::shared::event_bus::model::EventPublishRequest;
+        use abt_core::shared::enums::event::DomainEventType;
+        use abt_core::shared::types::ServiceContext;
+
         let state = AppState::get().await;
-        let product_ids: Vec<i64> = {
-            use abt::service::ProductService;
-            let query = abt::models::ProductQuery {
-                page: Some(1),
-                page_size: Some(99999),
-                ..Default::default()
-            };
-            state
-                .product_service()
-                .query(query)
-                .await
-                .map_err(error::err_to_status)?
-                .0
-                .into_iter()
-                .map(|p| p.product_id)
-                .collect()
-        };
+
+        // 查询所有未同步的产品
+        let product_ids = abt_core::h3yun::sync_state::SyncStateRepo::find_entity_ids_never_synced(
+            &state.core_pool(),
+            abt_core::h3yun::models::EntityType::Product,
+            500,
+        )
+        .await
+        .map_err(error::err_to_status)?;
 
         let total = product_ids.len() as i32;
-        abt::h3yun::set_batch_status(abt::h3yun::models::SyncBatchStatus::new(
-            abt::h3yun::models::EntityType::Product,
-            total,
-        ));
-
-        let sender = abt::h3yun::get_sync_event_sender();
         let mut queued = 0i32;
+        let pool = state.core_pool();
 
         for product_id in &product_ids {
-            if sender
-                .send(abt::h3yun::models::SyncEvent {
-                    entity_type: abt::h3yun::models::EntityType::Product,
-                    entity_id: *product_id,
-                    is_batch: true,
-                })
-                .await
-                .is_ok()
-            {
+            let mut conn = pool.acquire().await.map_err(error::sqlx_err_to_status)?;
+            let ctx = ServiceContext::system(&mut conn);
+            if state.event_bus().publish(ctx, EventPublishRequest {
+                event_type: DomainEventType::ProductCreated,
+                aggregate_type: "Product".to_string(),
+                aggregate_id: *product_id,
+                payload: serde_json::json!({}),
+                idempotency_key: None,
+            }).await.is_ok() {
                 queued += 1;
             }
         }
 
         Ok(Response::new(SyncResponse {
-            processed: queued,
-            succeeded: 0,
+            processed: total,
+            succeeded: queued,
             message: format!("{queued} sync events queued"),
         }))
     }
@@ -133,6 +128,10 @@ impl GrpcSyncService for SyncHandler {
         &self,
         _request: Request<SyncAllRequest>,
     ) -> GrpcResult<SyncResponse> {
+        use abt_core::shared::event_bus::model::EventPublishRequest;
+        use abt_core::shared::enums::event::DomainEventType;
+        use abt_core::shared::types::ServiceContext;
+
         let state = AppState::get().await;
         let pool = state.pool();
 
@@ -144,31 +143,26 @@ impl GrpcSyncService for SyncHandler {
         .map_err(|e| error::err_to_status(anyhow::anyhow!(e)))?;
 
         let total = inventory_ids.len() as i32;
-        abt::h3yun::set_batch_status(abt::h3yun::models::SyncBatchStatus::new(
-            abt::h3yun::models::EntityType::Inventory,
-            total,
-        ));
-
-        let sender = abt::h3yun::get_sync_event_sender();
         let mut queued = 0i32;
+        let core_pool = state.core_pool();
 
         for inventory_id in &inventory_ids {
-            if sender
-                .send(abt::h3yun::models::SyncEvent {
-                    entity_type: abt::h3yun::models::EntityType::Inventory,
-                    entity_id: *inventory_id,
-                    is_batch: true,
-                })
-                .await
-                .is_ok()
-            {
+            let mut conn = core_pool.acquire().await.map_err(error::sqlx_err_to_status)?;
+            let ctx = ServiceContext::system(&mut conn);
+            if state.event_bus().publish(ctx, EventPublishRequest {
+                event_type: DomainEventType::H3YunInventorySync,
+                aggregate_type: "inventory".to_string(),
+                aggregate_id: *inventory_id,
+                payload: serde_json::json!({}),
+                idempotency_key: None,
+            }).await.is_ok() {
                 queued += 1;
             }
         }
 
         Ok(Response::new(SyncResponse {
-            processed: queued,
-            succeeded: 0,
+            processed: total,
+            succeeded: queued,
             message: format!("{queued} inventory sync events queued"),
         }))
     }
@@ -184,13 +178,14 @@ impl GrpcSyncService for SyncHandler {
         }
 
         let state = AppState::get().await;
-        let pool = state.pool();
-        let client = abt::h3yun::get_h3yun_client();
+        let _pool = state.pool();
+        let core_pool = state.core_pool();
+        let client = abt_core::h3yun::H3YunClient::new();
 
         let inventories: Vec<abt::models::InventoryDetail> = {
             use abt::service::InventoryService;
             state
-                .inventory_service()
+                .abt_inventory_service()
                 .get_by_product(req.product_id)
                 .await
                 .map_err(error::err_to_status)?
@@ -201,7 +196,7 @@ impl GrpcSyncService for SyncHandler {
         let mut errors = Vec::new();
 
         for inv in &inventories {
-            let data = abt::h3yun::inventory_sync::InventorySyncData {
+            let data = abt_core::h3yun::inventory_sync::InventorySyncData {
                 inventory_id: inv.inventory_id,
                 product_id: inv.product_id,
                 location_code: inv.location_code.clone(),
@@ -212,7 +207,7 @@ impl GrpcSyncService for SyncHandler {
                 unit: String::new(),
             };
 
-            match abt::h3yun::inventory_sync::sync_inventory(&pool, client, &data).await {
+            match abt_core::h3yun::inventory_sync::sync_inventory(&core_pool, &client, &data).await {
                 Ok(()) => succeeded += 1,
                 Err(e) => {
                     failed += 1;
@@ -251,17 +246,16 @@ impl GrpcSyncService for SyncHandler {
             return Err(error::validation("batch_type", "必须是 product 或 inventory"));
         }
 
-        let batch = abt::h3yun::get_batch_status(&batch_type);
-
+        // Batch status no longer tracked in memory — return empty status
         Ok(Response::new(SyncBatchStatus {
             batch_type,
-            status: batch.as_ref().map(|b| b.status.clone()).unwrap_or_default(),
-            total: batch.as_ref().map(|b| b.total).unwrap_or_default(),
-            processed: batch.as_ref().map(|b| b.processed).unwrap_or_default(),
-            succeeded: batch.as_ref().map(|b| b.succeeded).unwrap_or_default(),
-            failed: batch.as_ref().map(|b| b.failed).unwrap_or_default(),
-            started_at: dt_to_string(batch.as_ref().and_then(|b| b.started_at)),
-            completed_at: dt_to_string(batch.as_ref().and_then(|b| b.completed_at)),
+            status: String::new(),
+            total: 0,
+            processed: 0,
+            succeeded: 0,
+            failed: 0,
+            started_at: String::new(),
+            completed_at: String::new(),
         }))
     }
 
@@ -272,16 +266,16 @@ impl GrpcSyncService for SyncHandler {
     ) -> GrpcResult<ReconcileResponse> {
         let req = request.into_inner();
         let entity_type = match req.entity_type.as_str() {
-            "product" => abt::h3yun::models::EntityType::Product,
-            "inventory" => abt::h3yun::models::EntityType::Inventory,
+            "product" => abt_core::h3yun::models::EntityType::Product,
+            "inventory" => abt_core::h3yun::models::EntityType::Inventory,
             _ => return Err(error::validation("entity_type", "必须是 product 或 inventory")),
         };
 
         let state = AppState::get().await;
-        let client = abt::h3yun::get_h3yun_client();
+        let client = abt_core::h3yun::H3YunClient::new();
         let schema_code = match entity_type {
-            abt::h3yun::models::EntityType::Product => abt::h3yun::models::schema::PRODUCT,
-            abt::h3yun::models::EntityType::Inventory => abt::h3yun::models::schema::WAREHOUSE,
+            abt_core::h3yun::models::EntityType::Product => abt_core::h3yun::models::schema::PRODUCT,
+            abt_core::h3yun::models::EntityType::Inventory => abt_core::h3yun::models::schema::WAREHOUSE,
         };
 
         let remote_items = client
@@ -289,8 +283,8 @@ impl GrpcSyncService for SyncHandler {
             .await
             .map_err(|e| error::err_to_status(anyhow::anyhow!("H3Yun query failed: {e}")))?;
 
-        let local_mappings = abt::h3yun::sync_state::SyncStateRepo::find_all_by_type(
-            &state.pool(),
+        let local_mappings = abt_core::h3yun::sync_state::SyncStateRepo::find_all_by_type(
+            &state.core_pool(),
             entity_type,
         )
         .await

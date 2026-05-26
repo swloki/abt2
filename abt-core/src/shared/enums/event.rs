@@ -74,6 +74,12 @@ pub enum DomainEventType {
     LaborProcessDictCreated = 53,
     LaborProcessDictUpdated = 54,
     LaborProcessDictDeleted = 55,
+    // Master Data — Product lifecycle
+    ProductCreated = 56,
+    ProductUpdated = 57,
+    ProductDeleted = 58,
+    // H3Yun — Inventory sync
+    H3YunInventorySync = 59,
 }
 
 impl DomainEventType {
@@ -114,6 +120,8 @@ impl DomainEventType {
             51 => Some(Self::RoutingDeleted), 52 => Some(Self::BomRoutingChanged),
             53 => Some(Self::LaborProcessDictCreated), 54 => Some(Self::LaborProcessDictUpdated),
             55 => Some(Self::LaborProcessDictDeleted),
+            56 => Some(Self::ProductCreated), 57 => Some(Self::ProductUpdated),
+            58 => Some(Self::ProductDeleted), 59 => Some(Self::H3YunInventorySync),
             _ => None,
         }
     }
@@ -142,7 +150,7 @@ impl EventStatus {
 }
 
 impl sqlx::Type<sqlx::Postgres> for DomainEventType {
-    fn type_info() -> sqlx::postgres::PgTypeInfo { sqlx::postgres::PgTypeInfo::with_name("smallint") }
+    fn type_info() -> sqlx::postgres::PgTypeInfo { <i16 as sqlx::Type<sqlx::Postgres>>::type_info() }
 }
 impl sqlx::Encode<'_, sqlx::Postgres> for DomainEventType {
     fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
@@ -157,7 +165,7 @@ impl sqlx::Decode<'_, sqlx::Postgres> for DomainEventType {
 }
 
 impl sqlx::Type<sqlx::Postgres> for EventStatus {
-    fn type_info() -> sqlx::postgres::PgTypeInfo { sqlx::postgres::PgTypeInfo::with_name("smallint") }
+    fn type_info() -> sqlx::postgres::PgTypeInfo { <i16 as sqlx::Type<sqlx::Postgres>>::type_info() }
 }
 impl sqlx::Encode<'_, sqlx::Postgres> for EventStatus {
     fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {

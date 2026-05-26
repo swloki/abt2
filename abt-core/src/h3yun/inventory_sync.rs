@@ -3,8 +3,9 @@
 use rust_decimal::Decimal;
 use sqlx::PgPool;
 
-use super::client::H3YunClient;
-use super::models::{schema, EntityType, SyncError};
+use crate::h3yun::client::H3YunClient;
+use crate::h3yun::models::{schema, EntityType, SyncError};
+use crate::h3yun::product_sync::sync_entity_by_fields;
 
 #[derive(Clone)]
 pub struct InventorySyncData {
@@ -47,7 +48,7 @@ pub async fn sync_inventory(
         ("WH20201118", &data.warehouse_name),
     ];
 
-    super::sync_entity_by_fields(
+    sync_entity_by_fields(
         pool,
         client,
         schema::WAREHOUSE,

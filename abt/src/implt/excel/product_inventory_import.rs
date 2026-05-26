@@ -353,31 +353,8 @@ impl ExcelImportService for ProductInventoryImporter {
 
         tx.commit().await?;
 
-        // 批量触发 H3Yun 同步（产品 + 库存）— 只同步成功的条目
-        if crate::h3yun::is_initialized() {
-            let sender = crate::h3yun::get_sync_event_sender().clone();
-            tokio::spawn(async move {
-                for item in &pending_items {
-                    if !item.succeeded {
-                        continue;
-                    }
-                    if item.product_id > 0 {
-                        let _ = sender.send(crate::h3yun::models::SyncEvent {
-                            entity_type: crate::h3yun::models::EntityType::Product,
-                            entity_id: item.product_id,
-                            is_batch: false,
-                        }).await;
-                    }
-                    if let Some(inv_id) = item.inventory_id {
-                        let _ = sender.send(crate::h3yun::models::SyncEvent {
-                            entity_type: crate::h3yun::models::EntityType::Inventory,
-                            entity_id: inv_id,
-                            is_batch: false,
-                        }).await;
-                    }
-                }
-            });
-        }
+        // H3Yun sync 现在通过 abt-core event bus 触发
+        // 批量同步由定时任务兜底，此处不再直接触发
 
         Ok(result)
     }

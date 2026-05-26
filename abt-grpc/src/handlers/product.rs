@@ -1,8 +1,11 @@
-//! Product gRPC Handler
+//! Product gRPC Handler — 委托给 abt-core ProductService
 
+use abt_core::master_data::product::ProductService;
+use abt_core::shared::types::{PageParams, ServiceContext};
 use common::error;
 use tonic::{Request, Response};
 use abt_macros::require_permission;
+use crate::handlers::domain_to_status;
 use crate::permissions::PermissionCode;
 use crate::generated::abt::v1::{
     abt_product_service_server::AbtProductService as GrpcProductService,
@@ -12,9 +15,8 @@ use crate::handlers::GrpcResult;
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 
-// Import trait to bring methods into scope
-use abt::ProductService;
-use abt::ProductWatcherService;
+// ProductWatcher 已迁移到 abt-core
+use abt_core::master_data::product_watcher::ProductWatcherService;
 
 pub struct ProductHandler;
 
@@ -41,20 +43,23 @@ impl GrpcProductService for ProductHandler {
         let state = AppState::get().await;
         let srv = state.product_service();
 
-        let query = abt::ProductQuery {
-            page: req.page.map(|p| p as i64),
-            page_size: req.page_size.map(|p| p as i64),
-            pdt_name: req.keyword,
-            term_id: req.term_id,
-            product_code: req.product_code,
-        };
-
-        let (items, total) = srv.query(query).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let filter = abt_core::master_data::product::ProductQuery {
+            name: req.keyword,
+            code: req.product_code,
+            status: None,
+            owner_department_id: None,
+        };
+        let page = PageParams::new(req.page.unwrap_or(1), req.page_size.unwrap_or(12));
+        let result = srv.list(ctx, filter, page).await
+            .map_err(domain_to_status)?;
+
         Ok(Response::new(ProductListResponse {
-            items: items.into_iter().map(|p| p.into()).collect(),
-            total: total as u64,
+            items: result.items.into_iter().map(|p| p.into()).collect(),
+            total: result.total as u64,
             page: req.page.unwrap_or(1),
             page_size: req.page_size.unwrap_or(12),
         }))
@@ -69,9 +74,12 @@ impl GrpcProductService for ProductHandler {
         let state = AppState::get().await;
         let srv = state.product_service();
 
-        let product = srv.find(req.product_id).await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("Product", &req.product_id.to_string()))?;
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let product = srv.get(ctx, req.product_id).await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(product.into()))
     }
@@ -85,8 +93,12 @@ impl GrpcProductService for ProductHandler {
         let state = AppState::get().await;
         let srv = state.product_service();
 
-        let products = srv.find_by_ids(&req.product_ids).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let products = srv.get_by_ids(ctx, req.product_ids).await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(ProductsResponse {
             items: products.into_iter().map(|p| p.into()).collect(),
@@ -98,38 +110,34 @@ impl GrpcProductService for ProductHandler {
         &self,
         request: Request<CreateProductRequest>,
     ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let product = abt::Product {
-            product_id: 0,
-            pdt_name: req.pdt_name,
-            product_code: req.product_code,
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let create_req = abt_core::master_data::product::CreateProductReq {
+            name: req.pdt_name,
             unit: req.unit,
-            meta: req.meta.map(|m| m.into()).unwrap_or_default(),
-            term_id: req.term_id,
+            status: abt_core::master_data::product::ProductStatus::Active,
+            external_code: None,
+            owner_department_id: None,
+            meta: req.meta.map(|m| m.into()).unwrap_or(abt_core::master_data::product::ProductMeta {
+                specification: String::new(),
+                acquire_channel: String::new(),
+                old_code: None,
+            }),
         };
 
-        let id = srv.create(product, &mut tx).await
-            .map_err(error::err_to_status)?;
+        let id = srv.create(ctx, create_req).await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
-        // 自动触发 H3Yun 同步
-        if abt::h3yun::is_initialized() {
-            let sender = abt::h3yun::get_sync_event_sender().clone();
-            tokio::spawn(async move {
-                let _ = sender.send(abt::h3yun::models::SyncEvent {
-                    entity_type: abt::h3yun::models::EntityType::Product,
-                    entity_id: id,
-                    is_batch: false,
-                }).await;
-            });
-        }
+        // H3Yun 同步由 ProductServiceImpl 发布的领域事件自动触发，无需手动调用
 
         Ok(Response::new(U64Response { value: id as u64 }))
     }
@@ -139,39 +147,29 @@ impl GrpcProductService for ProductHandler {
         &self,
         request: Request<UpdateProductRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let product = abt::Product {
-            product_id: req.product_id,
-            pdt_name: req.pdt_name,
-            product_code: req.product_code,
-            unit: req.unit,
-            meta: req.meta.map(|m| m.into()).unwrap_or_default(),
-            term_id: req.term_id,
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let update_req = abt_core::master_data::product::UpdateProductReq {
+            name: Some(req.pdt_name),
+            unit: Some(req.unit),
+            external_code: None,
+            owner_department_id: None,
+            meta: req.meta.map(|m| m.into()),
         };
 
-        srv.update(req.product_id, product, &mut tx).await
-            .map_err(error::err_to_status)?;
+        srv.update(ctx, req.product_id, update_req).await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
-        // 自动触发 H3Yun 同步
-        if abt::h3yun::is_initialized() {
-            let sender = abt::h3yun::get_sync_event_sender().clone();
-            let pid = req.product_id;
-            tokio::spawn(async move {
-                let _ = sender.send(abt::h3yun::models::SyncEvent {
-                    entity_type: abt::h3yun::models::EntityType::Product,
-                    entity_id: pid,
-                    is_batch: false,
-                }).await;
-            });
-        }
+        // H3Yun 同步由 ProductServiceImpl 发布的领域事件自动触发，无需手动调用
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -181,37 +179,36 @@ impl GrpcProductService for ProductHandler {
         &self,
         request: Request<DeleteProductRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.product_service();
 
         // 先检查产品是否被 BOM 使用
-        let (is_used, boms, _total) = srv.check_product_usage(req.product_id, Some(1), Some(10)).await
+        let mut tx1 = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+        let ctx1 = ServiceContext::new(&mut tx1, 0);
+        let usage = srv.check_product_usage(ctx1, req.product_id, abt_core::master_data::product::UsageQuery {
+            page: 1,
+            page_size: 10,
+        }).await.map_err(domain_to_status)?;
+        drop(tx1);
 
-        if is_used {
-            let bom_names: Vec<String> = boms.iter().map(|b| b.bom_name.clone()).collect();
+        if !usage.items.is_empty() {
+            let names: Vec<String> = usage.items.iter().map(|b| b.source_name.clone()).collect();
             return Err(tonic::Status::failed_precondition(
-                format!("产品正在以下 BOM 中使用，无法删除: {}", bom_names.join(", "))
+                format!("产品正在以下 BOM 中使用，无法删除: {}", names.join(", "))
             ));
         }
 
-        let mut tx = state.begin_transaction().await
+        let mut tx2 = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+        let ctx2 = ServiceContext::new(&mut tx2, auth.user_id);
+        srv.delete(ctx2, req.product_id).await
+            .map_err(domain_to_status)?;
+        tx2.commit().await.map_err(error::sqlx_err_to_status)?;
 
-        srv.delete(req.product_id, &mut tx).await
-            .map_err(error::err_to_status)?;
-
-        tx.commit().await.map_err(error::sqlx_err_to_status)?;
-
-        // 异步删除 H3Yun 同步记录（不阻塞主流程）
-        if abt::h3yun::is_initialized() {
-            let pool = AppState::get().await.pool();
-            let client = abt::h3yun::get_h3yun_client().clone();
-            tokio::spawn(async move {
-                abt::h3yun::product_sync::delete_product_sync(&pool, &client, req.product_id).await;
-            });
-        }
+        // H3Yun 同步由 ProductServiceImpl 发布的领域事件自动触发，无需手动调用
 
         Ok(Response::new(BoolResponse { value: true }))
     }
@@ -225,16 +222,22 @@ impl GrpcProductService for ProductHandler {
         let state = AppState::get().await;
         let srv = state.product_service();
 
-        let (is_used, boms, total) = srv.check_product_usage(req.product_id, req.page, req.page_size).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let result = srv.check_product_usage(ctx, req.product_id, abt_core::master_data::product::UsageQuery {
+            page: req.page.unwrap_or(1),
+            page_size: req.page_size.unwrap_or(10),
+        }).await.map_err(domain_to_status)?;
+
         Ok(Response::new(CheckProductUsageResponse {
-            is_used,
-            used_in_boms: boms.into_iter().map(|b| BomReference {
-                bom_id: b.bom_id,
-                bom_name: b.bom_name,
+            is_used: !result.items.is_empty(),
+            used_in_boms: result.items.into_iter().map(|b| BomReference {
+                bom_id: b.source_id,
+                bom_name: b.source_name,
             }).collect(),
-            total_boms: total,
+            total_boms: result.total as i64,
         }))
     }
 
@@ -262,10 +265,16 @@ impl GrpcProductService for ProductHandler {
             None
         };
 
-        let is_new = srv
-            .watch_product(auth.user_id, req.product_id, override_val)
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+
+        let is_new = srv
+            .watch_product(ctx, req.product_id, override_val)
+            .await
+            .map_err(domain_to_status)?;
+
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(WatchProductResponse { is_new }))
     }
@@ -279,10 +288,16 @@ impl GrpcProductService for ProductHandler {
         let state = AppState::get().await;
         let srv = state.product_watcher_service();
 
-        let found = srv
-            .unwatch_product(auth.user_id, req.product_id)
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+
+        let found = srv
+            .unwatch_product(ctx, req.product_id)
+            .await
+            .map_err(domain_to_status)?;
+
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(BoolResponse { value: found }))
     }
@@ -299,13 +314,18 @@ impl GrpcProductService for ProductHandler {
         let page = req.page.unwrap_or(1);
         let page_size = req.page_size.unwrap_or(20);
 
-        let (items, total) = srv
-            .list_watched_products(auth.user_id, page, page_size)
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+
+        let result = srv
+            .list_watched_products(ctx, page, page_size)
+            .await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(ListWatchedProductsResponse {
-            items: items
+            items: result
+                .items
                 .into_iter()
                 .map(|p| WatchedProduct {
                     product_id: p.product_id,
@@ -316,7 +336,7 @@ impl GrpcProductService for ProductHandler {
                     is_alerting: p.is_alerting,
                 })
                 .collect(),
-            total: total as u64,
+            total: result.total as u64,
             page,
             page_size,
         }))

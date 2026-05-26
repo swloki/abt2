@@ -5,7 +5,7 @@ use serde_json::Value;
 use std::time::Duration;
 use tracing::warn;
 
-use super::models::{H3YunFilter, H3YunRequest, H3YunResponse, SyncError, action};
+use crate::h3yun::models::{H3YunFilter, H3YunRequest, H3YunResponse, SyncError, action};
 
 const DEFAULT_ENDPOINT: &str = "https://www.h3yun.com/OpenApi/Invoke";
 const DEFAULT_ENGINE_CODE: &str = "wkcmav3emlzu0l1smysmopu85";

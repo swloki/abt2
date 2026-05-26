@@ -3,7 +3,7 @@
 use anyhow::Result;
 use sqlx::PgPool;
 
-use super::models::{EntityType, SyncState};
+use crate::h3yun::models::{EntityType, SyncState};
 
 pub struct SyncStateRepo;
 
@@ -110,12 +110,12 @@ impl SyncStateRepo {
         Ok(rows)
     }
 
+    /// 查询 abt_v2 中从未同步过的产品 ID 列表
     pub async fn find_entity_ids_never_synced(
         pool: &PgPool,
         entity_type: EntityType,
         limit: i64,
     ) -> Result<Vec<i64>> {
-        // Find products that either have no sync_state row at all, or have one but never completed
         let rows = sqlx::query_scalar::<_, i64>(
             r#"
             SELECT p.product_id
@@ -123,6 +123,7 @@ impl SyncStateRepo {
             LEFT JOIN h3yun_sync_state s
                 ON s.entity_id = p.product_id AND s.entity_type = $1
             WHERE (s.id IS NULL OR s.last_synced_at IS NULL)
+              AND p.deleted_at IS NULL
             LIMIT $2
             "#,
         )

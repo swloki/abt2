@@ -1,6 +1,6 @@
 use rust_decimal::Decimal;
 use sqlx::{FromRow, Row};
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{ProductWithoutPriceRow, StockExportRow, StockFilter, StockLedger, UpsertStockReq};
 use crate::shared::types::pagination::PaginatedResult;
@@ -12,7 +12,7 @@ impl StockLedgerRepo {
     pub async fn upsert(
         executor: &mut sqlx::postgres::PgConnection,
         req: &UpsertStockReq,
-    ) -> RepoResult<StockLedger> {
+    ) -> Result<StockLedger> {
         let batch = req.batch_no.as_deref().unwrap_or("");
         let row = sqlx::query(
             r#"
@@ -50,7 +50,7 @@ impl StockLedgerRepo {
         zone_id: i64,
         bin_id: i64,
         batch_no: Option<&str>,
-    ) -> RepoResult<Option<StockLedger>> {
+    ) -> Result<Option<StockLedger>> {
         let batch = batch_no.unwrap_or("");
         let row = sqlx::query(
             r#"
@@ -81,7 +81,7 @@ impl StockLedgerRepo {
         executor: &mut sqlx::postgres::PgConnection,
         product_id: i64,
         warehouse_id: Option<i64>,
-    ) -> RepoResult<Decimal> {
+    ) -> Result<Decimal> {
         let row = if let Some(wh) = warehouse_id {
             sqlx::query(
                 "SELECT COALESCE(SUM(quantity - reserved_qty), 0) as total FROM stock_ledger WHERE product_id = $1 AND warehouse_id = $2",
@@ -107,7 +107,7 @@ impl StockLedgerRepo {
         filter: &StockFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<StockLedger>> {
+    ) -> Result<PaginatedResult<StockLedger>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         // 动态构建 WHERE 条件
@@ -172,7 +172,7 @@ impl StockLedgerRepo {
         zone_id: i64,
         bin_id: i64,
         quantity: Decimal,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO stock_ledger (product_id, warehouse_id, zone_id, bin_id, quantity, available_qty, updated_at)
@@ -201,7 +201,7 @@ impl StockLedgerRepo {
         zone_id: i64,
         bin_id: i64,
         safety_stock: Decimal,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             r#"
             INSERT INTO stock_ledger (product_id, warehouse_id, zone_id, bin_id, quantity, available_qty, safety_stock, updated_at)
@@ -223,7 +223,7 @@ impl StockLedgerRepo {
     // ---- Excel 导出辅助方法 ----
 
     /// 列出所有库存数据用于 Excel 导出，关联产品/仓库/库区/储位/价格/分类信息
-    pub async fn list_for_export(executor: &mut sqlx::postgres::PgConnection) -> RepoResult<Vec<StockExportRow>> {
+    pub async fn list_for_export(executor: &mut sqlx::postgres::PgConnection) -> Result<Vec<StockExportRow>> {
         let rows = sqlx::query_as::<sqlx::Postgres, StockExportRow>(
             r#"
             SELECT
@@ -249,7 +249,7 @@ impl StockLedgerRepo {
     }
 
     /// 查询没有价格记录的产品（用于 Excel 导入校验提示）
-    pub async fn find_products_without_price(executor: &mut sqlx::postgres::PgConnection) -> RepoResult<Vec<ProductWithoutPriceRow>> {
+    pub async fn find_products_without_price(executor: &mut sqlx::postgres::PgConnection) -> Result<Vec<ProductWithoutPriceRow>> {
         let rows = sqlx::query_as::<sqlx::Postgres, ProductWithoutPriceRow>(
             r#"
             SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta->>'specification' as specification

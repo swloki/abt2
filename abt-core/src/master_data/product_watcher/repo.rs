@@ -1,6 +1,6 @@
 use crate::shared::types::PgExecutor;
 use rust_decimal::Decimal;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{LowStockWatchedProduct, WatchedProductWithInventory};
 use crate::shared::types::pagination::PaginatedResult;
@@ -14,7 +14,7 @@ impl ProductWatcherRepo {
         user_id: i64,
         product_id: i64,
         safety_stock_override: Option<Decimal>,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let row = sqlx::query_as::<_, (bool,)>(
             r#"
             INSERT INTO product_watchers (user_id, product_id, safety_stock_override, updated_at)
@@ -34,7 +34,7 @@ impl ProductWatcherRepo {
     }
 
     /// 取消关注
-    pub async fn delete(executor: PgExecutor<'_>, user_id: i64, product_id: i64) -> RepoResult<bool> {
+    pub async fn delete(executor: PgExecutor<'_>, user_id: i64, product_id: i64) -> Result<bool> {
         let result = sqlx::query(
             "DELETE FROM product_watchers WHERE user_id = $1 AND product_id = $2",
         )
@@ -46,7 +46,7 @@ impl ProductWatcherRepo {
     }
 
     /// 查询用户关注产品的数量
-    pub async fn count_by_user(executor: PgExecutor<'_>, user_id: i64) -> RepoResult<i64> {
+    pub async fn count_by_user(executor: PgExecutor<'_>, user_id: i64) -> Result<i64> {
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM product_watchers WHERE user_id = $1",
         )
@@ -62,7 +62,7 @@ impl ProductWatcherRepo {
         user_id: i64,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<WatchedProductWithInventory>> {
+    ) -> Result<PaginatedResult<WatchedProductWithInventory>> {
         let page = page.max(1);
         let page_size = page_size.clamp(1, 100);
         let offset = (page - 1) * page_size;
@@ -101,7 +101,7 @@ impl ProductWatcherRepo {
     /// 查询被关注的低库存产品（Worker 用）
     pub async fn find_watched_low_stock_products(
         executor: PgExecutor<'_>,
-    ) -> RepoResult<Vec<LowStockWatchedProduct>> {
+    ) -> Result<Vec<LowStockWatchedProduct>> {
         let rows = sqlx::query_as::<_, LowStockWatchedProduct>(
             r#"
             SELECT
@@ -128,7 +128,7 @@ impl ProductWatcherRepo {
     pub async fn batch_get_alert_status(
         executor: PgExecutor<'_>,
         product_ids: &[i64],
-    ) -> RepoResult<Vec<(i64, i64, bool)>> {
+    ) -> Result<Vec<(i64, i64, bool)>> {
         if product_ids.is_empty() {
             return Ok(vec![]);
         }
@@ -145,7 +145,7 @@ impl ProductWatcherRepo {
     pub async fn batch_activate_alerts(
         executor: PgExecutor<'_>,
         pairs: &[(i64, i64)],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         if pairs.is_empty() {
             return Ok(());
         }
@@ -169,7 +169,7 @@ impl ProductWatcherRepo {
     pub async fn batch_clear_recovered(
         executor: PgExecutor<'_>,
         low_stock_product_ids: &[i64],
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         if low_stock_product_ids.is_empty() {
             return Ok(0);
         }

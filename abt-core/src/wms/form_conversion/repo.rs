@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{
     ConversionFilter, ConversionItem, CreateConversionItemReq, CreateConversionReq,
@@ -16,7 +16,7 @@ impl FormConversionRepo {
         doc_number: &str,
         req: &CreateConversionReq,
         operator_id: i64,
-    ) -> RepoResult<FormConversion> {
+    ) -> Result<FormConversion> {
         let row = sqlx::query(
             r#"
             INSERT INTO form_conversions
@@ -50,7 +50,7 @@ impl FormConversionRepo {
         executor: &mut sqlx::postgres::PgConnection,
         conversion_id: i64,
         item: &CreateConversionItemReq,
-    ) -> RepoResult<ConversionItem> {
+    ) -> Result<ConversionItem> {
         let row = sqlx::query(
             r#"
             INSERT INTO conversion_items
@@ -76,7 +76,7 @@ impl FormConversionRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<FormConversion>> {
+    ) -> Result<Option<FormConversion>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, warehouse_id, conversion_date, status,
@@ -97,7 +97,7 @@ impl FormConversionRepo {
     pub async fn get_items(
         executor: &mut sqlx::postgres::PgConnection,
         conversion_id: i64,
-    ) -> RepoResult<Vec<ConversionItem>> {
+    ) -> Result<Vec<ConversionItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, conversion_id, direction, product_id, quantity,
@@ -121,7 +121,7 @@ impl FormConversionRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: super::super::enums::ConversionStatus,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE form_conversions
@@ -143,7 +143,7 @@ impl FormConversionRepo {
         filter: &ConversionFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<FormConversion>> {
+    ) -> Result<PaginatedResult<FormConversion>> {
         let offset = page.saturating_sub(1) * page_size;
 
         let mut where_clauses = vec!["1=1".to_string()];

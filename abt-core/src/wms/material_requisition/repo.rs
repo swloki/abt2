@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::super::enums::RequisitionStatus;
 use super::model::{MaterialReqItem, MaterialRequisition, RequisitionFilter};
@@ -17,7 +17,7 @@ impl MaterialRequisitionRepo {
         requisition_date: NaiveDate,
         warehouse_id: i64,
         operator_id: i64,
-    ) -> RepoResult<MaterialRequisition> {
+    ) -> Result<MaterialRequisition> {
         let row = sqlx::query(
             r#"
             INSERT INTO material_requisitions
@@ -44,7 +44,7 @@ impl MaterialRequisitionRepo {
         requisition_id: i64,
         product_id: i64,
         requested_qty: Decimal,
-    ) -> RepoResult<MaterialReqItem> {
+    ) -> Result<MaterialReqItem> {
         let row = sqlx::query(
             r#"
             INSERT INTO material_requisition_items
@@ -65,7 +65,7 @@ impl MaterialRequisitionRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<MaterialRequisition>> {
+    ) -> Result<Option<MaterialRequisition>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, requisition_date, status,
@@ -85,7 +85,7 @@ impl MaterialRequisitionRepo {
     pub async fn get_items(
         executor: &mut sqlx::postgres::PgConnection,
         requisition_id: i64,
-    ) -> RepoResult<Vec<MaterialReqItem>> {
+    ) -> Result<Vec<MaterialReqItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, requisition_id, product_id, requested_qty, issued_qty, variance_qty, bin_id
@@ -110,7 +110,7 @@ impl MaterialRequisitionRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: RequisitionStatus,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE material_requisitions
@@ -132,7 +132,7 @@ impl MaterialRequisitionRepo {
         issued_qty: Decimal,
         variance_qty: Decimal,
         bin_id: Option<i64>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE material_requisition_items
@@ -155,7 +155,7 @@ impl MaterialRequisitionRepo {
         filter: &RequisitionFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<MaterialRequisition>> {
+    ) -> Result<PaginatedResult<MaterialRequisition>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["deleted_at IS NULL".to_string()];
@@ -229,7 +229,7 @@ impl MaterialRequisitionRepo {
     pub async fn soft_delete(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE material_requisitions

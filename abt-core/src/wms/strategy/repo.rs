@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{PickStrategy, PutawayStrategy};
 use crate::wms::enums::{PickType, PutawayType};
@@ -14,7 +14,7 @@ impl StrategyRepo {
         strategy_type: PutawayType,
         warehouse_id: Option<i64>,
         priority: i32,
-    ) -> RepoResult<PutawayStrategy> {
+    ) -> Result<PutawayStrategy> {
         let row = sqlx::query(
             r#"
             INSERT INTO putaway_strategies (name, strategy_type, warehouse_id, priority, is_active)
@@ -36,7 +36,7 @@ impl StrategyRepo {
     pub async fn list_putaway(
         executor: &mut sqlx::postgres::PgConnection,
         warehouse_id: Option<i64>,
-    ) -> RepoResult<Vec<PutawayStrategy>> {
+    ) -> Result<Vec<PutawayStrategy>> {
         let rows = if let Some(wh) = warehouse_id {
             sqlx::query(
                 r#"
@@ -74,7 +74,7 @@ impl StrategyRepo {
         strategy_type: PickType,
         warehouse_id: Option<i64>,
         priority: i32,
-    ) -> RepoResult<PickStrategy> {
+    ) -> Result<PickStrategy> {
         let row = sqlx::query(
             r#"
             INSERT INTO pick_strategies (name, strategy_type, warehouse_id, priority, is_active)
@@ -96,7 +96,7 @@ impl StrategyRepo {
     pub async fn list_pick(
         executor: &mut sqlx::postgres::PgConnection,
         warehouse_id: Option<i64>,
-    ) -> RepoResult<Vec<PickStrategy>> {
+    ) -> Result<Vec<PickStrategy>> {
         let rows = if let Some(wh) = warehouse_id {
             sqlx::query(
                 r#"

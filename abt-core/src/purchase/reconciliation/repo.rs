@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use sqlx::Row;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{PurchaseReconciliation, PurchaseReconItem, PurchaseReconciliationQuery};
 use crate::purchase::enums::PurchaseReconStatus;
@@ -19,7 +19,7 @@ impl PurchaseReconciliationRepo {
         doc_number: &str,
         remark: &str,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO purchase_reconciliations
@@ -48,7 +48,7 @@ impl PurchaseReconciliationRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<PurchaseReconciliation>> {
+    ) -> Result<Option<PurchaseReconciliation>> {
         sqlx::query_as::<_, PurchaseReconciliation>(
             r#"
             SELECT id, doc_number, supplier_id, period, status, total_amount,
@@ -68,7 +68,7 @@ impl PurchaseReconciliationRepo {
         executor: &mut sqlx::postgres::PgConnection,
         q: &PurchaseReconciliationQuery,
         page: &PageParams,
-    ) -> RepoResult<(Vec<PurchaseReconciliation>, u64)> {
+    ) -> Result<(Vec<PurchaseReconciliation>, u64)> {
         let where_clause = "
             WHERE deleted_at IS NULL
               AND ($1::bigint IS NULL OR supplier_id = $1)
@@ -115,7 +115,7 @@ impl PurchaseReconciliationRepo {
         id: i64,
         status: PurchaseReconStatus,
         updated_at: &DateTime<Utc>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE purchase_reconciliations
@@ -139,7 +139,7 @@ impl PurchaseReconciliationRepo {
         confirmed_amount: Decimal,
         difference: Decimal,
         updated_at: &DateTime<Utc>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE purchase_reconciliations
@@ -170,7 +170,7 @@ impl PurchaseReconItemRepo {
         executor: &mut sqlx::postgres::PgConnection,
         reconciliation_id: i64,
         items: &[NewReconItem],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         for item in items {
             sqlx::query(
                 r#"
@@ -199,7 +199,7 @@ impl PurchaseReconItemRepo {
     pub async fn list_by_reconciliation_id(
         executor: &mut sqlx::postgres::PgConnection,
         reconciliation_id: i64,
-    ) -> RepoResult<Vec<PurchaseReconItem>> {
+    ) -> Result<Vec<PurchaseReconItem>> {
         sqlx::query_as::<_, PurchaseReconItem>(
             r#"
             SELECT id, reconciliation_id, order_id, order_item_id, received_qty,
@@ -217,7 +217,7 @@ impl PurchaseReconItemRepo {
     pub async fn confirm_item(
         executor: &mut sqlx::postgres::PgConnection,
         item_id: i64,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE purchase_recon_items

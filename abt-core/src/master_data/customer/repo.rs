@@ -1,5 +1,5 @@
 use crate::shared::types::PgExecutor;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
@@ -19,7 +19,7 @@ impl CustomerRepo {
         customer_code: &str,
         req: &CreateCustomerReq,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO customers (customer_code, customer_name, short_name, category, status, tax_number, invoice_title, credit_limit, payment_terms, receivable_account, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -48,7 +48,7 @@ impl CustomerRepo {
         executor: PgExecutor<'_>,
         id: i64,
         req: &UpdateCustomerReq,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -139,7 +139,7 @@ impl CustomerRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
         sqlx::query("UPDATE customers SET deleted_at = NOW() WHERE customer_id = $1 AND deleted_at IS NULL")
             .bind(id)
             .execute(executor)
@@ -151,7 +151,7 @@ impl CustomerRepo {
         &self,
         executor: PgExecutor<'_>,
         id: i64,
-    ) -> RepoResult<Option<Customer>> {
+    ) -> Result<Option<Customer>> {
         let customer = sqlx::query_as::<sqlx::Postgres, Customer>(
             &format!("SELECT {CUSTOMER_COLUMNS} FROM customers WHERE customer_id = $1 AND deleted_at IS NULL"),
         )
@@ -170,7 +170,7 @@ impl CustomerRepo {
         data_scope: DataScope,
         scope_operator_id: i64,
         scope_department_id: Option<i64>,
-    ) -> RepoResult<PaginatedResult<Customer>> {
+    ) -> Result<PaginatedResult<Customer>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -286,7 +286,7 @@ impl CustomerRepo {
         &self,
         executor: PgExecutor<'_>,
         tax_number: &str,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let count: i64 = sqlx::query_scalar(
             r#"SELECT (
                 (SELECT COUNT(*) FROM customers WHERE tax_number = $1 AND deleted_at IS NULL) +
@@ -305,7 +305,7 @@ impl CustomerRepo {
         id: i64,
         owner_id: Option<i64>,
         department_id: Option<i64>,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             "UPDATE customers SET owner_id = $2, department_id = $3, updated_at = NOW() WHERE customer_id = $1 AND deleted_at IS NULL",
         )
@@ -332,7 +332,7 @@ impl CustomerContactRepo {
         executor: PgExecutor<'_>,
         customer_id: i64,
         req: &CreateContactReq,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO customer_contacts (customer_id, contact_name, phone, email, position, is_primary)
                VALUES ($1, $2, $3, $4, $5, $6)
@@ -355,7 +355,7 @@ impl CustomerContactRepo {
         executor: PgExecutor<'_>,
         contact_id: i64,
         req: &UpdateContactReq,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -410,7 +410,7 @@ impl CustomerContactRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, contact_id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, contact_id: i64) -> Result<()> {
         sqlx::query("DELETE FROM customer_contacts WHERE contact_id = $1")
             .bind(contact_id)
             .execute(executor)
@@ -422,7 +422,7 @@ impl CustomerContactRepo {
         &self,
         executor: PgExecutor<'_>,
         contact_id: i64,
-    ) -> RepoResult<Option<CustomerContact>> {
+    ) -> Result<Option<CustomerContact>> {
         let contact = sqlx::query_as::<sqlx::Postgres, CustomerContact>(
             &format!("SELECT {CONTACT_COLUMNS} FROM customer_contacts WHERE contact_id = $1"),
         )
@@ -436,7 +436,7 @@ impl CustomerContactRepo {
         &self,
         executor: PgExecutor<'_>,
         customer_id: i64,
-    ) -> RepoResult<Vec<CustomerContact>> {
+    ) -> Result<Vec<CustomerContact>> {
         let contacts = sqlx::query_as::<sqlx::Postgres, CustomerContact>(
             &format!("SELECT {CONTACT_COLUMNS} FROM customer_contacts WHERE customer_id = $1 ORDER BY is_primary DESC, contact_id"),
         )
@@ -461,7 +461,7 @@ impl CustomerAddressRepo {
         executor: PgExecutor<'_>,
         customer_id: i64,
         req: &CreateAddressReq,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO customer_addresses (customer_id, address_type, province, city, district, detail, contact_name, contact_phone, is_default)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -487,7 +487,7 @@ impl CustomerAddressRepo {
         executor: PgExecutor<'_>,
         address_id: i64,
         req: &UpdateAddressReq,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -563,7 +563,7 @@ impl CustomerAddressRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, address_id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, address_id: i64) -> Result<()> {
         sqlx::query("DELETE FROM customer_addresses WHERE address_id = $1")
             .bind(address_id)
             .execute(executor)
@@ -575,7 +575,7 @@ impl CustomerAddressRepo {
         &self,
         executor: PgExecutor<'_>,
         address_id: i64,
-    ) -> RepoResult<Option<CustomerAddress>> {
+    ) -> Result<Option<CustomerAddress>> {
         let address = sqlx::query_as::<sqlx::Postgres, CustomerAddress>(
             &format!("SELECT {ADDRESS_COLUMNS} FROM customer_addresses WHERE address_id = $1"),
         )
@@ -589,7 +589,7 @@ impl CustomerAddressRepo {
         &self,
         executor: PgExecutor<'_>,
         customer_id: i64,
-    ) -> RepoResult<Vec<CustomerAddress>> {
+    ) -> Result<Vec<CustomerAddress>> {
         let addresses = sqlx::query_as::<sqlx::Postgres, CustomerAddress>(
             &format!("SELECT {ADDRESS_COLUMNS} FROM customer_addresses WHERE customer_id = $1 ORDER BY is_default DESC, address_id"),
         )

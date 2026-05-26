@@ -1,5 +1,5 @@
 use crate::shared::types::PgExecutor;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
@@ -24,7 +24,7 @@ impl ReconciliationRepo {
         total_amount: rust_decimal::Decimal,
         remark: &str,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO reconciliations (doc_number, customer_id, period, total_amount, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6)
@@ -45,7 +45,7 @@ impl ReconciliationRepo {
         &self,
         executor: PgExecutor<'_>,
         id: i64,
-    ) -> RepoResult<Option<Reconciliation>> {
+    ) -> Result<Option<Reconciliation>> {
         let rec = sqlx::query_as::<sqlx::Postgres, Reconciliation>(
             &format!("SELECT {REC_COLUMNS} FROM reconciliations WHERE id = $1 AND deleted_at IS NULL"),
         )
@@ -60,7 +60,7 @@ impl ReconciliationRepo {
         executor: PgExecutor<'_>,
         customer_id: i64,
         period: &str,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let count = sqlx::query_scalar::<sqlx::Postgres, i64>(
             "SELECT COUNT(*) FROM reconciliations WHERE customer_id = $1 AND period = $2 AND deleted_at IS NULL",
         )
@@ -76,7 +76,7 @@ impl ReconciliationRepo {
         executor: PgExecutor<'_>,
         id: i64,
         status: ReconciliationStatus,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             "UPDATE reconciliations SET status = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -93,7 +93,7 @@ impl ReconciliationRepo {
         id: i64,
         confirmed_amount: rust_decimal::Decimal,
         difference: rust_decimal::Decimal,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             "UPDATE reconciliations SET confirmed_amount = $2, difference = $3, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -114,7 +114,7 @@ impl ReconciliationRepo {
         data_scope: DataScope,
         scope_operator_id: i64,
         _scope_department_id: Option<i64>,
-    ) -> RepoResult<PaginatedResult<Reconciliation>> {
+    ) -> Result<PaginatedResult<Reconciliation>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -204,7 +204,7 @@ impl ReconciliationItemRepo {
         executor: PgExecutor<'_>,
         reconciliation_id: i64,
         items: &[ReconciliationItemInput],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         for item in items {
             sqlx::query(
                 r#"INSERT INTO reconciliation_items (reconciliation_id, shipping_request_id, sales_order_id, product_id, quantity, unit_price, amount, confirmed)
@@ -228,7 +228,7 @@ impl ReconciliationItemRepo {
         &self,
         executor: PgExecutor<'_>,
         reconciliation_id: i64,
-    ) -> RepoResult<Vec<ReconciliationItem>> {
+    ) -> Result<Vec<ReconciliationItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, ReconciliationItem>(
             &format!("SELECT {ITEM_COLUMNS} FROM reconciliation_items WHERE reconciliation_id = $1 ORDER BY id"),
         )
@@ -242,7 +242,7 @@ impl ReconciliationItemRepo {
         &self,
         executor: PgExecutor<'_>,
         reconciliation_id: i64,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let unconfirmed = sqlx::query_scalar::<sqlx::Postgres, i64>(
             "SELECT COUNT(*) FROM reconciliation_items WHERE reconciliation_id = $1 AND confirmed = FALSE",
         )
@@ -272,7 +272,7 @@ pub async fn aggregate_shipping_items(
     executor: PgExecutor<'_>,
     customer_id: i64,
     period: &str,
-) -> RepoResult<Vec<AggregatedShippingItem>> {
+) -> Result<Vec<AggregatedShippingItem>> {
     let items = sqlx::query_as::<sqlx::Postgres, AggregatedShippingItem>(
         r#"SELECT
             sr.id AS shipping_request_id,

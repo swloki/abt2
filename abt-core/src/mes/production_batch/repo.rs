@@ -3,7 +3,7 @@
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use super::super::enums::*;
@@ -21,7 +21,7 @@ impl ProductionBatchRepo {
         batch_no: &str,
         card_sn: &str,
         operator_id: i64,
-    ) -> RepoResult<ProductionBatch> {
+    ) -> Result<ProductionBatch> {
         let row = sqlx::query(
             r#"
             INSERT INTO production_batches
@@ -51,7 +51,7 @@ impl ProductionBatchRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<ProductionBatch>> {
+    ) -> Result<Option<ProductionBatch>> {
         let row = sqlx::query(
             r#"
             SELECT id, batch_no, card_sn, work_order_id, product_id, batch_qty,
@@ -72,7 +72,7 @@ impl ProductionBatchRepo {
     pub async fn list_by_work_order(
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
-    ) -> RepoResult<Vec<ProductionBatch>> {
+    ) -> Result<Vec<ProductionBatch>> {
         let rows = sqlx::query(
             r#"
             SELECT id, batch_no, card_sn, work_order_id, product_id, batch_qty,
@@ -99,7 +99,7 @@ impl ProductionBatchRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: BatchStatus,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE production_batches
@@ -120,7 +120,7 @@ impl ProductionBatchRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         current_step: i32,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE production_batches
@@ -152,7 +152,7 @@ impl WorkOrderRoutingRepo {
     pub async fn insert_for_work_order(
         executor: &mut sqlx::postgres::PgConnection,
         steps: &[WorkOrderRouting],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         for step in steps {
             sqlx::query(
                 r#"
@@ -187,7 +187,7 @@ impl WorkOrderRoutingRepo {
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
         step_no: i32,
-    ) -> RepoResult<Option<WorkOrderRouting>> {
+    ) -> Result<Option<WorkOrderRouting>> {
         let row = sqlx::query(
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
@@ -210,7 +210,7 @@ impl WorkOrderRoutingRepo {
     pub async fn get_by_work_order_id(
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
-    ) -> RepoResult<Vec<WorkOrderRouting>> {
+    ) -> Result<Vec<WorkOrderRouting>> {
         let rows = sqlx::query(
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
@@ -240,7 +240,7 @@ impl WorkOrderRoutingRepo {
         id: i64,
         completed_delta: Decimal,
         defect_delta: Decimal,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE work_order_routings
@@ -263,7 +263,7 @@ impl WorkOrderRoutingRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: RoutingStatus,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE work_order_routings
@@ -324,7 +324,7 @@ impl WorkReportRepo {
         work_hours: Decimal,
         remark: &str,
         operator_id: i64,
-    ) -> RepoResult<(WorkReportRow, bool)> {
+    ) -> Result<(WorkReportRow, bool)> {
         let row = sqlx::query(
             r#"
             INSERT INTO work_reports

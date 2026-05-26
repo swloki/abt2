@@ -1,5 +1,5 @@
 use crate::shared::types::PgExecutor;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
@@ -7,7 +7,7 @@ use crate::shared::types::{PageParams, PaginatedResult};
 pub struct LaborProcessDictRepo;
 
 impl LaborProcessDictRepo {
-    pub async fn create(&self, executor: PgExecutor<'_>, code: &str, req: &CreateLaborProcessDictReq, operator_id: i64) -> RepoResult<i64> {
+    pub async fn create(&self, executor: PgExecutor<'_>, code: &str, req: &CreateLaborProcessDictReq, operator_id: i64) -> Result<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO labor_process_dicts (code, name, description, sort_order, operator_id)
                VALUES ($1, $2, $3, $4, $5)
@@ -24,7 +24,7 @@ impl LaborProcessDictRepo {
     }
 
     #[allow(unused_assignments)]
-    pub async fn update(&self, executor: PgExecutor<'_>, id: i64, req: &UpdateLaborProcessDictReq, operator_id: i64) -> RepoResult<()> {
+    pub async fn update(&self, executor: PgExecutor<'_>, id: i64, req: &UpdateLaborProcessDictReq, operator_id: i64) -> Result<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -50,7 +50,7 @@ impl LaborProcessDictRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
         sqlx::query("UPDATE labor_process_dicts SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
             .bind(id)
             .execute(executor)
@@ -58,7 +58,7 @@ impl LaborProcessDictRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<LaborProcessDict>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<LaborProcessDict>> {
         let row = sqlx::query_as::<sqlx::Postgres, LaborProcessDict>(
             "SELECT id, code, name, description, sort_order, operator_id, created_at, updated_at, deleted_at FROM labor_process_dicts WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -68,7 +68,7 @@ impl LaborProcessDictRepo {
         Ok(row)
     }
 
-    pub async fn exists_routing_step_reference(&self, executor: PgExecutor<'_>, code: &str) -> RepoResult<bool> {
+    pub async fn exists_routing_step_reference(&self, executor: PgExecutor<'_>, code: &str) -> Result<bool> {
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM routing_steps WHERE process_code = $1",
         )
@@ -79,7 +79,7 @@ impl LaborProcessDictRepo {
     }
 
     #[allow(unused_assignments)]
-    pub async fn query(&self, executor: PgExecutor<'_>, filter: &LaborProcessDictQuery, page: &PageParams) -> RepoResult<PaginatedResult<LaborProcessDict>> {
+    pub async fn query(&self, executor: PgExecutor<'_>, filter: &LaborProcessDictQuery, page: &PageParams) -> Result<PaginatedResult<LaborProcessDict>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -115,7 +115,7 @@ impl LaborProcessDictRepo {
     }
 
     /// Return codes that already exist in the DB (for Excel import deduplication)
-    pub async fn find_existing_codes(&self, executor: PgExecutor<'_>, codes: &[String]) -> RepoResult<Vec<String>> {
+    pub async fn find_existing_codes(&self, executor: PgExecutor<'_>, codes: &[String]) -> Result<Vec<String>> {
         if codes.is_empty() {
             return Ok(vec![]);
         }
@@ -129,7 +129,7 @@ impl LaborProcessDictRepo {
     }
 
     /// List all active labor process dicts (for Excel export)
-    pub async fn list_all(&self, executor: PgExecutor<'_>) -> RepoResult<Vec<LaborProcessDict>> {
+    pub async fn list_all(&self, executor: PgExecutor<'_>) -> Result<Vec<LaborProcessDict>> {
         let rows = sqlx::query_as::<sqlx::Postgres, LaborProcessDict>(
             "SELECT id, code, name, description, sort_order, operator_id, created_at, updated_at, deleted_at \
              FROM labor_process_dicts WHERE deleted_at IS NULL ORDER BY sort_order",

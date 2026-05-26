@@ -1,6 +1,6 @@
 use crate::shared::types::PgExecutor;
 use sqlx::{FromRow, Row};
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{
     Bin, BinFilter, BinInventoryStats, CreateBinReq, CreateWarehouseReq, CreateZoneReq,
@@ -33,7 +33,7 @@ impl WarehouseRepo {
         executor: &mut sqlx::postgres::PgConnection,
         req: &CreateWarehouseReq,
         operator_id: i64,
-    ) -> RepoResult<Warehouse> {
+    ) -> Result<Warehouse> {
         let row = sqlx::query(
             r#"
             INSERT INTO warehouses
@@ -63,7 +63,7 @@ impl WarehouseRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<Warehouse>> {
+    ) -> Result<Option<Warehouse>> {
         let row = sqlx::query(
             r#"
             SELECT id, code, name, warehouse_type, status, address, manager_id,
@@ -86,7 +86,7 @@ impl WarehouseRepo {
         filter: &WarehouseFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<Warehouse>> {
+    ) -> Result<PaginatedResult<Warehouse>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["deleted_at IS NULL".to_string()];
@@ -163,7 +163,7 @@ impl WarehouseRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         req: &UpdateWarehouseReq,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let mut set_clauses = Vec::new();
         let mut param_idx = 0u32;
 
@@ -243,7 +243,7 @@ impl WarehouseRepo {
     pub async fn soft_delete(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             "UPDATE warehouses SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -261,7 +261,7 @@ impl WarehouseRepo {
         executor: &mut sqlx::postgres::PgConnection,
         warehouse_id: i64,
         req: &CreateZoneReq,
-    ) -> RepoResult<Zone> {
+    ) -> Result<Zone> {
         let row = sqlx::query(
             r#"
             INSERT INTO zones (warehouse_id, code, name, zone_type, sort_order, remark)
@@ -286,7 +286,7 @@ impl WarehouseRepo {
     pub async fn list_zones(
         executor: &mut sqlx::postgres::PgConnection,
         warehouse_id: i64,
-    ) -> RepoResult<Vec<Zone>> {
+    ) -> Result<Vec<Zone>> {
         let rows = sqlx::query(
             r#"
             SELECT id, warehouse_id, code, name, zone_type, sort_order, remark,
@@ -310,7 +310,7 @@ impl WarehouseRepo {
     pub async fn get_zone_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<Zone>> {
+    ) -> Result<Option<Zone>> {
         let row = sqlx::query(
             r#"
             SELECT id, warehouse_id, code, name, zone_type, sort_order, remark,
@@ -332,7 +332,7 @@ impl WarehouseRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         req: &UpdateZoneReq,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let mut set_clauses = Vec::new();
         let mut param_idx = 0u32;
 
@@ -391,7 +391,7 @@ impl WarehouseRepo {
     pub async fn soft_delete_zone(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             "UPDATE zones SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -409,7 +409,7 @@ impl WarehouseRepo {
         executor: &mut sqlx::postgres::PgConnection,
         zone_id: i64,
         req: &CreateBinReq,
-    ) -> RepoResult<Bin> {
+    ) -> Result<Bin> {
         let row = sqlx::query(
             r#"
             INSERT INTO bins (zone_id, code, name, row_no, column_no, layer_no,
@@ -443,7 +443,7 @@ impl WarehouseRepo {
         filter: &BinFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<Bin>> {
+    ) -> Result<PaginatedResult<Bin>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["zone_id = $1".to_string(), "deleted_at IS NULL".to_string()];
@@ -507,7 +507,7 @@ impl WarehouseRepo {
     pub async fn get_bin_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<Bin>> {
+    ) -> Result<Option<Bin>> {
         let row = sqlx::query(
             r#"
             SELECT id, zone_id, code, name, row_no, column_no, layer_no,
@@ -530,7 +530,7 @@ impl WarehouseRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         req: &UpdateBinReq,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let mut set_clauses = Vec::new();
         let mut param_idx = 0u32;
 
@@ -617,7 +617,7 @@ impl WarehouseRepo {
     pub async fn soft_delete_bin(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             "UPDATE bins SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -636,7 +636,7 @@ impl WarehouseRepo {
     pub async fn find_default_zone(
         executor: &mut sqlx::postgres::PgConnection,
         warehouse_id: i64,
-    ) -> RepoResult<Option<Zone>> {
+    ) -> Result<Option<Zone>> {
         let row = sqlx::query(
             r#"
             SELECT id, warehouse_id, code, name, zone_type, sort_order, remark,
@@ -662,7 +662,7 @@ impl WarehouseRepo {
         is_active: Option<bool>,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<Bin>> {
+    ) -> Result<PaginatedResult<Bin>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec![
@@ -747,7 +747,7 @@ impl WarehouseRepo {
     pub async fn get_bin_with_warehouse(
         executor: &mut sqlx::postgres::PgConnection,
         bin_id: i64,
-    ) -> RepoResult<Option<(Bin, i64, String)>> {
+    ) -> Result<Option<(Bin, i64, String)>> {
         let row = sqlx::query(
             r#"
             SELECT b.id, b.zone_id, b.code, b.name, b.row_no, b.column_no, b.layer_no,
@@ -783,7 +783,7 @@ impl WarehouseRepo {
         warehouse_id: Option<i64>,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<super::model::BinWithWarehouse>> {
+    ) -> Result<PaginatedResult<super::model::BinWithWarehouse>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec![
@@ -886,7 +886,7 @@ impl WarehouseRepo {
     /// 获取所有 bin 及仓库信息（无分页）
     pub async fn list_all_bins_with_warehouse(
         executor: &mut sqlx::postgres::PgConnection,
-    ) -> RepoResult<Vec<super::model::BinWithWarehouse>> {
+    ) -> Result<Vec<super::model::BinWithWarehouse>> {
         let rows = sqlx::query(
             r#"
             SELECT b.id, b.zone_id, b.code, b.name, b.row_no, b.column_no, b.layer_no,
@@ -925,7 +925,7 @@ impl WarehouseRepo {
     pub async fn resolve_location_code(
         executor: &mut sqlx::postgres::PgConnection,
         code: &str,
-    ) -> RepoResult<Option<(i64, i64, i64)>> {
+    ) -> Result<Option<(i64, i64, i64)>> {
         let row = sqlx::query(
             r#"
             SELECT w.id AS warehouse_id, z.id AS zone_id, b.id AS bin_id
@@ -956,7 +956,7 @@ impl WarehouseRepo {
     /// List all warehouses / zones / bins joined for Excel export
     pub async fn list_all_for_export(
         executor: &mut sqlx::postgres::PgConnection,
-    ) -> RepoResult<Vec<WarehouseExportRow>> {
+    ) -> Result<Vec<WarehouseExportRow>> {
         let rows = sqlx::query(
             r#"
             SELECT w.id   AS warehouse_id,
@@ -991,7 +991,7 @@ impl WarehouseRepo {
     pub async fn get_warehouse_inventory_stats(
         executor: PgExecutor<'_>,
         warehouse_id: i64,
-    ) -> RepoResult<Option<WarehouseInventoryStats>> {
+    ) -> Result<Option<WarehouseInventoryStats>> {
         let row = sqlx::query_as::<_, WarehouseInventoryStats>(
             r#"
             SELECT
@@ -1018,7 +1018,7 @@ impl WarehouseRepo {
     pub async fn get_bin_inventory_stats(
         executor: PgExecutor<'_>,
         bin_id: i64,
-    ) -> RepoResult<Option<BinInventoryStats>> {
+    ) -> Result<Option<BinInventoryStats>> {
         let row = sqlx::query_as::<_, BinInventoryStats>(
             r#"
             SELECT
@@ -1045,7 +1045,7 @@ impl WarehouseRepo {
         warehouse_id: i64,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<BinInventoryStats>> {
+    ) -> Result<PaginatedResult<BinInventoryStats>> {
         let page = page.max(1);
         let page_size = page_size.clamp(1, 100);
         let offset = (page - 1) * page_size;

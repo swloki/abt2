@@ -1,7 +1,7 @@
 //! 工作流审计历史数据访问层
 
 use sqlx::PgPool;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use crate::workflow::model::WorkflowHistory;
 
@@ -17,7 +17,7 @@ impl WorkflowHistoryRepo {
         event_type: &str,
         actor_id: Option<i64>,
         payload: Option<serde_json::Value>,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let id: i64 = sqlx::query_scalar(
             "INSERT INTO workflow_history (instance_id, task_id, node_id, event_type, actor_id, payload) VALUES ($1, $2, $3, $4, $5, $6::jsonb) RETURNING id",
         )
@@ -35,7 +35,7 @@ impl WorkflowHistoryRepo {
     pub async fn list_by_instance(
         pool: &PgPool,
         instance_id: i64,
-    ) -> RepoResult<Vec<WorkflowHistory>> {
+    ) -> Result<Vec<WorkflowHistory>> {
         let rows = sqlx::query_as::<_, WorkflowHistory>(
             "SELECT id, instance_id, task_id, node_id, event_type, actor_id, payload, created_at FROM workflow_history WHERE instance_id = $1 ORDER BY created_at ASC",
         )
@@ -48,7 +48,7 @@ impl WorkflowHistoryRepo {
     pub async fn find_latest_failed_hook(
         pool: &PgPool,
         instance_id: i64,
-    ) -> RepoResult<Option<WorkflowHistory>> {
+    ) -> Result<Option<WorkflowHistory>> {
         let row = sqlx::query_as::<_, WorkflowHistory>(
             "SELECT id, instance_id, task_id, node_id, event_type, actor_id, payload, created_at FROM workflow_history WHERE instance_id = $1 AND event_type = 'hook_executed' AND payload->>'success' = 'false' ORDER BY created_at DESC LIMIT 1",
         )

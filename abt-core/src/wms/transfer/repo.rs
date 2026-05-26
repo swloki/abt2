@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{
     CreateTransferItemReq, CreateTransferReq, InventoryTransfer, TransferFilter, TransferItem,
@@ -16,7 +16,7 @@ impl TransferRepo {
         doc_number: &str,
         req: &CreateTransferReq,
         operator_id: i64,
-    ) -> RepoResult<InventoryTransfer> {
+    ) -> Result<InventoryTransfer> {
         let row = sqlx::query(
             r#"
             INSERT INTO inventory_transfers
@@ -57,7 +57,7 @@ impl TransferRepo {
         executor: &mut sqlx::postgres::PgConnection,
         transfer_id: i64,
         item: &CreateTransferItemReq,
-    ) -> RepoResult<TransferItem> {
+    ) -> Result<TransferItem> {
         let row = sqlx::query(
             r#"
             INSERT INTO transfer_items
@@ -80,7 +80,7 @@ impl TransferRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<InventoryTransfer>> {
+    ) -> Result<Option<InventoryTransfer>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, from_warehouse_id, from_zone_id, from_bin_id,
@@ -102,7 +102,7 @@ impl TransferRepo {
     pub async fn get_items(
         executor: &mut sqlx::postgres::PgConnection,
         transfer_id: i64,
-    ) -> RepoResult<Vec<TransferItem>> {
+    ) -> Result<Vec<TransferItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, transfer_id, product_id, quantity, batch_no
@@ -128,7 +128,7 @@ impl TransferRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: TransferStatus,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE inventory_transfers
@@ -150,7 +150,7 @@ impl TransferRepo {
         filter: &TransferFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<InventoryTransfer>> {
+    ) -> Result<PaginatedResult<InventoryTransfer>> {
         let offset = page.saturating_sub(1) * page_size;
 
         let mut where_clauses = vec!["1=1".to_string()];

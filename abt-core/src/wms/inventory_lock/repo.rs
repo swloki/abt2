@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{CreateLockReq, InventoryLock, LockFilter};
 use crate::shared::types::pagination::PaginatedResult;
@@ -13,7 +13,7 @@ impl InventoryLockRepo {
         doc_number: &str,
         req: &CreateLockReq,
         operator_id: i64,
-    ) -> RepoResult<InventoryLock> {
+    ) -> Result<InventoryLock> {
         let row = sqlx::query(
             r#"
             INSERT INTO inventory_locks
@@ -41,7 +41,7 @@ impl InventoryLockRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<InventoryLock>> {
+    ) -> Result<Option<InventoryLock>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, product_id, warehouse_id, locked_qty, lock_reason,
@@ -62,7 +62,7 @@ impl InventoryLockRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: LockStatus,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE inventory_locks
@@ -83,7 +83,7 @@ impl InventoryLockRepo {
         filter: &LockFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<InventoryLock>> {
+    ) -> Result<PaginatedResult<InventoryLock>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["1=1".to_string()];

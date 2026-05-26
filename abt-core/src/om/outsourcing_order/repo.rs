@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::Row;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{
     CreateOutsourcingOrderReq, OutsourcingMaterialItem, OutsourcingOrder, OutsourcingOrderQuery,
@@ -21,7 +21,7 @@ impl OutsourcingOrderRepo {
         req: &CreateOutsourcingOrderReq,
         doc_number: &str,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO outsourcing_orders
@@ -55,7 +55,7 @@ impl OutsourcingOrderRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<OutsourcingOrder>> {
+    ) -> Result<Option<OutsourcingOrder>> {
         sqlx::query_as::<_, OutsourcingOrder>(
             r#"
             SELECT id, doc_number, work_order_id, routing_id, supplier_id, product_id,
@@ -80,7 +80,7 @@ impl OutsourcingOrderRepo {
         unit_price: Option<Decimal>,
         scheduled_date: Option<NaiveDate>,
         remark: Option<&str>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE outsourcing_orders
@@ -114,7 +114,7 @@ impl OutsourcingOrderRepo {
         status: OutsourcingStatus,
         extra_set: &str,
         extra_params: &[(&str, Decimal)],
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let sql = format!(
             r#"
             UPDATE outsourcing_orders
@@ -136,7 +136,7 @@ impl OutsourcingOrderRepo {
         expected_version: i32,
         status: OutsourcingStatus,
         add_qty: Decimal,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         Self::update_status_and_version(
             executor,
             id,
@@ -153,7 +153,7 @@ impl OutsourcingOrderRepo {
         q: &OutsourcingOrderQuery,
         page: &PageParams,
         scope: (DataScope, i64, Option<i64>),
-    ) -> RepoResult<(Vec<OutsourcingOrder>, u64)> {
+    ) -> Result<(Vec<OutsourcingOrder>, u64)> {
         let (data_scope, operator_id, _department_id) = scope;
         let scoped = !matches!(data_scope, DataScope::All);
         let scope_clause = if scoped { "AND operator_id = $8" } else { "" };
@@ -234,7 +234,7 @@ impl OutsourcingMaterialRepo {
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
         items: &[OutsourcingMaterialItem],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         for item in items {
             sqlx::query(
                 r#"
@@ -258,7 +258,7 @@ impl OutsourcingMaterialRepo {
     pub async fn list_by_outsourcing_id(
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
-    ) -> RepoResult<Vec<super::model::OutsourcingMaterial>> {
+    ) -> Result<Vec<super::model::OutsourcingMaterial>> {
         sqlx::query_as::<_, super::model::OutsourcingMaterial>(
             r#"
             SELECT id, outsourcing_id, product_id, planned_qty, sent_qty, returned_qty, unit_cost
@@ -275,7 +275,7 @@ impl OutsourcingMaterialRepo {
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
         items: &[OutsourcingMaterialItem],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query("DELETE FROM outsourcing_materials WHERE outsourcing_id = $1")
             .bind(outsourcing_id)
             .execute(&mut *executor)
@@ -288,7 +288,7 @@ impl OutsourcingMaterialRepo {
         outsourcing_id: i64,
         product_id: i64,
         add_qty: Decimal,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             "UPDATE outsourcing_materials SET sent_qty = sent_qty + $3 WHERE outsourcing_id = $1 AND product_id = $2",
         )

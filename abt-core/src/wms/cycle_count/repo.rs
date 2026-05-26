@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{CreateCycleCountReq, CycleCount, CycleCountFilter, CycleCountItem};
 use crate::shared::types::pagination::PaginatedResult;
@@ -14,7 +14,7 @@ impl CycleCountRepo {
         doc_number: &str,
         req: &CreateCycleCountReq,
         operator_id: i64,
-    ) -> RepoResult<CycleCount> {
+    ) -> Result<CycleCount> {
         let row = sqlx::query(
             r#"
             INSERT INTO cycle_counts
@@ -65,7 +65,7 @@ impl CycleCountRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<CycleCount>> {
+    ) -> Result<Option<CycleCount>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, warehouse_id, zone_id, count_date, status, is_blind,
@@ -86,7 +86,7 @@ impl CycleCountRepo {
     pub async fn get_items(
         executor: &mut sqlx::postgres::PgConnection,
         count_id: i64,
-    ) -> RepoResult<Vec<CycleCountItem>> {
+    ) -> Result<Vec<CycleCountItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, count_id, bin_id, product_id, batch_no, system_qty, counted_qty,
@@ -111,7 +111,7 @@ impl CycleCountRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: CycleCountStatus,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             "UPDATE cycle_counts SET status = $1, updated_at = NOW() WHERE id = $2",
         )
@@ -130,7 +130,7 @@ impl CycleCountRepo {
         counted_qty: rust_decimal::Decimal,
         variance_qty: rust_decimal::Decimal,
         variance_reason: Option<&str>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             "UPDATE cycle_count_items SET counted_qty = $1, variance_qty = $2, variance_reason = $3 WHERE id = $4",
         )
@@ -148,7 +148,7 @@ impl CycleCountRepo {
     pub async fn mark_items_adjusted(
         executor: &mut sqlx::postgres::PgConnection,
         count_id: i64,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             "UPDATE cycle_count_items SET is_adjusted = true WHERE count_id = $1",
         )
@@ -165,7 +165,7 @@ impl CycleCountRepo {
         filter: &CycleCountFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<CycleCount>> {
+    ) -> Result<PaginatedResult<CycleCount>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["1=1".to_string()];

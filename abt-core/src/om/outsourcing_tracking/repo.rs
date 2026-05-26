@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{OutsourcingTracking, OverdueTrackingQuery};
 use crate::om::enums::TrackingNodeType;
@@ -19,7 +19,7 @@ impl OutsourcingTrackingRepo {
         tracked_at: Option<DateTime<Utc>>,
         remark: Option<&str>,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO outsourcing_trackings
@@ -43,7 +43,7 @@ impl OutsourcingTrackingRepo {
     pub async fn get_max_node_ordinal(
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
-    ) -> RepoResult<Option<i16>> {
+    ) -> Result<Option<i16>> {
         let row = sqlx::query(
             "SELECT MAX(node_type) AS max_ordinal FROM outsourcing_trackings WHERE outsourcing_id = $1",
         )
@@ -60,7 +60,7 @@ impl OutsourcingTrackingRepo {
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
         node_type: TrackingNodeType,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let row = sqlx::query(
             "SELECT EXISTS(SELECT 1 FROM outsourcing_trackings WHERE outsourcing_id = $1 AND node_type = $2) AS exists_flag",
         )
@@ -77,7 +77,7 @@ impl OutsourcingTrackingRepo {
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
         page: &PageParams,
-    ) -> RepoResult<(Vec<OutsourcingTracking>, u64)> {
+    ) -> Result<(Vec<OutsourcingTracking>, u64)> {
         let limit = page.page_size as i64;
         let offset = page.offset() as i64;
 
@@ -114,7 +114,7 @@ impl OutsourcingTrackingRepo {
         executor: &mut sqlx::postgres::PgConnection,
         q: &OverdueTrackingQuery,
         page: &PageParams,
-    ) -> RepoResult<(Vec<OutsourcingTracking>, u64)> {
+    ) -> Result<(Vec<OutsourcingTracking>, u64)> {
         let limit = page.page_size as i64;
         let offset = page.offset() as i64;
 

@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::super::enums::{PlanItemStatus, PlanStatus};
 use super::model::*;
@@ -13,7 +13,7 @@ impl ProductionPlanRepo {
         req: &CreatePlanReq,
         doc_number: &str,
         operator_id: i64,
-    ) -> RepoResult<ProductionPlan> {
+    ) -> Result<ProductionPlan> {
         let row = sqlx::query(
             r#"
             INSERT INTO production_plans
@@ -39,7 +39,7 @@ impl ProductionPlanRepo {
         executor: &mut sqlx::postgres::PgConnection,
         plan_id: i64,
         items: &[CreatePlanItemReq],
-    ) -> RepoResult<Vec<ProductionPlanItem>> {
+    ) -> Result<Vec<ProductionPlanItem>> {
         let mut results = Vec::with_capacity(items.len());
         for item in items {
             let row = sqlx::query(
@@ -77,7 +77,7 @@ impl ProductionPlanRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<ProductionPlan>> {
+    ) -> Result<Option<ProductionPlan>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, plan_date, plan_type, status, remark,
@@ -97,7 +97,7 @@ impl ProductionPlanRepo {
     pub async fn get_items_by_plan_id(
         executor: &mut sqlx::postgres::PgConnection,
         plan_id: i64,
-    ) -> RepoResult<Vec<ProductionPlanItem>> {
+    ) -> Result<Vec<ProductionPlanItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, plan_id, product_id, planned_qty, scheduled_start, scheduled_end,
@@ -124,7 +124,7 @@ impl ProductionPlanRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: PlanStatus,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE production_plans
@@ -145,7 +145,7 @@ impl ProductionPlanRepo {
         filter: &PlanFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<ProductionPlan>> {
+    ) -> Result<PaginatedResult<ProductionPlan>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["deleted_at IS NULL".to_string()];

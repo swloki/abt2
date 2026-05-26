@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value as JsonValue;
 use sqlx::{FromRow, Row};
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{DomainEvent, EventPublishRequest, EventQuery};
 
@@ -44,7 +44,7 @@ impl DomainEventRepo {
     pub async fn insert(
         executor: &mut sqlx::postgres::PgConnection,
         params: &InsertParams<'_>,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO domain_events
@@ -85,7 +85,7 @@ impl DomainEventRepo {
     pub async fn notify(
         executor: &mut sqlx::postgres::PgConnection,
         event_id: i64,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(&format!("NOTIFY domain_event, '{event_id}'"))
             .execute(executor)
             .await?;
@@ -96,7 +96,7 @@ impl DomainEventRepo {
     pub async fn mark_processed(
         executor: &mut sqlx::postgres::PgConnection,
         ids: &[i64],
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE domain_events
@@ -115,7 +115,7 @@ impl DomainEventRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         reason: &str,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE domain_events
@@ -137,7 +137,7 @@ impl DomainEventRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         reason: &str,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE domain_events
@@ -157,7 +157,7 @@ impl DomainEventRepo {
     pub async fn reset_stale_processing(
         executor: &mut sqlx::postgres::PgConnection,
         min_minutes: i32,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = if min_minutes > 0 {
             sqlx::query(
                 r#"
@@ -184,7 +184,7 @@ impl DomainEventRepo {
     pub async fn reset_to_pending(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             r#"
             UPDATE domain_events
@@ -204,7 +204,7 @@ impl DomainEventRepo {
         q: &EventQuery,
         limit: i64,
         offset: i64,
-    ) -> RepoResult<(Vec<DomainEvent>, u64)> {
+    ) -> Result<(Vec<DomainEvent>, u64)> {
         let sql_base = "
             WHERE ($1::text IS NULL OR aggregate_type = $1)
               AND ($2::smallint IS NULL OR event_type = $2)
@@ -243,7 +243,7 @@ impl DomainEventRepo {
         let items: Vec<DomainEvent> = rows
             .iter()
             .map(DomainEvent::from_row)
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         Ok((items, total as u64))
     }
@@ -252,7 +252,7 @@ impl DomainEventRepo {
     pub async fn fetch_pending(
         executor: &mut sqlx::postgres::PgConnection,
         batch_size: i32,
-    ) -> RepoResult<Vec<DomainEvent>> {
+    ) -> Result<Vec<DomainEvent>> {
         let rows = sqlx::query(
             r#"
             UPDATE domain_events SET status = 2
@@ -275,7 +275,7 @@ impl DomainEventRepo {
         let items: Vec<DomainEvent> = rows
             .iter()
             .map(DomainEvent::from_row)
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         Ok(items)
     }
@@ -285,7 +285,7 @@ impl DomainEventRepo {
         executor: &mut sqlx::postgres::PgConnection,
         max_retries: i32,
         batch_size: i32,
-    ) -> RepoResult<Vec<DomainEvent>> {
+    ) -> Result<Vec<DomainEvent>> {
         let rows = sqlx::query(
             r#"
             UPDATE domain_events SET status = 2
@@ -309,7 +309,7 @@ impl DomainEventRepo {
         let items: Vec<DomainEvent> = rows
             .iter()
             .map(DomainEvent::from_row)
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         Ok(items)
     }
@@ -318,7 +318,7 @@ impl DomainEventRepo {
     pub async fn archive_dead_letters(
         executor: &mut sqlx::postgres::PgConnection,
         before: DateTime<Utc>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             "DELETE FROM domain_events WHERE status = 5 AND created_at < $1",
         )
@@ -333,7 +333,7 @@ impl DomainEventRepo {
         executor: &mut sqlx::postgres::PgConnection,
         limit: i64,
         offset: i64,
-    ) -> RepoResult<(Vec<DomainEvent>, u64)> {
+    ) -> Result<(Vec<DomainEvent>, u64)> {
         let count_row = sqlx::query(
             "SELECT COUNT(*) AS cnt FROM domain_events WHERE status = 5",
         )
@@ -360,7 +360,7 @@ impl DomainEventRepo {
         let items: Vec<DomainEvent> = rows
             .iter()
             .map(DomainEvent::from_row)
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         Ok((items, total as u64))
     }

@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::super::enums::WorkOrderStatus;
 use super::model::{WorkOrder, WorkOrderFilter};
@@ -14,7 +14,7 @@ impl WorkOrderRepo {
         req: &super::model::CreateWorkOrderReq,
         status: WorkOrderStatus,
         operator_id: i64,
-    ) -> RepoResult<WorkOrder> {
+    ) -> Result<WorkOrder> {
         let remark = req.remark.as_deref().unwrap_or("");
         let row = sqlx::query(
             r#"
@@ -50,7 +50,7 @@ impl WorkOrderRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<WorkOrder>> {
+    ) -> Result<Option<WorkOrder>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, plan_item_id, product_id, bom_snapshot_id, routing_id,
@@ -74,7 +74,7 @@ impl WorkOrderRepo {
         id: i64,
         status: WorkOrderStatus,
         expected_version: i32,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let result = sqlx::query(
             r#"
             UPDATE work_orders
@@ -96,7 +96,7 @@ impl WorkOrderRepo {
         filter: &WorkOrderFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<WorkOrder>> {
+    ) -> Result<PaginatedResult<WorkOrder>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["deleted_at IS NULL".to_string()];
@@ -189,7 +189,7 @@ impl WorkOrderRepo {
     pub async fn soft_delete(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE work_orders
@@ -209,7 +209,7 @@ impl WorkOrderRepo {
     pub async fn soft_delete_batches(
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE production_batches

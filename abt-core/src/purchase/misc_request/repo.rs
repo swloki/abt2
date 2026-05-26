@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use sqlx::Row;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{
     CreateMiscItemRequest, CreateMiscRequestRequest, MiscRequestItem, MiscRequestQuery,
@@ -20,7 +20,7 @@ impl MiscRequestRepo {
         doc_number: &str,
         total_amount: Decimal,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO miscellaneous_requests
@@ -48,7 +48,7 @@ impl MiscRequestRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<MiscellaneousRequest>> {
+    ) -> Result<Option<MiscellaneousRequest>> {
         sqlx::query_as::<_, MiscellaneousRequest>(
             r#"
             SELECT id, doc_number, department_id, request_date, status, total_amount,
@@ -68,7 +68,7 @@ impl MiscRequestRepo {
         q: &MiscRequestQuery,
         page: &PageParams,
         scope: (DataScope, i64, Option<i64>),
-    ) -> RepoResult<(Vec<MiscellaneousRequest>, u64)> {
+    ) -> Result<(Vec<MiscellaneousRequest>, u64)> {
         let (data_scope, operator_id, department_id) = scope;
         // miscellaneous_requests 有 department_id，可按部门过滤
         let scope_clause = match data_scope {
@@ -134,7 +134,7 @@ impl MiscRequestRepo {
         id: i64,
         status: MiscRequestStatus,
         updated_at: &DateTime<Utc>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE miscellaneous_requests
@@ -164,7 +164,7 @@ impl MiscRequestItemRepo {
         executor: &mut sqlx::postgres::PgConnection,
         request_id: i64,
         items: &[CreateMiscItemRequest],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         for item in items {
             sqlx::query(
                 r#"
@@ -192,7 +192,7 @@ impl MiscRequestItemRepo {
     pub async fn list_by_request_id(
         executor: &mut sqlx::postgres::PgConnection,
         request_id: i64,
-    ) -> RepoResult<Vec<MiscRequestItem>> {
+    ) -> Result<Vec<MiscRequestItem>> {
         sqlx::query_as::<_, MiscRequestItem>(
             r#"
             SELECT id, request_id, line_no, item_name, specification, quantity,

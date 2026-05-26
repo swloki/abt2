@@ -1,6 +1,6 @@
 use rust_decimal::Decimal;
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{
     ArrivalNotice, ArrivalNoticeItem, CreateArrivalNoticeItemReq, CreateArrivalNoticeReq,
@@ -18,7 +18,7 @@ impl ArrivalNoticeRepo {
         doc_number: &str,
         req: &CreateArrivalNoticeReq,
         operator_id: i64,
-    ) -> RepoResult<ArrivalNotice> {
+    ) -> Result<ArrivalNotice> {
         let row = sqlx::query(
             r#"
             INSERT INTO arrival_notices
@@ -58,7 +58,7 @@ impl ArrivalNoticeRepo {
         executor: &mut sqlx::postgres::PgConnection,
         notice_id: i64,
         item: &CreateArrivalNoticeItemReq,
-    ) -> RepoResult<ArrivalNoticeItem> {
+    ) -> Result<ArrivalNoticeItem> {
         let row = sqlx::query(
             r#"
             INSERT INTO arrival_notice_items
@@ -83,7 +83,7 @@ impl ArrivalNoticeRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<ArrivalNotice>> {
+    ) -> Result<Option<ArrivalNotice>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, purchase_order_id, supplier_id, arrival_date, status,
@@ -105,7 +105,7 @@ impl ArrivalNoticeRepo {
     pub async fn get_items(
         executor: &mut sqlx::postgres::PgConnection,
         notice_id: i64,
-    ) -> RepoResult<Vec<ArrivalNoticeItem>> {
+    ) -> Result<Vec<ArrivalNoticeItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, notice_id, order_item_id, product_id, declared_qty,
@@ -129,7 +129,7 @@ impl ArrivalNoticeRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: ArrivalStatus,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE arrival_notices
@@ -151,7 +151,7 @@ impl ArrivalNoticeRepo {
         item_id: i64,
         received_qty: Decimal,
         batch_no: Option<&str>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE arrival_notice_items
@@ -173,7 +173,7 @@ impl ArrivalNoticeRepo {
         executor: &mut sqlx::postgres::PgConnection,
         item_id: i64,
         accepted_qty: Decimal,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE arrival_notice_items
@@ -195,7 +195,7 @@ impl ArrivalNoticeRepo {
         filter: &ArrivalNoticeFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<ArrivalNotice>> {
+    ) -> Result<PaginatedResult<ArrivalNotice>> {
         let offset = page.saturating_sub(1) * page_size;
 
         let mut where_clauses = vec!["deleted_at IS NULL".to_string()];
@@ -271,7 +271,7 @@ impl ArrivalNoticeRepo {
     pub async fn soft_delete(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             "UPDATE arrival_notices SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )

@@ -1,7 +1,7 @@
 //! 工作流模板数据访问层
 
 use sqlx::PgPool;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use crate::workflow::model::WorkflowTemplate;
 
@@ -14,7 +14,7 @@ impl WorkflowTemplateRepo {
         name: &str,
         graph: Option<serde_json::Value>,
         trigger_event: Option<&str>,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let id: i64 = sqlx::query_scalar(
             "INSERT INTO workflow_templates (entity_type, name, graph, trigger_event) VALUES ($1, $2, $3::jsonb, $4) RETURNING id",
         )
@@ -33,7 +33,7 @@ impl WorkflowTemplateRepo {
         name: Option<&str>,
         graph: Option<serde_json::Value>,
         trigger_event: Option<Option<&str>>,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         if let Some(n) = name {
             sqlx::query(
                 "UPDATE workflow_templates SET name = $1, updated_at = NOW() WHERE id = $2 AND status = 'draft'",
@@ -64,7 +64,7 @@ impl WorkflowTemplateRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(pool: &PgPool, id: i64) -> RepoResult<Option<WorkflowTemplate>> {
+    pub async fn find_by_id(pool: &PgPool, id: i64) -> Result<Option<WorkflowTemplate>> {
         let row = sqlx::query_as::<_, WorkflowTemplate>(
             "SELECT id, entity_type, name, version, status, graph, graph_checksum, trigger_event, created_at, updated_at, deleted_at FROM workflow_templates WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -77,7 +77,7 @@ impl WorkflowTemplateRepo {
     pub async fn find_active_by_entity_type(
         pool: &PgPool,
         entity_type: &str,
-    ) -> RepoResult<Option<WorkflowTemplate>> {
+    ) -> Result<Option<WorkflowTemplate>> {
         let row = sqlx::query_as::<_, WorkflowTemplate>(
             "SELECT id, entity_type, name, version, status, graph, graph_checksum, trigger_event, created_at, updated_at, deleted_at FROM workflow_templates WHERE entity_type = $1 AND status = 'active' AND deleted_at IS NULL ORDER BY version DESC LIMIT 1",
         )
@@ -90,7 +90,7 @@ impl WorkflowTemplateRepo {
     pub async fn list_by_entity_type(
         pool: &PgPool,
         entity_type: &str,
-    ) -> RepoResult<Vec<WorkflowTemplate>> {
+    ) -> Result<Vec<WorkflowTemplate>> {
         let rows = if entity_type.is_empty() {
             sqlx::query_as::<_, WorkflowTemplate>(
                 "SELECT id, entity_type, name, version, status, graph, graph_checksum, trigger_event, created_at, updated_at, deleted_at FROM workflow_templates WHERE deleted_at IS NULL ORDER BY version DESC",
@@ -108,7 +108,7 @@ impl WorkflowTemplateRepo {
         Ok(rows)
     }
 
-    pub async fn publish(executor: &mut sqlx::postgres::PgConnection, id: i64, graph_checksum: &str) -> RepoResult<bool> {
+    pub async fn publish(executor: &mut sqlx::postgres::PgConnection, id: i64, graph_checksum: &str) -> Result<bool> {
         let result = sqlx::query(
             "UPDATE workflow_templates SET status = 'active', graph_checksum = $1, updated_at = NOW() WHERE id = $2 AND status = 'draft'",
         )
@@ -119,7 +119,7 @@ impl WorkflowTemplateRepo {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn archive(executor: &mut sqlx::postgres::PgConnection, id: i64) -> RepoResult<bool> {
+    pub async fn archive(executor: &mut sqlx::postgres::PgConnection, id: i64) -> Result<bool> {
         let result = sqlx::query(
             "UPDATE workflow_templates SET status = 'archived', updated_at = NOW() WHERE id = $1 AND status = 'active'",
         )
@@ -129,7 +129,7 @@ impl WorkflowTemplateRepo {
         Ok(result.rows_affected() > 0)
     }
 
-    pub async fn list_active(pool: &PgPool) -> RepoResult<Vec<WorkflowTemplate>> {
+    pub async fn list_active(pool: &PgPool) -> Result<Vec<WorkflowTemplate>> {
         let rows = sqlx::query_as::<_, WorkflowTemplate>(
             "SELECT id, entity_type, name, version, status, graph, graph_checksum, trigger_event, created_at, updated_at, deleted_at FROM workflow_templates WHERE status = 'active' AND deleted_at IS NULL",
         )
@@ -141,7 +141,7 @@ impl WorkflowTemplateRepo {
     pub async fn find_active_by_trigger(
         pool: &PgPool,
         trigger_event: &str,
-    ) -> RepoResult<Option<WorkflowTemplate>> {
+    ) -> Result<Option<WorkflowTemplate>> {
         let row = sqlx::query_as::<_, WorkflowTemplate>(
             "SELECT id, entity_type, name, version, status, graph, graph_checksum, trigger_event, created_at, updated_at, deleted_at FROM workflow_templates WHERE trigger_event = $1 AND status = 'active' AND deleted_at IS NULL LIMIT 1",
         )

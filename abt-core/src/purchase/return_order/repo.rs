@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use sqlx::Row;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{
     CreatePurchaseReturnRequest, CreateReturnItemRequest, PurchaseReturn, PurchaseReturnItem,
@@ -20,7 +20,7 @@ impl PurchaseReturnRepo {
         doc_number: &str,
         total_amount: Decimal,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO purchase_returns
@@ -49,7 +49,7 @@ impl PurchaseReturnRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<PurchaseReturn>> {
+    ) -> Result<Option<PurchaseReturn>> {
         sqlx::query_as::<_, PurchaseReturn>(
             r#"
             SELECT id, doc_number, order_id, supplier_id, return_date, status,
@@ -69,7 +69,7 @@ impl PurchaseReturnRepo {
         executor: &mut sqlx::postgres::PgConnection,
         q: &PurchaseReturnQuery,
         page: &PageParams,
-    ) -> RepoResult<(Vec<PurchaseReturn>, u64)> {
+    ) -> Result<(Vec<PurchaseReturn>, u64)> {
         let where_clause = "
             WHERE deleted_at IS NULL
               AND ($1::bigint IS NULL OR order_id = $1)
@@ -116,7 +116,7 @@ impl PurchaseReturnRepo {
         id: i64,
         status: PurchaseReturnStatus,
         updated_at: &DateTime<Utc>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE purchase_returns
@@ -138,7 +138,7 @@ impl PurchaseReturnRepo {
         executor: &mut sqlx::postgres::PgConnection,
         supplier_id: i64,
         order_ids: &[i64],
-    ) -> RepoResult<Vec<PurchaseReturn>> {
+    ) -> Result<Vec<PurchaseReturn>> {
         if order_ids.is_empty() {
             return Ok(vec![]);
         }
@@ -180,7 +180,7 @@ impl PurchaseReturnItemRepo {
         executor: &mut sqlx::postgres::PgConnection,
         return_id: i64,
         items: &[CreateReturnItemRequest],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         for item in items {
             let amount = item.returned_qty * item.unit_price;
             sqlx::query(
@@ -206,7 +206,7 @@ impl PurchaseReturnItemRepo {
     pub async fn list_by_return_id(
         executor: &mut sqlx::postgres::PgConnection,
         return_id: i64,
-    ) -> RepoResult<Vec<PurchaseReturnItem>> {
+    ) -> Result<Vec<PurchaseReturnItem>> {
         sqlx::query_as::<_, PurchaseReturnItem>(
             r#"
             SELECT id, return_id, order_item_id, product_id, returned_qty, unit_price, amount

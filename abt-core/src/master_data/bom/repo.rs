@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use crate::shared::types::PgExecutor;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
@@ -48,7 +48,7 @@ impl BomRepo {
         bom_code: &str,
         req: &CreateBomReq,
         created_by: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO boms (bom_name, bom_code, version, status, bom_category_id, remark, operator_id)
                VALUES ($1, $2, 1, $3, $4, '', $5)
@@ -71,7 +71,7 @@ impl BomRepo {
         id: i64,
         req: &UpdateBomReq,
         expected_version: i32,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -114,7 +114,7 @@ impl BomRepo {
         executor: PgExecutor<'_>,
         id: i64,
         status: BomStatus,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query("UPDATE boms SET status = $1, update_at = NOW() WHERE bom_id = $2 AND deleted_at IS NULL")
             .bind(status.as_i16())
             .bind(id)
@@ -123,7 +123,7 @@ impl BomRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
         sqlx::query("UPDATE boms SET deleted_at = NOW() WHERE bom_id = $1 AND deleted_at IS NULL")
             .bind(id)
             .execute(executor)
@@ -131,7 +131,7 @@ impl BomRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<Bom>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<Bom>> {
         let row = sqlx::query_as::<sqlx::Postgres, BomRow>(
             &format!("SELECT {BOM_DB_COLUMNS} FROM boms WHERE bom_id = $1 AND deleted_at IS NULL"),
         )
@@ -147,7 +147,7 @@ impl BomRepo {
         executor: PgExecutor<'_>,
         filter: &BomQuery,
         page: &PageParams,
-    ) -> RepoResult<PaginatedResult<Bom>> {
+    ) -> Result<PaginatedResult<Bom>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -207,7 +207,7 @@ impl BomRepo {
         executor: PgExecutor<'_>,
         name: &str,
         exclude_id: Option<i64>,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let count: i64 = if let Some(eid) = exclude_id {
             sqlx::query_scalar(
                 "SELECT COUNT(*) FROM boms WHERE bom_name = $1 AND bom_id != $2 AND deleted_at IS NULL",
@@ -231,7 +231,7 @@ impl BomRepo {
         &self,
         executor: PgExecutor<'_>,
         product_codes: &[String],
-    ) -> RepoResult<Vec<String>> {
+    ) -> Result<Vec<String>> {
         if product_codes.is_empty() {
             return Ok(Vec::new());
         }
@@ -264,7 +264,7 @@ impl BomNodeRepo {
         executor: PgExecutor<'_>,
         bom_id: i64,
         node: &NewBomNode,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO bom_nodes (bom_id, parent_id, product_id, quantity, loss_rate, unit, order_num, remark, position, work_center, properties)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -292,7 +292,7 @@ impl BomNodeRepo {
         executor: PgExecutor<'_>,
         node_id: i64,
         req: &UpdateBomNodeReq,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -356,7 +356,7 @@ impl BomNodeRepo {
         executor: PgExecutor<'_>,
         node_id: i64,
         new_parent_id: i64,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query("UPDATE bom_nodes SET parent_id = $1 WHERE node_id = $2")
             .bind(new_parent_id)
             .bind(node_id)
@@ -371,7 +371,7 @@ impl BomNodeRepo {
         bom_id: i64,
         old_product_id: i64,
         new_product_id: i64,
-    ) -> RepoResult<Vec<i64>> {
+    ) -> Result<Vec<i64>> {
         let rows = sqlx::query_scalar::<sqlx::Postgres, i64>(
             "UPDATE bom_nodes SET product_id = $1 WHERE bom_id = $2 AND product_id = $3 RETURNING node_id",
         )
@@ -391,7 +391,7 @@ impl BomNodeRepo {
         old_product_id: i64,
         new_product_id: i64,
         overrides: &AttributeOverrides,
-    ) -> RepoResult<Vec<i64>> {
+    ) -> Result<Vec<i64>> {
         let mut sets = vec!["product_id = $1".to_string()];
         let mut param_idx = 4u32;
 
@@ -444,7 +444,7 @@ impl BomNodeRepo {
         Ok(rows)
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, node_id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, node_id: i64) -> Result<()> {
         sqlx::query("DELETE FROM bom_nodes WHERE node_id = $1")
             .bind(node_id)
             .execute(executor)
@@ -452,7 +452,7 @@ impl BomNodeRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, node_id: i64) -> RepoResult<Option<BomNode>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, node_id: i64) -> Result<Option<BomNode>> {
         let node = sqlx::query_as::<sqlx::Postgres, BomNode>(
             &format!("SELECT {NODE_COLUMNS} FROM bom_nodes WHERE node_id = $1"),
         )
@@ -462,7 +462,7 @@ impl BomNodeRepo {
         Ok(node)
     }
 
-    pub async fn find_by_bom_id(&self, executor: PgExecutor<'_>, bom_id: i64) -> RepoResult<Vec<BomNode>> {
+    pub async fn find_by_bom_id(&self, executor: PgExecutor<'_>, bom_id: i64) -> Result<Vec<BomNode>> {
         let nodes = sqlx::query_as::<sqlx::Postgres, BomNode>(
             &format!("SELECT {NODE_COLUMNS} FROM bom_nodes WHERE bom_id = $1 ORDER BY order_num, node_id"),
         )
@@ -472,7 +472,7 @@ impl BomNodeRepo {
         Ok(nodes)
     }
 
-    pub async fn find_leaf_nodes(&self, executor: PgExecutor<'_>, bom_id: i64) -> RepoResult<Vec<BomNode>> {
+    pub async fn find_leaf_nodes(&self, executor: PgExecutor<'_>, bom_id: i64) -> Result<Vec<BomNode>> {
         let nodes = sqlx::query_as::<sqlx::Postgres, BomNode>(
             &format!(r#"SELECT {NODE_COLUMNS}
                FROM bom_nodes
@@ -491,7 +491,7 @@ impl BomNodeRepo {
         executor: PgExecutor<'_>,
         bom_id: i64,
         parent_id: i64,
-    ) -> RepoResult<Option<i32>> {
+    ) -> Result<Option<i32>> {
         let max: Option<i32> = sqlx::query_scalar(
             "SELECT MAX(order_num) FROM bom_nodes WHERE bom_id = $1 AND parent_id = $2",
         )
@@ -508,7 +508,7 @@ impl BomNodeRepo {
         bom_id: i64,
         parent_id: i64,
         from_order: i32,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             "UPDATE bom_nodes SET order_num = order_num + 1 WHERE bom_id = $1 AND parent_id = $2 AND order_num >= $3",
         )
@@ -520,7 +520,7 @@ impl BomNodeRepo {
         Ok(())
     }
 
-    pub async fn count_by_bom_id(&self, executor: PgExecutor<'_>, bom_id: i64) -> RepoResult<i64> {
+    pub async fn count_by_bom_id(&self, executor: PgExecutor<'_>, bom_id: i64) -> Result<i64> {
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM bom_nodes WHERE bom_id = $1",
         )
@@ -530,7 +530,7 @@ impl BomNodeRepo {
         Ok(count)
     }
 
-    pub async fn count_children(&self, executor: PgExecutor<'_>, node_id: i64) -> RepoResult<i64> {
+    pub async fn count_children(&self, executor: PgExecutor<'_>, node_id: i64) -> Result<i64> {
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM bom_nodes WHERE parent_id = $1",
         )
@@ -556,7 +556,7 @@ impl BomSnapshotRepo {
         bom_name: &str,
         bom_detail: &BomDetail,
         published_by: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             "INSERT INTO bom_snapshots (bom_id, version, bom_name, bom_detail, published_at, published_by) VALUES ($1, $2, $3, $4, NOW(), $5) RETURNING snapshot_id",
         )
@@ -575,7 +575,7 @@ impl BomSnapshotRepo {
         executor: PgExecutor<'_>,
         bom_id: i64,
         limit: Option<i32>,
-    ) -> RepoResult<Vec<BomSnapshot>> {
+    ) -> Result<Vec<BomSnapshot>> {
         let limit_val = limit.unwrap_or(10);
         let snapshots = sqlx::query_as::<sqlx::Postgres, BomSnapshot>(
             &format!("SELECT {SNAPSHOT_COLUMNS} FROM bom_snapshots WHERE bom_id = $1 ORDER BY version DESC LIMIT $2"),
@@ -592,7 +592,7 @@ impl BomSnapshotRepo {
         executor: PgExecutor<'_>,
         bom_id: i64,
         version: i32,
-    ) -> RepoResult<Option<BomSnapshot>> {
+    ) -> Result<Option<BomSnapshot>> {
         let snapshot = sqlx::query_as::<sqlx::Postgres, BomSnapshot>(
             &format!("SELECT {SNAPSHOT_COLUMNS} FROM bom_snapshots WHERE bom_id = $1 AND version = $2"),
         )
@@ -616,7 +616,7 @@ impl BomCategoryRepo {
         &self,
         executor: PgExecutor<'_>,
         req: &CreateBomCategoryReq,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             "INSERT INTO bom_categories (bom_category_name) VALUES ($1) RETURNING bom_category_id",
         )
@@ -631,7 +631,7 @@ impl BomCategoryRepo {
         executor: PgExecutor<'_>,
         id: i64,
         req: &UpdateBomCategoryReq,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         if req.bom_category_name.is_none() {
             return Ok(());
         }
@@ -643,7 +643,7 @@ impl BomCategoryRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
         sqlx::query("DELETE FROM bom_categories WHERE bom_category_id = $1")
             .bind(id)
             .execute(executor)
@@ -651,7 +651,7 @@ impl BomCategoryRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<BomCategory>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<BomCategory>> {
         let cat = sqlx::query_as::<sqlx::Postgres, BomCategory>(
             &format!("SELECT {BOM_CATEGORY_COLUMNS} FROM bom_categories WHERE bom_category_id = $1"),
         )
@@ -667,7 +667,7 @@ impl BomCategoryRepo {
         executor: PgExecutor<'_>,
         filter: &BomCategoryQuery,
         page: &PageParams,
-    ) -> RepoResult<PaginatedResult<BomCategory>> {
+    ) -> Result<PaginatedResult<BomCategory>> {
         let mut conditions = vec!["1=1".to_string()];
         let mut param_idx = 0u32;
 
@@ -701,7 +701,7 @@ impl BomCategoryRepo {
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 
-    pub async fn count_boms_by_category(&self, executor: PgExecutor<'_>, bom_category_id: i64) -> RepoResult<i64> {
+    pub async fn count_boms_by_category(&self, executor: PgExecutor<'_>, bom_category_id: i64) -> Result<i64> {
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM boms WHERE bom_category_id = $1 AND deleted_at IS NULL",
         )

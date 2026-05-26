@@ -1,6 +1,6 @@
 use crate::shared::types::PgExecutor;
 use rust_decimal::Decimal;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
@@ -30,7 +30,7 @@ impl SalesOrderRepo {
         delivery_address: &str,
         remark: &str,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO sales_orders (doc_number, customer_id, contact_id, sales_rep_id, total_amount, total_cost, payment_terms, delivery_terms, delivery_address, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
@@ -56,7 +56,7 @@ impl SalesOrderRepo {
         &self,
         executor: PgExecutor<'_>,
         id: i64,
-    ) -> RepoResult<Option<SalesOrder>> {
+    ) -> Result<Option<SalesOrder>> {
         let order = sqlx::query_as::<sqlx::Postgres, SalesOrder>(
             &format!("SELECT {ORDER_COLUMNS} FROM sales_orders WHERE id = $1 AND deleted_at IS NULL"),
         )
@@ -72,7 +72,7 @@ impl SalesOrderRepo {
         executor: PgExecutor<'_>,
         id: i64,
         req: &UpdateSalesOrderReq,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -140,7 +140,7 @@ impl SalesOrderRepo {
         executor: PgExecutor<'_>,
         id: i64,
         status: SalesOrderStatus,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             "UPDATE sales_orders SET status = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -160,7 +160,7 @@ impl SalesOrderRepo {
         data_scope: DataScope,
         scope_operator_id: i64,
         _scope_department_id: Option<i64>,
-    ) -> RepoResult<PaginatedResult<SalesOrder>> {
+    ) -> Result<PaginatedResult<SalesOrder>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -260,7 +260,7 @@ impl SalesOrderItemRepo {
         executor: PgExecutor<'_>,
         order_id: i64,
         items: &[SalesOrderItemInput],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         for item in items {
             sqlx::query(
                 r#"INSERT INTO sales_order_items (order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, delivery_date)
@@ -287,7 +287,7 @@ impl SalesOrderItemRepo {
         &self,
         executor: PgExecutor<'_>,
         order_id: i64,
-    ) -> RepoResult<Vec<SalesOrderItem>> {
+    ) -> Result<Vec<SalesOrderItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, SalesOrderItem>(
             &format!("SELECT {ITEM_COLUMNS} FROM sales_order_items WHERE order_id = $1 ORDER BY line_no"),
         )
@@ -302,7 +302,7 @@ impl SalesOrderItemRepo {
         executor: PgExecutor<'_>,
         item_id: i64,
         shipped_qty: Decimal,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             "UPDATE sales_order_items SET shipped_qty = shipped_qty + $2 WHERE id = $1",
         )
@@ -318,7 +318,7 @@ impl SalesOrderItemRepo {
         executor: PgExecutor<'_>,
         item_id: i64,
         returned_qty: Decimal,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             "UPDATE sales_order_items SET returned_qty = returned_qty + $2 WHERE id = $1",
         )

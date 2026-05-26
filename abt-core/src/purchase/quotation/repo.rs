@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use sqlx::Row;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{
     CreateQuotationItemRequest, CreatePurchaseQuotationRequest, PurchaseQuotation,
@@ -18,7 +18,7 @@ impl PurchaseQuotationRepo {
         req: &CreatePurchaseQuotationRequest,
         doc_number: &str,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO purchase_quotations
@@ -45,7 +45,7 @@ impl PurchaseQuotationRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<PurchaseQuotation>> {
+    ) -> Result<Option<PurchaseQuotation>> {
         sqlx::query_as::<_, PurchaseQuotation>(
             r#"
             SELECT id, doc_number, supplier_id, quotation_date, valid_from, valid_until,
@@ -63,7 +63,7 @@ impl PurchaseQuotationRepo {
     pub async fn get_by_item_id(
         executor: &mut sqlx::postgres::PgConnection,
         quotation_item_id: i64,
-    ) -> RepoResult<Option<PurchaseQuotation>> {
+    ) -> Result<Option<PurchaseQuotation>> {
         sqlx::query_as::<_, PurchaseQuotation>(
             r#"
             SELECT q.id, q.doc_number, q.supplier_id, q.quotation_date, q.valid_from,
@@ -85,7 +85,7 @@ impl PurchaseQuotationRepo {
         q: &PurchaseQuotationQuery,
         page: &PageParams,
         scope: (DataScope, i64, Option<i64>),
-    ) -> RepoResult<(Vec<PurchaseQuotation>, u64)> {
+    ) -> Result<(Vec<PurchaseQuotation>, u64)> {
         let (data_scope, operator_id, _department_id) = scope;
         // purchase_quotations 无 department_id，Department 降级为 SelfOnly
         let scope_clause = match data_scope {
@@ -145,7 +145,7 @@ impl PurchaseQuotationRepo {
         id: i64,
         status: PurchaseQuotationStatus,
         updated_at: &DateTime<Utc>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE purchase_quotations
@@ -166,7 +166,7 @@ impl PurchaseQuotationRepo {
     pub async fn compare_by_product(
         executor: &mut sqlx::postgres::PgConnection,
         product_id: i64,
-    ) -> RepoResult<Vec<QuotationComparison>> {
+    ) -> Result<Vec<QuotationComparison>> {
         let rows = sqlx::query(
             r#"
             SELECT qi.product_id, q.supplier_id, qi.unit_price, qi.currency,
@@ -213,7 +213,7 @@ impl PurchaseQuotationItemRepo {
         executor: &mut sqlx::postgres::PgConnection,
         quotation_id: i64,
         items: &[CreateQuotationItemRequest],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         for item in items {
             sqlx::query(
                 r#"
@@ -241,7 +241,7 @@ impl PurchaseQuotationItemRepo {
     pub async fn list_by_quotation_id(
         executor: &mut sqlx::postgres::PgConnection,
         quotation_id: i64,
-    ) -> RepoResult<Vec<PurchaseQuotationItem>> {
+    ) -> Result<Vec<PurchaseQuotationItem>> {
         sqlx::query_as::<_, PurchaseQuotationItem>(
             r#"
             SELECT id, quotation_id, product_id, line_no, unit_price, min_order_qty,

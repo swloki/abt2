@@ -1,5 +1,5 @@
 use crate::shared::types::PgExecutor;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
@@ -12,7 +12,7 @@ impl ProductRepo {
         executor: PgExecutor<'_>,
         product_code: &str,
         req: &CreateProductReq,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let meta_json = serde_json::to_value(&req.meta)?;
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO products (pdt_name, product_code, unit, status, external_code, owner_department_id, meta)
@@ -37,7 +37,7 @@ impl ProductRepo {
         executor: PgExecutor<'_>,
         id: i64,
         req: &UpdateProductReq,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -68,7 +68,7 @@ impl ProductRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
         sqlx::query("UPDATE products SET deleted_at = NOW() WHERE product_id = $1 AND deleted_at IS NULL")
             .bind(id)
             .execute(executor)
@@ -76,7 +76,7 @@ impl ProductRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<Product>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<Product>> {
         let product = sqlx::query_as::<sqlx::Postgres, Product>(
             "SELECT product_id, pdt_name, product_code, unit, status, external_code, owner_department_id, meta, created_at, updated_at, deleted_at FROM products WHERE product_id = $1 AND deleted_at IS NULL",
         )
@@ -86,7 +86,7 @@ impl ProductRepo {
         Ok(product)
     }
 
-    pub async fn find_by_ids(&self, executor: PgExecutor<'_>, ids: Vec<i64>) -> RepoResult<Vec<Product>> {
+    pub async fn find_by_ids(&self, executor: PgExecutor<'_>, ids: Vec<i64>) -> Result<Vec<Product>> {
         if ids.is_empty() {
             return Ok(vec![]);
         }
@@ -105,7 +105,7 @@ impl ProductRepo {
         executor: PgExecutor<'_>,
         filter: &ProductQuery,
         page: &PageParams,
-    ) -> RepoResult<PaginatedResult<Product>> {
+    ) -> Result<PaginatedResult<Product>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -161,7 +161,7 @@ impl ProductRepo {
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 
-    pub async fn check_code_unique(&self, executor: PgExecutor<'_>, code: &str) -> RepoResult<bool> {
+    pub async fn check_code_unique(&self, executor: PgExecutor<'_>, code: &str) -> Result<bool> {
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM products WHERE product_code = $1 AND deleted_at IS NULL",
         )
@@ -172,7 +172,7 @@ impl ProductRepo {
     }
 
     /// Batch query products by codes — Excel import support
-    pub async fn find_by_codes(executor: PgExecutor<'_>, codes: &[String]) -> RepoResult<Vec<Product>> {
+    pub async fn find_by_codes(executor: PgExecutor<'_>, codes: &[String]) -> Result<Vec<Product>> {
         if codes.is_empty() {
             return Ok(vec![]);
         }
@@ -186,7 +186,7 @@ impl ProductRepo {
     }
 
     /// Update product name by id — Excel import support
-    pub async fn update_name(executor: PgExecutor<'_>, id: i64, name: &str) -> RepoResult<()> {
+    pub async fn update_name(executor: PgExecutor<'_>, id: i64, name: &str) -> Result<()> {
         sqlx::query("UPDATE products SET pdt_name = $2 WHERE product_id = $1")
             .bind(id)
             .bind(name)

@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{InventoryTransaction, RecordTransactionReq, TransactionFilter};
 use crate::shared::types::pagination::PaginatedResult;
@@ -11,7 +11,7 @@ impl InventoryTransactionRepo {
         executor: &mut sqlx::postgres::PgConnection,
         req: &RecordTransactionReq,
         operator_id: i64,
-    ) -> RepoResult<InventoryTransaction> {
+    ) -> Result<InventoryTransaction> {
         let row = sqlx::query(
             r#"
             INSERT INTO inventory_transactions
@@ -46,7 +46,7 @@ impl InventoryTransactionRepo {
         executor: &mut sqlx::postgres::PgConnection,
         source_type: &str,
         source_id: i64,
-    ) -> RepoResult<Vec<InventoryTransaction>> {
+    ) -> Result<Vec<InventoryTransaction>> {
         let rows = sqlx::query(
             r#"
             SELECT id, doc_number, transaction_type, product_id, warehouse_id, zone_id,
@@ -72,7 +72,7 @@ impl InventoryTransactionRepo {
         filter: &TransactionFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<InventoryTransaction>> {
+    ) -> Result<PaginatedResult<InventoryTransaction>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut conditions: Vec<String> = Vec::new();

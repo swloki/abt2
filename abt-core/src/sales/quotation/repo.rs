@@ -1,6 +1,6 @@
 use crate::shared::types::PgExecutor;
 use rust_decimal::Decimal;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
@@ -26,7 +26,7 @@ impl QuotationRepo {
         total_cost: Decimal,
         estimated_margin: Decimal,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO quotations (doc_number, customer_id, contact_id, sales_rep_id, valid_until, total_amount, total_cost, estimated_margin, payment_terms, delivery_terms, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -53,7 +53,7 @@ impl QuotationRepo {
         &self,
         executor: PgExecutor<'_>,
         id: i64,
-    ) -> RepoResult<Option<Quotation>> {
+    ) -> Result<Option<Quotation>> {
         let quotation = sqlx::query_as::<sqlx::Postgres, Quotation>(
             &format!("SELECT {QUOTATION_COLUMNS} FROM quotations WHERE id = $1 AND deleted_at IS NULL"),
         )
@@ -67,7 +67,7 @@ impl QuotationRepo {
         &self,
         executor: PgExecutor<'_>,
         doc_number: &str,
-    ) -> RepoResult<Option<Quotation>> {
+    ) -> Result<Option<Quotation>> {
         let quotation = sqlx::query_as::<sqlx::Postgres, Quotation>(
             &format!("SELECT {QUOTATION_COLUMNS} FROM quotations WHERE doc_number = $1 AND deleted_at IS NULL"),
         )
@@ -83,7 +83,7 @@ impl QuotationRepo {
         executor: PgExecutor<'_>,
         id: i64,
         req: &UpdateQuotationReq,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -158,7 +158,7 @@ impl QuotationRepo {
         executor: PgExecutor<'_>,
         id: i64,
         status: QuotationStatus,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             "UPDATE quotations SET status = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -176,7 +176,7 @@ impl QuotationRepo {
         total_amount: Decimal,
         total_cost: Decimal,
         estimated_margin: Decimal,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query(
             "UPDATE quotations SET total_amount = $2, total_cost = $3, estimated_margin = $4, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -189,7 +189,7 @@ impl QuotationRepo {
         Ok(())
     }
 
-    pub async fn expire_overdue(&self, executor: PgExecutor<'_>) -> RepoResult<i64> {
+    pub async fn expire_overdue(&self, executor: PgExecutor<'_>) -> Result<i64> {
         let result = sqlx::query(
             "UPDATE quotations SET status = 5, updated_at = NOW() WHERE status = 2 AND valid_until < CURRENT_DATE AND deleted_at IS NULL",
         )
@@ -207,7 +207,7 @@ impl QuotationRepo {
         data_scope: DataScope,
         scope_operator_id: i64,
         _scope_department_id: Option<i64>,
-    ) -> RepoResult<PaginatedResult<Quotation>> {
+    ) -> Result<PaginatedResult<Quotation>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -333,7 +333,7 @@ impl QuotationItemRepo {
         executor: PgExecutor<'_>,
         quotation_id: i64,
         items: &[QuotationItemInput],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         for item in items {
             sqlx::query(
                 r#"INSERT INTO quotation_items (quotation_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, delivery_date)
@@ -360,7 +360,7 @@ impl QuotationItemRepo {
         &self,
         executor: PgExecutor<'_>,
         quotation_id: i64,
-    ) -> RepoResult<Vec<QuotationItem>> {
+    ) -> Result<Vec<QuotationItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, QuotationItem>(
             &format!("SELECT {ITEM_COLUMNS} FROM quotation_items WHERE quotation_id = $1 ORDER BY line_no"),
         )
@@ -374,7 +374,7 @@ impl QuotationItemRepo {
         &self,
         executor: PgExecutor<'_>,
         quotation_id: i64,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query("DELETE FROM quotation_items WHERE quotation_id = $1")
             .bind(quotation_id)
             .execute(executor)

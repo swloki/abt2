@@ -1,5 +1,5 @@
 use sqlx::{FromRow, Row};
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{CostEntry, EntryRequest};
 
@@ -10,7 +10,7 @@ impl CostEntryRepo {
     pub async fn batch_insert(
         executor: &mut sqlx::postgres::PgConnection,
         entries: &[EntryRequest],
-    ) -> RepoResult<Vec<CostEntry>> {
+    ) -> Result<Vec<CostEntry>> {
         let mut results = Vec::with_capacity(entries.len());
 
         for entry in entries {
@@ -50,7 +50,7 @@ impl CostEntryRepo {
         entity_id: i64,
         limit: i64,
         offset: i64,
-    ) -> RepoResult<(Vec<CostEntry>, u64)> {
+    ) -> Result<(Vec<CostEntry>, u64)> {
         // Count
         let count_row = sqlx::query(
             r#"

@@ -1,5 +1,5 @@
 use sqlx::Row;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use crate::qms::enums::*;
@@ -31,7 +31,7 @@ fn row_to_model(row: sqlx::postgres::PgRow) -> InspectionSpecification {
 pub async fn insert(
     db: &mut sqlx::postgres::PgConnection,
     m: &InspectionSpecification,
-) -> RepoResult<i64> {
+) -> Result<i64> {
     let check_items_json = serde_json::to_value(&m.check_items)?;
     let sample_plan_json = serde_json::to_value(&m.sample_plan)?;
 
@@ -60,7 +60,7 @@ pub async fn insert(
 pub async fn find_by_id(
     db: &mut sqlx::postgres::PgConnection,
     id: i64,
-) -> RepoResult<Option<InspectionSpecification>> {
+) -> Result<Option<InspectionSpecification>> {
     let row = sqlx::query(
         &format!("SELECT {COLUMNS} FROM inspection_specifications WHERE id = $1 AND deleted_at IS NULL")
     )
@@ -75,7 +75,7 @@ pub async fn find_active_by_product_and_type(
     db: &mut sqlx::postgres::PgConnection,
     product_id: i64,
     inspection_type: i16,
-) -> RepoResult<Option<InspectionSpecification>> {
+) -> Result<Option<InspectionSpecification>> {
     let row = sqlx::query(
         &format!(
             "SELECT {COLUMNS} FROM inspection_specifications WHERE product_id = $1 AND inspection_type = $2 AND status = 2 AND deleted_at IS NULL"
@@ -96,7 +96,7 @@ pub async fn update_fields(
     sample_plan: Option<SamplePlan>,
     status: Option<SpecStatus>,
     expected_version: i32,
-) -> RepoResult<u64> {
+) -> Result<u64> {
     let result = sqlx::query(
         r#"
         UPDATE inspection_specifications
@@ -123,7 +123,7 @@ pub async fn list(
     db: &mut sqlx::postgres::PgConnection,
     filter: &InspectionSpecFilter,
     page: &PageParams,
-) -> RepoResult<PaginatedResult<InspectionSpecification>> {
+) -> Result<PaginatedResult<InspectionSpecification>> {
     let limit = page.page_size as i64;
     let offset = page.offset() as i64;
 

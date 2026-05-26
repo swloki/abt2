@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use sqlx::Row;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{CreatePaymentRequestRequest, PaymentRequest, PaymentRequestQuery};
 use crate::purchase::enums::PaymentStatus;
@@ -15,7 +15,7 @@ impl PaymentRequestRepo {
         req: &CreatePaymentRequestRequest,
         doc_number: &str,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO payment_requests
@@ -48,7 +48,7 @@ impl PaymentRequestRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<PaymentRequest>> {
+    ) -> Result<Option<PaymentRequest>> {
         sqlx::query_as::<_, PaymentRequest>(
             r#"
             SELECT id, doc_number, supplier_id, reconciliation_id, payment_date, amount,
@@ -68,7 +68,7 @@ impl PaymentRequestRepo {
         executor: &mut sqlx::postgres::PgConnection,
         q: &PaymentRequestQuery,
         page: &PageParams,
-    ) -> RepoResult<(Vec<PaymentRequest>, u64)> {
+    ) -> Result<(Vec<PaymentRequest>, u64)> {
         let where_clause = "
             WHERE deleted_at IS NULL
               AND ($1::bigint IS NULL OR supplier_id = $1)
@@ -118,7 +118,7 @@ impl PaymentRequestRepo {
         id: i64,
         status: PaymentStatus,
         updated_at: &DateTime<Utc>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE payment_requests
@@ -141,7 +141,7 @@ impl PaymentRequestRepo {
         id: i64,
         payment_doc_no: &str,
         updated_at: &DateTime<Utc>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE payment_requests

@@ -1,7 +1,7 @@
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use super::super::enums::*;
@@ -21,7 +21,7 @@ impl ProductionReceiptRepo {
         receipt_date: NaiveDate,
         doc_number: &str,
         operator_id: i64,
-    ) -> RepoResult<ProductionReceipt> {
+    ) -> Result<ProductionReceipt> {
         let row = sqlx::query(
             r#"
             INSERT INTO production_receipts
@@ -55,7 +55,7 @@ impl ProductionReceiptRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<ProductionReceipt>> {
+    ) -> Result<Option<ProductionReceipt>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, batch_id, product_id,
@@ -78,7 +78,7 @@ impl ProductionReceiptRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: ReceiptStatus,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let result = sqlx::query(
             r#"
             UPDATE production_receipts
@@ -98,7 +98,7 @@ impl ProductionReceiptRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         value: bool,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let result = sqlx::query(
             r#"
             UPDATE production_receipts

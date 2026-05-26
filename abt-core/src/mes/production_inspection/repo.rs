@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use super::super::enums::*;
@@ -12,7 +12,7 @@ impl ProductionInspectionRepo {
         req: &CreateInspectionReq,
         doc_number: &str,
         operator_id: i64,
-    ) -> RepoResult<ProductionInspection> {
+    ) -> Result<ProductionInspection> {
         let row = sqlx::query(
             r#"
             INSERT INTO production_inspections
@@ -51,7 +51,7 @@ impl ProductionInspectionRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<ProductionInspection>> {
+    ) -> Result<Option<ProductionInspection>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, routing_id, product_id,
@@ -76,7 +76,7 @@ impl ProductionInspectionRepo {
         result: InspectionResultType,
         qualified_qty: rust_decimal::Decimal,
         unqualified_qty: rust_decimal::Decimal,
-    ) -> RepoResult<bool> {
+    ) -> Result<bool> {
         let rows = sqlx::query(
             r#"
             UPDATE production_inspections

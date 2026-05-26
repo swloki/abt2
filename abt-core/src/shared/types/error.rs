@@ -40,8 +40,8 @@ impl From<serde_json::Error> for DomainError {
     }
 }
 
-/// Repo 层统一返回类型
-pub type RepoResult<T> = Result<T, DomainError>;
+/// 统一返回类型
+pub type Result<T> = std::result::Result<T, DomainError>;
 
 impl DomainError {
     pub fn not_found(entity: impl fmt::Display) -> Self {

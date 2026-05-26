@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{InventoryDetailView, TransactionDetailView, TransactionLogFilter};
 use crate::shared::types::pagination::PaginatedResult;
@@ -17,7 +17,7 @@ impl InventoryRepo {
         bin_id: Option<i64>,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<InventoryDetailView>> {
+    ) -> Result<PaginatedResult<InventoryDetailView>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut conditions: Vec<String> = Vec::new();
@@ -104,7 +104,7 @@ impl InventoryRepo {
 
     pub async fn list_low_stock(
         executor: &mut sqlx::postgres::PgConnection,
-    ) -> RepoResult<Vec<InventoryDetailView>> {
+    ) -> Result<Vec<InventoryDetailView>> {
         let rows = sqlx::query(
             r#"
             SELECT sl.id as stock_ledger_id, sl.product_id, p.pdt_name as product_name,
@@ -135,7 +135,7 @@ impl InventoryRepo {
         filter: &TransactionLogFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<TransactionDetailView>> {
+    ) -> Result<PaginatedResult<TransactionDetailView>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut conditions: Vec<String> = Vec::new();
@@ -253,21 +253,21 @@ impl InventoryRepo {
     pub async fn list_txn_details_by_product(
         executor: &mut sqlx::postgres::PgConnection,
         product_id: i64,
-    ) -> RepoResult<Vec<TransactionDetailView>> {
+    ) -> Result<Vec<TransactionDetailView>> {
         Self::list_txn_details_by_filter(executor, Some(product_id), None, None, None).await
     }
 
     pub async fn list_txn_details_by_bin(
         executor: &mut sqlx::postgres::PgConnection,
         bin_id: i64,
-    ) -> RepoResult<Vec<TransactionDetailView>> {
+    ) -> Result<Vec<TransactionDetailView>> {
         Self::list_txn_details_by_filter(executor, None, Some(bin_id), None, None).await
     }
 
     pub async fn list_txn_details_by_warehouse(
         executor: &mut sqlx::postgres::PgConnection,
         warehouse_id: i64,
-    ) -> RepoResult<Vec<TransactionDetailView>> {
+    ) -> Result<Vec<TransactionDetailView>> {
         Self::list_txn_details_by_filter(executor, None, None, Some(warehouse_id), None).await
     }
 
@@ -277,7 +277,7 @@ impl InventoryRepo {
         bin_id: Option<i64>,
         warehouse_id: Option<i64>,
         source_type: Option<&str>,
-    ) -> RepoResult<Vec<TransactionDetailView>> {
+    ) -> Result<Vec<TransactionDetailView>> {
         let mut conditions: Vec<String> = Vec::new();
         let mut param_idx = 0u32;
 
@@ -338,7 +338,7 @@ impl InventoryRepo {
     pub async fn resolve_bin(
         executor: &mut sqlx::postgres::PgConnection,
         bin_id: i64,
-    ) -> RepoResult<Option<(i64, i64, i64)>> {
+    ) -> Result<Option<(i64, i64, i64)>> {
         let row = sqlx::query(
             "SELECT b.id as bin_id, b.zone_id, z.warehouse_id \
              FROM bins b JOIN zones z ON b.zone_id = z.id \

@@ -1,5 +1,5 @@
 use sqlx::FromRow;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{BackflushFilter, BackflushItem, BackflushRecord, CreateBackflushItemReq, CreateBackflushReq};
 use crate::shared::types::pagination::PaginatedResult;
@@ -11,7 +11,7 @@ impl BackflushRepo {
     pub async fn insert(
         executor: &mut sqlx::postgres::PgConnection,
         req: &CreateBackflushReq,
-    ) -> RepoResult<BackflushRecord> {
+    ) -> Result<BackflushRecord> {
         let row = sqlx::query(
             r#"
             INSERT INTO backflush_records
@@ -42,7 +42,7 @@ impl BackflushRepo {
     pub async fn insert_item(
         executor: &mut sqlx::postgres::PgConnection,
         req: &CreateBackflushItemReq,
-    ) -> RepoResult<BackflushItem> {
+    ) -> Result<BackflushItem> {
         let row = sqlx::query(
             r#"
             INSERT INTO backflush_items
@@ -70,7 +70,7 @@ impl BackflushRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<BackflushRecord>> {
+    ) -> Result<Option<BackflushRecord>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, product_id, completed_qty,
@@ -92,7 +92,7 @@ impl BackflushRepo {
     pub async fn get_items(
         executor: &mut sqlx::postgres::PgConnection,
         record_id: i64,
-    ) -> RepoResult<Vec<BackflushItem>> {
+    ) -> Result<Vec<BackflushItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, record_id, component_id, theoretical_qty, actual_qty,
@@ -119,7 +119,7 @@ impl BackflushRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: super::super::enums::BackflushStatus,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE backflush_records
@@ -141,7 +141,7 @@ impl BackflushRepo {
         filter: &BackflushFilter,
         page: u32,
         page_size: u32,
-    ) -> RepoResult<PaginatedResult<BackflushRecord>> {
+    ) -> Result<PaginatedResult<BackflushRecord>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["1=1".to_string()];

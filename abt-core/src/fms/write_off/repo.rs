@@ -1,6 +1,6 @@
 use crate::shared::types::PgExecutor;
 use rust_decimal::Decimal;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use crate::shared::enums::document_type::DocumentType;
@@ -24,7 +24,7 @@ impl WriteOffRepo {
         req: &WriteOffReq,
         write_off_date: chrono::NaiveDate,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO write_offs
                (write_off_type, cash_journal_id, source_type, source_id, amount, write_off_date, idempotency_key, operator_id)
@@ -51,7 +51,7 @@ impl WriteOffRepo {
         source_type: DocumentType,
         source_id: i64,
         page: &PageParams,
-    ) -> RepoResult<(Vec<WriteOff>, u64)> {
+    ) -> Result<(Vec<WriteOff>, u64)> {
         // Count
         let total: i64 = sqlx::query_scalar(
             r#"SELECT COUNT(*) FROM write_offs WHERE source_type = $1 AND source_id = $2"#,
@@ -84,7 +84,7 @@ impl WriteOffRepo {
         executor: PgExecutor<'_>,
         source_type: DocumentType,
         source_id: i64,
-    ) -> RepoResult<Decimal> {
+    ) -> Result<Decimal> {
         let total: Decimal = sqlx::query_scalar(
             r#"SELECT COALESCE(SUM(amount), 0) FROM write_offs WHERE source_type = $1 AND source_id = $2"#,
         )
@@ -103,7 +103,7 @@ impl WriteOffRepo {
         executor: PgExecutor<'_>,
         source_type: DocumentType,
         source_id: i64,
-    ) -> RepoResult<Decimal> {
+    ) -> Result<Decimal> {
         sqlx::query("SELECT pg_advisory_lock($1, $2)")
             .bind(source_type.as_i16() as i64)
             .bind(source_id)
@@ -125,7 +125,7 @@ impl WriteOffRepo {
         executor: PgExecutor<'_>,
         source_type: DocumentType,
         source_id: i64,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         sqlx::query("SELECT pg_advisory_unlock($1, $2)")
             .bind(source_type.as_i16() as i64)
             .bind(source_id)
@@ -138,7 +138,7 @@ impl WriteOffRepo {
     pub async fn sum_written_off_by_journal(
         executor: PgExecutor<'_>,
         cash_journal_id: i64,
-    ) -> RepoResult<Decimal> {
+    ) -> Result<Decimal> {
         let total: Decimal = sqlx::query_scalar(
             r#"SELECT COALESCE(SUM(amount), 0) FROM write_offs WHERE cash_journal_id = $1"#,
         )

@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use sqlx::Row;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{
     CreateOrderItemRequest, CreatePurchaseOrderRequest, PurchaseOrder, PurchaseOrderItem,
@@ -20,7 +20,7 @@ impl PurchaseOrderRepo {
         doc_number: &str,
         total_amount: Decimal,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO purchase_orders
@@ -50,7 +50,7 @@ impl PurchaseOrderRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> RepoResult<Option<PurchaseOrder>> {
+    ) -> Result<Option<PurchaseOrder>> {
         sqlx::query_as::<_, PurchaseOrder>(
             r#"
             SELECT id, doc_number, supplier_id, order_date, expected_delivery_date,
@@ -71,7 +71,7 @@ impl PurchaseOrderRepo {
         q: &PurchaseOrderQuery,
         page: &PageParams,
         scope: (DataScope, i64, Option<i64>),
-    ) -> RepoResult<(Vec<PurchaseOrder>, u64)> {
+    ) -> Result<(Vec<PurchaseOrder>, u64)> {
         let (data_scope, operator_id, _department_id) = scope;
         // purchase_orders 无 department_id，Department 降级为 SelfOnly
         let scope_clause = match data_scope {
@@ -132,7 +132,7 @@ impl PurchaseOrderRepo {
         id: i64,
         status: PurchaseOrderStatus,
         updated_at: &DateTime<Utc>,
-    ) -> RepoResult<u64> {
+    ) -> Result<u64> {
         let result = sqlx::query(
             r#"
             UPDATE purchase_orders
@@ -162,7 +162,7 @@ impl PurchaseOrderItemRepo {
         executor: &mut sqlx::postgres::PgConnection,
         order_id: i64,
         items: &[CreateOrderItemRequest],
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         for item in items {
             let amount = item.quantity * item.unit_price;
             sqlx::query(
@@ -192,7 +192,7 @@ impl PurchaseOrderItemRepo {
     pub async fn list_by_order_id(
         executor: &mut sqlx::postgres::PgConnection,
         order_id: i64,
-    ) -> RepoResult<Vec<PurchaseOrderItem>> {
+    ) -> Result<Vec<PurchaseOrderItem>> {
         sqlx::query_as::<_, PurchaseOrderItem>(
             r#"
             SELECT id, order_id, line_no, product_id, description, quantity, unit_price,
@@ -212,7 +212,7 @@ impl PurchaseOrderItemRepo {
     pub async fn list_received_by_supplier(
         executor: &mut sqlx::postgres::PgConnection,
         supplier_id: i64,
-    ) -> RepoResult<Vec<PurchaseOrderItem>> {
+    ) -> Result<Vec<PurchaseOrderItem>> {
         sqlx::query_as::<_, PurchaseOrderItem>(
             r#"
             SELECT poi.id, poi.order_id, poi.line_no, poi.product_id, poi.description,

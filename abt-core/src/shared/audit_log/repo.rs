@@ -1,6 +1,6 @@
 use serde_json::Value as JsonValue;
 use sqlx::{FromRow, Row};
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::{AuditLog, AuditLogQuery};
 use crate::shared::enums::audit::AuditAction;
@@ -17,7 +17,7 @@ impl AuditLogRepo {
         changes: Option<&JsonValue>,
         operator_id: i64,
         context: Option<&JsonValue>,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO audit_logs (entity_type, entity_id, action, changes, operator_id, context)
@@ -43,7 +43,7 @@ impl AuditLogRepo {
         q: &AuditLogQuery,
         limit: i64,
         offset: i64,
-    ) -> RepoResult<(Vec<AuditLog>, u64)> {
+    ) -> Result<(Vec<AuditLog>, u64)> {
         let sql_base = "
             WHERE ($1::text IS NULL OR entity_type = $1)
               AND ($2::bigint IS NULL OR operator_id = $2)
@@ -85,7 +85,7 @@ impl AuditLogRepo {
         let items: Vec<AuditLog> = rows
             .iter()
             .map(AuditLog::from_row)
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<std::result::Result<Vec<_>, _>>()?;
 
         Ok((items, total as u64))
     }

@@ -1,5 +1,5 @@
 use crate::shared::types::PgExecutor;
-use crate::shared::types::RepoResult;
+use crate::shared::types::Result;
 
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
@@ -19,7 +19,7 @@ impl SupplierRepo {
         supplier_code: &str,
         req: &CreateSupplierReq,
         operator_id: i64,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO suppliers (supplier_code, supplier_name, short_name, category, status, tax_number, lead_time_days, payment_terms, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -46,7 +46,7 @@ impl SupplierRepo {
         executor: PgExecutor<'_>,
         id: i64,
         req: &UpdateSupplierReq,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -80,7 +80,7 @@ impl SupplierRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
         sqlx::query("UPDATE suppliers SET deleted_at = NOW() WHERE supplier_id = $1 AND deleted_at IS NULL")
             .bind(id)
             .execute(executor)
@@ -88,7 +88,7 @@ impl SupplierRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<Supplier>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<Supplier>> {
         let supplier = sqlx::query_as::<sqlx::Postgres, Supplier>(
             &format!("SELECT {SUPPLIER_COLUMNS} FROM suppliers WHERE supplier_id = $1 AND deleted_at IS NULL"),
         )
@@ -104,7 +104,7 @@ impl SupplierRepo {
         executor: PgExecutor<'_>,
         filter: &SupplierQuery,
         page: &PageParams,
-    ) -> RepoResult<PaginatedResult<Supplier>> {
+    ) -> Result<PaginatedResult<Supplier>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -153,7 +153,7 @@ impl SupplierRepo {
     }
 
     /// Check if tax_number exists across suppliers and customers tables (dedup).
-    pub async fn check_tax_number_exists(&self, executor: PgExecutor<'_>, tax_number: &str) -> RepoResult<bool> {
+    pub async fn check_tax_number_exists(&self, executor: PgExecutor<'_>, tax_number: &str) -> Result<bool> {
         let count: i64 = sqlx::query_scalar(
             "SELECT (SELECT COUNT(*) FROM suppliers WHERE tax_number = $1 AND deleted_at IS NULL) + \
                     (SELECT COUNT(*) FROM customers WHERE tax_number = $1 AND deleted_at IS NULL)",
@@ -179,7 +179,7 @@ impl SupplierContactRepo {
         executor: PgExecutor<'_>,
         supplier_id: i64,
         req: &CreateContactReq,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO supplier_contacts (supplier_id, contact_name, phone, email, position, is_primary)
                VALUES ($1, $2, $3, $4, $5, $6)
@@ -203,7 +203,7 @@ impl SupplierContactRepo {
         contact_id: i64,
         supplier_id: i64,
         req: &UpdateContactReq,
-    ) -> RepoResult<()> {
+    ) -> Result<()> {
         let mut sets = Vec::new();
         let mut param_idx = 3u32;
 
@@ -233,7 +233,7 @@ impl SupplierContactRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, contact_id: i64, supplier_id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, contact_id: i64, supplier_id: i64) -> Result<()> {
         sqlx::query("DELETE FROM supplier_contacts WHERE contact_id = $1 AND supplier_id = $2")
             .bind(contact_id)
             .bind(supplier_id)
@@ -242,7 +242,7 @@ impl SupplierContactRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, contact_id: i64) -> RepoResult<Option<SupplierContact>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, contact_id: i64) -> Result<Option<SupplierContact>> {
         let contact = sqlx::query_as::<sqlx::Postgres, SupplierContact>(
             &format!("SELECT {CONTACT_COLUMNS} FROM supplier_contacts WHERE contact_id = $1"),
         )
@@ -252,7 +252,7 @@ impl SupplierContactRepo {
         Ok(contact)
     }
 
-    pub async fn find_by_supplier_id(&self, executor: PgExecutor<'_>, supplier_id: i64) -> RepoResult<Vec<SupplierContact>> {
+    pub async fn find_by_supplier_id(&self, executor: PgExecutor<'_>, supplier_id: i64) -> Result<Vec<SupplierContact>> {
         let contacts = sqlx::query_as::<sqlx::Postgres, SupplierContact>(
             &format!("SELECT {CONTACT_COLUMNS} FROM supplier_contacts WHERE supplier_id = $1 ORDER BY is_primary DESC, contact_id ASC"),
         )
@@ -277,7 +277,7 @@ impl SupplierBankAccountRepo {
         executor: PgExecutor<'_>,
         supplier_id: i64,
         req: &CreateBankAccountReq,
-    ) -> RepoResult<i64> {
+    ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO supplier_bank_accounts (supplier_id, bank_name, account_name, account_number, is_default)
                VALUES ($1, $2, $3, $4, $5)
@@ -300,7 +300,7 @@ impl SupplierBankAccountRepo {
         account_id: i64,
         supplier_id: i64,
         req: &UpdateBankAccountReq,
-    ) -> RepoResult<Option<SupplierBankAccount>> {
+    ) -> Result<Option<SupplierBankAccount>> {
         // Fetch before for diff
         let before = sqlx::query_as::<sqlx::Postgres, SupplierBankAccount>(
             &format!("SELECT {BANK_ACCOUNT_COLUMNS} FROM supplier_bank_accounts WHERE account_id = $1 AND supplier_id = $2"),
@@ -337,7 +337,7 @@ impl SupplierBankAccountRepo {
         Ok(before)
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, account_id: i64, supplier_id: i64) -> RepoResult<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, account_id: i64, supplier_id: i64) -> Result<()> {
         sqlx::query("DELETE FROM supplier_bank_accounts WHERE account_id = $1 AND supplier_id = $2")
             .bind(account_id)
             .bind(supplier_id)
@@ -346,7 +346,7 @@ impl SupplierBankAccountRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, account_id: i64) -> RepoResult<Option<SupplierBankAccount>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, account_id: i64) -> Result<Option<SupplierBankAccount>> {
         let account = sqlx::query_as::<sqlx::Postgres, SupplierBankAccount>(
             &format!("SELECT {BANK_ACCOUNT_COLUMNS} FROM supplier_bank_accounts WHERE account_id = $1"),
         )
@@ -356,7 +356,7 @@ impl SupplierBankAccountRepo {
         Ok(account)
     }
 
-    pub async fn find_by_supplier_id(&self, executor: PgExecutor<'_>, supplier_id: i64) -> RepoResult<Vec<SupplierBankAccount>> {
+    pub async fn find_by_supplier_id(&self, executor: PgExecutor<'_>, supplier_id: i64) -> Result<Vec<SupplierBankAccount>> {
         let accounts = sqlx::query_as::<sqlx::Postgres, SupplierBankAccount>(
             &format!("SELECT {BANK_ACCOUNT_COLUMNS} FROM supplier_bank_accounts WHERE supplier_id = $1 ORDER BY is_default DESC, account_id ASC"),
         )

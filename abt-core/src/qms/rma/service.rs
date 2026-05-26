@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::shared::types::{PageParams, PaginatedResult, ServiceContext, Result};
 use super::model::*;
 
 #[async_trait]

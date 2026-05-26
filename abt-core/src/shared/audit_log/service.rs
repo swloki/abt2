@@ -4,7 +4,6 @@ use serde_json::Value as JsonValue;
 use super::model::AuditLogQuery;
 use super::super::enums::audit::AuditAction;
 use super::super::types::context::ServiceContext;
-use super::super::types::error::DomainError;
 use super::super::types::Result;
 use super::super::types::pagination::PaginatedResult;
 

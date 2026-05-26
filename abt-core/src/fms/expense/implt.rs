@@ -19,7 +19,7 @@ use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult};
+use crate::shared::types::{DomainError, PageParams, PaginatedResult, Result};
 
 pub struct ExpenseReimbursementServiceImpl {
     doc_seq: Arc<dyn DocumentSequenceService>,

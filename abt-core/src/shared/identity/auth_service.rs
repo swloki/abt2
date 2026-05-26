@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 
 use super::model::{Claims, ResourceActionDef};
-use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 
 #[async_trait]

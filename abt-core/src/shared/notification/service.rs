@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use super::model::*;
-use crate::shared::types::{DomainError, PaginatedResult, Result, ServiceContext};
+use crate::shared::types::{PaginatedResult, Result, ServiceContext};
 
 #[async_trait]
 pub trait NotificationService: Send + Sync {

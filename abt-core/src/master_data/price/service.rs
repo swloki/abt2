@@ -3,7 +3,7 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 
 use super::model::*;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::shared::types::{PageParams, PaginatedResult, ServiceContext, Result};
 
 #[async_trait]
 pub trait ProductPriceService: Send + Sync {

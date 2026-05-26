@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
 use super::model::*;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::shared::types::{PageParams, PaginatedResult, ServiceContext, Result};
 
 #[async_trait]
 pub trait BomQueryService: Send + Sync {

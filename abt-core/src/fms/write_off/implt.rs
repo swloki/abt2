@@ -14,7 +14,7 @@ use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 use crate::fms::enums::WriteOffType;
 
 pub struct WriteOffServiceImpl {

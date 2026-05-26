@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use rust_decimal::Decimal;
 
 use crate::shared::types::context::ServiceContext;
-use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::stock_ledger::model::{StockFilter, StockLedger};

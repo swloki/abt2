@@ -18,7 +18,7 @@ use crate::shared::enums::cost::CostEntityType;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::link_type::LinkType;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 use crate::fms::cash_journal::model::CreateCashJournalReq;
 use crate::fms::cash_journal::service::CashJournalService;
 

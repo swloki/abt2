@@ -1,7 +1,7 @@
 use crate::fms::cost_accounting::model::*;
 use crate::fms::cost_accounting::repo::CostAccountingRepo;
 use crate::fms::cost_accounting::service::CostAccountingService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::shared::types::{PageParams, PaginatedResult, ServiceContext, Result};
 
 /// 成本核算服务实现 — 所有方法均为只读查询，无共享服务依赖
 #[derive(Default)]

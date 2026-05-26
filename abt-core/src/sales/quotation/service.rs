@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use super::model::*;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, Result, ServiceContext};
+use crate::shared::types::{PageParams, PaginatedResult, Result, ServiceContext};
 
 #[async_trait]
 pub trait QuotationService: Send + Sync {

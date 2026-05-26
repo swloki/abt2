@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use super::types::*;
-use crate::shared::types::{DomainError, PaginatedResult, Result, ServiceContext};
+use crate::shared::types::{PaginatedResult, Result, ServiceContext};
 
 /// Excel 导入服务 — 每个导入场景独立实现此 trait
 #[async_trait]

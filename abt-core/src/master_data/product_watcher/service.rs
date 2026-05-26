@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use rust_decimal::Decimal;
 
-use crate::shared::types::{DomainError, PaginatedResult, ServiceContext};
+use crate::shared::types::{PaginatedResult, ServiceContext, Result};
 
 use super::model::WatchedProductWithInventory;
 

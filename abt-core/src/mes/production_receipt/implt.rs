@@ -18,13 +18,13 @@ use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::{AuditAction, CostEntityType, CostType, DocumentType};
 use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::types::context::ServiceContext;
-use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PageParams;
 use crate::wms::backflush::service::BackflushService;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
 use crate::wms::inventory_transaction::service::InventoryTransactionService;
 use crate::wms::enums::TransactionType;
+use crate::shared::types::error::DomainError;
 
 pub struct ProductionReceiptServiceImpl {
     #[allow(dead_code)]

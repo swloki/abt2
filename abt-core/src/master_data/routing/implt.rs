@@ -8,7 +8,7 @@ use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct RoutingServiceImpl {
     repo: RoutingRepo,

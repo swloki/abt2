@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 
 use super::model::*;
 use crate::shared::enums::document_type::DocumentType;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::shared::types::{PageParams, PaginatedResult, ServiceContext, Result};
 
 #[async_trait]
 pub trait WriteOffService: Send + Sync {

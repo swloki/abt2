@@ -26,7 +26,7 @@ use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct ShippingRequestServiceImpl {
     repo: ShippingRequestRepo,

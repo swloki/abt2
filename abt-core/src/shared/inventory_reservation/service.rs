@@ -3,7 +3,6 @@ use rust_decimal::Decimal;
 
 use crate::shared::enums::DocumentType;
 use crate::shared::types::context::ServiceContext;
-use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::batch::BatchResult;
 

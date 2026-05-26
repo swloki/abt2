@@ -2,7 +2,6 @@ use async_trait::async_trait;
 
 use super::model::{DomainEvent, EventPublishRequest, EventQuery};
 use crate::shared::types::context::ServiceContext;
-use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 

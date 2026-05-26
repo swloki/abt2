@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use super::model::*;
-use crate::shared::types::{DomainError, ServiceContext, Result};
+use crate::shared::types::{ServiceContext, Result};
 
 #[async_trait]
 pub trait InventoryCascadeService: Send + Sync {

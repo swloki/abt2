@@ -7,7 +7,7 @@ use super::repo::PriceRepo;
 use super::service::ProductPriceService;
 use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::enums::audit::AuditAction;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext};
+use crate::shared::types::{PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct PriceServiceImpl {
     repo: PriceRepo,

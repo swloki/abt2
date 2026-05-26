@@ -4,7 +4,6 @@ use async_trait::async_trait;
 
 use super::super::permission_cache::RolePermissionCache;
 use super::super::permission_service::PermissionService;
-use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 
 pub struct PermissionServiceImpl {

@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 
-use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 
 #[async_trait]

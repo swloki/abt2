@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 
 use super::model::*;
-use crate::shared::types::{DomainError, ServiceContext, Result};
+use crate::shared::types::{ServiceContext, Result};
 
 /// 定时任务 — 每个后台任务独立实现此 trait
 #[async_trait]

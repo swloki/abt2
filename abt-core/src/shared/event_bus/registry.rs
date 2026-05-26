@@ -5,7 +5,6 @@ use async_trait::async_trait;
 
 use super::model::DomainEvent;
 use crate::shared::enums::event::DomainEventType;
-use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 
 /// 事件处理器 trait — 业务模块实现此接口

@@ -25,7 +25,7 @@ macro_rules! define_mes_enum {
 
         impl sqlx::Type<sqlx::Postgres> for $name {
             fn type_info() -> sqlx::postgres::PgTypeInfo {
-                sqlx::postgres::PgTypeInfo::with_name("smallint")
+                <i16 as sqlx::Type<sqlx::Postgres>>::type_info()
             }
         }
 

@@ -74,6 +74,22 @@ impl DepartmentService for DepartmentServiceImpl {
         Ok(())
     }
 
+    async fn get_department(
+        &self,
+        ctx: ServiceContext<'_>,
+        dept_id: i64,
+    ) -> Result<Department, DomainError> {
+        IdentityRepo::get_department(&mut *ctx.executor, dept_id)
+            .await
+            .map_err(|e| {
+                if is_no_row(&e) {
+                    DomainError::not_found("Department")
+                } else {
+                    DomainError::Internal(e.into())
+                }
+            })
+    }
+
     async fn list_departments(
         &self,
         ctx: ServiceContext<'_>,
@@ -130,6 +146,16 @@ impl DepartmentService for DepartmentServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         Ok(())
+    }
+
+    async fn get_user_departments(
+        &self,
+        ctx: ServiceContext<'_>,
+        user_id: i64,
+    ) -> Result<Vec<Department>, DomainError> {
+        IdentityRepo::get_user_departments(&mut *ctx.executor, user_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
     }
 }
 

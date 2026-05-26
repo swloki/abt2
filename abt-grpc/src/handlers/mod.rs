@@ -4,6 +4,7 @@ pub mod auth;
 pub mod bom;
 pub mod convert;
 pub mod bom_category;
+pub mod category;
 pub mod department;
 pub mod excel;
 pub mod inventory;
@@ -20,12 +21,15 @@ pub mod user;
 pub mod warehouse;
 pub mod notification;
 pub mod sync_handler;
-pub mod task_scheduler;
 pub mod quotation;
+pub mod sales_order;
+pub mod sales_return;
+pub mod shipping_request;
 pub mod workflow;
 
 pub use crate::generated::abt::v1::{
     abt_bom_category_service_server::AbtBomCategoryServiceServer,
+    abt_category_service_server::AbtCategoryServiceServer,
     abt_bom_service_server::AbtBomServiceServer,
     abt_excel_service_server::AbtExcelServiceServer,
     abt_inventory_service_server::AbtInventoryServiceServer,
@@ -37,9 +41,11 @@ pub use crate::generated::abt::v1::{
     abt_routing_service_server::AbtRoutingServiceServer,
     abt_notification_service_server::AbtNotificationServiceServer,
     abt_sync_service_server::AbtSyncServiceServer,
-    abt_task_scheduler_service_server::AbtTaskSchedulerServiceServer,
     abt_workflow_service_server::AbtWorkflowServiceServer,
     quotation_service_server::QuotationServiceServer,
+    sales_order_service_server::SalesOrderServiceServer,
+    sales_return_service_server::SalesReturnServiceServer,
+    shipping_request_service_server::ShippingRequestServiceServer,
     abt_term_service_server::AbtTermServiceServer,
     abt_warehouse_service_server::AbtWarehouseServiceServer,
     auth_service_server::AuthServiceServer,
@@ -50,6 +56,23 @@ pub use crate::generated::abt::v1::{
 };
 
 pub type GrpcResult<T> = Result<tonic::Response<T>, tonic::Status>;
+
+/// DomainError → tonic::Status 映射，所有迁移到 abt-core 的 handler 共用
+pub fn domain_to_status(e: abt_core::shared::types::DomainError) -> tonic::Status {
+    use abt_core::shared::types::DomainError;
+    match e {
+        DomainError::NotFound(msg) => tonic::Status::not_found(msg),
+        DomainError::Duplicate(msg) => tonic::Status::already_exists(msg),
+        DomainError::PermissionDenied(msg) => tonic::Status::permission_denied(msg),
+        DomainError::BusinessRule(msg) => tonic::Status::failed_precondition(msg),
+        DomainError::Validation(msg) => tonic::Status::invalid_argument(msg),
+        DomainError::ConcurrentConflict => tonic::Status::aborted("Concurrent conflict"),
+        DomainError::InvalidStateTransition { from, to } => {
+            tonic::Status::failed_precondition(format!("Invalid state transition: {from} -> {to}"))
+        }
+        DomainError::Internal(e) => tonic::Status::internal(e.to_string()),
+    }
+}
 
 /// Convert an empty string to None, non-empty to Some.
 pub fn empty_to_none(s: String) -> Option<String> {

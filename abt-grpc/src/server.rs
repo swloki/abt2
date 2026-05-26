@@ -23,9 +23,7 @@ pub fn get_permission_cache() -> &'static std::sync::Arc<abt_core::shared::ident
 }
 
 pub struct AppState {
-    abt_context: &'static abt::AppContext,
     abt_core_pool: sqlx::PgPool,
-    task_scheduler: Arc<abt::implt::TaskScheduler>,
     workflow_engine: abt_core::workflow::WorkflowEngine,
     shutdown: Arc<AtomicBool>,
     worker_cancel: tokio_util::sync::CancellationToken,
@@ -39,22 +37,10 @@ impl AppState {
     pub async fn init() -> Result<(), Box<dyn std::error::Error>> {
         let config = get_config();
 
-        // Create database pool from config
-        let pool = sqlx::postgres::PgPoolOptions::new()
-            .max_connections(config.max_connection)
-            .connect(&config.database_url)
-            .await?;
-
-        // Initialize abt context with the pool
-        abt::init_context_with_pool(pool).await;
-
-        // Context is now initialized, get reference
-        let ctx = abt::get_context().await;
-
         // Initialize abt-core database pool (abt_v2)
         let abt_core_pool = sqlx::postgres::PgPoolOptions::new()
             .max_connections(config.max_connection)
-            .connect(&config.abt_core_database_url)
+            .connect(&config.database_url)
             .await?;
 
         // Initialize permission cache (abt-core)
@@ -68,7 +54,6 @@ impl AppState {
         let shutdown = Arc::new(AtomicBool::new(false));
         let h3yun_client = abt_core::h3yun::H3YunClient::new();
         let core_pool = Arc::new(abt_core_pool.clone());
-        let old_pool = Arc::new(ctx.pool().clone());
 
         let registry: Arc<dyn abt_core::shared::event_bus::EventHandlerRegistry> = {
             use abt_core::shared::event_bus::{EventHandlerRegistryImpl, EventHandlerRegistry};
@@ -79,39 +64,32 @@ impl AppState {
             reg.register(DomainEventType::ProductCreated, Arc::new(ProductSyncHandler::new(core_pool.clone(), h3yun_client.clone())));
             reg.register(DomainEventType::ProductUpdated, Arc::new(ProductSyncHandler::new(core_pool.clone(), h3yun_client.clone())));
             reg.register(DomainEventType::ProductDeleted, Arc::new(ProductDeleteHandler::new(core_pool.clone(), h3yun_client.clone())));
-            reg.register(DomainEventType::H3YunInventorySync, Arc::new(InventorySyncHandler::new(old_pool, core_pool.clone(), h3yun_client)));
+            reg.register(DomainEventType::H3YunInventorySync, Arc::new(InventorySyncHandler::new(core_pool.clone(), h3yun_client)));
             reg
         };
 
         let event_processor = {
             use abt_core::shared::event_bus::{EventProcessor, DeadLetterServiceImpl, dead_letter::DeadLetterService};
             let dead_letter: Arc<dyn DeadLetterService> = Arc::new(DeadLetterServiceImpl::new());
-            let processor = Arc::new(EventProcessor::new(core_pool, registry.clone(), dead_letter, 3));
+            let processor = Arc::new(EventProcessor::new(core_pool.clone(), registry.clone(), dead_letter, 3));
             processor.start();
             processor
         };
 
-        // Build task scheduler
-        let mut scheduler = abt::implt::TaskScheduler::new(shutdown.clone());
-        scheduler.register(abt::implt::StockAlertTask::new(ctx.pool().clone()));
-        scheduler.start().await;
-
         // 启动 Workflow Worker（超时扫描/提醒）
         let worker_cancel = tokio_util::sync::CancellationToken::new();
         let worker = abt_core::workflow::worker::WorkflowWorker::new(
-            Arc::new(ctx.pool().clone()),
+            core_pool.clone(),
             worker_cancel.clone(),
         );
         tokio::spawn(async move {
             worker.run().await;
         });
 
-        let workflow_engine = abt_core::workflow::WorkflowEngine::new(Arc::new(ctx.pool().clone()));
+        let workflow_engine = abt_core::workflow::WorkflowEngine::new(core_pool.clone());
 
         let state = Arc::new(AppState {
-            abt_context: ctx,
             abt_core_pool,
-            task_scheduler: Arc::new(scheduler),
             workflow_engine,
             shutdown: shutdown.clone(),
             worker_cancel,
@@ -204,11 +182,6 @@ impl AppState {
     pub fn inventory_service(&self) -> impl abt_core::wms::inventory::InventoryService {
         use abt_core::wms::inventory::implt::InventoryServiceImpl;
         InventoryServiceImpl::new()
-    }
-
-    /// Legacy inventory service (abt) — 供 sync_handler H3Yun 集成使用
-    pub fn abt_inventory_service(&self) -> impl abt::InventoryService {
-        abt::get_inventory_service(self.abt_context)
     }
 
     pub fn price_service(&self) -> impl abt_core::master_data::price::ProductPriceService {
@@ -651,10 +624,6 @@ impl AppState {
         self.workflow_engine.clone()
     }
 
-    pub fn task_scheduler(&self) -> Arc<abt::implt::TaskScheduler> {
-        Arc::clone(&self.task_scheduler)
-    }
-
     pub fn event_bus(&self) -> Arc<dyn abt_core::shared::event_bus::DomainEventBus> {
         use abt_core::shared::event_bus::implt::DomainEventBusImpl;
         Arc::new(DomainEventBusImpl::new(Arc::new(self.abt_core_pool.clone())))
@@ -669,14 +638,6 @@ impl AppState {
         let pool = Arc::new(self.abt_core_pool.clone());
         let config = get_config();
         AuthServiceImpl::new(pool, config.jwt_secret.clone())
-    }
-
-    pub async fn begin_transaction(&self) -> anyhow::Result<sqlx::Transaction<'static, sqlx::Postgres>> {
-        self.abt_context.begin_transaction().await
-    }
-
-    pub fn pool(&self) -> sqlx::PgPool {
-        self.abt_context.pool().clone()
     }
 
     pub fn core_pool(&self) -> sqlx::PgPool {
@@ -763,9 +724,6 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(crate::handlers::AbtNotificationServiceServer::with_interceptor(
             crate::handlers::notification::NotificationHandler::new(), auth_interceptor,
-        ))
-        .add_service(crate::handlers::AbtTaskSchedulerServiceServer::with_interceptor(
-            crate::handlers::task_scheduler::TaskSchedulerHandler::new(), auth_interceptor,
         ))
         .add_service(AbtSyncServiceServer::with_interceptor(
             crate::handlers::sync_handler::SyncHandler::new(), auth_interceptor,

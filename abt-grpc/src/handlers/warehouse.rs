@@ -1,30 +1,27 @@
-//! Warehouse gRPC Handler
-use crate::generated::abt::v1::{
-    abt_warehouse_service_server::AbtWarehouseService as GrpcWarehouseService, *,
-};
-use crate::handlers::GrpcResult;
-use crate::interceptors::auth::extract_auth;
-use crate::server::AppState;
-use abt_macros::require_permission;
-use crate::permissions::PermissionCode;
+//! Warehouse gRPC Handler — 委托给 abt-core WarehouseService
+
+use abt_core::wms::warehouse::WarehouseService;
+use abt_core::shared::types::ServiceContext;
 use common::error;
 use tonic::{Request, Response};
 
-// Import trait to bring methods into scope
-use abt::WarehouseService;
+use crate::generated::abt::v1::{
+    abt_warehouse_service_server::AbtWarehouseService as GrpcWarehouseService, *,
+};
+use crate::handlers::{domain_to_status, GrpcResult};
+use crate::interceptors::auth::extract_auth;
+use crate::permissions::PermissionCode;
+use crate::server::AppState;
+use abt_macros::require_permission;
 
 pub struct WarehouseHandler;
 
 impl WarehouseHandler {
-    pub fn new() -> Self {
-        Self
-    }
+    pub fn new() -> Self { Self }
 }
 
 impl Default for WarehouseHandler {
-    fn default() -> Self {
-        Self::new()
-    }
+    fn default() -> Self { Self::new() }
 }
 
 #[tonic::async_trait]
@@ -34,10 +31,15 @@ impl GrpcWarehouseService for WarehouseHandler {
         let state = AppState::get().await;
         let srv = state.warehouse_service();
 
-        let warehouses = srv.list_all().await.map_err(error::err_to_status)?;
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let result = srv.list(ctx, Default::default(), 1, 9999)
+            .await.map_err(domain_to_status)?;
 
         Ok(Response::new(WarehouseListResponse {
-            items: warehouses.into_iter().map(|w| w.into()).collect(),
+            items: result.items.into_iter().map(|w| w.into()).collect(),
         }))
     }
 
@@ -50,11 +52,12 @@ impl GrpcWarehouseService for WarehouseHandler {
         let state = AppState::get().await;
         let srv = state.warehouse_service();
 
-        let warehouse = srv
-            .get_by_id(req.warehouse_id)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("Warehouse", &req.warehouse_id.to_string()))?;
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let warehouse = srv.get(ctx, req.warehouse_id)
+            .await.map_err(domain_to_status)?;
 
         Ok(Response::new(warehouse.into()))
     }
@@ -64,24 +67,24 @@ impl GrpcWarehouseService for WarehouseHandler {
         &self,
         request: Request<CreateWarehouseRequest>,
     ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.warehouse_service();
 
-        let mut tx = state
-            .begin_transaction()
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let create_req = abt::CreateWarehouseRequest {
-            warehouse_name: req.warehouse_name,
-            warehouse_code: req.warehouse_code,
-        };
-
-        let id = srv
-            .create(create_req, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let id = srv.create(ctx, abt_core::wms::warehouse::CreateWarehouseReq {
+            code: req.warehouse_code,
+            name: req.warehouse_name,
+            warehouse_type: abt_core::wms::WarehouseType::RawMaterial,
+            address: if req.address.is_empty() { None } else { Some(req.address) },
+            manager_id: None,
+            is_virtual: false,
+            remark: String::new(),
+        }).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -93,24 +96,20 @@ impl GrpcWarehouseService for WarehouseHandler {
         &self,
         request: Request<UpdateWarehouseRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.warehouse_service();
 
-        let mut tx = state
-            .begin_transaction()
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let update_req = abt::UpdateWarehouseRequest {
-            warehouse_name: req.warehouse_name,
-            warehouse_code: None,
-            status: abt::WarehouseStatus::Active,
-        };
-
-        srv.update(req.warehouse_id, update_req, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.update(ctx, req.warehouse_id, abt_core::wms::warehouse::UpdateWarehouseReq {
+            name: Some(req.warehouse_name),
+            address: if req.address.is_empty() { None } else { Some(req.address) },
+            ..Default::default()
+        }).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -122,30 +121,25 @@ impl GrpcWarehouseService for WarehouseHandler {
         &self,
         request: Request<UpdateWarehouseStatusRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.warehouse_service();
 
-        let mut tx = state
-            .begin_transaction()
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
         let status = if req.is_active {
-            abt::WarehouseStatus::Active
+            abt_core::wms::WarehouseStatus::Active
         } else {
-            abt::WarehouseStatus::Inactive
+            abt_core::wms::WarehouseStatus::Inactive
         };
 
-        let update_req = abt::UpdateWarehouseRequest {
-            warehouse_name: String::new(),
-            warehouse_code: None,
-            status,
-        };
-
-        srv.update(req.warehouse_id, update_req, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.update(ctx, req.warehouse_id, abt_core::wms::warehouse::UpdateWarehouseReq {
+            status: Some(status),
+            ..Default::default()
+        }).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -157,22 +151,23 @@ impl GrpcWarehouseService for WarehouseHandler {
         &self,
         request: Request<DeleteWarehouseRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.warehouse_service();
 
-        let mut tx = state
-            .begin_transaction()
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let deleted = srv
-            .delete(req.warehouse_id, req.hard_delete, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        if req.hard_delete {
+            // abt-core WarehouseService 仅支持软删除，hard_delete 暂忽略并记录警告
+            tracing::warn!(warehouse_id = req.warehouse_id, "hard_delete requested but abt-core only supports soft delete");
+        }
+        srv.delete(ctx, req.warehouse_id).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
-        Ok(Response::new(BoolResponse { value: deleted }))
+        Ok(Response::new(BoolResponse { value: true }))
     }
 }

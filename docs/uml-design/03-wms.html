@@ -67,6 +67,22 @@ classDiagram
     Locked
     Disabled
   }
+  class WarehouseInventoryStats {
+    +warehouse_id: i64
+    +warehouse_name: String
+    +total_quantity: Decimal
+    +bin_count: i64
+    +product_count: i64
+    +low_stock_count: i64
+  }
+  class BinInventoryStats {
+    +bin_id: i64
+    +bin_code: String
+    +bin_name: String
+    +total_quantity: Decimal
+    +product_count: i64
+    +low_stock_count: i64
+  }
   class ArrivalStatus {
     &lt;&lt;enumeration&gt;&gt;
     Draft
@@ -208,6 +224,7 @@ classDiagram
     +unit_cost: Option~Decimal~
     +received_date: Option~Date~
     +expiry_date: Option~Date~
+    +safety_stock: Decimal
     +updated_at: Timestamp
   }
 
@@ -413,9 +430,27 @@ classDiagram
     +create(ctx: ServiceContext, req) Result~i64~
     +get(ctx: ServiceContext, id) Result~Warehouse~
     +list(ctx: ServiceContext, filter) PaginatedResult~Warehouse~
+    +update(ctx: ServiceContext, id, req) Result~Unit~
+    +delete(ctx: ServiceContext, id) Result~Unit~
     +create_zone(ctx: ServiceContext, warehouse_id, req) Result~i64~
+    +list_zones(ctx: ServiceContext, warehouse_id) Result~Vec~Zone~~
+    +update_zone(ctx: ServiceContext, id, req) Result~Unit~
+    +delete_zone(ctx: ServiceContext, id) Result~Unit~
     +create_bin(ctx: ServiceContext, zone_id, req) Result~i64~
+    +list_bins(ctx: ServiceContext, zone_id, filter, page, page_size) PaginatedResult~Bin~
+    +update_bin(ctx: ServiceContext, id, req) Result~Unit~
+    +delete_bin(ctx: ServiceContext, id) Result~Unit~
+    +list_bins_by_warehouse(ctx, warehouse_id, keyword, is_active, page, page_size) PaginatedResult~Bin~
+    +get_or_create_default_zone(ctx, warehouse_id) Result~Zone~
+    +get_bin_with_warehouse(ctx, bin_id) Result~BinWithWarehouse~
+    +search_bins_with_warehouse(ctx, keyword, is_active, warehouse_id, page, page_size) PaginatedResult~BinWithWarehouse~
+    +list_all_bins_with_warehouse(ctx) Result~Vec~BinWithWarehouse~~
+    +get_warehouse_inventory_stats(ctx, warehouse_id) Result~WarehouseInventoryStats~
+    +get_bin_inventory_stats(ctx, bin_id) Result~BinInventoryStats~
+    +list_bin_stats_by_warehouse(ctx, warehouse_id, page, page_size) PaginatedResult~BinInventoryStats~
   }
+  WarehouseService ..> WarehouseInventoryStats
+  WarehouseService ..> BinInventoryStats
   class ArrivalNoticeService {
     &lt;&lt;interface&gt;&gt;
     +create(ctx: ServiceContext, req) Result~i64~
@@ -431,6 +466,26 @@ classDiagram
     +query_stock(ctx: ServiceContext, filter: StockFilter) PaginatedResult~StockLedger~
     +query_available(ctx: ServiceContext, filter: StockFilter) Result~Decimal~
   }
+  class InventoryService {
+    &lt;&lt;interface&gt;&gt;
+    +stock_in(ctx, req: StockChangeReq) Result~StockOperationResult~
+    +stock_out(ctx, req: StockChangeReq) Result~StockOperationResult~
+    +adjust(ctx, req: StockChangeReq) Result~StockOperationResult~
+    +set_quantity(ctx, req: StockChangeReq) Result~StockOperationResult~
+    +transfer(ctx, req: StockTransferReq) Result~(StockOperationResult, StockOperationResult)~
+    +set_safety_stock(ctx, product_id, bin_id, safety_stock) Result~Unit~
+    +get_by_product(ctx, product_id) Result~Vec~InventoryDetailView~~
+    +get_by_bin(ctx, bin_id) Result~Vec~InventoryDetailView~~
+    +list_low_stock(ctx) Result~Vec~InventoryDetailView~~
+    +query(ctx, filter, page, page_size) PaginatedResult~InventoryDetailView~
+    +query_logs(ctx, filter, page, page_size) PaginatedResult~TransactionDetailView~
+    +list_logs_by_product(ctx, product_id) Result~Vec~TransactionDetailView~~
+    +list_logs_by_bin(ctx, bin_id) Result~Vec~TransactionDetailView~~
+    +list_logs_by_warehouse(ctx, warehouse_id) Result~Vec~TransactionDetailView~~
+  }
+  InventoryService ..> StockOperationResult
+  InventoryService ..> InventoryDetailView
+  InventoryService ..> TransactionDetailView
   class MaterialRequisitionService {
     &lt;&lt;interface&gt;&gt;
     +create_for_work_order(ctx: ServiceContext, work_order_id) Result~i64~
@@ -477,6 +532,8 @@ classDiagram
   note for ArrivalNoticeService "StateMachine: Draft->Received->Inspecting->Accepted/PartiallyAccepted/Rejected/CANCELLED(Draft only) confirm requires QMS.InspectionResultService.is_passed(IQC) hard gate IQC fail -> block putaway, trigger QMS.MRBService confirm -> CostEntry(material cost: debit inventory / credit AP) [IndependentTx] confirm -> InvRes(release safety stock)"
 
   note for InventoryTransactionService "Append-only, never modify record -> auto update StockLedger query_available MUST use StockLedger.quantity - InvRes.total_reserved() (not the denormalized available_qty field) FMS: StockLedger.unit_cost is core data source for CostAccountingService"
+
+  note for InventoryService "High-level facade wrapping InventoryTransactionRepo + StockLedgerRepo Write ops: read before -> insert txn + update ledger -> read after -> return StockOperationResult Read ops: stock_ledger JOIN products/bins/zones/warehouses Log ops: inventory_transactions JOIN products/bins/zones/warehouses location_id in proto maps to bin_id in abt-core (resolved via InventoryRepo.resolve_bin)"
 
   note for MaterialRequisitionService "StateMachine: Draft->Confirmed->Issued/Cancelled(Draft/Confirmed) Called by MES.WorkOrderService.release() issue -> InvRes.fulfill(Hard) issue -> InventoryTransaction.record(MaterialIssue)"
 
@@ -669,6 +726,7 @@ classDiagram
           &nbsp;&nbsp;unit_cost: Decimal(18,6)? <span style="color:#888;">// 移动加权平均成本</span><br>
           &nbsp;&nbsp;received_date: Date?<br>
           &nbsp;&nbsp;expiry_date: Date?<br>
+          &nbsp;&nbsp;safety_stock: Decimal(18,6) <span style="color:#888;">// 安全库存下限</span><br>
           &nbsp;&nbsp;updated_at: Timestamp<br>
           }<br><br>
           <span style="color:#888;">// 可用量由 InventoryReservation 汇总计算</span><br>
@@ -711,6 +769,36 @@ classDiagram
           &nbsp;&nbsp;FULL_PALLET <span style="color:#888;">// 整托优先</span><br>
           &nbsp;&nbsp;}
         </div>
+      </div>
+    </div>
+
+    <!-- InventoryService Implementation -->
+    <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05); margin-bottom: 20px;">
+      <h4 style="color: #56b6c2; margin: 0 0 6px 0;">InventoryService 库存操作服务（实现）</h4>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">高层库存操作门面，包装 InventoryTransactionRepo + StockLedgerRepo，映射旧 abt 的 proto 接口</p>
+      <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">StockOperationResult</span> {<br>
+        &nbsp;&nbsp;transaction_id: i64 <span style="color:#888;">// inventory_transactions.id</span><br>
+        &nbsp;&nbsp;stock_ledger_id: i64 <span style="color:#888;">// stock_ledger.id</span><br>
+        &nbsp;&nbsp;product_id: i64<br>
+        &nbsp;&nbsp;warehouse_id: i64<br>
+        &nbsp;&nbsp;zone_id: i64<br>
+        &nbsp;&nbsp;bin_id: i64<br>
+        &nbsp;&nbsp;before_qty: Decimal<br>
+        &nbsp;&nbsp;after_qty: Decimal<br>
+        &nbsp;&nbsp;change_qty: Decimal<br>
+        }<br><br>
+        <span style="color:#c678dd;">写操作流程</span>（stock_in / stock_out / adjust / set_quantity）：<br>
+        &nbsp;&nbsp;1. StockLedgerRepo::find_by_location() → before_qty<br>
+        &nbsp;&nbsp;2. InventoryTransactionRepo::insert() → transaction 记录<br>
+        &nbsp;&nbsp;3. StockLedgerRepo::upsert() → 更新库存账<br>
+        &nbsp;&nbsp;4. StockLedgerRepo::find_by_location() → after_qty + stock_ledger_id<br>
+        &nbsp;&nbsp;5. 返回 StockOperationResult<br><br>
+        <span style="color:#c678dd;">transfer</span>：执行两次写操作（out 负数量 + in 正数量）<br>
+        <span style="color:#c678dd;">set_quantity</span>：先读取当前 quantity，计算 delta = target - current<br>
+        <span style="color:#c678dd;">读操作</span>：stock_ledger JOIN products/bins/zones/warehouses 动态过滤 + 分页<br>
+        <span style="color:#c678dd;">日志查询</span>：inventory_transactions JOIN products/bins/zones/warehouses<br>
+        <span style="color:#888;">// proto location_id 映射到 abt-core bin_id（通过 InventoryRepo.resolve_bin 解析）</span>
       </div>
     </div>
 
@@ -1030,8 +1118,9 @@ classDiagram
         }
       </div>
       <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
-        <strong>查询逻辑：</strong>Product → BomQueryService.list(product_id) → 遍历 BomNode → 聚合 InventoryTransactionService 总库存<br>
-        <strong>事务模式：</strong>None（只读查询） | <strong>用途：</strong>排产前缺料分析、采购建议、BOM 库存看板
+        <strong>查询逻辑：</strong>Product → bom_nodes JOIN boms（产品作为子件被引用）→ 按 bom_id 分组 → DFS 展开子节点 → stock_ledger 聚合库存 | max_results 限制返回 BOM 数量<br>
+        <strong>实现细节：</strong>InventoryCascadeServiceImpl 直接 SQL 查询 bom_nodes + boms，不经过 BomQueryService。分 7 步：查产品 → 查 BOM 引用 → 加载节点 → 查产品名称 → 构建树 → 聚合库存 → 填充结果<br>
+        <strong>事务模式：</strong>None（只读查询，使用 ServiceContext.executor） | <strong>用途：</strong>排产前缺料分析、采购建议、BOM 库存看板
       </p>
     </div>
 

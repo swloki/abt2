@@ -4,4 +4,5 @@ pub mod repo;
 pub mod service;
 
 pub use model::*;
+pub use repo::WarehouseExportRow;
 pub use service::WarehouseService;

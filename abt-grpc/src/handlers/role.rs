@@ -1,18 +1,19 @@
-//! Role gRPC Handler
+//! Role gRPC Handler — 委托给 abt-core RoleService
 
+use abt_core::shared::identity::RoleService;
+use abt_core::shared::types::ServiceContext;
 use common::error;
 use tonic::{Request, Response};
+
 use crate::generated::abt::v1::{
     role_service_server::RoleService as GrpcRoleService,
     *,
 };
-use crate::handlers::{empty_to_none, GrpcResult};
+use crate::handlers::{domain_to_status, empty_to_none, GrpcResult};
+use crate::interceptors::auth::extract_auth;
+use crate::permissions::PermissionCode;
 use crate::server::AppState;
 use abt_macros::require_permission;
-use crate::permissions::PermissionCode;
-
-use abt::RoleService;
-use crate::interceptors::auth::extract_auth;
 
 pub struct RoleHandler;
 
@@ -23,8 +24,10 @@ impl RoleHandler {
 
     /// 权限变更后刷新缓存
     async fn refresh_permission_cache(state: &AppState) -> Result<(), tonic::Status> {
-        abt::get_permission_cache().load(&state.pool()).await
-            .map_err(error::err_to_status)
+        crate::server::get_permission_cache()
+            .load(&state.core_pool())
+            .await
+            .map_err(|e| tonic::Status::internal(e.to_string()))
     }
 }
 
@@ -41,28 +44,40 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<CreateRoleRequest>,
     ) -> GrpcResult<RoleResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_core_transaction()
+            .await
             .map_err(error::err_to_status)?;
 
-        let create_req = abt::CreateRoleRequest {
-            role_name: req.role_name,
-            role_code: req.role_code,
-            description: empty_to_none(req.description),
-        };
-
-        let role_id = srv.create(Some(auth.user_id), create_req, &mut tx).await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let role = srv
+            .create_role(
+                ctx,
+                &req.role_name,
+                &req.role_code,
+                empty_to_none(req.description).as_deref(),
+                None,
+            )
+            .await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
-        // Fetch the created role to return
-        let role_with_perms = srv.get(role_id).await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("Role", &role_id.to_string()))?;
+        // Fetch with permissions to return full response
+        let mut tx2 = state
+            .begin_core_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+        let ctx2 = ServiceContext::new(&mut tx2, auth.user_id);
+        let role_with_perms = srv
+            .get_role_with_permissions(ctx2, role.role_id)
+            .await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(role_with_perms.into()))
     }
@@ -72,27 +87,38 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<UpdateRoleRequest>,
     ) -> GrpcResult<RoleResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_core_transaction()
+            .await
             .map_err(error::err_to_status)?;
 
-        let update_req = abt::UpdateRoleRequest {
-            role_name: empty_to_none(req.role_name),
-            description: empty_to_none(req.description),
-        };
-
-        srv.update(Some(auth.user_id), req.role_id, update_req, &mut tx).await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.update_role(
+            ctx,
+            req.role_id,
+            &req.role_name,
+            empty_to_none(req.description).as_deref(),
+        )
+        .await
+        .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
-        // Fetch the updated role to return
-        let role_with_perms = srv.get(req.role_id).await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("Role", &req.role_id.to_string()))?;
+        // Fetch the updated role with permissions to return
+        let mut tx2 = state
+            .begin_core_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+        let ctx2 = ServiceContext::new(&mut tx2, auth.user_id);
+        let role_with_perms = srv
+            .get_role_with_permissions(ctx2, req.role_id)
+            .await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(role_with_perms.into()))
     }
@@ -102,15 +128,20 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<DeleteRoleRequest>,
     ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_core_transaction()
+            .await
             .map_err(error::err_to_status)?;
 
-        srv.delete(Some(auth.user_id), req.role_id, &mut tx).await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.delete_role(ctx, req.role_id)
+            .await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -129,9 +160,16 @@ impl GrpcRoleService for RoleHandler {
         let state = AppState::get().await;
         let srv = state.role_service();
 
-        let role_with_perms = srv.get(req.role_id).await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("Role", &req.role_id.to_string()))?;
+        let mut tx = state
+            .begin_core_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let role_with_perms = srv
+            .get_role_with_permissions(ctx, req.role_id)
+            .await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(role_with_perms.into()))
     }
@@ -145,8 +183,13 @@ impl GrpcRoleService for RoleHandler {
         let state = AppState::get().await;
         let srv = state.role_service();
 
-        let roles = srv.list().await
+        let mut tx = state
+            .begin_core_transaction()
+            .await
             .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let roles = srv.list_roles(ctx).await.map_err(domain_to_status)?;
 
         Ok(Response::new(RoleListResponse {
             roles: roles.into_iter().map(|r| r.into()).collect(),
@@ -158,18 +201,26 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<AssignPermissionsRequest>,
     ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_core_transaction()
+            .await
             .map_err(error::err_to_status)?;
 
-        let resource_actions: Vec<(String, String)> = req.permissions.iter()
+        let resource_actions: Vec<(String, String)> = req
+            .permissions
+            .iter()
             .map(|p| (p.resource_code.clone(), p.action_code.clone()))
             .collect();
-        srv.assign_permissions(Some(auth.user_id), req.role_id, resource_actions, &mut tx).await
-            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.assign_permissions(ctx, req.role_id, resource_actions)
+            .await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -184,18 +235,26 @@ impl GrpcRoleService for RoleHandler {
         &self,
         request: Request<RemovePermissionsRequest>,
     ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.role_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state
+            .begin_core_transaction()
+            .await
             .map_err(error::err_to_status)?;
 
-        let resource_actions: Vec<(String, String)> = req.permissions.iter()
+        let resource_actions: Vec<(String, String)> = req
+            .permissions
+            .iter()
             .map(|p| (p.resource_code.clone(), p.action_code.clone()))
             .collect();
-        srv.remove_permissions(Some(auth.user_id), req.role_id, resource_actions, &mut tx).await
-            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.remove_permissions(ctx, req.role_id, resource_actions)
+            .await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 

@@ -1,3 +1,7 @@
+//! SalesReturn gRPC Handler — 委托给 abt-core SalesReturnService
+
+use abt_core::sales::sales_return::SalesReturnService;
+use abt_core::shared::types::{PageParams, ServiceContext};
 use common::error;
 use tonic::{Request, Response};
 
@@ -5,10 +9,9 @@ use crate::generated::abt::v1::{
     sales_return_service_server::SalesReturnService as GrpcSalesReturnService,
     *,
 };
-use crate::handlers::{empty_to_none, GrpcResult};
+use crate::handlers::{domain_to_status, GrpcResult};
+use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
-
-use abt::{CreateSalesReturnItemParams, CreateSalesReturnParams, SalesReturnService, UpdateSalesReturnParams};
 
 pub struct SalesReturnHandler;
 
@@ -24,65 +27,61 @@ impl Default for SalesReturnHandler {
     }
 }
 
-fn status_i16_to_proto(status: i16) -> SalesReturnStatus {
+fn return_status_to_proto(status: abt_core::sales::sales_return::ReturnStatus) -> SalesReturnStatus {
     match status {
-        1 => SalesReturnStatus::Pending,
-        2 => SalesReturnStatus::Approved,
-        3 => SalesReturnStatus::Received,
-        4 => SalesReturnStatus::Completed,
-        5 => SalesReturnStatus::Rejected,
-        _ => SalesReturnStatus::Unspecified,
+        abt_core::sales::sales_return::ReturnStatus::Draft => SalesReturnStatus::Pending,
+        abt_core::sales::sales_return::ReturnStatus::Confirmed => SalesReturnStatus::Approved,
+        abt_core::sales::sales_return::ReturnStatus::Received => SalesReturnStatus::Received,
+        abt_core::sales::sales_return::ReturnStatus::Inspecting => SalesReturnStatus::Received,
+        abt_core::sales::sales_return::ReturnStatus::Completed => SalesReturnStatus::Completed,
+        abt_core::sales::sales_return::ReturnStatus::Cancelled => SalesReturnStatus::Rejected,
+        abt_core::sales::sales_return::ReturnStatus::Rejected => SalesReturnStatus::Rejected,
     }
 }
 
+#[allow(dead_code)]
 fn parse_decimal(s: &str) -> rust_decimal::Decimal {
     s.parse().unwrap_or(rust_decimal::Decimal::ZERO)
 }
 
+#[allow(dead_code)]
 fn decimal_to_string(d: rust_decimal::Decimal) -> String {
     d.to_string()
 }
 
-fn return_item_to_proto(item: &abt::SalesReturnItem) -> SalesReturnItem {
+#[allow(dead_code)]
+fn return_item_to_proto(item: &abt_core::sales::sales_return::SalesReturnItem) -> SalesReturnItem {
     SalesReturnItem {
-        item_id: item.item_id,
+        item_id: item.id,
         return_id: item.return_id,
-        request_item_id: item.request_item_id,
+        request_item_id: 0,
         order_item_id: item.order_item_id,
         product_id: item.product_id,
-        product_code: item.product_code.clone().unwrap_or_default(),
-        product_name: item.product_name.clone().unwrap_or_default(),
-        unit: item.unit.clone().unwrap_or_default(),
+        product_code: String::new(),
+        product_name: String::new(),
+        unit: String::new(),
         unit_price: decimal_to_string(item.unit_price),
-        quantity: decimal_to_string(item.quantity),
-        subtotal: decimal_to_string(item.subtotal),
-        remark: item.remark.clone().unwrap_or_default(),
+        quantity: decimal_to_string(item.returned_qty),
+        subtotal: decimal_to_string(item.amount),
+        remark: String::new(),
     }
 }
 
-fn return_to_proto(r: &abt::SalesReturn) -> SalesReturn {
+fn return_to_proto(r: &abt_core::sales::sales_return::SalesReturn) -> SalesReturn {
     SalesReturn {
-        return_id: r.return_id,
-        return_no: r.return_no.clone(),
-        request_id: r.request_id,
+        return_id: r.id,
+        return_no: r.doc_number.clone(),
+        request_id: r.shipping_request_id,
         order_id: r.order_id,
-        customer_name: r.customer_name.clone(),
-        status: status_i16_to_proto(r.status) as i32,
+        customer_name: String::new(),
+        status: return_status_to_proto(r.status) as i32,
         total_amount: decimal_to_string(r.total_amount),
-        remark: r.remark.clone().unwrap_or_default(),
-        reason: r.reason.clone().unwrap_or_default(),
-        operator_id: r.operator_id.unwrap_or(0),
+        remark: r.remark.clone(),
+        reason: r.return_reason.clone(),
+        operator_id: r.operator_id,
         created_at: r.created_at.timestamp(),
         updated_at: r.updated_at.timestamp(),
-        items: r.items.iter().map(return_item_to_proto).collect(),
-    }
-}
-
-fn map_create_item(i: &CreateSalesReturnItem) -> CreateSalesReturnItemParams {
-    CreateSalesReturnItemParams {
-        request_item_id: i.request_item_id,
-        quantity: parse_decimal(&i.quantity),
-        remark: if i.remark.is_empty() { None } else { Some(i.remark.clone()) },
+        items: vec![],
     }
 }
 
@@ -92,27 +91,34 @@ impl GrpcSalesReturnService for SalesReturnHandler {
         &self,
         request: Request<CreateSalesReturnRequest>,
     ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.sales_return_service();
+        let srv = state.sales_return_core_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let remark = empty_to_none(req.remark);
-        let reason = empty_to_none(req.reason);
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
 
-        let params = CreateSalesReturnParams {
-            request_id: req.request_id,
-            remark: remark.as_deref(),
-            reason: reason.as_deref(),
-            operator_id: None,
+        let items: Vec<abt_core::sales::sales_return::CreateReturnItemReq> = req.items.iter().map(|i| {
+            abt_core::sales::sales_return::CreateReturnItemReq {
+                order_item_id: i.request_item_id,
+                returned_qty: parse_decimal(&i.quantity),
+                disposition: abt_core::sales::sales_return::ReturnDisposition::Restock,
+            }
+        }).collect();
+
+        let create_req = abt_core::sales::sales_return::CreateReturnReq {
+            order_id: 0, // TODO: proto 目前没有 order_id 字段，需要适配
+            shipping_request_id: req.request_id,
+            customer_id: 0,
+            return_reason: req.reason.clone(),
+            items,
         };
 
-        let items: Vec<CreateSalesReturnItemParams> = req.items.iter().map(map_create_item).collect();
-
-        let id = srv.create(&mut tx, &params, items)
-            .await.map_err(error::err_to_status)?;
+        let id = srv.create(ctx, create_req).await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -123,48 +129,18 @@ impl GrpcSalesReturnService for SalesReturnHandler {
         &self,
         request: Request<UpdateSalesReturnRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let req = request.into_inner();
-        let state = AppState::get().await;
-        let srv = state.sales_return_service();
-
-        let mut tx = state.begin_transaction().await
-            .map_err(error::err_to_status)?;
-
-        let remark = empty_to_none(req.remark);
-        let reason = empty_to_none(req.reason);
-
-        let params = UpdateSalesReturnParams {
-            remark: remark.as_deref(),
-            reason: reason.as_deref(),
-        };
-
-        let items: Vec<CreateSalesReturnItemParams> = req.items.iter().map(map_create_item).collect();
-
-        srv.update(&mut tx, req.return_id, &params, items)
-            .await.map_err(error::err_to_status)?;
-
-        tx.commit().await.map_err(error::sqlx_err_to_status)?;
-
-        Ok(Response::new(BoolResponse { value: true }))
+        // abt-core SalesReturnService 没有通用 update 方法
+        let _ = request;
+        Err(tonic::Status::unimplemented("Update sales return not supported in abt-core; use status transitions"))
     }
 
     async fn delete_sales_return(
         &self,
         request: Request<DeleteSalesReturnRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let req = request.into_inner();
-        let state = AppState::get().await;
-        let srv = state.sales_return_service();
-
-        let mut tx = state.begin_transaction().await
-            .map_err(error::err_to_status)?;
-
-        srv.delete(&mut tx, req.return_id).await
-            .map_err(error::err_to_status)?;
-
-        tx.commit().await.map_err(error::sqlx_err_to_status)?;
-
-        Ok(Response::new(BoolResponse { value: true }))
+        let _ = request;
+        // abt-core SalesReturnService 没有 delete 方法
+        Err(tonic::Status::unimplemented("Delete sales return not supported in abt-core"))
     }
 
     async fn get_sales_return(
@@ -173,14 +149,17 @@ impl GrpcSalesReturnService for SalesReturnHandler {
     ) -> GrpcResult<SalesReturnResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.sales_return_service();
+        let srv = state.sales_return_core_service();
 
-        let r = srv.get_by_id(req.return_id).await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("SalesReturn", &req.return_id.to_string()))?;
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let r = srv.find_by_id(ctx, req.return_id).await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(SalesReturnResponse {
-            return_: Some(return_to_proto(&r)),
+            r#return: Some(return_to_proto(&r)),
         }))
     }
 
@@ -190,19 +169,29 @@ impl GrpcSalesReturnService for SalesReturnHandler {
     ) -> GrpcResult<SalesReturnListResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.sales_return_service();
+        let srv = state.sales_return_core_service();
 
-        let query = abt::SalesReturnQuery {
-            keyword: req.keyword,
-            status: req.status.map(|s| s as i16),
-            order_id: req.order_id,
-            request_id: req.request_id,
-            page: req.pagination.as_ref().map(|p| p.page as i64),
-            page_size: req.pagination.as_ref().map(|p| p.page_size as i64),
-        };
-
-        let result = srv.list(&query).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+
+        let filter = abt_core::sales::sales_return::ReturnQuery {
+            order_id: req.order_id,
+            shipping_request_id: req.request_id,
+            customer_id: None,
+            status: req.status.and_then(|s| {
+                abt_core::sales::sales_return::ReturnStatus::from_i16(s as i16)
+            }),
+            keyword: req.keyword,
+        };
+        let page = PageParams::new(
+            req.pagination.as_ref().map(|p| p.page).unwrap_or(1),
+            req.pagination.as_ref().map(|p| p.page_size).unwrap_or(20),
+        );
+
+        let result = srv.list(ctx, filter, page).await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(SalesReturnListResponse {
             items: result.items.iter().map(return_to_proto).collect(),
@@ -219,17 +208,39 @@ impl GrpcSalesReturnService for SalesReturnHandler {
         &self,
         request: Request<UpdateSalesReturnStatusRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.sales_return_service();
+        let srv = state.sales_return_core_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let new_status = req.status as i16;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
 
-        srv.update_status(&mut tx, req.return_id, new_status).await
-            .map_err(error::err_to_status)?;
+        match req.status() {
+            SalesReturnStatus::Approved => {
+                srv.approve(ctx, req.return_id).await
+                    .map_err(domain_to_status)?;
+            }
+            SalesReturnStatus::Received => {
+                srv.receive(ctx, req.return_id).await
+                    .map_err(domain_to_status)?;
+            }
+            SalesReturnStatus::Completed => {
+                srv.complete(ctx, req.return_id).await
+                    .map_err(domain_to_status)?;
+            }
+            SalesReturnStatus::Rejected => {
+                srv.reject(ctx, req.return_id).await
+                    .map_err(domain_to_status)?;
+            }
+            _ => {
+                return Err(tonic::Status::invalid_argument(
+                    format!("Unsupported status transition: {:?}", req.status()),
+                ));
+            }
+        }
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 

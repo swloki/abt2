@@ -1,6 +1,6 @@
 use sqlx::Row;
 
-use super::model::{Department, Role, User};
+use super::model::{Department, Role, RoleInfo, User};
 
 pub struct IdentityRepo;
 
@@ -473,6 +473,20 @@ impl IdentityRepo {
         Ok(())
     }
 
+    pub async fn get_department(
+        executor: &mut sqlx::postgres::PgConnection,
+        dept_id: i64,
+    ) -> Result<Department, sqlx::Error> {
+        let row = sqlx::query(
+            "SELECT department_id, department_name, department_code, description, is_active, is_default, created_at, updated_at \
+             FROM departments WHERE department_id = $1"
+        )
+        .bind(dept_id)
+        .fetch_one(&mut *executor)
+        .await?;
+        Self::row_to_department(&row)
+    }
+
     pub async fn list_departments(
         executor: &mut sqlx::postgres::PgConnection,
     ) -> Result<Vec<Department>, sqlx::Error> {
@@ -484,6 +498,157 @@ impl IdentityRepo {
         .await?;
 
         rows.iter().map(Self::row_to_department).collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn get_user_departments(
+        executor: &mut sqlx::postgres::PgConnection,
+        user_id: i64,
+    ) -> Result<Vec<Department>, sqlx::Error> {
+        let rows = sqlx::query(
+            "SELECT d.department_id, d.department_name, d.department_code, d.description, d.is_active, d.is_default, d.created_at, d.updated_at \
+             FROM departments d \
+             INNER JOIN user_departments ud ON d.department_id = ud.department_id \
+             WHERE ud.user_id = $1 AND d.is_active = true \
+             ORDER BY d.department_id"
+        )
+        .bind(user_id)
+        .fetch_all(&mut *executor)
+        .await?;
+        rows.iter().map(Self::row_to_department).collect::<Result<Vec<_>, _>>()
+    }
+
+    // -----------------------------------------------------------------------
+    // Bulk / composite queries
+    // -----------------------------------------------------------------------
+
+    pub async fn get_users_by_ids(
+        executor: &mut sqlx::postgres::PgConnection,
+        user_ids: &[i64],
+    ) -> Result<Vec<User>, sqlx::Error> {
+        let rows = sqlx::query(
+            "SELECT user_id, username, password_hash, display_name, is_active, is_super_admin, created_at, updated_at \
+             FROM users WHERE user_id = ANY($1) AND is_active = true"
+        )
+        .bind(user_ids)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        rows.iter().map(Self::row_to_user).collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn get_role_info_for_user(
+        executor: &mut sqlx::postgres::PgConnection,
+        user_id: i64,
+    ) -> Result<Vec<RoleInfo>, sqlx::Error> {
+        let rows = sqlx::query(
+            "SELECT r.role_id, r.role_name, r.role_code \
+             FROM user_roles ur JOIN roles r ON r.role_id = ur.role_id \
+             WHERE ur.user_id = $1"
+        )
+        .bind(user_id)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        rows.iter().map(Self::row_to_role_info).collect::<Result<Vec<_>, _>>()
+    }
+
+    pub async fn get_role_by_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        role_id: i64,
+    ) -> Result<Role, sqlx::Error> {
+        let row = sqlx::query(
+            "SELECT role_id, role_name, role_code, is_system_role, parent_role_id, description, created_at, updated_at \
+             FROM roles WHERE role_id = $1"
+        )
+        .bind(role_id)
+        .fetch_one(&mut *executor)
+        .await?;
+
+        Self::row_to_role(&row)
+    }
+
+    pub async fn get_permissions_for_role(
+        executor: &mut sqlx::postgres::PgConnection,
+        role_id: i64,
+    ) -> Result<Vec<String>, sqlx::Error> {
+        let rows = sqlx::query(
+            "SELECT resource_code, action FROM role_permissions WHERE role_id = $1"
+        )
+        .bind(role_id)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        rows.iter()
+            .map(|r| {
+                let resource: String = r.try_get("resource_code")?;
+                let action: String = r.try_get("action")?;
+                Ok(format!("{}:{}", resource, action))
+            })
+            .collect()
+    }
+
+    pub async fn update_user_password(
+        executor: &mut sqlx::postgres::PgConnection,
+        user_id: i64,
+        password_hash: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "UPDATE users SET password_hash = $2, updated_at = NOW() WHERE user_id = $1"
+        )
+        .bind(user_id)
+        .bind(password_hash)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn update_user_status(
+        executor: &mut sqlx::postgres::PgConnection,
+        user_id: i64,
+        is_active: bool,
+    ) -> Result<User, sqlx::Error> {
+        let row = sqlx::query(
+            "UPDATE users SET is_active = $2, updated_at = NOW() WHERE user_id = $1 \
+             RETURNING user_id, username, password_hash, display_name, is_active, is_super_admin, created_at, updated_at"
+        )
+        .bind(user_id)
+        .bind(is_active)
+        .fetch_one(&mut *executor)
+        .await?;
+        Self::row_to_user(&row)
+    }
+
+    pub async fn add_user_roles(
+        executor: &mut sqlx::postgres::PgConnection,
+        user_id: i64,
+        role_ids: &[i64],
+    ) -> Result<(), sqlx::Error> {
+        for &role_id in role_ids {
+            sqlx::query(
+                "INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) \
+                 ON CONFLICT (user_id, role_id) DO NOTHING"
+            )
+            .bind(user_id)
+            .bind(role_id)
+            .execute(&mut *executor)
+            .await?;
+        }
+        Ok(())
+    }
+
+    pub async fn remove_user_roles(
+        executor: &mut sqlx::postgres::PgConnection,
+        user_id: i64,
+        role_ids: &[i64],
+    ) -> Result<(), sqlx::Error> {
+        for &role_id in role_ids {
+            sqlx::query("DELETE FROM user_roles WHERE user_id = $1 AND role_id = $2")
+                .bind(user_id)
+                .bind(role_id)
+                .execute(&mut *executor)
+                .await?;
+        }
+        Ok(())
     }
 
     // -----------------------------------------------------------------------
@@ -526,6 +691,14 @@ impl IdentityRepo {
             is_default: row.try_get("is_default")?,
             created_at: row.try_get("created_at")?,
             updated_at: row.try_get("updated_at")?,
+        })
+    }
+
+    fn row_to_role_info(row: &sqlx::postgres::PgRow) -> Result<RoleInfo, sqlx::Error> {
+        Ok(RoleInfo {
+            role_id: row.try_get("role_id")?,
+            role_name: row.try_get("role_name")?,
+            role_code: row.try_get("role_code")?,
         })
     }
 }

@@ -81,7 +81,7 @@ impl LaborProcessDictRepo {
     #[allow(unused_assignments)]
     pub async fn query(&self, executor: PgExecutor<'_>, filter: &LaborProcessDictQuery, page: &PageParams) -> Result<PaginatedResult<LaborProcessDict>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let keyword_param = if let Some(ref kw) = filter.keyword {
             conditions.push(format!("(name ILIKE ${param_idx} OR code ILIKE ${param_idx})"));
@@ -112,5 +112,30 @@ impl LaborProcessDictRepo {
         let items = data_q.fetch_all(executor).await?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    /// Return codes that already exist in the DB (for Excel import deduplication)
+    pub async fn find_existing_codes(&self, executor: PgExecutor<'_>, codes: &[String]) -> Result<Vec<String>> {
+        if codes.is_empty() {
+            return Ok(vec![]);
+        }
+        let rows = sqlx::query_scalar::<sqlx::Postgres, String>(
+            "SELECT code FROM labor_process_dicts WHERE code = ANY($1) AND deleted_at IS NULL",
+        )
+        .bind(codes)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
+    }
+
+    /// List all active labor process dicts (for Excel export)
+    pub async fn list_all(&self, executor: PgExecutor<'_>) -> Result<Vec<LaborProcessDict>> {
+        let rows = sqlx::query_as::<sqlx::Postgres, LaborProcessDict>(
+            "SELECT id, code, name, description, sort_order, operator_id, created_at, updated_at, deleted_at \
+             FROM labor_process_dicts WHERE deleted_at IS NULL ORDER BY sort_order",
+        )
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
     }
 }

@@ -1,4 +1,5 @@
 pub mod product;
+pub mod product_watcher;
 pub mod category;
 pub mod price;
 pub mod bom;

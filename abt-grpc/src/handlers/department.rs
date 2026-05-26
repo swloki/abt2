@@ -1,5 +1,10 @@
 //! Department gRPC Handler
 
+use abt_core::shared::identity::department_service::DepartmentService;
+use abt_core::shared::types::context::ServiceContext;
+use common::error;
+use tonic::{Request, Response};
+
 use crate::generated::abt::v1::{
     department_service_server::DepartmentService as GrpcDepartmentService, *,
 };
@@ -8,10 +13,6 @@ use crate::interceptors::auth::extract_auth;
 use crate::permissions::PermissionCode;
 use crate::server::AppState;
 use abt_macros::require_permission;
-use common::error;
-use tonic::{Request, Response};
-
-use abt::DepartmentService;
 
 pub struct DepartmentHandler;
 
@@ -34,38 +35,27 @@ impl GrpcDepartmentService for DepartmentHandler {
         &self,
         request: Request<CreateDepartmentRequest>,
     ) -> GrpcResult<DepartmentResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
 
-        let mut tx = state
-            .begin_transaction()
+        let mut conn = state
+            .core_pool()
+            .acquire()
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let ctx = ServiceContext::new(&mut *conn, auth.user_id);
 
-        let create_req = abt::CreateDepartmentRequest {
-            department_name: req.department_name,
-            department_code: req.department_code,
-            description: if req.description.is_empty() {
-                None
-            } else {
-                Some(req.description)
-            },
-        };
-
-        let department_id = srv
-            .create(create_req, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
-
-        tx.commit().await.map_err(error::sqlx_err_to_status)?;
-
-        // Fetch the created department to return
         let department = srv
-            .get(department_id)
+            .create_department(
+                ctx,
+                &req.department_name,
+                &req.department_code,
+                empty_to_none(req.description).as_deref(),
+            )
             .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("Department", &department_id.to_string()))?;
+            .map_err(crate::handlers::domain_to_status)?;
 
         Ok(Response::new(department.into()))
     }
@@ -75,33 +65,27 @@ impl GrpcDepartmentService for DepartmentHandler {
         &self,
         request: Request<UpdateDepartmentRequest>,
     ) -> GrpcResult<DepartmentResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
 
-        let mut tx = state
-            .begin_transaction()
+        let mut conn = state
+            .core_pool()
+            .acquire()
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let ctx = ServiceContext::new(&mut *conn, auth.user_id);
 
-        let update_req = abt::UpdateDepartmentRequest {
-            department_name: empty_to_none(req.department_name),
-            description: empty_to_none(req.description),
-            is_active: Some(req.is_active),
-        };
-
-        srv.update(req.department_id, update_req, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
-
-        tx.commit().await.map_err(error::sqlx_err_to_status)?;
-
-        // Fetch the updated department to return
         let department = srv
-            .get(req.department_id)
+            .update_department(
+                ctx,
+                req.department_id,
+                &req.department_name,
+                empty_to_none(req.description).as_deref(),
+            )
             .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("Department", &req.department_id.to_string()))?;
+            .map_err(crate::handlers::domain_to_status)?;
 
         Ok(Response::new(department.into()))
     }
@@ -111,20 +95,21 @@ impl GrpcDepartmentService for DepartmentHandler {
         &self,
         request: Request<DeleteDepartmentRequest>,
     ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
 
-        let mut tx = state
-            .begin_transaction()
+        let mut conn = state
+            .core_pool()
+            .acquire()
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let ctx = ServiceContext::new(&mut *conn, auth.user_id);
 
-        srv.delete(req.department_id, &mut tx)
+        srv.delete_department(ctx, req.department_id)
             .await
-            .map_err(error::err_to_status)?;
-
-        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+            .map_err(crate::handlers::domain_to_status)?;
 
         Ok(Response::new(Empty {}))
     }
@@ -134,15 +119,22 @@ impl GrpcDepartmentService for DepartmentHandler {
         &self,
         request: Request<GetDepartmentRequest>,
     ) -> GrpcResult<DepartmentResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
 
-        let department = srv
-            .get(req.department_id)
+        let mut conn = state
+            .core_pool()
+            .acquire()
             .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("Department", &req.department_id.to_string()))?;
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let ctx = ServiceContext::new(&mut *conn, auth.user_id);
+
+        let department = srv
+            .get_department(ctx, req.department_id)
+            .await
+            .map_err(crate::handlers::domain_to_status)?;
 
         Ok(Response::new(department.into()))
     }
@@ -152,14 +144,22 @@ impl GrpcDepartmentService for DepartmentHandler {
         &self,
         request: Request<ListDepartmentsRequest>,
     ) -> GrpcResult<DepartmentListResponse> {
-        let req = request.into_inner();
+        let auth = extract_auth(&request)?;
+        let _req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
 
-        let departments = srv
-            .list(req.include_inactive)
+        let mut conn = state
+            .core_pool()
+            .acquire()
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let ctx = ServiceContext::new(&mut *conn, auth.user_id);
+
+        let departments = srv
+            .list_departments(ctx)
+            .await
+            .map_err(crate::handlers::domain_to_status)?;
 
         Ok(Response::new(DepartmentListResponse {
             departments: departments.into_iter().map(|d| d.into()).collect(),
@@ -171,20 +171,21 @@ impl GrpcDepartmentService for DepartmentHandler {
         &self,
         request: Request<AssignDepartmentsRequest>,
     ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
 
-        let mut tx = state
-            .begin_transaction()
+        let mut conn = state
+            .core_pool()
+            .acquire()
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let ctx = ServiceContext::new(&mut *conn, auth.user_id);
 
-        srv.assign_departments(req.user_id, req.department_ids, &mut tx)
+        srv.assign_departments(ctx, req.user_id, req.department_ids)
             .await
-            .map_err(error::err_to_status)?;
-
-        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+            .map_err(crate::handlers::domain_to_status)?;
 
         Ok(Response::new(Empty {}))
     }
@@ -194,20 +195,21 @@ impl GrpcDepartmentService for DepartmentHandler {
         &self,
         request: Request<RemoveDepartmentsRequest>,
     ) -> GrpcResult<Empty> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
 
-        let mut tx = state
-            .begin_transaction()
+        let mut conn = state
+            .core_pool()
+            .acquire()
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let ctx = ServiceContext::new(&mut *conn, auth.user_id);
 
-        srv.remove_departments(req.user_id, req.department_ids, &mut tx)
+        srv.remove_departments(ctx, req.user_id, req.department_ids)
             .await
-            .map_err(error::err_to_status)?;
-
-        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+            .map_err(crate::handlers::domain_to_status)?;
 
         Ok(Response::new(Empty {}))
     }
@@ -217,14 +219,22 @@ impl GrpcDepartmentService for DepartmentHandler {
         &self,
         request: Request<GetUserDepartmentsRequest>,
     ) -> GrpcResult<DepartmentListResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.department_service();
 
-        let departments = srv
-            .get_user_departments(req.user_id)
+        let mut conn = state
+            .core_pool()
+            .acquire()
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let ctx = ServiceContext::new(&mut *conn, auth.user_id);
+
+        let departments = srv
+            .get_user_departments(ctx, req.user_id)
+            .await
+            .map_err(crate::handlers::domain_to_status)?;
 
         Ok(Response::new(DepartmentListResponse {
             departments: departments.into_iter().map(|d| d.into()).collect(),

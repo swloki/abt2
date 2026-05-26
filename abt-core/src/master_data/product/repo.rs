@@ -107,7 +107,7 @@ impl ProductRepo {
         page: &PageParams,
     ) -> Result<PaginatedResult<Product>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let name_param = if let Some(ref name) = filter.name {
             param_idx += 1;
@@ -169,5 +169,29 @@ impl ProductRepo {
         .fetch_one(executor)
         .await?;
         Ok(count == 0)
+    }
+
+    /// Batch query products by codes — Excel import support
+    pub async fn find_by_codes(executor: PgExecutor<'_>, codes: &[String]) -> Result<Vec<Product>> {
+        if codes.is_empty() {
+            return Ok(vec![]);
+        }
+        let products = sqlx::query_as::<sqlx::Postgres, Product>(
+            "SELECT product_id, pdt_name, product_code, unit, status, external_code, owner_department_id, meta, created_at, updated_at, deleted_at FROM products WHERE product_code = ANY($1) AND deleted_at IS NULL",
+        )
+        .bind(codes)
+        .fetch_all(executor)
+        .await?;
+        Ok(products)
+    }
+
+    /// Update product name by id — Excel import support
+    pub async fn update_name(executor: PgExecutor<'_>, id: i64, name: &str) -> Result<()> {
+        sqlx::query("UPDATE products SET pdt_name = $2 WHERE product_id = $1")
+            .bind(id)
+            .bind(name)
+            .execute(executor)
+            .await?;
+        Ok(())
     }
 }

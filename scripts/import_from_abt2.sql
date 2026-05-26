@@ -1,0 +1,29 @@
+-- ====================================================================
+-- 从 abt2 导入缺失的 products 和 bom 数据到 abt
+--
+-- 使用方式 (两步):
+--
+-- Step A: 从 abt2 导出数据 (只需执行一次)
+--   PGPASSWORD=123456 psql -h 127.0.0.1 -U postgres -d abt2 -c
+--     "\copy (SELECT product_id, pdt_name, meta->>'product_code' AS product_code,
+--             COALESCE(meta->>'unit','pcs') AS unit,
+--             COALESCE(meta->>'specification','') AS specification,
+--             COALESCE(meta->>'acquire_channel','') AS acquire_channel,
+--             meta->>'old_code' AS old_code
+--      FROM products WHERE meta->>'product_code' IS NOT NULL AND meta->>'product_code' != '')
+--     TO 'E:/work/abt/scripts/data/abt2_products.csv' WITH CSV HEADER"
+--
+--   PGPASSWORD=123456 psql -h 127.0.0.1 -U postgres -d abt2 -c
+--     "\copy (SELECT bom_id, bom_name, create_at, bom_detail::text FROM bom)
+--     TO 'E:/work/abt/scripts/data/abt2_boms.csv' WITH CSV HEADER"
+--
+-- Step B: 执行导入 (可重复执行，幂等)
+--   bash scripts/import_from_abt2.sh
+--
+-- 数据映射说明:
+--   abt2: product_code/unit 在 meta JSONB 中
+--   abt:  product_code/unit 是独立列, meta 只存 specification/acquire_channel/old_code
+--   abt2: bom_detail 是 JSONB (含 nodes 数组)
+--   abt:  节点存在 bom_nodes 表中
+--   abt2 节点无 product_code, 需通过 product_id → product_code → abt product_id 映射
+-- ====================================================================

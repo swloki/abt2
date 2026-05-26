@@ -97,43 +97,41 @@ impl EventHandler for ProductDeleteHandler {
 }
 
 /// Inventory sync → sync to H3Yun
-/// Note: uses a separate pool pointing to the old abt database for inventory data
 pub struct InventorySyncHandler {
-    pool: Arc<PgPool>,       // old abt database pool for reading inventory data
-    core_pool: Arc<PgPool>,  // abt_v2 pool for sync_state
+    pool: Arc<PgPool>,
     client: H3YunClient,
 }
 
 impl InventorySyncHandler {
-    pub fn new(pool: Arc<PgPool>, core_pool: Arc<PgPool>, client: H3YunClient) -> Self {
-        Self { pool, core_pool, client }
+    pub fn new(pool: Arc<PgPool>, client: H3YunClient) -> Self {
+        Self { pool, client }
     }
 }
 
 #[async_trait]
 impl EventHandler for InventorySyncHandler {
     async fn handle(&self, event: &DomainEvent) -> Result<(), DomainError> {
-        let inventory_id = event.aggregate_id;
+        let stock_ledger_id = event.aggregate_id;
 
-        let data = match fetch_inventory_data(&self.pool, inventory_id).await {
+        let data = match fetch_inventory_data(&self.pool, stock_ledger_id).await {
             Some(d) => d,
             None => {
-                warn!(inventory_id, "Inventory not found, skipping sync");
+                warn!(stock_ledger_id, "Stock ledger not found, skipping sync");
                 return Ok(());
             }
         };
 
-        match inventory_sync::sync_inventory(&self.core_pool, &self.client, &data).await {
+        match inventory_sync::sync_inventory(&self.pool, &self.client, &data).await {
             Ok(()) => {
-                info!(inventory_id, "H3Yun inventory sync succeeded");
+                info!(stock_ledger_id, "H3Yun inventory sync succeeded");
                 Ok(())
             }
             Err(SyncError::Transient { backoff_hint }) => {
-                warn!(inventory_id, ?backoff_hint, "H3Yun inventory sync transient error, will retry");
-                Err(DomainError::Internal(anyhow::anyhow!("H3Yun inventory sync transient error")))
+                warn!(stock_ledger_id, ?backoff_hint, "H3Yun sync transient error, will retry");
+                Err(DomainError::Internal(anyhow::anyhow!("H3Yun sync transient error")))
             }
             Err(e) => {
-                warn!(inventory_id, error = %e, "H3Yun inventory sync non-retryable error, skipping");
+                warn!(stock_ledger_id, error = %e, "H3Yun sync non-retryable error, skipping");
                 Ok(())
             }
         }
@@ -146,29 +144,30 @@ impl EventHandler for InventorySyncHandler {
 
 async fn fetch_inventory_data(
     pool: &PgPool,
-    inventory_id: i64,
+    stock_ledger_id: i64,
 ) -> Option<inventory_sync::InventorySyncData> {
     use rust_decimal::Decimal;
 
     let result = sqlx::query_as::<_, (i64, i64, String, String, String, String, Decimal, String)>(
         r#"
         SELECT
-            i.inventory_id,
-            i.product_id,
-            l.location_code,
-            w.warehouse_name,
+            sl.id,
+            sl.product_id,
+            b.code AS bin_code,
+            w.name AS warehouse_name,
             p.product_code,
             p.pdt_name,
-            i.quantity,
-            p.unit
-        FROM inventory i
-        JOIN location l ON i.location_id = l.location_id
-        JOIN warehouse w ON l.warehouse_id = w.warehouse_id
-        JOIN products p ON i.product_id = p.product_id
-        WHERE i.inventory_id = $1
+            sl.quantity,
+            ''
+        FROM stock_ledger sl
+        JOIN bins b ON sl.bin_id = b.id
+        JOIN zones z ON sl.zone_id = z.id
+        JOIN warehouses w ON sl.warehouse_id = w.id
+        JOIN products p ON sl.product_id = p.product_id
+        WHERE sl.id = $1
         "#,
     )
-    .bind(inventory_id)
+    .bind(stock_ledger_id)
     .fetch_optional(pool)
     .await;
 
@@ -184,11 +183,11 @@ async fn fetch_inventory_data(
             unit: row.7,
         }),
         Ok(None) => {
-            warn!(inventory_id, "Inventory not found in DB");
+            warn!(stock_ledger_id, "Stock ledger not found in DB");
             None
         }
         Err(e) => {
-            warn!(inventory_id, error = %e, "Failed to fetch inventory data");
+            warn!(stock_ledger_id, error = %e, "Failed to fetch inventory data");
             None
         }
     }

@@ -41,7 +41,7 @@ impl ReservationStatus {
 }
 
 impl sqlx::Type<sqlx::Postgres> for ReservationType {
-    fn type_info() -> sqlx::postgres::PgTypeInfo { sqlx::postgres::PgTypeInfo::with_name("smallint") }
+    fn type_info() -> sqlx::postgres::PgTypeInfo { <i16 as sqlx::Type<sqlx::Postgres>>::type_info() }
 }
 impl sqlx::Encode<'_, sqlx::Postgres> for ReservationType {
     fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
@@ -56,7 +56,7 @@ impl sqlx::Decode<'_, sqlx::Postgres> for ReservationType {
 }
 
 impl sqlx::Type<sqlx::Postgres> for ReservationStatus {
-    fn type_info() -> sqlx::postgres::PgTypeInfo { sqlx::postgres::PgTypeInfo::with_name("smallint") }
+    fn type_info() -> sqlx::postgres::PgTypeInfo { <i16 as sqlx::Type<sqlx::Postgres>>::type_info() }
 }
 impl sqlx::Encode<'_, sqlx::Postgres> for ReservationStatus {
     fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {

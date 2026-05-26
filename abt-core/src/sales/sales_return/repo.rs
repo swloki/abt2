@@ -87,7 +87,7 @@ impl SalesReturnRepo {
         _scope_department_id: Option<i64>,
     ) -> Result<PaginatedResult<SalesReturn>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let order_param = if let Some(oid) = filter.order_id {
             param_idx += 1;

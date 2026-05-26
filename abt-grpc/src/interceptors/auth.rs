@@ -1,8 +1,10 @@
 use jsonwebtoken::Algorithm;
 use tonic::{Request, Status};
 
+use abt_core::shared::identity::{AuthContext, Claims};
+
 /// 从 Authorization header 提取 Bearer token 并解码 JWT claims
-fn decode_jwt_from_request<T>(request: &Request<T>) -> Result<abt::Claims, Status> {
+fn decode_jwt_from_request<T>(request: &Request<T>) -> Result<Claims, Status> {
     let token = request
         .metadata()
         .get("authorization")
@@ -14,7 +16,7 @@ fn decode_jwt_from_request<T>(request: &Request<T>) -> Result<abt::Claims, Statu
     let mut validation = jsonwebtoken::Validation::new(Algorithm::HS256);
     validation.validate_exp = true;
 
-    jsonwebtoken::decode::<abt::Claims>(
+    jsonwebtoken::decode::<Claims>(
         token,
         &jsonwebtoken::DecodingKey::from_secret(config.jwt_secret.as_bytes()),
         &validation,
@@ -26,12 +28,13 @@ fn decode_jwt_from_request<T>(request: &Request<T>) -> Result<abt::Claims, Statu
 pub fn auth_interceptor(mut request: Request<()>) -> Result<Request<()>, Status> {
     let claims = decode_jwt_from_request(&request)?;
 
-    let auth_ctx = abt::AuthContext {
+    let auth_ctx = AuthContext {
         user_id: claims.sub,
         username: claims.username,
         system_role: claims.system_role,
         role_ids: claims.role_ids,
         role_codes: claims.role_codes,
+        department_ids: claims.department_ids,
     };
 
     request.extensions_mut().insert(auth_ctx);
@@ -40,17 +43,18 @@ pub fn auth_interceptor(mut request: Request<()>) -> Result<Request<()>, Status>
 
 /// 从 gRPC request extensions 中提取 AuthContext，
 /// 如果不存在则从 JWT Authorization header 直接解析（用于不经 auth_interceptor 的 handler）
-pub fn extract_auth<T>(request: &Request<T>) -> Result<abt::AuthContext, Status> {
-    if let Some(auth) = request.extensions().get::<abt::AuthContext>().cloned() {
+pub fn extract_auth<T>(request: &Request<T>) -> Result<AuthContext, Status> {
+    if let Some(auth) = request.extensions().get::<AuthContext>().cloned() {
         return Ok(auth);
     }
     let claims = decode_jwt_from_request(request)?;
-    Ok(abt::AuthContext {
+    Ok(AuthContext {
         user_id: claims.sub,
         username: claims.username,
         system_role: claims.system_role,
         role_ids: claims.role_ids,
         role_codes: claims.role_codes,
+        department_ids: claims.department_ids,
     })
 }
 

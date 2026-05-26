@@ -1,0 +1,26 @@
+-- abt2 verification queries
+SELECT 'users' AS tbl, COUNT(*) FROM users;
+SELECT 'products' AS tbl, COUNT(*) FROM products;
+SELECT 'bom' AS tbl, COUNT(*) FROM bom;
+SELECT 'bom_nodes_in_json' AS tbl, SUM(jsonb_array_length(COALESCE(bom_detail->'nodes', '[]'::jsonb))) AS count FROM bom WHERE bom_detail IS NOT NULL;
+SELECT 'bom_sample_1000157_nodes' AS tbl, jsonb_array_length(bom_detail->'nodes') AS count FROM bom WHERE bom_id = 1000157;
+SELECT 'inventory' AS tbl, COUNT(*) FROM inventory;
+SELECT 'inventory_log' AS tbl, COUNT(*) FROM inventory_log;
+SELECT 'term_relation' AS tbl, COUNT(*) FROM term_relation;
+SELECT 'role_permissions' AS tbl, COUNT(*) FROM role_permissions;
+SELECT 'product_price_log' AS tbl, COUNT(*) FROM product_price_log;
+SELECT 'distinct_products_in_price_log' AS tbl, COUNT(DISTINCT product_id) FROM product_price_log;
+SELECT 'location' AS tbl, COUNT(*) FROM location;
+SELECT 'permission_audit_logs' AS tbl, COUNT(*) FROM permission_audit_logs;
+SELECT 'bom_labor_process' AS tbl, COUNT(*) FROM bom_labor_process;
+SELECT 'bom_routing' AS tbl, COUNT(*) FROM bom_routing;
+SELECT 'roles' AS tbl, COUNT(*) FROM roles;
+SELECT 'departments' AS tbl, COUNT(*) FROM departments;
+SELECT 'warehouse' AS tbl, COUNT(*) FROM warehouse;
+SELECT 'terms' AS tbl, COUNT(*) FROM terms;
+SELECT 'user_roles' AS tbl, COUNT(*) FROM user_roles;
+SELECT 'user_departments' AS tbl, COUNT(*) FROM user_departments;
+SELECT 'bom_category' AS tbl, COUNT(*) FROM bom_category;
+SELECT 'labor_process_dict' AS tbl, COUNT(*) FROM labor_process_dict;
+SELECT 'routing' AS tbl, COUNT(*) FROM routing;
+SELECT 'routing_step' AS tbl, COUNT(*) FROM routing_step;

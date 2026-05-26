@@ -12,5 +12,6 @@ pub mod transfer;
 pub mod form_conversion;
 pub mod inventory_lock;
 pub mod inventory_cascade;
+pub mod inventory;
 
 pub use enums::*;

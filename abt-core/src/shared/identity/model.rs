@@ -101,11 +101,39 @@ pub struct AuthContext {
 impl AuthContext {
     pub fn is_super_admin(&self) -> bool {
         self.system_role == "super_admin"
+            || self.role_codes.iter().any(|c| c == "super_admin")
     }
 
     pub fn has_role(&self, role_id: i64) -> bool {
         self.role_ids.contains(&role_id)
     }
+}
+
+// ---------------------------------------------------------------------------
+// UserWithRoles — composite for API responses
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+pub struct RoleInfo {
+    pub role_id: i64,
+    pub role_name: String,
+    pub role_code: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct UserWithRoles {
+    pub user: User,
+    pub roles: Vec<RoleInfo>,
+}
+
+// ---------------------------------------------------------------------------
+// RoleWithPermissions — composite for API responses
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone)]
+pub struct RoleWithPermissions {
+    pub role: Role,
+    pub permissions: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------

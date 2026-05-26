@@ -143,7 +143,7 @@ impl BackflushRepo {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["1=1".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         if filter.status.is_some() {
             param_idx += 1;

@@ -27,7 +27,7 @@ impl ProductStatus {
 
 impl sqlx::Type<sqlx::Postgres> for ProductStatus {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("smallint")
+        <i16 as sqlx::Type<sqlx::Postgres>>::type_info()
     }
 }
 

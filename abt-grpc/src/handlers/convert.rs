@@ -1,22 +1,24 @@
-//! Type conversions between abt models and proto types
+//! Type conversions between abt-core models and proto types
 
 use crate::generated::abt::v1::{ProductMeta, ProductResponse};
 
-impl From<abt::Product> for ProductResponse {
-    fn from(product: abt::Product) -> Self {
+// ========== Product conversions (abt-core) ==========
+
+impl From<abt_core::master_data::product::Product> for ProductResponse {
+    fn from(product: abt_core::master_data::product::Product) -> Self {
         ProductResponse {
             product_id: product.product_id,
             pdt_name: product.pdt_name,
             meta: Some(product.meta.into()),
             product_code: product.product_code,
             unit: product.unit,
-            term_id: product.term_id,
+            term_id: None, // abt-core 使用 product_categories 表，不再在 Product 上存储 term_id
         }
     }
 }
 
-impl From<abt::ProductMeta> for ProductMeta {
-    fn from(meta: abt::ProductMeta) -> Self {
+impl From<abt_core::master_data::product::ProductMeta> for ProductMeta {
+    fn from(meta: abt_core::master_data::product::ProductMeta) -> Self {
         ProductMeta {
             specification: meta.specification,
             acquire_channel: meta.acquire_channel,
@@ -25,9 +27,9 @@ impl From<abt::ProductMeta> for ProductMeta {
     }
 }
 
-impl From<ProductMeta> for abt::ProductMeta {
+impl From<ProductMeta> for abt_core::master_data::product::ProductMeta {
     fn from(meta: ProductMeta) -> Self {
-        abt::ProductMeta {
+        abt_core::master_data::product::ProductMeta {
             specification: meta.specification,
             acquire_channel: meta.acquire_channel,
             old_code: meta.old_code,
@@ -35,45 +37,17 @@ impl From<ProductMeta> for abt::ProductMeta {
     }
 }
 
-// ========== Term conversions ==========
-
-use crate::generated::abt::v1::{TermMeta, TermResponse, TermTreeResponse};
-
-impl From<abt::Term> for TermResponse {
-    fn from(term: abt::Term) -> Self {
-        TermResponse {
-            term_id: term.term_id,
-            term_name: term.term_name,
-            term_parent: term.term_parent,
-            taxonomy: term.taxonomy,
-            term_meta: Some(TermMeta { count: term.term_meta.count }),
-        }
-    }
-}
-
-impl From<abt::TermTree> for TermTreeResponse {
-    fn from(tree: abt::TermTree) -> Self {
-        TermTreeResponse {
-            term_id: tree.term_id,
-            term_name: tree.term_name,
-            term_parent: tree.term_parent,
-            taxonomy: tree.taxonomy,
-            term_meta: Some(TermMeta { count: tree.term_meta.count }),
-            children: tree.children.into_iter().map(|c| c.into()).collect(),
-        }
-    }
-}
-
-// ========== BOM conversions ==========
+// ========== BOM conversions (abt-core) ==========
 
 use crate::generated::abt::v1::{BomDetailProto, BomNodeProto, BomResponse, BomNodeResponse};
+use rust_decimal::prelude::ToPrimitive;
 
-impl From<abt::Bom> for BomResponse {
-    fn from(bom: abt::Bom) -> Self {
+impl From<abt_core::master_data::bom::model::Bom> for BomResponse {
+    fn from(bom: abt_core::master_data::bom::model::Bom) -> Self {
         use crate::generated::abt::v1::BomStatus as ProtoBomStatus;
         let status = match bom.status {
-            abt::BomStatus::Draft => ProtoBomStatus::Draft,
-            abt::BomStatus::Published => ProtoBomStatus::Published,
+            abt_core::master_data::bom::model::BomStatus::Draft => ProtoBomStatus::Draft,
+            abt_core::master_data::bom::model::BomStatus::Published => ProtoBomStatus::Published,
         };
         BomResponse {
             bom_id: bom.bom_id,
@@ -89,18 +63,18 @@ impl From<abt::Bom> for BomResponse {
     }
 }
 
-impl From<abt::BomNode> for BomNodeResponse {
-    fn from(node: abt::BomNode) -> Self {
+impl From<abt_core::master_data::bom::model::BomNode> for BomNodeResponse {
+    fn from(node: abt_core::master_data::bom::model::BomNode) -> Self {
         BomNodeResponse {
             node_id: node.id,
-            bom_id: 0, // bom_id not stored in BomNode, passed separately
+            bom_id: node.bom_id,
             parent_id: node.parent_id,
             product_id: node.product_id,
             product_name: node.product_code.clone().unwrap_or_default(),
-            quantity: node.quantity,
+            quantity: node.quantity.to_f64().unwrap_or(0.0),
             sort_order: node.order,
             product_code: node.product_code.unwrap_or_default(),
-            loss_rate: node.loss_rate,
+            loss_rate: node.loss_rate.to_f64().unwrap_or(0.0),
             unit: node.unit.unwrap_or_default(),
             remark: node.remark.unwrap_or_default(),
             position: node.position.unwrap_or_default(),
@@ -110,23 +84,23 @@ impl From<abt::BomNode> for BomNodeResponse {
     }
 }
 
-impl From<abt::BomDetail> for BomDetailProto {
-    fn from(detail: abt::BomDetail) -> Self {
+impl From<abt_core::master_data::bom::model::BomDetail> for BomDetailProto {
+    fn from(detail: abt_core::master_data::bom::model::BomDetail) -> Self {
         BomDetailProto {
             nodes: detail.nodes.into_iter().map(|n| n.into()).collect(),
         }
     }
 }
 
-impl From<abt::BomNode> for BomNodeProto {
-    fn from(node: abt::BomNode) -> Self {
+impl From<abt_core::master_data::bom::model::BomNode> for BomNodeProto {
+    fn from(node: abt_core::master_data::bom::model::BomNode) -> Self {
         BomNodeProto {
             node_id: node.id,
             product_id: node.product_id,
             product_code: node.product_code.unwrap_or_default(),
-            quantity: node.quantity,
+            quantity: node.quantity.to_f64().unwrap_or(0.0),
             parent_id: node.parent_id,
-            loss_rate: node.loss_rate,
+            loss_rate: node.loss_rate.to_f64().unwrap_or(0.0),
             sort_order: node.order,
             unit: node.unit.unwrap_or_default(),
             remark: node.remark.unwrap_or_default(),
@@ -141,52 +115,68 @@ impl From<abt::BomNode> for BomNodeProto {
 
 use crate::generated::abt::v1::WarehouseResponse;
 
-impl From<abt::Warehouse> for WarehouseResponse {
-    fn from(w: abt::Warehouse) -> Self {
+impl From<abt_core::wms::warehouse::Warehouse> for WarehouseResponse {
+    fn from(w: abt_core::wms::warehouse::Warehouse) -> Self {
         WarehouseResponse {
-            warehouse_id: w.warehouse_id,
-            warehouse_code: w.warehouse_code,
-            warehouse_name: w.warehouse_name,
-            address: String::new(), // field not in abt::Warehouse
-            contact: String::new(), // field not in abt::Warehouse
-            is_active: matches!(w.status, abt::WarehouseStatus::Active),
+            warehouse_id: w.id,
+            warehouse_code: w.code,
+            warehouse_name: w.name,
+            address: w.address.unwrap_or_default(),
+            contact: String::new(),
+            is_active: matches!(w.status, abt_core::wms::WarehouseStatus::Active),
             created_at: w.created_at.timestamp(),
-            updated_at: w.updated_at.map(|t| t.timestamp()).unwrap_or(0),
+            updated_at: w.updated_at.timestamp(),
         }
     }
 }
 
-// ========== Location conversions ==========
+// ========== Location conversions (abt-core Bin) ==========
 
 use crate::generated::abt::v1::{LocationResponse, LocationWithWarehouseResponse};
 
-impl From<abt::Location> for LocationResponse {
-    fn from(l: abt::Location) -> Self {
-        let is_active = l.is_active();
+impl From<abt_core::wms::warehouse::BinWithWarehouse> for LocationResponse {
+    fn from(bw: abt_core::wms::warehouse::BinWithWarehouse) -> Self {
+        let is_active = !matches!(bw.bin.status, abt_core::wms::BinStatus::Disabled);
         LocationResponse {
-            location_id: l.location_id,
-            warehouse_id: l.warehouse_id,
-            location_code: l.location_code,
+            location_id: bw.bin.id,
+            warehouse_id: bw.warehouse_id,
+            location_code: bw.bin.code,
             is_active,
-            location_name: l.location_name.unwrap_or_default(),
-            location_type: String::new(), // field not in abt::Location
-            created_at: l.created_at.timestamp(),
-            updated_at: l.created_at.timestamp(), // no updated_at, use created_at
+            location_name: bw.bin.name,
+            location_type: String::new(),
+            created_at: bw.bin.created_at.timestamp(),
+            updated_at: bw.bin.updated_at.timestamp(),
         }
     }
 }
 
-impl From<abt::LocationWithWarehouse> for LocationWithWarehouseResponse {
-    fn from(l: abt::LocationWithWarehouse) -> Self {
-        let is_active = l.is_active();
+impl From<abt_core::wms::warehouse::BinWithWarehouse> for LocationWithWarehouseResponse {
+    fn from(bw: abt_core::wms::warehouse::BinWithWarehouse) -> Self {
+        let is_active = !matches!(bw.bin.status, abt_core::wms::BinStatus::Disabled);
         LocationWithWarehouseResponse {
-            location_id: l.location_id,
-            warehouse_id: l.warehouse_id,
-            warehouse_name: l.warehouse_name,
-            location_code: l.location_code,
+            location_id: bw.bin.id,
+            warehouse_id: bw.warehouse_id,
+            warehouse_name: bw.warehouse_name,
+            location_code: bw.bin.code,
             is_active,
-            location_name: l.location_name.unwrap_or_default(),
-            location_type: String::new(), // field not in abt::LocationWithWarehouse
+            location_name: bw.bin.name,
+            location_type: String::new(),
+        }
+    }
+}
+
+impl From<abt_core::wms::warehouse::Bin> for LocationResponse {
+    fn from(b: abt_core::wms::warehouse::Bin) -> Self {
+        let is_active = !matches!(b.status, abt_core::wms::BinStatus::Disabled);
+        LocationResponse {
+            location_id: b.id,
+            warehouse_id: 0,
+            location_code: b.code,
+            is_active,
+            location_name: b.name,
+            location_type: String::new(),
+            created_at: b.created_at.timestamp(),
+            updated_at: b.updated_at.timestamp(),
         }
     }
 }
@@ -196,13 +186,12 @@ impl From<abt::LocationWithWarehouse> for LocationWithWarehouseResponse {
 use crate::generated::abt::v1::{
     LocationInventoryStatsResponse, WarehouseInventoryStatsResponse,
 };
-use rust_decimal::prelude::ToPrimitive;
 
-impl From<abt::WarehouseInventoryStats> for WarehouseInventoryStatsResponse {
-    fn from(s: abt::WarehouseInventoryStats) -> Self {
+impl From<abt_core::wms::warehouse::WarehouseInventoryStats> for WarehouseInventoryStatsResponse {
+    fn from(s: abt_core::wms::warehouse::WarehouseInventoryStats) -> Self {
         WarehouseInventoryStatsResponse {
             warehouse_id: s.warehouse_id,
-            total_locations: s.location_count,
+            total_locations: s.bin_count,
             total_products: s.product_count,
             total_quantity: s.total_quantity.to_f64().unwrap_or(0.0),
             total_value: 0.0,
@@ -210,10 +199,10 @@ impl From<abt::WarehouseInventoryStats> for WarehouseInventoryStatsResponse {
     }
 }
 
-impl From<abt::LocationInventoryStats> for LocationInventoryStatsResponse {
-    fn from(s: abt::LocationInventoryStats) -> Self {
+impl From<abt_core::wms::warehouse::BinInventoryStats> for LocationInventoryStatsResponse {
+    fn from(s: abt_core::wms::warehouse::BinInventoryStats) -> Self {
         LocationInventoryStatsResponse {
-            location_id: s.location_id,
+            location_id: s.bin_id,
             total_products: s.product_count,
             total_quantity: s.total_quantity.to_f64().unwrap_or(0.0),
             total_value: 0.0,
@@ -221,12 +210,16 @@ impl From<abt::LocationInventoryStats> for LocationInventoryStatsResponse {
     }
 }
 
-// ========== User conversions ==========
+// ========== Identity conversions (abt-core) ==========
 
-use crate::generated::abt::v1::{RoleInfo as ProtoRoleInfo, UserResponse as ProtoUserResponse};
+use crate::generated::abt::v1::{
+    DepartmentResponse as ProtoDepartmentResponse, RoleInfo as ProtoRoleInfo,
+    RoleListItem as ProtoRoleListItem, RoleResponse as ProtoRoleResponse,
+    UserResponse as ProtoUserResponse,
+};
 
-impl From<abt::RoleInfo> for ProtoRoleInfo {
-    fn from(role: abt::RoleInfo) -> Self {
+impl From<abt_core::shared::identity::RoleInfo> for ProtoRoleInfo {
+    fn from(role: abt_core::shared::identity::RoleInfo) -> Self {
         ProtoRoleInfo {
             role_id: role.role_id,
             role_name: role.role_name,
@@ -235,8 +228,8 @@ impl From<abt::RoleInfo> for ProtoRoleInfo {
     }
 }
 
-impl From<abt::UserWithRoles> for ProtoUserResponse {
-    fn from(u: abt::UserWithRoles) -> Self {
+impl From<abt_core::shared::identity::UserWithRoles> for ProtoUserResponse {
+    fn from(u: abt_core::shared::identity::UserWithRoles) -> Self {
         ProtoUserResponse {
             user_id: u.user.user_id,
             username: u.user.username,
@@ -249,14 +242,8 @@ impl From<abt::UserWithRoles> for ProtoUserResponse {
     }
 }
 
-// ========== Role conversions ==========
-
-use crate::generated::abt::v1::{
-    RoleListItem as ProtoRoleListItem, RoleResponse as ProtoRoleResponse,
-};
-
-impl From<abt::Role> for ProtoRoleListItem {
-    fn from(role: abt::Role) -> Self {
+impl From<abt_core::shared::identity::Role> for ProtoRoleListItem {
+    fn from(role: abt_core::shared::identity::Role) -> Self {
         ProtoRoleListItem {
             role_id: role.role_id,
             role_name: role.role_name,
@@ -267,8 +254,8 @@ impl From<abt::Role> for ProtoRoleListItem {
     }
 }
 
-impl From<abt::RoleWithPermissions> for ProtoRoleResponse {
-    fn from(r: abt::RoleWithPermissions) -> Self {
+impl From<abt_core::shared::identity::RoleWithPermissions> for ProtoRoleResponse {
+    fn from(r: abt_core::shared::identity::RoleWithPermissions) -> Self {
         ProtoRoleResponse {
             role_id: r.role.role_id,
             role_name: r.role.role_name,
@@ -280,30 +267,8 @@ impl From<abt::RoleWithPermissions> for ProtoRoleResponse {
     }
 }
 
-// ========== Permission conversions ==========
-
-use crate::generated::abt::v1::AuditLogInfo as ProtoAuditLogInfo;
-
-impl From<abt::AuditLog> for ProtoAuditLogInfo {
-    fn from(l: abt::AuditLog) -> Self {
-        ProtoAuditLogInfo {
-            log_id: l.log_id,
-            operator_id: l.operator_id.unwrap_or(0),
-            operator_name: l.operator_name.unwrap_or_default(),
-            target_type: l.target_type,
-            target_id: l.target_id,
-            action: l.action,
-            created_at: l.created_at.timestamp(),
-        }
-    }
-}
-
-// ========== Department conversions ==========
-
-use crate::generated::abt::v1::DepartmentResponse as ProtoDepartmentResponse;
-
-impl From<abt::Department> for ProtoDepartmentResponse {
-    fn from(d: abt::Department) -> Self {
+impl From<abt_core::shared::identity::Department> for ProtoDepartmentResponse {
+    fn from(d: abt_core::shared::identity::Department) -> Self {
         ProtoDepartmentResponse {
             department_id: d.department_id,
             department_name: d.department_name,
@@ -319,8 +284,8 @@ impl From<abt::Department> for ProtoDepartmentResponse {
 
 use crate::generated::abt::v1::BomCategoryResponse as ProtoBomCategoryResponse;
 
-impl From<abt::BomCategory> for ProtoBomCategoryResponse {
-    fn from(c: abt::BomCategory) -> Self {
+impl From<abt_core::master_data::bom::model::BomCategory> for ProtoBomCategoryResponse {
+    fn from(c: abt_core::master_data::bom::model::BomCategory) -> Self {
         ProtoBomCategoryResponse {
             bom_category_id: c.bom_category_id,
             bom_category_name: c.bom_category_name,
@@ -329,15 +294,15 @@ impl From<abt::BomCategory> for ProtoBomCategoryResponse {
     }
 }
 
-// ========== BOM Cost Report conversions ==========
+// ========== BOM Cost Report conversions (abt-core) ==========
 
 use crate::generated::abt::v1::{
-    BomCostReportResponse, BomLaborCostResponse, LaborCostItem as ProtoLaborCostItem,
+    BomCostReportResponse, LaborCostItem as ProtoLaborCostItem,
     MaterialCostItem as ProtoMaterialCostItem,
 };
 
-impl From<abt::BomCostReport> for BomCostReportResponse {
-    fn from(report: abt::BomCostReport) -> Self {
+impl From<abt_core::master_data::bom::model::BomCostReport> for BomCostReportResponse {
+    fn from(report: abt_core::master_data::bom::model::BomCostReport) -> Self {
         BomCostReportResponse {
             bom_id: report.bom_id,
             bom_name: report.bom_name,
@@ -349,40 +314,29 @@ impl From<abt::BomCostReport> for BomCostReportResponse {
     }
 }
 
-impl From<abt::MaterialCostItem> for ProtoMaterialCostItem {
-    fn from(item: abt::MaterialCostItem) -> Self {
+impl From<abt_core::master_data::bom::model::MaterialCostItem> for ProtoMaterialCostItem {
+    fn from(item: abt_core::master_data::bom::model::MaterialCostItem) -> Self {
         ProtoMaterialCostItem {
             node_id: item.node_id,
             product_id: item.product_id,
             product_name: item.product_name,
             product_code: item.product_code,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
+            quantity: item.quantity.to_f64().unwrap_or(0.0),
+            unit_price: item.unit_price.map(|p| p.to_string()),
         }
     }
 }
 
-impl From<abt::LaborCostItem> for ProtoLaborCostItem {
-    fn from(item: abt::LaborCostItem) -> Self {
+impl From<abt_core::master_data::bom::model::LaborCostItem> for ProtoLaborCostItem {
+    fn from(item: abt_core::master_data::bom::model::LaborCostItem) -> Self {
         ProtoLaborCostItem {
             id: item.id,
             name: item.name,
-            unit_price: item.unit_price,
-            quantity: item.quantity,
+            unit_price: item.unit_price.to_string(),
+            quantity: item.quantity.to_string(),
             sort_order: item.sort_order,
             remark: item.remark,
         }
     }
 }
 
-impl From<abt::BomLaborCostReport> for BomLaborCostResponse {
-    fn from(report: abt::BomLaborCostReport) -> Self {
-        BomLaborCostResponse {
-            bom_id: report.bom_id,
-            bom_name: report.bom_name,
-            product_code: report.product_code,
-            labor_costs: report.labor_costs.into_iter().map(|l| l.into()).collect(),
-            warnings: report.warnings,
-        }
-    }
-}

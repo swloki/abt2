@@ -38,9 +38,13 @@ impl BomQueryServiceImpl {
 #[async_trait::async_trait]
 impl BomQueryService for BomQueryServiceImpl {
     async fn get(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<Bom, DomainError> {
-        self.repo.find_by_id(ctx.executor, bom_id)
+        let mut bom = self.repo.find_by_id(ctx.executor, bom_id)
             .await.map_err(DomainError::Internal)?
-            .ok_or_else(|| DomainError::not_found("BOM"))
+            .ok_or_else(|| DomainError::not_found("BOM"))?;
+        let nodes = self.node_repo.find_by_bom_id(ctx.executor, bom_id)
+            .await.map_err(DomainError::Internal)?;
+        bom.bom_detail = BomDetail { nodes };
+        Ok(bom)
     }
 
     async fn list(

@@ -10,7 +10,7 @@ use crate::handlers::{dt_to_string, empty_to_none, json_to_string, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 
-use abt::WorkflowService;
+use abt_core::workflow::WorkflowService;
 
 pub struct WorkflowHandler;
 
@@ -26,7 +26,7 @@ impl Default for WorkflowHandler {
     }
 }
 
-fn template_to_proto(t: abt::WorkflowTemplate) -> WorkflowTemplateResponse {
+fn template_to_proto(t: abt_core::workflow::model::WorkflowTemplate) -> WorkflowTemplateResponse {
     WorkflowTemplateResponse {
         id: t.id,
         entity_type: t.entity_type,
@@ -41,7 +41,7 @@ fn template_to_proto(t: abt::WorkflowTemplate) -> WorkflowTemplateResponse {
     }
 }
 
-fn instance_to_proto(i: abt::WorkflowInstance) -> WorkflowInstanceResponse {
+fn instance_to_proto(i: abt_core::workflow::model::WorkflowInstance) -> WorkflowInstanceResponse {
     WorkflowInstanceResponse {
         id: i.id,
         template_id: i.template_id,
@@ -60,7 +60,7 @@ fn instance_to_proto(i: abt::WorkflowInstance) -> WorkflowInstanceResponse {
     }
 }
 
-fn task_to_proto(t: abt::WorkflowTask) -> WorkflowTaskResponse {
+fn task_to_proto(t: abt_core::workflow::model::WorkflowTask) -> WorkflowTaskResponse {
     WorkflowTaskResponse {
         id: t.id,
         instance_id: t.instance_id,
@@ -434,7 +434,7 @@ impl GrpcWorkflowService for WorkflowHandler {
     }
 }
 
-fn action_def_to_proto(def: &abt::ActionDef) -> ActionDef {
+fn action_def_to_proto(def: &abt_core::workflow::actions::ActionDef) -> ActionDef {
     ActionDef {
         name: def.name.clone(),
         label: def.label.clone(),
@@ -444,7 +444,7 @@ fn action_def_to_proto(def: &abt::ActionDef) -> ActionDef {
     }
 }
 
-fn field_def_to_proto(f: &abt::FieldDef) -> FieldDef {
+fn field_def_to_proto(f: &abt_core::workflow::actions::FieldDef) -> FieldDef {
     FieldDef {
         name: f.name.clone(),
         label: f.label.clone(),

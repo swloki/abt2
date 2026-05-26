@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use super::model::Role;
+use super::model::{Role, RoleWithPermissions};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 
@@ -47,4 +47,10 @@ pub trait RoleService: Send + Sync {
         role_id: i64,
         permissions: Vec<(String, String)>,
     ) -> Result<(), DomainError>;
+
+    async fn get_role_with_permissions(
+        &self,
+        ctx: ServiceContext<'_>,
+        role_id: i64,
+    ) -> Result<RoleWithPermissions, DomainError>;
 }

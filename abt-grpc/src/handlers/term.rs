@@ -1,19 +1,19 @@
-//! Term gRPC Handler
+//! Term gRPC Handler — 委托给 abt-core CategoryService
 
-use common::error;
-use tonic::{Request, Response};
+use abt_core::master_data::category::CategoryService;
+use abt_core::shared::types::{PageParams, ServiceContext};
+
 use crate::generated::abt::v1::{
     abt_term_service_server::AbtTermService as GrpcTermService,
     *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{domain_to_status, GrpcResult};
 use crate::interceptors::auth::extract_auth;
+use crate::permissions::PermissionCode;
 use crate::server::AppState;
 use abt_macros::require_permission;
-use crate::permissions::PermissionCode;
-
-// Import trait to bring methods into scope
-use abt::TermService;
+use common::error;
+use tonic::{Request, Response};
 
 pub struct TermHandler;
 
@@ -29,39 +29,72 @@ impl Default for TermHandler {
     }
 }
 
+fn category_to_term_response(c: &abt_core::master_data::category::Category) -> TermResponse {
+    TermResponse {
+        term_id: c.category_id,
+        term_name: c.category_name.clone(),
+        term_parent: c.parent_id,
+        taxonomy: "category".to_string(),
+        term_meta: Some(TermMeta { count: c.meta.count }),
+    }
+}
+
+fn tree_to_term_tree(node: &abt_core::master_data::category::CategoryTree) -> TermTreeResponse {
+    TermTreeResponse {
+        term_id: node.category_id,
+        term_name: node.category_name.clone(),
+        term_parent: node.parent_id,
+        taxonomy: "category".to_string(),
+        term_meta: Some(TermMeta { count: node.meta.count }),
+        children: node.children.iter().map(tree_to_term_tree).collect(),
+    }
+}
+
 #[tonic::async_trait]
 impl GrpcTermService for TermHandler {
     #[require_permission(Resource::Term, Action::Read)]
     async fn get_term_tree(
         &self,
-        request: Request<GetTermTreeRequest>,
+        _request: Request<GetTermTreeRequest>,
     ) -> GrpcResult<TermTreeListResponse> {
-        let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.term_service();
+        let srv = state.category_service();
 
-        let tree = srv.get_tree(&req.taxonomy).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let tree = srv.get_tree(ctx, None, None)
+            .await
+            .map_err(domain_to_status)?;
+
         Ok(Response::new(TermTreeListResponse {
-            items: tree.into_iter().map(|t| t.into()).collect(),
+            items: tree.iter().map(tree_to_term_tree).collect(),
         }))
     }
 
     #[require_permission(Resource::Term, Action::Read)]
     async fn list_terms(
         &self,
-        request: Request<ListTermsRequest>,
+        _request: Request<ListTermsRequest>,
     ) -> GrpcResult<TermListResponse> {
-        let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.term_service();
+        let srv = state.category_service();
 
-        let terms = srv.list_by_taxonomy(&req.taxonomy).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let result = srv.list(
+            ctx,
+            abt_core::master_data::category::CategoryQuery::default(),
+            PageParams::new(1, 1000),
+        )
+            .await
+            .map_err(domain_to_status)?;
+
         Ok(Response::new(TermListResponse {
-            items: terms.into_iter().map(|t| t.into()).collect(),
+            items: result.items.iter().map(category_to_term_response).collect(),
         }))
     }
 
@@ -72,13 +105,25 @@ impl GrpcTermService for TermHandler {
     ) -> GrpcResult<TermListResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.term_service();
+        let srv = state.category_service();
 
-        let terms = srv.get_children(req.parent_id).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let result = srv.list(
+            ctx,
+            abt_core::master_data::category::CategoryQuery {
+                parent_id: if req.parent_id == 0 { None } else { Some(req.parent_id) },
+                name: None,
+            },
+            PageParams::new(1, 1000),
+        )
+            .await
+            .map_err(domain_to_status)?;
+
         Ok(Response::new(TermListResponse {
-            items: terms.into_iter().map(|t| t.into()).collect(),
+            items: result.items.iter().map(category_to_term_response).collect(),
         }))
     }
 
@@ -88,20 +133,23 @@ impl GrpcTermService for TermHandler {
         request: Request<CreateTermRequest>,
     ) -> GrpcResult<U64Response> {
         let req = request.into_inner();
+        let auth = extract_auth(&Request::new(req.clone()))?;
         let state = AppState::get().await;
-        let srv = state.term_service();
+        let srv = state.category_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let create_req = abt::CreateTermRequest {
-            term_name: req.term_name,
-            term_parent: req.term_parent,
-            taxonomy: req.taxonomy,
-        };
-
-        let id = srv.create(create_req, &mut tx).await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let id = srv.create(
+            ctx,
+            abt_core::master_data::category::CreateCategoryReq {
+                category_name: req.term_name,
+                parent_id: req.term_parent,
+            },
+        )
+            .await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -114,18 +162,23 @@ impl GrpcTermService for TermHandler {
         request: Request<UpdateTermRequest>,
     ) -> GrpcResult<BoolResponse> {
         let req = request.into_inner();
+        let auth = extract_auth(&Request::new(req.clone()))?;
         let state = AppState::get().await;
-        let srv = state.term_service();
+        let srv = state.category_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let update_req = abt::UpdateTermRequest {
-            term_name: req.term_name,
-        };
-
-        srv.update(req.term_id, update_req, &mut tx).await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.update(
+            ctx,
+            req.term_id,
+            abt_core::master_data::category::UpdateCategoryReq {
+                category_name: Some(req.term_name),
+            },
+        )
+            .await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -138,14 +191,17 @@ impl GrpcTermService for TermHandler {
         request: Request<DeleteTermRequest>,
     ) -> GrpcResult<BoolResponse> {
         let req = request.into_inner();
+        let auth = extract_auth(&Request::new(req))?;
         let state = AppState::get().await;
-        let srv = state.term_service();
+        let srv = state.category_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        srv.delete(req.term_id, &mut tx).await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.delete(ctx, req.term_id)
+            .await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 

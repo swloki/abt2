@@ -97,6 +97,15 @@ pub struct CreateZoneReq {
     pub remark: Option<String>,
 }
 
+/// 更新库区请求 — 所有字段可选，仅更新提供的字段
+#[derive(Debug, Clone, Default)]
+pub struct UpdateZoneReq {
+    pub name: Option<String>,
+    pub zone_type: Option<ZoneType>,
+    pub sort_order: Option<i32>,
+    pub remark: Option<String>,
+}
+
 /// 创建库位请求
 #[derive(Debug, Clone)]
 pub struct CreateBinReq {
@@ -110,8 +119,51 @@ pub struct CreateBinReq {
     pub temperature_req: Option<String>,
 }
 
+/// 更新库位请求 — 所有字段可选，仅更新提供的字段
+#[derive(Debug, Clone, Default)]
+pub struct UpdateBinReq {
+    pub name: Option<String>,
+    pub row_no: Option<String>,
+    pub column_no: Option<String>,
+    pub layer_no: Option<String>,
+    pub capacity_limit: Option<Decimal>,
+    pub allowed_product_types: Option<Vec<String>>,
+    pub temperature_req: Option<String>,
+    pub status: Option<BinStatus>,
+}
+
 /// 库位查询过滤
 #[derive(Debug, Clone, Default)]
 pub struct BinFilter {
     pub status: Option<BinStatus>,
+}
+
+/// 库位 + 仓库关联信息（用于 Location 兼容查询）
+#[derive(Debug, Clone)]
+pub struct BinWithWarehouse {
+    pub bin: Bin,
+    pub warehouse_id: i64,
+    pub warehouse_name: String,
+}
+
+/// 仓库库存统计
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct WarehouseInventoryStats {
+    pub warehouse_id: i64,
+    pub warehouse_name: String,
+    pub total_quantity: Decimal,
+    pub bin_count: i64,
+    pub product_count: i64,
+    pub low_stock_count: i64,
+}
+
+/// 库位库存统计
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct BinInventoryStats {
+    pub bin_id: i64,
+    pub bin_code: String,
+    pub bin_name: String,
+    pub total_quantity: Decimal,
+    pub product_count: i64,
+    pub low_stock_count: i64,
 }

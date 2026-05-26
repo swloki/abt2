@@ -104,7 +104,7 @@ impl CashJournalRepo {
         _scope_department_id: Option<i64>,
     ) -> Result<(Vec<CashJournal>, u64)> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let period_param = if let Some(ref period) = filter.period {
             param_idx += 1;

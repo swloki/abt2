@@ -1,4 +1,5 @@
 use crate::generated::abt::v1::{Action, Resource};
+use abt_core::shared::identity::AuthContext;
 
 /// Trait for converting proto-generated permission enums to runtime strings.
 ///
@@ -30,7 +31,7 @@ impl PermissionCode for Action {
 /// 1. Super admin → full access
 /// 2. Check user's roles have the required permission via RolePermissionCache
 pub fn check_permission_for_resource(
-    auth: &abt::AuthContext,
+    auth: &AuthContext,
     resource_code: &str,
     action_code: &str,
 ) -> Result<(), String> {
@@ -43,8 +44,12 @@ pub fn check_permission_for_resource(
         return Err(format!("No permission for {}:{}", resource_code, action_code));
     }
 
-    let cache = abt::get_permission_cache();
-    let has_perm = cache.has_permission(role_ids, resource_code, action_code);
+    let cache = crate::server::get_permission_cache();
+    let has_perm = tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(
+            cache.has_permission(role_ids, resource_code, action_code)
+        )
+    });
 
     if has_perm {
         Ok(())

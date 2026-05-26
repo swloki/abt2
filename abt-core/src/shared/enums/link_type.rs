@@ -31,7 +31,7 @@ impl LinkType {
 
 impl sqlx::Type<sqlx::Postgres> for LinkType {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("smallint")
+        <i16 as sqlx::Type<sqlx::Postgres>>::type_info()
     }
 }
 

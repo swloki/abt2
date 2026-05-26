@@ -1,30 +1,27 @@
-//! BomCategory gRPC Handler
+//! BomCategory gRPC Handler — 委托给 abt-core BomCategoryService
+
+use abt_core::master_data::bom::service::BomCategoryService;
+use abt_core::shared::types::{PageParams, ServiceContext};
+use common::error;
+use tonic::{Request, Response};
 
 use crate::generated::abt::v1::{
     abt_bom_category_service_server::AbtBomCategoryService as GrpcBomCategoryService, *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{domain_to_status, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::permissions::PermissionCode;
 use crate::server::AppState;
 use abt_macros::require_permission;
-use common::error;
-use tonic::{Request, Response};
-
-use abt::BomCategoryService;
 
 pub struct BomCategoryHandler;
 
 impl BomCategoryHandler {
-    pub fn new() -> Self {
-        Self
-    }
+    pub fn new() -> Self { Self }
 }
 
 impl Default for BomCategoryHandler {
-    fn default() -> Self {
-        Self::new()
-    }
+    fn default() -> Self { Self::new() }
 }
 
 #[tonic::async_trait]
@@ -34,27 +31,22 @@ impl GrpcBomCategoryService for BomCategoryHandler {
         &self,
         request: Request<CreateBomCategoryRequest>,
     ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_category_service();
 
-        let mut tx = state
-            .begin_transaction()
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let create_req = abt::CreateBomCategoryRequest {
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let id = srv.create(ctx, abt_core::master_data::bom::model::CreateBomCategoryReq {
             bom_category_name: req.bom_category_name,
-        };
-
-        let bom_category_id = srv
-            .create(create_req, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        }).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
-        Ok(Response::new(U64Response { value: bom_category_id as u64 }))
+        Ok(Response::new(U64Response { value: id as u64 }))
     }
 
     #[require_permission(Resource::Bom, Action::Write)]
@@ -62,22 +54,18 @@ impl GrpcBomCategoryService for BomCategoryHandler {
         &self,
         request: Request<UpdateBomCategoryRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_category_service();
 
-        let mut tx = state
-            .begin_transaction()
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let update_req = abt::UpdateBomCategoryRequest {
-            bom_category_name: req.bom_category_name,
-        };
-
-        srv.update(req.bom_category_id, update_req, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.update(ctx, req.bom_category_id, abt_core::master_data::bom::model::UpdateBomCategoryReq {
+            bom_category_name: Some(req.bom_category_name),
+        }).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -89,18 +77,16 @@ impl GrpcBomCategoryService for BomCategoryHandler {
         &self,
         request: Request<DeleteBomCategoryRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.bom_category_service();
 
-        let mut tx = state
-            .begin_transaction()
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        srv.delete(req.bom_category_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.delete(ctx, req.bom_category_id).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -116,11 +102,20 @@ impl GrpcBomCategoryService for BomCategoryHandler {
         let state = AppState::get().await;
         let srv = state.bom_category_service();
 
-        let category = srv
-            .get(req.bom_category_id)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BomCategory", &req.bom_category_id.to_string()))?;
+        // BomCategoryService 暂无 get 方法，使用 list + 事后过滤
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let result = srv.list(
+            ctx,
+            abt_core::master_data::bom::model::BomCategoryQuery::default(),
+            PageParams::new(1, 99999),
+        ).await.map_err(domain_to_status)?;
+
+        let category = result.items.into_iter()
+            .find(|c| c.bom_category_id == req.bom_category_id)
+            .ok_or_else(|| domain_to_status(abt_core::shared::types::DomainError::not_found("BomCategory")))?;
 
         Ok(Response::new(category.into()))
     }
@@ -134,20 +129,19 @@ impl GrpcBomCategoryService for BomCategoryHandler {
         let state = AppState::get().await;
         let srv = state.bom_category_service();
 
-        let query = abt::BomCategoryQuery {
-            keyword: req.keyword,
-            page: req.page,
-            page_size: req.page_size,
-        };
-
-        let (categories, total) = srv
-            .list(query)
-            .await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let query = abt_core::master_data::bom::model::BomCategoryQuery {
+            name: req.keyword,
+        };
+        let page = PageParams::new(req.page.unwrap_or(1), req.page_size.unwrap_or(50));
+        let result = srv.list(ctx, query, page).await.map_err(domain_to_status)?;
+
         Ok(Response::new(BomCategoryListResponse {
-            items: categories.into_iter().map(|c| c.into()).collect(),
-            total: total as u64,
+            items: result.items.into_iter().map(|c| c.into()).collect(),
+            total: result.total as u64,
         }))
     }
 }

@@ -9,7 +9,7 @@ use crate::shared::types::{PageParams, PaginatedResult};
 // Bom 实体不使用 sqlx::FromRow（bom_detail 从 bom_nodes 加载），
 // 通过 BomRow 中间结构做 DB → Domain 映射
 
-const BOM_DB_COLUMNS: &str = "bom_id, bom_name, version, status, bom_category_id, created_at, updated_at";
+const BOM_DB_COLUMNS: &str = "bom_id, bom_name, version, status, bom_category_id, create_at AS created_at, update_at AS updated_at";
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 struct BomRow {
@@ -89,7 +89,7 @@ impl BomRepo {
         }
 
         sets.push("version = version + 1".to_string());
-        sets.push("updated_at = NOW()".to_string());
+        sets.push("update_at = NOW()".to_string());
 
         let version_idx = param_idx;
         param_idx += 1;
@@ -115,7 +115,7 @@ impl BomRepo {
         id: i64,
         status: BomStatus,
     ) -> Result<()> {
-        sqlx::query("UPDATE boms SET status = $1, updated_at = NOW() WHERE bom_id = $2 AND deleted_at IS NULL")
+        sqlx::query("UPDATE boms SET status = $1, update_at = NOW() WHERE bom_id = $2 AND deleted_at IS NULL")
             .bind(status.as_i16())
             .bind(id)
             .execute(executor)
@@ -149,7 +149,7 @@ impl BomRepo {
         page: &PageParams,
     ) -> Result<PaginatedResult<Bom>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let name_param = if let Some(ref name) = filter.name {
             param_idx += 1;
@@ -225,6 +225,30 @@ impl BomRepo {
             .await?
         };
         Ok(count == 0)
+    }
+
+    pub async fn find_product_codes_with_bom(
+        &self,
+        executor: PgExecutor<'_>,
+        product_codes: &[String],
+    ) -> Result<Vec<String>> {
+        if product_codes.is_empty() {
+            return Ok(Vec::new());
+        }
+        let codes: Vec<String> = sqlx::query_scalar(
+            r#"
+            SELECT DISTINCT bn.product_code
+            FROM bom_nodes bn
+            JOIN boms b ON b.bom_id = bn.bom_id
+            WHERE bn.product_code = ANY($1)
+              AND bn.parent_id = 0
+              AND b.deleted_at IS NULL
+            "#,
+        )
+        .bind(product_codes)
+        .fetch_all(executor)
+        .await?;
+        Ok(codes)
     }
 }
 
@@ -309,7 +333,6 @@ impl BomNodeRepo {
             return Ok(());
         }
 
-        sets.push("updated_at = NOW()".to_string());
         let sql = format!(
             "UPDATE bom_nodes SET {} WHERE node_id = $1",
             sets.join(", ")
@@ -334,7 +357,7 @@ impl BomNodeRepo {
         node_id: i64,
         new_parent_id: i64,
     ) -> Result<()> {
-        sqlx::query("UPDATE bom_nodes SET parent_id = $1, updated_at = NOW() WHERE node_id = $2")
+        sqlx::query("UPDATE bom_nodes SET parent_id = $1 WHERE node_id = $2")
             .bind(new_parent_id)
             .bind(node_id)
             .execute(executor)
@@ -350,7 +373,7 @@ impl BomNodeRepo {
         new_product_id: i64,
     ) -> Result<Vec<i64>> {
         let rows = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            "UPDATE bom_nodes SET product_id = $1, updated_at = NOW() WHERE bom_id = $2 AND product_id = $3 RETURNING node_id",
+            "UPDATE bom_nodes SET product_id = $1 WHERE bom_id = $2 AND product_id = $3 RETURNING node_id",
         )
         .bind(new_product_id)
         .bind(bom_id)
@@ -369,7 +392,7 @@ impl BomNodeRepo {
         new_product_id: i64,
         overrides: &AttributeOverrides,
     ) -> Result<Vec<i64>> {
-        let mut sets = vec!["product_id = $1".to_string(), "updated_at = NOW()".to_string()];
+        let mut sets = vec!["product_id = $1".to_string()];
         let mut param_idx = 4u32;
 
         if overrides.quantity.is_some() {
@@ -646,7 +669,7 @@ impl BomCategoryRepo {
         page: &PageParams,
     ) -> Result<PaginatedResult<BomCategory>> {
         let mut conditions = vec!["1=1".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let name_param = if let Some(ref name) = filter.name {
             param_idx += 1;

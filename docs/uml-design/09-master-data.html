@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>主数据模块 (Master Data) — 类图设计 v5</title>
+  <title>主数据模块 (Master Data) — 类图设计 v6</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
@@ -28,8 +28,8 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </script>
 </head>
 <body>
-<h2>主数据模块 (Master Data) — 类图设计 v5</h2>
-<p class="subtitle">产品目录 + 分类体系 + 价格管理 + BOM 工程数据 + 客商主数据 + 工艺路线 + 劳务工序（Customer/Supplier/Routing/LaborProcess） · 所有业务模块的上游基础数据 · ServiceContext 统一契约 · CQRS 风格拆分</p>
+<h2>主数据模块 (Master Data) — 类图设计 v6</h2>
+<p class="subtitle">产品目录 + 分类体系 + 价格管理 + BOM 工程数据 + 客商主数据 + 工艺路线 + 劳务工序 + 产品关注（Customer/Supplier/Routing/LaborProcess/ProductWatcher） · 所有业务模块的上游基础数据 · ServiceContext 统一契约 · CQRS 风格拆分</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -285,7 +285,34 @@ classDiagram
     +get(ctx: ServiceContext, id) Result~Product~
     +get_by_ids(ctx: ServiceContext, ids) Vec~Product~
     +list(ctx: ServiceContext, filter, page: PageParams) PaginatedResult~Product~
-    +check_product_usage(ctx: ServiceContext, id, query) PaginatedResult
+    +check_product_usage(ctx: ServiceContext, id, query: UsageQuery) PaginatedResult~UsageEntry~
+  }
+  class UsageQuery {
+    +page: u32
+    +page_size: u32
+  }
+  class UsageEntry {
+    +source_type: String
+    +source_id: i64
+    +source_name: String
+  }
+  ProductService ..> UsageEntry
+
+  %% ProductWatcher — 产品关注（用户偏好）
+  class WatchedProductWithInventory {
+    +product_id: i64
+    +product_code: String
+    +product_name: String
+    +current_quantity: Decimal
+    +effective_safety_stock: Decimal
+    +is_alerting: bool
+  }
+
+  class ProductWatcherService {
+    &lt;&lt;interface&gt;&gt;
+    +watch_product(ctx: ServiceContext, product_id, safety_stock_override: Option~Decimal~) Result~bool~
+    +unwatch_product(ctx: ServiceContext, product_id) Result~bool~
+    +list_watched_products(ctx: ServiceContext, page, page_size) PaginatedResult~WatchedProductWithInventory~
   }
 
   class ProductPriceService {
@@ -738,6 +765,9 @@ classDiagram
   LaborProcessDictService ..> LaborProcessDict
   BomLaborProcessService ..> BomLaborProcess
 
+  %% ProductWatcher 关系
+  ProductWatcherService ..> WatchedProductWithInventory
+
     note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult\nCustomer 行级安全: list/get 底层必须根据 ctx.data_scope 强制拼接 WHERE 条件，禁止前端越权"
     </div>
   </div>
@@ -1020,7 +1050,18 @@ classDiagram
           &nbsp;&nbsp;get_by_ids(ctx, ids) → Vec&lt;Product&gt;<br>
           &nbsp;&nbsp;list(ctx, filter, page) → PaginatedResult<br>
           &nbsp;&nbsp;check_product_usage(ctx, id, query) → PaginatedResult<br>
-          }
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">UsageQuery</span> {<br>
+          &nbsp;&nbsp;page: u32<br>
+          &nbsp;&nbsp;page_size: u32<br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">UsageEntry</span> {<br>
+          &nbsp;&nbsp;source_type: String <span style="color:#888;">// "bom"</span><br>
+          &nbsp;&nbsp;source_id: i64 <span style="color:#888;">// bom_id</span><br>
+          &nbsp;&nbsp;source_name: String <span style="color:#888;">// bom_name</span><br>
+          }<br>
+          <span style="color:#888;">// 查询逻辑：bom_nodes JOIN boms WHERE product_id = $1 AND deleted_at IS NULL</span><br>
+          <span style="color:#888;">// GROUP BY bom_id, bom_name，支持分页</span>
         </div>
       </div>
 
@@ -1193,7 +1234,7 @@ classDiagram
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10px;">
           <span style="color:#61afef;">// 只读查询</span><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomQueryService</span> {<br>
-          &nbsp;&nbsp;get(ctx, bom_id) → Bom<br>
+          &nbsp;&nbsp;get(ctx, bom_id) → Bom <span style="color:#888;">// 包含 bom_nodes（自动加载节点树）</span><br>
           &nbsp;&nbsp;list(ctx, query) → PaginatedResult<br>
           &nbsp;&nbsp;get_leaf_nodes(ctx, bom_id) → Vec<br>
           &nbsp;&nbsp;get_snapshots(ctx, bom_id,<br>
@@ -1740,6 +1781,41 @@ classDiagram
         &nbsp;&nbsp;<span style="color:#56b6c2;">IndependentTx</span> — create, update, delete（软删除）<br>
         &nbsp;&nbsp;<span style="color:#56b6c2;">ReadOnly</span> — list
       </div>
+    </div>
+
+    <!-- ProductWatcher — 产品关注 -->
+    <div style="border: 2px solid #61afef; border-radius: 8px; padding: 14px; background: rgba(97,175,239,0.05); margin-top: 20px;">
+      <h4 style="color: #61afef; margin: 0 0 6px 0;">ProductWatcher 产品关注</h4>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">用户关注产品库存变化，支持自定义安全库存阈值。关注后 StockAlertTask 定时扫描低库存并发送通知。JOIN stock_ledger 实时计算库存与告警状态</p>
+      <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+        <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">product_watchers</span> {<br>
+        &nbsp;&nbsp;user_id: i64 <span style="color:#888;">PK</span><br>
+        &nbsp;&nbsp;product_id: i64 <span style="color:#888;">PK, FK→products</span><br>
+        &nbsp;&nbsp;safety_stock_override: Decimal(18,6)? <span style="color:#888;">// NULL 使用 stock_ledger.safety_stock</span><br>
+        &nbsp;&nbsp;alert_active: bool <span style="color:#888;">// 是否处于活跃告警</span><br>
+        &nbsp;&nbsp;last_notified_at: Timestamp? <span style="color:#888;">// 上次告警通知时间</span><br>
+        &nbsp;&nbsp;created_at: Timestamp<br>
+        &nbsp;&nbsp;updated_at: Timestamp<br>
+        }<br><br>
+        <span style="color:#c678dd;">view model</span> <span style="color:#e5c07b;">WatchedProductWithInventory</span> {<br>
+        &nbsp;&nbsp;product_id: i64<br>
+        &nbsp;&nbsp;product_code: String<br>
+        &nbsp;&nbsp;product_name: String<br>
+        &nbsp;&nbsp;current_quantity: Decimal <span style="color:#888;">// SUM(stock_ledger.quantity)</span><br>
+        &nbsp;&nbsp;effective_safety_stock: Decimal <span style="color:#888;">// COALESCE(override, safety_stock)</span><br>
+        &nbsp;&nbsp;is_alerting: bool <span style="color:#888;">// current_quantity &lt; effective_safety_stock</span><br>
+        }<br><br>
+        <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ProductWatcherService</span> {<br>
+        &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext (user_id 从 ctx.operator_id 获取)</span><br>
+        &nbsp;&nbsp;watch_product(ctx, product_id, safety_stock_override?) → bool <span style="color:#888;">// UPSERT, 返回 is_new</span><br>
+        &nbsp;&nbsp;unwatch_product(ctx, product_id) → bool <span style="color:#888;">// DELETE, 返回 found</span><br>
+        &nbsp;&nbsp;list_watched_products(ctx, page, page_size) → PaginatedResult~WatchedProductWithInventory~<br>
+        }
+      </div>
+      <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+        <strong>数据源：</strong>product_watchers + products + stock_ledger (abt_v2)&nbsp;&nbsp;|&nbsp;&nbsp;
+        <strong>Worker：</strong>StockAlertTask（仍在 abt 中，后续迁移）
+      </p>
     </div>
 
   </div>

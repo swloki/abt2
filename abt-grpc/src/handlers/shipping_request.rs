@@ -1,3 +1,7 @@
+//! ShippingRequest gRPC Handler — 委托给 abt-core ShippingRequestService
+
+use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::shared::types::{PageParams, ServiceContext};
 use common::error;
 use tonic::{Request, Response};
 
@@ -5,10 +9,9 @@ use crate::generated::abt::v1::{
     shipping_request_service_server::ShippingRequestService as GrpcShippingRequestService,
     *,
 };
-use crate::handlers::{empty_to_none, GrpcResult};
+use crate::handlers::{domain_to_status, GrpcResult};
+use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
-
-use abt::{CreateShippingRequestItemParams, CreateShippingRequestParams, ShippingRequestService, UpdateShippingRequestParams};
 
 pub struct ShippingRequestHandler;
 
@@ -24,60 +27,55 @@ impl Default for ShippingRequestHandler {
     }
 }
 
-fn status_i16_to_proto(status: i16) -> ShippingRequestStatus {
+fn shipping_status_to_proto(status: abt_core::sales::shipping_request::ShippingStatus) -> ShippingRequestStatus {
     match status {
-        1 => ShippingRequestStatus::Pending,
-        2 => ShippingRequestStatus::Confirmed,
-        3 => ShippingRequestStatus::Shipped,
-        4 => ShippingRequestStatus::Cancelled,
-        _ => ShippingRequestStatus::Unspecified,
+        abt_core::sales::shipping_request::ShippingStatus::Draft => ShippingRequestStatus::Pending,
+        abt_core::sales::shipping_request::ShippingStatus::Confirmed => ShippingRequestStatus::Confirmed,
+        abt_core::sales::shipping_request::ShippingStatus::Picking => ShippingRequestStatus::Confirmed,
+        abt_core::sales::shipping_request::ShippingStatus::Shipped => ShippingRequestStatus::Shipped,
+        abt_core::sales::shipping_request::ShippingStatus::Cancelled => ShippingRequestStatus::Cancelled,
     }
 }
 
+#[allow(dead_code)]
 fn parse_decimal(s: &str) -> rust_decimal::Decimal {
     s.parse().unwrap_or(rust_decimal::Decimal::ZERO)
 }
 
+#[allow(dead_code)]
 fn decimal_to_string(d: rust_decimal::Decimal) -> String {
     d.to_string()
 }
 
-fn shipping_item_to_proto(item: &abt::ShippingRequestItem) -> ShippingRequestItem {
+#[allow(dead_code)]
+fn shipping_item_to_proto(item: &abt_core::sales::shipping_request::ShippingRequestItem) -> ShippingRequestItem {
     ShippingRequestItem {
-        item_id: item.item_id,
-        request_id: item.request_id,
+        item_id: item.id,
+        request_id: item.shipping_request_id,
         order_item_id: item.order_item_id,
         product_id: item.product_id,
-        product_code: item.product_code.clone().unwrap_or_default(),
-        product_name: item.product_name.clone().unwrap_or_default(),
-        unit: item.unit.clone().unwrap_or_default(),
-        quantity: decimal_to_string(item.quantity),
-        remark: item.remark.clone().unwrap_or_default(),
+        product_code: String::new(),
+        product_name: item.description.clone(),
+        unit: String::new(),
+        quantity: decimal_to_string(item.requested_qty),
+        remark: String::new(),
     }
 }
 
-fn shipping_to_proto(r: &abt::ShippingRequest) -> ShippingRequest {
+fn shipping_to_proto(r: &abt_core::sales::shipping_request::ShippingRequest) -> ShippingRequest {
     ShippingRequest {
-        request_id: r.request_id,
-        request_no: r.request_no.clone(),
+        request_id: r.id,
+        request_no: r.doc_number.clone(),
         order_id: r.order_id,
-        customer_name: r.customer_name.clone(),
-        status: status_i16_to_proto(r.status) as i32,
-        remark: r.remark.clone().unwrap_or_default(),
-        operator_id: r.operator_id.unwrap_or(0),
-        confirmed_at: r.confirmed_at.map(|d| d.timestamp()).unwrap_or(0),
-        shipped_at: r.shipped_at.map(|d| d.timestamp()).unwrap_or(0),
+        customer_name: String::new(),
+        status: shipping_status_to_proto(r.status) as i32,
+        remark: r.remark.clone(),
+        operator_id: r.operator_id,
+        confirmed_at: 0,
+        shipped_at: 0,
         created_at: r.created_at.timestamp(),
         updated_at: r.updated_at.timestamp(),
-        items: r.items.iter().map(shipping_item_to_proto).collect(),
-    }
-}
-
-fn map_create_item(i: &CreateShippingRequestItem) -> CreateShippingRequestItemParams {
-    CreateShippingRequestItemParams {
-        order_item_id: i.order_item_id,
-        quantity: parse_decimal(&i.quantity),
-        remark: if i.remark.is_empty() { None } else { Some(i.remark.clone()) },
+        items: vec![],
     }
 }
 
@@ -87,25 +85,33 @@ impl GrpcShippingRequestService for ShippingRequestHandler {
         &self,
         request: Request<CreateShippingRequestRequest>,
     ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.shipping_request_service();
+        let srv = state.shipping_request_core_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let remark = empty_to_none(req.remark);
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
 
-        let params = CreateShippingRequestParams {
+        let items: Vec<abt_core::sales::shipping_request::CreateShippingItemReq> = req.items.iter().map(|i| {
+            abt_core::sales::shipping_request::CreateShippingItemReq {
+                order_item_id: i.order_item_id,
+                warehouse_id: 0, // TODO: proto 目前没有 warehouse_id
+                requested_qty: parse_decimal(&i.quantity),
+            }
+        }).collect();
+
+        let create_req = abt_core::sales::shipping_request::CreateFromOrderReq {
             order_id: req.order_id,
-            remark: remark.as_deref(),
-            operator_id: None,
+            expected_ship_date: None,
+            shipping_address: if req.remark.is_empty() { None } else { Some(req.remark) },
+            items,
         };
 
-        let items: Vec<CreateShippingRequestItemParams> = req.items.iter().map(map_create_item).collect();
-
-        let id = srv.create(&mut tx, &params, items)
-            .await.map_err(error::err_to_status)?;
+        let id = srv.create_from_order(ctx, create_req).await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -116,23 +122,26 @@ impl GrpcShippingRequestService for ShippingRequestHandler {
         &self,
         request: Request<UpdateShippingRequestRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.shipping_request_service();
+        let srv = state.shipping_request_core_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let remark = empty_to_none(req.remark);
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
 
-        let params = UpdateShippingRequestParams {
-            remark: remark.as_deref(),
+        let update_req = abt_core::sales::shipping_request::UpdateShippingReq {
+            expected_ship_date: None,
+            shipping_address: None,
+            carrier: None,
+            tracking_number: None,
+            remark: if req.remark.is_empty() { None } else { Some(req.remark) },
         };
 
-        let items: Vec<CreateShippingRequestItemParams> = req.items.iter().map(map_create_item).collect();
-
-        srv.update(&mut tx, req.request_id, &params, items)
-            .await.map_err(error::err_to_status)?;
+        srv.update(ctx, req.request_id, update_req).await
+            .map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -143,19 +152,9 @@ impl GrpcShippingRequestService for ShippingRequestHandler {
         &self,
         request: Request<DeleteShippingRequestRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let req = request.into_inner();
-        let state = AppState::get().await;
-        let srv = state.shipping_request_service();
-
-        let mut tx = state.begin_transaction().await
-            .map_err(error::err_to_status)?;
-
-        srv.delete(&mut tx, req.request_id).await
-            .map_err(error::err_to_status)?;
-
-        tx.commit().await.map_err(error::sqlx_err_to_status)?;
-
-        Ok(Response::new(BoolResponse { value: true }))
+        let _ = request;
+        // abt-core ShippingRequestService 没有 delete 方法
+        Err(tonic::Status::unimplemented("Delete shipping request not supported in abt-core"))
     }
 
     async fn get_shipping_request(
@@ -164,11 +163,14 @@ impl GrpcShippingRequestService for ShippingRequestHandler {
     ) -> GrpcResult<ShippingRequestResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.shipping_request_service();
+        let srv = state.shipping_request_core_service();
 
-        let r = srv.get_by_id(req.request_id).await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("ShippingRequest", &req.request_id.to_string()))?;
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let r = srv.find_by_id(ctx, req.request_id).await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(ShippingRequestResponse {
             request: Some(shipping_to_proto(&r)),
@@ -181,18 +183,27 @@ impl GrpcShippingRequestService for ShippingRequestHandler {
     ) -> GrpcResult<ShippingRequestListResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.shipping_request_service();
+        let srv = state.shipping_request_core_service();
 
-        let query = abt::ShippingRequestQuery {
-            keyword: req.keyword,
-            status: req.status.map(|s| s as i16),
-            order_id: req.order_id,
-            page: req.pagination.as_ref().map(|p| p.page as i64),
-            page_size: req.pagination.as_ref().map(|p| p.page_size as i64),
-        };
-
-        let result = srv.list(&query).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+
+        let filter = abt_core::sales::shipping_request::ShippingQuery {
+            order_id: req.order_id,
+            status: req.status.and_then(|s| {
+                abt_core::sales::shipping_request::ShippingStatus::from_i16(s as i16)
+            }),
+            keyword: req.keyword,
+        };
+        let page = PageParams::new(
+            req.pagination.as_ref().map(|p| p.page).unwrap_or(1),
+            req.pagination.as_ref().map(|p| p.page_size).unwrap_or(20),
+        );
+
+        let result = srv.list(ctx, filter, page).await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(ShippingRequestListResponse {
             items: result.items.iter().map(shipping_to_proto).collect(),
@@ -209,17 +220,35 @@ impl GrpcShippingRequestService for ShippingRequestHandler {
         &self,
         request: Request<UpdateShippingRequestStatusRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.shipping_request_service();
+        let srv = state.shipping_request_core_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let new_status = req.status as i16;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
 
-        srv.update_status(&mut tx, req.request_id, new_status).await
-            .map_err(error::err_to_status)?;
+        match req.status() {
+            ShippingRequestStatus::Confirmed => {
+                srv.confirm(ctx, req.request_id).await
+                    .map_err(domain_to_status)?;
+            }
+            ShippingRequestStatus::Shipped => {
+                srv.ship(ctx, req.request_id).await
+                    .map_err(domain_to_status)?;
+            }
+            ShippingRequestStatus::Cancelled => {
+                srv.cancel(ctx, req.request_id).await
+                    .map_err(domain_to_status)?;
+            }
+            _ => {
+                return Err(tonic::Status::invalid_argument(
+                    format!("Unsupported status transition: {:?}", req.status()),
+                ));
+            }
+        }
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 

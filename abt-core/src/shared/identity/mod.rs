@@ -11,7 +11,7 @@ pub mod user_service;
 // Re-export main types
 pub use auth_service::AuthService;
 pub use department_service::DepartmentService;
-pub use model::{AuthContext, Claims, Department, ResourceActionDef, Role, User};
+pub use model::{AuthContext, Claims, Department, ResourceActionDef, Role, RoleInfo, RoleWithPermissions, User, UserWithRoles, RESOURCE_ACTION_DEFS};
 pub use permission_cache::RolePermissionCache;
 pub use permission_service::PermissionService;
 pub use role_service::RoleService;

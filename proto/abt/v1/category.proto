@@ -1,0 +1,91 @@
+syntax = "proto3";
+package abt.v1;
+
+import "abt/v1/base.proto";
+
+option go_package = "abt/v1";
+
+service AbtCategoryService {
+  rpc ListCategories(ListCategoriesRequest) returns (CategoryListResponse);
+  rpc GetCategory(GetCategoryRequest) returns (CategoryResponse);
+  rpc CreateCategory(CreateCategoryRequest) returns (U64Response);
+  rpc UpdateCategory(UpdateCategoryRequest) returns (BoolResponse);
+  rpc DeleteCategory(DeleteCategoryRequest) returns (BoolResponse);
+  rpc GetCategoryTree(GetCategoryTreeRequest) returns (CategoryTreeResponse);
+  rpc MoveCategory(MoveCategoryRequest) returns (BoolResponse);
+  rpc AssignProducts(AssignProductsRequest) returns (BoolResponse);
+  rpc RemoveProducts(RemoveProductsRequest) returns (BoolResponse);
+}
+
+message CategoryResponse {
+  int64 category_id = 1;
+  string category_name = 2;
+  int64 parent_id = 3;
+  string path = 4;
+  int64 product_count = 5;
+  int64 created_at = 6;
+  int64 updated_at = 7;
+}
+
+message CategoryTreeNode {
+  int64 category_id = 1;
+  string category_name = 2;
+  int64 parent_id = 3;
+  string path = 4;
+  int64 product_count = 5;
+  repeated CategoryTreeNode children = 6;
+}
+
+message CategoryListResponse {
+  repeated CategoryResponse items = 1;
+  uint64 total = 2;
+}
+
+message ListCategoriesRequest {
+  optional uint32 page = 1;
+  optional uint32 page_size = 2;
+  optional string name = 3;
+  optional int64 parent_id = 4;
+}
+
+message GetCategoryRequest {
+  int64 category_id = 1;
+}
+
+message CreateCategoryRequest {
+  string category_name = 1;
+  int64 parent_id = 2;
+}
+
+message UpdateCategoryRequest {
+  int64 category_id = 1;
+  string category_name = 2;
+}
+
+message DeleteCategoryRequest {
+  int64 category_id = 1;
+}
+
+message GetCategoryTreeRequest {
+  optional int64 root_id = 1;
+  optional int32 depth_limit = 2;
+}
+
+message CategoryTreeResponse {
+  repeated CategoryTreeNode nodes = 1;
+}
+
+message MoveCategoryRequest {
+  int64 category_id = 1;
+  int64 new_parent_id = 2;
+}
+
+message AssignProductsRequest {
+  int64 category_id = 1;
+  repeated int64 product_ids = 2;
+}
+
+message RemoveProductsRequest {
+  int64 category_id = 1;
+  repeated int64 product_ids = 2;
+}

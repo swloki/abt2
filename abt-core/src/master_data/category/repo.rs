@@ -99,7 +99,7 @@ impl CategoryRepo {
     #[allow(unused_assignments)]
     pub async fn query(&self, executor: PgExecutor<'_>, filter: &CategoryQuery, page: &PageParams) -> Result<PaginatedResult<Category>> {
         let mut conditions = vec!["1=1".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let name_param = if let Some(ref name) = filter.name {
             param_idx += 1;
@@ -186,6 +186,31 @@ impl CategoryRepo {
             .bind(category_id)
             .execute(executor)
             .await?;
+        Ok(())
+    }
+
+    /// Replace all category assignments for a given product (Excel import support).
+    /// Deletes existing rows then inserts the new set.
+    pub async fn sync_product_categories(
+        &self,
+        executor: PgExecutor<'_>,
+        product_id: i64,
+        category_ids: &[i64],
+    ) -> Result<()> {
+        sqlx::query("DELETE FROM product_categories WHERE product_id = $1")
+            .bind(product_id)
+            .execute(&mut *executor)
+            .await?;
+
+        for cid in category_ids {
+            sqlx::query(
+                "INSERT INTO product_categories (product_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            )
+            .bind(product_id)
+            .bind(cid)
+            .execute(&mut *executor)
+            .await?;
+        }
         Ok(())
     }
 }

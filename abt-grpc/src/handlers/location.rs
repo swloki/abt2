@@ -1,33 +1,27 @@
-//! Location gRPC Handler
+//! Location gRPC Handler — 委托给 abt-core WarehouseService (Bin 兼容)
 
+use abt_core::wms::warehouse::WarehouseService;
+use abt_core::shared::types::ServiceContext;
 use common::error;
 use tonic::{Request, Response};
 use crate::generated::abt::v1::{
     abt_location_service_server::AbtLocationService as GrpcLocationService,
     *,
 };
-use crate::handlers::GrpcResult;
+use crate::handlers::{domain_to_status, GrpcResult};
 use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
 use crate::permissions::PermissionCode;
 
-// Import trait to bring methods into scope
-use abt::LocationService;
-use abt::WarehouseService;
-
 pub struct LocationHandler;
 
 impl LocationHandler {
-    pub fn new() -> Self {
-        Self
-    }
+    pub fn new() -> Self { Self }
 }
 
 impl Default for LocationHandler {
-    fn default() -> Self {
-        Self::new()
-    }
+    fn default() -> Self { Self::new() }
 }
 
 #[tonic::async_trait]
@@ -39,19 +33,23 @@ impl GrpcLocationService for LocationHandler {
     ) -> GrpcResult<LocationListResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.location_service();
+        let srv = state.warehouse_service();
 
-        let result = srv.list_by_warehouse_paginated(
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let result = srv.list_bins_by_warehouse(
+            ctx,
             req.warehouse_id,
             req.keyword,
             req.is_active,
-            req.page,
-            req.page_size,
-        ).await
-            .map_err(error::err_to_status)?;
+            req.page.unwrap_or(1),
+            req.page_size.unwrap_or(20),
+        ).await.map_err(domain_to_status)?;
 
         Ok(Response::new(LocationListResponse {
-            items: result.items.into_iter().map(|l| l.into()).collect(),
+            items: result.items.into_iter().map(|b| b.into()).collect(),
             total: result.total,
             page: result.page,
             page_size: result.page_size,
@@ -64,56 +62,17 @@ impl GrpcLocationService for LocationHandler {
         _request: Request<Empty>,
     ) -> GrpcResult<LocationWithWarehouseListResponse> {
         let state = AppState::get().await;
-        let warehouse_srv = state.warehouse_service();
+        let srv = state.warehouse_service();
 
-        // Get all warehouses
-        let warehouses = warehouse_srv.list_all().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        // Build warehouse map for lookup
-        let warehouse_map: std::collections::HashMap<i64, String> = warehouses
-            .iter()
-            .map(|w| (w.warehouse_id, w.warehouse_name.clone()))
-            .collect();
-
-        // Fetch all locations in parallel using futures
-        let futures: Vec<_> = warehouses
-            .into_iter()
-            .map(|w| {
-                let srv = state.location_service();
-                async move {
-                    srv.list_by_warehouse(w.warehouse_id).await
-                        .map(|locs| (w.warehouse_id, locs))
-                }
-            })
-            .collect();
-
-        let results = futures::future::try_join_all(futures)
-            .await
-            .map_err(error::err_to_status)?;
-
-        // Flatten and convert to response
-        let all_locations: Vec<LocationWithWarehouseResponse> = results
-            .into_iter()
-            .flat_map(|(warehouse_id, locations)| {
-                let warehouse_name = warehouse_map.get(&warehouse_id).cloned().unwrap_or_default();
-                locations.into_iter().map(move |loc| {
-                    let is_active = loc.is_active();
-                    LocationWithWarehouseResponse {
-                        location_id: loc.location_id,
-                        warehouse_id: loc.warehouse_id,
-                        warehouse_name: warehouse_name.clone(),
-                        location_code: loc.location_code,
-                        is_active,
-                        location_name: loc.location_name.unwrap_or_default(),
-                        location_type: String::new(),
-                    }
-                })
-            })
-            .collect();
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let bins = srv.list_all_bins_with_warehouse(ctx)
+            .await.map_err(domain_to_status)?;
 
         Ok(Response::new(LocationWithWarehouseListResponse {
-            items: all_locations,
+            items: bins.into_iter().map(|bw| bw.into()).collect(),
         }))
     }
 
@@ -124,13 +83,16 @@ impl GrpcLocationService for LocationHandler {
     ) -> GrpcResult<LocationResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.location_service();
+        let srv = state.warehouse_service();
 
-        let location = srv.get_by_id(req.location_id).await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("Location", &req.location_id.to_string()))?;
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
 
-        Ok(Response::new(location.into()))
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let bw = srv.get_bin_with_warehouse(ctx, req.location_id)
+            .await.map_err(domain_to_status)?;
+
+        Ok(Response::new(bw.into()))
     }
 
     #[require_permission(Resource::Location, Action::Write)]
@@ -138,22 +100,32 @@ impl GrpcLocationService for LocationHandler {
         &self,
         request: Request<CreateLocationRequest>,
     ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.location_service();
+        let srv = state.warehouse_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let create_req = abt::CreateLocationRequest {
-            warehouse_id: req.warehouse_id,
-            location_code: req.location_code,
-            location_name: Some(req.location_name).filter(|s| !s.is_empty()),
-            capacity: None,
-        };
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
 
-        let id = srv.create(create_req, &mut tx).await
-            .map_err(error::err_to_status)?;
+        // 查找或创建默认库区
+        let zone = srv.get_or_create_default_zone(ctx, req.warehouse_id)
+            .await.map_err(domain_to_status)?;
+
+        // 重新创建 ctx（ServiceContext 不实现 Copy）
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let id = srv.create_bin(ctx, zone.id, abt_core::wms::warehouse::CreateBinReq {
+            code: req.location_code,
+            name: req.location_name,
+            row_no: None,
+            column_no: None,
+            layer_no: None,
+            capacity_limit: None,
+            allowed_product_types: None,
+            temperature_req: None,
+        }).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -161,19 +133,23 @@ impl GrpcLocationService for LocationHandler {
     }
 
     #[require_permission(Resource::Location, Action::Write)]
-    async fn update_location_status(
+    async fn update_location(
         &self,
-        request: Request<UpdateLocationStatusRequest>,
+        request: Request<UpdateLocationRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.location_service();
+        let srv = state.warehouse_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        srv.update_status(req.location_id, req.is_active, &mut tx).await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.update_bin(ctx, req.location_id, abt_core::wms::warehouse::UpdateBinReq {
+            name: Some(req.location_name).filter(|s| !s.is_empty()),
+            ..Default::default()
+        }).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -181,25 +157,29 @@ impl GrpcLocationService for LocationHandler {
     }
 
     #[require_permission(Resource::Location, Action::Write)]
-    async fn update_location(
+    async fn update_location_status(
         &self,
-        request: Request<UpdateLocationRequest>,
+        request: Request<UpdateLocationStatusRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.location_service();
+        let srv = state.warehouse_service();
 
-        let mut tx = state.begin_transaction().await
-            .map_err(error::err_to_status)?;
-
-        let update_req = abt::UpdateLocationRequest {
-            location_code: String::new(),
-            location_name: Some(req.location_name).filter(|s| !s.is_empty()),
-            capacity: None,
+        let status = if req.is_active {
+            abt_core::wms::BinStatus::Empty
+        } else {
+            abt_core::wms::BinStatus::Disabled
         };
 
-        srv.update(req.location_id, update_req, &mut tx).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.update_bin(ctx, req.location_id, abt_core::wms::warehouse::UpdateBinReq {
+            status: Some(status),
+            ..Default::default()
+        }).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
@@ -211,20 +191,27 @@ impl GrpcLocationService for LocationHandler {
         &self,
         request: Request<DeleteLocationRequest>,
     ) -> GrpcResult<BoolResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.location_service();
+        let srv = state.warehouse_service();
 
-        let mut tx = state.begin_transaction().await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
 
-        let deleted = srv.delete(req.location_id, req.hard_delete, &mut tx).await
-            .map_err(error::err_to_status)?;
+        if req.hard_delete {
+            tracing::warn!(location_id = req.location_id, "hard_delete requested but abt-core only supports soft delete");
+        }
+
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.delete_bin(ctx, req.location_id).await.map_err(domain_to_status)?;
 
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
-        Ok(Response::new(BoolResponse { value: deleted }))
+        Ok(Response::new(BoolResponse { value: true }))
     }
+
+    // ── 库存统计 ──────────────────────────────────
 
     #[require_permission(Resource::Location, Action::Read)]
     async fn get_warehouse_inventory_stats(
@@ -233,10 +220,14 @@ impl GrpcLocationService for LocationHandler {
     ) -> GrpcResult<WarehouseInventoryStatsResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.location_service();
+        let srv = state.warehouse_service();
 
-        let stats = srv.get_warehouse_inventory_stats(req.warehouse_id).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, 0);
+
+        let stats = srv.get_warehouse_inventory_stats(ctx, req.warehouse_id).await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(stats.into()))
     }
@@ -248,10 +239,14 @@ impl GrpcLocationService for LocationHandler {
     ) -> GrpcResult<LocationInventoryStatsResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.location_service();
+        let srv = state.warehouse_service();
 
-        let stats = srv.get_location_inventory_stats(req.location_id).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, 0);
+
+        let stats = srv.get_bin_inventory_stats(ctx, req.location_id).await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(stats.into()))
     }
@@ -263,14 +258,19 @@ impl GrpcLocationService for LocationHandler {
     ) -> GrpcResult<LocationStatsListResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.location_service();
+        let srv = state.warehouse_service();
 
-        let result = srv.list_location_stats_by_warehouse(
-            req.warehouse_id,
-            req.page,
-            req.page_size,
-        ).await
+        let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, 0);
+
+        let result = srv.list_bin_stats_by_warehouse(
+            ctx,
+            req.warehouse_id,
+            req.page.unwrap_or(1),
+            req.page_size.unwrap_or(20),
+        ).await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(LocationStatsListResponse {
             items: result.items.into_iter().map(|s| s.into()).collect(),
@@ -287,19 +287,23 @@ impl GrpcLocationService for LocationHandler {
     ) -> GrpcResult<SearchLocationsResponse> {
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.location_service();
+        let srv = state.warehouse_service();
 
-        let result = srv.search_locations(
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, 0);
+        let result = srv.search_bins_with_warehouse(
+            ctx,
             req.keyword,
             req.is_active,
             req.warehouse_id,
-            req.page,
-            req.page_size,
-        ).await
-            .map_err(error::err_to_status)?;
+            req.page.unwrap_or(1),
+            req.page_size.unwrap_or(20),
+        ).await.map_err(domain_to_status)?;
 
         Ok(Response::new(SearchLocationsResponse {
-            items: result.items.into_iter().map(|l| l.into()).collect(),
+            items: result.items.into_iter().map(|bw| bw.into()).collect(),
             total: result.total,
             page: result.page,
             page_size: result.page_size,

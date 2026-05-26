@@ -15,7 +15,7 @@ impl SequenceStrategy {
 }
 
 impl sqlx::Type<sqlx::Postgres> for SequenceStrategy {
-    fn type_info() -> sqlx::postgres::PgTypeInfo { sqlx::postgres::PgTypeInfo::with_name("smallint") }
+    fn type_info() -> sqlx::postgres::PgTypeInfo { <i16 as sqlx::Type<sqlx::Postgres>>::type_info() }
 }
 impl sqlx::Encode<'_, sqlx::Postgres> for SequenceStrategy {
     fn encode_by_ref(&self, buf: &mut sqlx::postgres::PgArgumentBuffer) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {

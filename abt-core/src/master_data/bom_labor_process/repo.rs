@@ -1,5 +1,6 @@
 use anyhow::Result;
 use common::PgExecutor;
+use rust_decimal::Decimal;
 
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
@@ -83,7 +84,7 @@ impl BomLaborProcessRepo {
     #[allow(unused_assignments)]
     pub async fn query(&self, executor: PgExecutor<'_>, filter: &BomLaborProcessQuery, page: &PageParams) -> Result<PaginatedResult<BomLaborProcess>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let product_code_param = if let Some(ref pc) = filter.product_code {
             conditions.push(format!("product_code = ${param_idx}"));
@@ -124,5 +125,57 @@ impl BomLaborProcessRepo {
         let items = data_q.fetch_all(executor).await?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    // ---- Excel 导入/导出辅助方法 ----
+
+    /// 按 product_code 删除（硬删除，用于导入前清空旧数据）
+    pub async fn delete_by_product_code(executor: PgExecutor<'_>, product_code: &str) -> Result<()> {
+        sqlx::query("DELETE FROM bom_labor_processes WHERE product_code = $1")
+            .bind(product_code)
+            .execute(executor)
+            .await?;
+        Ok(())
+    }
+
+    /// 批量插入劳动工序（逐行 INSERT，用于 Excel 导入）
+    pub async fn batch_insert(
+        executor: PgExecutor<'_>,
+        rows: &[(String, i64, String, String, Decimal, Decimal, i32, Option<String>)],
+    ) -> Result<()> {
+        for (product_code, dict_id, process_code, name, unit_price, quantity, sort_order, remark) in rows {
+            sqlx::query(
+                r#"INSERT INTO bom_labor_processes (product_code, labor_process_dict_id, process_code, name, unit_price, quantity, sort_order, remark)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)"#,
+            )
+            .bind(product_code)
+            .bind(dict_id)
+            .bind(process_code)
+            .bind(name)
+            .bind(unit_price)
+            .bind(quantity)
+            .bind(sort_order)
+            .bind(remark)
+            .execute(&mut *executor)
+            .await?;
+        }
+        Ok(())
+    }
+
+    /// 查询没有劳动工序成本的 BOM（用于导入校验提示）
+    pub async fn find_boms_without_labor_cost(executor: PgExecutor<'_>) -> Result<Vec<BomWithoutLaborCost>> {
+        let rows = sqlx::query_as::<sqlx::Postgres, BomWithoutLaborCost>(
+            r#"
+            SELECT DISTINCT b.bom_id, b.bom_name, bn.product_code
+            FROM boms b
+            JOIN bom_nodes bn ON b.bom_id = bn.bom_id
+            WHERE b.deleted_at IS NULL
+              AND bn.product_code NOT IN (SELECT DISTINCT product_code FROM bom_labor_processes)
+            ORDER BY b.bom_id
+            "#,
+        )
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
     }
 }

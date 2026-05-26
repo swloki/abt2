@@ -1,67 +1,40 @@
-//! BOM gRPC Handler
+//! BOM gRPC Handler — delegated to abt-core BOM services
 
-use crate::generated::abt::v1::{abt_bom_service_server::AbtBomService as GrpcBomService, *};
-use crate::handlers::{validate_upload_path, GrpcResult};
+use crate::generated::abt::v1::{
+    abt_bom_service_server::AbtBomService as GrpcBomService,
+    Action, Resource,
+    AddBomNodeRequest, BoolResponse, BomCostReportResponse, BomLaborCostResponse,
+    BomListResponse, BomNodesResponse, BomResponse,
+    CreateBomRequest, DeleteBomNodeRequest, DeleteBomRequest, DownloadBomRequest,
+    DownloadFileResponse, ExistsBomNameRequest, ExportBomRequest, GetBomCostReportRequest,
+    GetBomLaborCostRequest, GetBomRequest, GetLeafNodesRequest, GetProductCodeRequest,
+    ListBomsRequest, PublishBomRequest, PublishBomResponse, SaveAsBomRequest,
+    StringResponse, SubstituteProductRequest, SubstituteProductResponse, SwapBomNodeRequest,
+    U64Response, UnpublishBomRequest, UnpublishBomResponse, UpdateBomNodeRequest,
+    UpdateBomRequest,
+};
+use crate::handlers::{domain_to_status, validate_upload_path, GrpcResult};
 use crate::interceptors::auth::extract_auth;
-use crate::server::AppState;
-use abt_macros::require_permission;
 use crate::permissions::PermissionCode;
+use crate::server::AppState;
+use abt_core::master_data::bom::model::{
+    AttributeOverrides, BomStatus, CreateBomReq, NewBomNode, SubstituteReq, UpdateBomNodeReq,
+    UpdateBomReq, BomQuery,
+};
+use abt_core::master_data::bom::service::{
+    BomCommandService, BomCostService, BomNodeService, BomQueryService,
+};
+use abt_core::shared::types::{PageParams, ServiceContext};
+use abt_macros::require_permission;
 use common::error;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response};
-
-use abt::{BomService, ExcelExportService, ExportRequest};
 
 pub struct BomHandler;
 
 impl BomHandler {
     pub fn new() -> Self {
         Self
-    }
-
-    /// 查找 BOM 并执行可见性授权检查
-    ///
-    /// - `write`: true 表示写操作（授权失败返回具体错误），false 表示读操作（返回 NotFound 隐藏存在）
-    async fn find_and_authorize(
-        srv: &dyn BomService,
-        bom_id: i64,
-        user_id: i64,
-        write: bool,
-        tx: &mut sqlx::Transaction<'static, sqlx::Postgres>,
-    ) -> Result<abt::Bom, tonic::Status> {
-        let bom = srv
-            .find(bom_id, tx)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &bom_id.to_string()))?;
-
-        bom.require_creator_or_published(user_id, write)
-            .map_err(|e| {
-                if write {
-                    error::err_to_status(e)
-                } else {
-                    error::not_found("BOM", &bom_id.to_string())
-                }
-            })?;
-
-        Ok(bom)
-    }
-
-    /// 使用连接池查找 BOM 并执行可见性授权检查（用于无事务的操作）
-    async fn find_and_authorize_pool(
-        pool: &sqlx::PgPool,
-        bom_id: i64,
-        user_id: i64,
-    ) -> Result<abt::Bom, tonic::Status> {
-        let bom = abt::repositories::BomRepo::find_by_id_pool(pool, bom_id)
-            .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("BOM", &bom_id.to_string()))?;
-
-        bom.require_creator_or_published(user_id, false)
-            .map_err(|_| error::not_found("BOM", &bom_id.to_string()))?;
-
-        Ok(bom)
     }
 }
 
@@ -78,43 +51,33 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_query_service();
 
-        let status = req.status.and_then(|s| match s {
-            1 => Some(abt::BomStatus::Draft),
-            2 => Some(abt::BomStatus::Published),
-            _ => None,
-        });
-
-        let cost_filter = req.cost_filter.and_then(|f| match f {
-            1 => Some(abt::models::CostFilter::All),
-            2 => Some(abt::models::CostFilter::Price),
-            3 => Some(abt::models::CostFilter::Labor),
-            _ => None,
-        });
-
-        let query = abt::BomQuery {
-            page: req.page.map(|p| p as i64),
-            page_size: req.page_size.map(|p| p as i64),
-            bom_name: req.keyword,
-            product_code: req.product_code,
-            date_from: req.date_from,
-            date_to: req.date_to,
-            bom_category_id: req.bom_category_id,
-            status,
-            caller_id: Some(auth.user_id),
-            cost_filter,
-            ..Default::default()
-        };
-
-        let (items, total) = srv
-            .query(query)
+        let mut tx = state
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
+        let status = req.status.and_then(|s| match s {
+            1 => Some(BomStatus::Draft),
+            2 => Some(BomStatus::Published),
+            _ => None,
+        });
+
+        let query = BomQuery {
+            name: req.keyword,
+            status,
+            bom_category_id: req.bom_category_id,
+        };
+
+        let page = PageParams::new(req.page.unwrap_or(1), req.page_size.unwrap_or(50));
+
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let result = srv.list(ctx, query, page).await.map_err(domain_to_status)?;
+
         Ok(Response::new(BomListResponse {
-            items: items.into_iter().map(|b| b.into()).collect(),
-            total: total as u64,
+            items: result.items.into_iter().map(|b| b.into()).collect(),
+            total: result.total as u64,
         }))
     }
 
@@ -123,14 +86,15 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_query_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = Self::find_and_authorize(&srv, req.bom_id, auth.user_id, false, &mut tx).await?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let bom = srv.get(ctx, req.bom_id).await.map_err(domain_to_status)?;
 
         Ok(Response::new(bom.into()))
     }
@@ -138,20 +102,26 @@ impl GrpcBomService for BomHandler {
     #[require_permission(Resource::Bom, Action::Write)]
     async fn create_bom(&self, request: Request<CreateBomRequest>) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        let user_id = auth.user_id;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_command_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
         let id = srv
-            .create(&req.name, user_id, req.bom_category_id, &mut tx)
+            .create(
+                ctx,
+                CreateBomReq {
+                    name: req.name,
+                    bom_category_id: req.bom_category_id,
+                },
+            )
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(domain_to_status)?;
 
         tx.commit()
             .await
@@ -165,18 +135,30 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_command_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
+        // Fetch current BOM to get version for optimistic concurrency
+        let query_srv = state.bom_query_service();
+        let mut ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let existing = query_srv.get(ctx.reborrow(), req.bom_id).await.map_err(domain_to_status)?;
+        let expected_version = existing.version;
 
-        srv.update_metadata(req.bom_id, &req.name, req.bom_category_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        srv.update(
+            ctx,
+            req.bom_id,
+            UpdateBomReq {
+                name: Some(req.name),
+                bom_category_id: req.bom_category_id,
+            },
+            expected_version,
+        )
+        .await
+        .map_err(domain_to_status)?;
 
         tx.commit()
             .await
@@ -190,18 +172,15 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_command_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
-
-        srv.delete(req.bom_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.delete(ctx, req.bom_id).await.map_err(domain_to_status)?;
 
         tx.commit()
             .await
@@ -213,22 +192,20 @@ impl GrpcBomService for BomHandler {
     #[require_permission(Resource::Bom, Action::Write)]
     async fn save_as_bom(&self, request: Request<SaveAsBomRequest>) -> GrpcResult<U64Response> {
         let auth = extract_auth(&request)?;
-        let user_id = auth.user_id;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_command_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        Self::find_and_authorize(&srv, req.source_bom_id, user_id, false, &mut tx).await?;
-
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
         let new_id = srv
-            .save_as(req.source_bom_id, &req.new_name, user_id, &mut tx)
+            .save_as(ctx, req.source_bom_id, req.new_name)
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(domain_to_status)?;
 
         tx.commit()
             .await
@@ -247,16 +224,23 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_query_service();
 
-        Self::find_and_authorize_pool(&state.pool(), req.bom_id, auth.user_id).await?;
-
-        let code = srv
-            .get_product_code(req.bom_id)
+        let mut tx = state
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        Ok(Response::new(StringResponse { value: code }))
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+
+        // get_product_code not in abt-core service API — derive from leaf nodes
+        let nodes = srv.get_leaf_nodes(ctx, req.bom_id).await.map_err(domain_to_status)?;
+        let code = nodes
+            .first()
+            .and_then(|n| n.product_code.clone())
+            .unwrap_or_default();
+
+        Ok(Response::new(StringResponse { value: Some(code) }))
     }
 
     #[require_permission(Resource::Bom, Action::Read)]
@@ -265,13 +249,24 @@ impl GrpcBomService for BomHandler {
         let req = request.into_inner();
         let state = AppState::get().await;
 
-        Self::find_and_authorize_pool(&state.pool(), req.bom_id, auth.user_id).await?;
+        // Verify BOM exists via abt-core query service
+        let srv = state.bom_query_service();
+        let mut tx = state
+            .begin_core_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.get(ctx, req.bom_id).await.map_err(domain_to_status)?;
+        drop(tx);
 
         validate_upload_path(&req.file_path)?;
 
-        let exporter = abt::excel::BomExporter::new(state.pool());
-        let bytes = exporter
-            .export(ExportRequest { params: req.bom_id })
+        // Excel export
+        let exporter = abt_core::shared::excel::bom_export::BomExporter::new(
+            state.core_pool(), req.bom_id,
+        );
+        let bytes: Vec<u8> = exporter
+            .export()
             .await
             .map_err(error::err_to_status)?;
 
@@ -290,14 +285,18 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_query_service();
 
-        Self::find_and_authorize_pool(&state.pool(), req.bom_id, auth.user_id).await?;
-
-        let nodes = srv
-            .get_leaf_nodes(req.bom_id)
+        let mut tx = state
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let nodes = srv
+            .get_leaf_nodes(ctx, req.bom_id)
+            .await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(BomNodesResponse {
             items: nodes.into_iter().map(|n| n.into()).collect(),
@@ -309,34 +308,31 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_node_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
-
-        let node = abt::BomNode {
-            id: 0,
+        let node = NewBomNode {
             product_id: req.product_id,
-            quantity: req.quantity,
+            quantity: rust_decimal::Decimal::from_f64_retain(req.quantity).unwrap_or_default(),
             parent_id: req.parent_id,
-            loss_rate: req.loss_rate,
-            unit: Some(req.unit),
-            remark: Some(req.remark),
-            position: Some(req.position),
-            work_center: Some(req.work_center),
-            properties: Some(req.properties),
-            product_code: None,
-            order: 0,
+            loss_rate: rust_decimal::Decimal::from_f64_retain(req.loss_rate).unwrap_or_default(),
+            order: 0, // auto-assigned by repo
+            unit: if req.unit.is_empty() { None } else { Some(req.unit) },
+            remark: if req.remark.is_empty() { None } else { Some(req.remark) },
+            position: if req.position.is_empty() { None } else { Some(req.position) },
+            work_center: if req.work_center.is_empty() { None } else { Some(req.work_center) },
+            properties: if req.properties.is_empty() { None } else { Some(req.properties) },
         };
 
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
         let id = srv
-            .add_node(req.bom_id, node, &mut tx)
+            .add_node(ctx, req.bom_id, node)
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(domain_to_status)?;
 
         tx.commit()
             .await
@@ -353,30 +349,33 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_node_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
+        // Fetch current BOM to get version for optimistic concurrency
+        let query_srv = state.bom_query_service();
+        let mut ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let bom = query_srv.get(ctx.reborrow(), req.bom_id).await.map_err(domain_to_status)?;
+        let expected_version = bom.version;
 
-        let node = abt::BomNode {
-            id: req.node_id,
-            quantity: req.quantity,
-            loss_rate: req.loss_rate,
-            unit: Some(req.unit),
-            remark: Some(req.remark),
-            position: Some(req.position),
-            work_center: Some(req.work_center),
-            properties: Some(req.properties),
-            ..Default::default()
+        let update_req = UpdateBomNodeReq {
+            quantity: Some(rust_decimal::Decimal::from_f64_retain(req.quantity).unwrap_or_default()),
+            loss_rate: Some(rust_decimal::Decimal::from_f64_retain(req.loss_rate).unwrap_or_default()),
+            order: None,
+            unit: if req.unit.is_empty() { None } else { Some(req.unit) },
+            remark: if req.remark.is_empty() { None } else { Some(req.remark) },
+            position: if req.position.is_empty() { None } else { Some(req.position) },
+            work_center: if req.work_center.is_empty() { None } else { Some(req.work_center) },
+            properties: if req.properties.is_empty() { None } else { Some(req.properties) },
         };
 
-        srv.update_node(req.bom_id, node, &mut tx)
+        srv.update_node(ctx, req.bom_id, req.node_id, update_req, expected_version)
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(domain_to_status)?;
 
         tx.commit()
             .await
@@ -393,26 +392,25 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_node_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
-
-        let deleted_count = srv
-            .delete_node(req.bom_id, req.node_id, &mut tx)
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let deleted_id = srv
+            .delete_node(ctx, req.bom_id, req.node_id)
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(domain_to_status)?;
 
         tx.commit()
             .await
             .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(U64Response {
-            value: deleted_count as u64,
+            value: deleted_id as u64,
         }))
     }
 
@@ -424,18 +422,45 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_node_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, true, &mut tx).await?;
+        // abt-core BomNodeService has move_node instead of swap_node_position.
+        // To implement swap, we use two move_node calls:
+        // 1. Move node_id_1 under node_id_2's parent at node_id_2's position
+        // 2. Move node_id_2 under node_id_1's original parent at node_id_1's position
+        // For now, we implement swap via the query service to find node parents,
+        // then use move_node accordingly.
 
-        srv.swap_node_position(req.bom_id, req.node_id_1, req.node_id_2, &mut tx)
+        let query_srv = state.bom_query_service();
+        let mut ctx = ServiceContext::new(&mut tx, auth.user_id);
+
+        // Verify BOM exists and get nodes from bom_detail
+        let bom = query_srv.get(ctx.reborrow(), req.bom_id).await.map_err(domain_to_status)?;
+        let nodes = &bom.bom_detail.nodes;
+
+        let node1 = nodes.iter().find(|n| n.id == req.node_id_1)
+            .ok_or_else(|| domain_to_status(abt_core::shared::types::DomainError::not_found("BomNode")))?;
+        let node2 = nodes.iter().find(|n| n.id == req.node_id_2)
+            .ok_or_else(|| domain_to_status(abt_core::shared::types::DomainError::not_found("BomNode")))?;
+
+        // Swap: move node1 to node2's parent, node2 to node1's parent
+        let node1_parent = node1.parent_id;
+        let node2_parent = node2.parent_id;
+
+        // Move node1 to node2's parent position
+        srv.move_node(ctx.reborrow(), bom.bom_id, req.node_id_1, node2_parent, None)
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(domain_to_status)?;
+
+        // Move node2 to node1's original parent
+        srv.move_node(ctx, bom.bom_id, req.node_id_2, node1_parent, None)
+            .await
+            .map_err(domain_to_status)?;
 
         tx.commit()
             .await
@@ -451,12 +476,19 @@ impl GrpcBomService for BomHandler {
     ) -> GrpcResult<BoolResponse> {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
-        let srv = AppState::get().await.bom_service();
+        let state = AppState::get().await;
+        let srv = state.bom_query_service();
 
-        let exists = srv
-            .exists_name(&req.name, Some(auth.user_id))
+        let mut tx = state
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let exists = srv
+            .exists_name(ctx, &req.name, Some(auth.user_id))
+            .await
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(BoolResponse { value: exists }))
     }
@@ -472,17 +504,28 @@ impl GrpcBomService for BomHandler {
         let req = request.into_inner();
         let state = AppState::get().await;
 
-        Self::find_and_authorize_pool(&state.pool(), req.bom_id, auth.user_id).await?;
+        // Verify BOM exists via abt-core query service
+        let srv = state.bom_query_service();
+        let mut tx = state
+            .begin_core_transaction()
+            .await
+            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let bom = srv.get(ctx, req.bom_id).await.map_err(domain_to_status)?;
+        drop(tx);
 
-        let exporter = abt::excel::BomExporter::new(state.pool());
-        let (bytes, bom_name) = exporter
-            .export_with_name(req.bom_id)
+        // Excel export
+        let exporter = abt_core::shared::excel::bom_export::BomExporter::new(
+            state.core_pool(), req.bom_id,
+        );
+        let (bytes, _bom_name): (Vec<u8>, String) = exporter
+            .export_with_name()
             .await
             .map_err(error::err_to_status)?;
 
         let file_name = format!(
             "BOM_{}_{}.xlsx",
-            bom_name,
+            bom.bom_name,
             chrono::Utc::now().format("%Y%m%d%H%M%S")
         );
         Ok(Response::new(crate::handlers::stream_excel_bytes(file_name, bytes)))
@@ -496,42 +539,44 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_command_service();
 
-        let overrides = abt::AttributeOverrides {
-            quantity: req.quantity,
-            loss_rate: req.loss_rate,
-            unit: req.unit,
-            remark: req.remark,
-            position: req.position,
-            work_center: req.work_center,
-            properties: req.properties,
+        let overrides = AttributeOverrides {
+            quantity: req.quantity.map(|v| rust_decimal::Decimal::from_f64_retain(v).unwrap_or_default()),
+            loss_rate: req.loss_rate.map(|v| rust_decimal::Decimal::from_f64_retain(v).unwrap_or_default()),
+            unit: if req.unit.as_ref().map_or(true, |s| s.is_empty()) { None } else { req.unit },
+            remark: if req.remark.as_ref().map_or(true, |s| s.is_empty()) { None } else { req.remark },
+            position: if req.position.as_ref().map_or(true, |s| s.is_empty()) { None } else { req.position },
+            work_center: if req.work_center.as_ref().map_or(true, |s| s.is_empty()) { None } else { req.work_center },
+            properties: if req.properties.as_ref().map_or(true, |s| s.is_empty()) { None } else { req.properties },
         };
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        let (affected_bom_count, replaced_node_count) = srv
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let result = srv
             .substitute_product(
-                req.old_product_id,
-                req.new_product_id,
-                req.bom_id,
-                overrides,
-                auth.user_id,
-                &mut tx,
+                ctx,
+                SubstituteReq {
+                    old_product_id: req.old_product_id,
+                    new_product_id: req.new_product_id,
+                    bom_id: req.bom_id,
+                    overrides,
+                },
             )
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(domain_to_status)?;
 
         tx.commit()
             .await
             .map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(SubstituteProductResponse {
-            affected_bom_count,
-            replaced_node_count,
+            affected_bom_count: result.affected_boms,
+            replaced_node_count: result.affected_nodes,
         }))
     }
 
@@ -543,19 +588,18 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_cost_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        Self::find_and_authorize(&srv, req.bom_id, auth.user_id, false, &mut tx).await?;
-
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
         let report = srv
-            .get_bom_cost_report(req.bom_id, &mut tx)
+            .get_cost_report(ctx, req.bom_id, None)
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(domain_to_status)?;
 
         Ok(Response::new(report.into()))
     }
@@ -568,17 +612,20 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_command_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = srv
-            .publish(req.bom_id, auth.user_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let _id = srv.publish(ctx, req.bom_id).await.map_err(domain_to_status)?;
+
+        // Fetch the updated BOM for response
+        let query_srv = state.bom_query_service();
+        let ctx2 = ServiceContext::new(&mut tx, auth.user_id);
+        let bom = query_srv.get(ctx2, req.bom_id).await.map_err(domain_to_status)?;
 
         tx.commit()
             .await
@@ -595,16 +642,28 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_cost_service();
 
-        Self::find_and_authorize_pool(&state.pool(), req.bom_id, auth.user_id).await?;
-
-        let report = srv
-            .get_bom_labor_cost(req.bom_id)
+        let mut tx = state
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        Ok(Response::new(report.into()))
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+
+        // abt-core has no dedicated get_bom_labor_cost — use cost report and extract labor_costs
+        let report = srv
+            .get_cost_report(ctx, req.bom_id, None)
+            .await
+            .map_err(domain_to_status)?;
+
+        Ok(Response::new(BomLaborCostResponse {
+            bom_id: report.bom_id,
+            bom_name: report.bom_name,
+            product_code: report.product_code,
+            labor_costs: report.labor_costs.into_iter().map(|l| l.into()).collect(),
+            warnings: report.warnings,
+        }))
     }
 
     #[require_permission(Resource::Bom, Action::Write)]
@@ -615,17 +674,20 @@ impl GrpcBomService for BomHandler {
         let auth = extract_auth(&request)?;
         let req = request.into_inner();
         let state = AppState::get().await;
-        let srv = state.bom_service();
+        let srv = state.bom_command_service();
 
         let mut tx = state
-            .begin_transaction()
+            .begin_core_transaction()
             .await
             .map_err(error::err_to_status)?;
 
-        let bom = srv
-            .unpublish(req.bom_id, auth.user_id, &mut tx)
-            .await
-            .map_err(error::err_to_status)?;
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        srv.unpublish(ctx, req.bom_id).await.map_err(domain_to_status)?;
+
+        // Fetch the updated BOM for response
+        let query_srv = state.bom_query_service();
+        let ctx2 = ServiceContext::new(&mut tx, auth.user_id);
+        let bom = query_srv.get(ctx2, req.bom_id).await.map_err(domain_to_status)?;
 
         tx.commit()
             .await

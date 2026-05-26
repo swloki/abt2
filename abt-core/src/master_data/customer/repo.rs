@@ -172,7 +172,7 @@ impl CustomerRepo {
         scope_department_id: Option<i64>,
     ) -> Result<PaginatedResult<Customer>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let name_param = if let Some(ref name) = filter.name {
             param_idx += 1;

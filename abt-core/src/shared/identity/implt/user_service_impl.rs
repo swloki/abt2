@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use argon2::password_hash::SaltString;
-use argon2::{Argon2, PasswordHasher};
+use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use async_trait::async_trait;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
-use super::super::model::User;
+use super::super::model::{User, UserWithRoles};
 use super::super::repo::IdentityRepo;
 use super::super::user_service::UserService;
 use crate::shared::audit_log::service::AuditLogService;
@@ -206,6 +206,236 @@ impl UserService for UserServiceImpl {
             .await?;
 
         Ok(())
+    }
+
+    async fn get_user_with_roles(
+        &self,
+        ctx: ServiceContext<'_>,
+        user_id: i64,
+    ) -> Result<UserWithRoles, DomainError> {
+        let user = IdentityRepo::get_user(&mut *ctx.executor, user_id)
+            .await
+            .map_err(|e| {
+                if is_no_row(&e) {
+                    DomainError::not_found("User")
+                } else {
+                    DomainError::Internal(e.into())
+                }
+            })?;
+
+        let roles = IdentityRepo::get_role_info_for_user(&mut *ctx.executor, user_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        Ok(UserWithRoles { user, roles })
+    }
+
+    async fn list_users_with_roles(
+        &self,
+        ctx: ServiceContext<'_>,
+    ) -> Result<Vec<UserWithRoles>, DomainError> {
+        let (users, _total) = IdentityRepo::list_users(
+            &mut *ctx.executor,
+            i64::MAX,
+            0,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        let mut result = Vec::with_capacity(users.len());
+        for user in users {
+            let roles = IdentityRepo::get_role_info_for_user(&mut *ctx.executor, user.user_id)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+            result.push(UserWithRoles { user, roles });
+        }
+
+        Ok(result)
+    }
+
+    async fn get_users_by_ids(
+        &self,
+        ctx: ServiceContext<'_>,
+        user_ids: Vec<i64>,
+    ) -> Result<Vec<UserWithRoles>, DomainError> {
+        if user_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let users = IdentityRepo::get_users_by_ids(&mut *ctx.executor, &user_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        let mut result = Vec::with_capacity(users.len());
+        for user in users {
+            let roles = IdentityRepo::get_role_info_for_user(&mut *ctx.executor, user.user_id)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+            result.push(UserWithRoles { user, roles });
+        }
+
+        Ok(result)
+    }
+
+    async fn assign_roles(
+        &self,
+        ctx: ServiceContext<'_>,
+        user_id: i64,
+        role_ids: Vec<i64>,
+    ) -> Result<(), DomainError> {
+        IdentityRepo::get_user(&mut *ctx.executor, user_id)
+            .await
+            .map_err(|e| {
+                if is_no_row(&e) {
+                    DomainError::not_found("User")
+                } else {
+                    DomainError::Internal(e.into())
+                }
+            })?;
+
+        IdentityRepo::add_user_roles(&mut *ctx.executor, user_id, &role_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        self.audit
+            .record(
+                ctx,
+                "user",
+                user_id,
+                AuditAction::Update,
+                Some(json!({
+                    "assign_role_ids": { "new": role_ids }
+                })),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn remove_roles(
+        &self,
+        ctx: ServiceContext<'_>,
+        user_id: i64,
+        role_ids: Vec<i64>,
+    ) -> Result<(), DomainError> {
+        IdentityRepo::get_user(&mut *ctx.executor, user_id)
+            .await
+            .map_err(|e| {
+                if is_no_row(&e) {
+                    DomainError::not_found("User")
+                } else {
+                    DomainError::Internal(e.into())
+                }
+            })?;
+
+        IdentityRepo::remove_user_roles(&mut *ctx.executor, user_id, &role_ids)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        self.audit
+            .record(
+                ctx,
+                "user",
+                user_id,
+                AuditAction::Update,
+                Some(json!({
+                    "remove_role_ids": { "new": role_ids }
+                })),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn change_password(
+        &self,
+        ctx: ServiceContext<'_>,
+        user_id: i64,
+        old_password: &str,
+        new_password: &str,
+    ) -> Result<(), DomainError> {
+        // Fetch stored password hash
+        let stored_hash = IdentityRepo::get_user_password_hash(&mut *ctx.executor, user_id)
+            .await
+            .map_err(|e| {
+                if is_no_row(&e) {
+                    DomainError::not_found("User")
+                } else {
+                    DomainError::Internal(e.into())
+                }
+            })?;
+
+        // Verify old password
+        let parsed_hash = PasswordHash::new(&stored_hash)
+            .map_err(|e| DomainError::Internal(anyhow::anyhow!("argon2 parse error: {e}")))?;
+        Argon2::default()
+            .verify_password(old_password.as_bytes(), &parsed_hash)
+            .map_err(|_| DomainError::permission_denied("Old password is incorrect"))?;
+
+        // Validate new password
+        if new_password.len() < 8 {
+            return Err(DomainError::Validation(
+                "New password must be at least 8 characters".to_string(),
+            ));
+        }
+
+        // Hash new password
+        let salt = SaltString::generate(&mut argon2::password_hash::rand_core::OsRng);
+        let new_hash = Argon2::default()
+            .hash_password(new_password.as_bytes(), &salt)
+            .map_err(|e| DomainError::Internal(anyhow::anyhow!("argon2 hash error: {e}")))?
+            .to_string();
+
+        IdentityRepo::update_user_password(&mut *ctx.executor, user_id, &new_hash)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        self.audit
+            .record(
+                ctx,
+                "user",
+                user_id,
+                AuditAction::Update,
+                Some(json!({ "password_changed": true })),
+                None,
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn update_user_status(
+        &self,
+        ctx: ServiceContext<'_>,
+        user_id: i64,
+        is_active: bool,
+    ) -> Result<User, DomainError> {
+        let user = IdentityRepo::update_user_status(&mut *ctx.executor, user_id, is_active)
+            .await
+            .map_err(|e| {
+                if is_no_row(&e) {
+                    DomainError::not_found("User")
+                } else {
+                    DomainError::Internal(e.into())
+                }
+            })?;
+
+        self.audit
+            .record(
+                ctx,
+                "user",
+                user_id,
+                AuditAction::Update,
+                Some(json!({
+                    "is_active": { "new": is_active }
+                })),
+                None,
+            )
+            .await?;
+
+        Ok(user)
     }
 }
 

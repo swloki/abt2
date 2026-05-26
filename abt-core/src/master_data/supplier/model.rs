@@ -40,7 +40,7 @@ impl SupplierStatus {
 
 impl sqlx::Type<sqlx::Postgres> for SupplierStatus {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("smallint")
+        <i16 as sqlx::Type<sqlx::Postgres>>::type_info()
     }
 }
 
@@ -103,7 +103,7 @@ impl SupplierCategory {
 
 impl sqlx::Type<sqlx::Postgres> for SupplierCategory {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("smallint")
+        <i16 as sqlx::Type<sqlx::Postgres>>::type_info()
     }
 }
 

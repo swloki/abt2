@@ -1,5 +1,6 @@
 use super::*;
 use crate::generated::abt::v1::{Action, Resource};
+use abt_core::shared::identity::{AuthContext, RESOURCE_ACTION_DEFS};
 
 const ALL_RESOURCES: [Resource; 13] = [
     Resource::Product,
@@ -19,13 +20,14 @@ const ALL_RESOURCES: [Resource; 13] = [
 
 const ALL_ACTIONS: [Action; 3] = [Action::Read, Action::Write, Action::Delete];
 
-fn make_auth(system_role: &str, role_ids: Vec<i64>) -> abt::AuthContext {
-    abt::AuthContext {
+fn make_auth(system_role: &str, role_ids: Vec<i64>) -> AuthContext {
+    AuthContext {
         user_id: 1,
         username: "testuser".to_string(),
         system_role: system_role.to_string(),
         role_ids,
         role_codes: vec![],
+        department_ids: vec![],
     }
 }
 
@@ -46,9 +48,7 @@ fn action_code_returns_uppercase() {
 
 #[test]
 fn all_resource_codes_match_resources_rs() {
-    use abt::models::resources::collect_all_resources;
-
-    let defined_resources: std::collections::HashSet<&str> = collect_all_resources()
+    let defined_resources: std::collections::HashSet<&str> = RESOURCE_ACTION_DEFS
         .iter()
         .map(|r| r.resource_code)
         .collect();
@@ -57,7 +57,7 @@ fn all_resource_codes_match_resources_rs() {
         let code = variant.code();
         assert!(
             defined_resources.contains(code.as_str()),
-            "Resource variant {:?} (code={:?}) not found in resources.rs",
+            "Resource variant {:?} (code={:?}) not found in RESOURCE_ACTION_DEFS",
             variant,
             code
         );
@@ -66,9 +66,7 @@ fn all_resource_codes_match_resources_rs() {
 
 #[test]
 fn all_action_codes_exist_in_resources_rs() {
-    use abt::models::resources::collect_all_resources;
-
-    let defined_actions: std::collections::HashSet<&str> = collect_all_resources()
+    let defined_actions: std::collections::HashSet<&str> = RESOURCE_ACTION_DEFS
         .iter()
         .map(|r| r.action)
         .collect();
@@ -77,7 +75,7 @@ fn all_action_codes_exist_in_resources_rs() {
         let code = variant.code();
         assert!(
             defined_actions.contains(code.as_str()),
-            "Action variant {:?} (code={:?}) not found in resources.rs",
+            "Action variant {:?} (code={:?}) not found in RESOURCE_ACTION_DEFS",
             variant,
             code
         );
@@ -91,7 +89,6 @@ fn all_action_codes_exist_in_resources_rs() {
 #[test]
 fn super_admin_has_full_access() {
     let auth = make_auth("super_admin", vec![]);
-    // super_admin bypasses all permission checks
     assert!(
         check_permission_for_resource(&auth, "user", "write").is_ok(),
         "super_admin should have user:write"
@@ -112,7 +109,6 @@ fn super_admin_has_full_access() {
 
 #[test]
 fn normal_user_denied_without_role_permission() {
-    // All resources (system and business) require role-based permission via cache.
     let auth = make_auth("user", vec![1]);
     assert!(
         check_permission_for_resource(&auth, "user", "read").is_err(),

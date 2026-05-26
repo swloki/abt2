@@ -28,6 +28,12 @@ pub trait DepartmentService: Send + Sync {
         dept_id: i64,
     ) -> Result<(), DomainError>;
 
+    async fn get_department(
+        &self,
+        ctx: ServiceContext<'_>,
+        dept_id: i64,
+    ) -> Result<Department, DomainError>;
+
     async fn list_departments(
         &self,
         ctx: ServiceContext<'_>,
@@ -46,4 +52,10 @@ pub trait DepartmentService: Send + Sync {
         user_id: i64,
         dept_ids: Vec<i64>,
     ) -> Result<(), DomainError>;
+
+    async fn get_user_departments(
+        &self,
+        ctx: ServiceContext<'_>,
+        user_id: i64,
+    ) -> Result<Vec<Department>, DomainError>;
 }

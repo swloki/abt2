@@ -133,26 +133,25 @@ impl GrpcSyncService for SyncHandler {
         use abt_core::shared::types::ServiceContext;
 
         let state = AppState::get().await;
-        let pool = state.pool();
+        let core_pool = state.core_pool();
 
-        let inventory_ids: Vec<i64> = sqlx::query_scalar!(
-            r#"SELECT inventory_id FROM inventory WHERE quantity > 0 AND location_id IS NOT NULL"#
+        let stock_ledger_ids: Vec<i64> = sqlx::query_scalar(
+            r#"SELECT id FROM stock_ledger WHERE quantity > 0"#,
         )
-        .fetch_all(&pool)
+        .fetch_all(&core_pool)
         .await
         .map_err(|e| error::err_to_status(anyhow::anyhow!(e)))?;
 
-        let total = inventory_ids.len() as i32;
+        let total = stock_ledger_ids.len() as i32;
         let mut queued = 0i32;
-        let core_pool = state.core_pool();
 
-        for inventory_id in &inventory_ids {
+        for ledger_id in &stock_ledger_ids {
             let mut conn = core_pool.acquire().await.map_err(error::sqlx_err_to_status)?;
             let ctx = ServiceContext::system(&mut conn);
             if state.event_bus().publish(ctx, EventPublishRequest {
                 event_type: DomainEventType::H3YunInventorySync,
                 aggregate_type: "inventory".to_string(),
-                aggregate_id: *inventory_id,
+                aggregate_id: *ledger_id,
                 payload: serde_json::json!({}),
                 idempotency_key: None,
             }).await.is_ok() {
@@ -178,17 +177,17 @@ impl GrpcSyncService for SyncHandler {
         }
 
         let state = AppState::get().await;
-        let _pool = state.pool();
         let core_pool = state.core_pool();
         let client = abt_core::h3yun::H3YunClient::new();
 
-        let inventories: Vec<abt::models::InventoryDetail> = {
-            use abt::service::InventoryService;
-            state
-                .abt_inventory_service()
-                .get_by_product(req.product_id)
-                .await
-                .map_err(error::err_to_status)?
+        let inventories = {
+            use abt_core::wms::inventory::InventoryService;
+            let srv = state.inventory_service();
+            let mut tx = state.begin_core_transaction().await
+                .map_err(error::err_to_status)?;
+            let ctx = abt_core::shared::types::ServiceContext::system(&mut tx);
+            srv.get_by_product(ctx, req.product_id).await
+                .map_err(crate::handlers::domain_to_status)?
         };
 
         let mut succeeded = 0i32;
@@ -197,9 +196,9 @@ impl GrpcSyncService for SyncHandler {
 
         for inv in &inventories {
             let data = abt_core::h3yun::inventory_sync::InventorySyncData {
-                inventory_id: inv.inventory_id,
+                inventory_id: inv.stock_ledger_id,
                 product_id: inv.product_id,
-                location_code: inv.location_code.clone(),
+                location_code: inv.bin_code.clone(),
                 warehouse_name: inv.warehouse_name.clone(),
                 product_code: inv.product_code.clone(),
                 product_name: inv.product_name.clone(),

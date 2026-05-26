@@ -40,3 +40,31 @@ pub struct StockFilter {
     pub bin_id: Option<i64>,
     pub batch_no: Option<String>,
 }
+
+/// 库存导出行（用于 Excel 导出，关联产品/仓库/库区/储位/价格/分类）
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct StockExportRow {
+    pub product_id: i64,
+    pub pdt_name: String,
+    pub product_code: String,
+    pub specification: Option<String>,
+    pub unit: Option<String>,
+    pub warehouse_name: Option<String>,
+    pub zone_code: Option<String>,
+    pub bin_code: Option<String>,
+    pub quantity: Option<Decimal>,
+    pub safety_stock: Option<Decimal>,
+    pub price: Option<Decimal>,
+    pub category_ids: Option<String>,
+    pub category_names: Option<String>,
+}
+
+/// 没有价格记录的产品（用于 Excel 导入校验提示）
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct ProductWithoutPriceRow {
+    pub product_id: i64,
+    pub pdt_name: String,
+    pub product_code: String,
+    pub unit: Option<String>,
+    pub specification: Option<String>,
+}

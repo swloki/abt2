@@ -8,7 +8,7 @@ pub enum ImportSource {
 }
 
 /// 导入进度
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ImportProgress {
     pub current: usize,
     pub total: usize,
@@ -24,7 +24,7 @@ pub struct RowError {
 }
 
 /// 导入结果
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ImportResult {
     pub success_count: usize,
     pub failed_count: usize,

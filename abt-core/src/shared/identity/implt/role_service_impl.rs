@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
-use super::super::model::Role;
+use super::super::model::{Role, RoleWithPermissions};
 use super::super::permission_cache::RolePermissionCache;
 use super::super::repo::IdentityRepo;
 use super::super::role_service::RoleService;
@@ -127,6 +127,28 @@ impl RoleService for RoleServiceImpl {
         self.cache.reload(&pool).await?;
 
         Ok(())
+    }
+
+    async fn get_role_with_permissions(
+        &self,
+        ctx: ServiceContext<'_>,
+        role_id: i64,
+    ) -> Result<RoleWithPermissions, DomainError> {
+        let role = IdentityRepo::get_role_by_id(&mut *ctx.executor, role_id)
+            .await
+            .map_err(|e| {
+                if is_no_row(&e) {
+                    DomainError::not_found("Role")
+                } else {
+                    DomainError::Internal(e.into())
+                }
+            })?;
+
+        let permissions = IdentityRepo::get_permissions_for_role(&mut *ctx.executor, role_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        Ok(RoleWithPermissions { role, permissions })
     }
 }
 

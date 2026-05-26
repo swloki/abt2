@@ -11,7 +11,7 @@ use crate::interceptors::auth::{extract_auth, extract_user_id_from_header};
 use crate::server::AppState;
 use common::error;
 
-use abt::{AuthService, UserService};
+use abt_core::shared::identity::{AuthService, UserService};
 
 pub struct AuthHandler;
 
@@ -34,10 +34,10 @@ impl GrpcAuthService for AuthHandler {
         let state = AppState::get().await;
         let srv = state.auth_service();
 
-        let (token, expires_at, claims) = srv
+        let (token, claims) = srv
             .login(&req.username, &req.password)
             .await
-            .map_err(|e| {
+            .map_err(|e: abt_core::shared::types::DomainError| {
                 let msg = e.to_string();
                 if msg.contains("disabled") {
                     error::unauthorized("User account is disabled")
@@ -48,15 +48,17 @@ impl GrpcAuthService for AuthHandler {
 
         // 获取用户详情
         let user_srv = state.user_service();
+        let mut conn = state.core_pool().acquire().await
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let ctx = abt_core::shared::types::context::ServiceContext::new(&mut *conn, claims.sub);
         let user_with_roles = user_srv
-            .get(claims.sub)
+            .get_user_with_roles(ctx, claims.sub)
             .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("User", &claims.sub.to_string()))?;
+            .map_err(|e| crate::handlers::domain_to_status(e))?;
 
         Ok(Response::new(LoginResponse {
             token,
-            expires_at,
+            expires_at: claims.exp as i64,
             user: Some(user_with_roles.into()),
         }))
     }
@@ -69,16 +71,18 @@ impl GrpcAuthService for AuthHandler {
         let state = AppState::get().await;
         let srv = state.auth_service();
 
-        let (token, expires_at, _claims) = srv
+        let token = srv
             .refresh_token(&req.token)
             .await
             .map_err(|e| error::unauthorized(&e.to_string()))?;
 
-        Ok(Response::new(TokenResponse { token, expires_at }))
+        Ok(Response::new(TokenResponse {
+            token,
+            expires_at: 0,
+        }))
     }
 
     async fn logout(&self, _request: Request<Empty>) -> GrpcResult<Empty> {
-        // JWT 是无状态的，logout 由前端丢弃 token 即可
         Ok(Response::new(Empty {}))
     }
 
@@ -87,12 +91,13 @@ impl GrpcAuthService for AuthHandler {
 
         let state = AppState::get().await;
         let user_srv = state.user_service();
-
+        let mut conn = state.core_pool().acquire().await
+            .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        let ctx = abt_core::shared::types::context::ServiceContext::new(&mut *conn, user_id);
         let user_with_roles = user_srv
-            .get(user_id)
+            .get_user_with_roles(ctx, user_id)
             .await
-            .map_err(error::err_to_status)?
-            .ok_or_else(|| error::not_found("User", &user_id.to_string()))?;
+            .map_err(|e| crate::handlers::domain_to_status(e))?;
 
         Ok(Response::new(user_with_roles.into()))
     }
@@ -125,9 +130,10 @@ impl GrpcAuthService for AuthHandler {
         request: Request<GetPermissionsByRolesRequest>,
     ) -> GrpcResult<GetPermissionsByRolesResponse> {
         let auth = extract_auth(&request)?;
-        let cache = abt::get_permission_cache();
+        let cache = crate::server::get_permission_cache();
         let mut permissions: Vec<String> = cache
             .get_merged_permissions(&auth.role_ids)
+            .await
             .into_iter()
             .collect();
         permissions.sort();

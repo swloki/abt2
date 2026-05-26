@@ -50,3 +50,11 @@ pub struct BomLaborProcessQuery {
     pub product_code: Option<String>,
     pub keyword: Option<String>,
 }
+
+/// 没有劳务成本的 BOM（用于 Excel 导入校验提示）
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct BomWithoutLaborCost {
+    pub bom_id: i64,
+    pub bom_name: String,
+    pub product_code: String,
+}

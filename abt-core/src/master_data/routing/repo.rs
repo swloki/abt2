@@ -97,7 +97,7 @@ impl RoutingRepo {
     #[allow(unused_assignments)]
     pub async fn query(&self, executor: PgExecutor<'_>, filter: &RoutingQuery, page: &PageParams) -> Result<PaginatedResult<Routing>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let keyword_param = if let Some(ref kw) = filter.keyword {
             conditions.push(format!("name ILIKE ${param_idx}"));

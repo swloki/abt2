@@ -1,3 +1,4 @@
+use abt_core::shared::identity::{PermissionService, RESOURCE_ACTION_DEFS, ResourceActionDef};
 use common::error;
 use tonic::{Request, Response};
 
@@ -9,8 +10,6 @@ use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
 use crate::permissions::PermissionCode;
-
-use abt::PermissionService;
 
 pub struct PermissionHandler;
 
@@ -33,21 +32,21 @@ impl GrpcPermissionService for PermissionHandler {
         &self,
         request: Request<GetUserPermissionsRequest>,
     ) -> GrpcResult<UserPermissionsResponse> {
-        let req = request.into_inner();
+        let auth = extract_auth(&request)?;
+        let _req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
 
         let codes = srv
-            .get_user_permissions(req.user_id)
+            .get_user_permissions(&auth.role_ids)
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(crate::handlers::domain_to_status)?;
 
-        let all_resources = abt::collect_all_resources();
         let permissions: Vec<PermissionInfo> = codes
             .iter()
             .filter_map(|code| {
                 let (resource_code, action_code) = code.split_once(':')?;
-                all_resources
+                RESOURCE_ACTION_DEFS
                     .iter()
                     .find(|r| r.resource_code == resource_code && r.action == action_code)
                     .map(|r| PermissionInfo {
@@ -73,27 +72,28 @@ impl GrpcPermissionService for PermissionHandler {
         &self,
         request: Request<CheckPermissionRequest>,
     ) -> GrpcResult<CheckPermissionResponse> {
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
+
         let resource = Resource::try_from(req.resource)
-            .map_err(|_| error::validation("resource", "Invalid resource value"))?;
+            .map_err(|_| tonic::Status::invalid_argument("Invalid resource value"))?;
         let action = Action::try_from(req.action)
-            .map_err(|_| error::validation("action", "Invalid action value"))?;
+            .map_err(|_| tonic::Status::invalid_argument("Invalid action value"))?;
 
         let state = AppState::get().await;
         let srv = state.permission_service();
 
         let has_permission = srv
-            .check_permission(req.user_id, &resource.code(), &action.code())
+            .check_permission(auth.is_super_admin(), &auth.role_ids, &resource.code(), &action.code())
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(crate::handlers::domain_to_status)?;
 
         Ok(Response::new(CheckPermissionResponse { has_permission }))
     }
 
     #[require_permission(Resource::Permission, Action::Read)]
     async fn list_resources(&self, _request: Request<Empty>) -> GrpcResult<ResourceListResponse> {
-        let all_resources = abt::collect_all_resources();
-        let groups = group_resources(&all_resources);
+        let groups = group_resources(RESOURCE_ACTION_DEFS);
 
         Ok(Response::new(ResourceListResponse { groups }))
     }
@@ -103,17 +103,17 @@ impl GrpcPermissionService for PermissionHandler {
         &self,
         request: Request<ListUserResourcesRequest>,
     ) -> GrpcResult<ResourceListResponse> {
-        let req = request.into_inner();
+        let auth = extract_auth(&request)?;
+        let _req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.permission_service();
 
         let user_codes = srv
-            .get_user_permissions(req.user_id)
+            .get_user_permissions(&auth.role_ids)
             .await
-            .map_err(error::err_to_status)?;
+            .map_err(crate::handlers::domain_to_status)?;
 
-        let all_resources = abt::collect_all_resources();
-        let user_resources: Vec<_> = all_resources
+        let user_resources: Vec<_> = RESOURCE_ACTION_DEFS
             .iter()
             .filter(|r| {
                 let code = format!("{}:{}", r.resource_code, r.action);
@@ -131,8 +131,7 @@ impl GrpcPermissionService for PermissionHandler {
         &self,
         _request: Request<Empty>,
     ) -> GrpcResult<PermissionListResponse> {
-        let all_resources = abt::collect_all_resources();
-        let groups = group_permissions(&all_resources);
+        let groups = group_permissions(RESOURCE_ACTION_DEFS);
 
         Ok(Response::new(PermissionListResponse { groups }))
     }
@@ -140,20 +139,11 @@ impl GrpcPermissionService for PermissionHandler {
     #[require_permission(Resource::Permission, Action::Read)]
     async fn list_audit_logs(
         &self,
-        request: Request<ListAuditLogsRequest>,
+        _request: Request<ListAuditLogsRequest>,
     ) -> GrpcResult<AuditLogListResponse> {
-        let req = request.into_inner();
-        let state = AppState::get().await;
-        let srv = state.permission_service();
-
-        let logs = srv
-            .list_audit_logs(req.limit, req.offset)
-            .await
-            .map_err(error::err_to_status)?;
-
-        Ok(Response::new(AuditLogListResponse {
-            logs: logs.into_iter().map(|l| l.into()).collect(),
-        }))
+        // Stub: audit log listing is not yet implemented in abt-core.
+        // Returns an empty list until the audit log query service is available.
+        Ok(Response::new(AuditLogListResponse { logs: vec![] }))
     }
 }
 
@@ -162,7 +152,7 @@ fn to_proto_code(code: &str) -> String {
     code.to_uppercase()
 }
 
-fn group_resources(resources: &[abt::ResourceActionDef]) -> Vec<ResourceGroup> {
+fn group_resources(resources: &[ResourceActionDef]) -> Vec<ResourceGroup> {
     let mut groups: std::collections::HashMap<&str, Vec<ResourceInfo>> =
         std::collections::HashMap::new();
     for r in resources {
@@ -185,7 +175,7 @@ fn group_resources(resources: &[abt::ResourceActionDef]) -> Vec<ResourceGroup> {
         .collect()
 }
 
-fn group_resources_by_refs(resources: &[&abt::ResourceActionDef]) -> Vec<ResourceGroup> {
+fn group_resources_by_refs(resources: &[&ResourceActionDef]) -> Vec<ResourceGroup> {
     let mut groups: std::collections::HashMap<&str, Vec<ResourceInfo>> =
         std::collections::HashMap::new();
     for r in resources {
@@ -208,7 +198,7 @@ fn group_resources_by_refs(resources: &[&abt::ResourceActionDef]) -> Vec<Resourc
         .collect()
 }
 
-fn group_permissions(resources: &[abt::ResourceActionDef]) -> Vec<PermissionGroup> {
+fn group_permissions(resources: &[ResourceActionDef]) -> Vec<PermissionGroup> {
     let mut groups: std::collections::HashMap<&str, Vec<PermissionInfo>> =
         std::collections::HashMap::new();
     for r in resources {

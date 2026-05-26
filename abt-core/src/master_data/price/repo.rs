@@ -76,7 +76,7 @@ impl PriceRepo {
         page: &PageParams,
     ) -> Result<PaginatedResult<PriceLogEntry>> {
         let mut conditions = vec!["1=1".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let pid_param = if let Some(pid) = filter.product_id {
             param_idx += 1;
@@ -112,5 +112,28 @@ impl PriceRepo {
         let items = data_q.fetch_all(executor).await?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    /// Upsert price — only inserts when price changed (Excel import support)
+    pub async fn upsert_price(
+        executor: PgExecutor<'_>,
+        product_id: i64,
+        new_price: Decimal,
+        remark: &str,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"INSERT INTO price_log (product_id, price_type, new_price, remark)
+               SELECT $1, 1, $2, $3
+               WHERE COALESCE(
+                 (SELECT new_price FROM price_log WHERE product_id = $1 AND price_type = 1 ORDER BY created_at DESC LIMIT 1),
+                 -999999999
+               ) != $2"#,
+        )
+        .bind(product_id)
+        .bind(new_price)
+        .bind(remark)
+        .execute(executor)
+        .await?;
+        Ok(())
     }
 }

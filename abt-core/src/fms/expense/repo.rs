@@ -83,7 +83,7 @@ impl ExpenseReimbursementRepo {
         _scope_department_id: Option<i64>,
     ) -> Result<(Vec<ExpenseReimbursement>, u64)> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let status_param = if !filter.status.is_empty() {
             param_idx += 1;

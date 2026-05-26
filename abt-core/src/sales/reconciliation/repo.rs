@@ -117,7 +117,7 @@ impl ReconciliationRepo {
         _scope_department_id: Option<i64>,
     ) -> Result<PaginatedResult<Reconciliation>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 1u32;
+        let mut param_idx = 0u32;
 
         let customer_param = if let Some(cid) = filter.customer_id {
             param_idx += 1;

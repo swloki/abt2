@@ -23,11 +23,10 @@ CREATE TABLE inspection_specifications (
     operator_id     BIGINT      NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at      TIMESTAMPTZ,
-
-    UNIQUE (doc_number) WHERE deleted_at IS NULL
+    deleted_at      TIMESTAMPTZ
 );
 
+CREATE UNIQUE INDEX idx_inspection_specs_doc_number ON inspection_specifications (doc_number) WHERE deleted_at IS NULL;
 CREATE INDEX idx_inspection_specs_product ON inspection_specifications (product_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_inspection_specs_type ON inspection_specifications (inspection_type) WHERE deleted_at IS NULL;
 CREATE INDEX idx_inspection_specs_status ON inspection_specifications (status) WHERE deleted_at IS NULL;
@@ -55,15 +54,12 @@ CREATE TABLE inspection_results (
     operator_id     BIGINT      NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at      TIMESTAMPTZ,
-
-    UNIQUE (doc_number) WHERE deleted_at IS NULL
+    deleted_at      TIMESTAMPTZ
 );
 
--- 幂等约束：同一来源 + 同一检验类型只能有一条检验结果
+CREATE UNIQUE INDEX idx_inspection_results_doc_number ON inspection_results (doc_number) WHERE deleted_at IS NULL;
 CREATE UNIQUE INDEX idx_inspection_results_idempotent
     ON inspection_results (source_type, source_id, inspection_type) WHERE deleted_at IS NULL;
-
 CREATE INDEX idx_inspection_results_spec ON inspection_results (spec_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_inspection_results_source ON inspection_results (source_type, source_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_inspection_results_type ON inspection_results (inspection_type) WHERE deleted_at IS NULL;
@@ -86,11 +82,10 @@ CREATE TABLE mrbs (
     operator_id             BIGINT      NOT NULL,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at              TIMESTAMPTZ,
-
-    UNIQUE (doc_number) WHERE deleted_at IS NULL
+    deleted_at              TIMESTAMPTZ
 );
 
+CREATE UNIQUE INDEX idx_mrbs_doc_number ON mrbs (doc_number) WHERE deleted_at IS NULL;
 CREATE INDEX idx_mrbs_inspection_result ON mrbs (inspection_result_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_mrbs_product ON mrbs (product_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_mrbs_status ON mrbs (status) WHERE deleted_at IS NULL;
@@ -116,11 +111,10 @@ CREATE TABLE rmas (
     operator_id                 BIGINT      NOT NULL,
     created_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at                  TIMESTAMPTZ,
-
-    UNIQUE (doc_number) WHERE deleted_at IS NULL
+    deleted_at                  TIMESTAMPTZ
 );
 
+CREATE UNIQUE INDEX idx_rmas_doc_number ON rmas (doc_number) WHERE deleted_at IS NULL;
 CREATE INDEX idx_rmas_customer ON rmas (customer_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_rmas_product ON rmas (product_id) WHERE deleted_at IS NULL;
 CREATE INDEX idx_rmas_severity ON rmas (severity) WHERE deleted_at IS NULL;

@@ -7,11 +7,16 @@ use common::error;
 use tonic::{Request, Response, Streaming};
 use crate::generated::abt::v1::{abt_excel_service_server::AbtExcelService as GrpcExcelService, *};
 use crate::handlers::{validate_upload_path, GrpcResult};
-use crate::interceptors::auth::extract_auth;
 use crate::server::AppState;
 use abt_macros::require_permission;
 use crate::permissions::PermissionCode;
-use abt::{ExcelImportService, ExcelExportService, ImportSource, ExportRequest};
+use abt_core::shared::excel::{
+    ProgressTracker, ImportSource,
+    ProductInventoryImporter, ProductAllExporter, ProductWithoutPriceExporter,
+    CategoryExporter, WarehouseLocationExporter,
+    import_warehouse_locations,
+};
+use crate::interceptors::auth::extract_auth;
 
 const IMPORT_KEY_PRODUCT_INVENTORY: &str = "product_inventory";
 const IMPORT_KEY_WAREHOUSE_LOCATION: &str = "warehouse_location";
@@ -20,7 +25,7 @@ const EXPORT_TYPE_WAREHOUSE_LOCATION: &str = "warehouse_location";
 const EXPORT_TYPE_CATEGORY: &str = "category";
 
 pub struct ExcelHandler {
-    active_imports: Mutex<HashMap<String, Arc<abt::excel::ProgressTracker>>>,
+    active_imports: Mutex<HashMap<String, Arc<ProgressTracker>>>,
 }
 
 const MAX_FILE_SIZE: i64 = 50 * 1024 * 1024; // 50MB
@@ -122,24 +127,22 @@ impl GrpcExcelService for ExcelHandler {
         let path = std::path::Path::new(&req.file_path);
         validate_upload_path(&req.file_path)?;
 
-        // 读取文件内容到内存，使用 ImportSource::Bytes 导入
         let bytes = tokio::fs::read(path)
             .await
             .map_err(|e| error::err_to_status(anyhow::anyhow!("无法读取上传文件: {}", e)))?;
 
-        let pool = state.pool();
+        let pool = state.core_pool();
         let source = ImportSource::Bytes(bytes);
 
         let result = match req.import_type.as_str() {
             "warehouse_location" => {
-                let sync_mode = req.sync_mode.unwrap_or(false);
                 let import_key = IMPORT_KEY_WAREHOUSE_LOCATION.to_string();
-                let tracker = abt::excel::ProgressTracker::new();
+                let tracker = ProgressTracker::new();
                 {
                     let mut guard = self.active_imports.lock().unwrap_or_else(|e| e.into_inner());
                     guard.insert(import_key.clone(), tracker);
                 }
-                let result = abt::excel::import_warehouse_locations(&pool, source, sync_mode).await;
+                let result = import_warehouse_locations(&pool, source).await;
                 {
                     let mut guard = self.active_imports.lock().unwrap_or_else(|e| e.into_inner());
                     guard.remove(&import_key);
@@ -147,12 +150,8 @@ impl GrpcExcelService for ExcelHandler {
                 result.map_err(error::err_to_status)?
             }
             _ => {
-                // 默认: 产品库存导入
-                let tracker = abt::excel::ProgressTracker::new();
-                let mut importer = abt::excel::ProductInventoryImporter::new(pool.clone(), tracker.clone());
-                if let Some(operator_id) = req.operator_id {
-                    importer = importer.with_operator(operator_id);
-                }
+                let tracker = ProgressTracker::new();
+                let importer = ProductInventoryImporter::new(pool.clone(), tracker.clone());
 
                 {
                     let mut guard = self.active_imports.lock().unwrap_or_else(|e| e.into_inner());
@@ -190,8 +189,8 @@ impl GrpcExcelService for ExcelHandler {
 
         validate_upload_path(&req.file_path)?;
 
-        let exporter = abt::excel::ProductAllExporter::new(state.pool());
-        let bytes = exporter.export(ExportRequest { params: () })
+        let exporter = ProductAllExporter::new(state.core_pool().clone());
+        let bytes = exporter.export()
             .await
             .map_err(error::err_to_status)?;
 
@@ -228,7 +227,8 @@ impl GrpcExcelService for ExcelHandler {
 
         let (bytes, file_name) = match req.export_type.as_str() {
             EXPORT_TYPE_WAREHOUSE_LOCATION => {
-                let b = abt::excel::export_warehouse_locations_to_bytes(&state.pool())
+                let exporter = WarehouseLocationExporter::new(state.core_pool().clone());
+                let b = exporter.export()
                     .await
                     .map_err(error::err_to_status)?;
                 let name = format!(
@@ -238,7 +238,8 @@ impl GrpcExcelService for ExcelHandler {
                 (b, name)
             }
             EXPORT_TYPE_CATEGORY => {
-                let b = abt::excel::export_categories_to_bytes(&state.pool())
+                let exporter = CategoryExporter::new(state.core_pool().clone());
+                let b = exporter.export()
                     .await
                     .map_err(error::err_to_status)?;
                 let name = format!(
@@ -248,8 +249,8 @@ impl GrpcExcelService for ExcelHandler {
                 (b, name)
             }
             EXPORT_TYPE_PRODUCTS_WITHOUT_PRICE => {
-                let exporter = abt::excel::ProductWithoutPriceExporter::new(state.pool());
-                let b = exporter.export(ExportRequest { params: () })
+                let exporter = ProductWithoutPriceExporter::new(state.core_pool().clone());
+                let b = exporter.export()
                     .await
                     .map_err(error::err_to_status)?;
                 let name = format!(
@@ -259,8 +260,8 @@ impl GrpcExcelService for ExcelHandler {
                 (b, name)
             }
             _ => {
-                let exporter = abt::excel::ProductAllExporter::new(state.pool());
-                let b = exporter.export(ExportRequest { params: () })
+                let exporter = ProductAllExporter::new(state.core_pool().clone());
+                let b = exporter.export()
                     .await
                     .map_err(error::err_to_status)?;
                 let name = format!(

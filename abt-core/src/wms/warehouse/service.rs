@@ -5,8 +5,9 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{
-    Bin, BinFilter, CreateBinReq, CreateWarehouseReq, CreateZoneReq, UpdateWarehouseReq,
-    Warehouse, WarehouseFilter, Zone,
+    Bin, BinFilter, BinInventoryStats, BinWithWarehouse, CreateBinReq, CreateWarehouseReq,
+    CreateZoneReq, UpdateBinReq, UpdateWarehouseReq, UpdateZoneReq, Warehouse, WarehouseFilter,
+    WarehouseInventoryStats, Zone,
 };
 
 #[async_trait]
@@ -64,6 +65,21 @@ pub trait WarehouseService: Send + Sync {
         warehouse_id: i64,
     ) -> Result<Vec<Zone>, DomainError>;
 
+    /// 更新库区（仅更新提供的字段）
+    async fn update_zone(
+        &self,
+        ctx: ServiceContext<'_>,
+        id: i64,
+        req: UpdateZoneReq,
+    ) -> Result<(), DomainError>;
+
+    /// 软删除库区
+    async fn delete_zone(
+        &self,
+        ctx: ServiceContext<'_>,
+        id: i64,
+    ) -> Result<(), DomainError>;
+
     /// 在指定库区下创建库位，返回新库位 ID
     async fn create_bin(
         &self,
@@ -81,4 +97,84 @@ pub trait WarehouseService: Send + Sync {
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<Bin>, DomainError>;
+
+    /// 更新库位（仅更新提供的字段）
+    async fn update_bin(
+        &self,
+        ctx: ServiceContext<'_>,
+        id: i64,
+        req: UpdateBinReq,
+    ) -> Result<(), DomainError>;
+
+    /// 软删除库位
+    async fn delete_bin(
+        &self,
+        ctx: ServiceContext<'_>,
+        id: i64,
+    ) -> Result<(), DomainError>;
+
+    /// 跨 zone 查询仓库下所有 bin（分页，兼容旧 Location API）
+    async fn list_bins_by_warehouse(
+        &self,
+        ctx: ServiceContext<'_>,
+        warehouse_id: i64,
+        keyword: Option<String>,
+        is_active: Option<bool>,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<Bin>, DomainError>;
+
+    /// 查找或创建默认库区（用于兼容旧 Location API 的自动 zone 分配）
+    async fn get_or_create_default_zone(
+        &self,
+        ctx: ServiceContext<'_>,
+        warehouse_id: i64,
+    ) -> Result<Zone, DomainError>;
+
+    /// 获取 bin 并关联仓库信息
+    async fn get_bin_with_warehouse(
+        &self,
+        ctx: ServiceContext<'_>,
+        bin_id: i64,
+    ) -> Result<BinWithWarehouse, DomainError>;
+
+    /// 跨仓库搜索 bin（带仓库名，分页）
+    async fn search_bins_with_warehouse(
+        &self,
+        ctx: ServiceContext<'_>,
+        keyword: Option<String>,
+        is_active: Option<bool>,
+        warehouse_id: Option<i64>,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<BinWithWarehouse>, DomainError>;
+
+    /// 获取所有 bin 及仓库信息（无分页）
+    async fn list_all_bins_with_warehouse(
+        &self,
+        ctx: ServiceContext<'_>,
+    ) -> Result<Vec<BinWithWarehouse>, DomainError>;
+
+    /// 仓库库存统计汇总
+    async fn get_warehouse_inventory_stats(
+        &self,
+        ctx: ServiceContext<'_>,
+        warehouse_id: i64,
+    ) -> Result<WarehouseInventoryStats, DomainError>;
+
+    /// 库位库存统计
+    async fn get_bin_inventory_stats(
+        &self,
+        ctx: ServiceContext<'_>,
+        bin_id: i64,
+    ) -> Result<BinInventoryStats, DomainError>;
+
+    /// 分页获取仓库下所有库位的库存统计
+    async fn list_bin_stats_by_warehouse(
+        &self,
+        ctx: ServiceContext<'_>,
+        warehouse_id: i64,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<BinInventoryStats>, DomainError>;
 }

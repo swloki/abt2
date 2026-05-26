@@ -48,7 +48,7 @@ impl ReturnStatus {
 
 impl sqlx::Type<sqlx::Postgres> for ReturnStatus {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("smallint")
+        <i16 as sqlx::Type<sqlx::Postgres>>::type_info()
     }
 }
 
@@ -107,7 +107,7 @@ impl ReturnDisposition {
 
 impl sqlx::Type<sqlx::Postgres> for ReturnDisposition {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
-        sqlx::postgres::PgTypeInfo::with_name("smallint")
+        <i16 as sqlx::Type<sqlx::Postgres>>::type_info()
     }
 }
 

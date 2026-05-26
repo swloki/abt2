@@ -1,7 +1,7 @@
 use rust_decimal::Decimal;
 use sqlx::{FromRow, Row};
 
-use super::model::{StockFilter, StockLedger, UpsertStockReq};
+use super::model::{ProductWithoutPriceRow, StockExportRow, StockFilter, StockLedger, UpsertStockReq};
 use crate::shared::types::pagination::PaginatedResult;
 
 pub struct StockLedgerRepo;
@@ -160,5 +160,105 @@ impl StockLedgerRepo {
             page_size,
             total_pages,
         })
+    }
+
+    /// Upsert stock quantity (set absolute value) — Excel import support
+    pub async fn upsert_quantity(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+        warehouse_id: i64,
+        zone_id: i64,
+        bin_id: i64,
+        quantity: Decimal,
+    ) -> Result<i64, sqlx::Error> {
+        let row = sqlx::query(
+            r#"
+            INSERT INTO stock_ledger (product_id, warehouse_id, zone_id, bin_id, quantity, available_qty, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $5, NOW())
+            ON CONFLICT (product_id, warehouse_id, zone_id, bin_id, COALESCE(batch_no, ''))
+            DO UPDATE SET quantity = $5, available_qty = $5, updated_at = NOW()
+            RETURNING id
+            "#,
+        )
+        .bind(product_id)
+        .bind(warehouse_id)
+        .bind(zone_id)
+        .bind(bin_id)
+        .bind(quantity)
+        .fetch_one(executor)
+        .await?;
+
+        Ok(row.get("id"))
+    }
+
+    /// Set safety stock for a location — Excel import support
+    pub async fn set_safety_stock(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+        warehouse_id: i64,
+        zone_id: i64,
+        bin_id: i64,
+        safety_stock: Decimal,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            r#"
+            INSERT INTO stock_ledger (product_id, warehouse_id, zone_id, bin_id, quantity, available_qty, safety_stock, updated_at)
+            VALUES ($1, $2, $3, $4, 0, 0, $5, NOW())
+            ON CONFLICT (product_id, warehouse_id, zone_id, bin_id, COALESCE(batch_no, ''))
+            DO UPDATE SET safety_stock = $5, updated_at = NOW()
+            "#,
+        )
+        .bind(product_id)
+        .bind(warehouse_id)
+        .bind(zone_id)
+        .bind(bin_id)
+        .bind(safety_stock)
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    // ---- Excel 导出辅助方法 ----
+
+    /// 列出所有库存数据用于 Excel 导出，关联产品/仓库/库区/储位/价格/分类信息
+    pub async fn list_for_export(executor: &mut sqlx::postgres::PgConnection) -> Result<Vec<StockExportRow>, sqlx::Error> {
+        let rows = sqlx::query_as::<sqlx::Postgres, StockExportRow>(
+            r#"
+            SELECT
+                p.product_id, p.pdt_name, p.product_code,
+                p.meta->>'specification' as specification, p.unit,
+                w.name as warehouse_name, z.code as zone_code, b.code as bin_code,
+                sl.quantity, sl.safety_stock,
+                (SELECT new_price FROM price_log WHERE product_id = p.product_id AND price_type = 1 ORDER BY created_at DESC LIMIT 1) as price,
+                (SELECT string_agg(pc.category_id::text, ',') FROM product_categories pc WHERE pc.product_id = p.product_id) as category_ids,
+                (SELECT string_agg(c.category_name, ',') FROM product_categories pc JOIN categories c ON pc.category_id = c.category_id WHERE pc.product_id = p.product_id) as category_names
+            FROM products p
+            LEFT JOIN stock_ledger sl ON p.product_id = sl.product_id
+            LEFT JOIN bins b ON sl.bin_id = b.id
+            LEFT JOIN zones z ON b.zone_id = z.id
+            LEFT JOIN warehouses w ON z.warehouse_id = w.id
+            WHERE p.deleted_at IS NULL
+            ORDER BY p.product_id
+            "#,
+        )
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
+    }
+
+    /// 查询没有价格记录的产品（用于 Excel 导入校验提示）
+    pub async fn find_products_without_price(executor: &mut sqlx::postgres::PgConnection) -> Result<Vec<ProductWithoutPriceRow>, sqlx::Error> {
+        let rows = sqlx::query_as::<sqlx::Postgres, ProductWithoutPriceRow>(
+            r#"
+            SELECT p.product_id, p.pdt_name, p.product_code, p.unit, p.meta->>'specification' as specification
+            FROM products p
+            WHERE p.deleted_at IS NULL
+              AND NOT EXISTS (SELECT 1 FROM price_log pl WHERE pl.product_id = p.product_id)
+            ORDER BY p.product_id
+            "#,
+        )
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
     }
 }

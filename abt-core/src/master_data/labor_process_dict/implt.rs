@@ -34,14 +34,14 @@ impl LaborProcessDictServiceImpl {
 impl LaborProcessDictService for LaborProcessDictServiceImpl {
     async fn list(&self, ctx: ServiceContext<'_>, query: LaborProcessDictQuery, page: PageParams) -> Result<PaginatedResult<LaborProcessDict>, DomainError> {
         self.repo.query(ctx.executor, &query, &page)
-            .await.map_err(DomainError::Internal)
+            .await
     }
 
     async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateLaborProcessDictReq) -> Result<i64, DomainError> {
         let code = self.doc_seq.next_number(ctx.reborrow(), DocumentType::LaborProcessDict).await?;
 
         let id = self.repo.create(ctx.executor, &code, &req, ctx.operator_id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.audit.record(ctx.reborrow(), "LaborProcessDict", id, AuditAction::Create, None, None).await?;
 
@@ -58,11 +58,11 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
 
     async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateLaborProcessDictReq) -> Result<(), DomainError> {
         let _existing = self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("LaborProcessDict"))?;
 
         self.repo.update(ctx.executor, id, &req, ctx.operator_id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.audit.record(ctx.reborrow(), "LaborProcessDict", id, AuditAction::Update, None, None).await?;
 
@@ -79,17 +79,17 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
 
     async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
         let existing = self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("LaborProcessDict"))?;
 
         if self.repo.exists_routing_step_reference(ctx.executor, &existing.code)
-            .await.map_err(DomainError::Internal)?
+            .await?
         {
             return Err(DomainError::business_rule(format!("工序编码 '{}' 已被工艺路线引用，无法删除", existing.code)));
         }
 
         self.repo.delete(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.audit.record(ctx.reborrow(), "LaborProcessDict", id, AuditAction::Delete, None, None).await?;
 

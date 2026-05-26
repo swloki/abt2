@@ -90,12 +90,12 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             ctx.operator_id,
         )
         .await
-        .map_err(DomainError::Internal)?;
+        ?;
 
         // Step 4: Batch insert items
         ExpenseReimbursementItemRepo::batch_insert(ctx.executor, id, &req.items)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // Step 5: State machine transition to Draft
         self.state_machine
@@ -120,7 +120,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
     async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<ExpenseReimbursement, DomainError> {
         ExpenseReimbursementRepo::get_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("ExpenseReimbursement"))
     }
 
@@ -140,7 +140,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
                 ctx.department_id,
             )
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
@@ -158,7 +158,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         // Step 2: Fetch expense (must be Approved)
         let expense = ExpenseReimbursementRepo::get_by_id(&mut tx, expense_id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("ExpenseReimbursement"))?;
 
         if expense.status != ExpenseStatus::Approved {
@@ -228,7 +228,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             expense.operator_id,
         )
         .await
-        .map_err(DomainError::Internal)?;
+        ?;
 
         CashJournalLineRepo::batch_insert(
             &mut tx,
@@ -236,7 +236,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             &journal_req.lines,
         )
         .await
-        .map_err(DomainError::Internal)?;
+        ?;
 
         // Step 5: Set journal status directly to Confirmed — check rows affected
         let journal_rows = CashJournalRepo::update_status(
@@ -246,7 +246,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             1, // initial version after create
         )
         .await
-        .map_err(DomainError::Internal)?;
+        ?;
 
         if journal_rows == 0 {
             return Err(DomainError::ConcurrentConflict);
@@ -260,7 +260,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             expense.version,
         )
         .await
-        .map_err(DomainError::Internal)?;
+        ?;
 
         if rows == 0 {
             return Err(DomainError::ConcurrentConflict);

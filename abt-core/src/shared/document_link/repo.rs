@@ -1,4 +1,5 @@
 use sqlx::{FromRow, Row};
+use crate::shared::types::RepoResult;
 
 use super::model::{DocumentLink, LinkRequest};
 use crate::shared::enums::DocumentType;
@@ -12,7 +13,7 @@ impl DocumentLinkRepo {
         executor: &mut sqlx::postgres::PgConnection,
         requests: &[LinkRequest],
         created_by: Option<i64>,
-    ) -> Result<Vec<DocumentLink>, sqlx::Error> {
+    ) -> RepoResult<Vec<DocumentLink>> {
         let mut results = Vec::with_capacity(requests.len());
 
         for req in requests {
@@ -57,7 +58,7 @@ impl DocumentLinkRepo {
         source_id: i64,
         limit: i64,
         offset: i64,
-    ) -> Result<(Vec<DocumentLink>, u64), sqlx::Error> {
+    ) -> RepoResult<(Vec<DocumentLink>, u64)> {
         // Count
         let count_sql = r#"
             SELECT COUNT(*) AS cnt FROM document_links

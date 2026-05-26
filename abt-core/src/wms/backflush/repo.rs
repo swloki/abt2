@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::model::{BackflushFilter, BackflushItem, BackflushRecord, CreateBackflushItemReq, CreateBackflushReq};
 use crate::shared::types::pagination::PaginatedResult;
@@ -10,7 +11,7 @@ impl BackflushRepo {
     pub async fn insert(
         executor: &mut sqlx::postgres::PgConnection,
         req: &CreateBackflushReq,
-    ) -> Result<BackflushRecord, sqlx::Error> {
+    ) -> RepoResult<BackflushRecord> {
         let row = sqlx::query(
             r#"
             INSERT INTO backflush_records
@@ -34,14 +35,14 @@ impl BackflushRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        BackflushRecord::from_row(&row)
+        Ok(BackflushRecord::from_row(&row)?)
     }
 
     /// 插入冲扣明细
     pub async fn insert_item(
         executor: &mut sqlx::postgres::PgConnection,
         req: &CreateBackflushItemReq,
-    ) -> Result<BackflushItem, sqlx::Error> {
+    ) -> RepoResult<BackflushItem> {
         let row = sqlx::query(
             r#"
             INSERT INTO backflush_items
@@ -62,14 +63,14 @@ impl BackflushRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        BackflushItem::from_row(&row)
+        Ok(BackflushItem::from_row(&row)?)
     }
 
     /// 按 ID 查询冲扣记录
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<BackflushRecord>, sqlx::Error> {
+    ) -> RepoResult<Option<BackflushRecord>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, product_id, completed_qty,
@@ -83,14 +84,15 @@ impl BackflushRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| BackflushRecord::from_row(&r)).transpose()
+        row.map(|r| BackflushRecord::from_row(&r).map_err(Into::into)).transpose()
+
     }
 
     /// 查询冲扣记录的所有明细
     pub async fn get_items(
         executor: &mut sqlx::postgres::PgConnection,
         record_id: i64,
-    ) -> Result<Vec<BackflushItem>, sqlx::Error> {
+    ) -> RepoResult<Vec<BackflushItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, record_id, component_id, theoretical_qty, actual_qty,
@@ -117,7 +119,7 @@ impl BackflushRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: super::super::enums::BackflushStatus,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE backflush_records
@@ -139,7 +141,7 @@ impl BackflushRepo {
         filter: &BackflushFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<BackflushRecord>, sqlx::Error> {
+    ) -> RepoResult<PaginatedResult<BackflushRecord>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["1=1".to_string()];

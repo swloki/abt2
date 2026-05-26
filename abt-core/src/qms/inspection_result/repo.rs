@@ -1,4 +1,5 @@
 use sqlx::Row;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use crate::qms::enums::*;
@@ -39,7 +40,7 @@ fn row_to_model(row: sqlx::postgres::PgRow) -> InspectionResult {
 pub async fn insert(
     db: &mut sqlx::postgres::PgConnection,
     m: &InspectionResult,
-) -> anyhow::Result<i64> {
+) -> RepoResult<i64> {
     let check_results_json = serde_json::to_value(&m.check_results)?;
 
     let row = sqlx::query(
@@ -74,7 +75,7 @@ pub async fn insert(
 pub async fn find_by_id(
     db: &mut sqlx::postgres::PgConnection,
     id: i64,
-) -> anyhow::Result<Option<InspectionResult>> {
+) -> RepoResult<Option<InspectionResult>> {
     let row = sqlx::query(
         &format!("SELECT {COLUMNS} FROM inspection_results WHERE id = $1 AND deleted_at IS NULL")
     )
@@ -90,7 +91,7 @@ pub async fn find_by_source(
     source_type: i16,
     source_id: i64,
     inspection_type: i16,
-) -> anyhow::Result<Option<InspectionResult>> {
+) -> RepoResult<Option<InspectionResult>> {
     let row = sqlx::query(
         &format!(
             "SELECT {COLUMNS} FROM inspection_results WHERE source_type = $1 AND source_id = $2 AND inspection_type = $3 AND deleted_at IS NULL"
@@ -115,7 +116,7 @@ pub async fn record_result(
     check_results: Vec<CheckResult>,
     inspector_id: i64,
     inspection_date: chrono::NaiveDate,
-) -> anyhow::Result<u64> {
+) -> RepoResult<u64> {
     let check_results_json = serde_json::to_value(&check_results)?;
     let r = sqlx::query(
         r#"
@@ -144,7 +145,7 @@ pub async fn update_status(
     id: i64,
     status: i16,
     expected_status: i16,
-) -> anyhow::Result<u64> {
+) -> RepoResult<u64> {
     let result = sqlx::query(
         "UPDATE inspection_results SET status = $2, updated_at = NOW() WHERE id = $1 AND status = $3 AND deleted_at IS NULL"
     )
@@ -161,7 +162,7 @@ pub async fn list(
     db: &mut sqlx::postgres::PgConnection,
     filter: &InspectionResultFilter,
     page: &PageParams,
-) -> anyhow::Result<PaginatedResult<InspectionResult>> {
+) -> RepoResult<PaginatedResult<InspectionResult>> {
     let limit = page.page_size as i64;
     let offset = page.offset() as i64;
 

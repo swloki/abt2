@@ -1,4 +1,5 @@
 use sqlx::Row;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use crate::qms::enums::*;
@@ -32,7 +33,7 @@ fn row_to_model(row: sqlx::postgres::PgRow) -> Mrb {
 pub async fn insert(
     db: &mut sqlx::postgres::PgConnection,
     m: &Mrb,
-) -> anyhow::Result<i64> {
+) -> RepoResult<i64> {
     let row = sqlx::query(
         &format!(
             "INSERT INTO mrbs ({INSERT_COLUMNS}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id"
@@ -60,7 +61,7 @@ pub async fn insert(
 pub async fn find_by_id(
     db: &mut sqlx::postgres::PgConnection,
     id: i64,
-) -> anyhow::Result<Option<Mrb>> {
+) -> RepoResult<Option<Mrb>> {
     let row = sqlx::query(
         &format!("SELECT {COLUMNS} FROM mrbs WHERE id = $1 AND deleted_at IS NULL")
     )
@@ -76,7 +77,7 @@ pub async fn update_status(
     id: i64,
     status: i16,
     expected_status: i16,
-) -> anyhow::Result<u64> {
+) -> RepoResult<u64> {
     let result = sqlx::query(
         "UPDATE mrbs SET status = $2, updated_at = NOW() WHERE id = $1 AND status = $3 AND deleted_at IS NULL"
     )
@@ -93,7 +94,7 @@ pub async fn list(
     db: &mut sqlx::postgres::PgConnection,
     filter: &MrbFilter,
     page: &PageParams,
-) -> anyhow::Result<PaginatedResult<Mrb>> {
+) -> RepoResult<PaginatedResult<Mrb>> {
     let limit = page.page_size as i64;
     let offset = page.offset() as i64;
 

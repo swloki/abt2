@@ -45,7 +45,6 @@ pub struct ShippingRequestServiceImpl {
 }
 
 impl ShippingRequestServiceImpl {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         repo: ShippingRequestRepo,
         item_repo: ShippingRequestItemRepo,
@@ -101,7 +100,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .order_item_repo
             .find_by_order_id(ctx.executor, req.order_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let mut shipping_inputs = Vec::with_capacity(req.items.len());
         for (i, item) in req.items.iter().enumerate() {
@@ -151,12 +150,12 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 ctx.operator_id,
             )
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.item_repo
             .create_batch(ctx.executor, id, &shipping_inputs)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.doc_link
             .create_links(
@@ -198,7 +197,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))
     }
 
@@ -212,7 +211,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
         if existing.status != ShippingStatus::Draft {
@@ -222,7 +221,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         self.repo
             .update(ctx.executor, id, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(ctx.reborrow(), "ShippingRequest", id, AuditAction::Update, None, None)
@@ -236,7 +235,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
         if existing.status != ShippingStatus::Draft {
@@ -271,7 +270,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ShippingStatus::Confirmed)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -292,7 +291,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
         if existing.status != ShippingStatus::Confirmed {
@@ -306,7 +305,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ShippingStatus::Picking)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -327,7 +326,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
         if existing.status != ShippingStatus::Picking {
@@ -338,18 +337,18 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .item_repo
             .find_by_shipping_request_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         for item in &shipping_items {
             self.item_repo
                 .update_shipped_qty(ctx.executor, item.id, item.requested_qty)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
 
             self.order_item_repo
                 .update_shipped_qty(ctx.executor, item.order_item_id, item.requested_qty)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
 
             self.inv_res
                 .fulfill_by_source_line(
@@ -365,7 +364,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .order_item_repo
             .find_by_order_id(ctx.executor, existing.order_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let period = chrono::Utc::now().format("%Y-%m").to_string();
         let mut cost_entries = Vec::with_capacity(shipping_items.len());
@@ -404,7 +403,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ShippingStatus::Shipped)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // Update SalesOrder status: PartiallyShipped or Shipped
         let all_fully_shipped = order_items
@@ -420,7 +419,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         self.order_repo
             .update_status(ctx.executor, existing.order_id, new_order_status)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -458,7 +457,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
         if existing.status != ShippingStatus::Draft && existing.status != ShippingStatus::Confirmed {
@@ -474,7 +473,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ShippingStatus::Cancelled)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -506,6 +505,6 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 ctx.department_id,
             )
             .await
-            .map_err(DomainError::Internal)
+            
     }
 }

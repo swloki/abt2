@@ -1,4 +1,5 @@
 use chrono::{DateTime, Utc};
+use crate::shared::types::RepoResult;
 
 use super::model::{OutsourcingTracking, OverdueTrackingQuery};
 use crate::om::enums::TrackingNodeType;
@@ -18,7 +19,7 @@ impl OutsourcingTrackingRepo {
         tracked_at: Option<DateTime<Utc>>,
         remark: Option<&str>,
         operator_id: i64,
-    ) -> Result<i64, sqlx::Error> {
+    ) -> RepoResult<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO outsourcing_trackings
@@ -36,13 +37,13 @@ impl OutsourcingTrackingRepo {
         .await?;
 
         use sqlx::Row;
-        row.try_get("id")
+        Ok(row.try_get("id")?)
     }
 
     pub async fn get_max_node_ordinal(
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
-    ) -> Result<Option<i16>, sqlx::Error> {
+    ) -> RepoResult<Option<i16>> {
         let row = sqlx::query(
             "SELECT MAX(node_type) AS max_ordinal FROM outsourcing_trackings WHERE outsourcing_id = $1",
         )
@@ -59,7 +60,7 @@ impl OutsourcingTrackingRepo {
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
         node_type: TrackingNodeType,
-    ) -> Result<bool, sqlx::Error> {
+    ) -> RepoResult<bool> {
         let row = sqlx::query(
             "SELECT EXISTS(SELECT 1 FROM outsourcing_trackings WHERE outsourcing_id = $1 AND node_type = $2) AS exists_flag",
         )
@@ -69,14 +70,14 @@ impl OutsourcingTrackingRepo {
         .await?;
 
         use sqlx::Row;
-        row.try_get("exists_flag")
+        Ok(row.try_get("exists_flag")?)
     }
 
     pub async fn list_by_outsourcing_id(
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
         page: &PageParams,
-    ) -> Result<(Vec<OutsourcingTracking>, u64), sqlx::Error> {
+    ) -> RepoResult<(Vec<OutsourcingTracking>, u64)> {
         let limit = page.page_size as i64;
         let offset = page.offset() as i64;
 
@@ -113,7 +114,7 @@ impl OutsourcingTrackingRepo {
         executor: &mut sqlx::postgres::PgConnection,
         q: &OverdueTrackingQuery,
         page: &PageParams,
-    ) -> Result<(Vec<OutsourcingTracking>, u64), sqlx::Error> {
+    ) -> RepoResult<(Vec<OutsourcingTracking>, u64)> {
         let limit = page.page_size as i64;
         let offset = page.offset() as i64;
 

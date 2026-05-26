@@ -6,6 +6,6 @@ pub mod transaction;
 
 pub use batch::{BatchFailure, BatchMode, BatchResult};
 pub use context::ServiceContext;
-pub use error::DomainError;
+pub use error::{DomainError, RepoResult};
 pub use pagination::{DataScope, PageParams, PaginatedResult};
 pub use transaction::TransactionMode;

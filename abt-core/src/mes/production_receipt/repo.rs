@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use super::super::enums::*;
@@ -20,7 +21,7 @@ impl ProductionReceiptRepo {
         receipt_date: NaiveDate,
         doc_number: &str,
         operator_id: i64,
-    ) -> Result<ProductionReceipt, sqlx::Error> {
+    ) -> RepoResult<ProductionReceipt> {
         let row = sqlx::query(
             r#"
             INSERT INTO production_receipts
@@ -48,13 +49,13 @@ impl ProductionReceiptRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        ProductionReceipt::from_row(&row)
+        Ok(ProductionReceipt::from_row(&row)?)
     }
 
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<ProductionReceipt>, sqlx::Error> {
+    ) -> RepoResult<Option<ProductionReceipt>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, batch_id, product_id,
@@ -69,14 +70,15 @@ impl ProductionReceiptRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| ProductionReceipt::from_row(&r)).transpose()
+        row.map(|r| ProductionReceipt::from_row(&r).map_err(Into::into)).transpose()
+
     }
 
     pub async fn update_status(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: ReceiptStatus,
-    ) -> Result<bool, sqlx::Error> {
+    ) -> RepoResult<bool> {
         let result = sqlx::query(
             r#"
             UPDATE production_receipts
@@ -96,7 +98,7 @@ impl ProductionReceiptRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         value: bool,
-    ) -> Result<bool, sqlx::Error> {
+    ) -> RepoResult<bool> {
         let result = sqlx::query(
             r#"
             UPDATE production_receipts

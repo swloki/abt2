@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};
 use sqlx::Row;
+use crate::shared::types::RepoResult;
 
 use super::model::{CreatePaymentRequestRequest, PaymentRequest, PaymentRequestQuery};
 use crate::purchase::enums::PaymentStatus;
@@ -14,7 +15,7 @@ impl PaymentRequestRepo {
         req: &CreatePaymentRequestRequest,
         doc_number: &str,
         operator_id: i64,
-    ) -> Result<i64, sqlx::Error> {
+    ) -> RepoResult<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO payment_requests
@@ -40,14 +41,14 @@ impl PaymentRequestRepo {
         .fetch_one(executor)
         .await?;
 
-        row.try_get("id")
+        Ok(row.try_get("id")?)
     }
 
     /// 按主键查询（软删除行过滤）
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<PaymentRequest>, sqlx::Error> {
+    ) -> RepoResult<Option<PaymentRequest>> {
         sqlx::query_as::<_, PaymentRequest>(
             r#"
             SELECT id, doc_number, supplier_id, reconciliation_id, payment_date, amount,
@@ -59,7 +60,7 @@ impl PaymentRequestRepo {
         )
         .bind(id)
         .fetch_optional(executor)
-        .await
+        .await.map_err(Into::into)
     }
 
     /// 动态条件分页查询
@@ -67,7 +68,7 @@ impl PaymentRequestRepo {
         executor: &mut sqlx::postgres::PgConnection,
         q: &PaymentRequestQuery,
         page: &PageParams,
-    ) -> Result<(Vec<PaymentRequest>, u64), sqlx::Error> {
+    ) -> RepoResult<(Vec<PaymentRequest>, u64)> {
         let where_clause = "
             WHERE deleted_at IS NULL
               AND ($1::bigint IS NULL OR supplier_id = $1)
@@ -117,7 +118,7 @@ impl PaymentRequestRepo {
         id: i64,
         status: PaymentStatus,
         updated_at: &DateTime<Utc>,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE payment_requests
@@ -140,7 +141,7 @@ impl PaymentRequestRepo {
         id: i64,
         payment_doc_no: &str,
         updated_at: &DateTime<Utc>,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE payment_requests

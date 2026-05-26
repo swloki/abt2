@@ -61,7 +61,7 @@ impl CustomerService for CustomerServiceImpl {
             .repo
             .create(ctx.executor, &code, &req, ctx.operator_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // Initialize state machine to Prospective
         self.state_machine
@@ -82,7 +82,7 @@ impl CustomerService for CustomerServiceImpl {
                 .repo
                 .check_tax_number_exists(ctx.executor, tax)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
             if exists {
                 warnings.push(format!(
                     "Tax number '{tax}' already exists in customers or suppliers"
@@ -118,7 +118,7 @@ impl CustomerService for CustomerServiceImpl {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Customer"))
     }
 
@@ -133,7 +133,7 @@ impl CustomerService for CustomerServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Customer"))?;
 
         // Handle status transition via state machine
@@ -175,7 +175,7 @@ impl CustomerService for CustomerServiceImpl {
         self.repo
             .update(ctx.executor, id, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(ctx, "Customer", id, AuditAction::Update, None, None)
@@ -200,7 +200,7 @@ impl CustomerService for CustomerServiceImpl {
                 ctx.department_id,
             )
             .await
-            .map_err(DomainError::Internal)
+            
     }
 
     async fn add_contact(
@@ -213,14 +213,14 @@ impl CustomerService for CustomerServiceImpl {
         self.repo
             .find_by_id(ctx.executor, cid)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Customer"))?;
 
         let contact_id = self
             .contact_repo
             .create(ctx.executor, cid, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -249,7 +249,7 @@ impl CustomerService for CustomerServiceImpl {
         self.contact_repo
             .update(ctx.executor, contact_id, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(ctx, "CustomerContact", contact_id, AuditAction::Update, None, None)
@@ -270,7 +270,7 @@ impl CustomerService for CustomerServiceImpl {
         self.contact_repo
             .delete(ctx.executor, contact_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(ctx, "CustomerContact", contact_id, AuditAction::Delete, None, None)
@@ -287,7 +287,7 @@ impl CustomerService for CustomerServiceImpl {
         self.contact_repo
             .find_by_customer_id(ctx.executor, cid)
             .await
-            .map_err(DomainError::Internal)
+            
     }
 
     async fn add_address(
@@ -300,14 +300,14 @@ impl CustomerService for CustomerServiceImpl {
         self.repo
             .find_by_id(ctx.executor, cid)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Customer"))?;
 
         let address_id = self
             .address_repo
             .create(ctx.executor, cid, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -335,7 +335,7 @@ impl CustomerService for CustomerServiceImpl {
             .address_repo
             .find_by_id(ctx.executor, address_id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("CustomerAddress"))?;
 
         if address.customer_id != cid {
@@ -347,7 +347,7 @@ impl CustomerService for CustomerServiceImpl {
         self.address_repo
             .update(ctx.executor, address_id, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(ctx, "CustomerAddress", address_id, AuditAction::Update, None, None)
@@ -367,7 +367,7 @@ impl CustomerService for CustomerServiceImpl {
             .address_repo
             .find_by_id(ctx.executor, address_id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("CustomerAddress"))?;
 
         if address.customer_id != cid {
@@ -379,7 +379,7 @@ impl CustomerService for CustomerServiceImpl {
         self.address_repo
             .delete(ctx.executor, address_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(ctx, "CustomerAddress", address_id, AuditAction::Delete, None, None)
@@ -396,7 +396,7 @@ impl CustomerService for CustomerServiceImpl {
         self.address_repo
             .find_by_customer_id(ctx.executor, cid)
             .await
-            .map_err(DomainError::Internal)
+            
     }
 
     async fn validate_contact_ownership(
@@ -409,7 +409,7 @@ impl CustomerService for CustomerServiceImpl {
             .contact_repo
             .find_by_id(ctx.executor, contact_id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("CustomerContact"))?;
 
         if contact.customer_id != cid {
@@ -426,7 +426,7 @@ impl CustomerService for CustomerServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Customer"))?;
 
         if customer.owner_id.is_some() {
@@ -449,7 +449,7 @@ impl CustomerService for CustomerServiceImpl {
                 ctx.department_id,
             )
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(ctx, "Customer", id, AuditAction::Update, None, None)
@@ -469,13 +469,13 @@ impl CustomerService for CustomerServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Customer"))?;
 
         self.repo
             .set_owner(ctx.executor, id, Some(new_owner_id), new_department_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(

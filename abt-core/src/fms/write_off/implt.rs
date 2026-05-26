@@ -73,7 +73,7 @@ impl WriteOffService for WriteOffServiceImpl {
         // Validate cash_journal exists and is Confirmed
         let journal = CashJournalRepo::get_by_id(&mut tx, req.cash_journal_id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("CashJournal"))?;
 
         if journal.status != JournalStatus::Confirmed {
@@ -83,7 +83,7 @@ impl WriteOffService for WriteOffServiceImpl {
         // Per-journal over-write-off check: total write-offs against this journal must not exceed its amount
         let journal_written = WriteOffRepo::sum_written_off_by_journal(&mut tx, req.cash_journal_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
         if journal_written + req.amount > journal.amount {
             return Err(DomainError::business_rule("OverWriteOffByJournal"));
         }
@@ -97,7 +97,7 @@ impl WriteOffService for WriteOffServiceImpl {
             req.source_id,
         )
         .await
-        .map_err(DomainError::Internal)?;
+        ?;
 
         let unreconciled = req.source_total - already_written;
         if unreconciled < req.amount {
@@ -120,9 +120,10 @@ impl WriteOffService for WriteOffServiceImpl {
         {
             Ok(id) => id,
             Err(e) => {
-                // Check for unique constraint violation on idempotency_key
-                if let Some(sqlx::Error::Database(db_err)) = e.downcast_ref::<sqlx::Error>()
-                    && db_err.code().as_deref() == Some("23505")
+                if let DomainError::Internal(inner) = &e
+                    && inner.downcast_ref::<sqlx::Error>()
+                        .map(|db_err| matches!(db_err, sqlx::Error::Database(db) if db.code().as_deref() == Some("23505")))
+                        .unwrap_or(false)
                 {
                     WriteOffRepo::release_advisory_lock(&mut tx, req.source_type, req.source_id)
                         .await
@@ -132,7 +133,7 @@ impl WriteOffService for WriteOffServiceImpl {
                 WriteOffRepo::release_advisory_lock(&mut tx, req.source_type, req.source_id)
                     .await
                     .ok();
-                return Err(DomainError::Internal(e));
+                return Err(e);
             }
         };
 
@@ -201,7 +202,7 @@ impl WriteOffService for WriteOffServiceImpl {
         let (items, total) =
             WriteOffRepo::list_by_source(ctx.executor, source_type, source_id, &page)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
@@ -216,7 +217,7 @@ impl WriteOffService for WriteOffServiceImpl {
         let total_written_off =
             WriteOffRepo::sum_written_off_by_source(ctx.executor, source_type, source_id)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
 
         Ok(source_total - total_written_off)
     }

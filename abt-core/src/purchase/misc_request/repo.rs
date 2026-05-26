@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use sqlx::Row;
+use crate::shared::types::RepoResult;
 
 use super::model::{
     CreateMiscItemRequest, CreateMiscRequestRequest, MiscRequestItem, MiscRequestQuery,
@@ -19,7 +20,7 @@ impl MiscRequestRepo {
         doc_number: &str,
         total_amount: Decimal,
         operator_id: i64,
-    ) -> Result<i64, sqlx::Error> {
+    ) -> RepoResult<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO miscellaneous_requests
@@ -40,14 +41,14 @@ impl MiscRequestRepo {
         .fetch_one(executor)
         .await?;
 
-        row.try_get("id")
+        Ok(row.try_get("id")?)
     }
 
     /// 按主键查询（软删除行过滤）
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<MiscellaneousRequest>, sqlx::Error> {
+    ) -> RepoResult<Option<MiscellaneousRequest>> {
         sqlx::query_as::<_, MiscellaneousRequest>(
             r#"
             SELECT id, doc_number, department_id, request_date, status, total_amount,
@@ -58,7 +59,7 @@ impl MiscRequestRepo {
         )
         .bind(id)
         .fetch_optional(executor)
-        .await
+        .await.map_err(Into::into)
     }
 
     /// 动态条件分页查询（支持 DataScope 行级权限过滤）
@@ -67,7 +68,7 @@ impl MiscRequestRepo {
         q: &MiscRequestQuery,
         page: &PageParams,
         scope: (DataScope, i64, Option<i64>),
-    ) -> Result<(Vec<MiscellaneousRequest>, u64), sqlx::Error> {
+    ) -> RepoResult<(Vec<MiscellaneousRequest>, u64)> {
         let (data_scope, operator_id, department_id) = scope;
         // miscellaneous_requests 有 department_id，可按部门过滤
         let scope_clause = match data_scope {
@@ -133,7 +134,7 @@ impl MiscRequestRepo {
         id: i64,
         status: MiscRequestStatus,
         updated_at: &DateTime<Utc>,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE miscellaneous_requests
@@ -163,7 +164,7 @@ impl MiscRequestItemRepo {
         executor: &mut sqlx::postgres::PgConnection,
         request_id: i64,
         items: &[CreateMiscItemRequest],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         for item in items {
             sqlx::query(
                 r#"
@@ -191,7 +192,7 @@ impl MiscRequestItemRepo {
     pub async fn list_by_request_id(
         executor: &mut sqlx::postgres::PgConnection,
         request_id: i64,
-    ) -> Result<Vec<MiscRequestItem>, sqlx::Error> {
+    ) -> RepoResult<Vec<MiscRequestItem>> {
         sqlx::query_as::<_, MiscRequestItem>(
             r#"
             SELECT id, request_id, line_no, item_name, specification, quantity,
@@ -203,6 +204,6 @@ impl MiscRequestItemRepo {
         )
         .bind(request_id)
         .fetch_all(executor)
-        .await
+        .await.map_err(Into::into)
     }
 }

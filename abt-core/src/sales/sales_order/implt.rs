@@ -38,7 +38,6 @@ pub struct SalesOrderServiceImpl {
 }
 
 impl SalesOrderServiceImpl {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         repo: SalesOrderRepo,
         item_repo: SalesOrderItemRepo,
@@ -139,13 +138,13 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 ctx.operator_id,
             )
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let item_inputs = Self::build_item_inputs(&req.items);
         self.item_repo
             .create_batch(ctx.executor, id, &item_inputs)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.state_machine
             .transition(ctx.reborrow(), "SalesOrderStatus", id, "Draft", None)
@@ -233,13 +232,13 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 ctx.operator_id,
             )
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let item_inputs = Self::build_item_inputs(&order_items);
         self.item_repo
             .create_batch(ctx.executor, id, &item_inputs)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.doc_link
             .create_links(
@@ -298,7 +297,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))
     }
 
@@ -312,7 +311,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Draft {
@@ -322,7 +321,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         self.repo
             .update(ctx.executor, id, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(ctx.reborrow(), "SalesOrder", id, AuditAction::Update, None, None)
@@ -336,7 +335,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Draft {
@@ -351,7 +350,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .item_repo
             .find_by_order_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let ttl = chrono::Utc::now() + TimeDelta::days(7);
         let reserve_requests: Vec<ReserveRequest> = items
@@ -374,7 +373,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         self.repo
             .update_status(ctx.executor, id, SalesOrderStatus::Confirmed)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -408,7 +407,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Confirmed {
@@ -422,7 +421,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         self.repo
             .update_status(ctx.executor, id, SalesOrderStatus::InProduction)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -443,7 +442,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Shipped {
@@ -454,7 +453,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .item_repo
             .find_by_order_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         for item in &items {
             if item.shipped_qty < item.quantity {
@@ -472,7 +471,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         self.repo
             .update_status(ctx.executor, id, SalesOrderStatus::Completed)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -493,7 +492,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Draft
@@ -517,7 +516,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         self.repo
             .update_status(ctx.executor, id, SalesOrderStatus::Cancelled)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -562,6 +561,6 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 ctx.department_id,
             )
             .await
-            .map_err(DomainError::Internal)
+            
     }
 }

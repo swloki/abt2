@@ -1,6 +1,6 @@
-use anyhow::Result;
 use common::PgExecutor;
 use rust_decimal::Decimal;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
@@ -8,7 +8,7 @@ use crate::shared::types::{PageParams, PaginatedResult};
 pub struct BomLaborProcessRepo;
 
 impl BomLaborProcessRepo {
-    pub async fn create(&self, executor: PgExecutor<'_>, req: &CreateBomLaborProcessReq, operator_id: i64) -> Result<i64> {
+    pub async fn create(&self, executor: PgExecutor<'_>, req: &CreateBomLaborProcessReq, operator_id: i64) -> RepoResult<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO bom_labor_processes (product_code, labor_process_dict_id, process_code, name, unit_price, quantity, sort_order, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -29,7 +29,7 @@ impl BomLaborProcessRepo {
     }
 
     #[allow(unused_assignments)]
-    pub async fn update(&self, executor: PgExecutor<'_>, id: i64, req: &UpdateBomLaborProcessReq, operator_id: i64) -> Result<()> {
+    pub async fn update(&self, executor: PgExecutor<'_>, id: i64, req: &UpdateBomLaborProcessReq, operator_id: i64) -> RepoResult<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -63,7 +63,7 @@ impl BomLaborProcessRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<()> {
         sqlx::query("UPDATE bom_labor_processes SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
             .bind(id)
             .execute(executor)
@@ -71,7 +71,7 @@ impl BomLaborProcessRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<BomLaborProcess>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<BomLaborProcess>> {
         let row = sqlx::query_as::<sqlx::Postgres, BomLaborProcess>(
             "SELECT id, product_code, labor_process_dict_id, process_code, name, unit_price, quantity, sort_order, remark, operator_id, created_at, updated_at, deleted_at FROM bom_labor_processes WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -82,7 +82,7 @@ impl BomLaborProcessRepo {
     }
 
     #[allow(unused_assignments)]
-    pub async fn query(&self, executor: PgExecutor<'_>, filter: &BomLaborProcessQuery, page: &PageParams) -> Result<PaginatedResult<BomLaborProcess>> {
+    pub async fn query(&self, executor: PgExecutor<'_>, filter: &BomLaborProcessQuery, page: &PageParams) -> RepoResult<PaginatedResult<BomLaborProcess>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -130,7 +130,7 @@ impl BomLaborProcessRepo {
     // ---- Excel 导入/导出辅助方法 ----
 
     /// 按 product_code 删除（硬删除，用于导入前清空旧数据）
-    pub async fn delete_by_product_code(executor: PgExecutor<'_>, product_code: &str) -> Result<()> {
+    pub async fn delete_by_product_code(executor: PgExecutor<'_>, product_code: &str) -> RepoResult<()> {
         sqlx::query("DELETE FROM bom_labor_processes WHERE product_code = $1")
             .bind(product_code)
             .execute(executor)
@@ -142,7 +142,7 @@ impl BomLaborProcessRepo {
     pub async fn batch_insert(
         executor: PgExecutor<'_>,
         rows: &[(String, i64, String, String, Decimal, Decimal, i32, Option<String>)],
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         for (product_code, dict_id, process_code, name, unit_price, quantity, sort_order, remark) in rows {
             sqlx::query(
                 r#"INSERT INTO bom_labor_processes (product_code, labor_process_dict_id, process_code, name, unit_price, quantity, sort_order, remark)
@@ -163,7 +163,7 @@ impl BomLaborProcessRepo {
     }
 
     /// 查询没有劳动工序成本的 BOM（用于导入校验提示）
-    pub async fn find_boms_without_labor_cost(executor: PgExecutor<'_>) -> Result<Vec<BomWithoutLaborCost>> {
+    pub async fn find_boms_without_labor_cost(executor: PgExecutor<'_>) -> RepoResult<Vec<BomWithoutLaborCost>> {
         let rows = sqlx::query_as::<sqlx::Postgres, BomWithoutLaborCost>(
             r#"
             SELECT DISTINCT b.bom_id, b.bom_name, bn.product_code

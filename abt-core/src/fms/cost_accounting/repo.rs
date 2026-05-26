@@ -1,6 +1,6 @@
-use anyhow::Result;
 use common::PgExecutor;
 use rust_decimal::Decimal;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 
@@ -13,7 +13,7 @@ impl CostAccountingRepo {
         executor: PgExecutor<'_>,
         product_id: i64,
         period: &str,
-    ) -> Result<ProductCostSummary> {
+    ) -> RepoResult<ProductCostSummary> {
         let rows = sqlx::query_as::<sqlx::Postgres, CostTypeRow>(
             r#"SELECT cost_type::smallint AS cost_type, COALESCE(SUM(debit_amount), 0) AS total
                FROM cost_entries
@@ -63,7 +63,7 @@ impl CostAccountingRepo {
     pub async fn get_work_order_cost(
         executor: PgExecutor<'_>,
         work_order_id: i64,
-    ) -> Result<WorkOrderCostSummary> {
+    ) -> RepoResult<WorkOrderCostSummary> {
         let rows = sqlx::query_as::<sqlx::Postgres, CostTypeRow>(
             r#"SELECT cost_type::smallint AS cost_type, COALESCE(SUM(debit_amount), 0) AS total
                FROM cost_entries
@@ -108,7 +108,7 @@ impl CostAccountingRepo {
         to: &str,
         page_size: u32,
         offset: u32,
-    ) -> Result<(Vec<ProfitCenterSummary>, u64)> {
+    ) -> RepoResult<(Vec<ProfitCenterSummary>, u64)> {
         // Count
         let total: i64 = sqlx::query_scalar(
             r#"SELECT COUNT(*) FROM (
@@ -161,7 +161,7 @@ impl CostAccountingRepo {
     pub async fn get_margin_analysis(
         executor: PgExecutor<'_>,
         order_id: i64,
-    ) -> Result<MarginAnalysis> {
+    ) -> RepoResult<MarginAnalysis> {
         let rows = sqlx::query_as::<sqlx::Postgres, CostTypeRow>(
             r#"SELECT cost_type::smallint AS cost_type, COALESCE(SUM(debit_amount), 0) AS total
                FROM cost_entries

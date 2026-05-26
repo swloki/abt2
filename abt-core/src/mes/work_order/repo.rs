@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::super::enums::WorkOrderStatus;
 use super::model::{WorkOrder, WorkOrderFilter};
@@ -13,7 +14,7 @@ impl WorkOrderRepo {
         req: &super::model::CreateWorkOrderReq,
         status: WorkOrderStatus,
         operator_id: i64,
-    ) -> Result<WorkOrder, sqlx::Error> {
+    ) -> RepoResult<WorkOrder> {
         let remark = req.remark.as_deref().unwrap_or("");
         let row = sqlx::query(
             r#"
@@ -43,13 +44,13 @@ impl WorkOrderRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        WorkOrder::from_row(&row)
+        Ok(WorkOrder::from_row(&row)?)
     }
 
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<WorkOrder>, sqlx::Error> {
+    ) -> RepoResult<Option<WorkOrder>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, plan_item_id, product_id, bom_snapshot_id, routing_id,
@@ -63,7 +64,8 @@ impl WorkOrderRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| WorkOrder::from_row(&r)).transpose()
+        row.map(|r| WorkOrder::from_row(&r).map_err(Into::into)).transpose()
+
     }
 
     /// 乐观锁更新状态。返回 true 表示更新成功，false 表示版本不匹配或行不存在。
@@ -72,7 +74,7 @@ impl WorkOrderRepo {
         id: i64,
         status: WorkOrderStatus,
         expected_version: i32,
-    ) -> Result<bool, sqlx::Error> {
+    ) -> RepoResult<bool> {
         let result = sqlx::query(
             r#"
             UPDATE work_orders
@@ -94,7 +96,7 @@ impl WorkOrderRepo {
         filter: &WorkOrderFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<WorkOrder>, sqlx::Error> {
+    ) -> RepoResult<PaginatedResult<WorkOrder>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["deleted_at IS NULL".to_string()];
@@ -187,7 +189,7 @@ impl WorkOrderRepo {
     pub async fn soft_delete(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE work_orders
@@ -207,7 +209,7 @@ impl WorkOrderRepo {
     pub async fn soft_delete_batches(
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE production_batches

@@ -160,11 +160,11 @@ impl WorkflowService for WorkflowEngine {
     }
 
     async fn get_template(&self, id: i64) -> Result<Option<WorkflowTemplate>> {
-        WorkflowTemplateRepo::find_by_id(&self.pool, id).await
+        WorkflowTemplateRepo::find_by_id(&self.pool, id).await.map_err(Into::into)
     }
 
     async fn list_templates(&self, entity_type: &str) -> Result<Vec<WorkflowTemplate>> {
-        WorkflowTemplateRepo::list_by_entity_type(&self.pool, entity_type).await
+        WorkflowTemplateRepo::list_by_entity_type(&self.pool, entity_type).await.map_err(Into::into)
     }
 
     async fn publish_template(&self, id: i64) -> Result<()> {
@@ -253,7 +253,7 @@ impl WorkflowService for WorkflowEngine {
     }
 
     async fn get_instance(&self, id: i64) -> Result<Option<WorkflowInstance>> {
-        WorkflowInstanceRepo::find_by_id(&self.pool, id).await
+        WorkflowInstanceRepo::find_by_id(&self.pool, id).await.map_err(Into::into)
     }
 
     async fn list_instances(
@@ -261,7 +261,7 @@ impl WorkflowService for WorkflowEngine {
         entity_type: &str,
         entity_id: i64,
     ) -> Result<Vec<WorkflowInstance>> {
-        WorkflowInstanceRepo::find_by_entity(&self.pool, entity_type, entity_id).await
+        WorkflowInstanceRepo::find_by_entity(&self.pool, entity_type, entity_id).await.map_err(Into::into)
     }
 
     async fn approve_task(
@@ -589,7 +589,7 @@ impl WorkflowService for WorkflowEngine {
         user_id: i64,
         status: Option<&str>,
     ) -> Result<Vec<WorkflowTask>> {
-        WorkflowTaskRepo::find_by_assignee(&self.pool, user_id, status).await
+        WorkflowTaskRepo::find_by_assignee(&self.pool, user_id, status).await.map_err(Into::into)
     }
 
     async fn retry_auto_task(&self, instance_id: i64, operator_id: i64) -> Result<()> {
@@ -691,7 +691,7 @@ impl WorkflowService for WorkflowEngine {
     }
 
     async fn list_history(&self, instance_id: i64) -> Result<Vec<WorkflowHistory>> {
-        WorkflowHistoryRepo::list_by_instance(&self.pool, instance_id).await
+        WorkflowHistoryRepo::list_by_instance(&self.pool, instance_id).await.map_err(Into::into)
     }
 
     async fn trigger(

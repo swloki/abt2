@@ -68,7 +68,7 @@ impl SupplierService for SupplierServiceImpl {
                     .repo
                     .check_tax_number_exists(ctx.executor, tax)
                     .await
-                    .map_err(DomainError::Internal)?;
+                    ?;
                 if exists {
                     warnings.push(format!("tax_number '{tax}' already exists in suppliers or customers"));
                 }
@@ -79,7 +79,7 @@ impl SupplierService for SupplierServiceImpl {
             .repo
             .create(ctx.executor, &code, &req, ctx.operator_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // Init state machine — Prospective
         self.state_machine
@@ -131,7 +131,7 @@ impl SupplierService for SupplierServiceImpl {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Supplier"))
     }
 
@@ -146,7 +146,7 @@ impl SupplierService for SupplierServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
         // Handle status transition
@@ -188,7 +188,7 @@ impl SupplierService for SupplierServiceImpl {
         self.repo
             .update(ctx.executor, id, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -213,7 +213,7 @@ impl SupplierService for SupplierServiceImpl {
         self.repo
             .query(ctx.executor, &filter, &page)
             .await
-            .map_err(DomainError::Internal)
+            
     }
 
     // -- Contacts --------------------------------------------------------------
@@ -228,14 +228,14 @@ impl SupplierService for SupplierServiceImpl {
         self.repo
             .find_by_id(ctx.executor, sid)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
         let contact_id = self
             .contact_repo
             .create(ctx.executor, sid, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -263,7 +263,7 @@ impl SupplierService for SupplierServiceImpl {
             .contact_repo
             .find_by_id(ctx.executor, contact_id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SupplierContact"))?;
 
         if existing.supplier_id != sid {
@@ -273,7 +273,7 @@ impl SupplierService for SupplierServiceImpl {
         self.contact_repo
             .update(ctx.executor, contact_id, sid, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -300,7 +300,7 @@ impl SupplierService for SupplierServiceImpl {
             .contact_repo
             .find_by_id(ctx.executor, contact_id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SupplierContact"))?;
 
         if existing.supplier_id != sid {
@@ -310,7 +310,7 @@ impl SupplierService for SupplierServiceImpl {
         self.contact_repo
             .delete(ctx.executor, contact_id, sid)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -334,7 +334,7 @@ impl SupplierService for SupplierServiceImpl {
         self.contact_repo
             .find_by_supplier_id(ctx.executor, sid)
             .await
-            .map_err(DomainError::Internal)
+            
     }
 
     // -- Bank Accounts (P0 high-risk) ------------------------------------------
@@ -349,14 +349,14 @@ impl SupplierService for SupplierServiceImpl {
         self.repo
             .find_by_id(ctx.executor, sid)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
         let account_id = self
             .bank_account_repo
             .create(ctx.executor, sid, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // P0: mandatory audit with field-level detail
         let changes = serde_json::json!({
@@ -413,7 +413,7 @@ impl SupplierService for SupplierServiceImpl {
             .bank_account_repo
             .update(ctx.executor, account_id, sid, &req)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SupplierBankAccount"))?;
 
         // P0: mandatory audit with field-level diff
@@ -503,7 +503,7 @@ impl SupplierService for SupplierServiceImpl {
             .bank_account_repo
             .find_by_id(ctx.executor, account_id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SupplierBankAccount"))?;
 
         if existing.supplier_id != sid {
@@ -513,7 +513,7 @@ impl SupplierService for SupplierServiceImpl {
         self.bank_account_repo
             .delete(ctx.executor, account_id, sid)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // P0: mandatory audit
         let changes = serde_json::json!({
@@ -562,6 +562,6 @@ impl SupplierService for SupplierServiceImpl {
         self.bank_account_repo
             .find_by_supplier_id(ctx.executor, sid)
             .await
-            .map_err(DomainError::Internal)
+            
     }
 }

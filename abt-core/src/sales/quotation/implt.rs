@@ -128,13 +128,13 @@ impl QuotationService for QuotationServiceImpl {
                 ctx.operator_id,
             )
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let item_inputs = Self::build_item_inputs(&req.items);
         self.item_repo
             .create_batch(ctx.executor, id, &item_inputs)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.state_machine
             .transition(ctx.reborrow(), "QuotationStatus", id, "Draft", None)
@@ -173,7 +173,7 @@ impl QuotationService for QuotationServiceImpl {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Quotation"))
     }
 
@@ -187,7 +187,7 @@ impl QuotationService for QuotationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
         if existing.status != QuotationStatus::Draft {
@@ -206,25 +206,25 @@ impl QuotationService for QuotationServiceImpl {
             self.item_repo
                 .delete_by_quotation_id(ctx.executor, id)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
 
             let item_inputs = Self::build_item_inputs(items);
             self.item_repo
                 .create_batch(ctx.executor, id, &item_inputs)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
 
             let (total_amount, total_cost, estimated_margin) = Self::calculate_amounts(items);
             self.repo
                 .update_amounts(ctx.executor, id, total_amount, total_cost, estimated_margin)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
         }
 
         self.repo
             .update(ctx.executor, id, &req)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(ctx.reborrow(), "Quotation", id, AuditAction::Update, None, None)
@@ -238,7 +238,7 @@ impl QuotationService for QuotationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
         if existing.status != QuotationStatus::Draft {
@@ -251,7 +251,7 @@ impl QuotationService for QuotationServiceImpl {
             .item_repo
             .find_by_quotation_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         if items.is_empty() {
             return Err(DomainError::business_rule(
@@ -266,7 +266,7 @@ impl QuotationService for QuotationServiceImpl {
         self.repo
             .update_status(ctx.executor, id, QuotationStatus::Sent)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -306,7 +306,7 @@ impl QuotationService for QuotationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
         if existing.status != QuotationStatus::Sent {
@@ -320,7 +320,7 @@ impl QuotationService for QuotationServiceImpl {
         self.repo
             .update_status(ctx.executor, id, QuotationStatus::Accepted)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -361,7 +361,7 @@ impl QuotationService for QuotationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
         if existing.status != QuotationStatus::Sent {
@@ -375,7 +375,7 @@ impl QuotationService for QuotationServiceImpl {
         self.repo
             .update_status(ctx.executor, id, QuotationStatus::Rejected)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -415,7 +415,7 @@ impl QuotationService for QuotationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
         if existing.status != QuotationStatus::Draft && existing.status != QuotationStatus::Sent {
@@ -431,7 +431,7 @@ impl QuotationService for QuotationServiceImpl {
         self.repo
             .update_status(ctx.executor, id, QuotationStatus::Expired)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -471,7 +471,7 @@ impl QuotationService for QuotationServiceImpl {
             .repo
             .expire_overdue(ctx.executor)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
         Ok(count as i32)
     }
 
@@ -483,7 +483,7 @@ impl QuotationService for QuotationServiceImpl {
         self.item_repo
             .find_by_quotation_id(ctx.executor, quotation_id)
             .await
-            .map_err(DomainError::Internal)
+            
     }
 
     async fn list(
@@ -502,6 +502,6 @@ impl QuotationService for QuotationServiceImpl {
                 ctx.department_id,
             )
             .await
-            .map_err(DomainError::Internal)
+            
     }
 }

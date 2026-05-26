@@ -34,7 +34,6 @@ pub struct ReconciliationServiceImpl {
 }
 
 impl ReconciliationServiceImpl {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         repo: ReconciliationRepo,
         item_repo: ReconciliationItemRepo,
@@ -70,7 +69,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .repo
             .exists_by_customer_period(ctx.executor, customer_id, &period)
             .await
-            .map_err(DomainError::Internal)?
+            ?
         {
             return Err(DomainError::duplicate(
                 "Reconciliation already exists for this customer and period",
@@ -80,7 +79,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         // Aggregate shipping items for this customer+period
         let aggregated = aggregate_shipping_items(ctx.executor, customer_id, &period)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let total_amount: Decimal = aggregated.iter().map(|a| a.amount).sum();
 
@@ -101,7 +100,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
                 ctx.operator_id,
             )
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let item_inputs: Vec<ReconciliationItemInput> = aggregated
             .iter()
@@ -119,7 +118,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             self.item_repo
                 .create_batch(ctx.executor, id, &item_inputs)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
         }
 
         // Create doc links for each unique shipping request
@@ -172,7 +171,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))
     }
 
@@ -181,7 +180,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
 
         if existing.status != ReconciliationStatus::Draft {
@@ -195,7 +194,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReconciliationStatus::Sent)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -216,7 +215,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
 
         if existing.status != ReconciliationStatus::Sent {
@@ -227,7 +226,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .item_repo
             .all_confirmed(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         if !all_confirmed {
             return Err(DomainError::business_rule(
@@ -239,7 +238,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         self.repo
             .update_amounts(ctx.executor, id, existing.total_amount, Decimal::ZERO)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.state_machine
             .transition(ctx.reborrow(), "ReconciliationStatus", id, "Confirmed", None)
@@ -248,14 +247,14 @@ impl ReconciliationService for ReconciliationServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReconciliationStatus::Confirmed)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // Create AR voucher via CostEntry
         let items = self
             .item_repo
             .find_by_reconciliation_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let period = existing.period.clone();
         let mut cost_entries = Vec::with_capacity(items.len());
@@ -299,7 +298,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
 
         if existing.status != ReconciliationStatus::Sent
@@ -317,7 +316,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReconciliationStatus::Disputed)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -341,7 +340,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
 
         if existing.status != ReconciliationStatus::Disputed {
@@ -355,7 +354,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReconciliationStatus::Draft)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -376,7 +375,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
 
         if existing.status != ReconciliationStatus::Disputed {
@@ -394,7 +393,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
                 existing.difference,
             )
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.state_machine
             .transition(ctx.reborrow(), "ReconciliationStatus", id, "Settled", None)
@@ -403,14 +402,14 @@ impl ReconciliationService for ReconciliationServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReconciliationStatus::Settled)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // Create AR voucher via CostEntry for confirmed items (disputed path bypasses confirm)
         let items = self
             .item_repo
             .find_by_reconciliation_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let period = existing.period.clone();
         let mut cost_entries = Vec::with_capacity(items.len());
@@ -456,7 +455,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
 
         if existing.status != ReconciliationStatus::Confirmed {
@@ -472,7 +471,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReconciliationStatus::Settled)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // FMS: 对账结算时创建现金日记账 + 核销
         let _ = self.cash_journal.create(
@@ -523,6 +522,6 @@ impl ReconciliationService for ReconciliationServiceImpl {
                 ctx.department_id,
             )
             .await
-            .map_err(DomainError::Internal)
+            
     }
 }

@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::Row;
+use crate::shared::types::RepoResult;
 
 use super::model::{
     CreateOutsourcingOrderReq, OutsourcingMaterialItem, OutsourcingOrder, OutsourcingOrderQuery,
@@ -20,7 +21,7 @@ impl OutsourcingOrderRepo {
         req: &CreateOutsourcingOrderReq,
         doc_number: &str,
         operator_id: i64,
-    ) -> Result<i64, sqlx::Error> {
+    ) -> RepoResult<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO outsourcing_orders
@@ -48,13 +49,13 @@ impl OutsourcingOrderRepo {
         .fetch_one(executor)
         .await?;
 
-        row.try_get("id")
+        Ok(row.try_get("id")?)
     }
 
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<OutsourcingOrder>, sqlx::Error> {
+    ) -> RepoResult<Option<OutsourcingOrder>> {
         sqlx::query_as::<_, OutsourcingOrder>(
             r#"
             SELECT id, doc_number, work_order_id, routing_id, supplier_id, product_id,
@@ -67,7 +68,7 @@ impl OutsourcingOrderRepo {
         )
         .bind(id)
         .fetch_optional(executor)
-        .await
+        .await.map_err(Into::into)
     }
 
     pub async fn update(
@@ -79,7 +80,7 @@ impl OutsourcingOrderRepo {
         unit_price: Option<Decimal>,
         scheduled_date: Option<NaiveDate>,
         remark: Option<&str>,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE outsourcing_orders
@@ -113,7 +114,7 @@ impl OutsourcingOrderRepo {
         status: OutsourcingStatus,
         extra_set: &str,
         extra_params: &[(&str, Decimal)],
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let sql = format!(
             r#"
             UPDATE outsourcing_orders
@@ -135,7 +136,7 @@ impl OutsourcingOrderRepo {
         expected_version: i32,
         status: OutsourcingStatus,
         add_qty: Decimal,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         Self::update_status_and_version(
             executor,
             id,
@@ -152,7 +153,7 @@ impl OutsourcingOrderRepo {
         q: &OutsourcingOrderQuery,
         page: &PageParams,
         scope: (DataScope, i64, Option<i64>),
-    ) -> Result<(Vec<OutsourcingOrder>, u64), sqlx::Error> {
+    ) -> RepoResult<(Vec<OutsourcingOrder>, u64)> {
         let (data_scope, operator_id, _department_id) = scope;
         let scoped = !matches!(data_scope, DataScope::All);
         let scope_clause = if scoped { "AND operator_id = $8" } else { "" };
@@ -233,7 +234,7 @@ impl OutsourcingMaterialRepo {
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
         items: &[OutsourcingMaterialItem],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         for item in items {
             sqlx::query(
                 r#"
@@ -257,7 +258,7 @@ impl OutsourcingMaterialRepo {
     pub async fn list_by_outsourcing_id(
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
-    ) -> Result<Vec<super::model::OutsourcingMaterial>, sqlx::Error> {
+    ) -> RepoResult<Vec<super::model::OutsourcingMaterial>> {
         sqlx::query_as::<_, super::model::OutsourcingMaterial>(
             r#"
             SELECT id, outsourcing_id, product_id, planned_qty, sent_qty, returned_qty, unit_cost
@@ -267,14 +268,14 @@ impl OutsourcingMaterialRepo {
         )
         .bind(outsourcing_id)
         .fetch_all(executor)
-        .await
+        .await.map_err(Into::into)
     }
 
     pub async fn replace_batch(
         executor: &mut sqlx::postgres::PgConnection,
         outsourcing_id: i64,
         items: &[OutsourcingMaterialItem],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query("DELETE FROM outsourcing_materials WHERE outsourcing_id = $1")
             .bind(outsourcing_id)
             .execute(&mut *executor)
@@ -287,7 +288,7 @@ impl OutsourcingMaterialRepo {
         outsourcing_id: i64,
         product_id: i64,
         add_qty: Decimal,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query(
             "UPDATE outsourcing_materials SET sent_qty = sent_qty + $3 WHERE outsourcing_id = $1 AND product_id = $2",
         )

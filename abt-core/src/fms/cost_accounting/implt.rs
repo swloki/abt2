@@ -23,7 +23,7 @@ impl CostAccountingService for CostAccountingServiceImpl {
     ) -> Result<ProductCostSummary, DomainError> {
         CostAccountingRepo::get_product_cost_by_period(ctx.executor, product_id, &period)
             .await
-            .map_err(DomainError::Internal)
+            
     }
 
     async fn get_work_order_cost(
@@ -33,7 +33,7 @@ impl CostAccountingService for CostAccountingServiceImpl {
     ) -> Result<WorkOrderCostSummary, DomainError> {
         CostAccountingRepo::get_work_order_cost(ctx.executor, work_order_id)
             .await
-            .map_err(DomainError::Internal)
+            
     }
 
     async fn get_profit_center_summary(
@@ -53,7 +53,7 @@ impl CostAccountingService for CostAccountingServiceImpl {
             page.offset(),
         )
         .await
-        .map_err(DomainError::Internal)?;
+        ?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
@@ -65,6 +65,6 @@ impl CostAccountingService for CostAccountingServiceImpl {
     ) -> Result<MarginAnalysis, DomainError> {
         CostAccountingRepo::get_margin_analysis(ctx.executor, order_id)
             .await
-            .map_err(DomainError::Internal)
+            
     }
 }

@@ -39,12 +39,11 @@ impl RoleService for RoleServiceImpl {
             parent_role_id,
         )
         .await
-        .map_err(|e| {
-            if is_unique_violation(&e) {
+        .map_err(|e| match &e {
+            DomainError::Internal(inner) if is_unique_violation(inner) => {
                 DomainError::duplicate("Role with this code")
-            } else {
-                DomainError::Internal(e.into())
             }
+            _ => e,
         })?;
 
         Ok(role)
@@ -59,25 +58,16 @@ impl RoleService for RoleServiceImpl {
     ) -> Result<Role, DomainError> {
         let role = IdentityRepo::update_role(&mut *ctx.executor, role_id, role_name, description)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("Role")
-                } else {
-                    DomainError::Internal(e.into())
-                }
+            .map_err(|e| match &e {
+                DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("Role"),
+                _ => e,
             })?;
 
         Ok(role)
     }
 
-    async fn delete_role(
-        &self,
-        ctx: ServiceContext<'_>,
-        role_id: i64,
-    ) -> Result<(), DomainError> {
-        IdentityRepo::delete_role(&mut *ctx.executor, role_id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+    async fn delete_role(&self, ctx: ServiceContext<'_>, role_id: i64) -> Result<(), DomainError> {
+        IdentityRepo::delete_role(&mut *ctx.executor, role_id).await?;
 
         // Reload permission cache after role deletion
         let pool = self.pool.clone();
@@ -86,13 +76,10 @@ impl RoleService for RoleServiceImpl {
         Ok(())
     }
 
-    async fn list_roles(
-        &self,
-        ctx: ServiceContext<'_>,
-    ) -> Result<Vec<Role>, DomainError> {
+    async fn list_roles(&self, ctx: ServiceContext<'_>) -> Result<Vec<Role>, DomainError> {
         IdentityRepo::list_roles(&mut *ctx.executor)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))
+            .map_err(Into::into)
     }
 
     async fn assign_permissions(
@@ -101,9 +88,7 @@ impl RoleService for RoleServiceImpl {
         role_id: i64,
         permissions: Vec<(String, String)>,
     ) -> Result<(), DomainError> {
-        IdentityRepo::assign_permissions(&mut *ctx.executor, role_id, &permissions)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+        IdentityRepo::assign_permissions(&mut *ctx.executor, role_id, &permissions).await?;
 
         // Reload permission cache after permission change
         let pool = self.pool.clone();
@@ -118,9 +103,7 @@ impl RoleService for RoleServiceImpl {
         role_id: i64,
         permissions: Vec<(String, String)>,
     ) -> Result<(), DomainError> {
-        IdentityRepo::remove_permissions(&mut *ctx.executor, role_id, &permissions)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+        IdentityRepo::remove_permissions(&mut *ctx.executor, role_id, &permissions).await?;
 
         // Reload permission cache after permission change
         let pool = self.pool.clone();
@@ -136,30 +119,36 @@ impl RoleService for RoleServiceImpl {
     ) -> Result<RoleWithPermissions, DomainError> {
         let role = IdentityRepo::get_role_by_id(&mut *ctx.executor, role_id)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("Role")
-                } else {
-                    DomainError::Internal(e.into())
-                }
+            .map_err(|e| match &e {
+                DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("Role"),
+                _ => e,
             })?;
 
-        let permissions = IdentityRepo::get_permissions_for_role(&mut *ctx.executor, role_id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+        let permissions =
+            IdentityRepo::get_permissions_for_role(&mut *ctx.executor, role_id).await?;
 
         Ok(RoleWithPermissions { role, permissions })
     }
 }
 
-fn is_unique_violation(err: &sqlx::Error) -> bool {
-    if let sqlx::Error::Database(db_err) = err {
-        db_err.code().as_ref().map(|c| c == "23505").unwrap_or(false)
-    } else {
-        false
-    }
+fn is_unique_violation(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<sqlx::Error>()
+        .map(|e| {
+            if let sqlx::Error::Database(db_err) = e {
+                db_err
+                    .code()
+                    .as_ref()
+                    .map(|c| c == "23505")
+                    .unwrap_or(false)
+            } else {
+                false
+            }
+        })
+        .unwrap_or(false)
 }
 
-fn is_no_row(err: &sqlx::Error) -> bool {
-    matches!(err, sqlx::Error::RowNotFound)
+fn is_no_row(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<sqlx::Error>()
+        .map(|e| matches!(e, sqlx::Error::RowNotFound))
+        .unwrap_or(false)
 }

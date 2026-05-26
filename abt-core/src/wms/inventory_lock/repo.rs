@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::model::{CreateLockReq, InventoryLock, LockFilter};
 use crate::shared::types::pagination::PaginatedResult;
@@ -12,7 +13,7 @@ impl InventoryLockRepo {
         doc_number: &str,
         req: &CreateLockReq,
         operator_id: i64,
-    ) -> Result<InventoryLock, sqlx::Error> {
+    ) -> RepoResult<InventoryLock> {
         let row = sqlx::query(
             r#"
             INSERT INTO inventory_locks
@@ -34,13 +35,13 @@ impl InventoryLockRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        InventoryLock::from_row(&row)
+        Ok(InventoryLock::from_row(&row)?)
     }
 
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<InventoryLock>, sqlx::Error> {
+    ) -> RepoResult<Option<InventoryLock>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, product_id, warehouse_id, locked_qty, lock_reason,
@@ -53,14 +54,15 @@ impl InventoryLockRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| InventoryLock::from_row(&r)).transpose()
+        row.map(|r| InventoryLock::from_row(&r).map_err(Into::into)).transpose()
+
     }
 
     pub async fn update_status(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: LockStatus,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE inventory_locks
@@ -81,7 +83,7 @@ impl InventoryLockRepo {
         filter: &LockFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<InventoryLock>, sqlx::Error> {
+    ) -> RepoResult<PaginatedResult<InventoryLock>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["1=1".to_string()];

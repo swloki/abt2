@@ -59,7 +59,6 @@ pub struct OutsourcingOrderServiceImpl {
 }
 
 impl OutsourcingOrderServiceImpl {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pool: Arc<PgPool>,
         doc_seq: Arc<dyn DocumentSequenceService>,

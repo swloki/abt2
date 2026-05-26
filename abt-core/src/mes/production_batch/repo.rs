@@ -3,6 +3,7 @@
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use super::super::enums::*;
@@ -20,7 +21,7 @@ impl ProductionBatchRepo {
         batch_no: &str,
         card_sn: &str,
         operator_id: i64,
-    ) -> Result<ProductionBatch, sqlx::Error> {
+    ) -> RepoResult<ProductionBatch> {
         let row = sqlx::query(
             r#"
             INSERT INTO production_batches
@@ -44,13 +45,13 @@ impl ProductionBatchRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        ProductionBatch::from_row(&row)
+        Ok(ProductionBatch::from_row(&row)?)
     }
 
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<ProductionBatch>, sqlx::Error> {
+    ) -> RepoResult<Option<ProductionBatch>> {
         let row = sqlx::query(
             r#"
             SELECT id, batch_no, card_sn, work_order_id, product_id, batch_qty,
@@ -64,13 +65,14 @@ impl ProductionBatchRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| ProductionBatch::from_row(&r)).transpose()
+        row.map(|r| ProductionBatch::from_row(&r).map_err(Into::into)).transpose()
+
     }
 
     pub async fn list_by_work_order(
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
-    ) -> Result<Vec<ProductionBatch>, sqlx::Error> {
+    ) -> RepoResult<Vec<ProductionBatch>> {
         let rows = sqlx::query(
             r#"
             SELECT id, batch_no, card_sn, work_order_id, product_id, batch_qty,
@@ -97,7 +99,7 @@ impl ProductionBatchRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: BatchStatus,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query(
             r#"
             UPDATE production_batches
@@ -118,7 +120,7 @@ impl ProductionBatchRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         current_step: i32,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query(
             r#"
             UPDATE production_batches
@@ -150,7 +152,7 @@ impl WorkOrderRoutingRepo {
     pub async fn insert_for_work_order(
         executor: &mut sqlx::postgres::PgConnection,
         steps: &[WorkOrderRouting],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         for step in steps {
             sqlx::query(
                 r#"
@@ -185,7 +187,7 @@ impl WorkOrderRoutingRepo {
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
         step_no: i32,
-    ) -> Result<Option<WorkOrderRouting>, sqlx::Error> {
+    ) -> RepoResult<Option<WorkOrderRouting>> {
         let row = sqlx::query(
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
@@ -201,14 +203,14 @@ impl WorkOrderRoutingRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| WorkOrderRouting::from_row(&r)).transpose()
+        row.map(|r| Ok(WorkOrderRouting::from_row(&r)?)).transpose()
     }
 
     /// 按工单 ID 查找所有工序（按 step_no 排序）
     pub async fn get_by_work_order_id(
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
-    ) -> Result<Vec<WorkOrderRouting>, sqlx::Error> {
+    ) -> RepoResult<Vec<WorkOrderRouting>> {
         let rows = sqlx::query(
             r#"
             SELECT id, work_order_id, step_no, process_name, work_center_id,
@@ -238,7 +240,7 @@ impl WorkOrderRoutingRepo {
         id: i64,
         completed_delta: Decimal,
         defect_delta: Decimal,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query(
             r#"
             UPDATE work_order_routings
@@ -261,7 +263,7 @@ impl WorkOrderRoutingRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: RoutingStatus,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query(
             r#"
             UPDATE work_order_routings
@@ -322,7 +324,7 @@ impl WorkReportRepo {
         work_hours: Decimal,
         remark: &str,
         operator_id: i64,
-    ) -> Result<(WorkReportRow, bool), sqlx::Error> {
+    ) -> RepoResult<(WorkReportRow, bool)> {
         let row = sqlx::query(
             r#"
             INSERT INTO work_reports

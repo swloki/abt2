@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use sqlx::Row;
+use crate::shared::types::RepoResult;
 
 use super::model::{
     CreateOrderItemRequest, CreatePurchaseOrderRequest, PurchaseOrder, PurchaseOrderItem,
@@ -19,7 +20,7 @@ impl PurchaseOrderRepo {
         doc_number: &str,
         total_amount: Decimal,
         operator_id: i64,
-    ) -> Result<i64, sqlx::Error> {
+    ) -> RepoResult<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO purchase_orders
@@ -42,14 +43,14 @@ impl PurchaseOrderRepo {
         .fetch_one(executor)
         .await?;
 
-        row.try_get("id")
+        Ok(row.try_get("id")?)
     }
 
     /// 按主键查询（软删除行过滤）
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<PurchaseOrder>, sqlx::Error> {
+    ) -> RepoResult<Option<PurchaseOrder>> {
         sqlx::query_as::<_, PurchaseOrder>(
             r#"
             SELECT id, doc_number, supplier_id, order_date, expected_delivery_date,
@@ -61,7 +62,7 @@ impl PurchaseOrderRepo {
         )
         .bind(id)
         .fetch_optional(executor)
-        .await
+        .await.map_err(Into::into)
     }
 
     /// 动态条件分页查询（支持 DataScope 行级权限过滤）
@@ -70,7 +71,7 @@ impl PurchaseOrderRepo {
         q: &PurchaseOrderQuery,
         page: &PageParams,
         scope: (DataScope, i64, Option<i64>),
-    ) -> Result<(Vec<PurchaseOrder>, u64), sqlx::Error> {
+    ) -> RepoResult<(Vec<PurchaseOrder>, u64)> {
         let (data_scope, operator_id, _department_id) = scope;
         // purchase_orders 无 department_id，Department 降级为 SelfOnly
         let scope_clause = match data_scope {
@@ -131,7 +132,7 @@ impl PurchaseOrderRepo {
         id: i64,
         status: PurchaseOrderStatus,
         updated_at: &DateTime<Utc>,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE purchase_orders
@@ -161,7 +162,7 @@ impl PurchaseOrderItemRepo {
         executor: &mut sqlx::postgres::PgConnection,
         order_id: i64,
         items: &[CreateOrderItemRequest],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         for item in items {
             let amount = item.quantity * item.unit_price;
             sqlx::query(
@@ -191,7 +192,7 @@ impl PurchaseOrderItemRepo {
     pub async fn list_by_order_id(
         executor: &mut sqlx::postgres::PgConnection,
         order_id: i64,
-    ) -> Result<Vec<PurchaseOrderItem>, sqlx::Error> {
+    ) -> RepoResult<Vec<PurchaseOrderItem>> {
         sqlx::query_as::<_, PurchaseOrderItem>(
             r#"
             SELECT id, order_id, line_no, product_id, description, quantity, unit_price,
@@ -204,14 +205,14 @@ impl PurchaseOrderItemRepo {
         )
         .bind(order_id)
         .fetch_all(executor)
-        .await
+        .await.map_err(Into::into)
     }
 
     /// 按供应商查询所有已收货（Confirmed/PartiallyReceived/Received）订单明细
     pub async fn list_received_by_supplier(
         executor: &mut sqlx::postgres::PgConnection,
         supplier_id: i64,
-    ) -> Result<Vec<PurchaseOrderItem>, sqlx::Error> {
+    ) -> RepoResult<Vec<PurchaseOrderItem>> {
         sqlx::query_as::<_, PurchaseOrderItem>(
             r#"
             SELECT poi.id, poi.order_id, poi.line_no, poi.product_id, poi.description,
@@ -232,6 +233,6 @@ impl PurchaseOrderItemRepo {
         .bind(PurchaseOrderStatus::PartiallyReceived)
         .bind(PurchaseOrderStatus::Received)
         .fetch_all(executor)
-        .await
+        .await.map_err(Into::into)
     }
 }

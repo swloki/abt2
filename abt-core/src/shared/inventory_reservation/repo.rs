@@ -1,5 +1,6 @@
 use rust_decimal::Decimal;
 use sqlx::{FromRow, Row};
+use crate::shared::types::RepoResult;
 
 use super::model::{InventoryReservation, ReserveRequest};
 use crate::shared::enums::{DocumentType, ReservationStatus};
@@ -12,7 +13,7 @@ impl InventoryReservationRepo {
         executor: &mut sqlx::postgres::PgConnection,
         product_id: i64,
         warehouse_id: i64,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query("SELECT pg_advisory_xact_lock($1, $2)")
             .bind(product_id)
             .bind(warehouse_id)
@@ -25,7 +26,7 @@ impl InventoryReservationRepo {
     pub async fn insert(
         executor: &mut sqlx::postgres::PgConnection,
         req: &ReserveRequest,
-    ) -> Result<InventoryReservation, sqlx::Error> {
+    ) -> RepoResult<InventoryReservation> {
         let row = sqlx::query(
             r#"
             INSERT INTO inventory_reservations
@@ -49,7 +50,7 @@ impl InventoryReservationRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        InventoryReservation::from_row(&row)
+        Ok(InventoryReservation::from_row(&row)?)
     }
 
     /// 履行预留：UPDATE status = Fulfilled WHERE id = $1 AND status = Active
@@ -57,7 +58,7 @@ impl InventoryReservationRepo {
     pub async fn fulfill(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE inventory_reservations
@@ -79,7 +80,7 @@ impl InventoryReservationRepo {
     pub async fn cancel(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE inventory_reservations
@@ -102,7 +103,7 @@ impl InventoryReservationRepo {
         executor: &mut sqlx::postgres::PgConnection,
         product_id: i64,
         warehouse_id: Option<i64>,
-    ) -> Result<Decimal, sqlx::Error> {
+    ) -> RepoResult<Decimal> {
         let row = sqlx::query(
             r#"
             SELECT COALESCE(SUM(reserved_qty), 0) AS total
@@ -127,7 +128,7 @@ impl InventoryReservationRepo {
         executor: &mut sqlx::postgres::PgConnection,
         source_type: DocumentType,
         source_id: i64,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE inventory_reservations
@@ -150,7 +151,7 @@ impl InventoryReservationRepo {
         executor: &mut sqlx::postgres::PgConnection,
         source_type: DocumentType,
         source_line_id: i64,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE inventory_reservations

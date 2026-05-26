@@ -40,13 +40,13 @@ impl ProductService for ProductServiceImpl {
         let code = self.doc_seq.next_number(ctx.reborrow(), DocumentType::Product).await?;
 
         if !self.repo.check_code_unique(ctx.executor, &code)
-            .await.map_err(DomainError::Internal)?
+            .await?
         {
             return Err(DomainError::duplicate(format!("Product code: {code}")));
         }
 
         let id = self.repo.create(ctx.executor, &code, &req)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.state_machine
             .transition(ctx.reborrow(), "ProductStatus", id, "Active", None)
@@ -68,11 +68,11 @@ impl ProductService for ProductServiceImpl {
 
     async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateProductReq) -> Result<(), DomainError> {
         let _existing = self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("Product"))?;
 
         self.repo.update(ctx.executor, id, &req)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.audit.record(ctx.reborrow(), "Product", id, AuditAction::Update, None, None).await?;
 
@@ -89,11 +89,11 @@ impl ProductService for ProductServiceImpl {
 
     async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
         let _existing = self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("Product"))?;
 
         self.repo.delete(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.audit.record(ctx.reborrow(), "Product", id, AuditAction::Delete, None, None).await?;
 
@@ -110,18 +110,18 @@ impl ProductService for ProductServiceImpl {
 
     async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Product, DomainError> {
         self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("Product"))
     }
 
     async fn get_by_ids(&self, ctx: ServiceContext<'_>, ids: Vec<i64>) -> Result<Vec<Product>, DomainError> {
         self.repo.find_by_ids(ctx.executor, ids)
-            .await.map_err(DomainError::Internal)
+            .await
     }
 
     async fn list(&self, ctx: ServiceContext<'_>, filter: ProductQuery, page: PageParams) -> Result<PaginatedResult<Product>, DomainError> {
         self.repo.query(ctx.executor, &filter, &page)
-            .await.map_err(DomainError::Internal)
+            .await
     }
 
     async fn check_product_usage(&self, ctx: ServiceContext<'_>, product_id: i64, query: UsageQuery) -> Result<PaginatedResult<UsageEntry>, DomainError> {

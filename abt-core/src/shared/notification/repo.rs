@@ -1,5 +1,5 @@
-use anyhow::Result;
 use common::PgExecutor;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use crate::shared::types::PaginatedResult;
@@ -7,7 +7,7 @@ use crate::shared::types::PaginatedResult;
 pub struct NotificationRepo;
 
 impl NotificationRepo {
-    pub async fn create(&self, executor: PgExecutor<'_>, req: &CreateNotificationReq) -> Result<i64> {
+    pub async fn create(&self, executor: PgExecutor<'_>, req: &CreateNotificationReq) -> RepoResult<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO notifications (user_id, notification_type, title, content, related_type, related_id)
                VALUES ($1, $2, $3, $4, $5, $6)
@@ -24,7 +24,7 @@ impl NotificationRepo {
         Ok(id)
     }
 
-    pub async fn mark_read(&self, executor: PgExecutor<'_>, id: i64, user_id: i64) -> Result<bool> {
+    pub async fn mark_read(&self, executor: PgExecutor<'_>, id: i64, user_id: i64) -> RepoResult<bool> {
         let rows = sqlx::query(
             "UPDATE notifications SET is_read = true, read_at = NOW() WHERE notification_id = $1 AND user_id = $2 AND is_read = false",
         )
@@ -35,7 +35,7 @@ impl NotificationRepo {
         Ok(rows.rows_affected() > 0)
     }
 
-    pub async fn mark_all_read(&self, executor: PgExecutor<'_>, user_id: i64, notification_type: Option<NotificationType>) -> Result<u64> {
+    pub async fn mark_all_read(&self, executor: PgExecutor<'_>, user_id: i64, notification_type: Option<NotificationType>) -> RepoResult<u64> {
         let rows = if let Some(nt) = notification_type {
             sqlx::query(
                 "UPDATE notifications SET is_read = true, read_at = NOW() WHERE user_id = $1 AND is_read = false AND notification_type = $2",
@@ -55,7 +55,7 @@ impl NotificationRepo {
         Ok(rows.rows_affected())
     }
 
-    pub async fn get_unread_count(&self, executor: PgExecutor<'_>, user_id: i64) -> Result<i64> {
+    pub async fn get_unread_count(&self, executor: PgExecutor<'_>, user_id: i64) -> RepoResult<i64> {
         let count = sqlx::query_scalar::<sqlx::Postgres, i64>(
             "SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = false",
         )
@@ -71,7 +71,7 @@ impl NotificationRepo {
         executor: PgExecutor<'_>,
         user_id: i64,
         query: &NotificationQuery,
-    ) -> Result<PaginatedResult<Notification>> {
+    ) -> RepoResult<PaginatedResult<Notification>> {
         let mut conditions = vec!["user_id = $1".to_string()];
         let mut param_idx = 2u32;
 

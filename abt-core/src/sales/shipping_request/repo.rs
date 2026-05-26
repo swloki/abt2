@@ -1,6 +1,6 @@
-use anyhow::Result;
 use chrono::NaiveDate;
 use common::PgExecutor;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
@@ -16,7 +16,6 @@ const ITEM_COLUMNS: &str = "id, shipping_request_id, line_no, order_item_id, pro
 pub struct ShippingRequestRepo;
 
 impl ShippingRequestRepo {
-    #[allow(clippy::too_many_arguments)]
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
@@ -27,7 +26,7 @@ impl ShippingRequestRepo {
         shipping_address: &str,
         remark: &str,
         operator_id: i64,
-    ) -> Result<i64> {
+    ) -> RepoResult<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO shipping_requests (doc_number, order_id, customer_id, expected_ship_date, shipping_address, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -49,7 +48,7 @@ impl ShippingRequestRepo {
         &self,
         executor: PgExecutor<'_>,
         id: i64,
-    ) -> Result<Option<ShippingRequest>> {
+    ) -> RepoResult<Option<ShippingRequest>> {
         let sr = sqlx::query_as::<sqlx::Postgres, ShippingRequest>(
             &format!("SELECT {SR_COLUMNS} FROM shipping_requests WHERE id = $1 AND deleted_at IS NULL"),
         )
@@ -64,7 +63,7 @@ impl ShippingRequestRepo {
         executor: PgExecutor<'_>,
         id: i64,
         status: ShippingStatus,
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         sqlx::query(
             "UPDATE shipping_requests SET status = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -81,7 +80,7 @@ impl ShippingRequestRepo {
         executor: PgExecutor<'_>,
         id: i64,
         req: &UpdateShippingReq,
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         let mut sets = Vec::new();
         let mut param_idx = 2u32;
 
@@ -146,7 +145,7 @@ impl ShippingRequestRepo {
         data_scope: DataScope,
         scope_operator_id: i64,
         _scope_department_id: Option<i64>,
-    ) -> Result<PaginatedResult<ShippingRequest>> {
+    ) -> RepoResult<PaginatedResult<ShippingRequest>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -226,7 +225,7 @@ impl ShippingRequestItemRepo {
         executor: PgExecutor<'_>,
         shipping_request_id: i64,
         items: &[ShippingItemInput],
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         for item in items {
             sqlx::query(
                 r#"INSERT INTO shipping_request_items (shipping_request_id, line_no, order_item_id, product_id, warehouse_id, requested_qty, description)
@@ -249,7 +248,7 @@ impl ShippingRequestItemRepo {
         &self,
         executor: PgExecutor<'_>,
         shipping_request_id: i64,
-    ) -> Result<Vec<ShippingRequestItem>> {
+    ) -> RepoResult<Vec<ShippingRequestItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, ShippingRequestItem>(
             &format!("SELECT {ITEM_COLUMNS} FROM shipping_request_items WHERE shipping_request_id = $1 ORDER BY line_no"),
         )
@@ -264,7 +263,7 @@ impl ShippingRequestItemRepo {
         executor: PgExecutor<'_>,
         id: i64,
         shipped_qty: rust_decimal::Decimal,
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         sqlx::query(
             "UPDATE shipping_request_items SET shipped_qty = $2 WHERE id = $1",
         )

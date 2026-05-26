@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::model::{PickStrategy, PutawayStrategy};
 use crate::wms::enums::{PickType, PutawayType};
@@ -13,7 +14,7 @@ impl StrategyRepo {
         strategy_type: PutawayType,
         warehouse_id: Option<i64>,
         priority: i32,
-    ) -> Result<PutawayStrategy, sqlx::Error> {
+    ) -> RepoResult<PutawayStrategy> {
         let row = sqlx::query(
             r#"
             INSERT INTO putaway_strategies (name, strategy_type, warehouse_id, priority, is_active)
@@ -28,14 +29,14 @@ impl StrategyRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        PutawayStrategy::from_row(&row)
+        Ok(PutawayStrategy::from_row(&row)?)
     }
 
     /// 查询上架策略，warehouse_id 为 Some 时按仓库过滤，仅返回 is_active = true
     pub async fn list_putaway(
         executor: &mut sqlx::postgres::PgConnection,
         warehouse_id: Option<i64>,
-    ) -> Result<Vec<PutawayStrategy>, sqlx::Error> {
+    ) -> RepoResult<Vec<PutawayStrategy>> {
         let rows = if let Some(wh) = warehouse_id {
             sqlx::query(
                 r#"
@@ -62,7 +63,7 @@ impl StrategyRepo {
         };
 
         rows.iter()
-            .map(PutawayStrategy::from_row)
+            .map(|r| PutawayStrategy::from_row(r).map_err(Into::into))
             .collect()
     }
 
@@ -73,7 +74,7 @@ impl StrategyRepo {
         strategy_type: PickType,
         warehouse_id: Option<i64>,
         priority: i32,
-    ) -> Result<PickStrategy, sqlx::Error> {
+    ) -> RepoResult<PickStrategy> {
         let row = sqlx::query(
             r#"
             INSERT INTO pick_strategies (name, strategy_type, warehouse_id, priority, is_active)
@@ -88,14 +89,14 @@ impl StrategyRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        PickStrategy::from_row(&row)
+        Ok(PickStrategy::from_row(&row)?)
     }
 
     /// 查询拣货策略，warehouse_id 为 Some 时按仓库过滤
     pub async fn list_pick(
         executor: &mut sqlx::postgres::PgConnection,
         warehouse_id: Option<i64>,
-    ) -> Result<Vec<PickStrategy>, sqlx::Error> {
+    ) -> RepoResult<Vec<PickStrategy>> {
         let rows = if let Some(wh) = warehouse_id {
             sqlx::query(
                 r#"
@@ -121,6 +122,6 @@ impl StrategyRepo {
             .await?
         };
 
-        rows.iter().map(PickStrategy::from_row).collect()
+        rows.iter().map(|r| PickStrategy::from_row(r).map_err(Into::into)).collect()
     }
 }

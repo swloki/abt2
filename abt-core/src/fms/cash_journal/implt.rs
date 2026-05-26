@@ -70,11 +70,11 @@ impl CashJournalService for CashJournalServiceImpl {
 
         let id = CashJournalRepo::create(ctx.executor, &doc_number, &req, ctx.operator_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         CashJournalLineRepo::batch_insert(ctx.executor, id, &req.lines)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.state_machine
             .transition(ctx.reborrow(), "JournalStatus", id, "Draft", None)
@@ -115,7 +115,7 @@ impl CashJournalService for CashJournalServiceImpl {
         // Step 2: Lock journal FOR UPDATE
         let journal = CashJournalRepo::get_for_update(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("CashJournal"))?;
 
         if journal.status != super::super::enums::JournalStatus::Draft {
@@ -127,7 +127,7 @@ impl CashJournalService for CashJournalServiceImpl {
         // Step 3: Aggregate lines debit/credit
         let (total_debit, total_credit) = CashJournalLineRepo::sum_debit_credit(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // Step 4: Validate balanced entry with non-zero totals
         if total_debit != total_credit {
@@ -150,7 +150,7 @@ impl CashJournalService for CashJournalServiceImpl {
             journal.version,
         )
         .await
-        .map_err(DomainError::Internal)?;
+        ?;
 
         if rows == 0 {
             return Err(DomainError::ConcurrentConflict);
@@ -194,7 +194,7 @@ impl CashJournalService for CashJournalServiceImpl {
     async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<CashJournal, DomainError> {
         CashJournalRepo::get_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("CashJournal"))
     }
 
@@ -214,7 +214,7 @@ impl CashJournalService for CashJournalServiceImpl {
                 ctx.department_id,
             )
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
@@ -227,7 +227,7 @@ impl CashJournalService for CashJournalServiceImpl {
         let (total_inflow, total_outflow) =
             CashJournalRepo::sum_balance_by_period(ctx.executor, &period)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
 
         let net_balance = total_inflow - total_outflow;
 

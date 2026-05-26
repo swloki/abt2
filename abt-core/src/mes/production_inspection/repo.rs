@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use super::super::enums::*;
@@ -11,7 +12,7 @@ impl ProductionInspectionRepo {
         req: &CreateInspectionReq,
         doc_number: &str,
         operator_id: i64,
-    ) -> Result<ProductionInspection, sqlx::Error> {
+    ) -> RepoResult<ProductionInspection> {
         let row = sqlx::query(
             r#"
             INSERT INTO production_inspections
@@ -44,13 +45,13 @@ impl ProductionInspectionRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        ProductionInspection::from_row(&row)
+        Ok(ProductionInspection::from_row(&row)?)
     }
 
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<ProductionInspection>, sqlx::Error> {
+    ) -> RepoResult<Option<ProductionInspection>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, routing_id, product_id,
@@ -65,7 +66,8 @@ impl ProductionInspectionRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| ProductionInspection::from_row(&r)).transpose()
+        row.map(|r| ProductionInspection::from_row(&r).map_err(Into::into)).transpose()
+
     }
 
     pub async fn update_result(
@@ -74,7 +76,7 @@ impl ProductionInspectionRepo {
         result: InspectionResultType,
         qualified_qty: rust_decimal::Decimal,
         unqualified_qty: rust_decimal::Decimal,
-    ) -> Result<bool, sqlx::Error> {
+    ) -> RepoResult<bool> {
         let rows = sqlx::query(
             r#"
             UPDATE production_inspections

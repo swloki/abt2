@@ -99,7 +99,6 @@ impl LaborProcessRepo {
     // ========================================================================
 
     /// 创建工序
-    #[allow(clippy::too_many_arguments)]
     pub async fn insert(
         executor: Executor<'_>,
         product_code: &str,
@@ -130,7 +129,6 @@ impl LaborProcessRepo {
     }
 
     /// 更新工序
-    #[allow(clippy::too_many_arguments)]
     pub async fn update(
         executor: Executor<'_>,
         id: i64,

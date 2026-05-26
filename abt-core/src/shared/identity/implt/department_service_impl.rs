@@ -31,13 +31,7 @@ impl DepartmentService for DepartmentServiceImpl {
     ) -> Result<Department, DomainError> {
         let dept = IdentityRepo::insert_department(&mut *ctx.executor, name, code, description)
             .await
-            .map_err(|e| {
-                if is_unique_violation(&e) {
-                    DomainError::duplicate("Department with this code")
-                } else {
-                    DomainError::Internal(e.into())
-                }
-            })?;
+            .map_err(|e| match &e { DomainError::Internal(inner) if is_unique_violation(inner) => DomainError::duplicate("Department with this code"), _ => e })?;
 
         Ok(dept)
     }
@@ -52,13 +46,7 @@ impl DepartmentService for DepartmentServiceImpl {
         let dept =
             IdentityRepo::update_department(&mut *ctx.executor, dept_id, name, description)
                 .await
-                .map_err(|e| {
-                    if is_no_row(&e) {
-                        DomainError::not_found("Department")
-                    } else {
-                        DomainError::Internal(e.into())
-                    }
-                })?;
+                .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("Department"), _ => e })?;
 
         Ok(dept)
     }
@@ -70,7 +58,7 @@ impl DepartmentService for DepartmentServiceImpl {
     ) -> Result<(), DomainError> {
         IdentityRepo::deactivate_department(&mut *ctx.executor, dept_id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
         Ok(())
     }
 
@@ -81,12 +69,9 @@ impl DepartmentService for DepartmentServiceImpl {
     ) -> Result<Department, DomainError> {
         IdentityRepo::get_department(&mut *ctx.executor, dept_id)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("Department")
-                } else {
-                    DomainError::Internal(e.into())
-                }
+            .map_err(|e| match &e {
+                DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("Department"),
+                _ => e,
             })
     }
 
@@ -96,7 +81,7 @@ impl DepartmentService for DepartmentServiceImpl {
     ) -> Result<Vec<Department>, DomainError> {
         IdentityRepo::list_departments(&mut *ctx.executor)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))
+            .map_err(Into::into)
     }
 
     async fn assign_departments(
@@ -108,18 +93,12 @@ impl DepartmentService for DepartmentServiceImpl {
         // Verify user exists
         IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
-            })?;
+            .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
         // Get current departments and merge
         let current = IdentityRepo::get_user_department_ids(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
 
         let mut merged: Vec<i64> = current;
         for id in &dept_ids {
@@ -130,7 +109,7 @@ impl DepartmentService for DepartmentServiceImpl {
 
         IdentityRepo::replace_user_departments(&mut *ctx.executor, user_id, &merged)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
 
         Ok(())
     }
@@ -143,7 +122,7 @@ impl DepartmentService for DepartmentServiceImpl {
     ) -> Result<(), DomainError> {
         IdentityRepo::remove_user_departments(&mut *ctx.executor, user_id, &dept_ids)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
 
         Ok(())
     }
@@ -155,18 +134,22 @@ impl DepartmentService for DepartmentServiceImpl {
     ) -> Result<Vec<Department>, DomainError> {
         IdentityRepo::get_user_departments(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))
+            .map_err(Into::into)
     }
 }
 
-fn is_unique_violation(err: &sqlx::Error) -> bool {
-    if let sqlx::Error::Database(db_err) = err {
-        db_err.code().as_ref().map(|c| c == "23505").unwrap_or(false)
-    } else {
-        false
-    }
+fn is_unique_violation(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<sqlx::Error>()
+        .map(|e| if let sqlx::Error::Database(db_err) = e {
+            db_err.code().as_ref().map(|c| c == "23505").unwrap_or(false)
+        } else {
+            false
+        })
+        .unwrap_or(false)
 }
 
-fn is_no_row(err: &sqlx::Error) -> bool {
-    matches!(err, sqlx::Error::RowNotFound)
+fn is_no_row(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<sqlx::Error>()
+        .map(|e| matches!(e, sqlx::Error::RowNotFound))
+        .unwrap_or(false)
 }

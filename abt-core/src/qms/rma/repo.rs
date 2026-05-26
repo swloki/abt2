@@ -1,4 +1,5 @@
 use sqlx::Row;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use crate::qms::enums::*;
@@ -34,7 +35,7 @@ fn row_to_model(row: sqlx::postgres::PgRow) -> Rma {
 pub async fn insert(
     db: &mut sqlx::postgres::PgConnection,
     m: &Rma,
-) -> anyhow::Result<i64> {
+) -> RepoResult<i64> {
     let row = sqlx::query(
         &format!(
             "INSERT INTO rmas ({INSERT_COLUMNS}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id"
@@ -65,7 +66,7 @@ pub async fn insert(
 pub async fn find_by_id(
     db: &mut sqlx::postgres::PgConnection,
     id: i64,
-) -> anyhow::Result<Option<Rma>> {
+) -> RepoResult<Option<Rma>> {
     let row = sqlx::query(
         &format!("SELECT {COLUMNS} FROM rmas WHERE id = $1 AND deleted_at IS NULL")
     )
@@ -82,7 +83,7 @@ pub async fn update_root_cause(
     id: i64,
     root_cause: &str,
     corrective_action: &str,
-) -> anyhow::Result<u64> {
+) -> RepoResult<u64> {
     let result = sqlx::query(
         r#"
         UPDATE rmas
@@ -104,7 +105,7 @@ pub async fn update_status(
     id: i64,
     status: i16,
     expected_status: i16,
-) -> anyhow::Result<u64> {
+) -> RepoResult<u64> {
     let result = sqlx::query(
         "UPDATE rmas SET status = $2, updated_at = NOW() WHERE id = $1 AND status = $3 AND deleted_at IS NULL"
     )
@@ -121,7 +122,7 @@ pub async fn list(
     db: &mut sqlx::postgres::PgConnection,
     filter: &RmaFilter,
     page: &PageParams,
-) -> anyhow::Result<PaginatedResult<Rma>> {
+) -> RepoResult<PaginatedResult<Rma>> {
     let limit = page.page_size as i64;
     let offset = page.offset() as i64;
 

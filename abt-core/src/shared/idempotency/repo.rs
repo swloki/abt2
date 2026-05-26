@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value as JsonValue;
 use sqlx::Row;
+use crate::shared::types::RepoResult;
 
 pub struct IdempotencyRepo;
 
@@ -16,7 +17,7 @@ impl IdempotencyRepo {
         executor: &mut sqlx::postgres::PgConnection,
         event_id: i64,
         handler_name: &str,
-    ) -> Result<bool, sqlx::Error> {
+    ) -> RepoResult<bool> {
         let key = Self::make_key(event_id, handler_name);
 
         // 1. 尝试 INSERT
@@ -70,7 +71,7 @@ impl IdempotencyRepo {
         event_id: i64,
         handler_name: &str,
         result: Option<&JsonValue>,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         let key = Self::make_key(event_id, handler_name);
         sqlx::query(
             r#"
@@ -91,7 +92,7 @@ impl IdempotencyRepo {
     pub async fn cleanup_expired(
         executor: &mut sqlx::postgres::PgConnection,
         before: DateTime<Utc>,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             "DELETE FROM idempotency_records WHERE expires_at IS NOT NULL AND expires_at < $1",
         )

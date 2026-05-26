@@ -166,7 +166,6 @@ fn build_product_payload(
 
 /// Shared create-or-update logic for syncing an entity to H3Yun.
 /// 每次都先查 H3Yun，存在就 update，不存在就 create。
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn sync_entity(
     pool: &sqlx::PgPool,
     client: &H3YunClient,
@@ -209,7 +208,6 @@ pub(crate) async fn sync_entity(
 }
 
 /// 多字段 AND 匹配版本的 sync_entity，用于库存同步（product_code + location_code + warehouse_name）
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn sync_entity_by_fields(
     pool: &sqlx::PgPool,
     client: &H3YunClient,

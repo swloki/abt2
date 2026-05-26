@@ -93,7 +93,6 @@ impl InventoryRepo {
     }
 
     /// 记录库存变动日志
-    #[allow(clippy::too_many_arguments)]
     pub async fn insert_log(
         executor: Executor<'_>,
         inventory_id: i64,

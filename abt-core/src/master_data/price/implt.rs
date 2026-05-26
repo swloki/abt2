@@ -24,11 +24,11 @@ impl PriceServiceImpl {
 impl ProductPriceService for PriceServiceImpl {
     async fn update_price(&self, ctx: ServiceContext<'_>, product_id: i64, price_type: PriceType, new_price: Decimal, remark: String) -> Result<(), DomainError> {
         let old_price = self.repo.find_latest_price(ctx.executor, product_id, price_type)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .map(|e| e.new_price);
 
         self.repo.create(ctx.executor, product_id, price_type, old_price, new_price, ctx.operator_id, &remark)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         let changes = serde_json::json!({
             "product_id": product_id,
@@ -43,18 +43,18 @@ impl ProductPriceService for PriceServiceImpl {
 
     async fn list_price_history(&self, ctx: ServiceContext<'_>, query: PriceQuery, page: PageParams) -> Result<PaginatedResult<PriceLogEntry>, DomainError> {
         self.repo.query(ctx.executor, &query, &page)
-            .await.map_err(DomainError::Internal)
+            .await
     }
 
     async fn get_current_price(&self, ctx: ServiceContext<'_>, product_id: i64, price_type: PriceType) -> Result<Option<Decimal>, DomainError> {
         Ok(self.repo.find_latest_price(ctx.executor, product_id, price_type)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .map(|e| e.new_price))
     }
 
     async fn get_price_at(&self, ctx: ServiceContext<'_>, product_id: i64, price_type: PriceType, as_of: DateTime<Utc>) -> Result<Option<Decimal>, DomainError> {
         Ok(self.repo.find_price_at(ctx.executor, product_id, price_type, as_of)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .map(|e| e.new_price))
     }
 }

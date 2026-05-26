@@ -1,4 +1,5 @@
 use sqlx::Row;
+use crate::shared::types::RepoResult;
 
 use super::model::{Department, Role, RoleInfo, User};
 
@@ -15,7 +16,7 @@ impl IdentityRepo {
         password_hash: &str,
         display_name: Option<&str>,
         is_super_admin: bool,
-    ) -> Result<User, sqlx::Error> {
+    ) -> RepoResult<User> {
         let row = sqlx::query(
             r#"
             INSERT INTO users (username, password_hash, display_name, is_active, is_super_admin)
@@ -37,7 +38,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
         display_name: Option<&str>,
-    ) -> Result<User, sqlx::Error> {
+    ) -> RepoResult<User> {
         let row = sqlx::query(
             r#"
             UPDATE users
@@ -57,7 +58,7 @@ impl IdentityRepo {
     pub async fn deactivate_user(
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query(
             "UPDATE users SET is_active = false, updated_at = NOW() WHERE user_id = $1",
         )
@@ -70,7 +71,7 @@ impl IdentityRepo {
     pub async fn get_user(
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
-    ) -> Result<User, sqlx::Error> {
+    ) -> RepoResult<User> {
         let row = sqlx::query(
             "SELECT user_id, username, password_hash, display_name, is_active, is_super_admin, created_at, updated_at \
              FROM users WHERE user_id = $1 AND is_active = true"
@@ -85,7 +86,7 @@ impl IdentityRepo {
     pub async fn get_user_by_username(
         executor: &mut sqlx::postgres::PgConnection,
         username: &str,
-    ) -> Result<User, sqlx::Error> {
+    ) -> RepoResult<User> {
         let row = sqlx::query(
             "SELECT user_id, username, password_hash, display_name, is_active, is_super_admin, created_at, updated_at \
              FROM users WHERE username = $1 AND is_active = true"
@@ -101,7 +102,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         limit: i64,
         offset: i64,
-    ) -> Result<(Vec<User>, i64), sqlx::Error> {
+    ) -> RepoResult<(Vec<User>, i64)> {
         let count_row = sqlx::query("SELECT COUNT(*) AS cnt FROM users WHERE is_active = true")
             .fetch_one(&mut *executor)
             .await?;
@@ -125,12 +126,12 @@ impl IdentityRepo {
     pub async fn get_user_password_hash(
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
-    ) -> Result<String, sqlx::Error> {
+    ) -> RepoResult<String> {
         let row = sqlx::query("SELECT password_hash FROM users WHERE user_id = $1 AND is_active = true")
             .bind(user_id)
             .fetch_one(&mut *executor)
             .await?;
-        row.try_get("password_hash")
+        Ok(row.try_get("password_hash")?)
     }
 
     // -----------------------------------------------------------------------
@@ -141,7 +142,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
         role_ids: &[i64],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query("DELETE FROM user_roles WHERE user_id = $1")
             .bind(user_id)
             .execute(&mut *executor)
@@ -160,25 +161,25 @@ impl IdentityRepo {
     pub async fn get_user_role_ids(
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
-    ) -> Result<Vec<i64>, sqlx::Error> {
+    ) -> RepoResult<Vec<i64>> {
         let rows = sqlx::query("SELECT role_id FROM user_roles WHERE user_id = $1")
             .bind(user_id)
             .fetch_all(&mut *executor)
             .await?;
-        rows.iter().map(|r| r.try_get("role_id")).collect()
+        rows.iter().map(|r| r.try_get("role_id").map_err(Into::into)).collect()
     }
 
     pub async fn get_user_role_codes(
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
-    ) -> Result<Vec<String>, sqlx::Error> {
+    ) -> RepoResult<Vec<String>> {
         let rows = sqlx::query(
             "SELECT r.role_code FROM user_roles ur JOIN roles r ON r.role_id = ur.role_id WHERE ur.user_id = $1"
         )
         .bind(user_id)
         .fetch_all(&mut *executor)
         .await?;
-        rows.iter().map(|r| r.try_get("role_code")).collect()
+        rows.iter().map(|r| r.try_get("role_code").map_err(Into::into)).collect()
     }
 
     // -----------------------------------------------------------------------
@@ -189,7 +190,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
         dept_ids: &[i64],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query("DELETE FROM user_departments WHERE user_id = $1")
             .bind(user_id)
             .execute(&mut *executor)
@@ -209,7 +210,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
         dept_ids: &[i64],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         for &dept_id in dept_ids {
             sqlx::query("DELETE FROM user_departments WHERE user_id = $1 AND department_id = $2")
                 .bind(user_id)
@@ -223,12 +224,12 @@ impl IdentityRepo {
     pub async fn get_user_department_ids(
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
-    ) -> Result<Vec<i64>, sqlx::Error> {
+    ) -> RepoResult<Vec<i64>> {
         let rows = sqlx::query("SELECT department_id FROM user_departments WHERE user_id = $1")
             .bind(user_id)
             .fetch_all(&mut *executor)
             .await?;
-        rows.iter().map(|r| r.try_get("department_id")).collect()
+        rows.iter().map(|r| r.try_get("department_id").map_err(Into::into)).collect()
     }
 
     // -----------------------------------------------------------------------
@@ -241,7 +242,7 @@ impl IdentityRepo {
         role_code: &str,
         description: Option<&str>,
         parent_role_id: Option<i64>,
-    ) -> Result<Role, sqlx::Error> {
+    ) -> RepoResult<Role> {
         let row = sqlx::query(
             r#"
             INSERT INTO roles (role_name, role_code, is_system_role, parent_role_id, description)
@@ -264,7 +265,7 @@ impl IdentityRepo {
         role_id: i64,
         role_name: &str,
         description: Option<&str>,
-    ) -> Result<Role, sqlx::Error> {
+    ) -> RepoResult<Role> {
         let row = sqlx::query(
             r#"
             UPDATE roles
@@ -285,7 +286,7 @@ impl IdentityRepo {
     pub async fn delete_role(
         executor: &mut sqlx::postgres::PgConnection,
         role_id: i64,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         // Delete role permissions first
         sqlx::query("DELETE FROM role_permissions WHERE role_id = $1")
             .bind(role_id)
@@ -306,7 +307,7 @@ impl IdentityRepo {
 
     pub async fn list_roles(
         executor: &mut sqlx::postgres::PgConnection,
-    ) -> Result<Vec<Role>, sqlx::Error> {
+    ) -> RepoResult<Vec<Role>> {
         let rows = sqlx::query(
             "SELECT role_id, role_name, role_code, is_system_role, parent_role_id, description, created_at, updated_at \
              FROM roles ORDER BY role_id"
@@ -325,7 +326,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         role_id: i64,
         permissions: &[(String, String)],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         for (resource_code, action) in permissions {
             sqlx::query(
                 "INSERT INTO role_permissions (role_id, resource_code, action) VALUES ($1, $2, $3) \
@@ -344,7 +345,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         role_id: i64,
         permissions: &[(String, String)],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         for (resource_code, action) in permissions {
             sqlx::query(
                 "DELETE FROM role_permissions WHERE role_id = $1 AND resource_code = $2 AND action = $3"
@@ -360,7 +361,7 @@ impl IdentityRepo {
 
     pub async fn get_all_role_permissions(
         executor: &mut sqlx::postgres::PgConnection,
-    ) -> Result<Vec<(i64, String, String)>, sqlx::Error> {
+    ) -> RepoResult<Vec<(i64, String, String)>> {
         let rows = sqlx::query(
             "SELECT role_id, resource_code, action FROM role_permissions"
         )
@@ -380,7 +381,7 @@ impl IdentityRepo {
 
     pub async fn get_role_parent_map(
         executor: &mut sqlx::postgres::PgConnection,
-    ) -> Result<Vec<(i64, Option<i64>)>, sqlx::Error> {
+    ) -> RepoResult<Vec<(i64, Option<i64>)>> {
         let rows = sqlx::query("SELECT role_id, parent_role_id FROM roles")
             .fetch_all(&mut *executor)
             .await?;
@@ -392,7 +393,7 @@ impl IdentityRepo {
     pub async fn get_role_permissions_by_ids(
         executor: &mut sqlx::postgres::PgConnection,
         role_ids: &[i64],
-    ) -> Result<Vec<(i64, String, String)>, sqlx::Error> {
+    ) -> RepoResult<Vec<(i64, String, String)>> {
         let rows = sqlx::query(
             "SELECT role_id, resource_code, action FROM role_permissions WHERE role_id = ANY($1)"
         )
@@ -420,7 +421,7 @@ impl IdentityRepo {
         name: &str,
         code: &str,
         description: Option<&str>,
-    ) -> Result<Department, sqlx::Error> {
+    ) -> RepoResult<Department> {
         let row = sqlx::query(
             r#"
             INSERT INTO departments (department_name, department_code, description, is_active, is_default)
@@ -442,7 +443,7 @@ impl IdentityRepo {
         dept_id: i64,
         name: &str,
         description: Option<&str>,
-    ) -> Result<Department, sqlx::Error> {
+    ) -> RepoResult<Department> {
         let row = sqlx::query(
             r#"
             UPDATE departments
@@ -463,7 +464,7 @@ impl IdentityRepo {
     pub async fn deactivate_department(
         executor: &mut sqlx::postgres::PgConnection,
         dept_id: i64,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query(
             "UPDATE departments SET is_active = false, updated_at = NOW() WHERE department_id = $1"
         )
@@ -476,7 +477,7 @@ impl IdentityRepo {
     pub async fn get_department(
         executor: &mut sqlx::postgres::PgConnection,
         dept_id: i64,
-    ) -> Result<Department, sqlx::Error> {
+    ) -> RepoResult<Department> {
         let row = sqlx::query(
             "SELECT department_id, department_name, department_code, description, is_active, is_default, created_at, updated_at \
              FROM departments WHERE department_id = $1"
@@ -489,7 +490,7 @@ impl IdentityRepo {
 
     pub async fn list_departments(
         executor: &mut sqlx::postgres::PgConnection,
-    ) -> Result<Vec<Department>, sqlx::Error> {
+    ) -> RepoResult<Vec<Department>> {
         let rows = sqlx::query(
             "SELECT department_id, department_name, department_code, description, is_active, is_default, created_at, updated_at \
              FROM departments WHERE is_active = true ORDER BY department_id"
@@ -503,7 +504,7 @@ impl IdentityRepo {
     pub async fn get_user_departments(
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
-    ) -> Result<Vec<Department>, sqlx::Error> {
+    ) -> RepoResult<Vec<Department>> {
         let rows = sqlx::query(
             "SELECT d.department_id, d.department_name, d.department_code, d.description, d.is_active, d.is_default, d.created_at, d.updated_at \
              FROM departments d \
@@ -524,7 +525,7 @@ impl IdentityRepo {
     pub async fn get_users_by_ids(
         executor: &mut sqlx::postgres::PgConnection,
         user_ids: &[i64],
-    ) -> Result<Vec<User>, sqlx::Error> {
+    ) -> RepoResult<Vec<User>> {
         let rows = sqlx::query(
             "SELECT user_id, username, password_hash, display_name, is_active, is_super_admin, created_at, updated_at \
              FROM users WHERE user_id = ANY($1) AND is_active = true"
@@ -539,7 +540,7 @@ impl IdentityRepo {
     pub async fn get_role_info_for_user(
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
-    ) -> Result<Vec<RoleInfo>, sqlx::Error> {
+    ) -> RepoResult<Vec<RoleInfo>> {
         let rows = sqlx::query(
             "SELECT r.role_id, r.role_name, r.role_code \
              FROM user_roles ur JOIN roles r ON r.role_id = ur.role_id \
@@ -555,7 +556,7 @@ impl IdentityRepo {
     pub async fn get_role_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         role_id: i64,
-    ) -> Result<Role, sqlx::Error> {
+    ) -> RepoResult<Role> {
         let row = sqlx::query(
             "SELECT role_id, role_name, role_code, is_system_role, parent_role_id, description, created_at, updated_at \
              FROM roles WHERE role_id = $1"
@@ -570,7 +571,7 @@ impl IdentityRepo {
     pub async fn get_permissions_for_role(
         executor: &mut sqlx::postgres::PgConnection,
         role_id: i64,
-    ) -> Result<Vec<String>, sqlx::Error> {
+    ) -> RepoResult<Vec<String>> {
         let rows = sqlx::query(
             "SELECT resource_code, action FROM role_permissions WHERE role_id = $1"
         )
@@ -591,7 +592,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
         password_hash: &str,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query(
             "UPDATE users SET password_hash = $2, updated_at = NOW() WHERE user_id = $1"
         )
@@ -606,7 +607,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
         is_active: bool,
-    ) -> Result<User, sqlx::Error> {
+    ) -> RepoResult<User> {
         let row = sqlx::query(
             "UPDATE users SET is_active = $2, updated_at = NOW() WHERE user_id = $1 \
              RETURNING user_id, username, password_hash, display_name, is_active, is_super_admin, created_at, updated_at"
@@ -622,7 +623,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
         role_ids: &[i64],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         for &role_id in role_ids {
             sqlx::query(
                 "INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) \
@@ -640,7 +641,7 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
         role_ids: &[i64],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         for &role_id in role_ids {
             sqlx::query("DELETE FROM user_roles WHERE user_id = $1 AND role_id = $2")
                 .bind(user_id)
@@ -655,7 +656,7 @@ impl IdentityRepo {
     // Row mappers
     // -----------------------------------------------------------------------
 
-    fn row_to_user(row: &sqlx::postgres::PgRow) -> Result<User, sqlx::Error> {
+    fn row_to_user(row: &sqlx::postgres::PgRow) -> RepoResult<User> {
         Ok(User {
             user_id: row.try_get("user_id")?,
             username: row.try_get("username")?,
@@ -668,7 +669,7 @@ impl IdentityRepo {
         })
     }
 
-    fn row_to_role(row: &sqlx::postgres::PgRow) -> Result<Role, sqlx::Error> {
+    fn row_to_role(row: &sqlx::postgres::PgRow) -> RepoResult<Role> {
         Ok(Role {
             role_id: row.try_get("role_id")?,
             role_name: row.try_get("role_name")?,
@@ -681,7 +682,7 @@ impl IdentityRepo {
         })
     }
 
-    fn row_to_department(row: &sqlx::postgres::PgRow) -> Result<Department, sqlx::Error> {
+    fn row_to_department(row: &sqlx::postgres::PgRow) -> RepoResult<Department> {
         Ok(Department {
             department_id: row.try_get("department_id")?,
             department_name: row.try_get("department_name")?,
@@ -694,7 +695,7 @@ impl IdentityRepo {
         })
     }
 
-    fn row_to_role_info(row: &sqlx::postgres::PgRow) -> Result<RoleInfo, sqlx::Error> {
+    fn row_to_role_info(row: &sqlx::postgres::PgRow) -> RepoResult<RoleInfo> {
         Ok(RoleInfo {
             role_id: row.try_get("role_id")?,
             role_name: row.try_get("role_name")?,

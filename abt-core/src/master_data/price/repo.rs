@@ -1,7 +1,7 @@
-use anyhow::Result;
 use chrono::{DateTime, Utc};
 use common::PgExecutor;
 use rust_decimal::Decimal;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
@@ -9,7 +9,6 @@ use crate::shared::types::{PageParams, PaginatedResult};
 pub struct PriceRepo;
 
 impl PriceRepo {
-    #[allow(clippy::too_many_arguments)]
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
@@ -19,7 +18,7 @@ impl PriceRepo {
         new_price: Decimal,
         operator_id: i64,
         remark: &str,
-    ) -> Result<i64> {
+    ) -> RepoResult<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             "INSERT INTO price_log (product_id, price_type, old_price, new_price, operator_id, remark) VALUES ($1, $2, $3, $4, $5, $6) RETURNING log_id",
         )
@@ -39,7 +38,7 @@ impl PriceRepo {
         executor: PgExecutor<'_>,
         product_id: i64,
         price_type: PriceType,
-    ) -> Result<Option<PriceLogEntry>> {
+    ) -> RepoResult<Option<PriceLogEntry>> {
         let entry = sqlx::query_as::<sqlx::Postgres, PriceLogEntry>(
             "SELECT log_id, product_id, price_type, old_price, new_price, operator_id, remark, created_at FROM price_log WHERE product_id = $1 AND price_type = $2 ORDER BY created_at DESC LIMIT 1",
         )
@@ -56,7 +55,7 @@ impl PriceRepo {
         product_id: i64,
         price_type: PriceType,
         as_of: DateTime<Utc>,
-    ) -> Result<Option<PriceLogEntry>> {
+    ) -> RepoResult<Option<PriceLogEntry>> {
         let entry = sqlx::query_as::<sqlx::Postgres, PriceLogEntry>(
             "SELECT log_id, product_id, price_type, old_price, new_price, operator_id, remark, created_at FROM price_log WHERE product_id = $1 AND price_type = $2 AND created_at <= $3 ORDER BY created_at DESC LIMIT 1",
         )
@@ -74,7 +73,7 @@ impl PriceRepo {
         executor: PgExecutor<'_>,
         filter: &PriceQuery,
         page: &PageParams,
-    ) -> Result<PaginatedResult<PriceLogEntry>> {
+    ) -> RepoResult<PaginatedResult<PriceLogEntry>> {
         let mut conditions = vec!["1=1".to_string()];
         let mut param_idx = 0u32;
 
@@ -120,7 +119,7 @@ impl PriceRepo {
         product_id: i64,
         new_price: Decimal,
         remark: &str,
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         sqlx::query(
             r#"INSERT INTO price_log (product_id, price_type, new_price, remark)
                SELECT $1, 1, $2, $3

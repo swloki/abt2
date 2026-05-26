@@ -28,6 +28,21 @@ pub enum DomainError {
     Internal(#[from] anyhow::Error),
 }
 
+impl From<sqlx::Error> for DomainError {
+    fn from(err: sqlx::Error) -> Self {
+        Self::Internal(err.into())
+    }
+}
+
+impl From<serde_json::Error> for DomainError {
+    fn from(err: serde_json::Error) -> Self {
+        Self::Internal(err.into())
+    }
+}
+
+/// Repo 层统一返回类型
+pub type RepoResult<T> = Result<T, DomainError>;
+
 impl DomainError {
     pub fn not_found(entity: impl fmt::Display) -> Self {
         Self::NotFound(entity.to_string())

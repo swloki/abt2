@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::model::{InventoryTransaction, RecordTransactionReq, TransactionFilter};
 use crate::shared::types::pagination::PaginatedResult;
@@ -10,7 +11,7 @@ impl InventoryTransactionRepo {
         executor: &mut sqlx::postgres::PgConnection,
         req: &RecordTransactionReq,
         operator_id: i64,
-    ) -> Result<InventoryTransaction, sqlx::Error> {
+    ) -> RepoResult<InventoryTransaction> {
         let row = sqlx::query(
             r#"
             INSERT INTO inventory_transactions
@@ -38,14 +39,14 @@ impl InventoryTransactionRepo {
         .fetch_one(executor)
         .await?;
 
-        InventoryTransaction::from_row(&row)
+        Ok(InventoryTransaction::from_row(&row)?)
     }
 
     pub async fn find_by_source(
         executor: &mut sqlx::postgres::PgConnection,
         source_type: &str,
         source_id: i64,
-    ) -> Result<Vec<InventoryTransaction>, sqlx::Error> {
+    ) -> RepoResult<Vec<InventoryTransaction>> {
         let rows = sqlx::query(
             r#"
             SELECT id, doc_number, transaction_type, product_id, warehouse_id, zone_id,
@@ -62,7 +63,7 @@ impl InventoryTransactionRepo {
         .await?;
 
         rows.iter()
-            .map(InventoryTransaction::from_row)
+            .map(|r| InventoryTransaction::from_row(r).map_err(Into::into))
             .collect()
     }
 
@@ -71,7 +72,7 @@ impl InventoryTransactionRepo {
         filter: &TransactionFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<InventoryTransaction>, sqlx::Error> {
+    ) -> RepoResult<PaginatedResult<InventoryTransaction>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut conditions: Vec<String> = Vec::new();

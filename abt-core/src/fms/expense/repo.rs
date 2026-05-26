@@ -1,5 +1,5 @@
-use anyhow::Result;
 use common::PgExecutor;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use super::super::enums::ExpenseStatus;
@@ -22,7 +22,7 @@ impl ExpenseReimbursementRepo {
         req: &CreateExpenseReq,
         total_amount: rust_decimal::Decimal,
         operator_id: i64,
-    ) -> Result<i64> {
+    ) -> RepoResult<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO expense_reimbursements
                (doc_number, applicant_id, department_id, expense_date, total_amount, status, remark, operator_id)
@@ -42,7 +42,7 @@ impl ExpenseReimbursementRepo {
         Ok(row)
     }
 
-    pub async fn get_by_id(executor: PgExecutor<'_>, id: i64) -> Result<Option<ExpenseReimbursement>> {
+    pub async fn get_by_id(executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<ExpenseReimbursement>> {
         let expense = sqlx::query_as::<sqlx::Postgres, ExpenseReimbursement>(
             &format!(
                 "SELECT {EXPENSE_COLUMNS} FROM expense_reimbursements WHERE id = $1 AND deleted_at IS NULL"
@@ -60,7 +60,7 @@ impl ExpenseReimbursementRepo {
         id: i64,
         status: ExpenseStatus,
         version: i32,
-    ) -> Result<u64> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             "UPDATE expense_reimbursements SET status = $2, version = version + 1, updated_at = NOW() \
              WHERE id = $1 AND version = $3 AND deleted_at IS NULL",
@@ -81,7 +81,7 @@ impl ExpenseReimbursementRepo {
         data_scope: DataScope,
         scope_operator_id: i64,
         _scope_department_id: Option<i64>,
-    ) -> Result<(Vec<ExpenseReimbursement>, u64)> {
+    ) -> RepoResult<(Vec<ExpenseReimbursement>, u64)> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -233,7 +233,7 @@ impl ExpenseReimbursementItemRepo {
         executor: PgExecutor<'_>,
         reimbursement_id: i64,
         items: &[ExpenseItemInput],
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         for item in items {
             sqlx::query(
                 r#"INSERT INTO expense_reimbursement_items
@@ -256,7 +256,7 @@ impl ExpenseReimbursementItemRepo {
     pub async fn get_by_reimbursement_id(
         executor: PgExecutor<'_>,
         reimbursement_id: i64,
-    ) -> Result<Vec<ExpenseReimbursementItem>> {
+    ) -> RepoResult<Vec<ExpenseReimbursementItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, ExpenseReimbursementItem>(
             &format!("SELECT {ITEM_COLUMNS} FROM expense_reimbursement_items WHERE reimbursement_id = $1"),
         )

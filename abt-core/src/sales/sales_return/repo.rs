@@ -1,5 +1,5 @@
-use anyhow::Result;
 use common::PgExecutor;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
@@ -15,7 +15,6 @@ const ITEM_COLUMNS: &str = "id, return_id, order_item_id, product_id, returned_q
 pub struct SalesReturnRepo;
 
 impl SalesReturnRepo {
-    #[allow(clippy::too_many_arguments)]
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
@@ -27,7 +26,7 @@ impl SalesReturnRepo {
         total_amount: rust_decimal::Decimal,
         remark: &str,
         operator_id: i64,
-    ) -> Result<i64> {
+    ) -> RepoResult<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO sales_returns (doc_number, order_id, shipping_request_id, customer_id, return_reason, total_amount, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -50,7 +49,7 @@ impl SalesReturnRepo {
         &self,
         executor: PgExecutor<'_>,
         id: i64,
-    ) -> Result<Option<SalesReturn>> {
+    ) -> RepoResult<Option<SalesReturn>> {
         let sr = sqlx::query_as::<sqlx::Postgres, SalesReturn>(
             &format!("SELECT {RETURN_COLUMNS} FROM sales_returns WHERE id = $1 AND deleted_at IS NULL"),
         )
@@ -65,7 +64,7 @@ impl SalesReturnRepo {
         executor: PgExecutor<'_>,
         id: i64,
         status: ReturnStatus,
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         sqlx::query(
             "UPDATE sales_returns SET status = $2, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -85,7 +84,7 @@ impl SalesReturnRepo {
         data_scope: DataScope,
         scope_operator_id: i64,
         _scope_department_id: Option<i64>,
-    ) -> Result<PaginatedResult<SalesReturn>> {
+    ) -> RepoResult<PaginatedResult<SalesReturn>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -185,7 +184,7 @@ impl SalesReturnItemRepo {
         executor: PgExecutor<'_>,
         return_id: i64,
         items: &[ReturnItemInput],
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         for item in items {
             sqlx::query(
                 r#"INSERT INTO sales_return_items (return_id, order_item_id, product_id, returned_qty, unit_price, amount, disposition)
@@ -208,7 +207,7 @@ impl SalesReturnItemRepo {
         &self,
         executor: PgExecutor<'_>,
         return_id: i64,
-    ) -> Result<Vec<SalesReturnItem>> {
+    ) -> RepoResult<Vec<SalesReturnItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, SalesReturnItem>(
             &format!("SELECT {ITEM_COLUMNS} FROM sales_return_items WHERE return_id = $1 ORDER BY id"),
         )

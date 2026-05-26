@@ -64,13 +64,7 @@ impl UserService for UserServiceImpl {
             is_super_admin,
         )
         .await
-        .map_err(|e| {
-            if is_unique_violation(&e) {
-                DomainError::duplicate("User with this username")
-            } else {
-                DomainError::Internal(e.into())
-            }
-        })?;
+        .map_err(|e| match &e { DomainError::Internal(inner) if is_unique_violation(inner) => DomainError::duplicate("User with this username"), _ => e })?;
 
         self.audit
             .record(
@@ -98,13 +92,7 @@ impl UserService for UserServiceImpl {
     ) -> Result<User, DomainError> {
         let user = IdentityRepo::update_user(&mut *ctx.executor, user_id, display_name)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
-            })?;
+            .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
         self.audit
             .record(
@@ -129,7 +117,7 @@ impl UserService for UserServiceImpl {
     ) -> Result<(), DomainError> {
         IdentityRepo::deactivate_user(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
 
         self.audit
             .record(ctx, "user", user_id, AuditAction::Delete, None, None)
@@ -145,12 +133,9 @@ impl UserService for UserServiceImpl {
     ) -> Result<User, DomainError> {
         IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
+            .map_err(|e| match &e {
+                DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"),
+                _ => e,
             })
     }
 
@@ -167,7 +152,7 @@ impl UserService for UserServiceImpl {
             params.offset().into(),
         )
         .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
+        ?;
 
         Ok(PaginatedResult::new(items, total as u64, params.page, params.page_size))
     }
@@ -180,17 +165,11 @@ impl UserService for UserServiceImpl {
     ) -> Result<(), DomainError> {
         IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
-            })?;
+            .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
         IdentityRepo::replace_user_roles(&mut *ctx.executor, user_id, &role_ids)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
 
         self.audit
             .record(
@@ -215,17 +194,11 @@ impl UserService for UserServiceImpl {
     ) -> Result<UserWithRoles, DomainError> {
         let user = IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
-            })?;
+            .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
         let roles = IdentityRepo::get_role_info_for_user(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
 
         Ok(UserWithRoles { user, roles })
     }
@@ -240,13 +213,13 @@ impl UserService for UserServiceImpl {
             0,
         )
         .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
+        ?;
 
         let mut result = Vec::with_capacity(users.len());
         for user in users {
             let roles = IdentityRepo::get_role_info_for_user(&mut *ctx.executor, user.user_id)
                 .await
-                .map_err(|e| DomainError::Internal(e.into()))?;
+                ?;
             result.push(UserWithRoles { user, roles });
         }
 
@@ -264,13 +237,13 @@ impl UserService for UserServiceImpl {
 
         let users = IdentityRepo::get_users_by_ids(&mut *ctx.executor, &user_ids)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
 
         let mut result = Vec::with_capacity(users.len());
         for user in users {
             let roles = IdentityRepo::get_role_info_for_user(&mut *ctx.executor, user.user_id)
                 .await
-                .map_err(|e| DomainError::Internal(e.into()))?;
+                ?;
             result.push(UserWithRoles { user, roles });
         }
 
@@ -285,17 +258,11 @@ impl UserService for UserServiceImpl {
     ) -> Result<(), DomainError> {
         IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
-            })?;
+            .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
         IdentityRepo::add_user_roles(&mut *ctx.executor, user_id, &role_ids)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
 
         self.audit
             .record(
@@ -321,17 +288,11 @@ impl UserService for UserServiceImpl {
     ) -> Result<(), DomainError> {
         IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
-            })?;
+            .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
         IdentityRepo::remove_user_roles(&mut *ctx.executor, user_id, &role_ids)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
 
         self.audit
             .record(
@@ -359,13 +320,7 @@ impl UserService for UserServiceImpl {
         // Fetch stored password hash
         let stored_hash = IdentityRepo::get_user_password_hash(&mut *ctx.executor, user_id)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
-            })?;
+            .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
         // Verify old password
         let parsed_hash = PasswordHash::new(&stored_hash)
@@ -390,7 +345,7 @@ impl UserService for UserServiceImpl {
 
         IdentityRepo::update_user_password(&mut *ctx.executor, user_id, &new_hash)
             .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            ?;
 
         self.audit
             .record(
@@ -414,13 +369,7 @@ impl UserService for UserServiceImpl {
     ) -> Result<User, DomainError> {
         let user = IdentityRepo::update_user_status(&mut *ctx.executor, user_id, is_active)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
-            })?;
+            .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
         self.audit
             .record(
@@ -439,14 +388,18 @@ impl UserService for UserServiceImpl {
     }
 }
 
-fn is_unique_violation(err: &sqlx::Error) -> bool {
-    if let sqlx::Error::Database(db_err) = err {
-        db_err.code().as_ref().map(|c| c == "23505").unwrap_or(false)
-    } else {
-        false
-    }
+fn is_unique_violation(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<sqlx::Error>()
+        .map(|e| if let sqlx::Error::Database(db_err) = e {
+            db_err.code().as_ref().map(|c| c == "23505").unwrap_or(false)
+        } else {
+            false
+        })
+        .unwrap_or(false)
 }
 
-fn is_no_row(err: &sqlx::Error) -> bool {
-    matches!(err, sqlx::Error::RowNotFound)
+fn is_no_row(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<sqlx::Error>()
+        .map(|e| matches!(e, sqlx::Error::RowNotFound))
+        .unwrap_or(false)
 }

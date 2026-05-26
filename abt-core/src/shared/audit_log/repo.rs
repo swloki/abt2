@@ -1,5 +1,6 @@
 use serde_json::Value as JsonValue;
 use sqlx::{FromRow, Row};
+use crate::shared::types::RepoResult;
 
 use super::model::{AuditLog, AuditLogQuery};
 use crate::shared::enums::audit::AuditAction;
@@ -16,7 +17,7 @@ impl AuditLogRepo {
         changes: Option<&JsonValue>,
         operator_id: i64,
         context: Option<&JsonValue>,
-    ) -> Result<i64, sqlx::Error> {
+    ) -> RepoResult<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO audit_logs (entity_type, entity_id, action, changes, operator_id, context)
@@ -33,7 +34,7 @@ impl AuditLogRepo {
         .fetch_one(executor)
         .await?;
 
-        row.try_get("id")
+        row.try_get("id").map_err(Into::into)
     }
 
     /// 动态条件分页查询 — 始终绑定 5 个过滤参数，用 SQL IS NULL OR 模式处理可选条件
@@ -42,7 +43,7 @@ impl AuditLogRepo {
         q: &AuditLogQuery,
         limit: i64,
         offset: i64,
-    ) -> Result<(Vec<AuditLog>, u64), sqlx::Error> {
+    ) -> RepoResult<(Vec<AuditLog>, u64)> {
         let sql_base = "
             WHERE ($1::text IS NULL OR entity_type = $1)
               AND ($2::bigint IS NULL OR operator_id = $2)

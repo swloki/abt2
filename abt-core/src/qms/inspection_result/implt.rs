@@ -36,7 +36,6 @@ pub struct InspectionResultServiceImpl {
 }
 
 impl InspectionResultServiceImpl {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         pool: Arc<PgPool>,
         doc_seq: Arc<dyn DocumentSequenceService>,

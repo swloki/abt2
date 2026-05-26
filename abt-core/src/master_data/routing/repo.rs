@@ -1,5 +1,5 @@
-use anyhow::Result;
 use common::PgExecutor;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
@@ -7,7 +7,7 @@ use crate::shared::types::{PageParams, PaginatedResult};
 pub struct RoutingRepo;
 
 impl RoutingRepo {
-    pub async fn create(&self, executor: PgExecutor<'_>, req: &CreateRoutingReq, operator_id: i64) -> Result<i64> {
+    pub async fn create(&self, executor: PgExecutor<'_>, req: &CreateRoutingReq, operator_id: i64) -> RepoResult<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO routings (name, description, operator_id)
                VALUES ($1, $2, $3)
@@ -21,7 +21,7 @@ impl RoutingRepo {
         Ok(id)
     }
 
-    pub async fn insert_steps(&self, executor: PgExecutor<'_>, routing_id: i64, steps: &[RoutingStepInput]) -> Result<()> {
+    pub async fn insert_steps(&self, executor: PgExecutor<'_>, routing_id: i64, steps: &[RoutingStepInput]) -> RepoResult<()> {
         for step in steps {
             sqlx::query(
                 r#"INSERT INTO routing_steps (routing_id, process_code, step_order, is_required, remark)
@@ -38,7 +38,7 @@ impl RoutingRepo {
         Ok(())
     }
 
-    pub async fn delete_steps(&self, executor: PgExecutor<'_>, routing_id: i64) -> Result<()> {
+    pub async fn delete_steps(&self, executor: PgExecutor<'_>, routing_id: i64) -> RepoResult<()> {
         sqlx::query("DELETE FROM routing_steps WHERE routing_id = $1")
             .bind(routing_id)
             .execute(executor)
@@ -47,7 +47,7 @@ impl RoutingRepo {
     }
 
     #[allow(unused_assignments)]
-    pub async fn update(&self, executor: PgExecutor<'_>, id: i64, req: &UpdateRoutingReq, operator_id: i64) -> Result<()> {
+    pub async fn update(&self, executor: PgExecutor<'_>, id: i64, req: &UpdateRoutingReq, operator_id: i64) -> RepoResult<()> {
         let mut sets = vec!["updated_at = NOW()".to_string()];
         let mut param_idx = 2u32;
 
@@ -66,7 +66,7 @@ impl RoutingRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<()> {
         sqlx::query("UPDATE routings SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
             .bind(id)
             .execute(executor)
@@ -74,7 +74,7 @@ impl RoutingRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<Routing>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<Routing>> {
         let row = sqlx::query_as::<sqlx::Postgres, Routing>(
             "SELECT id, name, description, operator_id, created_at, updated_at, deleted_at FROM routings WHERE id = $1 AND deleted_at IS NULL",
         )
@@ -84,7 +84,7 @@ impl RoutingRepo {
         Ok(row)
     }
 
-    pub async fn find_steps(&self, executor: PgExecutor<'_>, routing_id: i64) -> Result<Vec<RoutingStep>> {
+    pub async fn find_steps(&self, executor: PgExecutor<'_>, routing_id: i64) -> RepoResult<Vec<RoutingStep>> {
         let steps = sqlx::query_as::<sqlx::Postgres, RoutingStep>(
             "SELECT id, routing_id, process_code, step_order, is_required, remark, created_at FROM routing_steps WHERE routing_id = $1 ORDER BY step_order",
         )
@@ -95,7 +95,7 @@ impl RoutingRepo {
     }
 
     #[allow(unused_assignments)]
-    pub async fn query(&self, executor: PgExecutor<'_>, filter: &RoutingQuery, page: &PageParams) -> Result<PaginatedResult<Routing>> {
+    pub async fn query(&self, executor: PgExecutor<'_>, filter: &RoutingQuery, page: &PageParams) -> RepoResult<PaginatedResult<Routing>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -130,7 +130,7 @@ impl RoutingRepo {
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 
-    pub async fn find_matching_by_process_codes(&self, executor: PgExecutor<'_>, process_codes: &[String]) -> Result<Option<i64>> {
+    pub async fn find_matching_by_process_codes(&self, executor: PgExecutor<'_>, process_codes: &[String]) -> RepoResult<Option<i64>> {
         if process_codes.is_empty() {
             return Ok(None);
         }
@@ -161,7 +161,7 @@ impl RoutingRepo {
         Ok(routing_id)
     }
 
-    pub async fn set_bom_routing(&self, executor: PgExecutor<'_>, product_code: &str, routing_id: i64, operator_id: i64) -> Result<()> {
+    pub async fn set_bom_routing(&self, executor: PgExecutor<'_>, product_code: &str, routing_id: i64, operator_id: i64) -> RepoResult<()> {
         sqlx::query(
             r#"INSERT INTO bom_routings (product_code, routing_id, operator_id)
                VALUES ($1, $2, $3)
@@ -175,7 +175,7 @@ impl RoutingRepo {
         Ok(())
     }
 
-    pub async fn get_bom_routing(&self, executor: PgExecutor<'_>, product_code: &str) -> Result<Option<BomRouting>> {
+    pub async fn get_bom_routing(&self, executor: PgExecutor<'_>, product_code: &str) -> RepoResult<Option<BomRouting>> {
         let row = sqlx::query_as::<sqlx::Postgres, BomRouting>(
             "SELECT id, product_code, routing_id, operator_id, created_at, updated_at FROM bom_routings WHERE product_code = $1",
         )
@@ -185,7 +185,7 @@ impl RoutingRepo {
         Ok(row)
     }
 
-    pub async fn delete_bom_routing(&self, executor: PgExecutor<'_>, product_code: &str) -> Result<()> {
+    pub async fn delete_bom_routing(&self, executor: PgExecutor<'_>, product_code: &str) -> RepoResult<()> {
         sqlx::query("DELETE FROM bom_routings WHERE product_code = $1")
             .bind(product_code)
             .execute(executor)
@@ -193,7 +193,7 @@ impl RoutingRepo {
         Ok(())
     }
 
-    pub async fn list_boms_by_routing(&self, executor: PgExecutor<'_>, routing_id: i64) -> Result<Vec<BomRouting>> {
+    pub async fn list_boms_by_routing(&self, executor: PgExecutor<'_>, routing_id: i64) -> RepoResult<Vec<BomRouting>> {
         let rows = sqlx::query_as::<sqlx::Postgres, BomRouting>(
             "SELECT id, product_code, routing_id, operator_id, created_at, updated_at FROM bom_routings WHERE routing_id = $1",
         )

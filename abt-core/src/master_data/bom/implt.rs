@@ -39,10 +39,10 @@ impl BomQueryServiceImpl {
 impl BomQueryService for BomQueryServiceImpl {
     async fn get(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<Bom, DomainError> {
         let mut bom = self.repo.find_by_id(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
         let nodes = self.node_repo.find_by_bom_id(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
         bom.bom_detail = BomDetail { nodes };
         Ok(bom)
     }
@@ -54,7 +54,7 @@ impl BomQueryService for BomQueryServiceImpl {
         page: PageParams,
     ) -> Result<PaginatedResult<Bom>, DomainError> {
         self.repo.query(ctx.executor, &query, &page)
-            .await.map_err(DomainError::Internal)
+            .await
     }
 
     async fn get_leaf_nodes(
@@ -63,11 +63,11 @@ impl BomQueryService for BomQueryServiceImpl {
         bom_id: i64,
     ) -> Result<Vec<BomNode>, DomainError> {
         self.repo.find_by_id(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         self.node_repo.find_leaf_nodes(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)
+            .await
     }
 
     async fn get_snapshots(
@@ -79,11 +79,11 @@ impl BomQueryService for BomQueryServiceImpl {
     ) -> Result<Vec<BomSnapshot>, DomainError> {
         if let Some(ver) = version {
             let snap = self.snapshot_repo.find_by_bom_and_version(ctx.executor, bom_id, ver)
-                .await.map_err(DomainError::Internal)?;
+                .await?;
             Ok(snap.into_iter().collect())
         } else {
             self.snapshot_repo.find_by_bom_id(ctx.executor, bom_id, limit)
-                .await.map_err(DomainError::Internal)
+                .await
         }
     }
 
@@ -94,7 +94,7 @@ impl BomQueryService for BomQueryServiceImpl {
         caller_id: Option<i64>,
     ) -> Result<bool, DomainError> {
         self.repo.check_name_unique(ctx.executor, name, caller_id)
-            .await.map_err(DomainError::Internal)
+            .await
     }
 }
 
@@ -130,13 +130,13 @@ impl BomCommandService for BomCommandServiceImpl {
         let code = self.doc_seq.next_number(ctx.reborrow(), DocumentType::Bom).await?;
 
         if !self.repo.check_name_unique(ctx.executor, &req.name, None)
-            .await.map_err(DomainError::Internal)?
+            .await?
         {
             return Err(DomainError::duplicate(format!("BOM name: {}", req.name)));
         }
 
         let id = self.repo.create(ctx.executor, &code, &req, ctx.operator_id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.state_machine
             .transition(ctx.reborrow(), "BomStatus", id, "Draft", None)
@@ -157,7 +157,7 @@ impl BomCommandService for BomCommandServiceImpl {
         expected_version: i32,
     ) -> Result<(), DomainError> {
         let existing = self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if existing.status != BomStatus::Draft {
@@ -166,14 +166,14 @@ impl BomCommandService for BomCommandServiceImpl {
 
         if let Some(ref new_name) = req.name {
             if !self.repo.check_name_unique(ctx.executor, new_name, Some(id))
-                .await.map_err(DomainError::Internal)?
+                .await?
             {
                 return Err(DomainError::duplicate(format!("BOM name: {new_name}")));
             }
         }
 
         let updated = self.repo.update(ctx.executor, id, &req, expected_version)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         if !updated {
             return Err(DomainError::ConcurrentConflict);
@@ -185,7 +185,7 @@ impl BomCommandService for BomCommandServiceImpl {
 
     async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
         let existing = self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if existing.status == BomStatus::Published {
@@ -193,7 +193,7 @@ impl BomCommandService for BomCommandServiceImpl {
         }
 
         self.repo.delete(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.audit.record(ctx, "BOM", id, AuditAction::Delete, None, None).await?;
         Ok(())
@@ -201,7 +201,7 @@ impl BomCommandService for BomCommandServiceImpl {
 
     async fn publish(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<i64, DomainError> {
         let existing = self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if existing.status == BomStatus::Published {
@@ -209,26 +209,26 @@ impl BomCommandService for BomCommandServiceImpl {
         }
 
         let node_count = self.node_repo.count_by_bom_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
         if node_count == 0 {
             return Err(DomainError::business_rule("Cannot publish a BOM with no nodes"));
         }
 
         // build BomDetail from nodes
         let nodes = self.node_repo.find_by_bom_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
         let bom_detail = BomDetail { nodes };
 
         self.snapshot_repo.create(
             ctx.executor, id, existing.version, &existing.bom_name, &bom_detail, ctx.operator_id,
-        ).await.map_err(DomainError::Internal)?;
+        ).await?;
 
         self.state_machine
             .transition(ctx.reborrow(), "BomStatus", id, "Published", None)
             .await?;
 
         self.repo.update_status(ctx.executor, id, BomStatus::Published)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.event_bus.publish(
             ctx.reborrow(),
@@ -248,7 +248,7 @@ impl BomCommandService for BomCommandServiceImpl {
 
     async fn unpublish(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
         let existing = self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if existing.status != BomStatus::Published {
@@ -260,7 +260,7 @@ impl BomCommandService for BomCommandServiceImpl {
             .await?;
 
         self.repo.update_status(ctx.executor, id, BomStatus::Draft)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.event_bus.publish(
             ctx.reborrow(),
@@ -279,7 +279,7 @@ impl BomCommandService for BomCommandServiceImpl {
 
     async fn save_as(&self, mut ctx: ServiceContext<'_>, source_id: i64, new_name: String) -> Result<i64, DomainError> {
         let source = self.repo.find_by_id(ctx.executor, source_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         let create_req = CreateBomReq {
@@ -291,7 +291,7 @@ impl BomCommandService for BomCommandServiceImpl {
 
         // copy nodes
         let source_nodes = self.node_repo.find_by_bom_id(ctx.executor, source_id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         // build old -> new node id mapping
         let mut id_map: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
@@ -310,7 +310,7 @@ impl BomCommandService for BomCommandServiceImpl {
                 properties: node.properties.clone(),
             };
             let new_node_id = self.node_repo.create(ctx.executor, new_id, &new_node)
-                .await.map_err(DomainError::Internal)?;
+                .await?;
             id_map.insert(node.id, new_node_id);
         }
 
@@ -326,17 +326,17 @@ impl BomCommandService for BomCommandServiceImpl {
         // If bom_id is Some, scope to that BOM; otherwise global replace
         let affected_node_ids = if let Some(bom_id) = req.bom_id {
             let _existing = self.repo.find_by_id(ctx.executor, bom_id)
-                .await.map_err(DomainError::Internal)?
+                .await?
                 .ok_or_else(|| DomainError::not_found("BOM"))?;
 
             if req.overrides != AttributeOverrides::default() {
                 self.node_repo.update_product_with_overrides(
                     ctx.executor, bom_id, req.old_product_id, req.new_product_id, &req.overrides,
-                ).await.map_err(DomainError::Internal)?
+                ).await?
             } else {
                 self.node_repo.update_product(
                     ctx.executor, bom_id, req.old_product_id, req.new_product_id,
-                ).await.map_err(DomainError::Internal)?
+                ).await?
             }
         } else {
             Vec::new()
@@ -381,7 +381,7 @@ impl BomCommandService for BomCommandServiceImpl {
 
     async fn validate_cycle(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<(), DomainError> {
         self.repo.find_by_id(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         Ok(())
@@ -417,7 +417,7 @@ impl BomNodeService for BomNodeServiceImpl {
         node: NewBomNode,
     ) -> Result<i64, DomainError> {
         let bom = self.repo.find_by_id(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if bom.status != BomStatus::Draft {
@@ -427,7 +427,7 @@ impl BomNodeService for BomNodeServiceImpl {
         // validate parent node belongs to same BOM (0 = root)
         if node.parent_id != 0 {
             let parent = self.node_repo.find_by_id(ctx.executor, node.parent_id)
-                .await.map_err(DomainError::Internal)?
+                .await?
                 .ok_or_else(|| DomainError::not_found("BomNode"))?;
             if parent.bom_id != bom_id {
                 return Err(DomainError::business_rule("Parent node does not belong to this BOM"));
@@ -435,7 +435,7 @@ impl BomNodeService for BomNodeServiceImpl {
         }
 
         let node_id = self.node_repo.create(ctx.executor, bom_id, &node)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.event_bus.publish(
             ctx.reborrow(),
@@ -465,7 +465,7 @@ impl BomNodeService for BomNodeServiceImpl {
         expected_version: i32,
     ) -> Result<(), DomainError> {
         let bom = self.repo.find_by_id(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if bom.status != BomStatus::Draft {
@@ -477,7 +477,7 @@ impl BomNodeService for BomNodeServiceImpl {
         }
 
         let existing = self.node_repo.find_by_id(ctx.executor, node_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
         if existing.bom_id != bom_id {
@@ -485,7 +485,7 @@ impl BomNodeService for BomNodeServiceImpl {
         }
 
         self.node_repo.update(ctx.executor, node_id, &req)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.event_bus.publish(
             ctx.reborrow(),
@@ -509,7 +509,7 @@ impl BomNodeService for BomNodeServiceImpl {
         node_id: i64,
     ) -> Result<i64, DomainError> {
         let bom = self.repo.find_by_id(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if bom.status != BomStatus::Draft {
@@ -517,7 +517,7 @@ impl BomNodeService for BomNodeServiceImpl {
         }
 
         let existing = self.node_repo.find_by_id(ctx.executor, node_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
         if existing.bom_id != bom_id {
@@ -525,13 +525,13 @@ impl BomNodeService for BomNodeServiceImpl {
         }
 
         let child_count = self.node_repo.count_children(ctx.executor, node_id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
         if child_count > 0 {
             return Err(DomainError::business_rule("Cannot delete a node that has children"));
         }
 
         self.node_repo.delete(ctx.executor, node_id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.event_bus.publish(
             ctx.reborrow(),
@@ -558,7 +558,7 @@ impl BomNodeService for BomNodeServiceImpl {
         before_sibling_id: Option<i64>,
     ) -> Result<(), DomainError> {
         let bom = self.repo.find_by_id(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if bom.status != BomStatus::Draft {
@@ -566,7 +566,7 @@ impl BomNodeService for BomNodeServiceImpl {
         }
 
         let existing = self.node_repo.find_by_id(ctx.executor, node_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
         if existing.bom_id != bom_id {
@@ -576,7 +576,7 @@ impl BomNodeService for BomNodeServiceImpl {
         // validate new parent (0 = root)
         if new_parent_id != 0 {
             let new_parent = self.node_repo.find_by_id(ctx.executor, new_parent_id)
-                .await.map_err(DomainError::Internal)?
+                .await?
                 .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
             if new_parent.bom_id != bom_id {
@@ -591,20 +591,20 @@ impl BomNodeService for BomNodeServiceImpl {
         // determine order_num
         let order_num = if let Some(sibling_id) = before_sibling_id {
             let sibling = self.node_repo.find_by_id(ctx.executor, sibling_id)
-                .await.map_err(DomainError::Internal)?
+                .await?
                 .ok_or_else(|| DomainError::not_found("BomNode"))?;
             self.node_repo.update_order_shift(
                 ctx.executor, bom_id, new_parent_id, sibling.order,
-            ).await.map_err(DomainError::Internal)?;
+            ).await?;
             sibling.order
         } else {
             let max_order = self.node_repo.find_max_order(ctx.executor, bom_id, new_parent_id)
-                .await.map_err(DomainError::Internal)?;
+                .await?;
             max_order.unwrap_or(0) + 1
         };
 
         self.node_repo.update_parent(ctx.executor, node_id, new_parent_id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         let order_req = UpdateBomNodeReq {
             quantity: None,
@@ -617,7 +617,7 @@ impl BomNodeService for BomNodeServiceImpl {
             properties: None,
         };
         self.node_repo.update(ctx.executor, node_id, &order_req)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.audit.record(
             ctx,
@@ -663,11 +663,11 @@ impl BomCostService for BomCostServiceImpl {
         as_of_date: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<BomCostReport, DomainError> {
         let bom = self.repo.find_by_id(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         let leaf_nodes = self.node_repo.find_leaf_nodes(ctx.executor, bom_id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         let mut material_costs = Vec::new();
         let mut warnings = Vec::new();
@@ -675,10 +675,10 @@ impl BomCostService for BomCostServiceImpl {
         for node in &leaf_nodes {
             let price_result = if let Some(date) = as_of_date {
                 self.price_repo.find_price_at(ctx.executor, node.product_id, PriceType::StandardCost, date)
-                    .await.map_err(DomainError::Internal)?
+                    .await?
             } else {
                 self.price_repo.find_latest_price(ctx.executor, node.product_id, PriceType::StandardCost)
-                    .await.map_err(DomainError::Internal)?
+                    .await?
             };
 
             let unit_price = match price_result {
@@ -734,7 +734,7 @@ impl BomCategoryServiceImpl {
 impl BomCategoryService for BomCategoryServiceImpl {
     async fn create(&self, ctx: ServiceContext<'_>, req: CreateBomCategoryReq) -> Result<i64, DomainError> {
         let id = self.repo.create(ctx.executor, &req)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.audit.record(ctx, "BomCategory", id, AuditAction::Create, None, None).await?;
         Ok(id)
@@ -742,11 +742,11 @@ impl BomCategoryService for BomCategoryServiceImpl {
 
     async fn update(&self, ctx: ServiceContext<'_>, id: i64, req: UpdateBomCategoryReq) -> Result<(), DomainError> {
         self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BomCategory"))?;
 
         self.repo.update(ctx.executor, id, &req)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.audit.record(ctx, "BomCategory", id, AuditAction::Update, None, None).await?;
         Ok(())
@@ -754,11 +754,11 @@ impl BomCategoryService for BomCategoryServiceImpl {
 
     async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
         self.repo.find_by_id(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?
+            .await?
             .ok_or_else(|| DomainError::not_found("BomCategory"))?;
 
         let bom_count = self.repo.count_boms_by_category(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
         if bom_count > 0 {
             return Err(DomainError::business_rule(
                 "Cannot delete category that is used by BOMs",
@@ -766,7 +766,7 @@ impl BomCategoryService for BomCategoryServiceImpl {
         }
 
         self.repo.delete(ctx.executor, id)
-            .await.map_err(DomainError::Internal)?;
+            .await?;
 
         self.audit.record(ctx, "BomCategory", id, AuditAction::Delete, None, None).await?;
         Ok(())
@@ -779,6 +779,6 @@ impl BomCategoryService for BomCategoryServiceImpl {
         page: PageParams,
     ) -> Result<PaginatedResult<BomCategory>, DomainError> {
         self.repo.query(ctx.executor, &query, &page)
-            .await.map_err(DomainError::Internal)
+            .await
     }
 }

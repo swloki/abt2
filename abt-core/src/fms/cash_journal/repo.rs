@@ -1,6 +1,6 @@
-use anyhow::Result;
 use common::PgExecutor;
 use rust_decimal::Decimal;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use super::super::enums::JournalStatus;
@@ -17,13 +17,12 @@ const LINE_COLUMNS: &str = "id, journal_id, account_code, debit_amount, credit_a
 pub struct CashJournalRepo;
 
 impl CashJournalRepo {
-    #[allow(clippy::too_many_arguments)]
     pub async fn create(
         executor: PgExecutor<'_>,
         doc_number: &str,
         req: &CreateCashJournalReq,
         operator_id: i64,
-    ) -> Result<i64> {
+    ) -> RepoResult<i64> {
         let (cp_type, cp_id) = req.counterparty.to_parts();
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO cash_journals
@@ -50,7 +49,7 @@ impl CashJournalRepo {
         Ok(row)
     }
 
-    pub async fn get_by_id(executor: PgExecutor<'_>, id: i64) -> Result<Option<CashJournal>> {
+    pub async fn get_by_id(executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<CashJournal>> {
         let journal = sqlx::query_as::<sqlx::Postgres, CashJournal>(
             &format!(
                 "SELECT {JOURNAL_COLUMNS} FROM cash_journals WHERE id = $1 AND deleted_at IS NULL"
@@ -63,7 +62,7 @@ impl CashJournalRepo {
     }
 
     /// Lock row for update (used in confirm flow)
-    pub async fn get_for_update(executor: PgExecutor<'_>, id: i64) -> Result<Option<CashJournal>> {
+    pub async fn get_for_update(executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<CashJournal>> {
         let journal = sqlx::query_as::<sqlx::Postgres, CashJournal>(
             &format!(
                 "SELECT {JOURNAL_COLUMNS} FROM cash_journals WHERE id = $1 AND deleted_at IS NULL FOR UPDATE"
@@ -81,7 +80,7 @@ impl CashJournalRepo {
         id: i64,
         status: JournalStatus,
         version: i32,
-    ) -> Result<u64> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             "UPDATE cash_journals SET status = $2, version = version + 1, updated_at = NOW() \
              WHERE id = $1 AND version = $3 AND deleted_at IS NULL",
@@ -102,7 +101,7 @@ impl CashJournalRepo {
         data_scope: DataScope,
         scope_operator_id: i64,
         _scope_department_id: Option<i64>,
-    ) -> Result<(Vec<CashJournal>, u64)> {
+    ) -> RepoResult<(Vec<CashJournal>, u64)> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
@@ -251,7 +250,7 @@ impl CashJournalRepo {
     pub async fn sum_balance_by_period(
         executor: PgExecutor<'_>,
         period: &str,
-    ) -> Result<(Decimal, Decimal)> {
+    ) -> RepoResult<(Decimal, Decimal)> {
         let row: (Decimal, Decimal) = sqlx::query_as(
             r#"SELECT
                  COALESCE(SUM(amount) FILTER (WHERE direction = 1), 0),
@@ -277,7 +276,7 @@ impl CashJournalLineRepo {
         executor: PgExecutor<'_>,
         journal_id: i64,
         lines: &[CashJournalLineInput],
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         for line in lines {
             sqlx::query(
                 r#"INSERT INTO cash_journal_lines
@@ -300,7 +299,7 @@ impl CashJournalLineRepo {
     pub async fn get_by_journal_id(
         executor: PgExecutor<'_>,
         journal_id: i64,
-    ) -> Result<Vec<CashJournalLine>> {
+    ) -> RepoResult<Vec<CashJournalLine>> {
         let lines = sqlx::query_as::<sqlx::Postgres, CashJournalLine>(
             &format!("SELECT {LINE_COLUMNS} FROM cash_journal_lines WHERE journal_id = $1"),
         )
@@ -314,7 +313,7 @@ impl CashJournalLineRepo {
     pub async fn sum_debit_credit(
         executor: PgExecutor<'_>,
         journal_id: i64,
-    ) -> Result<(Decimal, Decimal)> {
+    ) -> RepoResult<(Decimal, Decimal)> {
         let row: (Decimal, Decimal) = sqlx::query_as(
             r#"SELECT
                  COALESCE(SUM(debit_amount), 0),

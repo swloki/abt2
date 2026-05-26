@@ -1,5 +1,6 @@
 use chrono::NaiveDate;
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 
@@ -9,7 +10,7 @@ impl WorkReportRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<WorkReport>, sqlx::Error> {
+    ) -> RepoResult<Option<WorkReport>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, batch_id, routing_id,
@@ -23,13 +24,14 @@ impl WorkReportRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| WorkReport::from_row(&r)).transpose()
+        row.map(|r| WorkReport::from_row(&r).map_err(Into::into)).transpose()
+
     }
 
     pub async fn list_by_work_order(
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
-    ) -> Result<Vec<WorkReport>, sqlx::Error> {
+    ) -> RepoResult<Vec<WorkReport>> {
         let rows = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, batch_id, routing_id,
@@ -55,7 +57,7 @@ impl WorkReportRepo {
     pub async fn list_by_batch(
         executor: &mut sqlx::postgres::PgConnection,
         batch_id: i64,
-    ) -> Result<Vec<WorkReport>, sqlx::Error> {
+    ) -> RepoResult<Vec<WorkReport>> {
         let rows = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, batch_id, routing_id,
@@ -83,7 +85,7 @@ impl WorkReportRepo {
         worker_id: i64,
         from: NaiveDate,
         to: NaiveDate,
-    ) -> Result<Vec<WorkReport>, sqlx::Error> {
+    ) -> RepoResult<Vec<WorkReport>> {
         let rows = sqlx::query(
             r#"
             SELECT id, doc_number, work_order_id, batch_id, routing_id,

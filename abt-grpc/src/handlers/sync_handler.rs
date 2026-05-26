@@ -48,7 +48,7 @@ impl GrpcSyncService for SyncHandler {
             let mut conn = pool.acquire().await.map_err(error::sqlx_err_to_status)?;
             ProductRepo.find_by_id(&mut conn, req.product_id)
                 .await
-                .map_err(error::err_to_status)?
+                .map_err(|e| error::err_to_status(e.into()))?
                 .ok_or_else(|| error::validation("product_id", "产品不存在"))?
         };
 

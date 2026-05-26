@@ -1,4 +1,5 @@
 use sqlx::query_as;
+use crate::shared::types::RepoResult;
 
 use super::model::DocumentSequence;
 
@@ -11,7 +12,7 @@ impl DocumentSequenceRepo {
         executor: &mut sqlx::postgres::PgConnection,
         prefix: &str,
         padding_len: i32,
-    ) -> Result<DocumentSequence, sqlx::Error> {
+    ) -> RepoResult<DocumentSequence> {
         query_as::<_, DocumentSequence>(
             r#"
             INSERT INTO document_sequences (prefix, seq_date, current_value, padding_len, strategy)
@@ -26,5 +27,6 @@ impl DocumentSequenceRepo {
         .bind(padding_len)
         .fetch_one(executor)
         .await
+        .map_err(Into::into)
     }
 }

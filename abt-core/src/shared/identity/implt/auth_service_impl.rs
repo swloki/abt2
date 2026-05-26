@@ -33,28 +33,21 @@ impl AuthService for AuthServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 1. Find user by username
         let user = IdentityRepo::get_user_by_username(&mut conn, username)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
+            .map_err(|e| match &e {
+                DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"),
+                _ => e,
             })?;
 
-        // 2. Verify argon2 password
         let parsed_hash = PasswordHash::new(&user.password_hash)
             .map_err(|e| DomainError::Internal(anyhow::anyhow!("argon2 parse error: {e}")))?;
         Argon2::default()
             .verify_password(password.as_bytes(), &parsed_hash)
             .map_err(|_| DomainError::permission_denied("Invalid credentials"))?;
 
-        // 3. Build claims
         let claims = self.build_claims(&mut conn, &user).await?;
 
-        // 4. Generate JWT
         let token = encode(
             &Header::default(),
             &claims,
@@ -67,7 +60,7 @@ impl AuthService for AuthServiceImpl {
 
     async fn refresh_token(&self, token: &str) -> Result<String, DomainError> {
         let mut validation = Validation::default();
-        validation.validate_exp = false; // Allow expired tokens for refresh
+        validation.validate_exp = false;
         validation.set_issuer(&[JWT_ISSUER]);
 
         let token_data = decode::<Claims>(
@@ -100,12 +93,9 @@ impl AuthService for AuthServiceImpl {
 
         let user = IdentityRepo::get_user(&mut conn, user_id)
             .await
-            .map_err(|e| {
-                if is_no_row(&e) {
-                    DomainError::not_found("User")
-                } else {
-                    DomainError::Internal(e.into())
-                }
+            .map_err(|e| match &e {
+                DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"),
+                _ => e,
             })?;
 
         self.build_claims(&mut conn, &user).await
@@ -122,25 +112,14 @@ impl AuthServiceImpl {
         conn: &mut sqlx::postgres::PgConnection,
         user: &super::super::model::User,
     ) -> Result<Claims, DomainError> {
-        let role_ids = IdentityRepo::get_user_role_ids(conn, user.user_id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-
-        let role_codes = IdentityRepo::get_user_role_codes(conn, user.user_id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-
-        let department_ids = IdentityRepo::get_user_department_ids(conn, user.user_id)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+        let role_ids = IdentityRepo::get_user_role_ids(conn, user.user_id).await?;
+        let role_codes = IdentityRepo::get_user_role_codes(conn, user.user_id).await?;
+        let department_ids = IdentityRepo::get_user_department_ids(conn, user.user_id).await?;
 
         let now = Utc::now();
         let exp = match now.checked_add_signed(chrono::Duration::hours(24)) {
             Some(t) => t.timestamp() as u64,
-            None => {
-                // Overflow — cap at u64::MAX (practically infinite, forces refresh)
-                u64::MAX
-            }
+            None => u64::MAX,
         };
 
         let system_role = if user.is_super_admin {
@@ -164,6 +143,8 @@ impl AuthServiceImpl {
     }
 }
 
-fn is_no_row(err: &sqlx::Error) -> bool {
-    matches!(err, sqlx::Error::RowNotFound)
+fn is_no_row(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<sqlx::Error>()
+        .map(|e| matches!(e, sqlx::Error::RowNotFound))
+        .unwrap_or(false)
 }

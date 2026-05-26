@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::super::enums::{PlanItemStatus, PlanStatus};
 use super::model::*;
@@ -12,7 +13,7 @@ impl ProductionPlanRepo {
         req: &CreatePlanReq,
         doc_number: &str,
         operator_id: i64,
-    ) -> Result<ProductionPlan, sqlx::Error> {
+    ) -> RepoResult<ProductionPlan> {
         let row = sqlx::query(
             r#"
             INSERT INTO production_plans
@@ -31,14 +32,14 @@ impl ProductionPlanRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        ProductionPlan::from_row(&row)
+        Ok(ProductionPlan::from_row(&row)?)
     }
 
     pub async fn insert_items(
         executor: &mut sqlx::postgres::PgConnection,
         plan_id: i64,
         items: &[CreatePlanItemReq],
-    ) -> Result<Vec<ProductionPlanItem>, sqlx::Error> {
+    ) -> RepoResult<Vec<ProductionPlanItem>> {
         let mut results = Vec::with_capacity(items.len());
         for item in items {
             let row = sqlx::query(
@@ -76,7 +77,7 @@ impl ProductionPlanRepo {
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<ProductionPlan>, sqlx::Error> {
+    ) -> RepoResult<Option<ProductionPlan>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, plan_date, plan_type, status, remark,
@@ -89,13 +90,14 @@ impl ProductionPlanRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| ProductionPlan::from_row(&r)).transpose()
+        row.map(|r| ProductionPlan::from_row(&r).map_err(Into::into)).transpose()
+
     }
 
     pub async fn get_items_by_plan_id(
         executor: &mut sqlx::postgres::PgConnection,
         plan_id: i64,
-    ) -> Result<Vec<ProductionPlanItem>, sqlx::Error> {
+    ) -> RepoResult<Vec<ProductionPlanItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, plan_id, product_id, planned_qty, scheduled_start, scheduled_end,
@@ -122,7 +124,7 @@ impl ProductionPlanRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: PlanStatus,
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         sqlx::query(
             r#"
             UPDATE production_plans
@@ -143,7 +145,7 @@ impl ProductionPlanRepo {
         filter: &PlanFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<ProductionPlan>, sqlx::Error> {
+    ) -> RepoResult<PaginatedResult<ProductionPlan>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["deleted_at IS NULL".to_string()];

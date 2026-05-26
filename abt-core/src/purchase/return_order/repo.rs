@@ -1,6 +1,7 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use sqlx::Row;
+use crate::shared::types::RepoResult;
 
 use super::model::{
     CreatePurchaseReturnRequest, CreateReturnItemRequest, PurchaseReturn, PurchaseReturnItem,
@@ -19,7 +20,7 @@ impl PurchaseReturnRepo {
         doc_number: &str,
         total_amount: Decimal,
         operator_id: i64,
-    ) -> Result<i64, sqlx::Error> {
+    ) -> RepoResult<i64> {
         let row = sqlx::query(
             r#"
             INSERT INTO purchase_returns
@@ -41,14 +42,14 @@ impl PurchaseReturnRepo {
         .fetch_one(executor)
         .await?;
 
-        row.try_get("id")
+        Ok(row.try_get("id")?)
     }
 
     /// 按主键查询（软删除行过滤）
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<PurchaseReturn>, sqlx::Error> {
+    ) -> RepoResult<Option<PurchaseReturn>> {
         sqlx::query_as::<_, PurchaseReturn>(
             r#"
             SELECT id, doc_number, order_id, supplier_id, return_date, status,
@@ -60,7 +61,7 @@ impl PurchaseReturnRepo {
         )
         .bind(id)
         .fetch_optional(executor)
-        .await
+        .await.map_err(Into::into)
     }
 
     /// 动态条件分页查询
@@ -68,7 +69,7 @@ impl PurchaseReturnRepo {
         executor: &mut sqlx::postgres::PgConnection,
         q: &PurchaseReturnQuery,
         page: &PageParams,
-    ) -> Result<(Vec<PurchaseReturn>, u64), sqlx::Error> {
+    ) -> RepoResult<(Vec<PurchaseReturn>, u64)> {
         let where_clause = "
             WHERE deleted_at IS NULL
               AND ($1::bigint IS NULL OR order_id = $1)
@@ -115,7 +116,7 @@ impl PurchaseReturnRepo {
         id: i64,
         status: PurchaseReturnStatus,
         updated_at: &DateTime<Utc>,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE purchase_returns
@@ -137,7 +138,7 @@ impl PurchaseReturnRepo {
         executor: &mut sqlx::postgres::PgConnection,
         supplier_id: i64,
         order_ids: &[i64],
-    ) -> Result<Vec<PurchaseReturn>, sqlx::Error> {
+    ) -> RepoResult<Vec<PurchaseReturn>> {
         if order_ids.is_empty() {
             return Ok(vec![]);
         }
@@ -163,7 +164,7 @@ impl PurchaseReturnRepo {
         for &oid in order_ids {
             query = query.bind(oid);
         }
-        query.fetch_all(executor).await
+        query.fetch_all(executor).await.map_err(Into::into)
     }
 }
 
@@ -179,7 +180,7 @@ impl PurchaseReturnItemRepo {
         executor: &mut sqlx::postgres::PgConnection,
         return_id: i64,
         items: &[CreateReturnItemRequest],
-    ) -> Result<(), sqlx::Error> {
+    ) -> RepoResult<()> {
         for item in items {
             let amount = item.returned_qty * item.unit_price;
             sqlx::query(
@@ -205,7 +206,7 @@ impl PurchaseReturnItemRepo {
     pub async fn list_by_return_id(
         executor: &mut sqlx::postgres::PgConnection,
         return_id: i64,
-    ) -> Result<Vec<PurchaseReturnItem>, sqlx::Error> {
+    ) -> RepoResult<Vec<PurchaseReturnItem>> {
         sqlx::query_as::<_, PurchaseReturnItem>(
             r#"
             SELECT id, return_id, order_item_id, product_id, returned_qty, unit_price, amount
@@ -215,6 +216,6 @@ impl PurchaseReturnItemRepo {
         )
         .bind(return_id)
         .fetch_all(executor)
-        .await
+        .await.map_err(Into::into)
     }
 }

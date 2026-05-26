@@ -1,5 +1,5 @@
-use anyhow::Result;
 use common::PgExecutor;
+use crate::shared::types::RepoResult;
 
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
@@ -14,7 +14,7 @@ impl CategoryRepo {
         parent_id: i64,
         path: &str,
         meta: &CategoryMeta,
-    ) -> Result<i64> {
+    ) -> RepoResult<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             "INSERT INTO categories (category_name, parent_id, path, meta) VALUES ($1, $2, $3, $4) RETURNING category_id",
         )
@@ -27,7 +27,7 @@ impl CategoryRepo {
         Ok(id)
     }
 
-    pub async fn update(&self, executor: PgExecutor<'_>, id: i64, req: &UpdateCategoryReq) -> Result<()> {
+    pub async fn update(&self, executor: PgExecutor<'_>, id: i64, req: &UpdateCategoryReq) -> RepoResult<()> {
         if let Some(ref name) = req.category_name {
             sqlx::query("UPDATE categories SET category_name = $1, updated_at = NOW() WHERE category_id = $2")
                 .bind(name)
@@ -38,7 +38,7 @@ impl CategoryRepo {
         Ok(())
     }
 
-    pub async fn update_path(&self, executor: PgExecutor<'_>, id: i64, new_path: &str) -> Result<()> {
+    pub async fn update_path(&self, executor: PgExecutor<'_>, id: i64, new_path: &str) -> RepoResult<()> {
         sqlx::query("UPDATE categories SET path = $1 WHERE category_id = $2")
             .bind(new_path)
             .bind(id)
@@ -47,7 +47,7 @@ impl CategoryRepo {
         Ok(())
     }
 
-    pub async fn update_parent(&self, executor: PgExecutor<'_>, id: i64, new_parent_id: i64) -> Result<()> {
+    pub async fn update_parent(&self, executor: PgExecutor<'_>, id: i64, new_parent_id: i64) -> RepoResult<()> {
         sqlx::query("UPDATE categories SET parent_id = $1, updated_at = NOW() WHERE category_id = $2")
             .bind(new_parent_id)
             .bind(id)
@@ -56,7 +56,7 @@ impl CategoryRepo {
         Ok(())
     }
 
-    pub async fn update_path_subtree(&self, executor: PgExecutor<'_>, old_prefix: &str, new_prefix: &str) -> Result<()> {
+    pub async fn update_path_subtree(&self, executor: PgExecutor<'_>, old_prefix: &str, new_prefix: &str) -> RepoResult<()> {
         let old_len = old_prefix.len() as i32;
         sqlx::query(
             "UPDATE categories SET path = $1 || substring(path, $2 + 1) WHERE path LIKE $3 || '%'",
@@ -69,7 +69,7 @@ impl CategoryRepo {
         Ok(())
     }
 
-    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
+    pub async fn delete(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<()> {
         sqlx::query("DELETE FROM categories WHERE category_id = $1")
             .bind(id)
             .execute(executor)
@@ -77,7 +77,7 @@ impl CategoryRepo {
         Ok(())
     }
 
-    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<Category>> {
+    pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<Option<Category>> {
         let cat = sqlx::query_as::<sqlx::Postgres, Category>(
             "SELECT category_id, category_name, parent_id, path, meta, created_at, updated_at FROM categories WHERE category_id = $1",
         )
@@ -87,7 +87,7 @@ impl CategoryRepo {
         Ok(cat)
     }
 
-    pub async fn find_all(&self, executor: PgExecutor<'_>) -> Result<Vec<Category>> {
+    pub async fn find_all(&self, executor: PgExecutor<'_>) -> RepoResult<Vec<Category>> {
         let cats = sqlx::query_as::<sqlx::Postgres, Category>(
             "SELECT category_id, category_name, parent_id, path, meta, created_at, updated_at FROM categories ORDER BY path",
         )
@@ -97,7 +97,7 @@ impl CategoryRepo {
     }
 
     #[allow(unused_assignments)]
-    pub async fn query(&self, executor: PgExecutor<'_>, filter: &CategoryQuery, page: &PageParams) -> Result<PaginatedResult<Category>> {
+    pub async fn query(&self, executor: PgExecutor<'_>, filter: &CategoryQuery, page: &PageParams) -> RepoResult<PaginatedResult<Category>> {
         let mut conditions = vec!["1=1".to_string()];
         let mut param_idx = 0u32;
 
@@ -137,7 +137,7 @@ impl CategoryRepo {
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 
-    pub async fn find_children_count(&self, executor: PgExecutor<'_>, id: i64) -> Result<i64> {
+    pub async fn find_children_count(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<i64> {
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM categories WHERE parent_id = $1",
         )
@@ -147,7 +147,7 @@ impl CategoryRepo {
         Ok(count)
     }
 
-    pub async fn find_products_count(&self, executor: PgExecutor<'_>, id: i64) -> Result<i64> {
+    pub async fn find_products_count(&self, executor: PgExecutor<'_>, id: i64) -> RepoResult<i64> {
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM product_categories WHERE category_id = $1",
         )
@@ -157,7 +157,7 @@ impl CategoryRepo {
         Ok(count)
     }
 
-    pub async fn assign_products(&self, executor: PgExecutor<'_>, category_id: i64, product_ids: &[i64]) -> Result<()> {
+    pub async fn assign_products(&self, executor: PgExecutor<'_>, category_id: i64, product_ids: &[i64]) -> RepoResult<()> {
         for pid in product_ids {
             sqlx::query(
                 "INSERT INTO product_categories (product_id, category_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -170,7 +170,7 @@ impl CategoryRepo {
         Ok(())
     }
 
-    pub async fn remove_products(&self, executor: PgExecutor<'_>, category_id: i64, product_ids: &[i64]) -> Result<()> {
+    pub async fn remove_products(&self, executor: PgExecutor<'_>, category_id: i64, product_ids: &[i64]) -> RepoResult<()> {
         sqlx::query("DELETE FROM product_categories WHERE category_id = $1 AND product_id = ANY($2)")
             .bind(category_id)
             .bind(product_ids)
@@ -179,7 +179,7 @@ impl CategoryRepo {
         Ok(())
     }
 
-    pub async fn update_meta_count(&self, executor: PgExecutor<'_>, category_id: i64, count: i64) -> Result<()> {
+    pub async fn update_meta_count(&self, executor: PgExecutor<'_>, category_id: i64, count: i64) -> RepoResult<()> {
         let meta = CategoryMeta { count };
         sqlx::query("UPDATE categories SET meta = $1 WHERE category_id = $2")
             .bind(&meta)
@@ -196,7 +196,7 @@ impl CategoryRepo {
         executor: PgExecutor<'_>,
         product_id: i64,
         category_ids: &[i64],
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         sqlx::query("DELETE FROM product_categories WHERE product_id = $1")
             .bind(product_id)
             .execute(&mut *executor)

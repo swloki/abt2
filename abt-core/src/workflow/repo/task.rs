@@ -1,7 +1,7 @@
 //! 工作流任务数据访问层
 
-use anyhow::Result;
 use sqlx::PgPool;
+use crate::shared::types::RepoResult;
 
 use crate::workflow::model::WorkflowTask;
 
@@ -18,7 +18,7 @@ pub struct TaskInsertParams<'a> {
 pub struct WorkflowTaskRepo;
 
 impl WorkflowTaskRepo {
-    pub async fn insert(executor: &mut sqlx::postgres::PgConnection, p: &TaskInsertParams<'_>) -> Result<i64> {
+    pub async fn insert(executor: &mut sqlx::postgres::PgConnection, p: &TaskInsertParams<'_>) -> RepoResult<i64> {
         let id: i64 = sqlx::query_scalar(
             "INSERT INTO workflow_tasks (instance_id, node_id, prev_task_id, assignee_id, timeout_action, due_at, remind_at) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
         )
@@ -37,7 +37,7 @@ impl WorkflowTaskRepo {
     pub async fn find_for_update(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<WorkflowTask>> {
+    ) -> RepoResult<Option<WorkflowTask>> {
         let row = sqlx::query_as::<_, WorkflowTask>(
             "SELECT id, instance_id, node_id, prev_task_id, assignee_id, status, action, timeout_action, due_at, remind_at, result, created_at, completed_at FROM workflow_tasks WHERE id = $1 FOR UPDATE",
         )
@@ -53,7 +53,7 @@ impl WorkflowTaskRepo {
         status: &str,
         action: Option<&str>,
         result: Option<serde_json::Value>,
-    ) -> Result<()> {
+    ) -> RepoResult<()> {
         let completed_at = if matches!(status, "completed" | "rejected" | "cancelled" | "delegated" | "timed_out") {
             Some(chrono::Utc::now())
         } else {
@@ -77,7 +77,7 @@ impl WorkflowTaskRepo {
         executor: &mut sqlx::postgres::PgConnection,
         instance_id: i64,
         node_id: &str,
-    ) -> Result<bool> {
+    ) -> RepoResult<bool> {
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM workflow_tasks WHERE instance_id = $1 AND node_id = $2 AND status = 'completed'",
         )
@@ -92,7 +92,7 @@ impl WorkflowTaskRepo {
         executor: &mut sqlx::postgres::PgConnection,
         instance_id: i64,
         node_id: &str,
-    ) -> Result<i64> {
+    ) -> RepoResult<i64> {
         let count: i64 = sqlx::query_scalar(
             "SELECT COUNT(*) FROM workflow_tasks WHERE instance_id = $1 AND node_id = $2 AND status = 'pending'",
         )
@@ -106,7 +106,7 @@ impl WorkflowTaskRepo {
     pub async fn find_pending_by_instance(
         pool: &PgPool,
         instance_id: i64,
-    ) -> Result<Vec<WorkflowTask>> {
+    ) -> RepoResult<Vec<WorkflowTask>> {
         let rows = sqlx::query_as::<_, WorkflowTask>(
             "SELECT id, instance_id, node_id, prev_task_id, assignee_id, status, action, timeout_action, due_at, remind_at, result, created_at, completed_at FROM workflow_tasks WHERE instance_id = $1 AND status = 'pending'",
         )
@@ -119,7 +119,7 @@ impl WorkflowTaskRepo {
     pub async fn find_overdue_pending(
         pool: &PgPool,
         limit: i64,
-    ) -> Result<Vec<WorkflowTask>> {
+    ) -> RepoResult<Vec<WorkflowTask>> {
         let rows = sqlx::query_as::<_, WorkflowTask>(
             "SELECT id, instance_id, node_id, prev_task_id, assignee_id, status, action, timeout_action, due_at, remind_at, result, created_at, completed_at FROM workflow_tasks WHERE status = 'pending' AND due_at < NOW() ORDER BY due_at ASC LIMIT $1 FOR UPDATE SKIP LOCKED",
         )
@@ -133,7 +133,7 @@ impl WorkflowTaskRepo {
     pub async fn find_overdue_pending_tx(
         executor: &mut sqlx::postgres::PgConnection,
         limit: i64,
-    ) -> Result<Vec<WorkflowTask>> {
+    ) -> RepoResult<Vec<WorkflowTask>> {
         let rows = sqlx::query_as::<_, WorkflowTask>(
             "SELECT id, instance_id, node_id, prev_task_id, assignee_id, status, action, timeout_action, due_at, remind_at, result, created_at, completed_at FROM workflow_tasks WHERE status = 'pending' AND due_at < NOW() ORDER BY due_at ASC LIMIT $1 FOR UPDATE SKIP LOCKED",
         )
@@ -147,7 +147,7 @@ impl WorkflowTaskRepo {
         pool: &PgPool,
         assignee_id: i64,
         status: Option<&str>,
-    ) -> Result<Vec<WorkflowTask>> {
+    ) -> RepoResult<Vec<WorkflowTask>> {
         let rows = if let Some(s) = status {
             sqlx::query_as::<_, WorkflowTask>(
                 "SELECT id, instance_id, node_id, prev_task_id, assignee_id, status, action, timeout_action, due_at, remind_at, result, created_at, completed_at FROM workflow_tasks WHERE assignee_id = $1 AND status = $2 ORDER BY created_at DESC",
@@ -172,7 +172,7 @@ impl WorkflowTaskRepo {
         instance_id: i64,
         node_id: &str,
         exclude_task_id: Option<i64>,
-    ) -> Result<u64> {
+    ) -> RepoResult<u64> {
         let result = if let Some(exclude) = exclude_task_id {
             sqlx::query(
                 "UPDATE workflow_tasks SET status = 'cancelled', completed_at = NOW() WHERE instance_id = $1 AND node_id = $2 AND status = 'pending' AND id != $3",
@@ -197,7 +197,7 @@ impl WorkflowTaskRepo {
     pub async fn cancel_all_pending(
         executor: &mut sqlx::postgres::PgConnection,
         instance_id: i64,
-    ) -> Result<u64> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             "UPDATE workflow_tasks SET status = 'cancelled', completed_at = NOW() WHERE instance_id = $1 AND status = 'pending'",
         )
@@ -210,7 +210,7 @@ impl WorkflowTaskRepo {
     pub async fn find_remindable_pending(
         pool: &PgPool,
         limit: i64,
-    ) -> Result<Vec<WorkflowTask>> {
+    ) -> RepoResult<Vec<WorkflowTask>> {
         let rows = sqlx::query_as::<_, WorkflowTask>(
             "SELECT id, instance_id, node_id, prev_task_id, assignee_id, status, action, timeout_action, due_at, remind_at, result, created_at, completed_at FROM workflow_tasks WHERE status = 'pending' AND remind_at < NOW() ORDER BY remind_at ASC LIMIT $1 FOR UPDATE SKIP LOCKED",
         )
@@ -224,7 +224,7 @@ impl WorkflowTaskRepo {
     pub async fn find_remindable_pending_tx(
         executor: &mut sqlx::postgres::PgConnection,
         limit: i64,
-    ) -> Result<Vec<WorkflowTask>> {
+    ) -> RepoResult<Vec<WorkflowTask>> {
         let rows = sqlx::query_as::<_, WorkflowTask>(
             "SELECT id, instance_id, node_id, prev_task_id, assignee_id, status, action, timeout_action, due_at, remind_at, result, created_at, completed_at FROM workflow_tasks WHERE status = 'pending' AND remind_at < NOW() ORDER BY remind_at ASC LIMIT $1 FOR UPDATE SKIP LOCKED",
         )
@@ -235,7 +235,7 @@ impl WorkflowTaskRepo {
     }
 
     /// 清除 remind_at，防止重复提醒
-    pub async fn clear_remind_at(executor: &mut sqlx::postgres::PgConnection, task_id: i64) -> Result<()> {
+    pub async fn clear_remind_at(executor: &mut sqlx::postgres::PgConnection, task_id: i64) -> RepoResult<()> {
         sqlx::query("UPDATE workflow_tasks SET remind_at = NULL WHERE id = $1")
             .bind(task_id)
             .execute(executor)

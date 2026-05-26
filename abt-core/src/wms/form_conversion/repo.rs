@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::model::{
     ConversionFilter, ConversionItem, CreateConversionItemReq, CreateConversionReq,
@@ -15,7 +16,7 @@ impl FormConversionRepo {
         doc_number: &str,
         req: &CreateConversionReq,
         operator_id: i64,
-    ) -> Result<FormConversion, sqlx::Error> {
+    ) -> RepoResult<FormConversion> {
         let row = sqlx::query(
             r#"
             INSERT INTO form_conversions
@@ -49,7 +50,7 @@ impl FormConversionRepo {
         executor: &mut sqlx::postgres::PgConnection,
         conversion_id: i64,
         item: &CreateConversionItemReq,
-    ) -> Result<ConversionItem, sqlx::Error> {
+    ) -> RepoResult<ConversionItem> {
         let row = sqlx::query(
             r#"
             INSERT INTO conversion_items
@@ -68,14 +69,14 @@ impl FormConversionRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        ConversionItem::from_row(&row)
+        Ok(ConversionItem::from_row(&row)?)
     }
 
     /// 根据 ID 获取形态转换单
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<FormConversion>, sqlx::Error> {
+    ) -> RepoResult<Option<FormConversion>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, warehouse_id, conversion_date, status,
@@ -88,14 +89,15 @@ impl FormConversionRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| FormConversion::from_row(&r)).transpose()
+        row.map(|r| FormConversion::from_row(&r).map_err(Into::into)).transpose()
+
     }
 
     /// 获取形态转换单的所有行项目
     pub async fn get_items(
         executor: &mut sqlx::postgres::PgConnection,
         conversion_id: i64,
-    ) -> Result<Vec<ConversionItem>, sqlx::Error> {
+    ) -> RepoResult<Vec<ConversionItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, conversion_id, direction, product_id, quantity,
@@ -119,7 +121,7 @@ impl FormConversionRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: super::super::enums::ConversionStatus,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE form_conversions
@@ -141,7 +143,7 @@ impl FormConversionRepo {
         filter: &ConversionFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<FormConversion>, sqlx::Error> {
+    ) -> RepoResult<PaginatedResult<FormConversion>> {
         let offset = page.saturating_sub(1) * page_size;
 
         let mut where_clauses = vec!["1=1".to_string()];

@@ -1,4 +1,5 @@
 use sqlx::FromRow;
+use crate::shared::types::RepoResult;
 
 use super::model::{
     CreateTransferItemReq, CreateTransferReq, InventoryTransfer, TransferFilter, TransferItem,
@@ -15,7 +16,7 @@ impl TransferRepo {
         doc_number: &str,
         req: &CreateTransferReq,
         operator_id: i64,
-    ) -> Result<InventoryTransfer, sqlx::Error> {
+    ) -> RepoResult<InventoryTransfer> {
         let row = sqlx::query(
             r#"
             INSERT INTO inventory_transfers
@@ -56,7 +57,7 @@ impl TransferRepo {
         executor: &mut sqlx::postgres::PgConnection,
         transfer_id: i64,
         item: &CreateTransferItemReq,
-    ) -> Result<TransferItem, sqlx::Error> {
+    ) -> RepoResult<TransferItem> {
         let row = sqlx::query(
             r#"
             INSERT INTO transfer_items
@@ -72,14 +73,14 @@ impl TransferRepo {
         .fetch_one(&mut *executor)
         .await?;
 
-        TransferItem::from_row(&row)
+        Ok(TransferItem::from_row(&row)?)
     }
 
     /// 按 ID 查询调拨单
     pub async fn get_by_id(
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
-    ) -> Result<Option<InventoryTransfer>, sqlx::Error> {
+    ) -> RepoResult<Option<InventoryTransfer>> {
         let row = sqlx::query(
             r#"
             SELECT id, doc_number, from_warehouse_id, from_zone_id, from_bin_id,
@@ -93,14 +94,15 @@ impl TransferRepo {
         .fetch_optional(&mut *executor)
         .await?;
 
-        row.map(|r| InventoryTransfer::from_row(&r)).transpose()
+        row.map(|r| InventoryTransfer::from_row(&r).map_err(Into::into)).transpose()
+
     }
 
     /// 查询调拨单的所有明细
     pub async fn get_items(
         executor: &mut sqlx::postgres::PgConnection,
         transfer_id: i64,
-    ) -> Result<Vec<TransferItem>, sqlx::Error> {
+    ) -> RepoResult<Vec<TransferItem>> {
         let rows = sqlx::query(
             r#"
             SELECT id, transfer_id, product_id, quantity, batch_no
@@ -126,7 +128,7 @@ impl TransferRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         status: TransferStatus,
-    ) -> Result<u64, sqlx::Error> {
+    ) -> RepoResult<u64> {
         let result = sqlx::query(
             r#"
             UPDATE inventory_transfers
@@ -148,7 +150,7 @@ impl TransferRepo {
         filter: &TransferFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<InventoryTransfer>, sqlx::Error> {
+    ) -> RepoResult<PaginatedResult<InventoryTransfer>> {
         let offset = page.saturating_sub(1) * page_size;
 
         let mut where_clauses = vec!["1=1".to_string()];

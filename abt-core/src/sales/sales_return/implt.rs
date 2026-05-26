@@ -40,7 +40,6 @@ pub struct SalesReturnServiceImpl {
 }
 
 impl SalesReturnServiceImpl {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         repo: SalesReturnRepo,
         item_repo: SalesReturnItemRepo,
@@ -96,7 +95,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .order_item_repo
             .find_by_order_id(ctx.executor, req.order_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let mut return_inputs = Vec::with_capacity(req.items.len());
         let mut total_amount = Decimal::ZERO;
@@ -154,12 +153,12 @@ impl SalesReturnService for SalesReturnServiceImpl {
                 ctx.operator_id,
             )
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.item_repo
             .create_batch(ctx.executor, id, &return_inputs)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.doc_link
             .create_links(
@@ -204,7 +203,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))
     }
 
@@ -213,7 +212,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Draft {
@@ -227,7 +226,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReturnStatus::Confirmed)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -248,7 +247,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Confirmed {
@@ -262,7 +261,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReturnStatus::Received)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -283,7 +282,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Received {
@@ -297,7 +296,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReturnStatus::Inspecting)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -318,7 +317,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Inspecting {
@@ -329,14 +328,14 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .item_repo
             .find_by_return_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         // Update order_item.returned_qty
         for item in &return_items {
             self.order_item_repo
                 .update_returned_qty(ctx.executor, item.order_item_id, item.returned_qty)
                 .await
-                .map_err(DomainError::Internal)?;
+                ?;
         }
 
         // Create reverse CostEntry (credit side) — use unit_cost to match forward COGS entry
@@ -344,7 +343,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .order_item_repo
             .find_by_order_id(ctx.executor, existing.order_id)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         let period = chrono::Utc::now().format("%Y-%m").to_string();
         let mut cost_entries = Vec::with_capacity(return_items.len());
@@ -398,7 +397,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReturnStatus::Completed)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -436,7 +435,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Draft {
@@ -450,7 +449,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReturnStatus::Rejected)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -471,7 +470,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .repo
             .find_by_id(ctx.executor, id)
             .await
-            .map_err(DomainError::Internal)?
+            ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Inspecting {
@@ -485,7 +484,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         self.repo
             .update_status(ctx.executor, id, ReturnStatus::Cancelled)
             .await
-            .map_err(DomainError::Internal)?;
+            ?;
 
         self.audit
             .record(
@@ -517,6 +516,6 @@ impl SalesReturnService for SalesReturnServiceImpl {
                 ctx.department_id,
             )
             .await
-            .map_err(DomainError::Internal)
+            
     }
 }

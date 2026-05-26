@@ -144,12 +144,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             });
         }
 
-        // 先标记为 Confirmed 防止部分失败后重试导致副作用重复执行
-        ProductionReceiptRepo::update_status(&mut *ctx.executor, id, ReceiptStatus::Confirmed)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-
-        // 1. QMS FQC hard gate — 查询检验结果
+        // 1. QMS FQC hard gate — 查询检验结果（在状态更新前验证）
         let fqc_results = self
             .qms
             .list_by_source(
@@ -161,7 +156,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 },
                 PageParams {
                     page: 1,
-                    page_size: 100,
+                    page_size: 10000,
                 },
             )
             .await
@@ -169,7 +164,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 items: vec![],
                 total: 0,
                 page: 1,
-                page_size: 100,
+                page_size: 10000,
                 total_pages: 0,
             });
 
@@ -184,9 +179,13 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             ));
         }
 
+        // 所有验证通过，标记为 Confirmed 防止部分失败后重试导致副作用重复执行
+        ProductionReceiptRepo::update_status(&mut *ctx.executor, id, ReceiptStatus::Confirmed)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
         // 2. WMS inventory transaction — production receipt (入库)
-        let _ = self
-            .inv_txn
+        self.inv_txn
             .record(
                 ctx.reborrow(),
                 RecordTransactionReq {
@@ -204,12 +203,11 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                     remark: None,
                 },
             )
-            .await;
+            .await?;
 
         // 3. Cost entry — finished goods receipt cost
         let period = chrono::Local::now().format("%Y-%m").to_string();
-        let _ = self
-            .cost_entry
+        self.cost_entry
             .create_entries(
                 ctx.reborrow(),
                 vec![EntryRequest {
@@ -225,9 +223,9 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                     source_id: id,
                 }],
             )
-            .await;
+            .await?;
 
-        // 4. Backflush — failure does not block receipt
+        // 4. Backflush — failure does not block receipt but is audited
         let backflush_result = self
             .backflush
             .execute(ctx.reborrow(), receipt.work_order_id, receipt.received_qty)
@@ -251,23 +249,23 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         }
 
         // 5. Release hard reservation
-        let _ = self
-            .inv_res
+        self.inv_res
             .cancel_by_source(
                 ctx.reborrow(),
                 DocumentType::WorkOrder,
                 receipt.work_order_id,
             )
-            .await;
+            .await?;
 
         // 6. Update batch status to Completed
         if let Some(batch_id) = receipt.batch_id {
-            let _ = ProductionBatchRepo::update_status(
+            ProductionBatchRepo::update_status(
                 &mut *ctx.executor,
                 batch_id,
                 BatchStatus::Completed,
             )
-            .await;
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
         }
 
         Ok(())

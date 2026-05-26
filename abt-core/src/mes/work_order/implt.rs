@@ -120,7 +120,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
 
         // 3. 获取 BOM 叶子节点（组件）
         let bom_nodes = if let Some(bom_id) = work_order.bom_snapshot_id {
-            self.bom.get_leaf_nodes(ctx.reborrow(), bom_id).await.unwrap_or_default()
+            self.bom.get_leaf_nodes(ctx.reborrow(), bom_id).await?
         } else {
             vec![]
         };

@@ -11,6 +11,7 @@ use super::repo::CycleCountRepo;
 use super::service::CycleCountService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::DocumentType;
@@ -44,7 +45,7 @@ impl CycleCountService for CycleCountServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateCycleCountReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if req.items.is_empty() {
             return Err(DomainError::validation("盘点单明细不能为空"));
         }
@@ -69,7 +70,7 @@ impl CycleCountService for CycleCountServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<CycleCount, DomainError> {
+    ) -> Result<CycleCount> {
         CycleCountRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -82,13 +83,13 @@ impl CycleCountService for CycleCountServiceImpl {
         filter: CycleCountFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<CycleCount>, DomainError> {
+    ) -> Result<PaginatedResult<CycleCount>> {
         CycleCountRepo::list(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
-    async fn start_count(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn start_count(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let count = CycleCountRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -112,7 +113,7 @@ impl CycleCountService for CycleCountServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: CountCycleCountReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let cc = CycleCountRepo::get_by_id(&mut *ctx.executor, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -152,7 +153,7 @@ impl CycleCountService for CycleCountServiceImpl {
         Ok(())
     }
 
-    async fn complete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn complete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let count = CycleCountRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -172,7 +173,7 @@ impl CycleCountService for CycleCountServiceImpl {
         Ok(())
     }
 
-    async fn adjust(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn adjust(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let count = CycleCountRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -196,7 +197,7 @@ impl CycleCountService for CycleCountServiceImpl {
         Ok(())
     }
 
-    async fn cancel(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn cancel(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let count = CycleCountRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?

@@ -10,6 +10,7 @@ use super::service::WorkReportService;
 use crate::mes::production_batch::repo::WorkOrderRoutingRepo;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 pub struct WorkReportServiceImpl {
     #[allow(dead_code)]
@@ -28,7 +29,7 @@ impl WorkReportService for WorkReportServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<WorkReport, DomainError> {
+    ) -> Result<WorkReport> {
         WorkReportRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -39,7 +40,7 @@ impl WorkReportService for WorkReportServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         work_order_id: i64,
-    ) -> Result<Vec<WorkReport>, DomainError> {
+    ) -> Result<Vec<WorkReport>> {
         WorkReportRepo::list_by_work_order(&mut *ctx.executor, work_order_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -49,7 +50,7 @@ impl WorkReportService for WorkReportServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         batch_id: i64,
-    ) -> Result<Vec<WorkReport>, DomainError> {
+    ) -> Result<Vec<WorkReport>> {
         WorkReportRepo::list_by_batch(&mut *ctx.executor, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -60,7 +61,7 @@ impl WorkReportService for WorkReportServiceImpl {
         ctx: ServiceContext<'_>,
         worker_id: i64,
         date_range: DateRange,
-    ) -> Result<WageSummary, DomainError> {
+    ) -> Result<WageSummary> {
         let reports = WorkReportRepo::list_by_worker_and_date_range(
             &mut *ctx.executor,
             worker_id,

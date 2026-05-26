@@ -9,30 +9,30 @@ pub trait SalesReturnService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateReturnReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     async fn find_by_id(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<SalesReturn, DomainError>;
+    ) -> Result<SalesReturn>;
 
-    async fn approve(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn approve(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
-    async fn receive(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn receive(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
-    async fn inspect(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn inspect(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
-    async fn complete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn complete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
-    async fn reject(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn reject(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
-    async fn cancel(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn cancel(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
     async fn list(
         &self,
         ctx: ServiceContext<'_>,
         filter: ReturnQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<SalesReturn>, DomainError>;
+    ) -> Result<PaginatedResult<SalesReturn>>;
 }

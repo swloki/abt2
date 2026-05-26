@@ -4,6 +4,7 @@ use crate::shared::enums::CostEntityType;
 use crate::shared::types::batch::BatchResult;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{CostEntry, EntryRequest};
@@ -15,7 +16,7 @@ pub trait CostEntryService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         entries: Vec<EntryRequest>,
-    ) -> Result<BatchResult, DomainError>;
+    ) -> Result<BatchResult>;
 
     /// 分页查询某实体的成本分录
     async fn find_by_entity(
@@ -25,5 +26,5 @@ pub trait CostEntryService: Send + Sync {
         entity_id: i64,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<CostEntry>, DomainError>;
+    ) -> Result<PaginatedResult<CostEntry>>;
 }

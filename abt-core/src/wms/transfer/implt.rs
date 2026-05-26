@@ -8,6 +8,7 @@ use super::repo::TransferRepo;
 use super::service::TransferService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::DocumentType;
@@ -31,7 +32,7 @@ impl TransferService for TransferServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateTransferReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // 校验：至少一条明细
         if req.items.is_empty() {
             return Err(DomainError::Validation("调拨单至少需要一条明细".to_string()));
@@ -61,7 +62,7 @@ impl TransferService for TransferServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<InventoryTransfer, DomainError> {
+    ) -> Result<InventoryTransfer> {
         TransferRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -74,7 +75,7 @@ impl TransferService for TransferServiceImpl {
         filter: TransferFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<InventoryTransfer>, DomainError> {
+    ) -> Result<PaginatedResult<InventoryTransfer>> {
         TransferRepo::list(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -84,7 +85,7 @@ impl TransferService for TransferServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let transfer = self.get(ctx.reborrow(), id).await?;
 
         // 状态校验：仅 Draft → InTransit
@@ -106,7 +107,7 @@ impl TransferService for TransferServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let transfer = self.get(ctx.reborrow(), id).await?;
 
         // 状态校验：仅 InTransit → Completed
@@ -128,7 +129,7 @@ impl TransferService for TransferServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let transfer = self.get(ctx.reborrow(), id).await?;
 
         // 状态校验：仅 Draft → Cancelled

@@ -3,6 +3,7 @@ use rust_decimal::Decimal;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{StockFilter, StockLedger, UpsertStockReq};
@@ -13,7 +14,7 @@ pub trait StockLedgerService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: UpsertStockReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn query(
         &self,
@@ -21,12 +22,12 @@ pub trait StockLedgerService: Send + Sync {
         filter: StockFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<StockLedger>, DomainError>;
+    ) -> Result<PaginatedResult<StockLedger>>;
 
     async fn query_available(
         &self,
         ctx: ServiceContext<'_>,
         product_id: i64,
         warehouse_id: Option<i64>,
-    ) -> Result<Decimal, DomainError>;
+    ) -> Result<Decimal>;
 }

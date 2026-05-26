@@ -13,7 +13,7 @@ pub trait WriteOffService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: WriteOffReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     /// List write-off records for a given source document.
     async fn list_by_source(
@@ -22,7 +22,7 @@ pub trait WriteOffService: Send + Sync {
         source_type: DocumentType,
         source_id: i64,
         page: PageParams,
-    ) -> Result<PaginatedResult<WriteOff>, DomainError>;
+    ) -> Result<PaginatedResult<WriteOff>>;
 
     /// Get the unreconciled amount for a given source document.
     /// Returns source_total - SUM(write_off.amount).
@@ -33,5 +33,5 @@ pub trait WriteOffService: Send + Sync {
         source_type: DocumentType,
         source_id: i64,
         source_total: Decimal,
-    ) -> Result<Decimal, DomainError>;
+    ) -> Result<Decimal>;
 }

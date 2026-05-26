@@ -64,7 +64,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         mut ctx: ServiceContext<'_>,
         customer_id: i64,
         period: String,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if self
             .repo
             .exists_by_customer_period(ctx.executor, customer_id, &period)
@@ -167,7 +167,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<Reconciliation, DomainError> {
+    ) -> Result<Reconciliation> {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
@@ -175,7 +175,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .ok_or_else(|| DomainError::not_found("Reconciliation"))
     }
 
-    async fn send(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn send(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -210,7 +210,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -293,7 +293,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
-    async fn dispute(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn dispute(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -335,7 +335,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
-    async fn reopen(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn reopen(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -370,7 +370,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
-    async fn force_settle(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn force_settle(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -450,7 +450,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
-    async fn settle(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn settle(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -511,7 +511,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         ctx: ServiceContext<'_>,
         filter: ReconciliationQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<Reconciliation>, DomainError> {
+    ) -> Result<PaginatedResult<Reconciliation>> {
         self.repo
             .query(
                 ctx.executor,

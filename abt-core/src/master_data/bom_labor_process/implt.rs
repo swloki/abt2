@@ -23,12 +23,12 @@ impl BomLaborProcessServiceImpl {
 
 #[async_trait::async_trait]
 impl BomLaborProcessService for BomLaborProcessServiceImpl {
-    async fn list(&self, ctx: ServiceContext<'_>, query: BomLaborProcessQuery, page: PageParams) -> Result<PaginatedResult<BomLaborProcess>, DomainError> {
+    async fn list(&self, ctx: ServiceContext<'_>, query: BomLaborProcessQuery, page: PageParams) -> Result<PaginatedResult<BomLaborProcess>> {
         self.repo.query(ctx.executor, &query, &page)
             .await
     }
 
-    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateBomLaborProcessReq) -> Result<i64, DomainError> {
+    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateBomLaborProcessReq) -> Result<i64> {
         let id = self.repo.create(ctx.executor, &req, ctx.operator_id)
             .await?;
 
@@ -37,7 +37,7 @@ impl BomLaborProcessService for BomLaborProcessServiceImpl {
         Ok(id)
     }
 
-    async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateBomLaborProcessReq) -> Result<(), DomainError> {
+    async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateBomLaborProcessReq) -> Result<()> {
         let _existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomLaborProcess"))?;
@@ -50,7 +50,7 @@ impl BomLaborProcessService for BomLaborProcessServiceImpl {
         Ok(())
     }
 
-    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let _existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomLaborProcess"))?;

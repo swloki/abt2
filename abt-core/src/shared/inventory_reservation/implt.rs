@@ -11,6 +11,7 @@ use crate::shared::enums::DocumentType;
 use crate::shared::types::batch::{BatchFailure, BatchResult};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 pub struct InventoryReservationServiceImpl {
     #[allow(dead_code)]
@@ -30,7 +31,7 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         requests: Vec<ReserveRequest>,
-    ) -> Result<BatchResult, DomainError> {
+    ) -> Result<BatchResult> {
         let total = requests.len() as i32;
         if requests.is_empty() {
             return Ok(BatchResult::atomic_ok(0));
@@ -64,7 +65,7 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
         Ok(BatchResult::continue_on_error(success_count, failed_items, total))
     }
 
-    async fn fulfill(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn fulfill(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let affected = InventoryReservationRepo::fulfill(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -78,7 +79,7 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
         Ok(())
     }
 
-    async fn cancel(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn cancel(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let affected = InventoryReservationRepo::cancel(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -97,7 +98,7 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
         ctx: ServiceContext<'_>,
         product_id: i64,
         warehouse_id: Option<i64>,
-    ) -> Result<Decimal, DomainError> {
+    ) -> Result<Decimal> {
         InventoryReservationRepo::total_reserved(&mut *ctx.executor, product_id, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -108,7 +109,7 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
         ctx: ServiceContext<'_>,
         source_type: DocumentType,
         source_id: i64,
-    ) -> Result<u64, DomainError> {
+    ) -> Result<u64> {
         InventoryReservationRepo::cancel_by_source(&mut *ctx.executor, source_type, source_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -119,7 +120,7 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
         ctx: ServiceContext<'_>,
         source_type: DocumentType,
         source_line_id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         InventoryReservationRepo::fulfill_by_source_line(&mut *ctx.executor, source_type, source_line_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;

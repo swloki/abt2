@@ -12,6 +12,7 @@ use super::repo::WarehouseRepo;
 use super::service::WarehouseService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 pub struct WarehouseServiceImpl {
@@ -31,7 +32,7 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateWarehouseReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let warehouse = WarehouseRepo::insert_warehouse(&mut *ctx.executor, &req, ctx.operator_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -43,7 +44,7 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<Warehouse, DomainError> {
+    ) -> Result<Warehouse> {
         WarehouseRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -56,7 +57,7 @@ impl WarehouseService for WarehouseServiceImpl {
         filter: WarehouseFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<Warehouse>, DomainError> {
+    ) -> Result<PaginatedResult<Warehouse>> {
         WarehouseRepo::list(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -67,7 +68,7 @@ impl WarehouseService for WarehouseServiceImpl {
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateWarehouseReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let affected = WarehouseRepo::update(&mut *ctx.executor, id, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -83,7 +84,7 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let affected = WarehouseRepo::soft_delete(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -100,7 +101,7 @@ impl WarehouseService for WarehouseServiceImpl {
         ctx: ServiceContext<'_>,
         warehouse_id: i64,
         req: CreateZoneReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // 验证仓库存在
         WarehouseRepo::get_by_id(&mut *ctx.executor, warehouse_id)
             .await
@@ -118,7 +119,7 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         warehouse_id: i64,
-    ) -> Result<Vec<Zone>, DomainError> {
+    ) -> Result<Vec<Zone>> {
         WarehouseRepo::list_zones(&mut *ctx.executor, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -129,7 +130,7 @@ impl WarehouseService for WarehouseServiceImpl {
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateZoneReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let affected = WarehouseRepo::update_zone(&mut *ctx.executor, id, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -145,7 +146,7 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let affected = WarehouseRepo::soft_delete_zone(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -162,7 +163,7 @@ impl WarehouseService for WarehouseServiceImpl {
         ctx: ServiceContext<'_>,
         zone_id: i64,
         req: CreateBinReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let bin = WarehouseRepo::insert_bin(&mut *ctx.executor, zone_id, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -177,7 +178,7 @@ impl WarehouseService for WarehouseServiceImpl {
         filter: Option<BinFilter>,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<Bin>, DomainError> {
+    ) -> Result<PaginatedResult<Bin>> {
         let f = filter.unwrap_or_default();
         WarehouseRepo::list_bins(&mut *ctx.executor, zone_id, &f, page, page_size)
             .await
@@ -189,7 +190,7 @@ impl WarehouseService for WarehouseServiceImpl {
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateBinReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let affected = WarehouseRepo::update_bin(&mut *ctx.executor, id, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -205,7 +206,7 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let affected = WarehouseRepo::soft_delete_bin(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -225,7 +226,7 @@ impl WarehouseService for WarehouseServiceImpl {
         is_active: Option<bool>,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<Bin>, DomainError> {
+    ) -> Result<PaginatedResult<Bin>> {
         WarehouseRepo::list_bins_by_warehouse(
             &mut *ctx.executor,
             warehouse_id,
@@ -242,7 +243,7 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         warehouse_id: i64,
-    ) -> Result<Zone, DomainError> {
+    ) -> Result<Zone> {
         // 验证仓库存在
         WarehouseRepo::get_by_id(&mut *ctx.executor, warehouse_id)
             .await
@@ -275,7 +276,7 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         bin_id: i64,
-    ) -> Result<BinWithWarehouse, DomainError> {
+    ) -> Result<BinWithWarehouse> {
         let (bin, warehouse_id, warehouse_name) =
             WarehouseRepo::get_bin_with_warehouse(&mut *ctx.executor, bin_id)
                 .await
@@ -297,7 +298,7 @@ impl WarehouseService for WarehouseServiceImpl {
         warehouse_id: Option<i64>,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<BinWithWarehouse>, DomainError> {
+    ) -> Result<PaginatedResult<BinWithWarehouse>> {
         WarehouseRepo::search_bins_with_warehouse(
             &mut *ctx.executor,
             keyword.as_deref(),
@@ -313,7 +314,7 @@ impl WarehouseService for WarehouseServiceImpl {
     async fn list_all_bins_with_warehouse(
         &self,
         ctx: ServiceContext<'_>,
-    ) -> Result<Vec<BinWithWarehouse>, DomainError> {
+    ) -> Result<Vec<BinWithWarehouse>> {
         WarehouseRepo::list_all_bins_with_warehouse(&mut *ctx.executor)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -323,7 +324,7 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         warehouse_id: i64,
-    ) -> Result<WarehouseInventoryStats, DomainError> {
+    ) -> Result<WarehouseInventoryStats> {
         WarehouseRepo::get_warehouse_inventory_stats(&mut *ctx.executor, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -334,7 +335,7 @@ impl WarehouseService for WarehouseServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         bin_id: i64,
-    ) -> Result<BinInventoryStats, DomainError> {
+    ) -> Result<BinInventoryStats> {
         WarehouseRepo::get_bin_inventory_stats(&mut *ctx.executor, bin_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -347,7 +348,7 @@ impl WarehouseService for WarehouseServiceImpl {
         warehouse_id: i64,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<BinInventoryStats>, DomainError> {
+    ) -> Result<PaginatedResult<BinInventoryStats>> {
         WarehouseRepo::list_bin_stats_by_warehouse(&mut *ctx.executor, warehouse_id, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))

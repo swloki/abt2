@@ -6,62 +6,62 @@ use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceCont
 
 #[async_trait]
 pub trait BomQueryService: Send + Sync {
-    async fn get(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<Bom, DomainError>;
+    async fn get(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<Bom>;
     async fn list(
         &self,
         ctx: ServiceContext<'_>,
         query: BomQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<Bom>, DomainError>;
+    ) -> Result<PaginatedResult<Bom>>;
     async fn get_leaf_nodes(
         &self,
         ctx: ServiceContext<'_>,
         bom_id: i64,
-    ) -> Result<Vec<BomNode>, DomainError>;
+    ) -> Result<Vec<BomNode>>;
     async fn get_snapshots(
         &self,
         ctx: ServiceContext<'_>,
         bom_id: i64,
         version: Option<i32>,
         limit: Option<i32>,
-    ) -> Result<Vec<BomSnapshot>, DomainError>;
+    ) -> Result<Vec<BomSnapshot>>;
     async fn exists_name(
         &self,
         ctx: ServiceContext<'_>,
         name: &str,
         caller_id: Option<i64>,
-    ) -> Result<bool, DomainError>;
+    ) -> Result<bool>;
 }
 
 #[async_trait]
 pub trait BomCommandService: Send + Sync {
-    async fn create(&self, ctx: ServiceContext<'_>, req: CreateBomReq) -> Result<i64, DomainError>;
+    async fn create(&self, ctx: ServiceContext<'_>, req: CreateBomReq) -> Result<i64>;
     async fn update(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateBomReq,
         expected_version: i32,
-    ) -> Result<(), DomainError>;
-    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
-    async fn publish(&self, ctx: ServiceContext<'_>, id: i64) -> Result<i64, DomainError>;
-    async fn unpublish(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    ) -> Result<()>;
+    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
+    async fn publish(&self, ctx: ServiceContext<'_>, id: i64) -> Result<i64>;
+    async fn unpublish(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
     async fn save_as(
         &self,
         ctx: ServiceContext<'_>,
         source_id: i64,
         new_name: String,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
     async fn substitute_product(
         &self,
         ctx: ServiceContext<'_>,
         req: SubstituteReq,
-    ) -> Result<SubstitutionResult, DomainError>;
+    ) -> Result<SubstitutionResult>;
     async fn validate_cycle(
         &self,
         ctx: ServiceContext<'_>,
         bom_id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 }
 
 #[async_trait]
@@ -71,7 +71,7 @@ pub trait BomNodeService: Send + Sync {
         ctx: ServiceContext<'_>,
         bom_id: i64,
         node: NewBomNode,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
     async fn update_node(
         &self,
         ctx: ServiceContext<'_>,
@@ -79,13 +79,13 @@ pub trait BomNodeService: Send + Sync {
         node_id: i64,
         req: UpdateBomNodeReq,
         expected_version: i32,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
     async fn delete_node(
         &self,
         ctx: ServiceContext<'_>,
         bom_id: i64,
         node_id: i64,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
     async fn move_node(
         &self,
         ctx: ServiceContext<'_>,
@@ -93,7 +93,7 @@ pub trait BomNodeService: Send + Sync {
         node_id: i64,
         new_parent_id: i64,
         before_sibling_id: Option<i64>,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 }
 
 #[async_trait]
@@ -103,7 +103,7 @@ pub trait BomCostService: Send + Sync {
         ctx: ServiceContext<'_>,
         bom_id: i64,
         as_of_date: Option<DateTime<Utc>>,
-    ) -> Result<BomCostReport, DomainError>;
+    ) -> Result<BomCostReport>;
 }
 
 #[async_trait]
@@ -112,18 +112,18 @@ pub trait BomCategoryService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateBomCategoryReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
     async fn update(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateBomCategoryReq,
-    ) -> Result<(), DomainError>;
-    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    ) -> Result<()>;
+    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
     async fn list(
         &self,
         ctx: ServiceContext<'_>,
         query: BomCategoryQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<BomCategory>, DomainError>;
+    ) -> Result<PaginatedResult<BomCategory>>;
 }

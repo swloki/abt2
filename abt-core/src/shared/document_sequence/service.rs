@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use super::super::types::error::DomainError;
+use super::super::types::Result;
 use super::super::types::context::ServiceContext;
 use super::super::enums::document_type::DocumentType;
 
@@ -13,5 +14,5 @@ pub trait DocumentSequenceService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         doc_type: DocumentType,
-    ) -> Result<String, DomainError>;
+    ) -> Result<String>;
 }

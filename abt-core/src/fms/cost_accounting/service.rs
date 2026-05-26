@@ -11,14 +11,14 @@ pub trait CostAccountingService: Send + Sync {
         ctx: ServiceContext<'_>,
         product_id: i64,
         period: String,
-    ) -> Result<ProductCostSummary, DomainError>;
+    ) -> Result<ProductCostSummary>;
 
     /// 查询指定工单的成本汇总
     async fn get_work_order_cost(
         &self,
         ctx: ServiceContext<'_>,
         work_order_id: i64,
-    ) -> Result<WorkOrderCostSummary, DomainError>;
+    ) -> Result<WorkOrderCostSummary>;
 
     /// 查询指定利润中心在时间范围内的汇总（分页）
     async fn get_profit_center_summary(
@@ -28,12 +28,12 @@ pub trait CostAccountingService: Send + Sync {
         from: String,
         to: String,
         page: PageParams,
-    ) -> Result<PaginatedResult<ProfitCenterSummary>, DomainError>;
+    ) -> Result<PaginatedResult<ProfitCenterSummary>>;
 
     /// 查询指定销售订单的毛利分析
     async fn get_margin_analysis(
         &self,
         ctx: ServiceContext<'_>,
         order_id: i64,
-    ) -> Result<MarginAnalysis, DomainError>;
+    ) -> Result<MarginAnalysis>;
 }

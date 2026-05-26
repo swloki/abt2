@@ -13,6 +13,7 @@ use super::registry::EventHandlerRegistry;
 use super::repo::DomainEventRepo;
 use crate::shared::idempotency::repo::IdempotencyRepo;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 /// 领域事件处理器 — 后台消费 domain_events 表中待处理事件
 pub struct EventProcessor {
@@ -172,7 +173,7 @@ impl EventProcessor {
 
     /// 手动重试失败事件
     #[instrument(skip(self))]
-    pub async fn retry_failed(&self) -> Result<u64, DomainError> {
+    pub async fn retry_failed(&self) -> Result<u64> {
         let mut conn = self.pool
             .acquire()
             .await
@@ -208,7 +209,7 @@ impl EventProcessor {
         registry: &dyn EventHandlerRegistry,
         dead_letter: &dyn DeadLetterService,
         max_retries: i32,
-    ) -> Result<usize, DomainError> {
+    ) -> Result<usize> {
         // 恢复卡在 Processing 超过 5 分钟的事件（防止 crash 残留）
         if let Ok(mut conn) = pool.acquire().await
             && let Err(e) = DomainEventRepo::reset_stale_processing(&mut conn, 5).await
@@ -256,7 +257,7 @@ impl EventProcessor {
         _dead_letter: &dyn DeadLetterService,
         max_retries: i32,
         event: &DomainEvent,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let mut conn = pool
             .acquire()
             .await

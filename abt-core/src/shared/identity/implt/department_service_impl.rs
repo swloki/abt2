@@ -8,6 +8,7 @@ use super::super::model::Department;
 use super::super::repo::IdentityRepo;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 pub struct DepartmentServiceImpl {
     #[allow(dead_code)]
@@ -28,7 +29,7 @@ impl DepartmentService for DepartmentServiceImpl {
         name: &str,
         code: &str,
         description: Option<&str>,
-    ) -> Result<Department, DomainError> {
+    ) -> Result<Department> {
         let dept = IdentityRepo::insert_department(&mut *ctx.executor, name, code, description)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_unique_violation(inner) => DomainError::duplicate("Department with this code"), _ => e })?;
@@ -42,7 +43,7 @@ impl DepartmentService for DepartmentServiceImpl {
         dept_id: i64,
         name: &str,
         description: Option<&str>,
-    ) -> Result<Department, DomainError> {
+    ) -> Result<Department> {
         let dept =
             IdentityRepo::update_department(&mut *ctx.executor, dept_id, name, description)
                 .await
@@ -55,7 +56,7 @@ impl DepartmentService for DepartmentServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         dept_id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         IdentityRepo::deactivate_department(&mut *ctx.executor, dept_id)
             .await
             ?;
@@ -66,7 +67,7 @@ impl DepartmentService for DepartmentServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         dept_id: i64,
-    ) -> Result<Department, DomainError> {
+    ) -> Result<Department> {
         IdentityRepo::get_department(&mut *ctx.executor, dept_id)
             .await
             .map_err(|e| match &e {
@@ -78,7 +79,7 @@ impl DepartmentService for DepartmentServiceImpl {
     async fn list_departments(
         &self,
         ctx: ServiceContext<'_>,
-    ) -> Result<Vec<Department>, DomainError> {
+    ) -> Result<Vec<Department>> {
         IdentityRepo::list_departments(&mut *ctx.executor).await
     }
 
@@ -87,7 +88,7 @@ impl DepartmentService for DepartmentServiceImpl {
         ctx: ServiceContext<'_>,
         user_id: i64,
         dept_ids: Vec<i64>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Verify user exists
         IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
@@ -117,7 +118,7 @@ impl DepartmentService for DepartmentServiceImpl {
         ctx: ServiceContext<'_>,
         user_id: i64,
         dept_ids: Vec<i64>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         IdentityRepo::remove_user_departments(&mut *ctx.executor, user_id, &dept_ids)
             .await
             ?;
@@ -129,7 +130,7 @@ impl DepartmentService for DepartmentServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         user_id: i64,
-    ) -> Result<Vec<Department>, DomainError> {
+    ) -> Result<Vec<Department>> {
         IdentityRepo::get_user_departments(&mut *ctx.executor, user_id).await
     }
 }

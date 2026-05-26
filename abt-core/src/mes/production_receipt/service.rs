@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use super::model::*;
 
 #[async_trait]
@@ -10,11 +11,11 @@ pub trait ProductionReceiptService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateReceiptReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
     async fn find_by_id(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<ProductionReceipt, DomainError>;
-    async fn confirm(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    ) -> Result<ProductionReceipt>;
+    async fn confirm(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 }

@@ -22,6 +22,7 @@ use crate::shared::enums::{CostEntityType, CostType, DocumentType, LinkType};
 use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::ArrivalStatus;
 
@@ -54,7 +55,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateArrivalNoticeReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if req.items.is_empty() {
             return Err(DomainError::validation("来料通知必须包含至少一条明细"));
         }
@@ -94,7 +95,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<ArrivalNotice, DomainError> {
+    ) -> Result<ArrivalNotice> {
         ArrivalNoticeRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -107,7 +108,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         filter: ArrivalNoticeFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<ArrivalNotice>, DomainError> {
+    ) -> Result<PaginatedResult<ArrivalNotice>> {
         ArrivalNoticeRepo::list(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -117,7 +118,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: ReceiveArrivalNoticeReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let notice = ArrivalNoticeRepo::get_by_id(&mut *ctx.executor, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -166,7 +167,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: InspectArrivalNoticeReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let notice = ArrivalNoticeRepo::get_by_id(&mut *ctx.executor, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -274,7 +275,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let notice = ArrivalNoticeRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -305,7 +306,7 @@ async fn check_qms_gate(
     ctx: ServiceContext<'_>,
     source_type: InspectionSourceType,
     source_id: i64,
-) -> Result<bool, DomainError> {
+) -> Result<bool> {
     let results = qms.list_by_source(
         ctx,
         InspectionResultFilter {

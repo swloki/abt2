@@ -10,32 +10,32 @@ pub trait InspectionSpecificationService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateInspectionSpecificationReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     async fn get(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<InspectionSpecification, DomainError>;
+    ) -> Result<InspectionSpecification>;
 
     async fn find_by_product_and_type(
         &self,
         ctx: ServiceContext<'_>,
         product_id: i64,
         inspection_type: InspectionType,
-    ) -> Result<Option<InspectionSpecification>, DomainError>;
+    ) -> Result<Option<InspectionSpecification>>;
 
     async fn update(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateInspectionSpecificationReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn list(
         &self,
         ctx: ServiceContext<'_>,
         filter: InspectionSpecFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<InspectionSpecification>, DomainError>;
+    ) -> Result<PaginatedResult<InspectionSpecification>>;
 }

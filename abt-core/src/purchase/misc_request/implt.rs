@@ -20,6 +20,7 @@ use crate::shared::idempotency::service::key_to_i64;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 const ENTITY_TYPE: &str = "MiscellaneousRequest";
 
@@ -54,7 +55,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreateMiscRequestRequest,
         idempotency_key: Option<String>,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "MiscellaneousRequest:create").await? {
@@ -105,7 +106,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<MiscellaneousRequest, DomainError> {
+    ) -> Result<MiscellaneousRequest> {
         MiscRequestRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -117,7 +118,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         idempotency_key: Option<String>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "MiscellaneousRequest:approve").await? {

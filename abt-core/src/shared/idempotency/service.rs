@@ -4,6 +4,7 @@ use serde_json::Value as JsonValue;
 
 use super::super::types::context::ServiceContext;
 use super::super::types::error::DomainError;
+use super::super::types::Result;
 
 #[async_trait]
 pub trait IdempotencyService: Send + Sync {
@@ -15,7 +16,7 @@ pub trait IdempotencyService: Send + Sync {
         ctx: ServiceContext<'_>,
         event_id: i64,
         handler_name: &str,
-    ) -> Result<bool, DomainError>;
+    ) -> Result<bool>;
 
     /// 标记事件处理完成，存储可选结果
     async fn mark_processed(
@@ -24,14 +25,14 @@ pub trait IdempotencyService: Send + Sync {
         event_id: i64,
         handler_name: &str,
         result: Option<JsonValue>,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 清理过期的幂等记录，返回删除条数
     async fn cleanup_expired(
         &self,
         ctx: ServiceContext<'_>,
         before: DateTime<Utc>,
-    ) -> Result<u64, DomainError>;
+    ) -> Result<u64>;
 }
 
 /// Convert a string idempotency key to i64 for use with check_and_mark.

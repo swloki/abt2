@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{MaterialRequisition, RequisitionFilter, IssueMaterialReq};
@@ -12,13 +13,13 @@ pub trait MaterialRequisitionService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         work_order_id: i64,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     async fn get(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<MaterialRequisition, DomainError>;
+    ) -> Result<MaterialRequisition>;
 
     async fn list(
         &self,
@@ -26,23 +27,23 @@ pub trait MaterialRequisitionService: Send + Sync {
         filter: RequisitionFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<MaterialRequisition>, DomainError>;
+    ) -> Result<PaginatedResult<MaterialRequisition>>;
 
     async fn confirm(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn issue(
         &self,
         ctx: ServiceContext<'_>,
         req: IssueMaterialReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn cancel(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 }

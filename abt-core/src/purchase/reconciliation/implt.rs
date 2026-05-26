@@ -23,6 +23,7 @@ use crate::shared::idempotency::service::IdempotencyService;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 const ENTITY_TYPE: &str = "PurchaseReconciliation";
 
@@ -65,7 +66,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         supplier_id: i64,
         period: String,
         idempotency_key: Option<String>,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReconciliation:create").await? {
@@ -146,14 +147,14 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<PurchaseReconciliation, DomainError> {
+    ) -> Result<PurchaseReconciliation> {
         PurchaseReconciliationRepo::get_by_id(ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
+    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReconciliation:confirm").await? {

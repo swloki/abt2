@@ -22,7 +22,7 @@ impl ProductWatcherService for ProductWatcherServiceImpl {
         ctx: ServiceContext<'_>,
         product_id: i64,
         safety_stock_override: Option<Decimal>,
-    ) -> Result<bool, DomainError> {
+    ) -> Result<bool> {
         ProductWatcherRepo::upsert(ctx.executor, ctx.operator_id, product_id, safety_stock_override)
             .await
             
@@ -32,7 +32,7 @@ impl ProductWatcherService for ProductWatcherServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         product_id: i64,
-    ) -> Result<bool, DomainError> {
+    ) -> Result<bool> {
         ProductWatcherRepo::delete(ctx.executor, ctx.operator_id, product_id)
             .await
             
@@ -43,7 +43,7 @@ impl ProductWatcherService for ProductWatcherServiceImpl {
         ctx: ServiceContext<'_>,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<WatchedProductWithInventory>, DomainError> {
+    ) -> Result<PaginatedResult<WatchedProductWithInventory>> {
         ProductWatcherRepo::find_by_user_with_inventory(ctx.executor, ctx.operator_id, page, page_size)
             .await
             

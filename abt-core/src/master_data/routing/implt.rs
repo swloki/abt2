@@ -28,12 +28,12 @@ impl RoutingServiceImpl {
 
 #[async_trait::async_trait]
 impl RoutingService for RoutingServiceImpl {
-    async fn list(&self, ctx: ServiceContext<'_>, query: RoutingQuery, page: PageParams) -> Result<PaginatedResult<Routing>, DomainError> {
+    async fn list(&self, ctx: ServiceContext<'_>, query: RoutingQuery, page: PageParams) -> Result<PaginatedResult<Routing>> {
         self.repo.query(ctx.executor, &query, &page)
             .await
     }
 
-    async fn get_detail(&self, ctx: ServiceContext<'_>, id: i64) -> Result<RoutingDetail, DomainError> {
+    async fn get_detail(&self, ctx: ServiceContext<'_>, id: i64) -> Result<RoutingDetail> {
         let routing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("Routing"))?;
@@ -44,7 +44,7 @@ impl RoutingService for RoutingServiceImpl {
         Ok(RoutingDetail { routing, steps })
     }
 
-    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateRoutingReq) -> Result<i64, DomainError> {
+    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateRoutingReq) -> Result<i64> {
         let id = self.repo.create(ctx.executor, &req, ctx.operator_id)
             .await?;
 
@@ -64,7 +64,7 @@ impl RoutingService for RoutingServiceImpl {
         Ok(id)
     }
 
-    async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateRoutingReq) -> Result<(), DomainError> {
+    async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateRoutingReq) -> Result<()> {
         let _existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("Routing"))?;
@@ -97,7 +97,7 @@ impl RoutingService for RoutingServiceImpl {
         Ok(())
     }
 
-    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let _existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("Routing"))?;
@@ -127,7 +127,7 @@ impl RoutingService for RoutingServiceImpl {
         Ok(())
     }
 
-    async fn find_matching_routing(&self, ctx: ServiceContext<'_>, process_codes: Vec<String>) -> Result<Option<RoutingDetail>, DomainError> {
+    async fn find_matching_routing(&self, ctx: ServiceContext<'_>, process_codes: Vec<String>) -> Result<Option<RoutingDetail>> {
         let routing_id = self.repo.find_matching_by_process_codes(ctx.executor, &process_codes)
             .await?;
 
@@ -146,7 +146,7 @@ impl RoutingService for RoutingServiceImpl {
         }
     }
 
-    async fn set_bom_routing(&self, mut ctx: ServiceContext<'_>, product_code: String, routing_id: i64) -> Result<(), DomainError> {
+    async fn set_bom_routing(&self, mut ctx: ServiceContext<'_>, product_code: String, routing_id: i64) -> Result<()> {
         let _routing = self.repo.find_by_id(ctx.executor, routing_id)
             .await?
             .ok_or_else(|| DomainError::not_found("Routing"))?;
@@ -167,7 +167,7 @@ impl RoutingService for RoutingServiceImpl {
         Ok(())
     }
 
-    async fn get_bom_routing(&self, ctx: ServiceContext<'_>, product_code: String) -> Result<Option<RoutingDetail>, DomainError> {
+    async fn get_bom_routing(&self, ctx: ServiceContext<'_>, product_code: String) -> Result<Option<RoutingDetail>> {
         let bom_routing = self.repo.get_bom_routing(ctx.executor, &product_code)
             .await?;
 
@@ -193,7 +193,7 @@ impl RoutingService for RoutingServiceImpl {
         }
     }
 
-    async fn list_boms_by_routing(&self, ctx: ServiceContext<'_>, routing_id: i64) -> Result<Vec<BomRouting>, DomainError> {
+    async fn list_boms_by_routing(&self, ctx: ServiceContext<'_>, routing_id: i64) -> Result<Vec<BomRouting>> {
         self.repo.list_boms_by_routing(ctx.executor, routing_id)
             .await
     }

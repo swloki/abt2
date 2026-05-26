@@ -6,11 +6,12 @@ use async_trait::async_trait;
 use super::model::DomainEvent;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 /// 事件处理器 trait — 业务模块实现此接口
 #[async_trait]
 pub trait EventHandler: Send + Sync {
-    async fn handle(&self, event: &DomainEvent) -> Result<(), DomainError>;
+    async fn handle(&self, event: &DomainEvent) -> Result<()>;
     fn name(&self) -> &str;
 }
 
@@ -18,7 +19,7 @@ pub trait EventHandler: Send + Sync {
 #[async_trait]
 pub trait EventHandlerRegistry: Send + Sync {
     fn register(&self, event_type: DomainEventType, handler: Arc<dyn EventHandler>);
-    async fn dispatch(&self, event: &DomainEvent) -> Result<(), DomainError>;
+    async fn dispatch(&self, event: &DomainEvent) -> Result<()>;
 }
 
 /// 基于 HashMap 的注册表实现
@@ -47,7 +48,7 @@ impl EventHandlerRegistry for EventHandlerRegistryImpl {
         map.entry(event_type).or_default().push(handler);
     }
 
-    async fn dispatch(&self, event: &DomainEvent) -> Result<(), DomainError> {
+    async fn dispatch(&self, event: &DomainEvent) -> Result<()> {
         // 先 clone handler 列表，避免在锁内 await
         let handlers: Vec<Arc<dyn EventHandler>> = {
             let map = self.handlers.read().expect("EventHandlerRegistry lock poisoned");

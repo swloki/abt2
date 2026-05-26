@@ -10,6 +10,7 @@ use super::super::auth_service::AuthService;
 use super::super::model::{Claims, ResourceActionDef};
 use super::super::repo::IdentityRepo;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 const JWT_ISSUER: &str = "abt-core";
 
@@ -26,7 +27,7 @@ impl AuthServiceImpl {
 
 #[async_trait]
 impl AuthService for AuthServiceImpl {
-    async fn login(&self, username: &str, password: &str) -> Result<(String, Claims), DomainError> {
+    async fn login(&self, username: &str, password: &str) -> Result<(String, Claims)> {
         let mut conn = self
             .pool
             .acquire()
@@ -58,7 +59,7 @@ impl AuthService for AuthServiceImpl {
         Ok((token, claims))
     }
 
-    async fn refresh_token(&self, token: &str) -> Result<String, DomainError> {
+    async fn refresh_token(&self, token: &str) -> Result<String> {
         let mut validation = Validation::default();
         validation.validate_exp = false;
         validation.set_issuer(&[JWT_ISSUER]);
@@ -84,7 +85,7 @@ impl AuthService for AuthServiceImpl {
         Ok(new_token)
     }
 
-    async fn get_user_claims(&self, user_id: i64) -> Result<Claims, DomainError> {
+    async fn get_user_claims(&self, user_id: i64) -> Result<Claims> {
         let mut conn = self
             .pool
             .acquire()
@@ -111,7 +112,7 @@ impl AuthServiceImpl {
         &self,
         conn: &mut sqlx::postgres::PgConnection,
         user: &super::super::model::User,
-    ) -> Result<Claims, DomainError> {
+    ) -> Result<Claims> {
         let role_ids = IdentityRepo::get_user_role_ids(conn, user.user_id).await?;
         let role_codes = IdentityRepo::get_user_role_codes(conn, user.user_id).await?;
         let department_ids = IdentityRepo::get_user_department_ids(conn, user.user_id).await?;

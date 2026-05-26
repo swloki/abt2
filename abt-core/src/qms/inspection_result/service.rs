@@ -10,13 +10,13 @@ pub trait InspectionResultService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateInspectionResultReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     async fn get(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<InspectionResult, DomainError>;
+    ) -> Result<InspectionResult>;
 
     /// 记录检验结果 — 录入实际数据并完成 Pending→Completed，返回质量关卡状态
     async fn record_result(
@@ -24,12 +24,12 @@ pub trait InspectionResultService: Send + Sync {
         ctx: ServiceContext<'_>,
         id: i64,
         req: RecordInspectionResultReq,
-    ) -> Result<QualityGateStatus, DomainError>;
+    ) -> Result<QualityGateStatus>;
 
     async fn list_by_source(
         &self,
         ctx: ServiceContext<'_>,
         filter: InspectionResultFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<InspectionResult>, DomainError>;
+    ) -> Result<PaginatedResult<InspectionResult>>;
 }

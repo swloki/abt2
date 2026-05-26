@@ -2,17 +2,18 @@ use async_trait::async_trait;
 
 use super::model::{Claims, ResourceActionDef};
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 #[async_trait]
 pub trait AuthService: Send + Sync {
     /// Validate username/password, return JWT token and Claims
-    async fn login(&self, username: &str, password: &str) -> Result<(String, Claims), DomainError>;
+    async fn login(&self, username: &str, password: &str) -> Result<(String, Claims)>;
 
     /// Refresh a valid JWT token (re-emit with new expiry)
-    async fn refresh_token(&self, token: &str) -> Result<String, DomainError>;
+    async fn refresh_token(&self, token: &str) -> Result<String>;
 
     /// Build Claims for a given user_id
-    async fn get_user_claims(&self, user_id: i64) -> Result<Claims, DomainError>;
+    async fn get_user_claims(&self, user_id: i64) -> Result<Claims>;
 
     /// List all defined resource/action permission entries
     fn list_resources(&self) -> Vec<ResourceActionDef>;

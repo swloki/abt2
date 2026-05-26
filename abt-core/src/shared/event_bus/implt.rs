@@ -9,6 +9,7 @@ use super::repo::{DomainEventRepo, InsertParams};
 use super::service::DomainEventBus;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 pub struct DomainEventBusImpl {
@@ -29,7 +30,7 @@ impl DomainEventBus for DomainEventBusImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: EventPublishRequest,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let params = InsertParams::from_request(
             &req,
             ctx.operator_id,
@@ -54,7 +55,7 @@ impl DomainEventBus for DomainEventBusImpl {
         &self,
         ctx: ServiceContext<'_>,
         ids: Vec<i64>,
-    ) -> Result<u64, DomainError> {
+    ) -> Result<u64> {
         let affected = DomainEventRepo::mark_processed(&mut *ctx.executor, &ids)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -67,7 +68,7 @@ impl DomainEventBus for DomainEventBusImpl {
         ctx: ServiceContext<'_>,
         id: i64,
         reason: &str,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         DomainEventRepo::mark_failed(&mut *ctx.executor, id, reason)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -81,7 +82,7 @@ impl DomainEventBus for DomainEventBusImpl {
         query: EventQuery,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<DomainEvent>, DomainError> {
+    ) -> Result<PaginatedResult<DomainEvent>> {
         let params = PageParams::new(page, page_size);
 
         let (items, total) = DomainEventRepo::query(

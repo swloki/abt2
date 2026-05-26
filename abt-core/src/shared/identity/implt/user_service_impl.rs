@@ -13,6 +13,7 @@ use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 pub struct UserServiceImpl {
@@ -36,7 +37,7 @@ impl UserService for UserServiceImpl {
         password: &str,
         display_name: Option<&str>,
         is_super_admin: bool,
-    ) -> Result<User, DomainError> {
+    ) -> Result<User> {
         let username = username.trim();
         if username.is_empty() || username.len() > 64 {
             return Err(DomainError::Validation(
@@ -89,7 +90,7 @@ impl UserService for UserServiceImpl {
         ctx: ServiceContext<'_>,
         user_id: i64,
         display_name: Option<&str>,
-    ) -> Result<User, DomainError> {
+    ) -> Result<User> {
         let user = IdentityRepo::update_user(&mut *ctx.executor, user_id, display_name)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
@@ -114,7 +115,7 @@ impl UserService for UserServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         user_id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         IdentityRepo::deactivate_user(&mut *ctx.executor, user_id)
             .await
             ?;
@@ -130,7 +131,7 @@ impl UserService for UserServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         user_id: i64,
-    ) -> Result<User, DomainError> {
+    ) -> Result<User> {
         IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
             .map_err(|e| match &e {
@@ -144,7 +145,7 @@ impl UserService for UserServiceImpl {
         ctx: ServiceContext<'_>,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<User>, DomainError> {
+    ) -> Result<PaginatedResult<User>> {
         let params = crate::shared::types::pagination::PageParams::new(page, page_size);
         let (items, total) = IdentityRepo::list_users(
             &mut *ctx.executor,
@@ -162,7 +163,7 @@ impl UserService for UserServiceImpl {
         ctx: ServiceContext<'_>,
         user_id: i64,
         role_ids: Vec<i64>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
@@ -191,7 +192,7 @@ impl UserService for UserServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         user_id: i64,
-    ) -> Result<UserWithRoles, DomainError> {
+    ) -> Result<UserWithRoles> {
         let user = IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
@@ -206,7 +207,7 @@ impl UserService for UserServiceImpl {
     async fn list_users_with_roles(
         &self,
         ctx: ServiceContext<'_>,
-    ) -> Result<Vec<UserWithRoles>, DomainError> {
+    ) -> Result<Vec<UserWithRoles>> {
         let (users, _total) = IdentityRepo::list_users(
             &mut *ctx.executor,
             i64::MAX,
@@ -230,7 +231,7 @@ impl UserService for UserServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         user_ids: Vec<i64>,
-    ) -> Result<Vec<UserWithRoles>, DomainError> {
+    ) -> Result<Vec<UserWithRoles>> {
         if user_ids.is_empty() {
             return Ok(Vec::new());
         }
@@ -255,7 +256,7 @@ impl UserService for UserServiceImpl {
         ctx: ServiceContext<'_>,
         user_id: i64,
         role_ids: Vec<i64>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
@@ -285,7 +286,7 @@ impl UserService for UserServiceImpl {
         ctx: ServiceContext<'_>,
         user_id: i64,
         role_ids: Vec<i64>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         IdentityRepo::get_user(&mut *ctx.executor, user_id)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
@@ -316,7 +317,7 @@ impl UserService for UserServiceImpl {
         user_id: i64,
         old_password: &str,
         new_password: &str,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Fetch stored password hash
         let stored_hash = IdentityRepo::get_user_password_hash(&mut *ctx.executor, user_id)
             .await
@@ -366,7 +367,7 @@ impl UserService for UserServiceImpl {
         ctx: ServiceContext<'_>,
         user_id: i64,
         is_active: bool,
-    ) -> Result<User, DomainError> {
+    ) -> Result<User> {
         let user = IdentityRepo::update_user_status(&mut *ctx.executor, user_id, is_active)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;

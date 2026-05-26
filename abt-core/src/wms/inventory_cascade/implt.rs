@@ -4,7 +4,7 @@ use rust_decimal::Decimal;
 
 use super::model::*;
 use super::service::InventoryCascadeService;
-use crate::shared::types::{DomainError, ServiceContext};
+use crate::shared::types::{DomainError, ServiceContext, Result};
 
 const MAX_BOM_REFS: i32 = 10;
 
@@ -72,7 +72,7 @@ fn collect_descendants<'a>(
 
 #[async_trait::async_trait]
 impl InventoryCascadeService for InventoryCascadeServiceImpl {
-    async fn cascade_inventory(&self, ctx: ServiceContext<'_>, query: CascadeInventoryQuery) -> Result<CascadeInventoryResult, DomainError> {
+    async fn cascade_inventory(&self, ctx: ServiceContext<'_>, query: CascadeInventoryQuery) -> Result<CascadeInventoryResult> {
         if query.product_id.is_none() && query.product_code.is_none() {
             return Err(DomainError::validation("必须提供 product_id 或 product_code"));
         }

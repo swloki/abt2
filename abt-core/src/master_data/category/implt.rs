@@ -20,7 +20,7 @@ impl CategoryServiceImpl {
 
 #[async_trait::async_trait]
 impl CategoryService for CategoryServiceImpl {
-    async fn create(&self, ctx: ServiceContext<'_>, req: CreateCategoryReq) -> Result<i64, DomainError> {
+    async fn create(&self, ctx: ServiceContext<'_>, req: CreateCategoryReq) -> Result<i64> {
         let meta = CategoryMeta::default();
 
         // Insert with placeholder, get id, then fix path
@@ -43,7 +43,7 @@ impl CategoryService for CategoryServiceImpl {
         Ok(id)
     }
 
-    async fn update(&self, ctx: ServiceContext<'_>, category_id: i64, req: UpdateCategoryReq) -> Result<(), DomainError> {
+    async fn update(&self, ctx: ServiceContext<'_>, category_id: i64, req: UpdateCategoryReq) -> Result<()> {
         let _existing = self.repo.find_by_id(ctx.executor, category_id)
             .await?
             .ok_or_else(|| DomainError::not_found("Category"))?;
@@ -55,7 +55,7 @@ impl CategoryService for CategoryServiceImpl {
         Ok(())
     }
 
-    async fn delete(&self, ctx: ServiceContext<'_>, category_id: i64) -> Result<(), DomainError> {
+    async fn delete(&self, ctx: ServiceContext<'_>, category_id: i64) -> Result<()> {
         let children = self.repo.find_children_count(ctx.executor, category_id)
             .await?;
         if children > 0 {
@@ -75,18 +75,18 @@ impl CategoryService for CategoryServiceImpl {
         Ok(())
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, category_id: i64) -> Result<Category, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, category_id: i64) -> Result<Category> {
         self.repo.find_by_id(ctx.executor, category_id)
             .await?
             .ok_or_else(|| DomainError::not_found("Category"))
     }
 
-    async fn list(&self, ctx: ServiceContext<'_>, filter: CategoryQuery, page: PageParams) -> Result<PaginatedResult<Category>, DomainError> {
+    async fn list(&self, ctx: ServiceContext<'_>, filter: CategoryQuery, page: PageParams) -> Result<PaginatedResult<Category>> {
         self.repo.query(ctx.executor, &filter, &page)
             .await
     }
 
-    async fn get_tree(&self, ctx: ServiceContext<'_>, root_id: Option<i64>, depth_limit: Option<i32>) -> Result<Vec<CategoryTree>, DomainError> {
+    async fn get_tree(&self, ctx: ServiceContext<'_>, root_id: Option<i64>, depth_limit: Option<i32>) -> Result<Vec<CategoryTree>> {
         let all = self.repo.find_all(ctx.executor)
             .await?;
 
@@ -99,7 +99,7 @@ impl CategoryService for CategoryServiceImpl {
         Ok(build_tree(&filtered, 0, depth_limit.unwrap_or(i32::MAX), 0))
     }
 
-    async fn move_to(&self, ctx: ServiceContext<'_>, category_id: i64, new_parent_id: i64) -> Result<(), DomainError> {
+    async fn move_to(&self, ctx: ServiceContext<'_>, category_id: i64, new_parent_id: i64) -> Result<()> {
         let category = self.repo.find_by_id(ctx.executor, category_id)
             .await?
             .ok_or_else(|| DomainError::not_found("Category"))?;
@@ -130,7 +130,7 @@ impl CategoryService for CategoryServiceImpl {
         Ok(())
     }
 
-    async fn assign_products(&self, ctx: ServiceContext<'_>, category_id: i64, product_ids: Vec<i64>) -> Result<(), DomainError> {
+    async fn assign_products(&self, ctx: ServiceContext<'_>, category_id: i64, product_ids: Vec<i64>) -> Result<()> {
         self.repo.assign_products(ctx.executor, category_id, &product_ids)
             .await?;
         let count = self.repo.find_products_count(ctx.executor, category_id)
@@ -140,7 +140,7 @@ impl CategoryService for CategoryServiceImpl {
         Ok(())
     }
 
-    async fn remove_products(&self, ctx: ServiceContext<'_>, category_id: i64, product_ids: Vec<i64>) -> Result<(), DomainError> {
+    async fn remove_products(&self, ctx: ServiceContext<'_>, category_id: i64, product_ids: Vec<i64>) -> Result<()> {
         self.repo.remove_products(ctx.executor, category_id, &product_ids)
             .await?;
         let count = self.repo.find_products_count(ctx.executor, category_id)

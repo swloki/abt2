@@ -13,6 +13,7 @@ use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::{DocumentType, LinkType};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::RequisitionStatus;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
@@ -45,7 +46,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         work_order_id: i64,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::MaterialRequisition)
             .await
             .unwrap_or_else(|_| format!("MR{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
@@ -85,7 +86,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<MaterialRequisition, DomainError> {
+    ) -> Result<MaterialRequisition> {
         MaterialRequisitionRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -98,7 +99,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         filter: RequisitionFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<MaterialRequisition>, DomainError> {
+    ) -> Result<PaginatedResult<MaterialRequisition>> {
         MaterialRequisitionRepo::list(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -108,7 +109,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let requisition = MaterialRequisitionRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -142,7 +143,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: IssueMaterialReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let requisition = MaterialRequisitionRepo::get_by_id(&mut *ctx.executor, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -220,7 +221,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let requisition = MaterialRequisitionRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?

@@ -9,33 +9,33 @@ pub trait ShippingRequestService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateFromOrderReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     async fn find_by_id(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<ShippingRequest, DomainError>;
+    ) -> Result<ShippingRequest>;
 
     async fn update(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateShippingReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
-    async fn confirm(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn confirm(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
-    async fn pick(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn pick(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
-    async fn ship(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn ship(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
-    async fn cancel(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError>;
+    async fn cancel(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
     async fn list(
         &self,
         ctx: ServiceContext<'_>,
         filter: ShippingQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<ShippingRequest>, DomainError>;
+    ) -> Result<PaginatedResult<ShippingRequest>>;
 }

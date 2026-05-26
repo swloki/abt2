@@ -109,7 +109,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateSalesOrderReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         self.customer_svc
             .validate_contact_ownership(ctx.reborrow(), req.customer_id, req.contact_id)
             .await?;
@@ -179,7 +179,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         quotation_id: i64,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let quotation = self.quotation_svc.find_by_id(ctx.reborrow(), quotation_id).await?;
 
         if quotation.status != crate::sales::quotation::model::QuotationStatus::Accepted {
@@ -293,7 +293,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<SalesOrder, DomainError> {
+    ) -> Result<SalesOrder> {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
@@ -306,7 +306,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateSalesOrderReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -330,7 +330,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -402,7 +402,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
-    async fn start_progress(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn start_progress(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -437,7 +437,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
-    async fn complete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn complete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -487,7 +487,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
-    async fn cancel(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn cancel(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -550,7 +550,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         ctx: ServiceContext<'_>,
         filter: SalesOrderQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<SalesOrder>, DomainError> {
+    ) -> Result<PaginatedResult<SalesOrder>> {
         self.repo
             .query(
                 ctx.executor,

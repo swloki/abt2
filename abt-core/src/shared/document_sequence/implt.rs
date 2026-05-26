@@ -9,6 +9,7 @@ use super::service::DocumentSequenceService;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 pub struct DocumentSequenceServiceImpl {
     #[allow(dead_code)] // 保留供未来独立事务模式使用
@@ -27,7 +28,7 @@ impl DocumentSequenceService for DocumentSequenceServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         doc_type: DocumentType,
-    ) -> Result<String, DomainError> {
+    ) -> Result<String> {
         // Timestamp 策略：仅 Product 使用
         if matches!(doc_type, DocumentType::Product) {
             let ts = chrono::Utc::now().timestamp();

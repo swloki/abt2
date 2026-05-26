@@ -32,12 +32,12 @@ impl LaborProcessDictServiceImpl {
 
 #[async_trait::async_trait]
 impl LaborProcessDictService for LaborProcessDictServiceImpl {
-    async fn list(&self, ctx: ServiceContext<'_>, query: LaborProcessDictQuery, page: PageParams) -> Result<PaginatedResult<LaborProcessDict>, DomainError> {
+    async fn list(&self, ctx: ServiceContext<'_>, query: LaborProcessDictQuery, page: PageParams) -> Result<PaginatedResult<LaborProcessDict>> {
         self.repo.query(ctx.executor, &query, &page)
             .await
     }
 
-    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateLaborProcessDictReq) -> Result<i64, DomainError> {
+    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateLaborProcessDictReq) -> Result<i64> {
         let code = self.doc_seq.next_number(ctx.reborrow(), DocumentType::LaborProcessDict).await?;
 
         let id = self.repo.create(ctx.executor, &code, &req, ctx.operator_id)
@@ -56,7 +56,7 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
         Ok(id)
     }
 
-    async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateLaborProcessDictReq) -> Result<(), DomainError> {
+    async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateLaborProcessDictReq) -> Result<()> {
         let _existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("LaborProcessDict"))?;
@@ -77,7 +77,7 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
         Ok(())
     }
 
-    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("LaborProcessDict"))?;

@@ -20,7 +20,7 @@ impl CostAccountingService for CostAccountingServiceImpl {
         ctx: ServiceContext<'_>,
         product_id: i64,
         period: String,
-    ) -> Result<ProductCostSummary, DomainError> {
+    ) -> Result<ProductCostSummary> {
         CostAccountingRepo::get_product_cost_by_period(ctx.executor, product_id, &period)
             .await
             
@@ -30,7 +30,7 @@ impl CostAccountingService for CostAccountingServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         work_order_id: i64,
-    ) -> Result<WorkOrderCostSummary, DomainError> {
+    ) -> Result<WorkOrderCostSummary> {
         CostAccountingRepo::get_work_order_cost(ctx.executor, work_order_id)
             .await
             
@@ -43,7 +43,7 @@ impl CostAccountingService for CostAccountingServiceImpl {
         from: String,
         to: String,
         page: PageParams,
-    ) -> Result<PaginatedResult<ProfitCenterSummary>, DomainError> {
+    ) -> Result<PaginatedResult<ProfitCenterSummary>> {
         let (items, total) = CostAccountingRepo::get_profit_center_summary(
             ctx.executor,
             profit_center_id,
@@ -62,7 +62,7 @@ impl CostAccountingService for CostAccountingServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         order_id: i64,
-    ) -> Result<MarginAnalysis, DomainError> {
+    ) -> Result<MarginAnalysis> {
         CostAccountingRepo::get_margin_analysis(ctx.executor, order_id)
             .await
             

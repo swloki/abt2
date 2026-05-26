@@ -17,6 +17,7 @@ use crate::shared::inventory_reservation::model::ReserveRequest;
 use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::material_requisition::service::MaterialRequisitionService;
 
@@ -47,7 +48,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateWorkOrderReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("WO{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
@@ -69,7 +70,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<WorkOrder, DomainError> {
+    ) -> Result<WorkOrder> {
         WorkOrderRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -86,7 +87,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         expected_version: i32,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // 1. 验证工单存在且状态允许下达
         let work_order = WorkOrderRepo::get_by_id(&mut *ctx.executor, id)
             .await
@@ -209,7 +210,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         expected_version: i32,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let work_order = WorkOrderRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -263,7 +264,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         expected_version: i32,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let work_order = WorkOrderRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -306,7 +307,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         filter: WorkOrderFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<WorkOrder>, DomainError> {
+    ) -> Result<PaginatedResult<WorkOrder>> {
         WorkOrderRepo::list(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))

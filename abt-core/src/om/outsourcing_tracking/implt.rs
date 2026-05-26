@@ -6,6 +6,7 @@ use super::service::OutsourcingTrackingService;
 use crate::om::enums::TrackingNodeType;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 #[derive(Default)]
@@ -17,7 +18,7 @@ impl OutsourcingTrackingServiceImpl {
     }
 }
 
-fn validate_node_sequence(max_ordinal: Option<i16>, target: i16) -> Result<(), DomainError> {
+fn validate_node_sequence(max_ordinal: Option<i16>, target: i16) -> Result<()> {
     if let Some(max) = max_ordinal
         && target <= max
     {
@@ -32,7 +33,7 @@ async fn validate_prerequisites(
     ctx: &mut ServiceContext<'_>,
     outsourcing_id: i64,
     node_type: TrackingNodeType,
-) -> Result<(), DomainError> {
+) -> Result<()> {
     let required = match node_type {
         TrackingNodeType::CarrierPickup => Some(TrackingNodeType::SendMaterial),
         TrackingNodeType::Warehoused => Some(TrackingNodeType::IqcInspected),
@@ -61,7 +62,7 @@ impl OutsourcingTrackingService for OutsourcingTrackingServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: RecordNodeReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let target_ordinal = req.node_type.ordinal();
 
         let max_ordinal = OutsourcingTrackingRepo::get_max_node_ordinal(
@@ -96,7 +97,7 @@ impl OutsourcingTrackingService for OutsourcingTrackingServiceImpl {
         ctx: ServiceContext<'_>,
         outsourcing_id: i64,
         page: PageParams,
-    ) -> Result<PaginatedResult<OutsourcingTracking>, DomainError> {
+    ) -> Result<PaginatedResult<OutsourcingTracking>> {
         let (items, total) = OutsourcingTrackingRepo::list_by_outsourcing_id(
             &mut *ctx.executor,
             outsourcing_id,
@@ -113,7 +114,7 @@ impl OutsourcingTrackingService for OutsourcingTrackingServiceImpl {
         ctx: ServiceContext<'_>,
         filter: OverdueTrackingQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<OutsourcingTracking>, DomainError> {
+    ) -> Result<PaginatedResult<OutsourcingTracking>> {
         let (items, total) =
             OutsourcingTrackingRepo::query_overdue(&mut *ctx.executor, &filter, &page)
                 .await

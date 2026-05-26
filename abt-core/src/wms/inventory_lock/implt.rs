@@ -8,6 +8,7 @@ use super::repo::InventoryLockRepo;
 use super::service::InventoryLockService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::DocumentType;
@@ -31,7 +32,7 @@ impl InventoryLockService for InventoryLockServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateLockReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if req.locked_qty <= rust_decimal::Decimal::ZERO {
             return Err(DomainError::validation("锁定数量必须大于零"));
         }
@@ -51,7 +52,7 @@ impl InventoryLockService for InventoryLockServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<InventoryLock, DomainError> {
+    ) -> Result<InventoryLock> {
         InventoryLockRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -64,7 +65,7 @@ impl InventoryLockService for InventoryLockServiceImpl {
         filter: LockFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<InventoryLock>, DomainError> {
+    ) -> Result<PaginatedResult<InventoryLock>> {
         InventoryLockRepo::list(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -76,7 +77,7 @@ impl InventoryLockService for InventoryLockServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let lock = self.get(ctx.reborrow(), id).await?;
 
         if lock.status != LockStatus::Active {
@@ -99,7 +100,7 @@ impl InventoryLockService for InventoryLockServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let lock = self.get(ctx.reborrow(), id).await?;
 
         if lock.status != LockStatus::Active {

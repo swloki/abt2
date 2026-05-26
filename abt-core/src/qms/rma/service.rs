@@ -9,13 +9,13 @@ pub trait RmaService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateRmaReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     async fn get(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<Rma, DomainError>;
+    ) -> Result<Rma>;
 
     /// 记录根因 — 自动触发 Investigating → ActionTaken 状态转换
     async fn record_root_cause(
@@ -23,18 +23,18 @@ pub trait RmaService: Send + Sync {
         ctx: ServiceContext<'_>,
         id: i64,
         req: RecordRootCauseReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn close(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn list(
         &self,
         ctx: ServiceContext<'_>,
         filter: RmaFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<Rma>, DomainError>;
+    ) -> Result<PaginatedResult<Rma>>;
 }

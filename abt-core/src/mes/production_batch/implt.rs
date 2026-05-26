@@ -21,6 +21,7 @@ use crate::shared::enums::DocumentType;
 use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 pub struct ProductionBatchServiceImpl {
     #[allow(dead_code)]
@@ -46,7 +47,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateBatchReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let batch_no = self.doc_seq.next_number(ctx.reborrow(), DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("PB{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
@@ -74,7 +75,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         mut ctx: ServiceContext<'_>,
         work_order_id: i64,
         splits: Vec<SplitReq>,
-    ) -> Result<Vec<i64>, DomainError> {
+    ) -> Result<Vec<i64>> {
         if splits.is_empty() {
             return Err(DomainError::validation("至少需要一个拆分项"));
         }
@@ -106,7 +107,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<ProductionBatch, DomainError> {
+    ) -> Result<ProductionBatch> {
         ProductionBatchRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -118,7 +119,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         work_order_id: i64,
-    ) -> Result<Vec<ProductionBatch>, DomainError> {
+    ) -> Result<Vec<ProductionBatch>> {
         ProductionBatchRepo::list_by_work_order(&mut *ctx.executor, work_order_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -133,7 +134,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         batch_id: i64,
         step_no: i32,
         req: StepConfirmationReq,
-    ) -> Result<StepConfirmationResult, DomainError> {
+    ) -> Result<StepConfirmationResult> {
         // --- a. 获取批次并验证状态 ---
         let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
             .await
@@ -326,7 +327,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         batch_id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -366,7 +367,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         ctx: ServiceContext<'_>,
         batch_id: i64,
         _reason: String,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -391,7 +392,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         batch_id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -417,7 +418,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         mut ctx: ServiceContext<'_>,
         batch_id: i64,
         _reason: String,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?

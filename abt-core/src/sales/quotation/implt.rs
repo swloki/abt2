@@ -99,7 +99,7 @@ impl QuotationService for QuotationServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateQuotationReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if req.valid_until <= Local::now().date_naive() {
             return Err(DomainError::validation("valid_until must be after today"));
         }
@@ -169,7 +169,7 @@ impl QuotationService for QuotationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<Quotation, DomainError> {
+    ) -> Result<Quotation> {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
@@ -182,7 +182,7 @@ impl QuotationService for QuotationServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateQuotationReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -233,7 +233,7 @@ impl QuotationService for QuotationServiceImpl {
         Ok(())
     }
 
-    async fn submit(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn submit(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -301,7 +301,7 @@ impl QuotationService for QuotationServiceImpl {
         Ok(())
     }
 
-    async fn accept(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn accept(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -356,7 +356,7 @@ impl QuotationService for QuotationServiceImpl {
         Ok(())
     }
 
-    async fn reject(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn reject(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -410,7 +410,7 @@ impl QuotationService for QuotationServiceImpl {
         Ok(())
     }
 
-    async fn expire(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn expire(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -466,7 +466,7 @@ impl QuotationService for QuotationServiceImpl {
         Ok(())
     }
 
-    async fn batch_expire_overdue(&self, ctx: ServiceContext<'_>) -> Result<i32, DomainError> {
+    async fn batch_expire_overdue(&self, ctx: ServiceContext<'_>) -> Result<i32> {
         let count = self
             .repo
             .expire_overdue(ctx.executor)
@@ -479,7 +479,7 @@ impl QuotationService for QuotationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         quotation_id: i64,
-    ) -> Result<Vec<QuotationItem>, DomainError> {
+    ) -> Result<Vec<QuotationItem>> {
         self.item_repo
             .find_by_quotation_id(ctx.executor, quotation_id)
             .await
@@ -491,7 +491,7 @@ impl QuotationService for QuotationServiceImpl {
         ctx: ServiceContext<'_>,
         filter: QuotationQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<Quotation>, DomainError> {
+    ) -> Result<PaginatedResult<Quotation>> {
         self.repo
             .query(
                 ctx.executor,

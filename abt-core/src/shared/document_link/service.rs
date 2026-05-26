@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use crate::shared::enums::DocumentType;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{DocumentLink, LinkRequest};
@@ -14,7 +15,7 @@ pub trait DocumentLinkService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         requests: Vec<LinkRequest>,
-    ) -> Result<crate::shared::types::batch::BatchResult, DomainError>;
+    ) -> Result<crate::shared::types::batch::BatchResult>;
 
     /// 双向分页查询：source→target 和 target→source
     async fn find_linked(
@@ -24,5 +25,5 @@ pub trait DocumentLinkService: Send + Sync {
         source_id: i64,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<DocumentLink>, DomainError>;
+    ) -> Result<PaginatedResult<DocumentLink>>;
 }

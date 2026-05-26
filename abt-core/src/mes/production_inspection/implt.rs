@@ -11,6 +11,7 @@ use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::DocumentType;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 pub struct ProductionInspectionServiceImpl {
     #[allow(dead_code)]
@@ -30,7 +31,7 @@ impl ProductionInspectionService for ProductionInspectionServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateInspectionReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ProductionInspection)
             .await
             .unwrap_or_else(|_| format!("PI{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
@@ -51,7 +52,7 @@ impl ProductionInspectionService for ProductionInspectionServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<ProductionInspection, DomainError> {
+    ) -> Result<ProductionInspection> {
         ProductionInspectionRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -63,7 +64,7 @@ impl ProductionInspectionService for ProductionInspectionServiceImpl {
         ctx: ServiceContext<'_>,
         id: i64,
         result: InspectionResultType,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let inspection = ProductionInspectionRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?

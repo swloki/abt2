@@ -20,6 +20,7 @@ use crate::shared::idempotency::service::{key_to_i64, IdempotencyService};
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 const ENTITY_TYPE: &str = "InspectionResult";
@@ -56,7 +57,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateInspectionResultReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // 1. 验证检验规格存在
         let spec = self.spec_service.get(ctx.reborrow(), req.spec_id).await?;
         if spec.status != SpecStatus::Active {
@@ -124,7 +125,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<InspectionResult, DomainError> {
+    ) -> Result<InspectionResult> {
         repo::find_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -137,7 +138,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         req: RecordInspectionResultReq,
-    ) -> Result<QualityGateStatus, DomainError> {
+    ) -> Result<QualityGateStatus> {
         // 1. 获取现有记录
         let existing = repo::find_by_id(&mut *ctx.executor, id)
             .await
@@ -238,7 +239,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
         ctx: ServiceContext<'_>,
         filter: InspectionResultFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<InspectionResult>, DomainError> {
+    ) -> Result<PaginatedResult<InspectionResult>> {
         repo::list(&mut *ctx.executor, &filter, &page)
             .await
             .map_err(|e| DomainError::Internal(e.into()))

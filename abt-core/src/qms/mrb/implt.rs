@@ -19,6 +19,7 @@ use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 const ENTITY_TYPE: &str = "MRB";
@@ -50,7 +51,7 @@ impl MrbService for MrbServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateMrbReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // 1. 验证检验结果存在、已完成、且为 Fail 或 Conditional
         let ir = inspection_result::repo::find_by_id(&mut *ctx.executor, req.inspection_result_id)
             .await
@@ -110,7 +111,7 @@ impl MrbService for MrbServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<Mrb, DomainError> {
+    ) -> Result<Mrb> {
         repo::find_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -121,7 +122,7 @@ impl MrbService for MrbServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "UnderReview", None)
             .await?;
@@ -151,7 +152,7 @@ impl MrbService for MrbServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Approved", None)
             .await?;
@@ -182,7 +183,7 @@ impl MrbService for MrbServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         _req: ExecuteDispositionReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Completed", None)
             .await?;
@@ -258,7 +259,7 @@ impl MrbService for MrbServiceImpl {
         ctx: ServiceContext<'_>,
         filter: MrbFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<Mrb>, DomainError> {
+    ) -> Result<PaginatedResult<Mrb>> {
         repo::list(&mut *ctx.executor, &filter, &page)
             .await
             .map_err(|e| DomainError::Internal(e.into()))

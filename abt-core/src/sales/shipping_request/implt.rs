@@ -84,7 +84,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateFromOrderReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let order = self.sales_order_svc.find_by_id(ctx.reborrow(), req.order_id).await?;
 
         if order.status != SalesOrderStatus::Confirmed
@@ -193,7 +193,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<ShippingRequest, DomainError> {
+    ) -> Result<ShippingRequest> {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
@@ -206,7 +206,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateShippingReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -230,7 +230,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         Ok(())
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -286,7 +286,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         Ok(())
     }
 
-    async fn pick(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn pick(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -321,7 +321,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         Ok(())
     }
 
-    async fn ship(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn ship(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -452,7 +452,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         Ok(())
     }
 
-    async fn cancel(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn cancel(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -494,7 +494,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         ctx: ServiceContext<'_>,
         filter: ShippingQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<ShippingRequest>, DomainError> {
+    ) -> Result<PaginatedResult<ShippingRequest>> {
         self.repo
             .query(
                 ctx.executor,

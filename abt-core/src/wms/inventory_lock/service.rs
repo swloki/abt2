@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{CreateLockReq, InventoryLock, LockFilter};
@@ -12,13 +13,13 @@ pub trait InventoryLockService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateLockReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     async fn get(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<InventoryLock, DomainError>;
+    ) -> Result<InventoryLock>;
 
     async fn list(
         &self,
@@ -26,17 +27,17 @@ pub trait InventoryLockService: Send + Sync {
         filter: LockFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<InventoryLock>, DomainError>;
+    ) -> Result<PaginatedResult<InventoryLock>>;
 
     async fn release(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn cancel(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 }

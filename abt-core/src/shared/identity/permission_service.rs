@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 #[async_trait]
 pub trait PermissionService: Send + Sync {
@@ -12,7 +13,7 @@ pub trait PermissionService: Send + Sync {
         role_ids: &[i64],
         resource: &str,
         action: &str,
-    ) -> Result<bool, DomainError>;
+    ) -> Result<bool>;
 
     /// Batch check multiple (resource, action) pairs.
     /// Super admins get all true.
@@ -21,11 +22,11 @@ pub trait PermissionService: Send + Sync {
         is_super_admin: bool,
         role_ids: &[i64],
         pairs: &[(String, String)],
-    ) -> Result<Vec<bool>, DomainError>;
+    ) -> Result<Vec<bool>>;
 
     /// Get all resolved permission strings for the given roles.
     async fn get_user_permissions(
         &self,
         role_ids: &[i64],
-    ) -> Result<Vec<String>, DomainError>;
+    ) -> Result<Vec<String>>;
 }

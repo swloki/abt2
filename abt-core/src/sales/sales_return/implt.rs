@@ -75,7 +75,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateReturnReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // Validate shipping request is Shipped
         let shipping = self.shipping_svc.find_by_id(ctx.reborrow(), req.shipping_request_id).await?;
         if shipping.status != crate::sales::shipping_request::model::ShippingStatus::Shipped {
@@ -199,7 +199,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<SalesReturn, DomainError> {
+    ) -> Result<SalesReturn> {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
@@ -207,7 +207,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .ok_or_else(|| DomainError::not_found("SalesReturn"))
     }
 
-    async fn approve(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn approve(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -242,7 +242,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         Ok(())
     }
 
-    async fn receive(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn receive(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -277,7 +277,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         Ok(())
     }
 
-    async fn inspect(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn inspect(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -312,7 +312,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         Ok(())
     }
 
-    async fn complete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn complete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -430,7 +430,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         Ok(())
     }
 
-    async fn reject(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn reject(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -465,7 +465,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         Ok(())
     }
 
-    async fn cancel(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn cancel(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -505,7 +505,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         ctx: ServiceContext<'_>,
         filter: ReturnQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<SalesReturn>, DomainError> {
+    ) -> Result<PaginatedResult<SalesReturn>> {
         self.repo
             .query(
                 ctx.executor,

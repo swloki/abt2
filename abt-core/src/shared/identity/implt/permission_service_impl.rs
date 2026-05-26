@@ -5,6 +5,7 @@ use async_trait::async_trait;
 use super::super::permission_cache::RolePermissionCache;
 use super::super::permission_service::PermissionService;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 pub struct PermissionServiceImpl {
     cache: Arc<RolePermissionCache>,
@@ -24,7 +25,7 @@ impl PermissionService for PermissionServiceImpl {
         role_ids: &[i64],
         resource: &str,
         action: &str,
-    ) -> Result<bool, DomainError> {
+    ) -> Result<bool> {
         if is_super_admin {
             return Ok(true);
         }
@@ -36,7 +37,7 @@ impl PermissionService for PermissionServiceImpl {
         is_super_admin: bool,
         role_ids: &[i64],
         pairs: &[(String, String)],
-    ) -> Result<Vec<bool>, DomainError> {
+    ) -> Result<Vec<bool>> {
         if is_super_admin {
             return Ok(vec![true; pairs.len()]);
         }
@@ -54,7 +55,7 @@ impl PermissionService for PermissionServiceImpl {
     async fn get_user_permissions(
         &self,
         role_ids: &[i64],
-    ) -> Result<Vec<String>, DomainError> {
+    ) -> Result<Vec<String>> {
         let merged = self.cache.get_merged_permissions(role_ids).await;
         let mut perms: Vec<String> = merged.into_iter().collect();
         perms.sort();

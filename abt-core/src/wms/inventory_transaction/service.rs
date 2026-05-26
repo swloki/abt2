@@ -3,6 +3,7 @@ use rust_decimal::Decimal;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::stock_ledger::model::{StockFilter, StockLedger};
 
@@ -15,7 +16,7 @@ pub trait InventoryTransactionService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: RecordTransactionReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     /// 按来源查事务记录
     async fn find_by_source(
@@ -23,7 +24,7 @@ pub trait InventoryTransactionService: Send + Sync {
         ctx: ServiceContext<'_>,
         source_type: &str,
         source_id: i64,
-    ) -> Result<Vec<InventoryTransaction>, DomainError>;
+    ) -> Result<Vec<InventoryTransaction>>;
 
     /// 分页查询库存事务记录
     async fn query(
@@ -32,7 +33,7 @@ pub trait InventoryTransactionService: Send + Sync {
         filter: TransactionFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<InventoryTransaction>, DomainError>;
+    ) -> Result<PaginatedResult<InventoryTransaction>>;
 
     /// 分页查询库存台账（设计要求：InventoryTransactionService.query_stock）
     async fn query_stock(
@@ -41,7 +42,7 @@ pub trait InventoryTransactionService: Send + Sync {
         filter: StockFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<StockLedger>, DomainError>;
+    ) -> Result<PaginatedResult<StockLedger>>;
 
     /// 查询可用量（设计要求：InventoryTransactionService.query_available）
     /// 可用量 = StockLedger.quantity - InvRes.total_reserved()
@@ -50,5 +51,5 @@ pub trait InventoryTransactionService: Send + Sync {
         ctx: ServiceContext<'_>,
         product_id: i64,
         warehouse_id: Option<i64>,
-    ) -> Result<Decimal, DomainError>;
+    ) -> Result<Decimal>;
 }

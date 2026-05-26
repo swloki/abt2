@@ -8,6 +8,7 @@ use super::repo::StrategyRepo;
 use super::service::StrategyService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::wms::enums::{PickType, PutawayType};
 
 pub struct StrategyServiceImpl {
@@ -30,7 +31,7 @@ impl StrategyService for StrategyServiceImpl {
         strategy_type: PutawayType,
         warehouse_id: Option<i64>,
         priority: i32,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let strategy = StrategyRepo::insert_putaway(
             &mut *ctx.executor,
             &name,
@@ -48,7 +49,7 @@ impl StrategyService for StrategyServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         warehouse_id: Option<i64>,
-    ) -> Result<Vec<PutawayStrategy>, DomainError> {
+    ) -> Result<Vec<PutawayStrategy>> {
         StrategyRepo::list_putaway(&mut *ctx.executor, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -61,7 +62,7 @@ impl StrategyService for StrategyServiceImpl {
         strategy_type: PickType,
         warehouse_id: Option<i64>,
         priority: i32,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let strategy = StrategyRepo::insert_pick(
             &mut *ctx.executor,
             &name,
@@ -79,7 +80,7 @@ impl StrategyService for StrategyServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         warehouse_id: Option<i64>,
-    ) -> Result<Vec<PickStrategy>, DomainError> {
+    ) -> Result<Vec<PickStrategy>> {
         StrategyRepo::list_pick(&mut *ctx.executor, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))

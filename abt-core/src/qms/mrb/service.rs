@@ -9,38 +9,38 @@ pub trait MrbService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateMrbReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     async fn get(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<Mrb, DomainError>;
+    ) -> Result<Mrb>;
 
     async fn submit_for_review(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 临时 approve 方法 — WorkflowEngine 尚为 stub，直接审批通过
     async fn approve(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn execute_disposition(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
         req: ExecuteDispositionReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn list(
         &self,
         ctx: ServiceContext<'_>,
         filter: MrbFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<Mrb>, DomainError>;
+    ) -> Result<PaginatedResult<Mrb>>;
 }

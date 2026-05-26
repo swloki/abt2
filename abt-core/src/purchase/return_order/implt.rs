@@ -25,6 +25,7 @@ use crate::shared::idempotency::service::IdempotencyService;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 const ENTITY_TYPE: &str = "PurchaseReturn";
 
@@ -69,7 +70,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreatePurchaseReturnRequest,
         idempotency_key: Option<String>,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReturn:create").await? {
@@ -154,14 +155,14 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         Ok(id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PurchaseReturn, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PurchaseReturn> {
         PurchaseReturnRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
+    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReturn:confirm").await? {

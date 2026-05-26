@@ -53,7 +53,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateExpenseReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if req.items.is_empty() {
             return Err(DomainError::validation("at least one expense item is required"));
         }
@@ -117,7 +117,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         Ok(id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<ExpenseReimbursement, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<ExpenseReimbursement> {
         ExpenseReimbursementRepo::get_by_id(ctx.executor, id)
             .await
             ?
@@ -129,7 +129,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         ctx: ServiceContext<'_>,
         filter: ExpenseFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<ExpenseReimbursement>, DomainError> {
+    ) -> Result<PaginatedResult<ExpenseReimbursement>> {
         let (items, total) =
             ExpenseReimbursementRepo::query(
                 ctx.executor,
@@ -151,7 +151,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         &self,
         _ctx: ServiceContext<'_>,
         expense_id: i64,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // Step 1: Begin independent transaction
         let mut tx = self.pool.begin().await.map_err(|e| DomainError::Internal(anyhow::anyhow!(e)))?;
 

@@ -20,6 +20,7 @@ use crate::shared::idempotency::service::key_to_i64;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 const ENTITY_TYPE: &str = "PurchaseQuotation";
@@ -55,7 +56,7 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreatePurchaseQuotationRequest,
         idempotency_key: Option<String>,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseQuotation:create").await? {
@@ -100,7 +101,7 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<PurchaseQuotation, DomainError> {
+    ) -> Result<PurchaseQuotation> {
         PurchaseQuotationRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -112,7 +113,7 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         idempotency_key: Option<String>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseQuotation:activate").await? {
@@ -169,7 +170,7 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         query: PurchaseQuotationQuery,
-    ) -> Result<PaginatedResult<PurchaseQuotation>, DomainError> {
+    ) -> Result<PaginatedResult<PurchaseQuotation>> {
         let params = PageParams::new(1, 20);
         let scope = (ctx.data_scope, ctx.operator_id, ctx.department_id);
         let (items, total) = PurchaseQuotationRepo::query(&mut *ctx.executor, &query, &params, scope)
@@ -183,7 +184,7 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         product_id: i64,
-    ) -> Result<Vec<QuotationComparison>, DomainError> {
+    ) -> Result<Vec<QuotationComparison>> {
         PurchaseQuotationRepo::compare_by_product(&mut *ctx.executor, product_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))

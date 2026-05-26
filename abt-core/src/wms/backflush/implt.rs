@@ -14,6 +14,7 @@ use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::{CostEntityType, CostType, DocumentType};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::BackflushStatus;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
@@ -52,7 +53,7 @@ impl BackflushService for BackflushServiceImpl {
         mut ctx: ServiceContext<'_>,
         work_order_id: i64,
         completed_qty: Decimal,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let backflush_date = chrono::Local::now().date_naive();
         let variance_threshold = DEFAULT_VARIANCE_THRESHOLD;
 
@@ -162,7 +163,7 @@ impl BackflushService for BackflushServiceImpl {
         Ok(record.id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<BackflushRecord, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<BackflushRecord> {
         BackflushRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -175,13 +176,13 @@ impl BackflushService for BackflushServiceImpl {
         filter: BackflushFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<BackflushRecord>, DomainError> {
+    ) -> Result<PaginatedResult<BackflushRecord>> {
         BackflushRepo::list(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
-    async fn adjust(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn adjust(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let record = BackflushRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -207,7 +208,7 @@ async fn get_bom_components(
     bom: &Arc<dyn BomQueryService>,
     ctx: ServiceContext<'_>,
     wo: &crate::mes::work_order::model::WorkOrder,
-) -> Result<Vec<BomComponent>, DomainError> {
+) -> Result<Vec<BomComponent>> {
     let bom_id = wo.bom_snapshot_id;
     if let Some(bom_id) = bom_id {
         let nodes = bom.get_leaf_nodes(ctx, bom_id).await?;

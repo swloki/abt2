@@ -46,7 +46,7 @@ impl CashJournalService for CashJournalServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateCashJournalReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if req.amount <= rust_decimal::Decimal::ZERO {
             return Err(DomainError::validation("amount must be greater than zero"));
         }
@@ -99,7 +99,7 @@ impl CashJournalService for CashJournalServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         idempotency_key: Option<String>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Step 1: Idempotency check
         if let Some(ref key) = idempotency_key {
             let hash = crate::shared::idempotency::service::key_to_i64(key);
@@ -191,7 +191,7 @@ impl CashJournalService for CashJournalServiceImpl {
         Ok(())
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<CashJournal, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<CashJournal> {
         CashJournalRepo::get_by_id(ctx.executor, id)
             .await
             ?
@@ -203,7 +203,7 @@ impl CashJournalService for CashJournalServiceImpl {
         ctx: ServiceContext<'_>,
         filter: CashJournalFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<CashJournal>, DomainError> {
+    ) -> Result<PaginatedResult<CashJournal>> {
         let (items, total) =
             CashJournalRepo::query(
                 ctx.executor,
@@ -223,7 +223,7 @@ impl CashJournalService for CashJournalServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         period: String,
-    ) -> Result<BalanceSummary, DomainError> {
+    ) -> Result<BalanceSummary> {
         let (total_inflow, total_outflow) =
             CashJournalRepo::sum_balance_by_period(ctx.executor, &period)
                 .await

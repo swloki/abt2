@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{
@@ -16,14 +17,14 @@ pub trait ArrivalNoticeService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateArrivalNoticeReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     /// 按 ID 查询来料通知，不存在则返回 NotFound
     async fn get(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<ArrivalNotice, DomainError>;
+    ) -> Result<ArrivalNotice>;
 
     /// 分页查询来料通知
     async fn list(
@@ -32,26 +33,26 @@ pub trait ArrivalNoticeService: Send + Sync {
         filter: ArrivalNoticeFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<ArrivalNotice>, DomainError>;
+    ) -> Result<PaginatedResult<ArrivalNotice>>;
 
     /// 收货：Draft -> Received，更新明细行 received_qty
     async fn receive(
         &self,
         ctx: ServiceContext<'_>,
         req: ReceiveArrivalNoticeReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 检验：Received -> Inspecting -> Accepted/PartiallyAccepted/Rejected
     async fn inspect(
         &self,
         ctx: ServiceContext<'_>,
         req: InspectArrivalNoticeReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 取消：仅 Draft 状态可取消（软删除）
     async fn cancel(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 }

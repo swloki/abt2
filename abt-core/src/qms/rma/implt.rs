@@ -22,6 +22,7 @@ use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 const ENTITY_TYPE: &str = "RMA";
@@ -55,7 +56,7 @@ impl RmaService for RmaServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateRmaReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // 1. 校验关联检验结果（如有）
         if let Some(ir_id) = req.linked_inspection_result_id {
             let ir = inspection_result::repo::find_by_id(&mut *ctx.executor, ir_id)
@@ -148,7 +149,7 @@ impl RmaService for RmaServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<Rma, DomainError> {
+    ) -> Result<Rma> {
         repo::find_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -161,7 +162,7 @@ impl RmaService for RmaServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         req: RecordRootCauseReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // 1. 获取当前状态并校验
         let existing = repo::find_by_id(&mut *ctx.executor, id)
             .await
@@ -235,7 +236,7 @@ impl RmaService for RmaServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         self.state_machine
             .transition(ctx.reborrow(), ENTITY_TYPE, id, "Closed", None)
             .await?;
@@ -294,7 +295,7 @@ impl RmaService for RmaServiceImpl {
         ctx: ServiceContext<'_>,
         filter: RmaFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<Rma>, DomainError> {
+    ) -> Result<PaginatedResult<Rma>> {
         repo::list(&mut *ctx.executor, &filter, &page)
             .await
             .map_err(|e| DomainError::Internal(e.into()))

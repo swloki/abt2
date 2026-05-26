@@ -38,6 +38,7 @@ use crate::shared::idempotency::service::{key_to_i64, IdempotencyService};
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 const ENTITY_TYPE: &str = "OutsourcingOrder";
@@ -93,14 +94,14 @@ impl OutsourcingOrderServiceImpl {
 async fn get_order(
     ctx: &mut ServiceContext<'_>,
     id: i64,
-) -> Result<OutsourcingOrder, DomainError> {
+) -> Result<OutsourcingOrder> {
     OutsourcingOrderRepo::get_by_id(&mut *ctx.executor, id)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?
         .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
 }
 
-fn check_version(order: &OutsourcingOrder, expected: i32) -> Result<(), DomainError> {
+fn check_version(order: &OutsourcingOrder, expected: i32) -> Result<()> {
     if order.version != expected {
         return Err(DomainError::ConcurrentConflict);
     }
@@ -114,7 +115,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreateOutsourcingOrderReq,
         idempotency_key: Option<String>,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self
@@ -167,7 +168,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: UpdateOutsourcingOrderReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let order = get_order(&mut ctx.reborrow(), req.id).await?;
         if order.status != OutsourcingStatus::Draft {
             return Err(DomainError::validation("仅 DRAFT 状态可修改"));
@@ -214,7 +215,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: SendOutsourcingReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let order = get_order(&mut ctx.reborrow(), req.id).await?;
         check_version(&order, req.expected_version)?;
 
@@ -381,7 +382,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: ReceiveOutsourcingReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let order = get_order(&mut ctx.reborrow(), req.id).await?;
         check_version(&order, req.expected_version)?;
 
@@ -585,7 +586,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: ConvertToInternalReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let order = get_order(&mut ctx.reborrow(), req.id).await?;
         check_version(&order, req.expected_version)?;
 
@@ -751,7 +752,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CancelOutsourcingReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let order = get_order(&mut ctx.reborrow(), req.id).await?;
         if order.status != OutsourcingStatus::Draft {
             return Err(DomainError::validation("仅 DRAFT 状态可取消"));
@@ -809,7 +810,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<OutsourcingOrder, DomainError> {
+    ) -> Result<OutsourcingOrder> {
         get_order(&mut ctx.reborrow(), id).await
     }
 
@@ -818,7 +819,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         ctx: ServiceContext<'_>,
         filter: OutsourcingOrderQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<OutsourcingOrder>, DomainError> {
+    ) -> Result<PaginatedResult<OutsourcingOrder>> {
         let scope = (ctx.data_scope, ctx.operator_id, ctx.department_id);
         let (items, total) = OutsourcingOrderRepo::query(&mut *ctx.executor, &filter, &page, scope)
             .await

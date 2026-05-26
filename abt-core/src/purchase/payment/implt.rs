@@ -22,6 +22,7 @@ use crate::shared::idempotency::service::IdempotencyService;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 const ENTITY_TYPE: &str = "PaymentRequest";
 
@@ -75,7 +76,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreatePaymentRequestRequest,
         idempotency_key: Option<String>,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PaymentRequest:create").await? {
@@ -140,14 +141,14 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         Ok(id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PaymentRequest, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PaymentRequest> {
         PaymentRequestRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn approve(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
+    async fn approve(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PaymentRequest:approve").await? {
@@ -206,7 +207,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         id: i64,
         payment_doc_no: String,
         idempotency_key: Option<String>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PaymentRequest:mark_paid_by_fms").await? {

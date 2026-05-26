@@ -37,7 +37,7 @@ impl BomQueryServiceImpl {
 
 #[async_trait::async_trait]
 impl BomQueryService for BomQueryServiceImpl {
-    async fn get(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<Bom, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<Bom> {
         let mut bom = self.repo.find_by_id(ctx.executor, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -52,7 +52,7 @@ impl BomQueryService for BomQueryServiceImpl {
         ctx: ServiceContext<'_>,
         query: BomQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<Bom>, DomainError> {
+    ) -> Result<PaginatedResult<Bom>> {
         self.repo.query(ctx.executor, &query, &page)
             .await
     }
@@ -61,7 +61,7 @@ impl BomQueryService for BomQueryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         bom_id: i64,
-    ) -> Result<Vec<BomNode>, DomainError> {
+    ) -> Result<Vec<BomNode>> {
         self.repo.find_by_id(ctx.executor, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -76,7 +76,7 @@ impl BomQueryService for BomQueryServiceImpl {
         bom_id: i64,
         version: Option<i32>,
         limit: Option<i32>,
-    ) -> Result<Vec<BomSnapshot>, DomainError> {
+    ) -> Result<Vec<BomSnapshot>> {
         if let Some(ver) = version {
             let snap = self.snapshot_repo.find_by_bom_and_version(ctx.executor, bom_id, ver)
                 .await?;
@@ -92,7 +92,7 @@ impl BomQueryService for BomQueryServiceImpl {
         ctx: ServiceContext<'_>,
         name: &str,
         caller_id: Option<i64>,
-    ) -> Result<bool, DomainError> {
+    ) -> Result<bool> {
         self.repo.check_name_unique(ctx.executor, name, caller_id)
             .await
     }
@@ -126,7 +126,7 @@ impl BomCommandServiceImpl {
 
 #[async_trait::async_trait]
 impl BomCommandService for BomCommandServiceImpl {
-    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateBomReq) -> Result<i64, DomainError> {
+    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateBomReq) -> Result<i64> {
         let code = self.doc_seq.next_number(ctx.reborrow(), DocumentType::Bom).await?;
 
         if !self.repo.check_name_unique(ctx.executor, &req.name, None)
@@ -155,7 +155,7 @@ impl BomCommandService for BomCommandServiceImpl {
         id: i64,
         req: UpdateBomReq,
         expected_version: i32,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -183,7 +183,7 @@ impl BomCommandService for BomCommandServiceImpl {
         Ok(())
     }
 
-    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -199,7 +199,7 @@ impl BomCommandService for BomCommandServiceImpl {
         Ok(())
     }
 
-    async fn publish(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<i64, DomainError> {
+    async fn publish(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<i64> {
         let existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -246,7 +246,7 @@ impl BomCommandService for BomCommandServiceImpl {
         Ok(id)
     }
 
-    async fn unpublish(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn unpublish(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -277,7 +277,7 @@ impl BomCommandService for BomCommandServiceImpl {
         Ok(())
     }
 
-    async fn save_as(&self, mut ctx: ServiceContext<'_>, source_id: i64, new_name: String) -> Result<i64, DomainError> {
+    async fn save_as(&self, mut ctx: ServiceContext<'_>, source_id: i64, new_name: String) -> Result<i64> {
         let source = self.repo.find_by_id(ctx.executor, source_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -322,7 +322,7 @@ impl BomCommandService for BomCommandServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: SubstituteReq,
-    ) -> Result<SubstitutionResult, DomainError> {
+    ) -> Result<SubstitutionResult> {
         // If bom_id is Some, scope to that BOM; otherwise global replace
         let affected_node_ids = if let Some(bom_id) = req.bom_id {
             let _existing = self.repo.find_by_id(ctx.executor, bom_id)
@@ -379,7 +379,7 @@ impl BomCommandService for BomCommandServiceImpl {
         Ok(SubstitutionResult { affected_boms, affected_nodes })
     }
 
-    async fn validate_cycle(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<(), DomainError> {
+    async fn validate_cycle(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<()> {
         self.repo.find_by_id(ctx.executor, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -415,7 +415,7 @@ impl BomNodeService for BomNodeServiceImpl {
         mut ctx: ServiceContext<'_>,
         bom_id: i64,
         node: NewBomNode,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let bom = self.repo.find_by_id(ctx.executor, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -463,7 +463,7 @@ impl BomNodeService for BomNodeServiceImpl {
         node_id: i64,
         req: UpdateBomNodeReq,
         expected_version: i32,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let bom = self.repo.find_by_id(ctx.executor, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -507,7 +507,7 @@ impl BomNodeService for BomNodeServiceImpl {
         mut ctx: ServiceContext<'_>,
         bom_id: i64,
         node_id: i64,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let bom = self.repo.find_by_id(ctx.executor, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -556,7 +556,7 @@ impl BomNodeService for BomNodeServiceImpl {
         node_id: i64,
         new_parent_id: i64,
         before_sibling_id: Option<i64>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let bom = self.repo.find_by_id(ctx.executor, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -661,7 +661,7 @@ impl BomCostService for BomCostServiceImpl {
         ctx: ServiceContext<'_>,
         bom_id: i64,
         as_of_date: Option<chrono::DateTime<chrono::Utc>>,
-    ) -> Result<BomCostReport, DomainError> {
+    ) -> Result<BomCostReport> {
         let bom = self.repo.find_by_id(ctx.executor, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -732,7 +732,7 @@ impl BomCategoryServiceImpl {
 
 #[async_trait::async_trait]
 impl BomCategoryService for BomCategoryServiceImpl {
-    async fn create(&self, ctx: ServiceContext<'_>, req: CreateBomCategoryReq) -> Result<i64, DomainError> {
+    async fn create(&self, ctx: ServiceContext<'_>, req: CreateBomCategoryReq) -> Result<i64> {
         let id = self.repo.create(ctx.executor, &req)
             .await?;
 
@@ -740,7 +740,7 @@ impl BomCategoryService for BomCategoryServiceImpl {
         Ok(id)
     }
 
-    async fn update(&self, ctx: ServiceContext<'_>, id: i64, req: UpdateBomCategoryReq) -> Result<(), DomainError> {
+    async fn update(&self, ctx: ServiceContext<'_>, id: i64, req: UpdateBomCategoryReq) -> Result<()> {
         self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomCategory"))?;
@@ -752,7 +752,7 @@ impl BomCategoryService for BomCategoryServiceImpl {
         Ok(())
     }
 
-    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomCategory"))?;
@@ -777,7 +777,7 @@ impl BomCategoryService for BomCategoryServiceImpl {
         ctx: ServiceContext<'_>,
         query: BomCategoryQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<BomCategory>, DomainError> {
+    ) -> Result<PaginatedResult<BomCategory>> {
         self.repo.query(ctx.executor, &query, &page)
             .await
     }

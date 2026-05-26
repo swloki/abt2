@@ -9,6 +9,7 @@ use super::super::repo::IdentityRepo;
 use super::super::role_service::RoleService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 pub struct RoleServiceImpl {
     pool: Arc<PgPool>,
@@ -30,7 +31,7 @@ impl RoleService for RoleServiceImpl {
         role_code: &str,
         description: Option<&str>,
         parent_role_id: Option<i64>,
-    ) -> Result<Role, DomainError> {
+    ) -> Result<Role> {
         let role = IdentityRepo::insert_role(
             &mut *ctx.executor,
             role_name,
@@ -55,7 +56,7 @@ impl RoleService for RoleServiceImpl {
         role_id: i64,
         role_name: &str,
         description: Option<&str>,
-    ) -> Result<Role, DomainError> {
+    ) -> Result<Role> {
         let role = IdentityRepo::update_role(&mut *ctx.executor, role_id, role_name, description)
             .await
             .map_err(|e| match &e {
@@ -66,7 +67,7 @@ impl RoleService for RoleServiceImpl {
         Ok(role)
     }
 
-    async fn delete_role(&self, ctx: ServiceContext<'_>, role_id: i64) -> Result<(), DomainError> {
+    async fn delete_role(&self, ctx: ServiceContext<'_>, role_id: i64) -> Result<()> {
         IdentityRepo::delete_role(&mut *ctx.executor, role_id).await?;
 
         // Reload permission cache after role deletion
@@ -76,7 +77,7 @@ impl RoleService for RoleServiceImpl {
         Ok(())
     }
 
-    async fn list_roles(&self, ctx: ServiceContext<'_>) -> Result<Vec<Role>, DomainError> {
+    async fn list_roles(&self, ctx: ServiceContext<'_>) -> Result<Vec<Role>> {
         IdentityRepo::list_roles(&mut *ctx.executor).await
     }
 
@@ -85,7 +86,7 @@ impl RoleService for RoleServiceImpl {
         ctx: ServiceContext<'_>,
         role_id: i64,
         permissions: Vec<(String, String)>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         IdentityRepo::assign_permissions(&mut *ctx.executor, role_id, &permissions).await?;
 
         // Reload permission cache after permission change
@@ -100,7 +101,7 @@ impl RoleService for RoleServiceImpl {
         ctx: ServiceContext<'_>,
         role_id: i64,
         permissions: Vec<(String, String)>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         IdentityRepo::remove_permissions(&mut *ctx.executor, role_id, &permissions).await?;
 
         // Reload permission cache after permission change
@@ -114,7 +115,7 @@ impl RoleService for RoleServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         role_id: i64,
-    ) -> Result<RoleWithPermissions, DomainError> {
+    ) -> Result<RoleWithPermissions> {
         let role = IdentityRepo::get_role_by_id(&mut *ctx.executor, role_id)
             .await
             .map_err(|e| match &e {

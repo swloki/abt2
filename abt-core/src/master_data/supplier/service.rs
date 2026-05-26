@@ -10,23 +10,23 @@ pub trait SupplierService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateSupplierReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Supplier, DomainError>;
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Supplier>;
 
     async fn update(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateSupplierReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn list(
         &self,
         ctx: ServiceContext<'_>,
         filter: SupplierQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<Supplier>, DomainError>;
+    ) -> Result<PaginatedResult<Supplier>>;
 
     // -- Contacts --
     async fn add_contact(
@@ -34,7 +34,7 @@ pub trait SupplierService: Send + Sync {
         ctx: ServiceContext<'_>,
         sid: i64,
         req: CreateContactReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     async fn update_contact(
         &self,
@@ -42,20 +42,20 @@ pub trait SupplierService: Send + Sync {
         sid: i64,
         contact_id: i64,
         req: UpdateContactReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn delete_contact(
         &self,
         ctx: ServiceContext<'_>,
         sid: i64,
         contact_id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn list_contacts(
         &self,
         ctx: ServiceContext<'_>,
         sid: i64,
-    ) -> Result<Vec<SupplierContact>, DomainError>;
+    ) -> Result<Vec<SupplierContact>>;
 
     // -- Bank Accounts --
     async fn add_bank_account(
@@ -63,7 +63,7 @@ pub trait SupplierService: Send + Sync {
         ctx: ServiceContext<'_>,
         sid: i64,
         req: CreateBankAccountReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     async fn update_bank_account(
         &self,
@@ -71,18 +71,18 @@ pub trait SupplierService: Send + Sync {
         sid: i64,
         account_id: i64,
         req: UpdateBankAccountReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn delete_bank_account(
         &self,
         ctx: ServiceContext<'_>,
         sid: i64,
         account_id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn list_bank_accounts(
         &self,
         ctx: ServiceContext<'_>,
         sid: i64,
-    ) -> Result<Vec<SupplierBankAccount>, DomainError>;
+    ) -> Result<Vec<SupplierBankAccount>>;
 }

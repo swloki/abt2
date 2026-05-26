@@ -6,14 +6,13 @@ use sqlx::postgres::PgPool;
 use sqlx::{FromRow, Row};
 use tracing::instrument;
 
-use super::model::{
-    EntityStateLog, StateDefinitionInput, StateTransitionDef, TransitionDefInput,
-};
+use super::model::{EntityStateLog, StateDefinitionInput, StateTransitionDef, TransitionDefInput};
 use super::service::StateMachineService;
 use crate::shared::enums::SideEffect;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::types::Result;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
@@ -39,7 +38,7 @@ impl StateMachineService for StateMachineServiceImpl {
         entity_type: &str,
         states: Vec<StateDefinitionInput>,
         transitions: Vec<TransitionDefInput>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let executor = &mut *ctx.executor;
 
         sqlx::query("DELETE FROM state_transition_defs WHERE entity_type = $1")
@@ -72,8 +71,8 @@ impl StateMachineService for StateMachineServiceImpl {
         }
 
         for tr in &transitions {
-            let side_effects_json = serde_json::to_value(&tr.side_effects)
-                .unwrap_or(JsonValue::Null);
+            let side_effects_json =
+                serde_json::to_value(&tr.side_effects).unwrap_or(JsonValue::Null);
 
             sqlx::query(
                 r#"
@@ -105,7 +104,7 @@ impl StateMachineService for StateMachineServiceImpl {
         entity_id: i64,
         to_state: &str,
         remark: Option<&str>,
-    ) -> Result<EntityStateLog, DomainError> {
+    ) -> Result<EntityStateLog> {
         // Step 1: 查询当前状态（NotFound 表示新实体，使用空字符串）
         let from_state = match self
             .get_current_state(ctx.reborrow(), entity_type, entity_id)
@@ -136,13 +135,14 @@ impl StateMachineService for StateMachineServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         let transition_def: StateTransitionDef = match row {
-            Some(r) => StateTransitionDef::try_from(&r)
-                .map_err(|e| DomainError::Internal(e.into()))?,
+            Some(r) => {
+                StateTransitionDef::try_from(&r).map_err(|e| DomainError::Internal(e.into()))?
+            }
             None => {
                 return Err(DomainError::InvalidStateTransition {
                     from: from.to_string(),
                     to: to_state.to_string(),
-                })
+                });
             }
         };
 
@@ -167,8 +167,8 @@ impl StateMachineService for StateMachineServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-        let state_log = EntityStateLog::from_row(&log_row)
-            .map_err(|e| DomainError::Internal(e.into()))?;
+        let state_log =
+            EntityStateLog::from_row(&log_row).map_err(|e| DomainError::Internal(e.into()))?;
 
         // Step 4: 执行 side_effects
         for effect in &transition_def.side_effects {
@@ -177,13 +177,22 @@ impl StateMachineService for StateMachineServiceImpl {
                     event_type,
                     payload_template,
                 } => {
-                    if let Some(et) = event_type.parse::<i16>().ok().and_then(DomainEventType::from_i16) {
+                    if let Some(et) = event_type
+                        .parse::<i16>()
+                        .ok()
+                        .and_then(DomainEventType::from_i16)
+                    {
                         let req = EventPublishRequest {
                             event_type: et,
                             aggregate_type: entity_type.to_string(),
                             aggregate_id: entity_id,
                             payload: payload_template.clone(),
-                            idempotency_key: Some(format!("sm:{}:{}:{}", entity_type, entity_id, et.as_i16())),
+                            idempotency_key: Some(format!(
+                                "sm:{}:{}:{}",
+                                entity_type,
+                                entity_id,
+                                et.as_i16()
+                            )),
                         };
                         self.event_bus.publish(ctx.reborrow(), req).await?;
                     }
@@ -203,7 +212,7 @@ impl StateMachineService for StateMachineServiceImpl {
         ctx: ServiceContext<'_>,
         entity_type: &str,
         entity_id: i64,
-    ) -> Result<String, DomainError> {
+    ) -> Result<String> {
         let row = sqlx::query(
             r#"
             SELECT to_state
@@ -220,7 +229,8 @@ impl StateMachineService for StateMachineServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         match row {
-            Some(r) => Ok(r.try_get::<String, _>("to_state")
+            Some(r) => Ok(r
+                .try_get::<String, _>("to_state")
                 .map_err(|e| DomainError::Internal(e.into()))?),
             None => {
                 let init_row = sqlx::query(
@@ -257,7 +267,7 @@ impl StateMachineService for StateMachineServiceImpl {
         ctx: ServiceContext<'_>,
         entity_type: &str,
         state: &str,
-    ) -> Result<Vec<String>, DomainError> {
+    ) -> Result<Vec<String>> {
         let rows = sqlx::query(
             r#"
             SELECT to_state
@@ -273,7 +283,10 @@ impl StateMachineService for StateMachineServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         rows.iter()
-            .map(|r| r.try_get::<String, _>("to_state").map_err(|e| DomainError::Internal(e.into())))
+            .map(|r| {
+                r.try_get::<String, _>("to_state")
+                    .map_err(|e| DomainError::Internal(e.into()))
+            })
             .collect()
     }
 
@@ -285,7 +298,7 @@ impl StateMachineService for StateMachineServiceImpl {
         entity_id: i64,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<EntityStateLog>, DomainError> {
+    ) -> Result<PaginatedResult<EntityStateLog>> {
         let params = PageParams::new(page, page_size);
 
         let count_row = sqlx::query(
@@ -296,7 +309,9 @@ impl StateMachineService for StateMachineServiceImpl {
         .fetch_one(&mut *ctx.executor)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
-        let total: i64 = count_row.try_get("cnt").map_err(|e| DomainError::Internal(e.into()))?;
+        let total: i64 = count_row
+            .try_get("cnt")
+            .map_err(|e| DomainError::Internal(e.into()))?;
 
         let rows = sqlx::query(
             r#"
@@ -319,7 +334,7 @@ impl StateMachineService for StateMachineServiceImpl {
         let items: Vec<EntityStateLog> = rows
             .iter()
             .map(|r| EntityStateLog::from_row(r).map_err(|e| DomainError::Internal(e.into())))
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(PaginatedResult::new(
             items,

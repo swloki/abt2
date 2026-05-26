@@ -9,6 +9,7 @@ use super::repo::StockLedgerRepo;
 use super::service::StockLedgerService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 pub struct StockLedgerServiceImpl {
@@ -28,7 +29,7 @@ impl StockLedgerService for StockLedgerServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: UpsertStockReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let result = StockLedgerRepo::upsert(&mut *ctx.executor, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -48,7 +49,7 @@ impl StockLedgerService for StockLedgerServiceImpl {
         filter: StockFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<StockLedger>, DomainError> {
+    ) -> Result<PaginatedResult<StockLedger>> {
         StockLedgerRepo::query(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -59,7 +60,7 @@ impl StockLedgerService for StockLedgerServiceImpl {
         ctx: ServiceContext<'_>,
         product_id: i64,
         warehouse_id: Option<i64>,
-    ) -> Result<Decimal, DomainError> {
+    ) -> Result<Decimal> {
         StockLedgerRepo::total_available(&mut *ctx.executor, product_id, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))

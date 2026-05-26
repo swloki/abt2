@@ -10,6 +10,7 @@ use crate::shared::audit_log::model::AuditLogQuery;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 pub struct AuditLogServiceImpl {
@@ -49,7 +50,7 @@ impl AuditLogService for AuditLogServiceImpl {
         action: AuditAction,
         mut changes: Option<JsonValue>,
         context: Option<JsonValue>,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if let Some(ref mut ch) = changes {
             redact_sensitive(ch);
         }
@@ -75,7 +76,7 @@ impl AuditLogService for AuditLogServiceImpl {
         query: AuditLogQuery,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<AuditLog>, DomainError> {
+    ) -> Result<PaginatedResult<AuditLog>> {
         let params = PageParams::new(page, page_size);
 
         let (items, total) = AuditLogRepo::query(

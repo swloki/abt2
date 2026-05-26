@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{
@@ -15,14 +16,14 @@ pub trait TransferService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateTransferReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     /// 查询调拨单（含明细）
     async fn get(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<InventoryTransfer, DomainError>;
+    ) -> Result<InventoryTransfer>;
 
     /// 分页查询调拨单列表
     async fn list(
@@ -31,26 +32,26 @@ pub trait TransferService: Send + Sync {
         filter: TransferFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<InventoryTransfer>, DomainError>;
+    ) -> Result<PaginatedResult<InventoryTransfer>>;
 
     /// 发货（Draft → InTransit）
     async fn dispatch(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 完成（InTransit → Completed）
     async fn complete(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 取消（Draft → Cancelled）
     async fn cancel(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 }

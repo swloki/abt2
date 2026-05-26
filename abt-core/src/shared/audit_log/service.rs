@@ -5,6 +5,7 @@ use super::model::AuditLogQuery;
 use super::super::enums::audit::AuditAction;
 use super::super::types::context::ServiceContext;
 use super::super::types::error::DomainError;
+use super::super::types::Result;
 use super::super::types::pagination::PaginatedResult;
 
 #[async_trait]
@@ -20,7 +21,7 @@ pub trait AuditLogService: Send + Sync {
         action: AuditAction,
         changes: Option<JsonValue>,
         context: Option<JsonValue>,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     /// 分页查询审计日志，支持 entity_type / operator_id / action / time_range 过滤
     async fn query_logs(
@@ -29,7 +30,7 @@ pub trait AuditLogService: Send + Sync {
         query: AuditLogQuery,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<AuditLog>, DomainError>;
+    ) -> Result<PaginatedResult<AuditLog>>;
 }
 
 // Re-export model for trait consumers

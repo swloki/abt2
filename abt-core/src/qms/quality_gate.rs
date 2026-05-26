@@ -2,7 +2,7 @@ use async_trait::async_trait;
 
 use crate::qms::enums::*;
 use crate::qms::inspection_result;
-use crate::shared::types::{DomainError, ServiceContext};
+use crate::shared::types::{DomainError, ServiceContext, Result};
 
 /// 质量关卡服务 trait — 检查某个来源是否通过质量检验
 #[async_trait]
@@ -13,7 +13,7 @@ pub trait QualityGateService: Send + Sync {
         source_type: i16,
         source_id: i64,
         inspection_type: i16,
-    ) -> Result<QualityGateStatus, DomainError>;
+    ) -> Result<QualityGateStatus>;
 }
 
 /// QualityGateServiceImpl — 质量关卡服务实现
@@ -36,7 +36,7 @@ impl QualityGateService for QualityGateServiceImpl {
         source_type: i16,
         source_id: i64,
         inspection_type: i16,
-    ) -> Result<QualityGateStatus, DomainError> {
+    ) -> Result<QualityGateStatus> {
         let result = inspection_result::repo::find_by_source(
             &mut *ctx.executor,
             source_type,

@@ -14,6 +14,7 @@ use crate::master_data::product::repo::ProductRepo;
 use crate::shared::event_bus::model::DomainEvent;
 use crate::shared::event_bus::registry::EventHandler;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 /// Product create/update → sync to H3Yun
 pub struct ProductSyncHandler {
@@ -29,7 +30,7 @@ impl ProductSyncHandler {
 
 #[async_trait]
 impl EventHandler for ProductSyncHandler {
-    async fn handle(&self, event: &DomainEvent) -> Result<(), DomainError> {
+    async fn handle(&self, event: &DomainEvent) -> Result<()> {
         let product_id = event.aggregate_id;
 
         // 1. Fetch product from abt_v2
@@ -83,7 +84,7 @@ impl ProductDeleteHandler {
 
 #[async_trait]
 impl EventHandler for ProductDeleteHandler {
-    async fn handle(&self, event: &DomainEvent) -> Result<(), DomainError> {
+    async fn handle(&self, event: &DomainEvent) -> Result<()> {
         let product_id = event.aggregate_id;
 
         product_sync::delete_product_sync(&self.pool, &self.client, product_id).await;
@@ -110,7 +111,7 @@ impl InventorySyncHandler {
 
 #[async_trait]
 impl EventHandler for InventorySyncHandler {
-    async fn handle(&self, event: &DomainEvent) -> Result<(), DomainError> {
+    async fn handle(&self, event: &DomainEvent) -> Result<()> {
         let stock_ledger_id = event.aggregate_id;
 
         let data = match fetch_inventory_data(&self.pool, stock_ledger_id).await {

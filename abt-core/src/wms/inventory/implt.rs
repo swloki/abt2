@@ -9,6 +9,7 @@ use super::repo::InventoryRepo;
 use super::service::InventoryService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::TransactionType;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
@@ -36,7 +37,7 @@ impl InventoryService for InventoryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: StockChangeReq,
-    ) -> Result<StockOperationResult, DomainError> {
+    ) -> Result<StockOperationResult> {
         self.execute_stock_op(&mut *ctx.executor, ctx.operator_id, &req, req.quantity, TransactionType::PurchaseReceipt).await
     }
 
@@ -44,7 +45,7 @@ impl InventoryService for InventoryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: StockChangeReq,
-    ) -> Result<StockOperationResult, DomainError> {
+    ) -> Result<StockOperationResult> {
         self.execute_stock_op(&mut *ctx.executor, ctx.operator_id, &req, req.quantity, TransactionType::SalesShipment).await
     }
 
@@ -52,7 +53,7 @@ impl InventoryService for InventoryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: StockChangeReq,
-    ) -> Result<StockOperationResult, DomainError> {
+    ) -> Result<StockOperationResult> {
         self.execute_stock_op(&mut *ctx.executor, ctx.operator_id, &req, req.quantity, TransactionType::Adjustment).await
     }
 
@@ -60,7 +61,7 @@ impl InventoryService for InventoryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: StockChangeReq,
-    ) -> Result<StockOperationResult, DomainError> {
+    ) -> Result<StockOperationResult> {
         let exec = &mut *ctx.executor;
 
         let before = StockLedgerRepo::find_by_location(
@@ -100,7 +101,7 @@ impl InventoryService for InventoryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: StockTransferReq,
-    ) -> Result<(StockOperationResult, StockOperationResult), DomainError> {
+    ) -> Result<(StockOperationResult, StockOperationResult)> {
         let exec = &mut *ctx.executor;
 
         // out
@@ -142,7 +143,7 @@ impl InventoryService for InventoryServiceImpl {
         product_id: i64,
         bin_id: i64,
         safety_stock: Decimal,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let Some((warehouse_id, zone_id, _)) =
             InventoryRepo::resolve_bin(&mut *ctx.executor, bin_id)
                 .await
@@ -169,7 +170,7 @@ impl InventoryService for InventoryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         product_id: i64,
-    ) -> Result<Vec<InventoryDetailView>, DomainError> {
+    ) -> Result<Vec<InventoryDetailView>> {
         let result = InventoryRepo::query_stock_details(
             &mut *ctx.executor, Some(product_id), None, None, None, 1, 10000,
         )
@@ -183,7 +184,7 @@ impl InventoryService for InventoryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         bin_id: i64,
-    ) -> Result<Vec<InventoryDetailView>, DomainError> {
+    ) -> Result<Vec<InventoryDetailView>> {
         let result = InventoryRepo::query_stock_details(
             &mut *ctx.executor, None, None, None, Some(bin_id), 1, 10000,
         )
@@ -196,7 +197,7 @@ impl InventoryService for InventoryServiceImpl {
     async fn list_low_stock(
         &self,
         ctx: ServiceContext<'_>,
-    ) -> Result<Vec<InventoryDetailView>, DomainError> {
+    ) -> Result<Vec<InventoryDetailView>> {
         InventoryRepo::list_low_stock(&mut *ctx.executor)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -208,7 +209,7 @@ impl InventoryService for InventoryServiceImpl {
         filter: InventoryQueryFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<InventoryDetailView>, DomainError> {
+    ) -> Result<PaginatedResult<InventoryDetailView>> {
         InventoryRepo::query_stock_details(
             &mut *ctx.executor,
             filter.product_id,
@@ -230,7 +231,7 @@ impl InventoryService for InventoryServiceImpl {
         filter: TransactionLogFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<TransactionDetailView>, DomainError> {
+    ) -> Result<PaginatedResult<TransactionDetailView>> {
         InventoryRepo::query_transaction_details(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -240,7 +241,7 @@ impl InventoryService for InventoryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         product_id: i64,
-    ) -> Result<Vec<TransactionDetailView>, DomainError> {
+    ) -> Result<Vec<TransactionDetailView>> {
         InventoryRepo::list_txn_details_by_product(&mut *ctx.executor, product_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -250,7 +251,7 @@ impl InventoryService for InventoryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         bin_id: i64,
-    ) -> Result<Vec<TransactionDetailView>, DomainError> {
+    ) -> Result<Vec<TransactionDetailView>> {
         InventoryRepo::list_txn_details_by_bin(&mut *ctx.executor, bin_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -260,7 +261,7 @@ impl InventoryService for InventoryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         warehouse_id: i64,
-    ) -> Result<Vec<TransactionDetailView>, DomainError> {
+    ) -> Result<Vec<TransactionDetailView>> {
         InventoryRepo::list_txn_details_by_warehouse(&mut *ctx.executor, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -278,7 +279,7 @@ impl InventoryServiceImpl {
         req: &StockChangeReq,
         quantity: Decimal,
         txn_type: TransactionType,
-    ) -> Result<StockOperationResult, DomainError> {
+    ) -> Result<StockOperationResult> {
         let result = self
             .record_and_update(exec, operator_id, req, quantity, txn_type)
             .await?;
@@ -297,7 +298,7 @@ impl InventoryServiceImpl {
         req: &StockChangeReq,
         quantity: Decimal,
         txn_type: TransactionType,
-    ) -> Result<StockOperationResult, DomainError> {
+    ) -> Result<StockOperationResult> {
         // 1. 读 before
         let before = StockLedgerRepo::find_by_location(
             exec, req.product_id, req.warehouse_id, req.zone_id, req.bin_id, None,

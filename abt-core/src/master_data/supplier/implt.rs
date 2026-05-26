@@ -54,7 +54,7 @@ impl SupplierService for SupplierServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateSupplierReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let code = self
             .doc_seq
             .next_number(ctx.reborrow(), DocumentType::Supplier)
@@ -127,7 +127,7 @@ impl SupplierService for SupplierServiceImpl {
         Ok(id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Supplier, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Supplier> {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
@@ -141,7 +141,7 @@ impl SupplierService for SupplierServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateSupplierReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -209,7 +209,7 @@ impl SupplierService for SupplierServiceImpl {
         ctx: ServiceContext<'_>,
         filter: SupplierQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<Supplier>, DomainError> {
+    ) -> Result<PaginatedResult<Supplier>> {
         self.repo
             .query(ctx.executor, &filter, &page)
             .await
@@ -223,7 +223,7 @@ impl SupplierService for SupplierServiceImpl {
         ctx: ServiceContext<'_>,
         sid: i64,
         req: CreateContactReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // Verify supplier exists
         self.repo
             .find_by_id(ctx.executor, sid)
@@ -257,7 +257,7 @@ impl SupplierService for SupplierServiceImpl {
         sid: i64,
         contact_id: i64,
         req: UpdateContactReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Verify contact belongs to supplier
         let existing = self
             .contact_repo
@@ -294,7 +294,7 @@ impl SupplierService for SupplierServiceImpl {
         ctx: ServiceContext<'_>,
         sid: i64,
         contact_id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Verify contact belongs to supplier
         let existing = self
             .contact_repo
@@ -330,7 +330,7 @@ impl SupplierService for SupplierServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         sid: i64,
-    ) -> Result<Vec<SupplierContact>, DomainError> {
+    ) -> Result<Vec<SupplierContact>> {
         self.contact_repo
             .find_by_supplier_id(ctx.executor, sid)
             .await
@@ -344,7 +344,7 @@ impl SupplierService for SupplierServiceImpl {
         mut ctx: ServiceContext<'_>,
         sid: i64,
         req: CreateBankAccountReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // Verify supplier exists
         self.repo
             .find_by_id(ctx.executor, sid)
@@ -407,7 +407,7 @@ impl SupplierService for SupplierServiceImpl {
         sid: i64,
         account_id: i64,
         req: UpdateBankAccountReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Update returns the before-state for diff generation
         let before = self
             .bank_account_repo
@@ -497,7 +497,7 @@ impl SupplierService for SupplierServiceImpl {
         mut ctx: ServiceContext<'_>,
         sid: i64,
         account_id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Verify account belongs to supplier
         let existing = self
             .bank_account_repo
@@ -558,7 +558,7 @@ impl SupplierService for SupplierServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         sid: i64,
-    ) -> Result<Vec<SupplierBankAccount>, DomainError> {
+    ) -> Result<Vec<SupplierBankAccount>> {
         self.bank_account_repo
             .find_by_supplier_id(ctx.executor, sid)
             .await

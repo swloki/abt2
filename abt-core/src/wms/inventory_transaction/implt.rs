@@ -9,6 +9,7 @@ use super::repo::InventoryTransactionRepo;
 use super::service::InventoryTransactionService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::stock_ledger::model::{StockFilter, UpsertStockReq};
 use crate::wms::stock_ledger::StockLedgerService;
@@ -32,7 +33,7 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: RecordTransactionReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let txn = InventoryTransactionRepo::insert(&mut *ctx.executor, &req, ctx.operator_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -61,7 +62,7 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
         ctx: ServiceContext<'_>,
         source_type: &str,
         source_id: i64,
-    ) -> Result<Vec<InventoryTransaction>, DomainError> {
+    ) -> Result<Vec<InventoryTransaction>> {
         InventoryTransactionRepo::find_by_source(&mut *ctx.executor, source_type, source_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -73,7 +74,7 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
         filter: TransactionFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<InventoryTransaction>, DomainError> {
+    ) -> Result<PaginatedResult<InventoryTransaction>> {
         InventoryTransactionRepo::query(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -85,7 +86,7 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
         filter: StockFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<StockLedger>, DomainError> {
+    ) -> Result<PaginatedResult<StockLedger>> {
         self.stock_ledger_svc.query(ctx, filter, page, page_size).await
     }
 
@@ -94,7 +95,7 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
         ctx: ServiceContext<'_>,
         product_id: i64,
         warehouse_id: Option<i64>,
-    ) -> Result<Decimal, DomainError> {
+    ) -> Result<Decimal> {
         self.stock_ledger_svc.query_available(ctx, product_id, warehouse_id).await
     }
 }

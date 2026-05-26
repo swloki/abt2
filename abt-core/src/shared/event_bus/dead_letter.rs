@@ -4,6 +4,7 @@ use chrono::{DateTime, Utc};
 use super::repo::DomainEventRepo;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use super::model::DomainEvent;
 
@@ -16,21 +17,21 @@ pub trait DeadLetterService: Send + Sync {
         ctx: ServiceContext<'_>,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<DomainEvent>, DomainError>;
+    ) -> Result<PaginatedResult<DomainEvent>>;
 
     /// 重试单个死信事件（重置为 Pending）
     async fn retry_one(
         &self,
         ctx: ServiceContext<'_>,
         event_id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 归档（删除）过期死信
     async fn archive(
         &self,
         ctx: ServiceContext<'_>,
         before: DateTime<Utc>,
-    ) -> Result<u64, DomainError>;
+    ) -> Result<u64>;
 }
 
 /// 死信服务实现
@@ -55,7 +56,7 @@ impl DeadLetterService for DeadLetterServiceImpl {
         ctx: ServiceContext<'_>,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<DomainEvent>, DomainError> {
+    ) -> Result<PaginatedResult<DomainEvent>> {
         let params = PageParams::new(page, page_size);
 
         let (items, total) = DomainEventRepo::query_dead_letters(
@@ -73,7 +74,7 @@ impl DeadLetterService for DeadLetterServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         event_id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         DomainEventRepo::reset_to_pending(&mut *ctx.executor, event_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -84,7 +85,7 @@ impl DeadLetterService for DeadLetterServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         before: DateTime<Utc>,
-    ) -> Result<u64, DomainError> {
+    ) -> Result<u64> {
         let deleted = DomainEventRepo::archive_dead_letters(&mut *ctx.executor, before)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;

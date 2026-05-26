@@ -8,6 +8,7 @@ use super::repo::FormConversionRepo;
 use super::service::FormConversionService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::DocumentType;
@@ -31,7 +32,7 @@ impl FormConversionService for FormConversionServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateConversionReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::FormConversion)
             .await
             .unwrap_or_else(|_| format!("FC{}", chrono::Utc::now().format("%Y%m%d%H%M%S%3f")));
@@ -48,7 +49,7 @@ impl FormConversionService for FormConversionServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<FormConversion, DomainError> {
+    ) -> Result<FormConversion> {
         FormConversionRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -61,7 +62,7 @@ impl FormConversionService for FormConversionServiceImpl {
         filter: ConversionFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<FormConversion>, DomainError> {
+    ) -> Result<PaginatedResult<FormConversion>> {
         FormConversionRepo::list(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
@@ -71,7 +72,7 @@ impl FormConversionService for FormConversionServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let conversion = self.get(ctx.reborrow(), id).await?;
 
         if conversion.status != ConversionStatus::Draft {
@@ -92,7 +93,7 @@ impl FormConversionService for FormConversionServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let conversion = self.get(ctx.reborrow(), id).await?;
 
         if conversion.status != ConversionStatus::Draft {

@@ -51,7 +51,7 @@ impl CustomerService for CustomerServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateCustomerReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let code = self
             .doc_seq
             .next_number(ctx.reborrow(), DocumentType::Customer)
@@ -114,7 +114,7 @@ impl CustomerService for CustomerServiceImpl {
         Ok(id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Customer, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Customer> {
         self.repo
             .find_by_id(ctx.executor, id)
             .await
@@ -128,7 +128,7 @@ impl CustomerService for CustomerServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateCustomerReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -189,7 +189,7 @@ impl CustomerService for CustomerServiceImpl {
         ctx: ServiceContext<'_>,
         filter: CustomerQuery,
         page: PageParams,
-    ) -> Result<PaginatedResult<Customer>, DomainError> {
+    ) -> Result<PaginatedResult<Customer>> {
         self.repo
             .query(
                 ctx.executor,
@@ -208,7 +208,7 @@ impl CustomerService for CustomerServiceImpl {
         ctx: ServiceContext<'_>,
         cid: i64,
         req: CreateContactReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // Verify customer exists
         self.repo
             .find_by_id(ctx.executor, cid)
@@ -242,7 +242,7 @@ impl CustomerService for CustomerServiceImpl {
         cid: i64,
         contact_id: i64,
         req: UpdateContactReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Validate ownership
         self.validate_contact_ownership(ctx.reborrow(), cid, contact_id).await?;
 
@@ -263,7 +263,7 @@ impl CustomerService for CustomerServiceImpl {
         mut ctx: ServiceContext<'_>,
         cid: i64,
         contact_id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Validate ownership
         self.validate_contact_ownership(ctx.reborrow(), cid, contact_id).await?;
 
@@ -283,7 +283,7 @@ impl CustomerService for CustomerServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         cid: i64,
-    ) -> Result<Vec<CustomerContact>, DomainError> {
+    ) -> Result<Vec<CustomerContact>> {
         self.contact_repo
             .find_by_customer_id(ctx.executor, cid)
             .await
@@ -295,7 +295,7 @@ impl CustomerService for CustomerServiceImpl {
         ctx: ServiceContext<'_>,
         cid: i64,
         req: CreateAddressReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // Verify customer exists
         self.repo
             .find_by_id(ctx.executor, cid)
@@ -329,7 +329,7 @@ impl CustomerService for CustomerServiceImpl {
         cid: i64,
         address_id: i64,
         req: UpdateAddressReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Validate address belongs to customer
         let address = self
             .address_repo
@@ -361,7 +361,7 @@ impl CustomerService for CustomerServiceImpl {
         ctx: ServiceContext<'_>,
         cid: i64,
         address_id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // Validate address belongs to customer
         let address = self
             .address_repo
@@ -392,7 +392,7 @@ impl CustomerService for CustomerServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         cid: i64,
-    ) -> Result<Vec<CustomerAddress>, DomainError> {
+    ) -> Result<Vec<CustomerAddress>> {
         self.address_repo
             .find_by_customer_id(ctx.executor, cid)
             .await
@@ -404,7 +404,7 @@ impl CustomerService for CustomerServiceImpl {
         ctx: ServiceContext<'_>,
         cid: i64,
         contact_id: i64,
-    ) -> Result<bool, DomainError> {
+    ) -> Result<bool> {
         let contact = self
             .contact_repo
             .find_by_id(ctx.executor, contact_id)
@@ -421,7 +421,7 @@ impl CustomerService for CustomerServiceImpl {
         Ok(true)
     }
 
-    async fn claim(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn claim(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let customer = self
             .repo
             .find_by_id(ctx.executor, id)
@@ -464,7 +464,7 @@ impl CustomerService for CustomerServiceImpl {
         id: i64,
         new_owner_id: i64,
         new_department_id: Option<i64>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let existing = self
             .repo
             .find_by_id(ctx.executor, id)

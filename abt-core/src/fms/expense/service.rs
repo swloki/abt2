@@ -9,16 +9,16 @@ pub trait ExpenseReimbursementService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateExpenseReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<ExpenseReimbursement, DomainError>;
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<ExpenseReimbursement>;
 
     async fn list(
         &self,
         ctx: ServiceContext<'_>,
         filter: ExpenseFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<ExpenseReimbursement>, DomainError>;
+    ) -> Result<PaginatedResult<ExpenseReimbursement>>;
 
     /// Internal method called by WorkflowEngine Hook (IndependentTx).
     /// Opens its own transaction from PgPool internally.
@@ -26,5 +26,5 @@ pub trait ExpenseReimbursementService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         expense_id: i64,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 }

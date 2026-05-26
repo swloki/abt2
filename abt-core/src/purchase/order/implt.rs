@@ -29,6 +29,7 @@ use crate::shared::idempotency::service::IdempotencyService;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 const ENTITY_TYPE: &str = "PurchaseOrder";
@@ -77,7 +78,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         mut ctx: ServiceContext<'_>,
         req: CreatePurchaseOrderRequest,
         idempotency_key: Option<String>,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseOrder:create").await? {
@@ -131,7 +132,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         mut ctx: ServiceContext<'_>,
         quotation_id: i64,
         idempotency_key: Option<String>,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseOrder:create_from_quotation").await? {
@@ -242,14 +243,14 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         Ok(order_id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PurchaseOrder, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PurchaseOrder> {
         PurchaseOrderRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<(), DomainError> {
+    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
             if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseOrder:confirm").await? {
@@ -358,7 +359,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         query: PurchaseOrderQuery,
-    ) -> Result<PaginatedResult<PurchaseOrder>, DomainError> {
+    ) -> Result<PaginatedResult<PurchaseOrder>> {
         let params = PageParams::new(1, 20);
         let scope = (ctx.data_scope, ctx.operator_id, ctx.department_id);
         let (items, total) = PurchaseOrderRepo::query(&mut *ctx.executor, &query, &params, scope)

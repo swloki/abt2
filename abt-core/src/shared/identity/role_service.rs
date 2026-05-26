@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use super::model::{Role, RoleWithPermissions};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 #[async_trait]
 pub trait RoleService: Send + Sync {
@@ -13,7 +14,7 @@ pub trait RoleService: Send + Sync {
         role_code: &str,
         description: Option<&str>,
         parent_role_id: Option<i64>,
-    ) -> Result<Role, DomainError>;
+    ) -> Result<Role>;
 
     async fn update_role(
         &self,
@@ -21,36 +22,36 @@ pub trait RoleService: Send + Sync {
         role_id: i64,
         role_name: &str,
         description: Option<&str>,
-    ) -> Result<Role, DomainError>;
+    ) -> Result<Role>;
 
     async fn delete_role(
         &self,
         ctx: ServiceContext<'_>,
         role_id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn list_roles(
         &self,
         ctx: ServiceContext<'_>,
-    ) -> Result<Vec<Role>, DomainError>;
+    ) -> Result<Vec<Role>>;
 
     async fn assign_permissions(
         &self,
         ctx: ServiceContext<'_>,
         role_id: i64,
         permissions: Vec<(String, String)>,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn remove_permissions(
         &self,
         ctx: ServiceContext<'_>,
         role_id: i64,
         permissions: Vec<(String, String)>,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     async fn get_role_with_permissions(
         &self,
         ctx: ServiceContext<'_>,
         role_id: i64,
-    ) -> Result<RoleWithPermissions, DomainError>;
+    ) -> Result<RoleWithPermissions>;
 }

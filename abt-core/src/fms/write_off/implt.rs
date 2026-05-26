@@ -58,7 +58,7 @@ impl WriteOffService for WriteOffServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: WriteOffReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // Validate amount > 0
         if req.amount <= rust_decimal::Decimal::ZERO {
             return Err(DomainError::validation("amount must be greater than zero"));
@@ -198,7 +198,7 @@ impl WriteOffService for WriteOffServiceImpl {
         source_type: DocumentType,
         source_id: i64,
         page: PageParams,
-    ) -> Result<PaginatedResult<WriteOff>, DomainError> {
+    ) -> Result<PaginatedResult<WriteOff>> {
         let (items, total) =
             WriteOffRepo::list_by_source(ctx.executor, source_type, source_id, &page)
                 .await
@@ -213,7 +213,7 @@ impl WriteOffService for WriteOffServiceImpl {
         source_type: DocumentType,
         source_id: i64,
         source_total: rust_decimal::Decimal,
-    ) -> Result<rust_decimal::Decimal, DomainError> {
+    ) -> Result<rust_decimal::Decimal> {
         let total_written_off =
             WriteOffRepo::sum_written_off_by_source(ctx.executor, source_type, source_id)
                 .await

@@ -14,6 +14,7 @@ use crate::shared::enums::document_type::DocumentType;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 const ENTITY_TYPE: &str = "InspectionSpecification";
@@ -43,7 +44,7 @@ impl InspectionSpecificationService for InspectionSpecificationServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateInspectionSpecificationReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // 1. 检查是否已存在该产品+检验类型的活跃规格
         let existing = repo::find_active_by_product_and_type(
             &mut *ctx.executor,
@@ -99,7 +100,7 @@ impl InspectionSpecificationService for InspectionSpecificationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<InspectionSpecification, DomainError> {
+    ) -> Result<InspectionSpecification> {
         repo::find_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -111,7 +112,7 @@ impl InspectionSpecificationService for InspectionSpecificationServiceImpl {
         ctx: ServiceContext<'_>,
         product_id: i64,
         inspection_type: InspectionType,
-    ) -> Result<Option<InspectionSpecification>, DomainError> {
+    ) -> Result<Option<InspectionSpecification>> {
         repo::find_active_by_product_and_type(
             &mut *ctx.executor,
             product_id,
@@ -126,7 +127,7 @@ impl InspectionSpecificationService for InspectionSpecificationServiceImpl {
         mut ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateInspectionSpecificationReq,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         // 1. 获取现有记录
         let existing = repo::find_by_id(&mut *ctx.executor, id)
             .await
@@ -179,7 +180,7 @@ impl InspectionSpecificationService for InspectionSpecificationServiceImpl {
         ctx: ServiceContext<'_>,
         filter: InspectionSpecFilter,
         page: PageParams,
-    ) -> Result<PaginatedResult<InspectionSpecification>, DomainError> {
+    ) -> Result<PaginatedResult<InspectionSpecification>> {
         repo::list(&mut *ctx.executor, &filter, &page)
             .await
             .map_err(|e| DomainError::Internal(e.into()))

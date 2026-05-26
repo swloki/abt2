@@ -5,6 +5,7 @@ use super::repo::NotificationRepo;
 use super::service::NotificationService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 pub struct NotificationServiceImpl {
@@ -23,14 +24,14 @@ impl NotificationService for NotificationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateNotificationReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         self.repo
             .create(ctx.executor, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
-    async fn mark_read(&self, ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn mark_read(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let found = self
             .repo
             .mark_read(ctx.executor, id, ctx.operator_id)
@@ -48,14 +49,14 @@ impl NotificationService for NotificationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         notification_type: Option<NotificationType>,
-    ) -> Result<u64, DomainError> {
+    ) -> Result<u64> {
         self.repo
             .mark_all_read(ctx.executor, ctx.operator_id, notification_type)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
-    async fn get_unread_count(&self, ctx: ServiceContext<'_>) -> Result<i64, DomainError> {
+    async fn get_unread_count(&self, ctx: ServiceContext<'_>) -> Result<i64> {
         self.repo
             .get_unread_count(ctx.executor, ctx.operator_id)
             .await
@@ -66,7 +67,7 @@ impl NotificationService for NotificationServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         query: NotificationQuery,
-    ) -> Result<PaginatedResult<Notification>, DomainError> {
+    ) -> Result<PaginatedResult<Notification>> {
         self.repo
             .query(ctx.executor, ctx.operator_id, &query)
             .await

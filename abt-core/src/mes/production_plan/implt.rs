@@ -13,6 +13,7 @@ use crate::mes::work_order::model::CreateWorkOrderReq;
 use crate::mes::work_order::service::WorkOrderService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 pub struct ProductionPlanServiceImpl {
@@ -38,7 +39,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreatePlanReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ProductionPlan)
             .await
             .unwrap_or_else(|_| format!("PP{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
@@ -65,7 +66,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<ProductionPlan, DomainError> {
+    ) -> Result<ProductionPlan> {
         ProductionPlanRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -76,7 +77,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let plan = ProductionPlanRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -100,7 +101,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         plan_id: i64,
-    ) -> Result<BatchReleaseResult, DomainError> {
+    ) -> Result<BatchReleaseResult> {
         let items = ProductionPlanRepo::get_items_by_plan_id(&mut *ctx.executor, plan_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -149,7 +150,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         filter: PlanFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<ProductionPlan>, DomainError> {
+    ) -> Result<PaginatedResult<ProductionPlan>> {
         ProductionPlanRepo::list(&mut *ctx.executor, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))

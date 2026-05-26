@@ -36,7 +36,7 @@ impl ProductServiceImpl {
 
 #[async_trait::async_trait]
 impl ProductService for ProductServiceImpl {
-    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateProductReq) -> Result<i64, DomainError> {
+    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateProductReq) -> Result<i64> {
         let code = self.doc_seq.next_number(ctx.reborrow(), DocumentType::Product).await?;
 
         if !self.repo.check_code_unique(ctx.executor, &code)
@@ -66,7 +66,7 @@ impl ProductService for ProductServiceImpl {
         Ok(id)
     }
 
-    async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateProductReq) -> Result<(), DomainError> {
+    async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateProductReq) -> Result<()> {
         let _existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("Product"))?;
@@ -87,7 +87,7 @@ impl ProductService for ProductServiceImpl {
         Ok(())
     }
 
-    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<(), DomainError> {
+    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let _existing = self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("Product"))?;
@@ -108,23 +108,23 @@ impl ProductService for ProductServiceImpl {
         Ok(())
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Product, DomainError> {
+    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Product> {
         self.repo.find_by_id(ctx.executor, id)
             .await?
             .ok_or_else(|| DomainError::not_found("Product"))
     }
 
-    async fn get_by_ids(&self, ctx: ServiceContext<'_>, ids: Vec<i64>) -> Result<Vec<Product>, DomainError> {
+    async fn get_by_ids(&self, ctx: ServiceContext<'_>, ids: Vec<i64>) -> Result<Vec<Product>> {
         self.repo.find_by_ids(ctx.executor, ids)
             .await
     }
 
-    async fn list(&self, ctx: ServiceContext<'_>, filter: ProductQuery, page: PageParams) -> Result<PaginatedResult<Product>, DomainError> {
+    async fn list(&self, ctx: ServiceContext<'_>, filter: ProductQuery, page: PageParams) -> Result<PaginatedResult<Product>> {
         self.repo.query(ctx.executor, &filter, &page)
             .await
     }
 
-    async fn check_product_usage(&self, ctx: ServiceContext<'_>, product_id: i64, query: UsageQuery) -> Result<PaginatedResult<UsageEntry>, DomainError> {
+    async fn check_product_usage(&self, ctx: ServiceContext<'_>, product_id: i64, query: UsageQuery) -> Result<PaginatedResult<UsageEntry>> {
         let page = PageParams::new(query.page, query.page_size);
 
         let total: i64 = sqlx::query_scalar(

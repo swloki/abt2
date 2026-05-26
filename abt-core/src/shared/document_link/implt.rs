@@ -10,6 +10,7 @@ use crate::shared::enums::DocumentType;
 use crate::shared::types::batch::BatchResult;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 pub struct DocumentLinkServiceImpl {
@@ -29,7 +30,7 @@ impl DocumentLinkService for DocumentLinkServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         requests: Vec<LinkRequest>,
-    ) -> Result<BatchResult, DomainError> {
+    ) -> Result<BatchResult> {
         let total = requests.len() as i32;
         if requests.is_empty() {
             return Ok(BatchResult::atomic_ok(0));
@@ -53,7 +54,7 @@ impl DocumentLinkService for DocumentLinkServiceImpl {
         source_id: i64,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<DocumentLink>, DomainError> {
+    ) -> Result<PaginatedResult<DocumentLink>> {
         let params = PageParams::new(page, page_size);
 
         let (items, total) = DocumentLinkRepo::find_linked(

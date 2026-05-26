@@ -2,6 +2,7 @@ use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{
@@ -17,14 +18,14 @@ pub trait WarehouseService: Send + Sync {
         &self,
         ctx: ServiceContext<'_>,
         req: CreateWarehouseReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     /// 按 ID 查询仓库，不存在则返回 NotFound
     async fn get(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<Warehouse, DomainError>;
+    ) -> Result<Warehouse>;
 
     /// 分页查询仓库
     async fn list(
@@ -33,7 +34,7 @@ pub trait WarehouseService: Send + Sync {
         filter: WarehouseFilter,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<Warehouse>, DomainError>;
+    ) -> Result<PaginatedResult<Warehouse>>;
 
     /// 更新仓库（仅更新提供的字段）
     async fn update(
@@ -41,14 +42,14 @@ pub trait WarehouseService: Send + Sync {
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateWarehouseReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 软删除仓库
     async fn delete(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 在指定仓库下创建库区，返回新库区 ID
     async fn create_zone(
@@ -56,14 +57,14 @@ pub trait WarehouseService: Send + Sync {
         ctx: ServiceContext<'_>,
         warehouse_id: i64,
         req: CreateZoneReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     /// 查询仓库下的所有库区
     async fn list_zones(
         &self,
         ctx: ServiceContext<'_>,
         warehouse_id: i64,
-    ) -> Result<Vec<Zone>, DomainError>;
+    ) -> Result<Vec<Zone>>;
 
     /// 更新库区（仅更新提供的字段）
     async fn update_zone(
@@ -71,14 +72,14 @@ pub trait WarehouseService: Send + Sync {
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateZoneReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 软删除库区
     async fn delete_zone(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 在指定库区下创建库位，返回新库位 ID
     async fn create_bin(
@@ -86,7 +87,7 @@ pub trait WarehouseService: Send + Sync {
         ctx: ServiceContext<'_>,
         zone_id: i64,
         req: CreateBinReq,
-    ) -> Result<i64, DomainError>;
+    ) -> Result<i64>;
 
     /// 分页查询库区下的库位
     async fn list_bins(
@@ -96,7 +97,7 @@ pub trait WarehouseService: Send + Sync {
         filter: Option<BinFilter>,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<Bin>, DomainError>;
+    ) -> Result<PaginatedResult<Bin>>;
 
     /// 更新库位（仅更新提供的字段）
     async fn update_bin(
@@ -104,14 +105,14 @@ pub trait WarehouseService: Send + Sync {
         ctx: ServiceContext<'_>,
         id: i64,
         req: UpdateBinReq,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 软删除库位
     async fn delete_bin(
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError>;
+    ) -> Result<()>;
 
     /// 跨 zone 查询仓库下所有 bin（分页，兼容旧 Location API）
     async fn list_bins_by_warehouse(
@@ -122,21 +123,21 @@ pub trait WarehouseService: Send + Sync {
         is_active: Option<bool>,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<Bin>, DomainError>;
+    ) -> Result<PaginatedResult<Bin>>;
 
     /// 查找或创建默认库区（用于兼容旧 Location API 的自动 zone 分配）
     async fn get_or_create_default_zone(
         &self,
         ctx: ServiceContext<'_>,
         warehouse_id: i64,
-    ) -> Result<Zone, DomainError>;
+    ) -> Result<Zone>;
 
     /// 获取 bin 并关联仓库信息
     async fn get_bin_with_warehouse(
         &self,
         ctx: ServiceContext<'_>,
         bin_id: i64,
-    ) -> Result<BinWithWarehouse, DomainError>;
+    ) -> Result<BinWithWarehouse>;
 
     /// 跨仓库搜索 bin（带仓库名，分页）
     async fn search_bins_with_warehouse(
@@ -147,27 +148,27 @@ pub trait WarehouseService: Send + Sync {
         warehouse_id: Option<i64>,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<BinWithWarehouse>, DomainError>;
+    ) -> Result<PaginatedResult<BinWithWarehouse>>;
 
     /// 获取所有 bin 及仓库信息（无分页）
     async fn list_all_bins_with_warehouse(
         &self,
         ctx: ServiceContext<'_>,
-    ) -> Result<Vec<BinWithWarehouse>, DomainError>;
+    ) -> Result<Vec<BinWithWarehouse>>;
 
     /// 仓库库存统计汇总
     async fn get_warehouse_inventory_stats(
         &self,
         ctx: ServiceContext<'_>,
         warehouse_id: i64,
-    ) -> Result<WarehouseInventoryStats, DomainError>;
+    ) -> Result<WarehouseInventoryStats>;
 
     /// 库位库存统计
     async fn get_bin_inventory_stats(
         &self,
         ctx: ServiceContext<'_>,
         bin_id: i64,
-    ) -> Result<BinInventoryStats, DomainError>;
+    ) -> Result<BinInventoryStats>;
 
     /// 分页获取仓库下所有库位的库存统计
     async fn list_bin_stats_by_warehouse(
@@ -176,5 +177,5 @@ pub trait WarehouseService: Send + Sync {
         warehouse_id: i64,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<BinInventoryStats>, DomainError>;
+    ) -> Result<PaginatedResult<BinInventoryStats>>;
 }

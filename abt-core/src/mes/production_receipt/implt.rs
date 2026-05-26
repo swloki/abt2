@@ -19,6 +19,7 @@ use crate::shared::enums::{AuditAction, CostEntityType, CostType, DocumentType};
 use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::PageParams;
 use crate::wms::backflush::service::BackflushService;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
@@ -58,7 +59,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         req: CreateReceiptReq,
-    ) -> Result<i64, DomainError> {
+    ) -> Result<i64> {
         // Verify batch status if provided
         if let Some(bid) = req.batch_id {
             let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, bid)
@@ -119,7 +120,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<ProductionReceipt, DomainError> {
+    ) -> Result<ProductionReceipt> {
         ProductionReceiptRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
@@ -130,7 +131,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         &self,
         mut ctx: ServiceContext<'_>,
         id: i64,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         let receipt = ProductionReceiptRepo::get_by_id(&mut *ctx.executor, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?

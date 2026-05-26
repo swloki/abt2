@@ -9,6 +9,7 @@ use super::repo::IdempotencyRepo;
 use super::service::IdempotencyService;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 
 pub struct IdempotencyServiceImpl {
     #[allow(dead_code)] // 保留供未来独立事务模式使用
@@ -29,7 +30,7 @@ impl IdempotencyService for IdempotencyServiceImpl {
         ctx: ServiceContext<'_>,
         event_id: i64,
         handler_name: &str,
-    ) -> Result<bool, DomainError> {
+    ) -> Result<bool> {
         let is_first = IdempotencyRepo::check_and_mark(
             &mut *ctx.executor,
             event_id,
@@ -48,7 +49,7 @@ impl IdempotencyService for IdempotencyServiceImpl {
         event_id: i64,
         handler_name: &str,
         result: Option<serde_json::Value>,
-    ) -> Result<(), DomainError> {
+    ) -> Result<()> {
         IdempotencyRepo::mark_processed(
             &mut *ctx.executor,
             event_id,
@@ -66,7 +67,7 @@ impl IdempotencyService for IdempotencyServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         before: DateTime<Utc>,
-    ) -> Result<u64, DomainError> {
+    ) -> Result<u64> {
         let deleted = IdempotencyRepo::cleanup_expired(&mut *ctx.executor, before)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;

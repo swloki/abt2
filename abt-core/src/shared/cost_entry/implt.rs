@@ -10,6 +10,7 @@ use crate::shared::enums::CostEntityType;
 use crate::shared::types::batch::BatchResult;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 pub struct CostEntryServiceImpl {
@@ -30,7 +31,7 @@ impl CostEntryService for CostEntryServiceImpl {
         &self,
         ctx: ServiceContext<'_>,
         entries: Vec<EntryRequest>,
-    ) -> Result<BatchResult, DomainError> {
+    ) -> Result<BatchResult> {
         let total = entries.len() as i32;
         if entries.is_empty() {
             return Ok(BatchResult::atomic_ok(0));
@@ -50,7 +51,7 @@ impl CostEntryService for CostEntryServiceImpl {
         entity_id: i64,
         page: u32,
         page_size: u32,
-    ) -> Result<PaginatedResult<CostEntry>, DomainError> {
+    ) -> Result<PaginatedResult<CostEntry>> {
         let params = PageParams::new(page, page_size);
 
         let (items, total) = CostEntryRepo::find_by_entity(

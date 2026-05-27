@@ -184,6 +184,10 @@ impl CustomerService for CustomerServiceImpl {
         Ok(())
     }
 
+    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+        self.repo.delete(ctx.executor, id).await
+    }
+
     async fn list(
         &self,
         ctx: ServiceContext<'_>,

@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build:css": "unocss \"src/**/*.rs\" -o static/app.css",
-    "watch:css": "unocss \"src/**/*.rs\" -o static/app.css --watch"
+    "watch": "unocss \"src/**/*.rs\" -o static/app.css --watch"
   },
   "devDependencies": {
     "@iconify-json/lucide": "^1.2.109",

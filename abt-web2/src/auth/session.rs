@@ -1,6 +1,2 @@
-use abt_core::shared::identity::model::Claims;
-
-#[derive(Clone)]
-pub struct Session {
-    pub claims: Claims,
-}
+/// Session key for storing the current user's claims.
+pub const CURRENT_USER_KEY: &str = "auth.current_user";

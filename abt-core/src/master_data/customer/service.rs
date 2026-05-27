@@ -20,6 +20,8 @@ pub trait CustomerService: Send + Sync {
         req: UpdateCustomerReq,
     ) -> Result<()>;
 
+    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
+
     async fn list(
         &self,
         ctx: ServiceContext<'_>,

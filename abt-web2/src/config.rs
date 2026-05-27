@@ -2,6 +2,7 @@ pub struct Config {
     pub host: String,
     pub port: u16,
     pub database_url: String,
+    pub session_dir: String,
     pub jwt_secret: String,
     pub jwt_expiration_hours: u64,
     pub max_connection: u32,
@@ -16,6 +17,7 @@ impl Config {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(8000),
             database_url: std::env::var("DATABASE_URL").expect("DATABASE_URL is required"),
+            session_dir: std::env::var("SESSION_DIR").unwrap_or_else(|_| "sessions".into()),
             jwt_secret: std::env::var("JWT_SECRET").expect("JWT_SECRET is required"),
             jwt_expiration_hours: std::env::var("JWT_EXPIRATION_HOURS")
                 .ok()

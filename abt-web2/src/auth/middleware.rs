@@ -1,57 +1,33 @@
 use axum::body::Body;
 use axum::extract::{Request, State};
-use axum::http::header::COOKIE;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Redirect, Response};
-use jsonwebtoken::{decode, DecodingKey, Validation};
+use tower_sessions::Session;
 
-use crate::auth::session::Session;
+use crate::auth::session::CURRENT_USER_KEY;
 use crate::state::AppState;
 
-/// Paths that don't require authentication.
-const PUBLIC_PATHS: &[&str] = &["/login", "/static", "/favicon"];
+const LOGIN_PATH: &str = "/login";
 
 pub async fn auth_middleware(
-    State(state): State<AppState>,
-    mut req: Request<Body>,
+    State(_state): State<AppState>,
+    session: Session,
+    request: Request<Body>,
     next: Next,
 ) -> Response {
-    let path = req.uri().path();
-
-    // Skip auth for public paths
-    if PUBLIC_PATHS.iter().any(|p| path.starts_with(p)) || path == "/logout" {
-        return next.run(req).await;
+    // Skip auth for public static assets
+    let path = request.uri().path();
+    if path.starts_with("/static") || path.starts_with("/favicon") {
+        return next.run(request).await;
     }
 
-    // Extract token from cookie
-    let token = req
-        .headers()
-        .get(COOKIE)
-        .and_then(|v| v.to_str().ok())
-        .and_then(|cookies| {
-            cookies
-                .split(';')
-                .find_map(|c| c.trim().strip_prefix("token="))
-        });
-
-    let token = match token {
-        Some(t) => t,
-        None => return Redirect::to("/login").into_response(),
-    };
-
-    // Validate JWT
-    match decode::<abt_core::shared::identity::model::Claims>(
-        token,
-        &DecodingKey::from_secret(state.jwt_secret.as_bytes()),
-        &Validation::default(),
-    ) {
-        Ok(data) => {
-            let session = Session {
-                claims: data.claims,
-            };
-            req.extensions_mut().insert(session);
-            next.run(req).await
+    // Try to get claims from session
+    match session.get::<abt_core::shared::identity::model::Claims>(CURRENT_USER_KEY).await {
+        Ok(Some(_claims)) => next.run(request).await,
+        Ok(None) => Redirect::to(LOGIN_PATH).into_response(),
+        Err(e) => {
+            tracing::error!("Session read error: {e}");
+            Redirect::to(LOGIN_PATH).into_response()
         }
-        Err(_) => Redirect::to("/login").into_response(),
     }
 }

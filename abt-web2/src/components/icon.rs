@@ -17,6 +17,50 @@ pub fn box_icon(c: &str) -> Markup {
     svg(r#"<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>"#, c)
 }
 
+pub fn home_icon(c: &str) -> Markup {
+    svg(r#"<path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2z"/>"#, c)
+}
+
+pub fn users_icon(c: &str) -> Markup {
+    svg(r#"<path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>"#, c)
+}
+
+pub fn building_icon(c: &str) -> Markup {
+    svg(r#"<path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>"#, c)
+}
+
+pub fn grid_icon(c: &str) -> Markup {
+    svg(r#"<path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8h16M8 5v16m8-16v16m-8-8h8"/>"#, c)
+}
+
+pub fn return_arrow_icon(c: &str) -> Markup {
+    svg(r#"<path d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4"/>"#, c)
+}
+
+pub fn clipboard_document_icon(c: &str) -> Markup {
+    svg(r#"<path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2m0-2h6a1 1 0 011 1v2a1 1 0 01-1 1H8a1 1 0 01-1-1V3a1 1 0 011-1zm4 10H9m6 4H9"/>"#, c)
+}
+
+pub fn payment_icon(c: &str) -> Markup {
+    svg(r#"<path d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/>"#, c)
+}
+
+pub fn sliders_icon(c: &str) -> Markup {
+    svg(r#"<path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>"#, c)
+}
+
+pub fn clipboard_module_icon(c: &str) -> Markup {
+    svg(r#"<path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>"#, c)
+}
+
+pub fn question_icon(c: &str) -> Markup {
+    svg(r#"<path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>"#, c)
+}
+
+pub fn sidebar_toggle_icon(c: &str) -> Markup {
+    svg(r#"<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/>"#, c)
+}
+
 pub fn trending_up_icon(c: &str) -> Markup {
     svg(r#"<path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/>"#, c)
 }
@@ -133,6 +177,14 @@ pub fn truck_icon(c: &str) -> Markup {
 
 pub fn refresh_icon(c: &str) -> Markup {
     svg(r#"<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>"#, c)
+}
+
+pub fn phone_icon(c: &str) -> Markup {
+    svg(r#"<path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/>"#, c)
+}
+
+pub fn mail_icon(c: &str) -> Markup {
+    svg(r#"<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>"#, c)
 }
 
 pub fn download_icon(c: &str) -> Markup {

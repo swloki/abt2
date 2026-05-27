@@ -12,6 +12,16 @@ cargo clippy                  # Lint 检查
 
 ## Architecture
 
+### CSS 管理规则
+
+**所有样式通过 UnoCSS 统一管理，禁止新增独立 CSS 文件。**
+
+- `static/app.css` 是 UnoCSS 生成的唯一样式输出文件，由 `npm run build:css` 或 `npm run watch` 生成
+- `uno.config.ts` 通过 `preflights` 注入基础 CSS（CSS 变量、重置、布局、组件样式）
+- 新增组件样式优先使用 UnoCSS `shortcuts`（工具类组合）；复杂选择器、伪元素、媒体查询等无法用 shortcuts 表达的样式放入 `preflights`
+- HTML 模板只引用 `/app.css`，不引用其他 CSS 文件
+- 禁止在 `static/` 下新建 CSS 文件
+
 ### SSR + HTMX
 
 - **Axum Handler** 直接调用 `abt-core` Service trait，无 gRPC 中间层
@@ -36,7 +46,7 @@ src/
 │   ├── sidebar.rs       # 侧边栏
 │   └── header.rs        # 顶部栏
 ├── components/          # 共享 UI 组件
-└── routes/              # 路由模块（高内聚：TypedPath + Maud + Handler 同文件）
+└── pages/               # 页面模块（高内聚：TypedPath + Maud + Handler 同文件）
 ```
 
 ### 环境变量
@@ -118,14 +128,88 @@ pub fn layout_container(title: &str, children: Markup) -> Markup {
 
 ---
 
+## 组件化三原则
+
+所有交互组件必须遵循以下三条原则，实现真正独立、可移植的组件化开发：
+
+### 1. 绝对内聚原则
+
+使用 `hx-target="this"` + `hx-swap="outerHTML"`，让组件不依赖任何外部 ID。组件自己就是替换边界。
+
+```rust
+pub fn counter(count: i32) -> Markup {
+    let increment_path = CounterPath {};
+    html! {
+        div class="counter" {
+            span { (count) }
+            button
+                hx-post=(increment_path)
+                hx-target="this"
+                hx-swap="outerHTML" {
+                "+1"
+            }
+        }
+    }
+}
+```
+
+### 2. 状态随身原则
+
+使用 `hx-vals` 将 Rust 上下文数据序列化绑定在组件的 HTML 节点上，避免依赖全局状态或 DOM 查询。
+
+```rust
+pub fn item_row(item_id: i64, name: &str, status: &str) -> Markup {
+    let toggle_path = ItemTogglePath { id: item_id };
+    html! {
+        tr
+            hx-vals=(format!("{{\"item_id\": {}, \"current_status\": \"{}\"}}", item_id, status))
+            hx-post=(toggle_path)
+            hx-target="this"
+            hx-swap="outerHTML" {
+            td { (name) }
+            td { (status) }
+        }
+    }
+}
+```
+
+### 3. 视觉闭环原则
+
+使用 `hx-indicator` 将 Loading（骨架屏）HTML 直接写在组件内部，交由 htmx 自动控制显隐。
+
+```rust
+pub fn search_panel(query: &str) -> Markup {
+    let search_path = SearchPath {};
+    html! {
+        div class="search" {
+            input
+                type="text"
+                name="q"
+                value=(query)
+                hx-get=(search_path)
+                hx-target="this"
+                hx-swap="outerHTML"
+                hx-trigger="keyup changed delay:300ms"
+                hx-indicator=".search .loading" {};
+            div class="loading htmx-indicator" {
+                "搜索中..."
+            }
+            // 结果区域
+        }
+    }
+}
+```
+
+---
+
 ## 抗碎片化工程实践 (Anti-Fragmentation Strategy)
 
-### 强类型路由 + hx-select 局部精准更新
+### 强类型路由 + hx-target="this" 自包含更新
 
-**必须使用 `TypedPath`**，禁止硬编码字符串 URL。同时利用 `hx-select` 和 `hx-target` 共同指向组件自身 ID，实现：
+**必须使用 `TypedPath`**，禁止硬编码字符串 URL。结合组件化三原则（绝对内聚），用 `hx-target="this"` 替代硬编码 ID：
 
-- Handler **始终返回完整组件**（含外层 ID 壳），无需感知请求来源
-- htmx 在前端自动从响应中抓取指定 ID 片段并覆盖当前 DOM
+- Handler **始终返回完整组件**，无需感知请求来源
+- 组件自身就是替换边界，不依赖任何外部 ID
 - 一个 URL、一个 Handler，**禁止为局部刷新拆出额外的 Handler**
 
 ```rust
@@ -141,29 +225,27 @@ pub struct ProfilePath {
     pub mode: String,
 }
 
-// 2. Maud 组件：外层 div 拥有固定 ID，hx-select/hx-target 指向自身
+// 2. Maud 组件：hx-target="this" 替代硬编码 ID，组件完全自包含
 pub fn render_component(username: &str, current_mode: &str) -> Markup {
     let edit_path = ProfilePath { mode: "edit".to_string() };
     let display_path = ProfilePath { mode: "display".to_string() };
 
     html! {
-        div class="profile-card" id="profile-section" {
+        div class="profile-card" {
             @if current_mode == "display" {
                 p { "当前用户: " (username) }
-                // hx-select + hx-target 指向自身 ID
-                // 后端返回完整组件，htmx 只取 #profile-section 覆盖当前 DOM
+                // hx-target="this" — 按钮自身被完整组件替换
                 button
                     hx-get=(edit_path)
-                    hx-target="#profile-section"
-                    hx-select="#profile-section"
+                    hx-target="this"
                     hx-swap="outerHTML" {
                     "编辑"
                 }
             } @else {
+                // hx-target="this" — 表单自身被完整组件替换
                 form
                     hx-post=(display_path)
-                    hx-target="#profile-section"
-                    hx-select="#profile-section"
+                    hx-target="this"
                     hx-swap="outerHTML" {
                     input type="text" name="username" value=(username);
                     button { "保存" }
@@ -190,8 +272,8 @@ pub fn router() -> axum::Router {
 
 ### 约束
 
-- 组件外层必须有稳定的 `id` 属性，作为 `hx-select` 和 `hx-target` 的锚点
-- `hx-select` 的值必须是页面上已存在元素的 CSS 选择器
+- 使用 `hx-target="this"` 让组件自包含，**禁止硬编码 `#id` 作为 target**
+- 当 `this` 无法满足需求时（如需要替换父级元素），才使用 `closest <selector>` 等相对定位
 - 禁止为"局部刷新"单独创建返回片段的 Handler
 
 ---

@@ -1,0 +1,12 @@
+{
+  "name": "abt-web2-css",
+  "private": true,
+  "scripts": {
+    "build:css": "unocss \"src/**/*.rs\" -o static/app.css",
+    "watch:css": "unocss \"src/**/*.rs\" -o static/app.css --watch"
+  },
+  "devDependencies": {
+    "@iconify-json/lucide": "^1.2.109",
+    "unocss": "^66.7.0"
+  }
+}

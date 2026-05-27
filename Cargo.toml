@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["common", "abt", "abt-grpc", "abt-macros", "abt-core"]
+members = ["common", "abt", "abt-grpc", "abt-macros", "abt-core", "abt-web2"]
 
 [workspace.dependencies]
 tokio = { version = "1.4", features = ["full"] }
@@ -20,6 +20,13 @@ rust_xlsxwriter = { version = "0.92", features = ["serde"] }
 tonic = "0.14"
 tonic-types = "0.14"
 
+
+[profile.dev]
+debug = 1
+split-debuginfo = "packed"
+
+[profile.dev.package."*"]
+opt-level = 1
 
 [profile.release]
 lto = true

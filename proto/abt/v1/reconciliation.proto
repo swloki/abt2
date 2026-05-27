@@ -6,8 +6,10 @@ import "abt/v1/base.proto";
 enum ReconciliationStatus {
   RECONCILIATION_STATUS_UNSPECIFIED = 0;
   RECONCILIATION_STATUS_DRAFT = 1;
-  RECONCILIATION_STATUS_CONFIRMED = 2;
-  RECONCILIATION_STATUS_APPROVED = 3;
+  RECONCILIATION_STATUS_SENT = 2;
+  RECONCILIATION_STATUS_CONFIRMED = 3;
+  RECONCILIATION_STATUS_DISPUTED = 4;
+  RECONCILIATION_STATUS_SETTLED = 5;
 }
 
 message ReconciliationItem {
@@ -23,6 +25,9 @@ message ReconciliationItem {
   string unit_price = 10;
   string amount = 11;
   string remark = 12;
+  int64 shipping_request_id = 13;
+  int64 sales_order_id = 14;
+  bool confirmed = 15;
 }
 
 message ReconciliationStatement {
@@ -41,6 +46,9 @@ message ReconciliationStatement {
   int64 created_at = 13;
   int64 updated_at = 14;
   repeated ReconciliationItem items = 15;
+  int64 customer_id = 16;
+  string confirmed_amount = 17;
+  string difference = 18;
 }
 
 message CreateReconciliationRequest {
@@ -48,6 +56,7 @@ message CreateReconciliationRequest {
   int32 period_year = 2;
   int32 period_month = 3;
   string remark = 4;
+  int64 customer_id = 5;
 }
 
 message AddReconciliationAdjustmentRequest {
@@ -74,6 +83,7 @@ message ListReconciliationsRequest {
   optional int32 period_year = 3;
   optional int32 period_month = 4;
   optional PaginationParams pagination = 5;
+  optional int64 customer_id = 6;
 }
 
 message GetReconciliationRequest {

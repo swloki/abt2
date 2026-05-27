@@ -5,6 +5,7 @@ pub mod bom;
 pub mod convert;
 pub mod bom_category;
 pub mod category;
+pub mod customer;
 pub mod department;
 pub mod excel;
 pub mod inventory;
@@ -30,6 +31,7 @@ pub mod workflow;
 pub use crate::generated::abt::v1::{
     abt_bom_category_service_server::AbtBomCategoryServiceServer,
     abt_category_service_server::AbtCategoryServiceServer,
+    customer_service_server::CustomerServiceServer,
     abt_bom_service_server::AbtBomServiceServer,
     abt_excel_service_server::AbtExcelServiceServer,
     abt_inventory_service_server::AbtInventoryServiceServer,

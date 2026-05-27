@@ -8,7 +8,7 @@ import "abt/v1/base.proto";
 enum QuotationStatus {
   QUOTATION_STATUS_UNSPECIFIED = 0;
   QUOTATION_STATUS_DRAFT = 1;
-  QUOTATION_STATUS_SUBMITTED = 2;
+  QUOTATION_STATUS_SENT = 2;
   QUOTATION_STATUS_ACCEPTED = 3;
   QUOTATION_STATUS_REJECTED = 4;
   QUOTATION_STATUS_EXPIRED = 5;
@@ -26,6 +26,10 @@ message QuotationItem {
   string discount = 9;
   string subtotal = 10;
   string remark = 11;
+  string unit_cost = 12;
+  int32 line_no = 13;
+  string description = 14;
+  int64 delivery_date = 15;
 }
 
 message Quotation {
@@ -42,6 +46,14 @@ message Quotation {
   int64 updated_at = 11;
   int64 operator_id = 12;
   repeated QuotationItem items = 13;
+  int64 customer_id = 14;
+  int64 contact_id = 15;
+  int64 sales_rep_id = 16;
+  int64 quotation_date = 17;
+  string total_cost = 18;
+  string estimated_margin = 19;
+  string payment_terms = 20;
+  string delivery_terms = 21;
 }
 
 message CreateQuotationRequest {
@@ -51,6 +63,11 @@ message CreateQuotationRequest {
   string remark = 4;
   int64 valid_until = 5;
   repeated CreateQuotationItem items = 6;
+  int64 customer_id = 7;
+  int64 contact_id = 8;
+  int64 sales_rep_id = 9;
+  string payment_terms = 10;
+  string delivery_terms = 11;
 }
 
 message CreateQuotationItem {
@@ -59,6 +76,9 @@ message CreateQuotationItem {
   string quantity = 3;
   string discount = 4;
   string remark = 5;
+  string unit_cost = 6;
+  string description = 7;
+  int64 delivery_date = 8;
 }
 
 message UpdateQuotationRequest {
@@ -69,12 +89,18 @@ message UpdateQuotationRequest {
   string remark = 5;
   int64 valid_until = 6;
   repeated CreateQuotationItem items = 7;
+  int64 contact_id = 8;
+  string payment_terms = 9;
+  string delivery_terms = 10;
+  int64 customer_id = 11;
 }
 
 message ListQuotationsRequest {
   optional string keyword = 1;
   optional QuotationStatus status = 2;
   optional PaginationParams pagination = 3;
+  optional int64 customer_id = 4;
+  optional int64 sales_rep_id = 5;
 }
 
 message GetQuotationRequest {

@@ -5,10 +5,11 @@ import "abt/v1/base.proto";
 
 enum ShippingRequestStatus {
   SHIPPING_REQUEST_STATUS_UNSPECIFIED = 0;
-  SHIPPING_REQUEST_STATUS_PENDING = 1;
+  SHIPPING_REQUEST_STATUS_DRAFT = 1;
   SHIPPING_REQUEST_STATUS_CONFIRMED = 2;
-  SHIPPING_REQUEST_STATUS_SHIPPED = 3;
-  SHIPPING_REQUEST_STATUS_CANCELLED = 4;
+  SHIPPING_REQUEST_STATUS_PICKING = 3;
+  SHIPPING_REQUEST_STATUS_SHIPPED = 4;
+  SHIPPING_REQUEST_STATUS_CANCELLED = 5;
 }
 
 message ShippingRequestItem {
@@ -21,6 +22,10 @@ message ShippingRequestItem {
   string unit = 7;
   string quantity = 8;
   string remark = 9;
+  int32 line_no = 10;
+  string shipped_qty = 11;
+  int64 warehouse_id = 12;
+  string description = 13;
 }
 
 message ShippingRequest {
@@ -36,24 +41,40 @@ message ShippingRequest {
   int64 created_at = 10;
   int64 updated_at = 11;
   repeated ShippingRequestItem items = 12;
+  int64 customer_id = 13;
+  int64 expected_ship_date = 14;
+  string shipping_address = 15;
+  string carrier = 16;
+  string tracking_number = 17;
 }
 
 message CreateShippingRequestRequest {
   int64 order_id = 1;
   string remark = 2;
   repeated CreateShippingRequestItem items = 3;
+  int64 customer_id = 4;
+  int64 expected_ship_date = 5;
+  string shipping_address = 6;
+  string carrier = 7;
+  string tracking_number = 8;
 }
 
 message CreateShippingRequestItem {
   int64 order_item_id = 1;
   string quantity = 2;
   string remark = 3;
+  int64 warehouse_id = 4;
+  string description = 5;
 }
 
 message UpdateShippingRequestRequest {
   int64 request_id = 1;
   string remark = 2;
   repeated CreateShippingRequestItem items = 3;
+  int64 expected_ship_date = 4;
+  string shipping_address = 5;
+  string carrier = 6;
+  string tracking_number = 7;
 }
 
 message ListShippingRequestsRequest {
@@ -61,6 +82,7 @@ message ListShippingRequestsRequest {
   optional ShippingRequestStatus status = 2;
   optional int64 order_id = 3;
   optional PaginationParams pagination = 4;
+  optional int64 customer_id = 5;
 }
 
 message GetShippingRequestRequest {

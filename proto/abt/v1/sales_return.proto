@@ -5,11 +5,20 @@ import "abt/v1/base.proto";
 
 enum SalesReturnStatus {
   SALES_RETURN_STATUS_UNSPECIFIED = 0;
-  SALES_RETURN_STATUS_PENDING = 1;
-  SALES_RETURN_STATUS_APPROVED = 2;
+  SALES_RETURN_STATUS_DRAFT = 1;
+  SALES_RETURN_STATUS_CONFIRMED = 2;
   SALES_RETURN_STATUS_RECEIVED = 3;
-  SALES_RETURN_STATUS_COMPLETED = 4;
-  SALES_RETURN_STATUS_REJECTED = 5;
+  SALES_RETURN_STATUS_INSPECTING = 4;
+  SALES_RETURN_STATUS_COMPLETED = 5;
+  SALES_RETURN_STATUS_REJECTED = 6;
+  SALES_RETURN_STATUS_CANCELLED = 7;
+}
+
+enum ReturnDisposition {
+  RETURN_DISPOSITION_UNSPECIFIED = 0;
+  RETURN_DISPOSITION_RESTOCK = 1;
+  RETURN_DISPOSITION_SCRAP = 2;
+  RETURN_DISPOSITION_REWORK = 3;
 }
 
 message SalesReturnItem {
@@ -25,6 +34,7 @@ message SalesReturnItem {
   string quantity = 10;
   string subtotal = 11;
   string remark = 12;
+  ReturnDisposition disposition = 13;
 }
 
 message SalesReturn {
@@ -41,6 +51,7 @@ message SalesReturn {
   int64 created_at = 11;
   int64 updated_at = 12;
   repeated SalesReturnItem items = 13;
+  int64 customer_id = 14;
 }
 
 message CreateSalesReturnRequest {
@@ -48,12 +59,14 @@ message CreateSalesReturnRequest {
   string remark = 2;
   string reason = 3;
   repeated CreateSalesReturnItem items = 4;
+  int64 customer_id = 5;
 }
 
 message CreateSalesReturnItem {
   int64 request_item_id = 1;
   string quantity = 2;
   string remark = 3;
+  ReturnDisposition disposition = 4;
 }
 
 message UpdateSalesReturnRequest {
@@ -61,6 +74,7 @@ message UpdateSalesReturnRequest {
   string remark = 2;
   string reason = 3;
   repeated CreateSalesReturnItem items = 4;
+  int64 customer_id = 5;
 }
 
 message ListSalesReturnsRequest {
@@ -69,6 +83,7 @@ message ListSalesReturnsRequest {
   optional int64 order_id = 3;
   optional int64 request_id = 4;
   optional PaginationParams pagination = 5;
+  optional int64 customer_id = 6;
 }
 
 message GetSalesReturnRequest {

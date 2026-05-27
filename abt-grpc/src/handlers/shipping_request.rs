@@ -29,9 +29,9 @@ impl Default for ShippingRequestHandler {
 
 fn shipping_status_to_proto(status: abt_core::sales::shipping_request::ShippingStatus) -> ShippingRequestStatus {
     match status {
-        abt_core::sales::shipping_request::ShippingStatus::Draft => ShippingRequestStatus::Pending,
+        abt_core::sales::shipping_request::ShippingStatus::Draft => ShippingRequestStatus::Draft,
         abt_core::sales::shipping_request::ShippingStatus::Confirmed => ShippingRequestStatus::Confirmed,
-        abt_core::sales::shipping_request::ShippingStatus::Picking => ShippingRequestStatus::Confirmed,
+        abt_core::sales::shipping_request::ShippingStatus::Picking => ShippingRequestStatus::Picking,
         abt_core::sales::shipping_request::ShippingStatus::Shipped => ShippingRequestStatus::Shipped,
         abt_core::sales::shipping_request::ShippingStatus::Cancelled => ShippingRequestStatus::Cancelled,
     }
@@ -59,6 +59,10 @@ fn shipping_item_to_proto(item: &abt_core::sales::shipping_request::ShippingRequ
         unit: String::new(),
         quantity: decimal_to_string(item.requested_qty),
         remark: String::new(),
+        line_no: 0,
+        shipped_qty: String::new(),
+        warehouse_id: 0,
+        description: String::new(),
     }
 }
 
@@ -76,6 +80,11 @@ fn shipping_to_proto(r: &abt_core::sales::shipping_request::ShippingRequest) -> 
         created_at: r.created_at.timestamp(),
         updated_at: r.updated_at.timestamp(),
         items: vec![],
+        customer_id: 0,
+        expected_ship_date: 0,
+        shipping_address: String::new(),
+        carrier: String::new(),
+        tracking_number: String::new(),
     }
 }
 

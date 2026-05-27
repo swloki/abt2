@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新建报价单 · ABT ERP</title>
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    /* ─── Form Styles ─── */
+    .form-section {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-6);
+      margin-bottom: var(--space-6);
+    }
+    .form-section-title {
+      font-size: var(--text-base);
+      font-weight: 600;
+      color: var(--fg);
+      margin-bottom: var(--space-5);
+      padding-bottom: var(--space-3);
+      border-bottom: 1px solid var(--border-soft);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .form-section-title svg { width: 18px; height: 18px; color: var(--muted); }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-5);
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-1);
+    }
+    .form-group.span-2 { grid-column: span 2; }
+    .form-label {
+      font-size: var(--text-xs);
+      font-weight: 500;
+      color: var(--fg-2);
+    }
+    .form-label .required {
+      color: var(--danger);
+      margin-left: 2px;
+    }
+    .form-input,
+    .form-select,
+    .form-textarea {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-sm);
+      color: var(--fg);
+      background: var(--bg);
+      outline: none;
+      transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+      font-family: var(--font-body);
+    }
+    .form-input:focus,
+    .form-select:focus,
+    .form-textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent);
+    }
+    .form-input::placeholder { color: var(--muted); opacity: 0.6; }
+    .form-textarea {
+      min-height: 80px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+    .form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23697386' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+      cursor: pointer;
+    }
+
+    /* ─── Line Items Table ─── */
+    .line-items-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .line-items-table th {
+      padding: var(--space-3) var(--space-3);
+      text-align: left;
+      font-weight: 500;
+      color: var(--muted);
+      background: var(--surface);
+      font-size: var(--text-xs);
+      white-space: nowrap;
+      border-bottom: 1px solid var(--border);
+    }
+    .line-items-table td {
+      padding: var(--space-2) var(--space-3);
+      border-bottom: 1px solid var(--border-soft);
+      vertical-align: middle;
+    }
+    .line-items-table .form-input,
+    .line-items-table .form-select {
+      width: 100%;
+      padding: 6px 8px;
+      font-size: 13px;
+    }
+    .line-items-table .num-input {
+      text-align: right;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+    }
+    .line-items-table .line-total {
+      text-align: right;
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: var(--fg);
+      white-space: nowrap;
+    }
+    .line-num {
+      font-family: var(--font-mono);
+      color: var(--muted);
+      font-size: var(--text-xs);
+      text-align: center;
+    }
+    .btn-remove-row {
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all var(--motion-fast);
+    }
+    .btn-remove-row:hover {
+      background: #fff1f0;
+      color: var(--danger);
+    }
+
+    /* ─── Add Row Button ─── */
+    .add-row-bar {
+      padding: var(--space-3);
+      border-top: 1px dashed var(--border);
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+    .btn-add-row {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      padding: 6px 14px;
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--accent);
+      font-size: var(--text-sm);
+      cursor: pointer;
+      transition: all var(--motion-fast);
+    }
+    .btn-add-row:hover {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 4%, transparent);
+    }
+    .btn-add-row svg { width: 14px; height: 14px; }
+
+    /* ─── Totals ─── */
+    .totals-bar {
+      display: flex;
+      justify-content: flex-end;
+      padding: var(--space-4) var(--space-5);
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      gap: var(--space-8);
+    }
+    .totals-item {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-3);
+    }
+    .totals-label {
+      font-size: var(--text-sm);
+      color: var(--muted);
+    }
+    .totals-value {
+      font-family: var(--font-mono);
+      font-variant-numeric: tabular-nums;
+      font-size: var(--text-lg);
+      font-weight: 700;
+      color: var(--fg);
+    }
+    .totals-value.grand { color: var(--accent); font-size: var(--text-xl); }
+
+    /* ─── Action Bar Sticky ─── */
+    .create-action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: var(--space-4) var(--space-6);
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      position: sticky;
+      bottom: 0;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+    }
+
+    /* ─── Customer Quick Info ─── */
+    .customer-info-bar {
+      display: none;
+      align-items: center;
+      gap: var(--space-6);
+      padding: var(--space-3) var(--space-4);
+      background: color-mix(in srgb, var(--accent) 4%, transparent);
+      border-radius: var(--radius-sm);
+      border: 1px solid color-mix(in srgb, var(--accent) 12%, transparent);
+      margin-top: var(--space-3);
+      font-size: var(--text-xs);
+      color: var(--fg-2);
+    }
+    .customer-info-bar.visible { display: flex; }
+    .customer-info-bar span { display: flex; align-items: center; gap: var(--space-1); }
+    .customer-info-bar .label { color: var(--muted); }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 1200px) {
+      .form-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 920px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .form-group.span-2 { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <nav id="sidebar"></nav>
+  <div class="main-content">
+    <header class="top-header">
+      <div class="top-header-left">
+        <div class="breadcrumb">
+          <a href="index.html">销售管理</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="quotation-list.html">报价单</a>
+          <span class="breadcrumb-sep">/</span>
+          <span>新建</span>
+        </div>
+      </div>
+      <div class="top-header-right">
+        <button class="header-icon-btn" title="通知">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <div class="header-dot"></div>
+        </button>
+        <button class="header-icon-btn" title="帮助">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+        <div class="avatar">ZM</div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <a href="quotation-list.html" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 19l-7-7 7-7"/></svg>
+        返回报价单列表
+      </a>
+
+      <div class="page-header" style="margin-bottom:var(--space-5)">
+        <h1 class="page-title">新建报价单</h1>
+        <div class="page-actions">
+          <span style="font-size:var(--text-xs);color:var(--muted);display:flex;align-items:center;gap:var(--space-2)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            自动保存草稿
+          </span>
+        </div>
+      </div>
+
+      <!-- 客户信息 -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          客户信息
+        </div>
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label class="form-label">客户名称 <span class="required">*</span></label>
+            <select class="form-select" id="customerSelect">
+              <option value="">请选择客户</option>
+              <option value="huake">深圳华科电子有限公司</option>
+              <option value="jingmi">东莞精密模具厂</option>
+              <option value="guangdian">广州光电科技</option>
+              <option value="foshan">佛山陶瓷机械有限公司</option>
+              <option value="zhuhai">珠海半导体材料公司</option>
+            </select>
+            <div class="customer-info-bar" id="customerInfo">
+              <span><span class="label">联系人：</span>李经理</span>
+              <span><span class="label">电话：</span>138-2345-6789</span>
+              <span><span class="label">地址：</span>深圳市南山区科技园</span>
+              <span><span class="label">信用额度：</span>¥ 500,000.00</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">联系人</label>
+            <input class="form-input" type="text" id="contactInput" placeholder="自动填充或手动输入">
+          </div>
+          <div class="form-group">
+            <label class="form-label">联系电话</label>
+            <input class="form-input" type="text" placeholder="自动填充或手动输入">
+          </div>
+        </div>
+      </div>
+
+      <!-- 报价信息 -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+          报价信息
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">报价日期 <span class="required">*</span></label>
+            <input class="form-input" type="date" id="quoteDate">
+          </div>
+          <div class="form-group">
+            <label class="form-label">有效期至 <span class="required">*</span></label>
+            <input class="form-input" type="date" id="validUntil">
+          </div>
+          <div class="form-group">
+            <label class="form-label">业务员</label>
+            <select class="form-select">
+              <option value="zhangming">张明</option>
+              <option value="wanglei">王磊</option>
+              <option value="liuyang">刘洋</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">报价币种</label>
+            <select class="form-select">
+              <option>CNY ¥ 人民币</option>
+              <option>USD $ 美元</option>
+              <option>EUR € 欧元</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">付款条款 <span class="required">*</span></label>
+            <select class="form-select">
+              <option>30天净额</option>
+              <option>60天净额</option>
+              <option>预付30% + 70%发货前</option>
+              <option>货到付款</option>
+              <option>月结30天</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">交货条款</label>
+            <select class="form-select">
+              <option>FOB 深圳</option>
+              <option>FOB 广州</option>
+              <option>CIF 目的港</option>
+              <option>EXW 工厂交货</option>
+              <option>DAP 目的地交货</option>
+            </select>
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label">交货地址</label>
+            <input class="form-input" type="text" placeholder="默认取客户地址，可修改">
+          </div>
+        </div>
+      </div>
+
+      <!-- 产品明细 -->
+      <div class="form-section" style="padding:0;overflow:hidden">
+        <div style="padding:var(--space-6) var(--space-6) var(--space-4)">
+          <div class="form-section-title" style="border-bottom:none;padding-bottom:0;margin-bottom:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            产品明细
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="line-items-table" id="lineItemsTable">
+            <thead>
+              <tr>
+                <th style="width:40px;text-align:center">#</th>
+                <th style="min-width:160px">产品编码</th>
+                <th style="min-width:200px">产品名称</th>
+                <th style="min-width:180px">规格描述</th>
+                <th style="width:64px">单位</th>
+                <th style="width:100px;text-align:right">数量</th>
+                <th style="width:120px;text-align:right">单价 (¥)</th>
+                <th style="width:80px;text-align:right">折扣 (%)</th>
+                <th style="width:120px;text-align:right">小计 (¥)</th>
+                <th style="width:40px"></th>
+              </tr>
+            </thead>
+            <tbody id="lineItemsBody">
+              <tr data-row="1">
+                <td class="line-num">1</td>
+                <td>
+                  <select class="form-select" style="padding:5px 24px 5px 8px" onchange="onProductChange(this)">
+                    <option value="">选择产品</option>
+                    <option value="P-1042" data-name="高频电源模组 HP-500W" data-spec="500W / AC220V / 效率≥94%" data-unit="PCS" data-price="380">P-1042</option>
+                    <option value="P-1087" data-name="LED驱动模块 LD-240" data-spec="240mA / 恒流 / PF≥0.95" data-unit="PCS" data-price="68">P-1087</option>
+                    <option value="P-2015" data-name="控制板 PCB-32V2" data-spec="32位MCU / 4路PWM / CAN通信" data-unit="PCS" data-price="245">P-2015</option>
+                    <option value="P-3021" data-name="传感器模组 SEN-T1" data-spec="温度±0.5℃ / I2C接口" data-unit="PCS" data-price="56">P-3021</option>
+                    <option value="P-3008" data-name="电源适配器 PA-48V" data-spec="48V/2A / CE认证" data-unit="PCS" data-price="120">P-3008</option>
+                  </select>
+                </td>
+                <td><input class="form-input" type="text" data-field="name" readonly tabindex="-1" style="background:var(--surface)"></td>
+                <td><input class="form-input" type="text" data-field="spec" readonly tabindex="-1" style="background:var(--surface)"></td>
+                <td><input class="form-input" type="text" data-field="unit" readonly tabindex="-1" style="background:var(--surface);text-align:center"></td>
+                <td><input class="form-input num-input" type="number" data-field="qty" value="" placeholder="0" oninput="calcRow(this)"></td>
+                <td><input class="form-input num-input" type="number" data-field="price" value="" placeholder="0.00" oninput="calcRow(this)"></td>
+                <td><input class="form-input num-input" type="number" data-field="discount" value="0" min="0" max="100" oninput="calcRow(this)"></td>
+                <td class="line-total" data-field="subtotal">—</td>
+                <td><button class="btn-remove-row" onclick="removeRow(this)" title="删除行"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></td>
+              </tr>
+              <tr data-row="2">
+                <td class="line-num">2</td>
+                <td>
+                  <select class="form-select" style="padding:5px 24px 5px 8px" onchange="onProductChange(this)">
+                    <option value="">选择产品</option>
+                    <option value="P-1042" data-name="高频电源模组 HP-500W" data-spec="500W / AC220V / 效率≥94%" data-unit="PCS" data-price="380">P-1042</option>
+                    <option value="P-1087" data-name="LED驱动模块 LD-240" data-spec="240mA / 恒流 / PF≥0.95" data-unit="PCS" data-price="68">P-1087</option>
+                    <option value="P-2015" data-name="控制板 PCB-32V2" data-spec="32位MCU / 4路PWM / CAN通信" data-unit="PCS" data-price="245">P-2015</option>
+                    <option value="P-3021" data-name="传感器模组 SEN-T1" data-spec="温度±0.5℃ / I2C接口" data-unit="PCS" data-price="56">P-3021</option>
+                    <option value="P-3008" data-name="电源适配器 PA-48V" data-spec="48V/2A / CE认证" data-unit="PCS" data-price="120">P-3008</option>
+                  </select>
+                </td>
+                <td><input class="form-input" type="text" data-field="name" readonly tabindex="-1" style="background:var(--surface)"></td>
+                <td><input class="form-input" type="text" data-field="spec" readonly tabindex="-1" style="background:var(--surface)"></td>
+                <td><input class="form-input" type="text" data-field="unit" readonly tabindex="-1" style="background:var(--surface);text-align:center"></td>
+                <td><input class="form-input num-input" type="number" data-field="qty" value="" placeholder="0" oninput="calcRow(this)"></td>
+                <td><input class="form-input num-input" type="number" data-field="price" value="" placeholder="0.00" oninput="calcRow(this)"></td>
+                <td><input class="form-input num-input" type="number" data-field="discount" value="0" min="0" max="100" oninput="calcRow(this)"></td>
+                <td class="line-total" data-field="subtotal">—</td>
+                <td><button class="btn-remove-row" onclick="removeRow(this)" title="删除行"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="add-row-bar">
+          <button class="btn-add-row" onclick="addRow()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16m8-8H4"/></svg>
+            添加产品行
+          </button>
+        </div>
+        <div class="totals-bar">
+          <div class="totals-item">
+            <span class="totals-label">合计金额</span>
+            <span class="totals-value" id="totalAmount">¥ 0.00</span>
+          </div>
+          <div class="totals-item">
+            <span class="totals-label">折扣总额</span>
+            <span class="totals-value" id="totalDiscount">- ¥ 0.00</span>
+          </div>
+          <div class="totals-item">
+            <span class="totals-label">报价总额</span>
+            <span class="totals-value grand" id="grandTotal">¥ 0.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 备注 -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          备注
+        </div>
+        <textarea class="form-textarea" placeholder="输入报价相关备注信息，如特殊条款、包装要求、交期说明等…"></textarea>
+      </div>
+
+      <!-- 附件 -->
+      <div class="form-section">
+        <div class="form-section-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          附件
+        </div>
+        <div id="uploadArea" style="border:2px dashed var(--border);border-radius:var(--radius-md);padding:var(--space-8);text-align:center;cursor:pointer;transition:border-color var(--motion-fast)" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'" onclick="document.getElementById('fileInput').click()">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="margin:0 auto var(--space-3)"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          <p style="color:var(--fg-2);font-size:var(--text-sm);margin:0 0 var(--space-1)">点击或拖拽文件到此处上传</p>
+          <p style="color:var(--muted);font-size:var(--text-xs);margin:0">支持 PDF、Word、Excel、图片，单个文件不超过 10MB</p>
+          <input type="file" id="fileInput" multiple style="display:none" onchange="onFileSelected(this)">
+        </div>
+        <div id="fileList" style="margin-top:var(--space-3)"></div>
+      </div>
+    </div>
+
+    <!-- 底部操作栏 -->
+    <div class="create-action-bar">
+      <div style="display:flex;gap:var(--space-3)">
+        <button class="btn btn-default" onclick="location.href='quotation-list.html'">取消</button>
+      </div>
+      <div style="display:flex;gap:var(--space-3)">
+        <button class="btn btn-default" onclick="handleSaveDraft()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+          保存草稿
+        </button>
+        <button class="btn btn-primary" onclick="handleSubmit()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          提交报价
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="css/sidebar.js"></script>
+<script>
+renderSidebar('quotation');
+
+// Set default dates
+(function() {
+  const today = new Date();
+  const fmt = d => d.toISOString().split('T')[0];
+  document.getElementById('quoteDate').value = fmt(today);
+  const valid = new Date(today);
+  valid.setDate(valid.getDate() + 30);
+  document.getElementById('validUntil').value = fmt(valid);
+})();
+
+// Customer select → fill contact info
+document.getElementById('customerSelect').addEventListener('change', function() {
+  const info = document.getElementById('customerInfo');
+  const data = {
+    huake:    { contact: '李经理', phone: '138-2345-6789', addr: '深圳市南山区科技园', credit: '¥ 500,000.00' },
+    jingmi:   { contact: '陈工',   phone: '139-8765-4321', addr: '东莞市长安镇工业路', credit: '¥ 300,000.00' },
+    guangdian:{ contact: '赵总',   phone: '135-1234-5678', addr: '广州市黄埔区开发区', credit: '¥ 200,000.00' },
+    foshan:   { contact: '黄主管', phone: '137-6543-2109', addr: '佛山市禅城区陶瓷城', credit: '¥ 400,000.00' },
+    zhuhai:   { contact: '周经理', phone: '136-9876-5432', addr: '珠海市高新区创新路', credit: '¥ 350,000.00' },
+  };
+  if (this.value && data[this.value]) {
+    const d = data[this.value];
+    document.getElementById('contactInput').value = d.contact;
+    info.innerHTML = `
+      <span><span class="label">联系人：</span>${d.contact}</span>
+      <span><span class="label">电话：</span>${d.phone}</span>
+      <span><span class="label">地址：</span>${d.addr}</span>
+      <span><span class="label">信用额度：</span>${d.credit}</span>
+    `;
+    info.classList.add('visible');
+  } else {
+    info.classList.remove('visible');
+    document.getElementById('contactInput').value = '';
+  }
+});
+
+// Product change → fill row
+function onProductChange(sel) {
+  const row = sel.closest('tr');
+  const opt = sel.options[sel.selectedIndex];
+  if (opt.value) {
+    row.querySelector('[data-field="name"]').value = opt.dataset.name;
+    row.querySelector('[data-field="spec"]').value = opt.dataset.spec;
+    row.querySelector('[data-field="unit"]').value = opt.dataset.unit;
+    row.querySelector('[data-field="price"]').value = opt.dataset.price;
+    calcRow(row.querySelector('[data-field="qty"]'));
+  } else {
+    row.querySelector('[data-field="name"]').value = '';
+    row.querySelector('[data-field="spec"]').value = '';
+    row.querySelector('[data-field="unit"]').value = '';
+    row.querySelector('[data-field="price"]').value = '';
+    row.querySelector('[data-field="subtotal"]').textContent = '—';
+    recalcTotals();
+  }
+}
+
+// Calculate row subtotal
+function calcRow(input) {
+  const row = input.closest('tr');
+  const qty = parseFloat(row.querySelector('[data-field="qty"]').value) || 0;
+  const price = parseFloat(row.querySelector('[data-field="price"]').value) || 0;
+  const discount = parseFloat(row.querySelector('[data-field="discount"]').value) || 0;
+  const subtotal = qty * price * (1 - discount / 100);
+  row.querySelector('[data-field="subtotal"]').textContent = subtotal > 0 ? '¥ ' + subtotal.toLocaleString('zh-CN', { minimumFractionDigits: 2 }) : '—';
+  recalcTotals();
+}
+
+function recalcTotals() {
+  const rows = document.querySelectorAll('#lineItemsBody tr');
+  let total = 0, discountTotal = 0;
+  rows.forEach(r => {
+    const qty = parseFloat(r.querySelector('[data-field="qty"]')?.value) || 0;
+    const price = parseFloat(r.querySelector('[data-field="price"]')?.value) || 0;
+    const disc = parseFloat(r.querySelector('[data-field="discount"]')?.value) || 0;
+    total += qty * price;
+    discountTotal += qty * price * (disc / 100);
+  });
+  const grand = total - discountTotal;
+  document.getElementById('totalAmount').textContent = '¥ ' + total.toLocaleString('zh-CN', { minimumFractionDigits: 2 });
+  document.getElementById('totalDiscount').textContent = '- ¥ ' + discountTotal.toLocaleString('zh-CN', { minimumFractionDigits: 2 });
+  document.getElementById('grandTotal').textContent = '¥ ' + grand.toLocaleString('zh-CN', { minimumFractionDigits: 2 });
+}
+
+// Add row
+let rowCounter = 2;
+function addRow() {
+  rowCounter++;
+  const tbody = document.getElementById('lineItemsBody');
+  const template = tbody.rows[0].cloneNode(true);
+  template.setAttribute('data-row', rowCounter);
+  template.querySelector('.line-num').textContent = rowCounter;
+  template.querySelectorAll('input').forEach(i => { if (!i.readOnly) i.value = ''; else i.value = ''; });
+  template.querySelector('[data-field="discount"]').value = '0';
+  template.querySelector('[data-field="subtotal"]').textContent = '—';
+  const sel = template.querySelector('select');
+  sel.selectedIndex = 0;
+  sel.onchange = function() { onProductChange(this); };
+  tbody.appendChild(template);
+  recalcTotals();
+}
+
+// Remove row
+function removeRow(btn) {
+  const tbody = document.getElementById('lineItemsBody');
+  if (tbody.rows.length <= 1) return;
+  btn.closest('tr').remove();
+  // Renumber
+  Array.from(tbody.rows).forEach((r, i) => {
+    r.querySelector('.line-num').textContent = i + 1;
+  });
+  recalcTotals();
+}
+
+// File upload display
+function onFileSelected(input) {
+  const list = document.getElementById('fileList');
+  Array.from(input.files).forEach(f => {
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);font-size:var(--text-sm);color:var(--fg-2)';
+    div.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>${f.name}<span style="color:var(--muted);font-size:var(--text-xs);margin-left:auto">${(f.size/1024).toFixed(0)} KB</span>`;
+    list.appendChild(div);
+  });
+}
+
+// Actions
+function handleSaveDraft() {
+  showFeedback('报价单已保存为草稿', 'success');
+}
+function handleSubmit() {
+  const customer = document.getElementById('customerSelect').value;
+  if (!customer) {
+    showFeedback('请选择客户', 'error');
+    return;
+  }
+  showFeedback('报价单已提交，编号 QT-2026-0043', 'success');
+  setTimeout(() => { location.href = 'quotation-detail.html'; }, 1500);
+}
+
+function showFeedback(msg, type) {
+  const existing = document.querySelector('.feedback-toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = 'feedback-toast';
+  const bg = type === 'error' ? 'var(--danger)' : 'var(--success)';
+  toast.style.cssText = `position:fixed;top:72px;right:32px;padding:12px 20px;border-radius:var(--radius-md);background:${bg};color:#fff;font-size:var(--text-sm);font-weight:500;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12);opacity:0;transform:translateY(-8px);transition:all 300ms var(--ease-standard)`;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateY(0)'; });
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-8px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 2500);
+}
+</script>
+</body>
+</html>

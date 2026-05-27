@@ -25,6 +25,12 @@ enum Resource {
   BOM_COST = 15;
   BOM_LABOR_COST = 16;
   SYNC = 17;
+  QUOTATION = 18;
+  SALES_ORDER = 19;
+  SHIPPING_REQUEST = 20;
+  SALES_RETURN = 21;
+  RECONCILIATION = 22;
+  CUSTOMER = 23;
 }
 
 // 权限操作枚举

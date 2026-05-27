@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>销售管理 · ABT ERP</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav id="sidebar"></nav>
+  <div class="main-content">
+    <header class="top-header">
+      <div class="top-header-left">
+        <div class="breadcrumb">
+          <span style="font-weight:600;color:var(--fg)">销售管理</span>
+        </div>
+      </div>
+      <div class="top-header-right">
+        <button class="header-icon-btn" title="通知">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <div class="header-dot"></div>
+        </button>
+        <button class="header-icon-btn" title="帮助">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+        <div class="avatar">ZM</div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="page-header">
+        <h1 class="page-title">销售管理概览</h1>
+        <div class="page-actions">
+          <span class="text-muted" style="font-size:13px">数据截至 2026-05-27</span>
+        </div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-5);margin-bottom:var(--space-8)">
+        <div class="stat-card">
+          <div class="stat-icon blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">8</div>
+            <div class="stat-label">本月报价</div>
+            <div class="stat-trend up">+3 vs 上月</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">17</div>
+            <div class="stat-label">进行中订单</div>
+            <div class="stat-trend" style="color:var(--warn)">¥1.2M 待发货</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">3</div>
+            <div class="stat-label">待处理退货</div>
+            <div class="stat-trend down">¥11,020 待处理</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon orange">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">¥780K</div>
+            <div class="stat-label">本月营收</div>
+            <div class="stat-trend up">+12% vs 上月</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-6);margin-bottom:var(--space-8)">
+        <!-- Pending Tasks -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)">
+            <h2 class="section-title">待办事项</h2>
+            <span class="text-muted" style="font-size:12px">4 项待处理</span>
+          </div>
+          <div class="data-card">
+            <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-3);cursor:pointer;transition:background var(--motion-fast)" onmouseover="this.style.background='var(--accent-bg)'" onmouseout="this.style.background=''" onclick="location.href='shipping-list.html'">
+              <span class="status-pill status-picking" style="font-size:11px">拣货中</span>
+              <span style="flex:1">发货申请 SR-2026-0018 待确认发货</span>
+              <span class="text-muted" style="font-size:12px">今天</span>
+            </div>
+            <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-3);cursor:pointer;transition:background var(--motion-fast)" onmouseover="this.style.background='var(--accent-bg)'" onmouseout="this.style.background=''" onclick="location.href='return-detail.html'">
+              <span class="status-pill status-inspecting" style="font-size:11px">质检中</span>
+              <span style="flex:1">退货单 RT-2026-0009 待质检判定</span>
+              <span class="text-muted" style="font-size:12px">今天</span>
+            </div>
+            <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-3);cursor:pointer;transition:background var(--motion-fast)" onmouseover="this.style.background='var(--accent-bg)'" onmouseout="this.style.background=''" onclick="location.href='return-list.html'">
+              <span class="status-pill status-sent" style="font-size:11px">已确认</span>
+              <span style="flex:1">退货单 RT-2026-0007 待收货确认</span>
+              <span class="text-muted" style="font-size:12px">昨天</span>
+            </div>
+            <div style="padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-3);cursor:pointer;transition:background var(--motion-fast)" onmouseover="this.style.background='var(--accent-bg)'" onmouseout="this.style.background=''" onclick="location.href='quotation-list.html'">
+              <span class="status-pill status-sent" style="font-size:11px">已发送</span>
+              <span style="flex:1">报价单 QT-2026-0041 客户未回复</span>
+              <span class="text-muted" style="font-size:12px">3天前</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Access -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)">
+            <h2 class="section-title">快捷入口</h2>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4)">
+            <a href="customer-list.html" style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3);padding:var(--space-6) var(--space-4);background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);transition:all var(--motion-fast) var(--ease-standard);text-align:center;box-shadow:var(--shadow-xs)">
+              <div style="width:44px;height:44px;border-radius:var(--radius-md);background:linear-gradient(135deg, #e6f4ff, #d6e8ff);display:grid;place-items:center">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              </div>
+              <span style="font-size:var(--text-sm);font-weight:600;color:var(--fg)">客户管理</span>
+              <span style="font-size:12px;color:var(--muted)">156 位</span>
+            </a>
+            <a href="quotation-list.html" style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3);padding:var(--space-6) var(--space-4);background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);transition:all var(--motion-fast) var(--ease-standard);text-align:center;box-shadow:var(--shadow-xs)">
+              <div style="width:44px;height:44px;border-radius:var(--radius-md);background:linear-gradient(135deg, #e6f4ff, #d6e8ff);display:grid;place-items:center">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+              </div>
+              <span style="font-size:var(--text-sm);font-weight:600;color:var(--fg)">报价单</span>
+              <span style="font-size:12px;color:var(--muted)">24 份</span>
+            </a>
+            <a href="order-list.html" style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3);padding:var(--space-6) var(--space-4);background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);transition:all var(--motion-fast) var(--ease-standard);text-align:center;box-shadow:var(--shadow-xs)">
+              <div style="width:44px;height:44px;border-radius:var(--radius-md);background:linear-gradient(135deg, #f0fff0, #e0ffe0);display:grid;place-items:center">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="1.8"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+              </div>
+              <span style="font-size:var(--text-sm);font-weight:600;color:var(--fg)">销售订单</span>
+              <span style="font-size:12px;color:var(--muted)">31 笔</span>
+            </a>
+            <a href="reconciliation-list.html" style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3);padding:var(--space-6) var(--space-4);background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);transition:all var(--motion-fast) var(--ease-standard);text-align:center;box-shadow:var(--shadow-xs)">
+              <div style="width:44px;height:44px;border-radius:var(--radius-md);background:linear-gradient(135deg, #fff8eb, #fff0d6);display:grid;place-items:center">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+              </div>
+              <span style="font-size:var(--text-sm);font-weight:600;color:var(--fg)">月对账单</span>
+              <span style="font-size:12px;color:var(--muted)">14 份</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sales Flow -->
+      <div style="margin-bottom:var(--space-8)">
+        <h2 class="section-title" style="margin-bottom:var(--space-4)">销售流程</h2>
+        <div style="display:flex;align-items:center;gap:0;background:var(--bg);border:1px solid var(--border-soft);border-radius:var(--radius-md);padding:var(--space-8) var(--space-10);overflow-x:auto;box-shadow:var(--shadow-xs)">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3);min-width:100px">
+            <div style="width:48px;height:48px;border-radius:var(--radius-md);background:linear-gradient(135deg, #e6f4ff, #d6e8ff);display:grid;place-items:center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <a href="quotation-list.html" style="font-size:var(--text-sm);font-weight:600;color:var(--fg)">报价单</a>
+            <span style="font-size:11px;color:var(--muted)">客户报价</span>
+          </div>
+          <svg width="48" height="20" viewBox="0 0 48 20" style="flex-shrink:0;margin:0 var(--space-3)"><path d="M0 10h40M34 5l6 5-6 5" fill="none" stroke="var(--border)" stroke-width="1.5"/></svg>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3);min-width:100px">
+            <div style="width:48px;height:48px;border-radius:var(--radius-md);background:linear-gradient(135deg, #f0fff0, #e0ffe0);display:grid;place-items:center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="1.8"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            </div>
+            <a href="order-list.html" style="font-size:var(--text-sm);font-weight:600;color:var(--fg)">销售订单</a>
+            <span style="font-size:11px;color:var(--muted)">确认订单</span>
+          </div>
+          <svg width="48" height="20" viewBox="0 0 48 20" style="flex-shrink:0;margin:0 var(--space-3)"><path d="M0 10h40M34 5l6 5-6 5" fill="none" stroke="var(--border)" stroke-width="1.5"/></svg>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3);min-width:100px">
+            <div style="width:48px;height:48px;border-radius:var(--radius-md);background:linear-gradient(135deg, #fff8eb, #fff0d6);display:grid;place-items:center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="1.8"><path d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10m10 0H3m10 0h2m4 0h2V9a1 1 0 00-.293-.707l-3-3A1 1 0 0017.586 5H15m-2 11v-4a1 1 0 011-1h4"/></svg>
+            </div>
+            <a href="shipping-list.html" style="font-size:var(--text-sm);font-weight:600;color:var(--fg)">发货申请</a>
+            <span style="font-size:11px;color:var(--muted)">拣货发货</span>
+          </div>
+          <svg width="48" height="20" viewBox="0 0 48 20" style="flex-shrink:0;margin:0 var(--space-3)"><path d="M0 10h40M34 5l6 5-6 5" fill="none" stroke="var(--border)" stroke-width="1.5"/></svg>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3);min-width:100px">
+            <div style="width:48px;height:48px;border-radius:var(--radius-md);background:linear-gradient(135deg, #fff2f0, #ffe8e6);display:grid;place-items:center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.8"><path d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4"/></svg>
+            </div>
+            <a href="return-list.html" style="font-size:var(--text-sm);font-weight:600;color:var(--fg)">销售退货</a>
+            <span style="font-size:11px;color:var(--muted)">退货处理</span>
+          </div>
+          <svg width="48" height="20" viewBox="0 0 48 20" style="flex-shrink:0;margin:0 var(--space-3)"><path d="M0 10h40M34 5l6 5-6 5" fill="none" stroke="var(--border)" stroke-width="1.5"/></svg>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-3);min-width:100px">
+            <div style="width:48px;height:48px;border-radius:var(--radius-md);background:linear-gradient(135deg, #e6f4ff, #d6e8ff);display:grid;place-items:center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            </div>
+            <a href="reconciliation-list.html" style="font-size:var(--text-sm);font-weight:600;color:var(--fg)">月对账单</a>
+            <span style="font-size:11px;color:var(--muted)">月度结算</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div>
+        <h2 class="section-title" style="margin-bottom:var(--space-4)">最近活动</h2>
+        <div class="data-card">
+          <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-4)">
+            <span class="status-pill status-progress" style="font-size:11px;min-width:56px;justify-content:center">订单</span>
+            <span style="flex:1">SO-2026-0038 状态变更为<span style="font-weight:600"> 生产中</span></span>
+            <span class="text-muted" style="font-size:12px">10 分钟前</span>
+          </div>
+          <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-4)">
+            <span class="status-pill status-picking" style="font-size:11px;min-width:56px;justify-content:center">发货</span>
+            <span style="flex:1">发货申请 <a href="shipping-detail.html" style="color:var(--info);font-weight:500">SR-2026-0018</a> 开始拣货</span>
+            <span class="text-muted" style="font-size:12px">2 小时前</span>
+          </div>
+          <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-4)">
+            <span class="status-pill status-inspecting" style="font-size:11px;min-width:56px;justify-content:center">退货</span>
+            <span style="flex:1">退货单 <a href="return-detail.html" style="color:var(--info);font-weight:500">RT-2026-0009</a> 进入质检阶段</span>
+            <span class="text-muted" style="font-size:12px">昨天</span>
+          </div>
+          <div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-4)">
+            <span class="status-pill status-sent" style="font-size:11px;min-width:56px;justify-content:center">对账</span>
+            <span style="flex:1">对账单 <a href="reconciliation-detail.html" style="color:var(--info);font-weight:500">RC-2026-005</a> 已发送给客户</span>
+            <span class="text-muted" style="font-size:12px">昨天</span>
+          </div>
+          <div style="padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-4)">
+            <span class="status-pill status-accepted" style="font-size:11px;min-width:56px;justify-content:center">报价</span>
+            <span style="flex:1">报价单 QT-2026-0042 客户已接受，已转订单</span>
+            <span class="text-muted" style="font-size:12px">3 天前</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="css/sidebar.js"></script>
+<script>renderSidebar('dashboard');</script>
+</body>
+</html>

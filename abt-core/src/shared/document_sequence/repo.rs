@@ -18,8 +18,7 @@ impl DocumentSequenceRepo {
             INSERT INTO document_sequences (prefix, seq_date, current_value, padding_len, strategy)
             VALUES ($1, CURRENT_DATE, 1, $2, 1)
             ON CONFLICT (prefix, seq_date) DO UPDATE
-            SET current_value = document_sequences.current_value + 1,
-                updated_at = NOW()
+            SET current_value = document_sequences.current_value + 1
             RETURNING id, prefix, current_value, seq_date, padding_len, strategy, created_at
             "#,
         )

@@ -1,0 +1,210 @@
+syntax = "proto3";
+package abt.v1;
+
+option go_package = "abt/v1";
+
+import "abt/v1/base.proto";
+
+// 客户分类
+enum CustomerCategory {
+  CUSTOMER_CATEGORY_UNSPECIFIED = 0;
+  CUSTOMER_CATEGORY_DISTRIBUTOR = 1;
+  CUSTOMER_CATEGORY_DIRECT = 2;
+  CUSTOMER_CATEGORY_OEM = 3;
+  CUSTOMER_CATEGORY_RETAILER = 4;
+}
+
+// 客户状态
+enum CustomerStatus {
+  CUSTOMER_STATUS_UNSPECIFIED = 0;
+  CUSTOMER_STATUS_PROSPECTIVE = 1;
+  CUSTOMER_STATUS_ACTIVE = 2;
+  CUSTOMER_STATUS_INACTIVE = 3;
+  CUSTOMER_STATUS_BLACKLISTED = 4;
+}
+
+// 客户
+message Customer {
+  int64 customer_id = 1;
+  string customer_code = 2;
+  string customer_name = 3;
+  string short_name = 4;
+  CustomerCategory category = 5;
+  CustomerStatus status = 6;
+  string tax_number = 7;
+  string invoice_title = 8;
+  string credit_limit = 9;
+  string payment_terms = 10;
+  string receivable_account = 11;
+  int64 owner_id = 12;
+  int64 department_id = 13;
+  string remark = 14;
+  int64 operator_id = 15;
+  int64 created_at = 16;
+  int64 updated_at = 17;
+  repeated CustomerContact contacts = 18;
+  repeated CustomerAddress addresses = 19;
+}
+
+// 客户联系人
+message CustomerContact {
+  int64 contact_id = 1;
+  int64 customer_id = 2;
+  string contact_name = 3;
+  string position = 4;
+  string phone = 5;
+  string email = 6;
+  bool is_primary = 7;
+}
+
+// 客户地址
+message CustomerAddress {
+  int64 address_id = 1;
+  int64 customer_id = 2;
+  string address_type = 3;
+  string province = 4;
+  string city = 5;
+  string district = 6;
+  string detail = 7;
+  string contact_name = 8;
+  string contact_phone = 9;
+  bool is_default = 10;
+}
+
+// --- Requests / Responses ---
+
+message CreateCustomerRequest {
+  string customer_name = 1;
+  string short_name = 2;
+  CustomerCategory category = 3;
+  string tax_number = 4;
+  string invoice_title = 5;
+  string credit_limit = 6;
+  string payment_terms = 7;
+  string receivable_account = 8;
+  string remark = 9;
+}
+
+message UpdateCustomerRequest {
+  int64 customer_id = 1;
+  string customer_name = 2;
+  string short_name = 3;
+  CustomerCategory category = 4;
+  CustomerStatus status = 5;
+  string tax_number = 6;
+  string invoice_title = 7;
+  string credit_limit = 8;
+  string payment_terms = 9;
+  string receivable_account = 10;
+  string remark = 11;
+}
+
+message GetCustomerRequest {
+  int64 customer_id = 1;
+}
+
+message ListCustomersRequest {
+  PaginationParams pagination = 1;
+  string keyword = 2;
+  CustomerStatus status = 3;
+  CustomerCategory category = 4;
+}
+
+message CustomerResponse {
+  Customer customer = 1;
+}
+
+message CustomerListResponse {
+  repeated Customer items = 1;
+  PaginationInfo pagination = 2;
+}
+
+// Contact
+message CreateContactRequest {
+  int64 customer_id = 1;
+  string contact_name = 2;
+  string phone = 3;
+  string email = 4;
+  string position = 5;
+  bool is_primary = 6;
+}
+
+message UpdateContactRequest {
+  int64 customer_id = 1;
+  int64 contact_id = 2;
+  string contact_name = 3;
+  string phone = 4;
+  string email = 5;
+  string position = 6;
+  bool is_primary = 7;
+}
+
+message DeleteContactRequest {
+  int64 customer_id = 1;
+  int64 contact_id = 2;
+}
+
+message ListContactsRequest {
+  int64 customer_id = 1;
+}
+
+message ContactListResponse {
+  repeated CustomerContact items = 1;
+}
+
+// Address
+message CreateAddressRequest {
+  int64 customer_id = 1;
+  string address_type = 2;
+  string province = 3;
+  string city = 4;
+  string district = 5;
+  string detail = 6;
+  string contact_name = 7;
+  string contact_phone = 8;
+  bool is_default = 9;
+}
+
+message UpdateAddressRequest {
+  int64 customer_id = 1;
+  int64 address_id = 2;
+  string address_type = 3;
+  string province = 4;
+  string city = 5;
+  string district = 6;
+  string detail = 7;
+  string contact_name = 8;
+  string contact_phone = 9;
+  bool is_default = 10;
+}
+
+message DeleteAddressRequest {
+  int64 customer_id = 1;
+  int64 address_id = 2;
+}
+
+message ListAddressesRequest {
+  int64 customer_id = 1;
+}
+
+message AddressListResponse {
+  repeated CustomerAddress items = 1;
+}
+
+// Service
+service CustomerService {
+  rpc CreateCustomer(CreateCustomerRequest) returns (U64Response);
+  rpc UpdateCustomer(UpdateCustomerRequest) returns (BoolResponse);
+  rpc GetCustomer(GetCustomerRequest) returns (CustomerResponse);
+  rpc ListCustomers(ListCustomersRequest) returns (CustomerListResponse);
+
+  rpc CreateContact(CreateContactRequest) returns (U64Response);
+  rpc UpdateContact(UpdateContactRequest) returns (BoolResponse);
+  rpc DeleteContact(DeleteContactRequest) returns (BoolResponse);
+  rpc ListContacts(ListContactsRequest) returns (ContactListResponse);
+
+  rpc CreateAddress(CreateAddressRequest) returns (U64Response);
+  rpc UpdateAddress(UpdateAddressRequest) returns (BoolResponse);
+  rpc DeleteAddress(DeleteAddressRequest) returns (BoolResponse);
+  rpc ListAddresses(ListAddressesRequest) returns (AddressListResponse);
+}

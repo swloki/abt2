@@ -6266,6 +6266,1447 @@ pub mod abt_category_service_server {
         const NAME: &'static str = SERVICE_NAME;
     }
 }
+/// 客户
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Customer {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+    #[prost(string, tag = "2")]
+    pub customer_code: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub customer_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub short_name: ::prost::alloc::string::String,
+    #[prost(enumeration = "CustomerCategory", tag = "5")]
+    pub category: i32,
+    #[prost(enumeration = "CustomerStatus", tag = "6")]
+    pub status: i32,
+    #[prost(string, tag = "7")]
+    pub tax_number: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub invoice_title: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub credit_limit: ::prost::alloc::string::String,
+    #[prost(string, tag = "10")]
+    pub payment_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "11")]
+    pub receivable_account: ::prost::alloc::string::String,
+    #[prost(int64, tag = "12")]
+    pub owner_id: i64,
+    #[prost(int64, tag = "13")]
+    pub department_id: i64,
+    #[prost(string, tag = "14")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "15")]
+    pub operator_id: i64,
+    #[prost(int64, tag = "16")]
+    pub created_at: i64,
+    #[prost(int64, tag = "17")]
+    pub updated_at: i64,
+    #[prost(message, repeated, tag = "18")]
+    pub contacts: ::prost::alloc::vec::Vec<CustomerContact>,
+    #[prost(message, repeated, tag = "19")]
+    pub addresses: ::prost::alloc::vec::Vec<CustomerAddress>,
+}
+/// 客户联系人
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CustomerContact {
+    #[prost(int64, tag = "1")]
+    pub contact_id: i64,
+    #[prost(int64, tag = "2")]
+    pub customer_id: i64,
+    #[prost(string, tag = "3")]
+    pub contact_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub position: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub phone: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub email: ::prost::alloc::string::String,
+    #[prost(bool, tag = "7")]
+    pub is_primary: bool,
+}
+/// 客户地址
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CustomerAddress {
+    #[prost(int64, tag = "1")]
+    pub address_id: i64,
+    #[prost(int64, tag = "2")]
+    pub customer_id: i64,
+    #[prost(string, tag = "3")]
+    pub address_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub province: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub city: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub district: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub detail: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub contact_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub contact_phone: ::prost::alloc::string::String,
+    #[prost(bool, tag = "10")]
+    pub is_default: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CreateCustomerRequest {
+    #[prost(string, tag = "1")]
+    pub customer_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub short_name: ::prost::alloc::string::String,
+    #[prost(enumeration = "CustomerCategory", tag = "3")]
+    pub category: i32,
+    #[prost(string, tag = "4")]
+    pub tax_number: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub invoice_title: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub credit_limit: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub payment_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub receivable_account: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub remark: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateCustomerRequest {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+    #[prost(string, tag = "2")]
+    pub customer_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub short_name: ::prost::alloc::string::String,
+    #[prost(enumeration = "CustomerCategory", tag = "4")]
+    pub category: i32,
+    #[prost(enumeration = "CustomerStatus", tag = "5")]
+    pub status: i32,
+    #[prost(string, tag = "6")]
+    pub tax_number: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub invoice_title: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub credit_limit: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub payment_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "10")]
+    pub receivable_account: ::prost::alloc::string::String,
+    #[prost(string, tag = "11")]
+    pub remark: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetCustomerRequest {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListCustomersRequest {
+    #[prost(message, optional, tag = "1")]
+    pub pagination: ::core::option::Option<PaginationParams>,
+    #[prost(string, tag = "2")]
+    pub keyword: ::prost::alloc::string::String,
+    #[prost(enumeration = "CustomerStatus", tag = "3")]
+    pub status: i32,
+    #[prost(enumeration = "CustomerCategory", tag = "4")]
+    pub category: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CustomerResponse {
+    #[prost(message, optional, tag = "1")]
+    pub customer: ::core::option::Option<Customer>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CustomerListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<Customer>,
+    #[prost(message, optional, tag = "2")]
+    pub pagination: ::core::option::Option<PaginationInfo>,
+}
+/// Contact
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CreateContactRequest {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+    #[prost(string, tag = "2")]
+    pub contact_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub phone: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub email: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub position: ::prost::alloc::string::String,
+    #[prost(bool, tag = "6")]
+    pub is_primary: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateContactRequest {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+    #[prost(int64, tag = "2")]
+    pub contact_id: i64,
+    #[prost(string, tag = "3")]
+    pub contact_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub phone: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub email: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub position: ::prost::alloc::string::String,
+    #[prost(bool, tag = "7")]
+    pub is_primary: bool,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeleteContactRequest {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+    #[prost(int64, tag = "2")]
+    pub contact_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListContactsRequest {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ContactListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<CustomerContact>,
+}
+/// Address
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct CreateAddressRequest {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+    #[prost(string, tag = "2")]
+    pub address_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub province: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub city: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub district: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub detail: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub contact_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub contact_phone: ::prost::alloc::string::String,
+    #[prost(bool, tag = "9")]
+    pub is_default: bool,
+}
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct UpdateAddressRequest {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+    #[prost(int64, tag = "2")]
+    pub address_id: i64,
+    #[prost(string, tag = "3")]
+    pub address_type: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub province: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub city: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub district: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub detail: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub contact_name: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub contact_phone: ::prost::alloc::string::String,
+    #[prost(bool, tag = "10")]
+    pub is_default: bool,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct DeleteAddressRequest {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+    #[prost(int64, tag = "2")]
+    pub address_id: i64,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ListAddressesRequest {
+    #[prost(int64, tag = "1")]
+    pub customer_id: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AddressListResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub items: ::prost::alloc::vec::Vec<CustomerAddress>,
+}
+/// 客户分类
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CustomerCategory {
+    Unspecified = 0,
+    Distributor = 1,
+    Direct = 2,
+    Oem = 3,
+    Retailer = 4,
+}
+impl CustomerCategory {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "CUSTOMER_CATEGORY_UNSPECIFIED",
+            Self::Distributor => "CUSTOMER_CATEGORY_DISTRIBUTOR",
+            Self::Direct => "CUSTOMER_CATEGORY_DIRECT",
+            Self::Oem => "CUSTOMER_CATEGORY_OEM",
+            Self::Retailer => "CUSTOMER_CATEGORY_RETAILER",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "CUSTOMER_CATEGORY_UNSPECIFIED" => Some(Self::Unspecified),
+            "CUSTOMER_CATEGORY_DISTRIBUTOR" => Some(Self::Distributor),
+            "CUSTOMER_CATEGORY_DIRECT" => Some(Self::Direct),
+            "CUSTOMER_CATEGORY_OEM" => Some(Self::Oem),
+            "CUSTOMER_CATEGORY_RETAILER" => Some(Self::Retailer),
+            _ => None,
+        }
+    }
+}
+/// 客户状态
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum CustomerStatus {
+    Unspecified = 0,
+    Prospective = 1,
+    Active = 2,
+    Inactive = 3,
+    Blacklisted = 4,
+}
+impl CustomerStatus {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "CUSTOMER_STATUS_UNSPECIFIED",
+            Self::Prospective => "CUSTOMER_STATUS_PROSPECTIVE",
+            Self::Active => "CUSTOMER_STATUS_ACTIVE",
+            Self::Inactive => "CUSTOMER_STATUS_INACTIVE",
+            Self::Blacklisted => "CUSTOMER_STATUS_BLACKLISTED",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "CUSTOMER_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
+            "CUSTOMER_STATUS_PROSPECTIVE" => Some(Self::Prospective),
+            "CUSTOMER_STATUS_ACTIVE" => Some(Self::Active),
+            "CUSTOMER_STATUS_INACTIVE" => Some(Self::Inactive),
+            "CUSTOMER_STATUS_BLACKLISTED" => Some(Self::Blacklisted),
+            _ => None,
+        }
+    }
+}
+/// Generated client implementations.
+pub mod customer_service_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    /// Service
+    #[derive(Debug, Clone)]
+    pub struct CustomerServiceClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl CustomerServiceClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> CustomerServiceClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::Body>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> CustomerServiceClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::Body>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::Body>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            CustomerServiceClient::new(InterceptedService::new(inner, interceptor))
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        pub async fn create_customer(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateCustomerRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/CreateCustomer",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "CreateCustomer"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_customer(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateCustomerRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/UpdateCustomer",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "UpdateCustomer"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_customer(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetCustomerRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CustomerResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/GetCustomer",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "GetCustomer"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_customers(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListCustomersRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CustomerListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/ListCustomers",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "ListCustomers"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn create_contact(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateContactRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/CreateContact",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "CreateContact"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_contact(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateContactRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/UpdateContact",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "UpdateContact"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn delete_contact(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DeleteContactRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/DeleteContact",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "DeleteContact"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_contacts(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListContactsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ContactListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/ListContacts",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "ListContacts"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn create_address(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateAddressRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/CreateAddress",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "CreateAddress"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_address(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateAddressRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/UpdateAddress",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "UpdateAddress"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn delete_address(
+            &mut self,
+            request: impl tonic::IntoRequest<super::DeleteAddressRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/DeleteAddress",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "DeleteAddress"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_addresses(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListAddressesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::AddressListResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.CustomerService/ListAddresses",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("abt.v1.CustomerService", "ListAddresses"));
+            self.inner.unary(req, path, codec).await
+        }
+    }
+}
+/// Generated server implementations.
+pub mod customer_service_server {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    /// Generated trait containing gRPC methods that should be implemented for use with CustomerServiceServer.
+    #[async_trait]
+    pub trait CustomerService: std::marker::Send + std::marker::Sync + 'static {
+        async fn create_customer(
+            &self,
+            request: tonic::Request<super::CreateCustomerRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn update_customer(
+            &self,
+            request: tonic::Request<super::UpdateCustomerRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn get_customer(
+            &self,
+            request: tonic::Request<super::GetCustomerRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CustomerResponse>,
+            tonic::Status,
+        >;
+        async fn list_customers(
+            &self,
+            request: tonic::Request<super::ListCustomersRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CustomerListResponse>,
+            tonic::Status,
+        >;
+        async fn create_contact(
+            &self,
+            request: tonic::Request<super::CreateContactRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn update_contact(
+            &self,
+            request: tonic::Request<super::UpdateContactRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn delete_contact(
+            &self,
+            request: tonic::Request<super::DeleteContactRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn list_contacts(
+            &self,
+            request: tonic::Request<super::ListContactsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ContactListResponse>,
+            tonic::Status,
+        >;
+        async fn create_address(
+            &self,
+            request: tonic::Request<super::CreateAddressRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn update_address(
+            &self,
+            request: tonic::Request<super::UpdateAddressRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn delete_address(
+            &self,
+            request: tonic::Request<super::DeleteAddressRequest>,
+        ) -> std::result::Result<tonic::Response<super::BoolResponse>, tonic::Status>;
+        async fn list_addresses(
+            &self,
+            request: tonic::Request<super::ListAddressesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::AddressListResponse>,
+            tonic::Status,
+        >;
+    }
+    /// Service
+    #[derive(Debug)]
+    pub struct CustomerServiceServer<T> {
+        inner: Arc<T>,
+        accept_compression_encodings: EnabledCompressionEncodings,
+        send_compression_encodings: EnabledCompressionEncodings,
+        max_decoding_message_size: Option<usize>,
+        max_encoding_message_size: Option<usize>,
+    }
+    impl<T> CustomerServiceServer<T> {
+        pub fn new(inner: T) -> Self {
+            Self::from_arc(Arc::new(inner))
+        }
+        pub fn from_arc(inner: Arc<T>) -> Self {
+            Self {
+                inner,
+                accept_compression_encodings: Default::default(),
+                send_compression_encodings: Default::default(),
+                max_decoding_message_size: None,
+                max_encoding_message_size: None,
+            }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> InterceptedService<Self, F>
+        where
+            F: tonic::service::Interceptor,
+        {
+            InterceptedService::new(Self::new(inner), interceptor)
+        }
+        /// Enable decompressing requests with the given encoding.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.accept_compression_encodings.enable(encoding);
+            self
+        }
+        /// Compress responses with the given encoding, if the client supports it.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.send_compression_encodings.enable(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.max_decoding_message_size = Some(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.max_encoding_message_size = Some(limit);
+            self
+        }
+    }
+    impl<T, B> tonic::codegen::Service<http::Request<B>> for CustomerServiceServer<T>
+    where
+        T: CustomerService,
+        B: Body + std::marker::Send + 'static,
+        B::Error: Into<StdError> + std::marker::Send + 'static,
+    {
+        type Response = http::Response<tonic::body::Body>;
+        type Error = std::convert::Infallible;
+        type Future = BoxFuture<Self::Response, Self::Error>;
+        fn poll_ready(
+            &mut self,
+            _cx: &mut Context<'_>,
+        ) -> Poll<std::result::Result<(), Self::Error>> {
+            Poll::Ready(Ok(()))
+        }
+        fn call(&mut self, req: http::Request<B>) -> Self::Future {
+            match req.uri().path() {
+                "/abt.v1.CustomerService/CreateCustomer" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateCustomerSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::CreateCustomerRequest>
+                    for CreateCustomerSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateCustomerRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::create_customer(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateCustomerSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/UpdateCustomer" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateCustomerSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::UpdateCustomerRequest>
+                    for UpdateCustomerSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateCustomerRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::update_customer(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateCustomerSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/GetCustomer" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetCustomerSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::GetCustomerRequest>
+                    for GetCustomerSvc<T> {
+                        type Response = super::CustomerResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetCustomerRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::get_customer(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetCustomerSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/ListCustomers" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListCustomersSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::ListCustomersRequest>
+                    for ListCustomersSvc<T> {
+                        type Response = super::CustomerListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListCustomersRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::list_customers(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListCustomersSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/CreateContact" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateContactSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::CreateContactRequest>
+                    for CreateContactSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateContactRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::create_contact(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateContactSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/UpdateContact" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateContactSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::UpdateContactRequest>
+                    for UpdateContactSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateContactRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::update_contact(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateContactSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/DeleteContact" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeleteContactSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::DeleteContactRequest>
+                    for DeleteContactSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeleteContactRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::delete_contact(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DeleteContactSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/ListContacts" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListContactsSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::ListContactsRequest>
+                    for ListContactsSvc<T> {
+                        type Response = super::ContactListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListContactsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::list_contacts(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListContactsSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/CreateAddress" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateAddressSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::CreateAddressRequest>
+                    for CreateAddressSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateAddressRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::create_address(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateAddressSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/UpdateAddress" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateAddressSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::UpdateAddressRequest>
+                    for UpdateAddressSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateAddressRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::update_address(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateAddressSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/DeleteAddress" => {
+                    #[allow(non_camel_case_types)]
+                    struct DeleteAddressSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::DeleteAddressRequest>
+                    for DeleteAddressSvc<T> {
+                        type Response = super::BoolResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::DeleteAddressRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::delete_address(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DeleteAddressSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.CustomerService/ListAddresses" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListAddressesSvc<T: CustomerService>(pub Arc<T>);
+                    impl<
+                        T: CustomerService,
+                    > tonic::server::UnaryService<super::ListAddressesRequest>
+                    for ListAddressesSvc<T> {
+                        type Response = super::AddressListResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListAddressesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as CustomerService>::list_addresses(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListAddressesSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                _ => {
+                    Box::pin(async move {
+                        let mut response = http::Response::new(
+                            tonic::body::Body::default(),
+                        );
+                        let headers = response.headers_mut();
+                        headers
+                            .insert(
+                                tonic::Status::GRPC_STATUS,
+                                (tonic::Code::Unimplemented as i32).into(),
+                            );
+                        headers
+                            .insert(
+                                http::header::CONTENT_TYPE,
+                                tonic::metadata::GRPC_CONTENT_TYPE,
+                            );
+                        Ok(response)
+                    })
+                }
+            }
+        }
+    }
+    impl<T> Clone for CustomerServiceServer<T> {
+        fn clone(&self) -> Self {
+            let inner = self.inner.clone();
+            Self {
+                inner,
+                accept_compression_encodings: self.accept_compression_encodings,
+                send_compression_encodings: self.send_compression_encodings,
+                max_decoding_message_size: self.max_decoding_message_size,
+                max_encoding_message_size: self.max_encoding_message_size,
+            }
+        }
+    }
+    /// Generated gRPC service name
+    pub const SERVICE_NAME: &str = "abt.v1.CustomerService";
+    impl<T> tonic::server::NamedService for CustomerServiceServer<T> {
+        const NAME: &'static str = SERVICE_NAME;
+    }
+}
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetUserPermissionsRequest {
     #[prost(int64, tag = "1")]
@@ -6394,6 +7835,12 @@ pub enum Resource {
     BomCost = 15,
     BomLaborCost = 16,
     Sync = 17,
+    Quotation = 18,
+    SalesOrder = 19,
+    ShippingRequest = 20,
+    SalesReturn = 21,
+    Reconciliation = 22,
+    Customer = 23,
 }
 impl Resource {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -6420,6 +7867,12 @@ impl Resource {
             Self::BomCost => "BOM_COST",
             Self::BomLaborCost => "BOM_LABOR_COST",
             Self::Sync => "SYNC",
+            Self::Quotation => "QUOTATION",
+            Self::SalesOrder => "SALES_ORDER",
+            Self::ShippingRequest => "SHIPPING_REQUEST",
+            Self::SalesReturn => "SALES_RETURN",
+            Self::Reconciliation => "RECONCILIATION",
+            Self::Customer => "CUSTOMER",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -6443,6 +7896,12 @@ impl Resource {
             "BOM_COST" => Some(Self::BomCost),
             "BOM_LABOR_COST" => Some(Self::BomLaborCost),
             "SYNC" => Some(Self::Sync),
+            "QUOTATION" => Some(Self::Quotation),
+            "SALES_ORDER" => Some(Self::SalesOrder),
+            "SHIPPING_REQUEST" => Some(Self::ShippingRequest),
+            "SALES_RETURN" => Some(Self::SalesReturn),
+            "RECONCILIATION" => Some(Self::Reconciliation),
+            "CUSTOMER" => Some(Self::Customer),
             _ => None,
         }
     }
@@ -16825,6 +18284,14 @@ pub struct QuotationItem {
     pub subtotal: ::prost::alloc::string::String,
     #[prost(string, tag = "11")]
     pub remark: ::prost::alloc::string::String,
+    #[prost(string, tag = "12")]
+    pub unit_cost: ::prost::alloc::string::String,
+    #[prost(int32, tag = "13")]
+    pub line_no: i32,
+    #[prost(string, tag = "14")]
+    pub description: ::prost::alloc::string::String,
+    #[prost(int64, tag = "15")]
+    pub delivery_date: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Quotation {
@@ -16854,6 +18321,22 @@ pub struct Quotation {
     pub operator_id: i64,
     #[prost(message, repeated, tag = "13")]
     pub items: ::prost::alloc::vec::Vec<QuotationItem>,
+    #[prost(int64, tag = "14")]
+    pub customer_id: i64,
+    #[prost(int64, tag = "15")]
+    pub contact_id: i64,
+    #[prost(int64, tag = "16")]
+    pub sales_rep_id: i64,
+    #[prost(int64, tag = "17")]
+    pub quotation_date: i64,
+    #[prost(string, tag = "18")]
+    pub total_cost: ::prost::alloc::string::String,
+    #[prost(string, tag = "19")]
+    pub estimated_margin: ::prost::alloc::string::String,
+    #[prost(string, tag = "20")]
+    pub payment_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "21")]
+    pub delivery_terms: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateQuotationRequest {
@@ -16869,6 +18352,16 @@ pub struct CreateQuotationRequest {
     pub valid_until: i64,
     #[prost(message, repeated, tag = "6")]
     pub items: ::prost::alloc::vec::Vec<CreateQuotationItem>,
+    #[prost(int64, tag = "7")]
+    pub customer_id: i64,
+    #[prost(int64, tag = "8")]
+    pub contact_id: i64,
+    #[prost(int64, tag = "9")]
+    pub sales_rep_id: i64,
+    #[prost(string, tag = "10")]
+    pub payment_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "11")]
+    pub delivery_terms: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateQuotationItem {
@@ -16882,6 +18375,12 @@ pub struct CreateQuotationItem {
     pub discount: ::prost::alloc::string::String,
     #[prost(string, tag = "5")]
     pub remark: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub unit_cost: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub description: ::prost::alloc::string::String,
+    #[prost(int64, tag = "8")]
+    pub delivery_date: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpdateQuotationRequest {
@@ -16899,6 +18398,14 @@ pub struct UpdateQuotationRequest {
     pub valid_until: i64,
     #[prost(message, repeated, tag = "7")]
     pub items: ::prost::alloc::vec::Vec<CreateQuotationItem>,
+    #[prost(int64, tag = "8")]
+    pub contact_id: i64,
+    #[prost(string, tag = "9")]
+    pub payment_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "10")]
+    pub delivery_terms: ::prost::alloc::string::String,
+    #[prost(int64, tag = "11")]
+    pub customer_id: i64,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListQuotationsRequest {
@@ -16908,6 +18415,10 @@ pub struct ListQuotationsRequest {
     pub status: ::core::option::Option<i32>,
     #[prost(message, optional, tag = "3")]
     pub pagination: ::core::option::Option<PaginationParams>,
+    #[prost(int64, optional, tag = "4")]
+    pub customer_id: ::core::option::Option<i64>,
+    #[prost(int64, optional, tag = "5")]
+    pub sales_rep_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetQuotationRequest {
@@ -16943,7 +18454,7 @@ pub struct QuotationListResponse {
 pub enum QuotationStatus {
     Unspecified = 0,
     Draft = 1,
-    Submitted = 2,
+    Sent = 2,
     Accepted = 3,
     Rejected = 4,
     Expired = 5,
@@ -16957,7 +18468,7 @@ impl QuotationStatus {
         match self {
             Self::Unspecified => "QUOTATION_STATUS_UNSPECIFIED",
             Self::Draft => "QUOTATION_STATUS_DRAFT",
-            Self::Submitted => "QUOTATION_STATUS_SUBMITTED",
+            Self::Sent => "QUOTATION_STATUS_SENT",
             Self::Accepted => "QUOTATION_STATUS_ACCEPTED",
             Self::Rejected => "QUOTATION_STATUS_REJECTED",
             Self::Expired => "QUOTATION_STATUS_EXPIRED",
@@ -16968,7 +18479,7 @@ impl QuotationStatus {
         match value {
             "QUOTATION_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
             "QUOTATION_STATUS_DRAFT" => Some(Self::Draft),
-            "QUOTATION_STATUS_SUBMITTED" => Some(Self::Submitted),
+            "QUOTATION_STATUS_SENT" => Some(Self::Sent),
             "QUOTATION_STATUS_ACCEPTED" => Some(Self::Accepted),
             "QUOTATION_STATUS_REJECTED" => Some(Self::Rejected),
             "QUOTATION_STATUS_EXPIRED" => Some(Self::Expired),
@@ -17668,6 +19179,12 @@ pub struct ReconciliationItem {
     pub amount: ::prost::alloc::string::String,
     #[prost(string, tag = "12")]
     pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "13")]
+    pub shipping_request_id: i64,
+    #[prost(int64, tag = "14")]
+    pub sales_order_id: i64,
+    #[prost(bool, tag = "15")]
+    pub confirmed: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ReconciliationStatement {
@@ -17701,6 +19218,12 @@ pub struct ReconciliationStatement {
     pub updated_at: i64,
     #[prost(message, repeated, tag = "15")]
     pub items: ::prost::alloc::vec::Vec<ReconciliationItem>,
+    #[prost(int64, tag = "16")]
+    pub customer_id: i64,
+    #[prost(string, tag = "17")]
+    pub confirmed_amount: ::prost::alloc::string::String,
+    #[prost(string, tag = "18")]
+    pub difference: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateReconciliationRequest {
@@ -17712,6 +19235,8 @@ pub struct CreateReconciliationRequest {
     pub period_month: i32,
     #[prost(string, tag = "4")]
     pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "5")]
+    pub customer_id: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AddReconciliationAdjustmentRequest {
@@ -17752,6 +19277,8 @@ pub struct ListReconciliationsRequest {
     pub period_month: ::core::option::Option<i32>,
     #[prost(message, optional, tag = "5")]
     pub pagination: ::core::option::Option<PaginationParams>,
+    #[prost(int64, optional, tag = "6")]
+    pub customer_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetReconciliationRequest {
@@ -17787,8 +19314,10 @@ pub struct ReconciliationListResponse {
 pub enum ReconciliationStatus {
     Unspecified = 0,
     Draft = 1,
-    Confirmed = 2,
-    Approved = 3,
+    Sent = 2,
+    Confirmed = 3,
+    Disputed = 4,
+    Settled = 5,
 }
 impl ReconciliationStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -17799,8 +19328,10 @@ impl ReconciliationStatus {
         match self {
             Self::Unspecified => "RECONCILIATION_STATUS_UNSPECIFIED",
             Self::Draft => "RECONCILIATION_STATUS_DRAFT",
+            Self::Sent => "RECONCILIATION_STATUS_SENT",
             Self::Confirmed => "RECONCILIATION_STATUS_CONFIRMED",
-            Self::Approved => "RECONCILIATION_STATUS_APPROVED",
+            Self::Disputed => "RECONCILIATION_STATUS_DISPUTED",
+            Self::Settled => "RECONCILIATION_STATUS_SETTLED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -17808,8 +19339,10 @@ impl ReconciliationStatus {
         match value {
             "RECONCILIATION_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
             "RECONCILIATION_STATUS_DRAFT" => Some(Self::Draft),
+            "RECONCILIATION_STATUS_SENT" => Some(Self::Sent),
             "RECONCILIATION_STATUS_CONFIRMED" => Some(Self::Confirmed),
-            "RECONCILIATION_STATUS_APPROVED" => Some(Self::Approved),
+            "RECONCILIATION_STATUS_DISPUTED" => Some(Self::Disputed),
+            "RECONCILIATION_STATUS_SETTLED" => Some(Self::Settled),
             _ => None,
         }
     }
@@ -20394,6 +21927,14 @@ pub struct SalesOrderItem {
     pub returned_qty: ::prost::alloc::string::String,
     #[prost(string, tag = "13")]
     pub remark: ::prost::alloc::string::String,
+    #[prost(int32, tag = "14")]
+    pub line_no: i32,
+    #[prost(string, tag = "15")]
+    pub description: ::prost::alloc::string::String,
+    #[prost(string, tag = "16")]
+    pub unit_cost: ::prost::alloc::string::String,
+    #[prost(int64, tag = "17")]
+    pub delivery_date: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SalesOrder {
@@ -20425,6 +21966,20 @@ pub struct SalesOrder {
     pub operator_id: i64,
     #[prost(message, repeated, tag = "14")]
     pub items: ::prost::alloc::vec::Vec<SalesOrderItem>,
+    #[prost(int64, tag = "15")]
+    pub customer_id: i64,
+    #[prost(int64, tag = "16")]
+    pub contact_id: i64,
+    #[prost(int64, tag = "17")]
+    pub sales_rep_id: i64,
+    #[prost(string, tag = "18")]
+    pub total_cost: ::prost::alloc::string::String,
+    #[prost(string, tag = "19")]
+    pub payment_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "20")]
+    pub delivery_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "21")]
+    pub delivery_address: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateSalesOrderRequest {
@@ -20442,6 +21997,29 @@ pub struct CreateSalesOrderRequest {
     pub delivery_date: i64,
     #[prost(message, repeated, tag = "7")]
     pub items: ::prost::alloc::vec::Vec<CreateSalesOrderItem>,
+    #[prost(int64, tag = "8")]
+    pub customer_id: i64,
+    #[prost(int64, tag = "9")]
+    pub contact_id: i64,
+    #[prost(int64, tag = "10")]
+    pub sales_rep_id: i64,
+    #[prost(string, tag = "11")]
+    pub payment_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "12")]
+    pub delivery_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "13")]
+    pub delivery_address: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateSalesOrderFromQuotationRequest {
+    #[prost(int64, tag = "1")]
+    pub quotation_id: i64,
+    #[prost(string, tag = "2")]
+    pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub delivery_date: i64,
+    #[prost(message, repeated, tag = "4")]
+    pub items: ::prost::alloc::vec::Vec<CreateSalesOrderItem>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateSalesOrderItem {
@@ -20455,6 +22033,12 @@ pub struct CreateSalesOrderItem {
     pub discount: ::prost::alloc::string::String,
     #[prost(string, tag = "5")]
     pub remark: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub unit_cost: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub description: ::prost::alloc::string::String,
+    #[prost(int64, tag = "8")]
+    pub delivery_date: i64,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct UpdateSalesOrderRequest {
@@ -20470,6 +22054,16 @@ pub struct UpdateSalesOrderRequest {
     pub remark: ::prost::alloc::string::String,
     #[prost(int64, tag = "6")]
     pub delivery_date: i64,
+    #[prost(int64, tag = "7")]
+    pub contact_id: i64,
+    #[prost(string, tag = "8")]
+    pub payment_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub delivery_terms: ::prost::alloc::string::String,
+    #[prost(string, tag = "10")]
+    pub delivery_address: ::prost::alloc::string::String,
+    #[prost(int64, tag = "11")]
+    pub customer_id: i64,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListSalesOrdersRequest {
@@ -20479,6 +22073,10 @@ pub struct ListSalesOrdersRequest {
     pub status: ::core::option::Option<i32>,
     #[prost(message, optional, tag = "3")]
     pub pagination: ::core::option::Option<PaginationParams>,
+    #[prost(int64, optional, tag = "4")]
+    pub customer_id: ::core::option::Option<i64>,
+    #[prost(int64, optional, tag = "5")]
+    pub sales_rep_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetSalesOrderRequest {
@@ -20518,6 +22116,8 @@ pub enum SalesOrderStatus {
     InProgress = 3,
     Completed = 4,
     Cancelled = 5,
+    PartiallyShipped = 6,
+    Shipped = 7,
 }
 impl SalesOrderStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -20532,6 +22132,8 @@ impl SalesOrderStatus {
             Self::InProgress => "SALES_ORDER_STATUS_IN_PROGRESS",
             Self::Completed => "SALES_ORDER_STATUS_COMPLETED",
             Self::Cancelled => "SALES_ORDER_STATUS_CANCELLED",
+            Self::PartiallyShipped => "SALES_ORDER_STATUS_PARTIALLY_SHIPPED",
+            Self::Shipped => "SALES_ORDER_STATUS_SHIPPED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -20543,6 +22145,8 @@ impl SalesOrderStatus {
             "SALES_ORDER_STATUS_IN_PROGRESS" => Some(Self::InProgress),
             "SALES_ORDER_STATUS_COMPLETED" => Some(Self::Completed),
             "SALES_ORDER_STATUS_CANCELLED" => Some(Self::Cancelled),
+            "SALES_ORDER_STATUS_PARTIALLY_SHIPPED" => Some(Self::PartiallyShipped),
+            "SALES_ORDER_STATUS_SHIPPED" => Some(Self::Shipped),
             _ => None,
         }
     }
@@ -20657,6 +22261,32 @@ pub mod sales_order_service_client {
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("abt.v1.SalesOrderService", "CreateSalesOrder"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn create_sales_order_from_quotation(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateSalesOrderFromQuotationRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic_prost::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/abt.v1.SalesOrderService/CreateSalesOrderFromQuotation",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(
+                    GrpcMethod::new(
+                        "abt.v1.SalesOrderService",
+                        "CreateSalesOrderFromQuotation",
+                    ),
+                );
             self.inner.unary(req, path, codec).await
         }
         pub async fn update_sales_order(
@@ -20790,6 +22420,10 @@ pub mod sales_order_service_server {
         async fn create_sales_order(
             &self,
             request: tonic::Request<super::CreateSalesOrderRequest>,
+        ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
+        async fn create_sales_order_from_quotation(
+            &self,
+            request: tonic::Request<super::CreateSalesOrderFromQuotationRequest>,
         ) -> std::result::Result<tonic::Response<super::U64Response>, tonic::Status>;
         async fn update_sales_order(
             &self,
@@ -20928,6 +22562,60 @@ pub mod sales_order_service_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = CreateSalesOrderSvc(inner);
+                        let codec = tonic_prost::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/abt.v1.SalesOrderService/CreateSalesOrderFromQuotation" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateSalesOrderFromQuotationSvc<T: SalesOrderService>(
+                        pub Arc<T>,
+                    );
+                    impl<
+                        T: SalesOrderService,
+                    > tonic::server::UnaryService<
+                        super::CreateSalesOrderFromQuotationRequest,
+                    > for CreateSalesOrderFromQuotationSvc<T> {
+                        type Response = super::U64Response;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<
+                                super::CreateSalesOrderFromQuotationRequest,
+                            >,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as SalesOrderService>::create_sales_order_from_quotation(
+                                        &inner,
+                                        request,
+                                    )
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateSalesOrderFromQuotationSvc(inner);
                         let codec = tonic_prost::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
@@ -21248,6 +22936,8 @@ pub struct SalesReturnItem {
     pub subtotal: ::prost::alloc::string::String,
     #[prost(string, tag = "12")]
     pub remark: ::prost::alloc::string::String,
+    #[prost(enumeration = "ReturnDisposition", tag = "13")]
+    pub disposition: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SalesReturn {
@@ -21277,6 +22967,8 @@ pub struct SalesReturn {
     pub updated_at: i64,
     #[prost(message, repeated, tag = "13")]
     pub items: ::prost::alloc::vec::Vec<SalesReturnItem>,
+    #[prost(int64, tag = "14")]
+    pub customer_id: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateSalesReturnRequest {
@@ -21288,6 +22980,8 @@ pub struct CreateSalesReturnRequest {
     pub reason: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "4")]
     pub items: ::prost::alloc::vec::Vec<CreateSalesReturnItem>,
+    #[prost(int64, tag = "5")]
+    pub customer_id: i64,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateSalesReturnItem {
@@ -21297,6 +22991,8 @@ pub struct CreateSalesReturnItem {
     pub quantity: ::prost::alloc::string::String,
     #[prost(string, tag = "3")]
     pub remark: ::prost::alloc::string::String,
+    #[prost(enumeration = "ReturnDisposition", tag = "4")]
+    pub disposition: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpdateSalesReturnRequest {
@@ -21308,6 +23004,8 @@ pub struct UpdateSalesReturnRequest {
     pub reason: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "4")]
     pub items: ::prost::alloc::vec::Vec<CreateSalesReturnItem>,
+    #[prost(int64, tag = "5")]
+    pub customer_id: i64,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListSalesReturnsRequest {
@@ -21321,6 +23019,8 @@ pub struct ListSalesReturnsRequest {
     pub request_id: ::core::option::Option<i64>,
     #[prost(message, optional, tag = "5")]
     pub pagination: ::core::option::Option<PaginationParams>,
+    #[prost(int64, optional, tag = "6")]
+    pub customer_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetSalesReturnRequest {
@@ -21355,11 +23055,13 @@ pub struct SalesReturnListResponse {
 #[repr(i32)]
 pub enum SalesReturnStatus {
     Unspecified = 0,
-    Pending = 1,
-    Approved = 2,
+    Draft = 1,
+    Confirmed = 2,
     Received = 3,
-    Completed = 4,
-    Rejected = 5,
+    Inspecting = 4,
+    Completed = 5,
+    Rejected = 6,
+    Cancelled = 7,
 }
 impl SalesReturnStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -21369,22 +23071,58 @@ impl SalesReturnStatus {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             Self::Unspecified => "SALES_RETURN_STATUS_UNSPECIFIED",
-            Self::Pending => "SALES_RETURN_STATUS_PENDING",
-            Self::Approved => "SALES_RETURN_STATUS_APPROVED",
+            Self::Draft => "SALES_RETURN_STATUS_DRAFT",
+            Self::Confirmed => "SALES_RETURN_STATUS_CONFIRMED",
             Self::Received => "SALES_RETURN_STATUS_RECEIVED",
+            Self::Inspecting => "SALES_RETURN_STATUS_INSPECTING",
             Self::Completed => "SALES_RETURN_STATUS_COMPLETED",
             Self::Rejected => "SALES_RETURN_STATUS_REJECTED",
+            Self::Cancelled => "SALES_RETURN_STATUS_CANCELLED",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "SALES_RETURN_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
-            "SALES_RETURN_STATUS_PENDING" => Some(Self::Pending),
-            "SALES_RETURN_STATUS_APPROVED" => Some(Self::Approved),
+            "SALES_RETURN_STATUS_DRAFT" => Some(Self::Draft),
+            "SALES_RETURN_STATUS_CONFIRMED" => Some(Self::Confirmed),
             "SALES_RETURN_STATUS_RECEIVED" => Some(Self::Received),
+            "SALES_RETURN_STATUS_INSPECTING" => Some(Self::Inspecting),
             "SALES_RETURN_STATUS_COMPLETED" => Some(Self::Completed),
             "SALES_RETURN_STATUS_REJECTED" => Some(Self::Rejected),
+            "SALES_RETURN_STATUS_CANCELLED" => Some(Self::Cancelled),
+            _ => None,
+        }
+    }
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum ReturnDisposition {
+    Unspecified = 0,
+    Restock = 1,
+    Scrap = 2,
+    Rework = 3,
+}
+impl ReturnDisposition {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            Self::Unspecified => "RETURN_DISPOSITION_UNSPECIFIED",
+            Self::Restock => "RETURN_DISPOSITION_RESTOCK",
+            Self::Scrap => "RETURN_DISPOSITION_SCRAP",
+            Self::Rework => "RETURN_DISPOSITION_REWORK",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "RETURN_DISPOSITION_UNSPECIFIED" => Some(Self::Unspecified),
+            "RETURN_DISPOSITION_RESTOCK" => Some(Self::Restock),
+            "RETURN_DISPOSITION_SCRAP" => Some(Self::Scrap),
+            "RETURN_DISPOSITION_REWORK" => Some(Self::Rework),
             _ => None,
         }
     }
@@ -22100,6 +23838,14 @@ pub struct ShippingRequestItem {
     pub quantity: ::prost::alloc::string::String,
     #[prost(string, tag = "9")]
     pub remark: ::prost::alloc::string::String,
+    #[prost(int32, tag = "10")]
+    pub line_no: i32,
+    #[prost(string, tag = "11")]
+    pub shipped_qty: ::prost::alloc::string::String,
+    #[prost(int64, tag = "12")]
+    pub warehouse_id: i64,
+    #[prost(string, tag = "13")]
+    pub description: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ShippingRequest {
@@ -22127,6 +23873,16 @@ pub struct ShippingRequest {
     pub updated_at: i64,
     #[prost(message, repeated, tag = "12")]
     pub items: ::prost::alloc::vec::Vec<ShippingRequestItem>,
+    #[prost(int64, tag = "13")]
+    pub customer_id: i64,
+    #[prost(int64, tag = "14")]
+    pub expected_ship_date: i64,
+    #[prost(string, tag = "15")]
+    pub shipping_address: ::prost::alloc::string::String,
+    #[prost(string, tag = "16")]
+    pub carrier: ::prost::alloc::string::String,
+    #[prost(string, tag = "17")]
+    pub tracking_number: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct CreateShippingRequestRequest {
@@ -22136,6 +23892,16 @@ pub struct CreateShippingRequestRequest {
     pub remark: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "3")]
     pub items: ::prost::alloc::vec::Vec<CreateShippingRequestItem>,
+    #[prost(int64, tag = "4")]
+    pub customer_id: i64,
+    #[prost(int64, tag = "5")]
+    pub expected_ship_date: i64,
+    #[prost(string, tag = "6")]
+    pub shipping_address: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub carrier: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub tracking_number: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CreateShippingRequestItem {
@@ -22145,6 +23911,10 @@ pub struct CreateShippingRequestItem {
     pub quantity: ::prost::alloc::string::String,
     #[prost(string, tag = "3")]
     pub remark: ::prost::alloc::string::String,
+    #[prost(int64, tag = "4")]
+    pub warehouse_id: i64,
+    #[prost(string, tag = "5")]
+    pub description: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct UpdateShippingRequestRequest {
@@ -22154,6 +23924,14 @@ pub struct UpdateShippingRequestRequest {
     pub remark: ::prost::alloc::string::String,
     #[prost(message, repeated, tag = "3")]
     pub items: ::prost::alloc::vec::Vec<CreateShippingRequestItem>,
+    #[prost(int64, tag = "4")]
+    pub expected_ship_date: i64,
+    #[prost(string, tag = "5")]
+    pub shipping_address: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub carrier: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub tracking_number: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ListShippingRequestsRequest {
@@ -22165,6 +23943,8 @@ pub struct ListShippingRequestsRequest {
     pub order_id: ::core::option::Option<i64>,
     #[prost(message, optional, tag = "4")]
     pub pagination: ::core::option::Option<PaginationParams>,
+    #[prost(int64, optional, tag = "5")]
+    pub customer_id: ::core::option::Option<i64>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetShippingRequestRequest {
@@ -22199,10 +23979,11 @@ pub struct ShippingRequestListResponse {
 #[repr(i32)]
 pub enum ShippingRequestStatus {
     Unspecified = 0,
-    Pending = 1,
+    Draft = 1,
     Confirmed = 2,
-    Shipped = 3,
-    Cancelled = 4,
+    Picking = 3,
+    Shipped = 4,
+    Cancelled = 5,
 }
 impl ShippingRequestStatus {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -22212,8 +23993,9 @@ impl ShippingRequestStatus {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             Self::Unspecified => "SHIPPING_REQUEST_STATUS_UNSPECIFIED",
-            Self::Pending => "SHIPPING_REQUEST_STATUS_PENDING",
+            Self::Draft => "SHIPPING_REQUEST_STATUS_DRAFT",
             Self::Confirmed => "SHIPPING_REQUEST_STATUS_CONFIRMED",
+            Self::Picking => "SHIPPING_REQUEST_STATUS_PICKING",
             Self::Shipped => "SHIPPING_REQUEST_STATUS_SHIPPED",
             Self::Cancelled => "SHIPPING_REQUEST_STATUS_CANCELLED",
         }
@@ -22222,8 +24004,9 @@ impl ShippingRequestStatus {
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "SHIPPING_REQUEST_STATUS_UNSPECIFIED" => Some(Self::Unspecified),
-            "SHIPPING_REQUEST_STATUS_PENDING" => Some(Self::Pending),
+            "SHIPPING_REQUEST_STATUS_DRAFT" => Some(Self::Draft),
             "SHIPPING_REQUEST_STATUS_CONFIRMED" => Some(Self::Confirmed),
+            "SHIPPING_REQUEST_STATUS_PICKING" => Some(Self::Picking),
             "SHIPPING_REQUEST_STATUS_SHIPPED" => Some(Self::Shipped),
             "SHIPPING_REQUEST_STATUS_CANCELLED" => Some(Self::Cancelled),
             _ => None,

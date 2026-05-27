@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@buf/xweichen_abt.bufbuild_es": "^2.12.0-20260526141644-439969643579.1"
+  }
+}

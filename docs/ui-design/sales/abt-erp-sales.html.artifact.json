@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "kind": "html",
+  "title": "ABT ERP 销售管理模块",
+  "entry": "abt-erp-sales.html",
+  "renderer": "html",
+  "status": "complete",
+  "exports": [
+    "html",
+    "pdf",
+    "zip"
+  ],
+  "createdAt": "2026-05-27T00:43:23.449Z",
+  "updatedAt": "2026-05-27T00:43:23.453Z",
+  "sourceSkillId": "agent-browser",
+  "designSystemId": "ant",
+  "metadata": {
+    "identifier": "abt-erp-sales",
+    "artifactType": "text/html",
+    "inferred": false
+  }
+}

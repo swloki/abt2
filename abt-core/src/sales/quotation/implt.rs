@@ -104,9 +104,11 @@ impl QuotationService for QuotationServiceImpl {
             return Err(DomainError::validation("valid_until must be after today"));
         }
 
-        self.customer_svc
-            .validate_contact_ownership(ctx.reborrow(), req.customer_id, req.contact_id)
-            .await?;
+        if req.customer_id > 0 {
+            self.customer_svc
+                .validate_contact_ownership(ctx.reborrow(), req.customer_id, req.contact_id)
+                .await?;
+        }
 
         let doc_number = self
             .doc_seq

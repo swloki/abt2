@@ -300,6 +300,34 @@ impl AppState {
         ProductWatcherServiceImpl::new()
     }
 
+    /// abt-core CustomerService
+    pub fn customer_core_service(&self) -> impl abt_core::master_data::customer::CustomerService {
+        use abt_core::master_data::customer::implt::CustomerServiceImpl;
+        use abt_core::master_data::customer::repo::{CustomerRepo, CustomerContactRepo, CustomerAddressRepo};
+        use abt_core::shared::audit_log::implt::AuditLogServiceImpl;
+        use abt_core::shared::audit_log::service::AuditLogService;
+        use abt_core::shared::document_sequence::implt::DocumentSequenceServiceImpl;
+        use abt_core::shared::document_sequence::service::DocumentSequenceService;
+        use abt_core::shared::event_bus::implt::DomainEventBusImpl;
+        use abt_core::shared::event_bus::service::DomainEventBus;
+        use abt_core::shared::state_machine::implt::StateMachineServiceImpl;
+        use abt_core::shared::state_machine::service::StateMachineService;
+        let pool = Arc::new(self.abt_core_pool.clone());
+        let audit: Arc<dyn AuditLogService> = Arc::new(AuditLogServiceImpl::new(pool.clone()));
+        let doc_seq: Arc<dyn DocumentSequenceService> = Arc::new(DocumentSequenceServiceImpl::new(pool.clone()));
+        let event_bus: Arc<dyn DomainEventBus> = Arc::new(DomainEventBusImpl::new(pool.clone()));
+        let state_machine: Arc<dyn StateMachineService> = Arc::new(StateMachineServiceImpl::new(pool, event_bus.clone()));
+        CustomerServiceImpl::new(
+            CustomerRepo,
+            CustomerContactRepo,
+            CustomerAddressRepo,
+            doc_seq,
+            audit,
+            event_bus,
+            state_machine,
+        )
+    }
+
     /// abt-core QuotationService
     pub fn quotation_core_service(&self) -> impl abt_core::sales::quotation::QuotationService {
         use abt_core::sales::quotation::implt::QuotationServiceImpl;
@@ -660,6 +688,7 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         AbtProductServiceServer, AbtRoutingServiceServer, AbtSyncServiceServer, AbtTermServiceServer, AbtWarehouseServiceServer,
         AbtWorkflowServiceServer,
         QuotationServiceServer, SalesOrderServiceServer, SalesReturnServiceServer, ShippingRequestServiceServer,
+        CustomerServiceServer,
         AuthServiceServer, AbtBomCategoryServiceServer, AbtCategoryServiceServer, DepartmentServiceServer,
         PermissionServiceServer, RoleServiceServer, UserServiceServer,
     };
@@ -733,6 +762,9 @@ pub async fn start_server(addr: SocketAddr) -> Result<(), Box<dyn std::error::Er
         ))
         .add_service(QuotationServiceServer::with_interceptor(
             crate::handlers::quotation::QuotationHandler::new(), auth_interceptor,
+        ))
+        .add_service(CustomerServiceServer::with_interceptor(
+            crate::handlers::customer::CustomerHandler::new(), auth_interceptor,
         ))
         .add_service(SalesOrderServiceServer::with_interceptor(
             crate::handlers::sales_order::SalesOrderHandler::new(), auth_interceptor,

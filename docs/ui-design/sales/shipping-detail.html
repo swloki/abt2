@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SR-2026-0018 · 发货申请详情</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav id="sidebar"></nav>
+  <div class="main-content">
+    <header class="top-header">
+      <div class="top-header-left">
+        <div class="breadcrumb">
+          <a href="index.html">销售管理</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="shipping-list.html">发货申请</a>
+          <span class="breadcrumb-sep">/</span>
+          <span>SR-2026-0018</span>
+        </div>
+      </div>
+      <div class="top-header-right">
+        <button class="header-icon-btn" title="通知">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <div class="header-dot"></div>
+        </button>
+        <button class="header-icon-btn" title="帮助">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+        <div class="avatar">ZM</div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <a href="shipping-list.html" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 19l-7-7 7-7"/></svg>
+        返回发货申请列表
+      </a>
+
+      <div class="detail-header">
+        <div>
+          <div class="detail-title-row">
+            <h1 class="detail-no font-mono">SR-2026-0018</h1>
+            <span class="status-pill status-picking">拣货中</span>
+          </div>
+          <div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)">
+            来源订单：<a href="order-detail.html" style="color:var(--info);font-weight:500">SO-2026-0038</a>
+          </div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-default">取消申请</button>
+          <button class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 13l4 4L19 7"/></svg>
+            确认发货
+          </button>
+        </div>
+      </div>
+
+      <div class="workflow-steps">
+        <div class="wf-step completed"><span class="wf-dot"></span>草稿</div>
+        <div class="wf-line completed"></div>
+        <div class="wf-step completed"><span class="wf-dot"></span>已确认</div>
+        <div class="wf-line completed"></div>
+        <div class="wf-step current"><span class="wf-dot"></span>拣货中</div>
+        <div class="wf-line"></div>
+        <div class="wf-step"><span class="wf-dot"></span>已发货</div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title">发货信息</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">客户名称</span>
+            <span class="info-value">深圳华科电子有限公司</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">收货地址</span>
+            <span class="info-value">深圳市南山区科技园南路88号</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">预计发货日期</span>
+            <span class="info-value mono">2026-06-10</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">承运商</span>
+            <span class="info-value">顺丰速运</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">物流单号</span>
+            <span class="info-value mono">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">操作员</span>
+            <span class="info-value">王磊</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="data-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>行号</th>
+              <th>产品编码</th>
+              <th>产品名称</th>
+              <th>规格描述</th>
+              <th>单位</th>
+              <th class="num-right">申请数量</th>
+              <th class="num-right">已发货</th>
+              <th>发货仓库</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">1</td>
+              <td class="mono">P-1042</td>
+              <td>高频电源模组 HP-500W</td>
+              <td>500W / AC220V / 效率≥94%</td>
+              <td>PCS</td>
+              <td class="num-right">120</td>
+              <td class="num-right">0</td>
+              <td>深圳总仓 A-03</td>
+            </tr>
+            <tr>
+              <td class="mono">2</td>
+              <td class="mono">P-1087</td>
+              <td>LED驱动模块 LD-240</td>
+              <td>240mA / 恒流 / PF≥0.95</td>
+              <td>PCS</td>
+              <td class="num-right">300</td>
+              <td class="num-right">0</td>
+              <td>深圳总仓 B-07</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="info-card" style="margin-top:var(--space-6)">
+        <div class="info-card-title">备注</div>
+        <p class="text-muted">第一批发货，包含电源模组和LED驱动模块。控制板 PCB-32V2 将在第二批发货。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="css/sidebar.js"></script>
+<script>renderSidebar('shipping');</script>
+</body>
+</html>

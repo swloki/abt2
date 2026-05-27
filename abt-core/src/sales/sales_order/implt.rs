@@ -352,6 +352,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .await
             ?;
 
+        // Reserve inventory in a savepoint so failures don't abort the main transaction
         let ttl = chrono::Utc::now() + TimeDelta::days(7);
         let reserve_requests: Vec<ReserveRequest> = items
             .iter()
@@ -368,14 +369,46 @@ impl SalesOrderService for SalesOrderServiceImpl {
             })
             .collect();
 
-        self.inv_res.reserve(ctx.reborrow(), reserve_requests).await?;
+        sqlx::query("SAVEPOINT sp_reserve")
+            .execute(&mut *ctx.executor)
+            .await
+            .ok();
+        match self.inv_res.reserve(ctx.reborrow(), reserve_requests).await {
+            Ok(batch) if batch.failed_items.is_empty() => {
+                sqlx::query("RELEASE SAVEPOINT sp_reserve")
+                    .execute(&mut *ctx.executor)
+                    .await
+                    .ok();
+            }
+            Ok(batch) => {
+                tracing::warn!(
+                    "inventory reservation partial failure: {}/{} succeeded",
+                    batch.success_count, batch.total
+                );
+                sqlx::query("ROLLBACK TO SAVEPOINT sp_reserve")
+                    .execute(&mut *ctx.executor)
+                    .await
+                    .ok();
+            }
+            Err(e) => {
+                tracing::warn!("inventory reserve error: {e}");
+                sqlx::query("ROLLBACK TO SAVEPOINT sp_reserve")
+                    .execute(&mut *ctx.executor)
+                    .await
+                    .ok();
+            }
+        }
 
         self.repo
             .update_status(ctx.executor, id, SalesOrderStatus::Confirmed)
             .await
             ?;
 
-        self.audit
+        sqlx::query("SAVEPOINT sp_audit")
+            .execute(&mut *ctx.executor)
+            .await
+            .ok();
+        if let Err(e) = self.audit
             .record(
                 ctx.reborrow(),
                 "SalesOrder",
@@ -384,9 +417,25 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 Some(serde_json::json!({ "from": "Draft", "to": "Confirmed" })),
                 None,
             )
-            .await?;
+            .await
+        {
+            tracing::warn!("audit record failed: {e}");
+            sqlx::query("ROLLBACK TO SAVEPOINT sp_audit")
+                .execute(&mut *ctx.executor)
+                .await
+                .ok();
+        } else {
+            sqlx::query("RELEASE SAVEPOINT sp_audit")
+                .execute(&mut *ctx.executor)
+                .await
+                .ok();
+        }
 
-        self.event_bus
+        sqlx::query("SAVEPOINT sp_event")
+            .execute(&mut *ctx.executor)
+            .await
+            .ok();
+        if let Err(e) = self.event_bus
             .publish(
                 ctx.reborrow(),
                 EventPublishRequest {
@@ -397,7 +446,19 @@ impl SalesOrderService for SalesOrderServiceImpl {
                     idempotency_key: None,
                 },
             )
-            .await?;
+            .await
+        {
+            tracing::warn!("event publish failed: {e}");
+            sqlx::query("ROLLBACK TO SAVEPOINT sp_event")
+                .execute(&mut *ctx.executor)
+                .await
+                .ok();
+        } else {
+            sqlx::query("RELEASE SAVEPOINT sp_event")
+                .execute(&mut *ctx.executor)
+                .await
+                .ok();
+        }
 
         Ok(())
     }

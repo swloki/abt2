@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RT-2026-0009 · 退货详情</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app-shell">
+  <nav id="sidebar"></nav>
+  <div class="main-content">
+    <header class="top-header">
+      <div class="top-header-left">
+        <div class="breadcrumb">
+          <a href="index.html">销售管理</a>
+          <span class="breadcrumb-sep">/</span>
+          <a href="return-list.html">销售退货</a>
+          <span class="breadcrumb-sep">/</span>
+          <span>RT-2026-0009</span>
+        </div>
+      </div>
+      <div class="top-header-right">
+        <button class="header-icon-btn" title="通知">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <div class="header-dot"></div>
+        </button>
+        <button class="header-icon-btn" title="帮助">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+        <div class="avatar">ZM</div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <a href="return-list.html" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 19l-7-7 7-7"/></svg>
+        返回退货列表
+      </a>
+
+      <div class="detail-header">
+        <div>
+          <div class="detail-title-row">
+            <h1 class="detail-no font-mono">RT-2026-0009</h1>
+            <span class="status-pill status-inspecting">质检中</span>
+          </div>
+          <div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)">
+            来源发货：<a href="shipping-detail.html" style="color:var(--info);font-weight:500">SR-2026-0017</a>
+            &nbsp;·&nbsp;
+            来源订单：<a href="order-detail.html" style="color:var(--info);font-weight:500">SO-2026-0037</a>
+          </div>
+        </div>
+        <div class="page-actions">
+          <button class="btn btn-danger" style="background:var(--danger);color:#fff;border-color:var(--danger)">驳回退货</button>
+          <button class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            质检通过
+          </button>
+        </div>
+      </div>
+
+      <div class="workflow-steps">
+        <div class="wf-step completed"><span class="wf-dot"></span>草稿</div>
+        <div class="wf-line completed"></div>
+        <div class="wf-step completed"><span class="wf-dot"></span>已确认</div>
+        <div class="wf-line completed"></div>
+        <div class="wf-step completed"><span class="wf-dot"></span>已收货</div>
+        <div class="wf-line completed"></div>
+        <div class="wf-step current"><span class="wf-dot"></span>质检中</div>
+        <div class="wf-line"></div>
+        <div class="wf-step"><span class="wf-dot"></span>已完成</div>
+      </div>
+
+      <div class="info-card">
+        <div class="info-card-title">退货信息</div>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">客户名称</span>
+            <span class="info-value">深圳华科电子有限公司</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">退货原因</span>
+            <span class="info-value">质量缺陷</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">操作员</span>
+            <span class="info-value">王磊</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">创建时间</span>
+            <span class="info-value mono">2026-05-26</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="data-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>行号</th>
+              <th>产品编码</th>
+              <th>产品名称</th>
+              <th>单位</th>
+              <th class="num-right">单价</th>
+              <th class="num-right">退货数量</th>
+              <th class="num-right">退货金额</th>
+              <th>处理方式</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="mono">1</td>
+              <td class="mono">P-1087</td>
+              <td>LED驱动模块 LD-240</td>
+              <td>PCS</td>
+              <td class="num-right">¥ 68.00</td>
+              <td class="num-right">50</td>
+              <td class="num-right">¥ 3,400.00</td>
+              <td><span class="status-pill status-info">退回入库</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="amount-summary">
+          <div class="amount-row">
+            <span class="amount-label">退货总额</span>
+            <span class="amount-value accent">¥ 3,400.00</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="info-card" style="margin-top:var(--space-6)">
+        <div class="info-card-title">备注</div>
+        <p class="text-muted">客户反馈该批次 LED 驱动模块输出电流不稳定，经初步判断为批次性质量问题。已安排品质部门进行检测。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="css/sidebar.js"></script>
+<script>renderSidebar('return');</script>
+</body>
+</html>

@@ -29,12 +29,12 @@ impl Default for SalesReturnHandler {
 
 fn return_status_to_proto(status: abt_core::sales::sales_return::ReturnStatus) -> SalesReturnStatus {
     match status {
-        abt_core::sales::sales_return::ReturnStatus::Draft => SalesReturnStatus::Pending,
-        abt_core::sales::sales_return::ReturnStatus::Confirmed => SalesReturnStatus::Approved,
+        abt_core::sales::sales_return::ReturnStatus::Draft => SalesReturnStatus::Draft,
+        abt_core::sales::sales_return::ReturnStatus::Confirmed => SalesReturnStatus::Confirmed,
         abt_core::sales::sales_return::ReturnStatus::Received => SalesReturnStatus::Received,
-        abt_core::sales::sales_return::ReturnStatus::Inspecting => SalesReturnStatus::Received,
+        abt_core::sales::sales_return::ReturnStatus::Inspecting => SalesReturnStatus::Inspecting,
         abt_core::sales::sales_return::ReturnStatus::Completed => SalesReturnStatus::Completed,
-        abt_core::sales::sales_return::ReturnStatus::Cancelled => SalesReturnStatus::Rejected,
+        abt_core::sales::sales_return::ReturnStatus::Cancelled => SalesReturnStatus::Cancelled,
         abt_core::sales::sales_return::ReturnStatus::Rejected => SalesReturnStatus::Rejected,
     }
 }
@@ -64,6 +64,7 @@ fn return_item_to_proto(item: &abt_core::sales::sales_return::SalesReturnItem) -
         quantity: decimal_to_string(item.returned_qty),
         subtotal: decimal_to_string(item.amount),
         remark: String::new(),
+        disposition: 0,
     }
 }
 
@@ -82,6 +83,7 @@ fn return_to_proto(r: &abt_core::sales::sales_return::SalesReturn) -> SalesRetur
         created_at: r.created_at.timestamp(),
         updated_at: r.updated_at.timestamp(),
         items: vec![],
+        customer_id: 0,
     }
 }
 
@@ -219,7 +221,7 @@ impl GrpcSalesReturnService for SalesReturnHandler {
         let ctx = ServiceContext::new(&mut tx, auth.user_id);
 
         match req.status() {
-            SalesReturnStatus::Approved => {
+            SalesReturnStatus::Confirmed => {
                 srv.approve(ctx, req.return_id).await
                     .map_err(domain_to_status)?;
             }

@@ -1,6 +1,8 @@
 //! SalesOrder gRPC Handler — 委托给 abt-core SalesOrderService
 
 use abt_core::sales::sales_order::SalesOrderService;
+use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::product::ProductService;
 use abt_core::shared::types::{PageParams, ServiceContext};
 use crate::error;
 use tonic::{Request, Response};
@@ -32,8 +34,8 @@ fn sales_order_status_to_proto(status: abt_core::sales::sales_order::SalesOrderS
         abt_core::sales::sales_order::SalesOrderStatus::Draft => SalesOrderStatus::Draft,
         abt_core::sales::sales_order::SalesOrderStatus::Confirmed => SalesOrderStatus::Confirmed,
         abt_core::sales::sales_order::SalesOrderStatus::InProduction => SalesOrderStatus::InProgress,
-        abt_core::sales::sales_order::SalesOrderStatus::PartiallyShipped => SalesOrderStatus::InProgress,
-        abt_core::sales::sales_order::SalesOrderStatus::Shipped => SalesOrderStatus::Completed,
+        abt_core::sales::sales_order::SalesOrderStatus::PartiallyShipped => SalesOrderStatus::PartiallyShipped,
+        abt_core::sales::sales_order::SalesOrderStatus::Shipped => SalesOrderStatus::Shipped,
         abt_core::sales::sales_order::SalesOrderStatus::Completed => SalesOrderStatus::Completed,
         abt_core::sales::sales_order::SalesOrderStatus::Cancelled => SalesOrderStatus::Cancelled,
     }
@@ -47,25 +49,6 @@ fn parse_decimal(s: &str) -> rust_decimal::Decimal {
 #[allow(dead_code)]
 fn decimal_to_string(d: rust_decimal::Decimal) -> String {
     d.to_string()
-}
-
-#[allow(dead_code)]
-fn order_item_to_proto(item: &abt_core::sales::sales_order::SalesOrderItem) -> SalesOrderItem {
-    SalesOrderItem {
-        item_id: item.id,
-        order_id: item.order_id,
-        product_id: item.product_id,
-        product_code: String::new(),
-        product_name: item.description.clone(),
-        unit: item.unit.clone(),
-        unit_price: decimal_to_string(item.unit_price),
-        quantity: decimal_to_string(item.quantity),
-        discount: decimal_to_string(item.discount_rate),
-        subtotal: decimal_to_string(item.amount),
-        shipped_qty: decimal_to_string(item.shipped_qty),
-        returned_qty: decimal_to_string(item.returned_qty),
-        remark: String::new(),
-    }
 }
 
 fn order_to_proto(o: &abt_core::sales::sales_order::SalesOrder) -> SalesOrder {
@@ -86,6 +69,13 @@ fn order_to_proto(o: &abt_core::sales::sales_order::SalesOrder) -> SalesOrder {
         updated_at: o.updated_at.timestamp(),
         operator_id: o.operator_id,
         items: vec![],
+        customer_id: o.customer_id,
+        contact_id: o.contact_id,
+        sales_rep_id: o.sales_rep_id,
+        total_cost: decimal_to_string(o.total_cost),
+        payment_terms: o.payment_terms.clone(),
+        delivery_terms: o.delivery_terms.clone(),
+        delivery_address: o.delivery_address.clone(),
     }
 }
 
@@ -119,32 +109,60 @@ impl GrpcSalesOrderService for SalesOrderHandler {
         let items: Vec<abt_core::sales::sales_order::CreateSalesOrderItemReq> = req.items.iter().map(|i| {
             abt_core::sales::sales_order::CreateSalesOrderItemReq {
                 product_id: i.product_id,
-                description: None,
+                description: if i.description.is_empty() { None } else { Some(i.description.clone()) },
                 quantity: parse_decimal(&i.quantity),
-                unit: None,
+                unit: if i.remark.is_empty() { None } else { Some(i.remark.clone()) },
                 unit_price: parse_decimal(&i.unit_price),
-                unit_cost: None,
+                unit_cost: {
+                    let c = parse_decimal(&i.unit_cost);
+                    if c == rust_decimal::Decimal::ZERO { None } else { Some(c) }
+                },
                 discount_rate: {
                     let d = parse_decimal(&i.discount);
                     if d == rust_decimal::Decimal::ZERO { None } else { Some(d) }
                 },
-                delivery_date: None,
+                delivery_date: if i.delivery_date > 0 {
+                    chrono::DateTime::from_timestamp(i.delivery_date, 0)
+                        .map(|dt| dt.date_naive())
+                } else {
+                    None
+                },
             }
         }).collect();
 
         let create_req = abt_core::sales::sales_order::CreateSalesOrderReq {
-            customer_id: 0,
-            contact_id: 0,
+            customer_id: req.customer_id,
+            contact_id: req.contact_id,
             items,
-            payment_terms: None,
-            delivery_terms: None,
-            delivery_address: None,
+            payment_terms: if req.payment_terms.is_empty() { None } else { Some(req.payment_terms) },
+            delivery_terms: if req.delivery_terms.is_empty() { None } else { Some(req.delivery_terms) },
+            delivery_address: if req.delivery_address.is_empty() { None } else { Some(req.delivery_address) },
             remark: if req.remark.is_empty() { None } else { Some(req.remark) },
         };
 
         let id = srv.create(ctx, create_req).await
             .map_err(domain_to_status)?;
 
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+
+        Ok(Response::new(U64Response { value: id as u64 }))
+    }
+
+    async fn create_sales_order_from_quotation(
+        &self,
+        request: Request<CreateSalesOrderFromQuotationRequest>,
+    ) -> GrpcResult<U64Response> {
+        let auth = extract_auth(&request)?;
+        let req = request.into_inner();
+        let state = AppState::get().await;
+        let srv = state.sales_order_core_service();
+
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let id = srv.create_from_quotation(ctx, req.quotation_id).await
+            .map_err(domain_to_status)?;
         tx.commit().await.map_err(error::sqlx_err_to_status)?;
 
         Ok(Response::new(U64Response { value: id as u64 }))
@@ -165,11 +183,11 @@ impl GrpcSalesOrderService for SalesOrderHandler {
         let ctx = ServiceContext::new(&mut tx, auth.user_id);
 
         let update_req = abt_core::sales::sales_order::UpdateSalesOrderReq {
-            customer_id: None,
-            contact_id: None,
-            payment_terms: None,
-            delivery_terms: None,
-            delivery_address: None,
+            customer_id: if req.customer_id > 0 { Some(req.customer_id) } else { None },
+            contact_id: if req.contact_id > 0 { Some(req.contact_id) } else { None },
+            payment_terms: if req.payment_terms.is_empty() { None } else { Some(req.payment_terms) },
+            delivery_terms: if req.delivery_terms.is_empty() { None } else { Some(req.delivery_terms) },
+            delivery_address: if req.delivery_address.is_empty() { None } else { Some(req.delivery_address) },
             remark: if req.remark.is_empty() { None } else { Some(req.remark) },
         };
 
@@ -185,11 +203,39 @@ impl GrpcSalesOrderService for SalesOrderHandler {
         &self,
         request: Request<DeleteSalesOrderRequest>,
     ) -> GrpcResult<BoolResponse> {
-        let _auth = extract_auth(&request)?;
+        let auth = extract_auth(&request)?;
         let req = request.into_inner();
-        let _ = req;
-        // abt-core SalesOrderService 没有 delete 方法
-        Err(tonic::Status::unimplemented("Delete sales order not supported in abt-core"))
+        let state = AppState::get().await;
+        let srv = state.sales_order_core_service();
+
+        let mut tx = state.begin_core_transaction().await
+            .map_err(error::err_to_status)?;
+
+        let ctx = ServiceContext::new(&mut tx, auth.user_id);
+        let o = srv.find_by_id(ctx, req.order_id).await
+            .map_err(domain_to_status)?;
+
+        if o.status != abt_core::sales::sales_order::SalesOrderStatus::Draft {
+            return Err(tonic::Status::failed_precondition("仅草稿状态的销售订单可以删除"));
+        }
+
+        let now = chrono::Utc::now().naive_utc();
+        sqlx::query("UPDATE sales_orders SET deleted_at = $1, updated_at = $1 WHERE id = $2")
+            .bind(now)
+            .bind(req.order_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(error::sqlx_err_to_status)?;
+
+        sqlx::query("DELETE FROM sales_order_items WHERE order_id = $1")
+            .bind(req.order_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(error::sqlx_err_to_status)?;
+
+        tx.commit().await.map_err(error::sqlx_err_to_status)?;
+
+        Ok(Response::new(BoolResponse { value: true }))
     }
 
     async fn get_sales_order(
@@ -199,6 +245,8 @@ impl GrpcSalesOrderService for SalesOrderHandler {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.sales_order_core_service();
+        let customer_srv = state.customer_core_service();
+        let product_srv = state.product_service();
 
         let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
@@ -207,8 +255,80 @@ impl GrpcSalesOrderService for SalesOrderHandler {
         let o = srv.find_by_id(ctx, req.order_id).await
             .map_err(domain_to_status)?;
 
+        let mut proto = order_to_proto(&o);
+
+        // Fetch customer info
+        if o.customer_id > 0 {
+            let ctx2 = ServiceContext::new(&mut tx, 0);
+            if let Ok(customer) = customer_srv.get(ctx2, o.customer_id).await {
+                proto.customer_name = customer.name.clone();
+                if let Some(short) = &customer.short_name {
+                    if proto.customer_name.is_empty() {
+                        proto.customer_name = short.clone();
+                    }
+                }
+                let ctx3 = ServiceContext::new(&mut tx, 0);
+                if let Ok(contacts) = customer_srv.list_contacts(ctx3, o.customer_id).await {
+                    if let Some(contact) = contacts.iter().find(|c| c.id == o.contact_id)
+                        .or_else(|| contacts.first())
+                    {
+                        proto.contact_person = contact.name.clone();
+                        proto.contact_phone = contact.phone.clone().unwrap_or_default();
+                    }
+                }
+            }
+        }
+
+        // Fetch items
+        let item_repo = abt_core::sales::sales_order::repo::SalesOrderItemRepo;
+        let ctx4 = ServiceContext::new(&mut tx, 0);
+        if let Ok(items) = item_repo.find_by_order_id(ctx4.executor, o.id).await {
+            // Batch fetch product names
+            let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).filter(|id| *id > 0).collect();
+            let mut product_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+            let mut product_codes: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+            if !product_ids.is_empty() {
+                let ctx5 = ServiceContext::new(&mut tx, 0);
+                if let Ok(products) = product_srv.get_by_ids(ctx5, product_ids).await {
+                    for p in &products {
+                        product_names.insert(p.product_id, p.pdt_name.clone());
+                        if !p.product_code.is_empty() {
+                            product_codes.insert(p.product_id, p.product_code.clone());
+                        }
+                    }
+                }
+            }
+
+            proto.items = items.iter().map(|item| {
+                SalesOrderItem {
+                    item_id: item.id,
+                    order_id: item.order_id,
+                    product_id: item.product_id,
+                    product_code: product_codes.get(&item.product_id).cloned().unwrap_or_default(),
+                    product_name: product_names.get(&item.product_id).cloned()
+                        .filter(|n| !n.is_empty())
+                        .unwrap_or_else(|| item.description.clone()),
+                    unit: item.unit.clone(),
+                    unit_price: decimal_to_string(item.unit_price),
+                    quantity: decimal_to_string(item.quantity),
+                    discount: decimal_to_string(item.discount_rate),
+                    subtotal: decimal_to_string(item.amount),
+                    shipped_qty: decimal_to_string(item.shipped_qty),
+                    returned_qty: decimal_to_string(item.returned_qty),
+                    remark: String::new(),
+                    line_no: item.line_no,
+                    description: item.description.clone(),
+                    unit_cost: decimal_to_string(item.unit_cost),
+                    delivery_date: item.delivery_date
+                        .map(|d| d.and_time(chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap())
+                        .and_utc().timestamp())
+                        .unwrap_or(0),
+                }
+            }).collect();
+        }
+
         Ok(Response::new(SalesOrderResponse {
-            order: Some(order_to_proto(&o)),
+            order: Some(proto),
         }))
     }
 
@@ -219,6 +339,7 @@ impl GrpcSalesOrderService for SalesOrderHandler {
         let req = request.into_inner();
         let state = AppState::get().await;
         let srv = state.sales_order_core_service();
+        let customer_srv = state.customer_core_service();
 
         let mut tx = state.begin_core_transaction().await
             .map_err(error::err_to_status)?;
@@ -242,8 +363,32 @@ impl GrpcSalesOrderService for SalesOrderHandler {
         let result = srv.list(ctx, filter, page).await
             .map_err(domain_to_status)?;
 
+        // Batch fetch customer names
+        let customer_ids: Vec<i64> = result.items.iter()
+            .map(|o| o.customer_id)
+            .filter(|id| *id > 0)
+            .collect();
+
+        let mut customer_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+        for cid in customer_ids {
+            if let std::collections::hash_map::Entry::Vacant(e) = customer_names.entry(cid) {
+                let ctx2 = ServiceContext::new(&mut tx, 0);
+                if let Ok(c) = customer_srv.get(ctx2, cid).await {
+                    e.insert(c.name);
+                }
+            }
+        }
+
+        let proto_items: Vec<SalesOrder> = result.items.iter().map(|o| {
+            let mut proto = order_to_proto(o);
+            if let Some(name) = customer_names.get(&o.customer_id) {
+                proto.customer_name = name.clone();
+            }
+            proto
+        }).collect();
+
         Ok(Response::new(SalesOrderListResponse {
-            items: result.items.iter().map(order_to_proto).collect(),
+            items: proto_items,
             pagination: Some(PaginationInfo {
                 total: result.total,
                 page: result.page,

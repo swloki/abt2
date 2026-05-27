@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>客户管理 · ABT ERP</title>
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    .customer-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: var(--space-5);
+      margin-bottom: var(--space-6);
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <nav id="sidebar"></nav>
+  <div class="main-content">
+    <header class="top-header">
+      <div class="top-header-left">
+        <div class="breadcrumb">
+          <a href="index.html">销售管理</a>
+          <span class="breadcrumb-sep">/</span>
+          <span>客户管理</span>
+        </div>
+      </div>
+      <div class="top-header-right">
+        <button class="header-icon-btn" title="通知">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <div class="header-dot"></div>
+        </button>
+        <button class="header-icon-btn" title="帮助">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+        <div class="avatar">ZM</div>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="page-header">
+        <h1 class="page-title">客户管理</h1>
+        <div class="page-actions">
+          <button class="btn btn-default" onclick="document.getElementById('exportModal').classList.add('open')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+            导出
+          </button>
+          <button class="btn btn-primary" onclick="document.getElementById('createModal').classList.add('open')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16m8-8H4"/></svg>
+            新建客户
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="customer-stats">
+        <div class="stat-card">
+          <div class="stat-icon blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">156</div>
+            <div class="stat-label">客户总数</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">118</div>
+            <div class="stat-label">活跃客户</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon orange">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">¥ 4.2M</div>
+            <div class="stat-label">本月交易额</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon red">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </div>
+          <div>
+            <div class="stat-value">5</div>
+            <div class="stat-label">信用预警</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="status-tabs">
+        <div class="status-tab active">全部 <span class="count">156</span></div>
+        <div class="status-tab">关键客户 <span class="count">23</span></div>
+        <div class="status-tab">普通客户 <span class="count">98</span></div>
+        <div class="status-tab">潜在客户 <span class="count">18</span></div>
+        <div class="status-tab">已停用 <span class="count">17</span></div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input class="search-input" type="text" placeholder="搜索客户名称、联系人、电话…">
+        </div>
+        <select class="filter-select">
+          <option>全部区域</option>
+          <option>华南地区</option>
+          <option>华东地区</option>
+          <option>华北地区</option>
+          <option>西南地区</option>
+        </select>
+        <select class="filter-select">
+          <option>所属行业</option>
+          <option>电子制造</option>
+          <option>精密模具</option>
+          <option>光电科技</option>
+          <option>半导体</option>
+          <option>陶瓷机械</option>
+        </select>
+        <select class="filter-select">
+          <option>客户等级</option>
+          <option>关键客户</option>
+          <option>普通客户</option>
+          <option>潜在客户</option>
+        </select>
+      </div>
+
+      <!-- Data Table -->
+      <div class="data-card">
+        <div class="data-card-scroll">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>客户编码</th>
+              <th>客户名称</th>
+              <th>联系人</th>
+              <th>电话</th>
+              <th>等级</th>
+              <th>区域</th>
+              <th>信用额度</th>
+              <th class="num-right">本月交易额</th>
+              <th>状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr onclick="location.href='customer-detail.html'" style="cursor:pointer">
+              <td class="link-cell mono">CU-1001</td>
+              <td><strong>深圳华科电子有限公司</strong></td>
+              <td>李经理</td>
+              <td>0755-8866-2201</td>
+              <td><span class="tag-chip tag-key">关键客户</span></td>
+              <td>华南</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="mono" style="font-size:12px">¥500,000</span>
+                  <div class="credit-bar"><div class="credit-bar-fill" style="width:72%;background:var(--accent)"></div></div>
+                </div>
+              </td>
+              <td class="num-right mono">¥ 326,800</td>
+              <td><span class="status-pill status-accepted">活跃</span></td>
+            </tr>
+            <tr onclick="location.href='customer-detail.html'" style="cursor:pointer">
+              <td class="link-cell mono">CU-1002</td>
+              <td><strong>东莞精密模具厂</strong></td>
+              <td>陈工</td>
+              <td>0769-2233-5501</td>
+              <td><span class="tag-chip tag-key">关键客户</span></td>
+              <td>华南</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="mono" style="font-size:12px">¥300,000</span>
+                  <div class="credit-bar"><div class="credit-bar-fill" style="width:85%;background:var(--warn)"></div></div>
+                </div>
+              </td>
+              <td class="num-right mono">¥ 256,200</td>
+              <td><span class="status-pill status-accepted">活跃</span></td>
+            </tr>
+            <tr onclick="location.href='customer-detail.html'" style="cursor:pointer">
+              <td class="link-cell mono">CU-1003</td>
+              <td><strong>广州光电科技</strong></td>
+              <td>赵总</td>
+              <td>020-8765-4301</td>
+              <td><span class="tag-chip tag-key">关键客户</span></td>
+              <td>华南</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="mono" style="font-size:12px">¥800,000</span>
+                  <div class="credit-bar"><div class="credit-bar-fill" style="width:45%;background:var(--accent)"></div></div>
+                </div>
+              </td>
+              <td class="num-right mono">¥ 198,500</td>
+              <td><span class="status-pill status-accepted">活跃</span></td>
+            </tr>
+            <tr onclick="location.href='customer-detail.html'" style="cursor:pointer">
+              <td class="link-cell mono">CU-1004</td>
+              <td><strong>佛山陶瓷机械有限公司</strong></td>
+              <td>黄主管</td>
+              <td>0757-8321-1100</td>
+              <td><span class="tag-chip tag-normal">普通客户</span></td>
+              <td>华南</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="mono" style="font-size:12px">¥200,000</span>
+                  <div class="credit-bar"><div class="credit-bar-fill" style="width:92%;background:var(--danger)"></div></div>
+                </div>
+              </td>
+              <td class="num-right mono">¥ 184,000</td>
+              <td><span class="status-pill status-progress">信用预警</span></td>
+            </tr>
+            <tr onclick="location.href='customer-detail.html'" style="cursor:pointer">
+              <td class="link-cell mono">CU-1005</td>
+              <td><strong>珠海半导体材料公司</strong></td>
+              <td>周经理</td>
+              <td>0756-6655-8820</td>
+              <td><span class="tag-chip tag-normal">普通客户</span></td>
+              <td>华南</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="mono" style="font-size:12px">¥400,000</span>
+                  <div class="credit-bar"><div class="credit-bar-fill" style="width:38%;background:var(--accent)"></div></div>
+                </div>
+              </td>
+              <td class="num-right mono">¥ 152,300</td>
+              <td><span class="status-pill status-accepted">活跃</span></td>
+            </tr>
+            <tr onclick="location.href='customer-detail.html'" style="cursor:pointer">
+              <td class="link-cell mono">CU-1006</td>
+              <td><strong>上海精密仪器有限公司</strong></td>
+              <td>王总监</td>
+              <td>021-5544-3310</td>
+              <td><span class="tag-chip tag-normal">普通客户</span></td>
+              <td>华东</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="mono" style="font-size:12px">¥250,000</span>
+                  <div class="credit-bar"><div class="credit-bar-fill" style="width:60%;background:var(--accent)"></div></div>
+                </div>
+              </td>
+              <td class="num-right mono">¥ 98,600</td>
+              <td><span class="status-pill status-accepted">活跃</span></td>
+            </tr>
+            <tr onclick="location.href='customer-detail.html'" style="cursor:pointer">
+              <td class="link-cell mono">CU-1007</td>
+              <td><strong>北京中科自动化技术</strong></td>
+              <td>刘经理</td>
+              <td>010-6789-5500</td>
+              <td><span class="tag-chip tag-potential">潜在客户</span></td>
+              <td>华北</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="mono" style="font-size:12px">¥150,000</span>
+                  <div class="credit-bar"><div class="credit-bar-fill" style="width:0%;background:var(--border)"></div></div>
+                </div>
+              </td>
+              <td class="num-right mono">¥ 0</td>
+              <td><span class="status-pill status-draft">待跟进</span></td>
+            </tr>
+            <tr onclick="location.href='customer-detail.html'" style="cursor:pointer">
+              <td class="link-cell mono">CU-1008</td>
+              <td><strong>成都鑫源新材料有限公司</strong></td>
+              <td>张部长</td>
+              <td>028-8765-4321</td>
+              <td><span class="tag-chip tag-normal">普通客户</span></td>
+              <td>西南</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span class="mono" style="font-size:12px">¥180,000</span>
+                  <div class="credit-bar"><div class="credit-bar-fill" style="width:55%;background:var(--accent)"></div></div>
+                </div>
+              </td>
+              <td class="num-right mono">¥ 67,400</td>
+              <td><span class="status-pill status-accepted">活跃</span></td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <div class="pagination">
+          <span>共 156 条记录，第 1/20 页</span>
+          <div class="pagination-pages">
+            <button class="page-btn">&laquo;</button>
+            <button class="page-btn active">1</button>
+            <button class="page-btn">2</button>
+            <button class="page-btn">3</button>
+            <button class="page-btn">…</button>
+            <button class="page-btn">20</button>
+            <button class="page-btn">&raquo;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- New Customer Modal -->
+<div class="modal-overlay" id="createModal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>新建客户</h2>
+      <button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px" onclick="document.getElementById('createModal').classList.remove('open')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-section-title">基本信息</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>客户名称 <span style="color:var(--danger)">*</span></label>
+          <input type="text" placeholder="请输入客户全称">
+        </div>
+        <div class="form-field">
+          <label>客户简称</label>
+          <input type="text" placeholder="请输入客户简称">
+        </div>
+        <div class="form-field">
+          <label>客户编码</label>
+          <input type="text" value="CU-1009" readonly style="background:var(--surface)">
+        </div>
+        <div class="form-field">
+          <label>所属行业</label>
+          <select>
+            <option>请选择行业</option>
+            <option>电子制造</option>
+            <option>精密模具</option>
+            <option>光电科技</option>
+            <option>半导体</option>
+            <option>陶瓷机械</option>
+            <option>自动化技术</option>
+            <option>新材料</option>
+            <option>其他</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>客户等级</label>
+          <select>
+            <option>普通客户</option>
+            <option>关键客户</option>
+            <option>潜在客户</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>所在区域</label>
+          <select>
+            <option>请选择区域</option>
+            <option>华南地区</option>
+            <option>华东地区</option>
+            <option>华北地区</option>
+            <option>西南地区</option>
+            <option>其他</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-section-title">联系信息</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>联系人 <span style="color:var(--danger)">*</span></label>
+          <input type="text" placeholder="请输入联系人姓名">
+        </div>
+        <div class="form-field">
+          <label>职位</label>
+          <input type="text" placeholder="例如：采购经理">
+        </div>
+        <div class="form-field">
+          <label>手机号码 <span style="color:var(--danger)">*</span></label>
+          <input type="tel" placeholder="请输入手机号码">
+        </div>
+        <div class="form-field">
+          <label>固定电话</label>
+          <input type="tel" placeholder="例如：0755-8866-2201">
+        </div>
+        <div class="form-field">
+          <label>邮箱</label>
+          <input type="email" placeholder="请输入邮箱地址">
+        </div>
+        <div class="form-field">
+          <label>传真</label>
+          <input type="tel" placeholder="请输入传真号码">
+        </div>
+        <div class="form-field field-full">
+          <label>详细地址</label>
+          <input type="text" placeholder="请输入完整地址">
+        </div>
+      </div>
+
+      <div class="form-section-title">财务信息</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>信用额度 (元)</label>
+          <input type="number" placeholder="请输入信用额度" value="100000">
+        </div>
+        <div class="form-field">
+          <label>付款条款</label>
+          <select>
+            <option>月结 30 天</option>
+            <option>月结 60 天</option>
+            <option>月结 90 天</option>
+            <option>预付款</option>
+            <option>货到付款</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>币种</label>
+          <select>
+            <option>CNY (人民币)</option>
+            <option>USD (美元)</option>
+            <option>EUR (欧元)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>税号</label>
+          <input type="text" placeholder="请输入纳税人识别号">
+        </div>
+      </div>
+
+      <div class="form-section-title">其他信息</div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>负责业务员</label>
+          <select>
+            <option>请选择业务员</option>
+            <option>张明</option>
+            <option>王磊</option>
+            <option>刘洋</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>客户来源</label>
+          <select>
+            <option>请选择来源</option>
+            <option>自主开发</option>
+            <option>展会获客</option>
+            <option>老客户转介</option>
+            <option>网络推广</option>
+          </select>
+        </div>
+        <div class="form-field field-full">
+          <label>备注</label>
+          <textarea placeholder="请输入备注信息"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-default" onclick="document.getElementById('createModal').classList.remove('open')">取消</button>
+      <button class="btn btn-default">保存并继续</button>
+      <button class="btn btn-primary" onclick="showToast('客户创建成功');document.getElementById('createModal').classList.remove('open')">保存客户</button>
+    </div>
+  </div>
+</div>
+
+<script src="css/sidebar.js"></script>
+<script>renderSidebar('customer');</script>
+<script>
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position: 'fixed', top: '24px', left: '50%', transform: 'translateX(-50%)',
+    background: 'var(--success)', color: '#fff', padding: '10px 24px',
+    borderRadius: 'var(--radius-md)', fontSize: 'var(--text-sm)', fontWeight: '500',
+    zIndex: '2000', boxShadow: '0 6px 20px rgba(0,0,0,0.15)', opacity: '0',
+    transition: 'opacity 200ms'
+  });
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.style.opacity = '1');
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 200); }, 2400);
+}
+</script>
+</body>
+</html>

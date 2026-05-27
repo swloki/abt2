@@ -10,6 +10,8 @@ enum SalesOrderStatus {
   SALES_ORDER_STATUS_IN_PROGRESS = 3;
   SALES_ORDER_STATUS_COMPLETED = 4;
   SALES_ORDER_STATUS_CANCELLED = 5;
+  SALES_ORDER_STATUS_PARTIALLY_SHIPPED = 6;
+  SALES_ORDER_STATUS_SHIPPED = 7;
 }
 
 message SalesOrderItem {
@@ -26,6 +28,10 @@ message SalesOrderItem {
   string shipped_qty = 11;
   string returned_qty = 12;
   string remark = 13;
+  int32 line_no = 14;
+  string description = 15;
+  string unit_cost = 16;
+  int64 delivery_date = 17;
 }
 
 message SalesOrder {
@@ -43,6 +49,13 @@ message SalesOrder {
   int64 updated_at = 12;
   int64 operator_id = 13;
   repeated SalesOrderItem items = 14;
+  int64 customer_id = 15;
+  int64 contact_id = 16;
+  int64 sales_rep_id = 17;
+  string total_cost = 18;
+  string payment_terms = 19;
+  string delivery_terms = 20;
+  string delivery_address = 21;
 }
 
 message CreateSalesOrderRequest {
@@ -53,6 +66,19 @@ message CreateSalesOrderRequest {
   string remark = 5;
   int64 delivery_date = 6;
   repeated CreateSalesOrderItem items = 7;
+  int64 customer_id = 8;
+  int64 contact_id = 9;
+  int64 sales_rep_id = 10;
+  string payment_terms = 11;
+  string delivery_terms = 12;
+  string delivery_address = 13;
+}
+
+message CreateSalesOrderFromQuotationRequest {
+  int64 quotation_id = 1;
+  string remark = 2;
+  int64 delivery_date = 3;
+  repeated CreateSalesOrderItem items = 4;
 }
 
 message CreateSalesOrderItem {
@@ -61,6 +87,9 @@ message CreateSalesOrderItem {
   string quantity = 3;
   string discount = 4;
   string remark = 5;
+  string unit_cost = 6;
+  string description = 7;
+  int64 delivery_date = 8;
 }
 
 message UpdateSalesOrderRequest {
@@ -70,12 +99,19 @@ message UpdateSalesOrderRequest {
   string contact_phone = 4;
   string remark = 5;
   int64 delivery_date = 6;
+  int64 contact_id = 7;
+  string payment_terms = 8;
+  string delivery_terms = 9;
+  string delivery_address = 10;
+  int64 customer_id = 11;
 }
 
 message ListSalesOrdersRequest {
   optional string keyword = 1;
   optional SalesOrderStatus status = 2;
   optional PaginationParams pagination = 3;
+  optional int64 customer_id = 4;
+  optional int64 sales_rep_id = 5;
 }
 
 message GetSalesOrderRequest {
@@ -102,6 +138,7 @@ message SalesOrderListResponse {
 
 service SalesOrderService {
   rpc CreateSalesOrder(CreateSalesOrderRequest) returns (U64Response);
+  rpc CreateSalesOrderFromQuotation(CreateSalesOrderFromQuotationRequest) returns (U64Response);
   rpc UpdateSalesOrder(UpdateSalesOrderRequest) returns (BoolResponse);
   rpc DeleteSalesOrder(DeleteSalesOrderRequest) returns (BoolResponse);
   rpc GetSalesOrder(GetSalesOrderRequest) returns (SalesOrderResponse);

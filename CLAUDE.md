@@ -4,7 +4,7 @@
 
 - **使用中文沟通**
 - **不要用 `cargo run` 启动服务**，服务已在运行中。验证代码正确性主要用 `cargo clippy`
-- **编写 `abt-web2/` 组件前，必须先读 `abt-web2/CLAUDE.md`**（组件化三原则、抗碎片化实践等约束）
+- **编写 `abt-web/` 组件前，必须先读 `abt-web/CLAUDE.md`**（组件化三原则、抗碎片化实践等约束）
 
 ## Project Overview
 
@@ -54,7 +54,7 @@ cargo test -p abt-core -- test_name  # 运行单个测试
 
 ```
 abt-core/     — 核心业务库（lib），按业务域组织模块，暴露 Service trait
-abt-web2/     — Web 前端（Axum + Maud + HTMX），直接调用 abt-core Service trait
+abt-web/      — Web 前端（Axum + Maud + HTMX），直接调用 abt-core Service trait
 abt-macros/   — 过程宏
 ```
 
@@ -170,5 +170,5 @@ AuditLogServiceImpl::new(self.pool.clone())
    - `implt.rs` — Service trait 实现（struct 只持 `PgPool`，共享服务通过工厂函数按需获取）
    - `mod.rs` — 导出 + 工厂函数
 3. 在 `abt-core/migrations/` 添加数据库迁移
-4. 在 `abt-web2/src/pages/` 创建页面（如需 UI）
+4. 在 `abt-web/src/pages/` 创建页面（如需 UI）
 5. 同步更新 `docs/uml-design/` 设计文档

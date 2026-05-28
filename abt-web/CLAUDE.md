@@ -1,4 +1,4 @@
-# abt-web2
+# abt-web
 
 Rust 全栈前端，Axum + Maud + HTMX + Alpine.js + UnoCSS，直接调用 `abt-core` Service trait。
 
@@ -31,13 +31,13 @@ cargo clippy                  # Lint 检查
 
 ### 数据访问层（强制）
 
-**`abt-web2` 禁止直接访问数据库。所有数据操作必须通过 `abt-core` 的 Service trait 完成。**
+**`abt-web` 禁止直接访问数据库。所有数据操作必须通过 `abt-core` 的 Service trait 完成。**
 
-- **禁止** 在 `abt-web2` 中使用 `sqlx::query`、`sqlx::query_as`、`sqlx::query_scalar` 等直接执行 SQL
-- **禁止** 在 `abt-web2` 中直接操作 `PgPool` / `PgConnection` 执行查询（仅用于传递给 Service trait）
+- **禁止** 在 `abt-web` 中使用 `sqlx::query`、`sqlx::query_as`、`sqlx::query_scalar` 等直接执行 SQL
+- **禁止** 在 `abt-web` 中直接操作 `PgPool` / `PgConnection` 执行查询（仅用于传递给 Service trait）
 - **必须** 通过 `AppState` 持有的 Service 实例（如 `state.customer_service()`、`state.shipping_service()`）调用业务方法
 - **必须** 遵循 `abt-core` 的 Service trait 接口签名，包括 `ServiceContext` 参数
-- 如果 `abt-core` 缺少所需接口，应先在 `abt-core` 中补充 Service 方法，再在 `abt-web2` 中调用
+- 如果 `abt-core` 缺少所需接口，应先在 `abt-core` 中补充 Service 方法，再在 `abt-web` 中调用
 - 修改或新增 `abt-core` Service 接口时，**必须同步更新 `docs/uml-design/` 下的相应设计文档**
 
 **原因**：直接写 SQL 会导致列名/表结构与 `abt-core` 模型定义不一致（如 `id` vs `customer_id`、`name` vs `customer_name`），绕过业务逻辑校验，造成数据不一致。

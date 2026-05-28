@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["abt-macros", "abt-core", "abt-web2"]
+members = ["abt-macros", "abt-core", "abt-web"]
 
 [workspace.dependencies]
 tokio = { version = "1.4", features = ["full"] }

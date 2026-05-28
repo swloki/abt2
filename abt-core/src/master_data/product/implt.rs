@@ -124,26 +124,8 @@ impl ProductService for ProductServiceImpl {
     async fn check_product_usage(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, product_id: i64, query: UsageQuery) -> Result<PaginatedResult<UsageEntry>> {
         let page = PageParams::new(query.page, query.page_size);
 
-        let total: i64 = sqlx::query_scalar(
-            r#"SELECT COUNT(DISTINCT b.bom_id) FROM bom_nodes bn JOIN boms b ON bn.bom_id = b.bom_id WHERE bn.product_id = $1 AND b.deleted_at IS NULL"#,
-        )
-        .bind(product_id)
-        .fetch_one(&mut *db)
-        .await.map_err(|e| DomainError::Internal(e.into()))?;
-
-        let items = sqlx::query_as::<sqlx::Postgres, UsageEntry>(
-            r#"SELECT 'bom' AS source_type, b.bom_id AS source_id, b.bom_name AS source_name
-               FROM bom_nodes bn JOIN boms b ON bn.bom_id = b.bom_id
-               WHERE bn.product_id = $1 AND b.deleted_at IS NULL
-               GROUP BY b.bom_id, b.bom_name
-               ORDER BY b.bom_id DESC
-               LIMIT $2 OFFSET $3"#,
-        )
-        .bind(product_id)
-        .bind(page.page_size as i64)
-        .bind(page.offset() as i64)
-        .fetch_all(db)
-        .await.map_err(|e| DomainError::Internal(e.into()))?;
+        let total = ProductRepo::count_product_usage_in_boms(db, product_id).await?;
+        let items = ProductRepo::query_product_usage_in_boms(db, product_id, page.page_size as i64, page.offset() as i64).await?;
 
         Ok(PaginatedResult::new(items, total as u64, page.page, page.page_size))
     }

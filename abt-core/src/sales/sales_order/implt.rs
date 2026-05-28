@@ -5,7 +5,7 @@ use sqlx::postgres::PgPool;
 use crate::master_data::customer::{new_customer_service, service::CustomerService};
 use crate::sales::quotation::{new_quotation_service, service::QuotationService};
 use crate::sales::sales_order::model::*;
-use crate::sales::sales_order::repo::{SalesOrderItemRepo, SalesOrderRepo};
+use crate::sales::sales_order::repo::{SalesOrderItemRepo, SalesOrderRepo, savepoint, release_savepoint, rollback_savepoint};
 use crate::sales::sales_order::service::SalesOrderService;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
 use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
@@ -385,33 +385,21 @@ impl SalesOrderService for SalesOrderServiceImpl {
             })
             .collect();
 
-        sqlx::query("SAVEPOINT sp_reserve")
-            .execute(&mut *db)
-            .await
-            .ok();
+        savepoint(db, "sp_reserve").await.ok();
         match new_inventory_reservation_service(self.pool.clone()).reserve(ctx, db, reserve_requests).await {
             Ok(batch) if batch.failed_items.is_empty() => {
-                sqlx::query("RELEASE SAVEPOINT sp_reserve")
-                    .execute(&mut *db)
-                    .await
-                    .ok();
+                release_savepoint(db, "sp_reserve").await.ok();
             }
             Ok(batch) => {
                 tracing::warn!(
                     "inventory reservation partial failure: {}/{} succeeded",
                     batch.success_count, batch.total
                 );
-                sqlx::query("ROLLBACK TO SAVEPOINT sp_reserve")
-                    .execute(&mut *db)
-                    .await
-                    .ok();
+                rollback_savepoint(db, "sp_reserve").await.ok();
             }
             Err(e) => {
                 tracing::warn!("inventory reserve error: {e}");
-                sqlx::query("ROLLBACK TO SAVEPOINT sp_reserve")
-                    .execute(&mut *db)
-                    .await
-                    .ok();
+                rollback_savepoint(db, "sp_reserve").await.ok();
             }
         }
 
@@ -419,10 +407,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .update_status(db, id, SalesOrderStatus::Confirmed)
             .await?;
 
-        sqlx::query("SAVEPOINT sp_audit")
-            .execute(&mut *db)
-            .await
-            .ok();
+        savepoint(db, "sp_audit").await.ok();
         if let Err(e) = new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
@@ -436,21 +421,12 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .await
         {
             tracing::warn!("audit record failed: {e}");
-            sqlx::query("ROLLBACK TO SAVEPOINT sp_audit")
-                .execute(&mut *db)
-                .await
-                .ok();
+            rollback_savepoint(db, "sp_audit").await.ok();
         } else {
-            sqlx::query("RELEASE SAVEPOINT sp_audit")
-                .execute(&mut *db)
-                .await
-                .ok();
+            release_savepoint(db, "sp_audit").await.ok();
         }
 
-        sqlx::query("SAVEPOINT sp_event")
-            .execute(&mut *db)
-            .await
-            .ok();
+        savepoint(db, "sp_event").await.ok();
         if let Err(e) = new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
@@ -466,15 +442,9 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .await
         {
             tracing::warn!("event publish failed: {e}");
-            sqlx::query("ROLLBACK TO SAVEPOINT sp_event")
-                .execute(&mut *db)
-                .await
-                .ok();
+            rollback_savepoint(db, "sp_event").await.ok();
         } else {
-            sqlx::query("RELEASE SAVEPOINT sp_event")
-                .execute(&mut *db)
-                .await
-                .ok();
+            release_savepoint(db, "sp_event").await.ok();
         }
 
         Ok(())

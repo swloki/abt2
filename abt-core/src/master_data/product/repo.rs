@@ -185,6 +185,33 @@ impl ProductRepo {
         Ok(products)
     }
 
+    pub async fn count_product_usage_in_boms(db: PgExecutor<'_>, product_id: i64) -> Result<i64> {
+        let total: i64 = sqlx::query_scalar(
+            r#"SELECT COUNT(DISTINCT b.bom_id) FROM bom_nodes bn JOIN boms b ON bn.bom_id = b.bom_id WHERE bn.product_id = $1 AND b.deleted_at IS NULL"#,
+        )
+        .bind(product_id)
+        .fetch_one(&mut *db)
+        .await?;
+        Ok(total)
+    }
+
+    pub async fn query_product_usage_in_boms(db: PgExecutor<'_>, product_id: i64, limit: i64, offset: i64) -> Result<Vec<UsageEntry>> {
+        let items = sqlx::query_as::<sqlx::Postgres, UsageEntry>(
+            r#"SELECT 'bom' AS source_type, b.bom_id AS source_id, b.bom_name AS source_name
+               FROM bom_nodes bn JOIN boms b ON bn.bom_id = b.bom_id
+               WHERE bn.product_id = $1 AND b.deleted_at IS NULL
+               GROUP BY b.bom_id, b.bom_name
+               ORDER BY b.bom_id DESC
+               LIMIT $2 OFFSET $3"#,
+        )
+        .bind(product_id)
+        .bind(limit)
+        .bind(offset)
+        .fetch_all(db)
+        .await?;
+        Ok(items)
+    }
+
     /// Update product name by id — Excel import support
     pub async fn update_name(executor: PgExecutor<'_>, id: i64, name: &str) -> Result<()> {
         sqlx::query("UPDATE products SET pdt_name = $2 WHERE product_id = $1")

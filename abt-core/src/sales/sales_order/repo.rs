@@ -367,3 +367,28 @@ impl SalesOrderItemRepo {
         Ok(())
     }
 }
+
+// ---------------------------------------------------------------------------
+// SAVEPOINT helpers
+// ---------------------------------------------------------------------------
+
+pub async fn savepoint(db: PgExecutor<'_>, name: &str) -> Result<()> {
+    sqlx::query(&format!("SAVEPOINT {name}"))
+        .execute(&mut *db)
+        .await?;
+    Ok(())
+}
+
+pub async fn release_savepoint(db: PgExecutor<'_>, name: &str) -> Result<()> {
+    sqlx::query(&format!("RELEASE SAVEPOINT {name}"))
+        .execute(&mut *db)
+        .await?;
+    Ok(())
+}
+
+pub async fn rollback_savepoint(db: PgExecutor<'_>, name: &str) -> Result<()> {
+    sqlx::query(&format!("ROLLBACK TO SAVEPOINT {name}"))
+        .execute(&mut *db)
+        .await?;
+    Ok(())
+}

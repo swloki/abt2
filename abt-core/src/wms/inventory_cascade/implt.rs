@@ -1,10 +1,11 @@
-﻿use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 
 use rust_decimal::Decimal;
 
 use super::model::*;
+use super::repo::{InventoryCascadeRepo, BomRefRow, CascadeNodeFlat, ProductInfoRow};
 use super::service::InventoryCascadeService;
-use crate::shared::types::{PgExecutor,DomainError, ServiceContext, Result};
+use crate::shared::types::{PgExecutor, DomainError, ServiceContext, Result};
 
 const MAX_BOM_REFS: i32 = 10;
 
@@ -13,39 +14,6 @@ pub struct InventoryCascadeServiceImpl;
 
 impl InventoryCascadeServiceImpl {
     pub fn new() -> Self { Self }
-}
-
-#[derive(Debug, sqlx::FromRow)]
-struct ProductInfoRow {
-    product_id: i64,
-    product_code: String,
-    pdt_name: String,
-}
-
-#[derive(Debug, sqlx::FromRow)]
-struct BomRefRow {
-    bom_id: i64,
-    bom_name: String,
-    entry_node_id: i64,
-}
-
-#[derive(Debug, sqlx::FromRow)]
-struct CascadeNodeFlat {
-    node_id: i64,
-    bom_id: i64,
-    product_id: i64,
-    product_code: Option<String>,
-    quantity: Decimal,
-    parent_id: Option<i64>,
-    loss_rate: Decimal,
-    order_num: i32,
-    unit: Option<String>,
-}
-
-#[derive(Debug, sqlx::FromRow)]
-struct StockSummaryRow {
-    product_id: i64,
-    total_stock: Decimal,
 }
 
 fn collect_descendants<'a>(
@@ -79,19 +47,9 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
 
         // 1. 查找产品
         let product: Option<ProductInfoRow> = if let Some(id) = query.product_id {
-            sqlx::query_as::<sqlx::Postgres, ProductInfoRow>(
-                "SELECT product_id, product_code, pdt_name FROM products WHERE product_id = $1 LIMIT 1",
-            )
-            .bind(id)
-            .fetch_optional(&mut *db)
-            .await.map_err(|e| DomainError::Internal(e.into()))?
+            InventoryCascadeRepo::find_product_by_id(db, id).await?
         } else {
-            sqlx::query_as::<sqlx::Postgres, ProductInfoRow>(
-                "SELECT product_id, product_code, pdt_name FROM products WHERE product_code = $1 LIMIT 1",
-            )
-            .bind(&query.product_code)
-            .fetch_optional(&mut *db)
-            .await.map_err(|e| DomainError::Internal(e.into()))?
+            InventoryCascadeRepo::find_product_by_code(db, query.product_code.as_deref().unwrap_or("")).await?
         };
 
         let product = product.ok_or_else(|| {
@@ -99,18 +57,7 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
         })?;
 
         // 2. 查找最新 N 个 BOM 引用（产品作为子件被引用的节点）
-        let bom_refs = sqlx::query_as::<sqlx::Postgres, BomRefRow>(
-            r#"SELECT DISTINCT ON (bn.bom_id) bn.bom_id, b.bom_name, bn.node_id AS entry_node_id
-               FROM bom_nodes bn
-               JOIN boms b ON b.bom_id = bn.bom_id AND b.deleted_at IS NULL
-               WHERE bn.product_id = $1
-               ORDER BY bn.bom_id DESC, bn.node_id ASC
-               LIMIT $2"#,
-        )
-        .bind(product.product_id)
-        .bind(MAX_BOM_REFS)
-        .fetch_all(&mut *db)
-        .await.map_err(|e| DomainError::Internal(e.into()))?;
+        let bom_refs = InventoryCascadeRepo::find_bom_refs(db, product.product_id, MAX_BOM_REFS).await?;
 
         if bom_refs.is_empty() {
             return Ok(CascadeInventoryResult {
@@ -122,16 +69,8 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
         }
 
         // 3. 加载这些 BOM 的全部节点
-        let bom_ids: Vec<i64> = bom_refs.iter().map(|r| r.bom_id).collect();
-        let all_nodes = sqlx::query_as::<sqlx::Postgres, CascadeNodeFlat>(
-            r#"SELECT node_id, bom_id, product_id, product_code, quantity, parent_id, loss_rate, order_num, unit
-               FROM bom_nodes
-               WHERE bom_id = ANY($1)
-               ORDER BY order_num"#,
-        )
-        .bind(&bom_ids)
-        .fetch_all(&mut *db)
-        .await.map_err(|e| DomainError::Internal(e.into()))?;
+        let bom_ids: Vec<i64> = bom_refs.iter().map(|r: &BomRefRow| r.bom_id).collect();
+        let all_nodes = InventoryCascadeRepo::find_bom_nodes(db, &bom_ids).await?;
         let all_product_ids: Vec<i64> = all_nodes
             .iter()
             .map(|n| n.product_id)
@@ -142,12 +81,7 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
         let products = if all_product_ids.is_empty() {
             vec![]
         } else {
-            sqlx::query_as::<sqlx::Postgres, ProductInfoRow>(
-                "SELECT product_id, product_code, pdt_name FROM products WHERE product_id = ANY($1)",
-            )
-            .bind(&all_product_ids)
-            .fetch_all(&mut *db)
-            .await.map_err(|e| DomainError::Internal(e.into()))?
+            InventoryCascadeRepo::find_products_by_ids(db, &all_product_ids).await?
         };
 
         let valid_product_ids: HashSet<i64> = products.iter().map(|p| p.product_id).collect();
@@ -213,13 +147,7 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
         let stock_map: HashMap<i64, Decimal> = if descendant_product_ids.is_empty() {
             HashMap::new()
         } else {
-            let stocks = sqlx::query_as::<sqlx::Postgres, StockSummaryRow>(
-                "SELECT product_id, SUM(quantity) AS total_stock FROM stock_ledger WHERE product_id = ANY($1) GROUP BY product_id",
-            )
-            .bind(&descendant_product_ids)
-            .fetch_all(&mut *db)
-            .await.map_err(|e| DomainError::Internal(e.into()))?;
-
+            let stocks = InventoryCascadeRepo::query_stock_summary(db, &descendant_product_ids).await?;
             stocks.into_iter().map(|s| (s.product_id, s.total_stock)).collect()
         };
 

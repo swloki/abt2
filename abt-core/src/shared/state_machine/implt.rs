@@ -1,10 +1,9 @@
-﻿use async_trait::async_trait;
-use serde_json::Value as JsonValue;
+use async_trait::async_trait;
 use sqlx::postgres::PgPool;
-use sqlx::{FromRow, Row};
 use tracing::instrument;
 
-use super::model::{EntityStateLog, StateDefinitionInput, StateTransitionDef, TransitionDefInput};
+use super::model::{EntityStateLog, StateDefinitionInput, TransitionDefInput};
+use super::repo::StateMachineRepo;
 use super::service::StateMachineService;
 use crate::shared::enums::SideEffect;
 use crate::shared::types::PgExecutor;
@@ -37,58 +36,15 @@ impl StateMachineService for StateMachineServiceImpl {
         states: Vec<StateDefinitionInput>,
         transitions: Vec<TransitionDefInput>,
     ) -> Result<()> {
-        let executor = &mut *db;
-
-        sqlx::query("DELETE FROM state_transition_defs WHERE entity_type = $1")
-            .bind(entity_type)
-            .execute(&mut *executor)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-
-        sqlx::query("DELETE FROM state_definitions WHERE entity_type = $1")
-            .bind(entity_type)
-            .execute(&mut *executor)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+        StateMachineRepo::delete_transitions(db, entity_type).await?;
+        StateMachineRepo::delete_definitions(db, entity_type).await?;
 
         for state in &states {
-            sqlx::query(
-                r#"
-                INSERT INTO state_definitions (entity_type, state_name, label, is_initial, is_final)
-                VALUES ($1, $2, $3, $4, $5)
-                "#,
-            )
-            .bind(entity_type)
-            .bind(&state.state_name)
-            .bind(&state.label)
-            .bind(state.is_initial)
-            .bind(state.is_final)
-            .execute(&mut *executor)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            StateMachineRepo::insert_definition(db, entity_type, state).await?;
         }
 
         for tr in &transitions {
-            let side_effects_json =
-                serde_json::to_value(&tr.side_effects).unwrap_or(JsonValue::Null);
-
-            sqlx::query(
-                r#"
-                INSERT INTO state_transition_defs
-                    (entity_type, from_state, to_state, trigger_event, guard_condition, side_effects, sort_order)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                "#,
-            )
-            .bind(entity_type)
-            .bind(&tr.from_state)
-            .bind(&tr.to_state)
-            .bind(tr.trigger_event.map(|e| e.as_i16()))
-            .bind(&tr.guard_condition)
-            .bind(&side_effects_json)
-            .bind(tr.sort_order)
-            .execute(&mut *executor)
-            .await
-            .map_err(|e| DomainError::Internal(e.into()))?;
+            StateMachineRepo::insert_transition(db, entity_type, tr).await?;
         }
 
         Ok(())
@@ -103,70 +59,33 @@ impl StateMachineService for StateMachineServiceImpl {
         to_state: &str,
         remark: Option<&str>,
     ) -> Result<EntityStateLog> {
-        // Step 1: 查询当前状态（NotFound 表示新实体，使用空字符串）
-        let from_state = match self
-            .get_current_state(ctx, db, entity_type, entity_id)
-            .await
-        {
-            Ok(state) => Some(state),
-            Err(DomainError::NotFound(_)) => None,
+        // Step 1: 查询当前状态（None 表示新实体，使用空字符串）
+        let from_state = match StateMachineRepo::get_current_state(db, entity_type, entity_id).await {
+            Ok(state) => state,
             Err(e) => return Err(e),
         };
 
         // Step 2: 匹配转换规则
         let from = from_state.as_deref().unwrap_or("");
-        let row = sqlx::query(
-            r#"
-            SELECT id, entity_type, from_state, to_state, trigger_event,
-                   guard_condition, side_effects, sort_order
-            FROM state_transition_defs
-            WHERE entity_type = $1 AND from_state = $2 AND to_state = $3
-            ORDER BY sort_order
-            LIMIT 1
-            "#,
-        )
-        .bind(entity_type)
-        .bind(from)
-        .bind(to_state)
-        .fetch_optional(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-
-        let transition_def: StateTransitionDef = match row {
-            Some(r) => {
-                StateTransitionDef::try_from(&r).map_err(|e| DomainError::Internal(e.into()))?
-            }
-            None => {
-                return Err(DomainError::InvalidStateTransition {
-                    from: from.to_string(),
-                    to: to_state.to_string(),
-                });
-            }
-        };
+        let transition_def = StateMachineRepo::find_transition_def(db, entity_type, from, to_state)
+            .await?
+            .ok_or_else(|| DomainError::InvalidStateTransition {
+                from: from.to_string(),
+                to: to_state.to_string(),
+            })?;
 
         // Step 3: 插入 EntityStateLog
-        let log_row = sqlx::query(
-            r#"
-            INSERT INTO entity_state_logs
-                (entity_type, entity_id, from_state, to_state, transition_id, operator_id, remark)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id, entity_type, entity_id, from_state, to_state, transition_id,
-                      operator_id, remark, created_at
-            "#,
+        let state_log = StateMachineRepo::insert_state_log(
+            db,
+            entity_type,
+            entity_id,
+            from_state.as_deref(),
+            to_state,
+            transition_def.id,
+            ctx.operator_id,
+            remark,
         )
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(&from_state)
-        .bind(to_state)
-        .bind(transition_def.id)
-        .bind(ctx.operator_id)
-        .bind(remark)
-        .fetch_one(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-
-        let state_log =
-            EntityStateLog::from_row(&log_row).map_err(|e| DomainError::Internal(e.into()))?;
+        .await?;
 
         // Step 4: 执行 side_effects
         for effect in &transition_def.side_effects {
@@ -213,51 +132,18 @@ impl StateMachineService for StateMachineServiceImpl {
         entity_type: &str,
         entity_id: i64,
     ) -> Result<String> {
-        let row = sqlx::query(
-            r#"
-            SELECT to_state
-            FROM entity_state_logs
-            WHERE entity_type = $1 AND entity_id = $2
-            ORDER BY created_at DESC, id DESC
-            LIMIT 1
-            "#,
-        )
-        .bind(entity_type)
-        .bind(entity_id)
-        .fetch_optional(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-
-        match row {
-            Some(r) => Ok(r
-                .try_get::<String, _>("to_state")
-                .map_err(|e| DomainError::Internal(e.into()))?),
-            None => {
-                let init_row = sqlx::query(
-                    r#"
-                    SELECT state_name
-                    FROM state_definitions
-                    WHERE entity_type = $1 AND is_initial = true
-                    LIMIT 1
-                    "#,
-                )
-                .bind(entity_type)
-                .fetch_optional(&mut *db)
-                .await
-                .map_err(|e| DomainError::Internal(e.into()))?;
-
-                init_row
-                    .map(|r| {
-                        r.try_get::<String, _>("state_name")
-                            .map_err(|e| DomainError::Internal(e.into()))
-                    })
-                    .transpose()?
+        match StateMachineRepo::get_current_state(db, entity_type, entity_id).await {
+            Ok(Some(state)) => Ok(state),
+            Ok(None) => {
+                StateMachineRepo::get_initial_state(db, entity_type)
+                    .await?
                     .ok_or_else(|| {
                         DomainError::not_found(format!(
                             "initial state for entity_type '{entity_type}'"
                         ))
                     })
             }
+            Err(e) => Err(e),
         }
     }
 
@@ -268,26 +154,7 @@ impl StateMachineService for StateMachineServiceImpl {
         entity_type: &str,
         state: &str,
     ) -> Result<Vec<String>> {
-        let rows = sqlx::query(
-            r#"
-            SELECT to_state
-            FROM state_transition_defs
-            WHERE entity_type = $1 AND from_state = $2
-            ORDER BY sort_order
-            "#,
-        )
-        .bind(entity_type)
-        .bind(state)
-        .fetch_all(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-
-        rows.iter()
-            .map(|r| {
-                r.try_get::<String, _>("to_state")
-                    .map_err(|e| DomainError::Internal(e.into()))
-            })
-            .collect()
+        StateMachineRepo::get_allowed_transitions(db, entity_type, state).await
     }
 
     #[instrument(skip(self, _ctx))]
@@ -301,40 +168,15 @@ impl StateMachineService for StateMachineServiceImpl {
     ) -> Result<PaginatedResult<EntityStateLog>> {
         let params = PageParams::new(page, page_size);
 
-        let count_row = sqlx::query(
-            "SELECT COUNT(*) AS cnt FROM entity_state_logs WHERE entity_type = $1 AND entity_id = $2",
+        let total = StateMachineRepo::count_state_history(db, entity_type, entity_id).await?;
+        let items = StateMachineRepo::query_state_history(
+            db,
+            entity_type,
+            entity_id,
+            params.page_size as i64,
+            params.offset() as i64,
         )
-        .bind(entity_type)
-        .bind(entity_id)
-        .fetch_one(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-        let total: i64 = count_row
-            .try_get("cnt")
-            .map_err(|e| DomainError::Internal(e.into()))?;
-
-        let rows = sqlx::query(
-            r#"
-            SELECT id, entity_type, entity_id, from_state, to_state,
-                   transition_id, operator_id, remark, created_at
-            FROM entity_state_logs
-            WHERE entity_type = $1 AND entity_id = $2
-            ORDER BY created_at DESC, id DESC
-            LIMIT $3 OFFSET $4
-            "#,
-        )
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(params.page_size as i64)
-        .bind(params.offset() as i64)
-        .fetch_all(&mut *db)
-        .await
-        .map_err(|e| DomainError::Internal(e.into()))?;
-
-        let items: Vec<EntityStateLog> = rows
-            .iter()
-            .map(|r| EntityStateLog::from_row(r).map_err(|e| DomainError::Internal(e.into())))
-            .collect::<Result<Vec<_>>>()?;
+        .await?;
 
         Ok(PaginatedResult::new(
             items,

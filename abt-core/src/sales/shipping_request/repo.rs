@@ -173,6 +173,14 @@ impl ShippingRequestRepo {
             None
         };
 
+        let customer_param = if let Some(cid) = filter.customer_id {
+            param_idx += 1;
+            conditions.push(format!("customer_id = ${param_idx}"));
+            Some(cid)
+        } else {
+            None
+        };
+
         let scope_param = match data_scope {
             DataScope::All => None,
             DataScope::Department | DataScope::SelfOnly => {
@@ -189,6 +197,7 @@ impl ShippingRequestRepo {
         if let Some(v) = order_param { count_q = count_q.bind(v); }
         if let Some(v) = status_param { count_q = count_q.bind(v); }
         if let Some(ref v) = keyword_param { count_q = count_q.bind(v); }
+        if let Some(v) = customer_param { count_q = count_q.bind(v); }
         if let Some(v) = scope_param { count_q = count_q.bind(v); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
 
@@ -203,6 +212,7 @@ impl ShippingRequestRepo {
         if let Some(v) = order_param { data_q = data_q.bind(v); }
         if let Some(v) = status_param { data_q = data_q.bind(v); }
         if let Some(ref v) = keyword_param { data_q = data_q.bind(v); }
+        if let Some(v) = customer_param { data_q = data_q.bind(v); }
         if let Some(v) = scope_param { data_q = data_q.bind(v); }
         data_q = data_q
             .bind(page.page_size as i64)

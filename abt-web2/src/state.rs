@@ -52,4 +52,12 @@ impl AppState {
     pub fn sales_order_service(&self) -> impl abt_core::sales::sales_order::SalesOrderService {
         abt_core::sales::sales_order::new_sales_order_service(self.pool.clone())
     }
+
+    pub fn shipping_service(&self) -> impl abt_core::sales::shipping_request::ShippingRequestService {
+        abt_core::sales::shipping_request::new_shipping_request_service(self.pool.clone())
+    }
+
+    pub fn warehouse_service(&self) -> impl abt_core::wms::warehouse::WarehouseService {
+        abt_core::wms::warehouse::new_warehouse_service(self.pool.clone())
+    }
 }

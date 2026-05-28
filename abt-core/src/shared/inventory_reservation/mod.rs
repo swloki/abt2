@@ -5,3 +5,9 @@ pub mod service;
 
 pub use model::{InventoryReservation, ReserveRequest};
 pub use service::InventoryReservationService;
+
+use sqlx::PgPool;
+
+pub fn new_inventory_reservation_service(pool: PgPool) -> impl InventoryReservationService {
+    implt::InventoryReservationServiceImpl::new(pool)
+}

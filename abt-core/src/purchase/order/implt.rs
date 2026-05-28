@@ -1,5 +1,3 @@
-﻿use std::sync::Arc;
-
 use async_trait::async_trait;
 use rust_decimal::Decimal;
 use serde_json::json;
@@ -10,24 +8,22 @@ use super::model::{
 };
 use super::repo::{PurchaseOrderItemRepo, PurchaseOrderRepo};
 use super::service::PurchaseOrderService;
-use crate::master_data::supplier::model::SupplierStatus;
 use crate::master_data::supplier::service::SupplierService;
+use crate::master_data::supplier::{new_supplier_service, model::SupplierStatus};
 use crate::purchase::enums::{PurchaseOrderStatus, PurchaseQuotationStatus};
 use crate::purchase::quotation::repo::{PurchaseQuotationItemRepo, PurchaseQuotationRepo};
-use crate::shared::idempotency::service::key_to_i64;
-use crate::shared::types::PgExecutor;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::document_link::model::LinkRequest;
-use crate::shared::document_link::service::DocumentLinkService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::document_link::{new_document_link_service, model::LinkRequest, service::DocumentLinkService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::enums::link_type::LinkType;
 use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::idempotency::service::IdempotencyService;
-use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
+use crate::shared::idempotency::{new_idempotency_service, service::{key_to_i64, IdempotencyService}};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
+use crate::shared::types::PgExecutor;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -36,39 +32,12 @@ use crate::shared::types::pagination::{PageParams, PaginatedResult};
 const ENTITY_TYPE: &str = "PurchaseOrder";
 
 pub struct PurchaseOrderServiceImpl {
-    #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    audit_log: Arc<dyn AuditLogService>,
-    doc_link: Arc<dyn DocumentLinkService>,
-    supplier: Arc<dyn SupplierService>,
-    #[allow(dead_code)]
-    idempotency: Arc<dyn IdempotencyService>,
 }
 
 impl PurchaseOrderServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        audit_log: Arc<dyn AuditLogService>,
-        doc_link: Arc<dyn DocumentLinkService>,
-        supplier: Arc<dyn SupplierService>,
-        idempotency: Arc<dyn IdempotencyService>,
-    ) -> Self {
-        Self {
-            pool,
-            doc_seq,
-            state_machine,
-            event_bus,
-            audit_log,
-            doc_link,
-            supplier,
-            idempotency,
-        }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -82,13 +51,12 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
     ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseOrder:create").await? {
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "PurchaseOrder:create").await? {
                 return Err(DomainError::duplicate("PurchaseOrder"));
             }
         }
         // 1. 生成单据编号
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::PurchaseOrder)
             .await?;
 
@@ -114,7 +82,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         }
 
         // 5. 审计日志
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
                 ENTITY_TYPE,
@@ -136,7 +104,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
     ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseOrder:create_from_quotation").await? {
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "PurchaseOrder:create_from_quotation").await? {
                 return Err(DomainError::duplicate("PurchaseOrder"));
             }
         }
@@ -181,8 +149,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             .sum();
 
         // 5. 生成单据编号
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::PurchaseOrder)
             .await?;
 
@@ -216,7 +183,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         }
 
         // 9. 创建单据关联
-        self.doc_link
+        new_document_link_service(self.pool.clone())
             .create_links(
                 ctx, db,
                 vec![LinkRequest {
@@ -230,7 +197,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             .await?;
 
         // 10. 审计日志
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -255,7 +222,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseOrder:confirm").await? {
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "PurchaseOrder:confirm").await? {
                 return Err(DomainError::duplicate("PurchaseOrder"));
             }
         }
@@ -270,7 +237,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 2. 校验供应商状态 ∉ {Blacklisted, Disqualified}
-        let supplier = self.supplier.get(ctx, db, order.supplier_id).await?;
+        let supplier = new_supplier_service(self.pool.clone()).get(ctx, db, order.supplier_id).await?;
         if matches!(supplier.status, SupplierStatus::Blacklisted | SupplierStatus::Disqualified) {
             return Err(DomainError::validation(format!(
                 "供应商状态为 {:?}，无法确认订单",
@@ -318,7 +285,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         }
 
         // 5. 状态转换 Draft -> Confirmed
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Confirmed", None)
             .await?;
 
@@ -336,7 +303,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         }
 
         // 6. 发布领域事件
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
                 EventPublishRequest {
@@ -350,7 +317,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
             .await?;
 
         // 7. 审计日志
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 

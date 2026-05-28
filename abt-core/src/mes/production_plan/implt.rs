@@ -1,5 +1,3 @@
-﻿use std::sync::Arc;
-
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
@@ -7,11 +5,10 @@ use super::super::enums::PlanStatus;
 use super::model::*;
 use super::repo::ProductionPlanRepo;
 use super::service::ProductionPlanService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
-use crate::mes::work_order::model::CreateWorkOrderReq;
-use crate::mes::work_order::service::WorkOrderService;
+use crate::mes::work_order::{new_work_order_service, model::CreateWorkOrderReq, service::WorkOrderService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -20,17 +17,11 @@ use crate::shared::types::pagination::PaginatedResult;
 pub struct ProductionPlanServiceImpl {
     #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    work_order: Arc<dyn WorkOrderService>,
 }
 
 impl ProductionPlanServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        work_order: Arc<dyn WorkOrderService>,
-    ) -> Self {
-        Self { pool, doc_seq, work_order }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -41,7 +32,8 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreatePlanReq,
     ) -> Result<i64> {
-        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::ProductionPlan)
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::ProductionPlan)
             .await
             .unwrap_or_else(|_| format!("PP{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
@@ -110,11 +102,13 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         let mut successful = Vec::new();
         let mut failed = Vec::new();
 
+        let work_order_svc = new_work_order_service(self.pool.clone());
+
         for item in &items {
             let scheduled_start = chrono::Local::now().date_naive();
             let scheduled_end = scheduled_start + chrono::Duration::days(7);
 
-            match self.work_order.create(
+            match work_order_svc.create(
                 ctx, db,
                 CreateWorkOrderReq {
                     plan_item_id: Some(item.id),
@@ -130,7 +124,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
                 },
             ).await {
                 Ok(wo_id) => {
-                    if let Ok(wo) = self.work_order.find_by_id(ctx, db, wo_id).await {
+                    if let Ok(wo) = work_order_svc.find_by_id(ctx, db, wo_id).await {
                         successful.push(wo);
                     }
                 }

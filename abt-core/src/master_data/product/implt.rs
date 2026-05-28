@@ -1,43 +1,34 @@
-﻿use std::sync::Arc;
+use sqlx::PgPool;
 
 use super::model::*;
 use super::repo::ProductRepo;
 use super::service::ProductService;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
-use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::enums::event::DomainEventType;
-use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct ProductServiceImpl {
     repo: ProductRepo,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    audit: Arc<dyn AuditLogService>,
-    #[allow(dead_code)]
-    event_bus: Arc<dyn DomainEventBus>,
-    state_machine: Arc<dyn StateMachineService>,
+    pool: PgPool,
 }
 
 impl ProductServiceImpl {
-    pub fn new(
-        repo: ProductRepo,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        state_machine: Arc<dyn StateMachineService>,
-    ) -> Self {
-        Self { repo, doc_seq, audit, event_bus, state_machine }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: ProductRepo, pool }
     }
 }
 
 #[async_trait::async_trait]
 impl ProductService for ProductServiceImpl {
     async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateProductReq) -> Result<i64> {
-        let code = self.doc_seq.next_number(ctx, db, DocumentType::Product).await?;
+        let code = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::Product).await?;
 
         if !self.repo.check_code_unique(db, &code)
             .await?
@@ -48,20 +39,22 @@ impl ProductService for ProductServiceImpl {
         let id = self.repo.create(db, &code, &req)
             .await?;
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ProductStatus", id, "Active", None)
             .await
             .ok();
 
-        self.audit.record(ctx, db, "Product", id, AuditAction::Create, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "Product", id, AuditAction::Create, None, None).await?;
 
-        self.event_bus.publish(ctx, db, EventPublishRequest {
-            event_type: DomainEventType::ProductCreated,
-            aggregate_type: "Product".to_string(),
-            aggregate_id: id,
-            payload: serde_json::json!({ "product_id": id, "product_code": code }),
-            idempotency_key: None,
-        }).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::ProductCreated,
+                aggregate_type: "Product".to_string(),
+                aggregate_id: id,
+                payload: serde_json::json!({ "product_id": id, "product_code": code }),
+                idempotency_key: None,
+            }).await?;
 
         Ok(id)
     }
@@ -74,15 +67,17 @@ impl ProductService for ProductServiceImpl {
         self.repo.update(db, id, &req)
             .await?;
 
-        self.audit.record(ctx, db, "Product", id, AuditAction::Update, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "Product", id, AuditAction::Update, None, None).await?;
 
-        self.event_bus.publish(ctx, db, EventPublishRequest {
-            event_type: DomainEventType::ProductUpdated,
-            aggregate_type: "Product".to_string(),
-            aggregate_id: id,
-            payload: serde_json::json!({ "product_id": id }),
-            idempotency_key: None,
-        }).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::ProductUpdated,
+                aggregate_type: "Product".to_string(),
+                aggregate_id: id,
+                payload: serde_json::json!({ "product_id": id }),
+                idempotency_key: None,
+            }).await?;
 
         Ok(())
     }
@@ -95,15 +90,17 @@ impl ProductService for ProductServiceImpl {
         self.repo.delete(db, id)
             .await?;
 
-        self.audit.record(ctx, db, "Product", id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "Product", id, AuditAction::Delete, None, None).await?;
 
-        self.event_bus.publish(ctx, db, EventPublishRequest {
-            event_type: DomainEventType::ProductDeleted,
-            aggregate_type: "Product".to_string(),
-            aggregate_id: id,
-            payload: serde_json::json!({ "product_id": id }),
-            idempotency_key: None,
-        }).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::ProductDeleted,
+                aggregate_type: "Product".to_string(),
+                aggregate_id: id,
+                payload: serde_json::json!({ "product_id": id }),
+                idempotency_key: None,
+            }).await?;
 
         Ok(())
     }

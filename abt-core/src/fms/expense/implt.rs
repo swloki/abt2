@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use chrono::Datelike;
+﻿use chrono::Datelike;
 use sqlx::PgPool;
 
 use crate::fms::cash_journal::repo::{CashJournalLineRepo, CashJournalRepo};
@@ -11,39 +9,27 @@ use crate::fms::expense::model::*;
 use crate::fms::expense::repo::{ExpenseReimbursementItemRepo, ExpenseReimbursementRepo};
 use crate::fms::expense::service::ExpenseReimbursementService;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::new_audit_log_service;
 use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::new_document_sequence_service;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::event_bus::new_domain_event_bus;
 use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::state_machine::new_state_machine_service;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, Result};
 
 pub struct ExpenseReimbursementServiceImpl {
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
     pool: PgPool,
 }
 
 impl ExpenseReimbursementServiceImpl {
-    pub fn new(
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        pool: PgPool,
-    ) -> Self {
-        Self {
-            doc_seq,
-            state_machine,
-            audit,
-            event_bus,
-            pool,
-        }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -76,8 +62,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         }
 
         // Step 2: Generate doc number
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::ExpenseReimbursement)
             .await?;
 
@@ -98,12 +83,12 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             ?;
 
         // Step 5: State machine transition to Draft
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ExpenseStatus", id, "Draft", None)
             .await?;
 
         // Step 6: Audit log
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
                 "ExpenseReimbursement",
@@ -168,7 +153,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         // Step 3: Generate a proper CJ doc_number via DocumentSequenceService
         let cj_doc_number = {
             let cj_ctx = ServiceContext::new(expense.operator_id);
-            self.doc_seq
+            new_document_sequence_service(self.pool.clone())
                 .next_number(&cj_ctx, &mut *tx, DocumentType::CashJournal)
                 .await?
         };
@@ -269,7 +254,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         // Step 8: Publish event — failure does not affect committed business data
         if let Ok(mut event_conn) = self.pool.acquire().await {
             let event_ctx = ServiceContext::new(expense.operator_id);
-            self.event_bus
+            new_domain_event_bus(self.pool.clone())
                 .publish(
                     &event_ctx, &mut *event_conn,
                     EventPublishRequest {

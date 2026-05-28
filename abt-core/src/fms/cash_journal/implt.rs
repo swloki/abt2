@@ -1,42 +1,31 @@
-﻿use std::sync::Arc;
+﻿use sqlx::PgPool;
 
 use crate::fms::cash_journal::model::*;
 use crate::fms::cash_journal::repo::{CashJournalLineRepo, CashJournalRepo};
 use crate::fms::cash_journal::service::CashJournalService;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::new_audit_log_service;
 use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::new_document_sequence_service;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::event_bus::new_domain_event_bus;
 use crate::shared::idempotency::service::IdempotencyService;
+use crate::shared::idempotency::new_idempotency_service;
 use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::state_machine::new_state_machine_service;
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct CashJournalServiceImpl {
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    idempotency: Arc<dyn IdempotencyService>,
+    pool: PgPool,
 }
 
 impl CashJournalServiceImpl {
-    pub fn new(
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        idempotency: Arc<dyn IdempotencyService>,
-    ) -> Self {
-        Self {
-            doc_seq,
-            state_machine,
-            audit,
-            event_bus,
-            idempotency,
-        }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -63,8 +52,7 @@ impl CashJournalService for CashJournalServiceImpl {
             ));
         }
 
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::CashJournal)
             .await?;
 
@@ -76,11 +64,11 @@ impl CashJournalService for CashJournalServiceImpl {
             .await
             ?;
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "JournalStatus", id, "Draft", None)
             .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
                 "CashJournal",
@@ -103,8 +91,7 @@ impl CashJournalService for CashJournalServiceImpl {
         // Step 1: Idempotency check
         if let Some(ref key) = idempotency_key {
             let hash = crate::shared::idempotency::service::key_to_i64(key);
-            let is_first = self
-                .idempotency
+            let is_first = new_idempotency_service(self.pool.clone())
                 .check_and_mark(ctx, db, hash, "CashJournal:confirm")
                 .await?;
             if !is_first {
@@ -138,7 +125,7 @@ impl CashJournalService for CashJournalServiceImpl {
         }
 
         // Step 5: State transition
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "JournalStatus", id, "Confirmed", None)
             .await?;
 
@@ -156,7 +143,7 @@ impl CashJournalService for CashJournalServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
                 "CashJournal",
@@ -170,7 +157,7 @@ impl CashJournalService for CashJournalServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
                 EventPublishRequest {

@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
 use super::model::{CreateTransferReq, InventoryTransfer, TransferFilter};
@@ -11,19 +9,18 @@ use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::DocumentType;
 use crate::wms::enums::TransferStatus;
 
 pub struct TransferServiceImpl {
-    #[allow(dead_code)]
+    repo: TransferRepo,
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
 }
 
 impl TransferServiceImpl {
-    pub fn new(pool: PgPool, doc_seq: Arc<dyn DocumentSequenceService>) -> Self {
-        Self { pool, doc_seq }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: TransferRepo, pool }
     }
 }
 
@@ -47,7 +44,8 @@ impl TransferService for TransferServiceImpl {
         }
 
         // 生成单据编号
-        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::InventoryTransfer)
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::InventoryTransfer)
             .await
             .unwrap_or_else(|_| format!("TR{}", chrono::Utc::now().format("%Y%m%d%H%M%S%.f")));
 

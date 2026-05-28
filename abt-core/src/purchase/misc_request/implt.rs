@@ -1,5 +1,3 @@
-﻿use std::sync::Arc;
-
 use async_trait::async_trait;
 use serde_json::json;
 use sqlx::postgres::PgPool;
@@ -7,18 +5,17 @@ use sqlx::postgres::PgPool;
 use super::model::{CreateMiscRequestRequest, MiscellaneousRequest};
 use super::repo::{MiscRequestItemRepo, MiscRequestRepo};
 use super::service::MiscellaneousRequestService;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::types::PgExecutor;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::idempotency::service::IdempotencyService;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
+use crate::shared::idempotency::{new_idempotency_service, service::{key_to_i64, IdempotencyService}};
 use crate::purchase::enums::MiscRequestStatus;
-use crate::shared::idempotency::service::key_to_i64;
-use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
+use crate::shared::types::PgExecutor;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -26,26 +23,12 @@ use crate::shared::types::Result;
 const ENTITY_TYPE: &str = "MiscellaneousRequest";
 
 pub struct MiscellaneousRequestServiceImpl {
-    #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    audit_log: Arc<dyn AuditLogService>,
-    #[allow(dead_code)]
-    idempotency: Arc<dyn IdempotencyService>,
 }
 
 impl MiscellaneousRequestServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        audit_log: Arc<dyn AuditLogService>,
-        idempotency: Arc<dyn IdempotencyService>,
-    ) -> Self {
-        Self { pool, doc_seq, state_machine, event_bus, audit_log, idempotency }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -59,12 +42,12 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
     ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx, db, hash, "MiscellaneousRequest:create").await? {
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "MiscellaneousRequest:create").await? {
                 return Err(DomainError::duplicate("MiscellaneousRequest"));
             }
         }
         // 1. 生成单据编号
-        let doc_number = self.doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::MiscellaneousRequest)
             .await?;
 
@@ -96,7 +79,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         }
 
         // 5. 审计日志
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
             .await?;
 
@@ -122,7 +105,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
     ) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx, db, hash, "MiscellaneousRequest:approve").await? {
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "MiscellaneousRequest:approve").await? {
                 return Err(DomainError::duplicate("MiscellaneousRequest"));
             }
         }
@@ -133,7 +116,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
 
         // 2. 状态转换 Draft -> Approved
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Approved", None)
             .await?;
 
@@ -151,7 +134,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         }
 
         // 4. 发布领域事件
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
                 EventPublishRequest {
@@ -164,8 +147,8 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
             )
             .await?;
 
-        // 3. 审计日志
-        self.audit_log
+        // 5. 审计日志
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 

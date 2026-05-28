@@ -1,5 +1,3 @@
-﻿use std::sync::Arc;
-
 use async_trait::async_trait;
 use serde_json::json;
 use sqlx::postgres::PgPool;
@@ -8,17 +6,16 @@ use super::model::*;
 use super::repo;
 use super::service::InspectionResultService;
 use crate::qms::enums::*;
-use crate::qms::inspection_specification;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::qms::inspection_specification::{self, service::InspectionSpecificationService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
 use crate::shared::types::PgExecutor;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
-use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::idempotency::service::{key_to_i64, IdempotencyService};
-use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::event_bus::{new_domain_event_bus, model::EventPublishRequest, service::DomainEventBus};
+use crate::shared::idempotency::{new_idempotency_service, service::{key_to_i64, IdempotencyService}};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -27,27 +24,12 @@ use crate::shared::types::pagination::{PageParams, PaginatedResult};
 const ENTITY_TYPE: &str = "InspectionResult";
 
 pub struct InspectionResultServiceImpl {
-    #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    audit_log: Arc<dyn AuditLogService>,
-    idempotency: Arc<dyn IdempotencyService>,
-    spec_service: Arc<dyn inspection_specification::service::InspectionSpecificationService>,
 }
 
 impl InspectionResultServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        audit_log: Arc<dyn AuditLogService>,
-        idempotency: Arc<dyn IdempotencyService>,
-        spec_service: Arc<dyn inspection_specification::service::InspectionSpecificationService>,
-    ) -> Self {
-        Self { pool, doc_seq, state_machine, event_bus, audit_log, idempotency, spec_service }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -60,7 +42,8 @@ impl InspectionResultService for InspectionResultServiceImpl {
         req: CreateInspectionResultReq,
     ) -> Result<i64> {
         // 1. 验证检验规格存在
-        let spec = self.spec_service.get(ctx, db, req.spec_id).await?;
+        let spec = inspection_specification::new_inspection_specification_service(self.pool.clone())
+            .get(ctx, db, req.spec_id).await?;
         if spec.status != SpecStatus::Active {
             return Err(DomainError::validation(format!(
                 "检验规格 {} 状态不是 Active（当前: {:?}）",
@@ -76,13 +59,12 @@ impl InspectionResultService for InspectionResultServiceImpl {
             spec.inspection_type.as_i16()
         );
         let hash = key_to_i64(&idem_key);
-        if !self.idempotency.check_and_mark(ctx, db, hash, "InspectionResult:create").await? {
+        if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "InspectionResult:create").await? {
             return Err(DomainError::duplicate(ENTITY_TYPE));
         }
 
         // 3. 生成单据编号
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::InspectionResult)
             .await?;
 
@@ -115,7 +97,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 5. 审计日志
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
             .await?;
 
@@ -156,7 +138,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
         // 2. 幂等检查
         let idem_key = format!("qms:record_result:{}:{}", id, req.inspector_id);
         let hash = key_to_i64(&idem_key);
-        if !self.idempotency.check_and_mark(ctx, db, hash, "InspectionResult:record_result").await? {
+        if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "InspectionResult:record_result").await? {
             return Err(DomainError::duplicate(ENTITY_TYPE));
         }
 
@@ -194,7 +176,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
         }
 
         // 5. 状态机转换
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Completed", None)
             .await?;
 
@@ -203,7 +185,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
             InspectionResultType::Pass | InspectionResultType::Conditional => DomainEventType::InspectionPassed,
             InspectionResultType::Fail => DomainEventType::InspectionFailed,
         };
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -224,7 +206,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
             .await?;
 
         // 7. 审计日志
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 

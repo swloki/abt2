@@ -1,4 +1,4 @@
-﻿use std::sync::Arc;
+use sqlx::PgPool;
 
 use super::model::*;
 use super::repo::{BomCategoryRepo, BomNodeRepo, BomRepo, BomSnapshotRepo};
@@ -7,14 +7,14 @@ use super::service::{
 };
 use crate::master_data::price::model::PriceType;
 use crate::master_data::price::repo::PriceRepo;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 // ── BomQueryServiceImpl ──────────────────────────────────────────────────────
@@ -26,12 +26,9 @@ pub struct BomQueryServiceImpl {
 }
 
 impl BomQueryServiceImpl {
-    pub fn new(
-        repo: BomRepo,
-        node_repo: BomNodeRepo,
-        snapshot_repo: BomSnapshotRepo,
-    ) -> Self {
-        Self { repo, node_repo, snapshot_repo }
+    pub fn new(pool: PgPool) -> Self {
+        let _ = pool;
+        Self { repo: BomRepo, node_repo: BomNodeRepo, snapshot_repo: BomSnapshotRepo }
     }
 }
 
@@ -104,30 +101,20 @@ pub struct BomCommandServiceImpl {
     repo: BomRepo,
     node_repo: BomNodeRepo,
     snapshot_repo: BomSnapshotRepo,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    state_machine: Arc<dyn StateMachineService>,
+    pool: PgPool,
 }
 
 impl BomCommandServiceImpl {
-    pub fn new(
-        repo: BomRepo,
-        node_repo: BomNodeRepo,
-        snapshot_repo: BomSnapshotRepo,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        state_machine: Arc<dyn StateMachineService>,
-    ) -> Self {
-        Self { repo, node_repo, snapshot_repo, doc_seq, audit, event_bus, state_machine }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: BomRepo, node_repo: BomNodeRepo, snapshot_repo: BomSnapshotRepo, pool }
     }
 }
 
 #[async_trait::async_trait]
 impl BomCommandService for BomCommandServiceImpl {
     async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateBomReq) -> Result<i64> {
-        let code = self.doc_seq.next_number(ctx, db, DocumentType::Bom).await?;
+        let code = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::Bom).await?;
 
         if !self.repo.check_name_unique(db, &req.name, None)
             .await?
@@ -138,12 +125,13 @@ impl BomCommandService for BomCommandServiceImpl {
         let id = self.repo.create(db, &code, &req, ctx.operator_id)
             .await?;
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "BomStatus", id, "Draft", None)
             .await
             .ok();
 
-        self.audit.record(ctx, db, "BOM", id, AuditAction::Create, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BOM", id, AuditAction::Create, None, None).await?;
 
         Ok(id)
     }
@@ -179,7 +167,8 @@ impl BomCommandService for BomCommandServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        self.audit.record(ctx, db, "BOM", id, AuditAction::Update, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BOM", id, AuditAction::Update, None, None).await?;
         Ok(())
     }
 
@@ -195,7 +184,8 @@ impl BomCommandService for BomCommandServiceImpl {
         self.repo.delete(db, id)
             .await?;
 
-        self.audit.record(ctx, db, "BOM", id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BOM", id, AuditAction::Delete, None, None).await?;
         Ok(())
     }
 
@@ -223,25 +213,27 @@ impl BomCommandService for BomCommandServiceImpl {
             db, id, existing.version, &existing.bom_name, &bom_detail, ctx.operator_id,
         ).await?;
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "BomStatus", id, "Published", None)
             .await?;
 
         self.repo.update_status(db, id, BomStatus::Published)
             .await?;
 
-        self.event_bus.publish(
-            ctx, db,
-            EventPublishRequest {
-                event_type: DomainEventType::BomPublished,
-                aggregate_type: "BOM".to_string(),
-                aggregate_id: id,
-                payload: serde_json::json!({ "bom_id": id, "version": existing.version }),
-                idempotency_key: None,
-            },
-        ).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx, db,
+                EventPublishRequest {
+                    event_type: DomainEventType::BomPublished,
+                    aggregate_type: "BOM".to_string(),
+                    aggregate_id: id,
+                    payload: serde_json::json!({ "bom_id": id, "version": existing.version }),
+                    idempotency_key: None,
+                },
+            ).await?;
 
-        self.audit.record(ctx, db, "BOM", id, AuditAction::Transition, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BOM", id, AuditAction::Transition, None, None).await?;
 
         Ok(id)
     }
@@ -255,25 +247,27 @@ impl BomCommandService for BomCommandServiceImpl {
             return Err(DomainError::business_rule("BOM is not published"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "BomStatus", id, "Draft", None)
             .await?;
 
         self.repo.update_status(db, id, BomStatus::Draft)
             .await?;
 
-        self.event_bus.publish(
-            ctx, db,
-            EventPublishRequest {
-                event_type: DomainEventType::BomUnpublished,
-                aggregate_type: "BOM".to_string(),
-                aggregate_id: id,
-                payload: serde_json::json!({ "bom_id": id }),
-                idempotency_key: None,
-            },
-        ).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx, db,
+                EventPublishRequest {
+                    event_type: DomainEventType::BomUnpublished,
+                    aggregate_type: "BOM".to_string(),
+                    aggregate_id: id,
+                    payload: serde_json::json!({ "bom_id": id }),
+                    idempotency_key: None,
+                },
+            ).await?;
 
-        self.audit.record(ctx, db, "BOM", id, AuditAction::Transition, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BOM", id, AuditAction::Transition, None, None).await?;
         Ok(())
     }
 
@@ -346,35 +340,37 @@ impl BomCommandService for BomCommandServiceImpl {
         let affected_boms = if affected_nodes > 0 { 1i64 } else { 0i64 };
 
         if affected_nodes > 0 {
-            self.event_bus.publish(
-                ctx, db,
-                EventPublishRequest {
-                    event_type: DomainEventType::BomSubstituted,
-                    aggregate_type: "BOM".to_string(),
-                    aggregate_id: req.bom_id.unwrap_or(0),
-                    payload: serde_json::json!({
+            new_domain_event_bus(self.pool.clone())
+                .publish(
+                    ctx, db,
+                    EventPublishRequest {
+                        event_type: DomainEventType::BomSubstituted,
+                        aggregate_type: "BOM".to_string(),
+                        aggregate_id: req.bom_id.unwrap_or(0),
+                        payload: serde_json::json!({
+                            "old_product_id": req.old_product_id,
+                            "new_product_id": req.new_product_id,
+                            "affected_nodes": affected_nodes,
+                        }),
+                        idempotency_key: None,
+                    },
+                ).await?;
+
+            new_audit_log_service(self.pool.clone())
+                .record(
+                    ctx,
+                    db,
+                    "BOM",
+                    req.bom_id.unwrap_or(0),
+                    AuditAction::Update,
+                    Some(serde_json::json!({
+                        "action": "substitute",
                         "old_product_id": req.old_product_id,
                         "new_product_id": req.new_product_id,
                         "affected_nodes": affected_nodes,
-                    }),
-                    idempotency_key: None,
-                },
-            ).await?;
-
-            self.audit.record(
-                ctx,
-                db,
-                "BOM",
-                req.bom_id.unwrap_or(0),
-                AuditAction::Update,
-                Some(serde_json::json!({
-                    "action": "substitute",
-                    "old_product_id": req.old_product_id,
-                    "new_product_id": req.new_product_id,
-                    "affected_nodes": affected_nodes,
-                })),
-                None,
-            ).await?;
+                    })),
+                    None,
+                ).await?;
         }
 
         Ok(SubstitutionResult { affected_boms, affected_nodes })
@@ -394,18 +390,12 @@ impl BomCommandService for BomCommandServiceImpl {
 pub struct BomNodeServiceImpl {
     repo: BomRepo,
     node_repo: BomNodeRepo,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
+    pool: PgPool,
 }
 
 impl BomNodeServiceImpl {
-    pub fn new(
-        repo: BomRepo,
-        node_repo: BomNodeRepo,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-    ) -> Self {
-        Self { repo, node_repo, audit, event_bus }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: BomRepo, node_repo: BomNodeRepo, pool }
     }
 }
 
@@ -438,21 +428,23 @@ impl BomNodeService for BomNodeServiceImpl {
         let node_id = self.node_repo.create(db, bom_id, &node)
             .await?;
 
-        self.event_bus.publish(
-            ctx, db,
-            EventPublishRequest {
-                event_type: DomainEventType::BomNodeAdded,
-                aggregate_type: "BOM".to_string(),
-                aggregate_id: bom_id,
-                payload: serde_json::json!({
-                    "node_id": node_id,
-                    "product_id": node.product_id,
-                }),
-                idempotency_key: None,
-            },
-        ).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx, db,
+                EventPublishRequest {
+                    event_type: DomainEventType::BomNodeAdded,
+                    aggregate_type: "BOM".to_string(),
+                    aggregate_id: bom_id,
+                    payload: serde_json::json!({
+                        "node_id": node_id,
+                        "product_id": node.product_id,
+                    }),
+                    idempotency_key: None,
+                },
+            ).await?;
 
-        self.audit.record(ctx, db, "BomNode", node_id, AuditAction::Create, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BomNode", node_id, AuditAction::Create, None, None).await?;
 
         Ok(node_id)
     }
@@ -488,18 +480,20 @@ impl BomNodeService for BomNodeServiceImpl {
         self.node_repo.update(db, node_id, &req)
             .await?;
 
-        self.event_bus.publish(
-            ctx, db,
-            EventPublishRequest {
-                event_type: DomainEventType::BomNodeUpdated,
-                aggregate_type: "BOM".to_string(),
-                aggregate_id: bom_id,
-                payload: serde_json::json!({ "node_id": node_id }),
-                idempotency_key: None,
-            },
-        ).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx, db,
+                EventPublishRequest {
+                    event_type: DomainEventType::BomNodeUpdated,
+                    aggregate_type: "BOM".to_string(),
+                    aggregate_id: bom_id,
+                    payload: serde_json::json!({ "node_id": node_id }),
+                    idempotency_key: None,
+                },
+            ).await?;
 
-        self.audit.record(ctx, db, "BomNode", node_id, AuditAction::Update, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BomNode", node_id, AuditAction::Update, None, None).await?;
         Ok(())
     }
 
@@ -534,18 +528,20 @@ impl BomNodeService for BomNodeServiceImpl {
         self.node_repo.delete(db, node_id)
             .await?;
 
-        self.event_bus.publish(
-            ctx, db,
-            EventPublishRequest {
-                event_type: DomainEventType::BomNodeDeleted,
-                aggregate_type: "BOM".to_string(),
-                aggregate_id: bom_id,
-                payload: serde_json::json!({ "node_id": node_id }),
-                idempotency_key: None,
-            },
-        ).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx, db,
+                EventPublishRequest {
+                    event_type: DomainEventType::BomNodeDeleted,
+                    aggregate_type: "BOM".to_string(),
+                    aggregate_id: bom_id,
+                    payload: serde_json::json!({ "node_id": node_id }),
+                    idempotency_key: None,
+                },
+            ).await?;
 
-        self.audit.record(ctx, db, "BomNode", node_id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BomNode", node_id, AuditAction::Delete, None, None).await?;
 
         Ok(node_id)
     }
@@ -620,19 +616,20 @@ impl BomNodeService for BomNodeServiceImpl {
         self.node_repo.update(db, node_id, &order_req)
             .await?;
 
-        self.audit.record(
-            ctx,
-            db,
-            "BomNode",
-            node_id,
-            AuditAction::Update,
-            Some(serde_json::json!({
-                "action": "move",
-                "new_parent_id": new_parent_id,
-                "order_num": order_num,
-            })),
-            None,
-        ).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                "BomNode",
+                node_id,
+                AuditAction::Update,
+                Some(serde_json::json!({
+                    "action": "move",
+                    "new_parent_id": new_parent_id,
+                    "order_num": order_num,
+                })),
+                None,
+            ).await?;
 
         Ok(())
     }
@@ -647,12 +644,9 @@ pub struct BomCostServiceImpl {
 }
 
 impl BomCostServiceImpl {
-    pub fn new(
-        repo: BomRepo,
-        node_repo: BomNodeRepo,
-        price_repo: PriceRepo,
-    ) -> Self {
-        Self { repo, node_repo, price_repo }
+    pub fn new(pool: PgPool) -> Self {
+        let _ = pool;
+        Self { repo: BomRepo, node_repo: BomNodeRepo, price_repo: PriceRepo }
     }
 }
 
@@ -720,15 +714,12 @@ impl BomCostService for BomCostServiceImpl {
 
 pub struct BomCategoryServiceImpl {
     repo: BomCategoryRepo,
-    audit: Arc<dyn AuditLogService>,
+    pool: PgPool,
 }
 
 impl BomCategoryServiceImpl {
-    pub fn new(
-        repo: BomCategoryRepo,
-        audit: Arc<dyn AuditLogService>,
-    ) -> Self {
-        Self { repo, audit }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: BomCategoryRepo, pool }
     }
 }
 
@@ -738,7 +729,8 @@ impl BomCategoryService for BomCategoryServiceImpl {
         let id = self.repo.create(db, &req)
             .await?;
 
-        self.audit.record(ctx, db, "BomCategory", id, AuditAction::Create, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BomCategory", id, AuditAction::Create, None, None).await?;
         Ok(id)
     }
 
@@ -750,7 +742,8 @@ impl BomCategoryService for BomCategoryServiceImpl {
         self.repo.update(db, id, &req)
             .await?;
 
-        self.audit.record(ctx, db, "BomCategory", id, AuditAction::Update, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BomCategory", id, AuditAction::Update, None, None).await?;
         Ok(())
     }
 
@@ -770,7 +763,8 @@ impl BomCategoryService for BomCategoryServiceImpl {
         self.repo.delete(db, id)
             .await?;
 
-        self.audit.record(ctx, db, "BomCategory", id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BomCategory", id, AuditAction::Delete, None, None).await?;
         Ok(())
     }
 

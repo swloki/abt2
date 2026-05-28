@@ -1,5 +1,3 @@
-﻿use std::sync::Arc;
-
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
@@ -7,7 +5,7 @@ use super::model::*;
 use super::repo::ProductionInspectionRepo;
 use super::service::ProductionInspectionService;
 use super::super::enums::InspectionResultType;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
 use crate::shared::types::context::ServiceContext;
@@ -17,12 +15,11 @@ use crate::shared::types::Result;
 pub struct ProductionInspectionServiceImpl {
     #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
 }
 
 impl ProductionInspectionServiceImpl {
-    pub fn new(pool: PgPool, doc_seq: Arc<dyn DocumentSequenceService>) -> Self {
-        Self { pool, doc_seq }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -33,7 +30,8 @@ impl ProductionInspectionService for ProductionInspectionServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateInspectionReq,
     ) -> Result<i64> {
-        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::ProductionInspection)
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::ProductionInspection)
             .await
             .unwrap_or_else(|_| format!("PI{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 

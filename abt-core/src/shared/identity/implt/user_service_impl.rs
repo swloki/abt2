@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use argon2::password_hash::SaltString;
+﻿use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use async_trait::async_trait;
 use serde_json::json;
@@ -10,6 +8,7 @@ use super::super::model::{User, UserWithRoles};
 use super::super::repo::IdentityRepo;
 use super::super::user_service::UserService;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::new_audit_log_service;
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::context::ServiceContext;
@@ -18,14 +17,12 @@ use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 pub struct UserServiceImpl {
-    #[allow(dead_code)]
     pool: PgPool,
-    audit: Arc<dyn AuditLogService>,
 }
 
 impl UserServiceImpl {
-    pub fn new(pool: PgPool, audit: Arc<dyn AuditLogService>) -> Self {
-        Self { pool, audit }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -68,7 +65,7 @@ impl UserService for UserServiceImpl {
         .await
         .map_err(|e| match &e { DomainError::Internal(inner) if is_unique_violation(inner) => DomainError::duplicate("User with this username"), _ => e })?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -97,7 +94,7 @@ impl UserService for UserServiceImpl {
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -123,7 +120,7 @@ impl UserService for UserServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "user", user_id, AuditAction::Delete, None, None)
             .await?;
 
@@ -175,7 +172,7 @@ impl UserService for UserServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -269,7 +266,7 @@ impl UserService for UserServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -300,7 +297,7 @@ impl UserService for UserServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -354,7 +351,7 @@ impl UserService for UserServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -379,7 +376,7 @@ impl UserService for UserServiceImpl {
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,

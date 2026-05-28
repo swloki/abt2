@@ -1,32 +1,25 @@
-﻿use std::sync::Arc;
+use sqlx::PgPool;
 
 use super::model::*;
 use super::repo::LaborProcessDictRepo;
 use super::service::LaborProcessDictService;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::event_bus::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct LaborProcessDictServiceImpl {
     repo: LaborProcessDictRepo,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
+    pool: PgPool,
 }
 
 impl LaborProcessDictServiceImpl {
-    pub fn new(
-        repo: LaborProcessDictRepo,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-    ) -> Self {
-        Self { repo, doc_seq, audit, event_bus }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: LaborProcessDictRepo, pool }
     }
 }
 
@@ -38,20 +31,23 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
     }
 
     async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateLaborProcessDictReq) -> Result<i64> {
-        let code = self.doc_seq.next_number(ctx, db, DocumentType::LaborProcessDict).await?;
+        let code = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::LaborProcessDict).await?;
 
         let id = self.repo.create(db, &code, &req, ctx.operator_id)
             .await?;
 
-        self.audit.record(ctx, db, "LaborProcessDict", id, AuditAction::Create, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "LaborProcessDict", id, AuditAction::Create, None, None).await?;
 
-        self.event_bus.publish(ctx, db, EventPublishRequest {
-            event_type: DomainEventType::LaborProcessDictCreated,
-            aggregate_type: "LaborProcessDict".to_string(),
-            aggregate_id: id,
-            payload: serde_json::json!({ "code": code, "name": req.name }),
-            idempotency_key: None,
-        }).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::LaborProcessDictCreated,
+                aggregate_type: "LaborProcessDict".to_string(),
+                aggregate_id: id,
+                payload: serde_json::json!({ "code": code, "name": req.name }),
+                idempotency_key: None,
+            }).await?;
 
         Ok(id)
     }
@@ -64,15 +60,17 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
         self.repo.update(db, id, &req, ctx.operator_id)
             .await?;
 
-        self.audit.record(ctx, db, "LaborProcessDict", id, AuditAction::Update, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "LaborProcessDict", id, AuditAction::Update, None, None).await?;
 
-        self.event_bus.publish(ctx, db, EventPublishRequest {
-            event_type: DomainEventType::LaborProcessDictUpdated,
-            aggregate_type: "LaborProcessDict".to_string(),
-            aggregate_id: id,
-            payload: serde_json::json!({}),
-            idempotency_key: None,
-        }).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::LaborProcessDictUpdated,
+                aggregate_type: "LaborProcessDict".to_string(),
+                aggregate_id: id,
+                payload: serde_json::json!({}),
+                idempotency_key: None,
+            }).await?;
 
         Ok(())
     }
@@ -91,15 +89,17 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
         self.repo.delete(db, id)
             .await?;
 
-        self.audit.record(ctx, db, "LaborProcessDict", id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "LaborProcessDict", id, AuditAction::Delete, None, None).await?;
 
-        self.event_bus.publish(ctx, db, EventPublishRequest {
-            event_type: DomainEventType::LaborProcessDictDeleted,
-            aggregate_type: "LaborProcessDict".to_string(),
-            aggregate_id: id,
-            payload: serde_json::json!({}),
-            idempotency_key: None,
-        }).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::LaborProcessDictDeleted,
+                aggregate_type: "LaborProcessDict".to_string(),
+                aggregate_id: id,
+                payload: serde_json::json!({}),
+                idempotency_key: None,
+            }).await?;
 
         Ok(())
     }

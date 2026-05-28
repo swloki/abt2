@@ -1,22 +1,22 @@
-﻿use std::sync::Arc;
+use sqlx::PgPool;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 
 use super::model::*;
 use super::repo::PriceRepo;
 use super::service::ProductPriceService;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct PriceServiceImpl {
     repo: PriceRepo,
-    audit: Arc<dyn AuditLogService>,
+    pool: PgPool,
 }
 
 impl PriceServiceImpl {
-    pub fn new(repo: PriceRepo, audit: Arc<dyn AuditLogService>) -> Self {
-        Self { repo, audit }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: PriceRepo, pool }
     }
 }
 
@@ -37,7 +37,8 @@ impl ProductPriceService for PriceServiceImpl {
             "new_price": new_price,
             "remark": remark,
         });
-        self.audit.record(ctx, db, "PriceLog", product_id, AuditAction::Update, Some(changes), None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "PriceLog", product_id, AuditAction::Update, Some(changes), None).await?;
         Ok(())
     }
 

@@ -1,5 +1,3 @@
-﻿use std::sync::Arc;
-
 use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
@@ -8,38 +6,27 @@ use super::super::enums::WorkOrderStatus;
 use super::model::*;
 use super::repo::WorkOrderRepo;
 use super::service::WorkOrderService;
-use crate::master_data::bom::service::BomQueryService;
+use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::mes::production_batch::model::WorkOrderRouting;
 use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::{DocumentType, ReservationType};
-use crate::shared::inventory_reservation::model::ReserveRequest;
-use crate::shared::inventory_reservation::service::InventoryReservationService;
+use crate::shared::inventory_reservation::{new_inventory_reservation_service, model::ReserveRequest, service::InventoryReservationService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
-use crate::wms::material_requisition::service::MaterialRequisitionService;
+use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::shared::types::error::DomainError;
 
 pub struct WorkOrderServiceImpl {
     #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    inv_res: Arc<dyn InventoryReservationService>,
-    material_req: Arc<dyn MaterialRequisitionService>,
-    bom: Arc<dyn BomQueryService>,
 }
 
 impl WorkOrderServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        inv_res: Arc<dyn InventoryReservationService>,
-        material_req: Arc<dyn MaterialRequisitionService>,
-        bom: Arc<dyn BomQueryService>,
-    ) -> Self {
-        Self { pool, doc_seq, inv_res, material_req, bom }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -50,7 +37,8 @@ impl WorkOrderService for WorkOrderServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateWorkOrderReq,
     ) -> Result<i64> {
-        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::WorkOrder)
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("WO{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
@@ -121,7 +109,8 @@ impl WorkOrderService for WorkOrderServiceImpl {
 
         // 3. 获取 BOM 叶子节点（组件）
         let bom_nodes = if let Some(bom_id) = work_order.bom_snapshot_id {
-            self.bom.get_leaf_nodes(ctx, db, bom_id).await?
+            new_bom_query_service(self.pool.clone())
+                .get_leaf_nodes(ctx, db, bom_id).await?
         } else {
             vec![]
         };
@@ -163,12 +152,13 @@ impl WorkOrderService for WorkOrderServiceImpl {
             team_id: None,
         };
 
-        let batch_no = self.doc_seq.next_number(
-            ctx, db,
-            DocumentType::WorkOrder,
-        )
-        .await
-        .unwrap_or_else(|_| format!("{}-01", work_order.doc_number));
+        let batch_no = new_document_sequence_service(self.pool.clone())
+            .next_number(
+                ctx, db,
+                DocumentType::WorkOrder,
+            )
+            .await
+            .unwrap_or_else(|_| format!("{}-01", work_order.doc_number));
 
         let card_sn = format!("SN-{}", chrono::Local::now().format("%Y%m%d%H%M%S%3f"));
 
@@ -183,24 +173,26 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 6. 库存 HARD 预留（planned_qty）
-        self.inv_res.reserve(
-            ctx, db,
-            vec![ReserveRequest {
-                product_id: work_order.product_id,
-                warehouse_id: 0,
-                reserved_qty: work_order.planned_qty,
-                reservation_type: ReservationType::Hard,
-                source_type: DocumentType::WorkOrder,
-                source_id: id,
-                source_line_id: None,
-                priority: 0,
-                expires_at: None,
-            }],
-        )
-        .await?;
+        new_inventory_reservation_service(self.pool.clone())
+            .reserve(
+                ctx, db,
+                vec![ReserveRequest {
+                    product_id: work_order.product_id,
+                    warehouse_id: 0,
+                    reserved_qty: work_order.planned_qty,
+                    reservation_type: ReservationType::Hard,
+                    source_type: DocumentType::WorkOrder,
+                    source_id: id,
+                    source_line_id: None,
+                    priority: 0,
+                    expires_at: None,
+                }],
+            )
+            .await?;
 
         // 7. 创建领料单
-        self.material_req.create_for_work_order(ctx, db, id).await?;
+        new_material_requisition_service(self.pool.clone())
+            .create_for_work_order(ctx, db, id).await?;
 
         Ok(())
     }
@@ -254,7 +246,8 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        self.inv_res.cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await?;
+        new_inventory_reservation_service(self.pool.clone())
+            .cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await?;
 
         Ok(())
     }
@@ -295,7 +288,8 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        self.inv_res.cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await?;
+        new_inventory_reservation_service(self.pool.clone())
+            .cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await?;
         WorkOrderRepo::soft_delete(&mut *db, id).await.map_err(|e| DomainError::Internal(e.into()))?;
         WorkOrderRepo::soft_delete_batches(&mut *db, id).await.map_err(|e| DomainError::Internal(e.into()))?;
 

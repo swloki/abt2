@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use serde_json::Value as JsonValue;
 use sqlx::postgres::PgPool;
 use sqlx::{FromRow, Row};
@@ -13,20 +11,19 @@ use crate::shared::types::PgExecutor;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::event_bus::new_domain_event_bus;
 use crate::shared::types::Result;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 pub struct StateMachineServiceImpl {
-    #[allow(dead_code)]
     pool: PgPool,
-    event_bus: Arc<dyn DomainEventBus>,
 }
 
 impl StateMachineServiceImpl {
-    pub fn new(pool: PgPool, event_bus: Arc<dyn DomainEventBus>) -> Self {
-        Self { pool, event_bus }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -195,7 +192,9 @@ impl StateMachineService for StateMachineServiceImpl {
                                 et.as_i16()
                             )),
                         };
-                        self.event_bus.publish(ctx, db, req).await?;
+                        new_domain_event_bus(self.pool.clone())
+                        .publish(ctx, db, req)
+                        .await?;
                     }
                 }
                 SideEffect::Notify { .. } => {}

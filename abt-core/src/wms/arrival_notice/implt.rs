@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
@@ -11,16 +9,16 @@ use super::model::{
 use super::repo::ArrivalNoticeRepo;
 use super::service::ArrivalNoticeService;
 use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
+use crate::qms::inspection_result::{new_inspection_result_service, service::InspectionResultService};
 use crate::qms::inspection_result::model::InspectionResultFilter;
-use crate::qms::inspection_result::service::InspectionResultService;
 use crate::shared::cost_entry::model::EntryRequest;
 use crate::shared::types::PgExecutor;
-use crate::shared::cost_entry::service::CostEntryService;
+use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::document_link::model::LinkRequest;
-use crate::shared::document_link::service::DocumentLinkService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::{CostEntityType, CostType, DocumentType, LinkType};
-use crate::shared::inventory_reservation::service::InventoryReservationService;
+use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -28,25 +26,13 @@ use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::ArrivalStatus;
 
 pub struct ArrivalNoticeServiceImpl {
-    #[allow(dead_code)]
+    repo: ArrivalNoticeRepo,
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    doc_link: Arc<dyn DocumentLinkService>,
-    cost_entry: Arc<dyn CostEntryService>,
-    inv_res: Arc<dyn InventoryReservationService>,
-    qms: Arc<dyn InspectionResultService>,
 }
 
 impl ArrivalNoticeServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        doc_link: Arc<dyn DocumentLinkService>,
-        cost_entry: Arc<dyn CostEntryService>,
-        inv_res: Arc<dyn InventoryReservationService>,
-        qms: Arc<dyn InspectionResultService>,
-    ) -> Self {
-        Self { pool, doc_seq, doc_link, cost_entry, inv_res, qms }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: ArrivalNoticeRepo, pool }
     }
 }
 
@@ -61,7 +47,8 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
             return Err(DomainError::validation("来料通知必须包含至少一条明细"));
         }
 
-        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::ArrivalNotice)
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::ArrivalNotice)
             .await
             .unwrap_or_else(|_| generate_doc_number_fallback());
 
@@ -76,7 +63,8 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
         // DocumentLink: 来料 → 采购单
         if let Some(po_id) = req.purchase_order_id {
-            self.doc_link.create_links(
+            new_document_link_service(self.pool.clone())
+            .create_links(
                 ctx, db,
                 vec![LinkRequest {
                     source_type: DocumentType::ArrivalNotice,
@@ -217,7 +205,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
         // IQC 硬门禁：查询 QMS 检验结果，判定是否通过
         let quality_passed = check_qms_gate(
-            &self.qms,
+            &self.pool,
             ctx, db,
             InspectionSourceType::ArrivalNotice,
             req.id,
@@ -239,7 +227,8 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
             let total_accepted = items.iter().map(|i| i.accepted_qty).fold(Decimal::ZERO, |a, b| a + b);
             let period = chrono::Local::now().format("%Y-%m").to_string();
 
-            self.cost_entry.create_entries(
+            new_cost_entry_service(self.pool.clone())
+            .create_entries(
                 ctx, db,
                 vec![EntryRequest {
                     entity_type: CostEntityType::PurchaseOrder,
@@ -257,7 +246,8 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
             .await?;
 
             // confirm -> InvRes(release safety stock)
-            self.inv_res.cancel_by_source(
+            new_inventory_reservation_service(self.pool.clone())
+            .cancel_by_source(
                 ctx, db,
                 DocumentType::ArrivalNotice,
                 req.id,
@@ -303,12 +293,13 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
 /// 检查 QMS 质量关卡：查询 source 关联的检验结果，判断是否全部通过
 async fn check_qms_gate(
-    qms: &Arc<dyn InspectionResultService>,
+    pool: &PgPool,
     ctx: &ServiceContext, db: PgExecutor<'_>,
     source_type: InspectionSourceType,
     source_id: i64,
 ) -> Result<bool> {
-    let results = qms.list_by_source(
+    let results = new_inspection_result_service(pool.clone())
+        .list_by_source(
         ctx,
         db,
         InspectionResultFilter {

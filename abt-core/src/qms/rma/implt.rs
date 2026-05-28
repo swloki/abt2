@@ -1,5 +1,3 @@
-﻿use std::sync::Arc;
-
 use async_trait::async_trait;
 use serde_json::json;
 use sqlx::postgres::PgPool;
@@ -9,18 +7,16 @@ use super::repo;
 use super::service::RmaService;
 use crate::qms::enums::*;
 use crate::qms::inspection_result;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
 use crate::shared::types::PgExecutor;
-use crate::shared::document_link::model::LinkRequest;
-use crate::shared::document_link::service::DocumentLinkService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_link::{new_document_link_service, model::LinkRequest, service::DocumentLinkService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::enums::link_type::LinkType;
-use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::event_bus::{new_domain_event_bus, model::EventPublishRequest, service::DomainEventBus};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -31,23 +27,11 @@ const ENTITY_TYPE: &str = "RMA";
 pub struct RmaServiceImpl {
     #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    audit_log: Arc<dyn AuditLogService>,
-    doc_link: Arc<dyn DocumentLinkService>,
 }
 
 impl RmaServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        audit_log: Arc<dyn AuditLogService>,
-        doc_link: Arc<dyn DocumentLinkService>,
-    ) -> Self {
-        Self { pool, doc_seq, state_machine, event_bus, audit_log, doc_link }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -72,8 +56,7 @@ impl RmaService for RmaServiceImpl {
         }
 
         // 2. 生成单据编号
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::Rma)
             .await?;
 
@@ -104,7 +87,7 @@ impl RmaService for RmaServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 4. 发布 RMACreated 事件
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -124,13 +107,13 @@ impl RmaService for RmaServiceImpl {
             .await?;
 
         // 5. 审计日志
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
             .await?;
 
         // 6. 构建 DocumentLink: RMA → InspectionResult（正向→逆向追溯链）
         if let Some(ir_id) = req.linked_inspection_result_id {
-            self.doc_link
+            new_document_link_service(self.pool.clone())
                 .create_links(
                     ctx,
                     db,
@@ -181,7 +164,7 @@ impl RmaService for RmaServiceImpl {
 
         // 2. 自动触发状态转换: Reported → Investigating（仅 Reported 起始）
         if existing.status == RMAStatus::Reported {
-            self.state_machine
+            new_state_machine_service(self.pool.clone())
                 .transition(ctx, db, ENTITY_TYPE, id, "Investigating", None)
                 .await?;
             let rows = repo::update_status(
@@ -212,7 +195,7 @@ impl RmaService for RmaServiceImpl {
         }
 
         // 4. 推进到 ActionTaken
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "ActionTaken", None)
             .await?;
         let rows = repo::update_status(
@@ -228,7 +211,7 @@ impl RmaService for RmaServiceImpl {
         }
 
         // 5. 审计日志
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
@@ -240,7 +223,7 @@ impl RmaService for RmaServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Closed", None)
             .await?;
 
@@ -283,10 +266,11 @@ impl RmaService for RmaServiceImpl {
             });
         }
         if !links.is_empty() {
-            self.doc_link.create_links(ctx, db, links).await?;
+            new_document_link_service(self.pool.clone())
+                .create_links(ctx, db, links).await?;
         }
 
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 

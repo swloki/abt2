@@ -1,16 +1,14 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
 use super::model::{IssueMaterialReq, MaterialRequisition, RequisitionFilter};
 use super::repo::MaterialRequisitionRepo;
 use super::service::MaterialRequisitionService;
-use crate::mes::work_order::service::WorkOrderService;
+use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::types::PgExecutor;
-use crate::shared::document_link::service::DocumentLinkService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::{DocumentType, LinkType};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -18,26 +16,16 @@ use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::RequisitionStatus;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
-use crate::wms::inventory_transaction::service::InventoryTransactionService;
+use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
 
 pub struct MaterialRequisitionServiceImpl {
-    #[allow(dead_code)]
+    repo: MaterialRequisitionRepo,
     pool: PgPool,
-    inventory_transaction_svc: Arc<dyn InventoryTransactionService>,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    doc_link: Arc<dyn DocumentLinkService>,
-    work_order: Arc<dyn WorkOrderService>,
 }
 
 impl MaterialRequisitionServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        inventory_transaction_svc: Arc<dyn InventoryTransactionService>,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        doc_link: Arc<dyn DocumentLinkService>,
-        work_order: Arc<dyn WorkOrderService>,
-    ) -> Self {
-        Self { pool, inventory_transaction_svc, doc_seq, doc_link, work_order }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: MaterialRequisitionRepo, pool }
     }
 }
 
@@ -48,13 +36,15 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64,
     ) -> Result<i64> {
-        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::MaterialRequisition)
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::MaterialRequisition)
             .await
             .unwrap_or_else(|_| format!("MR{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
         let requisition_date = chrono::Local::now().date_naive();
 
-        let wo = self.work_order.find_by_id(ctx, db, work_order_id).await?;
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, db, work_order_id).await?;
         let warehouse_id = wo.work_center_id.unwrap_or(0);
 
         let requisition = MaterialRequisitionRepo::insert(
@@ -68,7 +58,8 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-        self.doc_link.create_links(
+        new_document_link_service(self.pool.clone())
+        .create_links(
             ctx, db,
             vec![LinkRequest {
                 source_type: DocumentType::MaterialRequisition,
@@ -183,7 +174,8 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
             // issue -> InventoryTransaction.record(MaterialIssue)
-            self.inventory_transaction_svc.record(
+            new_inventory_transaction_service(self.pool.clone())
+            .record(
                 ctx, db,
                 RecordTransactionReq {
                     doc_number: None,

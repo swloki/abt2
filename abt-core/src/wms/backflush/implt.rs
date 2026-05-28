@@ -1,49 +1,35 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
 use super::model::{BackflushFilter, BackflushRecord, CreateBackflushItemReq, CreateBackflushReq};
 use super::repo::BackflushRepo;
 use super::service::BackflushService;
-use crate::master_data::bom::service::BomQueryService;
+use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::shared::cost_entry::model::EntryRequest;
 use crate::shared::types::PgExecutor;
-use crate::shared::cost_entry::service::CostEntryService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::{CostEntityType, CostType, DocumentType};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::BackflushStatus;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
-use crate::wms::inventory_transaction::service::InventoryTransactionService;
-use crate::mes::work_order::service::WorkOrderService;
+use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
+use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
 use crate::shared::types::error::DomainError;
 
 const DEFAULT_VARIANCE_THRESHOLD: Decimal = Decimal::from_parts(5, 0, 0, false, 2);
 
 pub struct BackflushServiceImpl {
-    #[allow(dead_code)]
+    repo: BackflushRepo,
     pool: PgPool,
-    inventory_transaction_svc: Arc<dyn InventoryTransactionService>,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    cost_entry: Arc<dyn CostEntryService>,
-    work_order: Arc<dyn WorkOrderService>,
-    bom: Arc<dyn BomQueryService>,
 }
 
 impl BackflushServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        inventory_transaction_svc: Arc<dyn InventoryTransactionService>,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        cost_entry: Arc<dyn CostEntryService>,
-        work_order: Arc<dyn WorkOrderService>,
-        bom: Arc<dyn BomQueryService>,
-    ) -> Self {
-        Self { pool, inventory_transaction_svc, doc_seq, cost_entry, work_order, bom }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: BackflushRepo, pool }
     }
 }
 
@@ -58,10 +44,12 @@ impl BackflushService for BackflushServiceImpl {
         let backflush_date = chrono::Local::now().date_naive();
         let variance_threshold = DEFAULT_VARIANCE_THRESHOLD;
 
-        let wo = self.work_order.find_by_id(ctx, db, work_order_id).await?;
+        let wo = new_work_order_service(self.pool.clone())
+            .find_by_id(ctx, db, work_order_id).await?;
         let product_id = wo.product_id;
 
-        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::Backflush)
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::Backflush)
             .await
             .unwrap_or_else(|_| format!("BF{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
@@ -82,7 +70,7 @@ impl BackflushService for BackflushServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 2. 从 BOM 获取组件，计算差异并插入明细
-        let bom_components = get_bom_components(&self.bom, ctx, db, &wo).await?;
+        let bom_components = get_bom_components(&self.pool, ctx, db, &wo).await?;
 
         for component in &bom_components {
             let theoretical_qty = component.required_qty * completed_qty;
@@ -113,7 +101,8 @@ impl BackflushService for BackflushServiceImpl {
             // 超阈值 → CostEntry(损耗成本) [IndependentTx]
             if is_over_threshold {
                 let period = chrono::Local::now().format("%Y-%m").to_string();
-                self.cost_entry.create_entries(
+                new_cost_entry_service(self.pool.clone())
+                .create_entries(
                     ctx, db,
                     vec![EntryRequest {
                         entity_type: CostEntityType::WorkOrder,
@@ -132,7 +121,8 @@ impl BackflushService for BackflushServiceImpl {
             }
 
             // execute -> InventoryTransaction.record(Backflush)
-            self.inventory_transaction_svc.record(
+            new_inventory_transaction_service(self.pool.clone())
+            .record(
                 ctx, db,
                 RecordTransactionReq {
                     doc_number: None,
@@ -206,13 +196,14 @@ impl BackflushService for BackflushServiceImpl {
 
 /// 从工单的 BOM snapshot 获取组件列表
 async fn get_bom_components(
-    bom: &Arc<dyn BomQueryService>,
+    pool: &PgPool,
     ctx: &ServiceContext, db: PgExecutor<'_>,
     wo: &crate::mes::work_order::model::WorkOrder,
 ) -> Result<Vec<BomComponent>> {
     let bom_id = wo.bom_snapshot_id;
     if let Some(bom_id) = bom_id {
-        let nodes = bom.get_leaf_nodes(ctx, db, bom_id).await?;
+        let nodes = new_bom_query_service(pool.clone())
+            .get_leaf_nodes(ctx, db, bom_id).await?;
         Ok(nodes.into_iter().map(|n| BomComponent {
             product_id: n.product_id,
             required_qty: n.quantity,

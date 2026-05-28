@@ -1,66 +1,40 @@
-﻿use std::sync::Arc;
-
 use chrono::{Local, TimeDelta};
 use rust_decimal::Decimal;
+use sqlx::postgres::PgPool;
 
-use crate::master_data::customer::service::CustomerService;
-use crate::sales::quotation::service::QuotationService;
+use crate::master_data::customer::{new_customer_service, service::CustomerService};
+use crate::sales::quotation::{new_quotation_service, service::QuotationService};
 use crate::sales::sales_order::model::*;
 use crate::sales::sales_order::repo::{SalesOrderItemRepo, SalesOrderRepo};
 use crate::sales::sales_order::service::SalesOrderService;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
 use crate::shared::document_link::model::LinkRequest;
-use crate::shared::document_link::service::DocumentLinkService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::enums::link_type::LinkType;
 use crate::shared::enums::reservation::ReservationType;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
 use crate::shared::inventory_reservation::model::ReserveRequest;
-use crate::shared::inventory_reservation::service::InventoryReservationService;
-use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
+use crate::shared::types::{PgExecutor, DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct SalesOrderServiceImpl {
     repo: SalesOrderRepo,
     item_repo: SalesOrderItemRepo,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    customer_svc: Arc<dyn CustomerService>,
-    quotation_svc: Arc<dyn QuotationService>,
-    doc_link: Arc<dyn DocumentLinkService>,
-    inv_res: Arc<dyn InventoryReservationService>,
+    pool: PgPool,
 }
 
 impl SalesOrderServiceImpl {
-    pub fn new(
-        repo: SalesOrderRepo,
-        item_repo: SalesOrderItemRepo,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        customer_svc: Arc<dyn CustomerService>,
-        quotation_svc: Arc<dyn QuotationService>,
-        doc_link: Arc<dyn DocumentLinkService>,
-        inv_res: Arc<dyn InventoryReservationService>,
-    ) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
-            repo,
-            item_repo,
-            doc_seq,
-            state_machine,
-            audit,
-            event_bus,
-            customer_svc,
-            quotation_svc,
-            doc_link,
-            inv_res,
+            repo: SalesOrderRepo,
+            item_repo: SalesOrderItemRepo,
+            pool,
         }
     }
 
@@ -110,12 +84,11 @@ impl SalesOrderService for SalesOrderServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateSalesOrderReq,
     ) -> Result<i64> {
-        self.customer_svc
+        new_customer_service(self.pool.clone())
             .validate_contact_ownership(ctx, db, req.customer_id, req.contact_id)
             .await?;
 
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::SalesOrder)
             .await?;
 
@@ -137,25 +110,23 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 req.remark.as_deref().unwrap_or(""),
                 ctx.operator_id,
             )
-            .await
-            ?;
+            .await?;
 
         let item_inputs = Self::build_item_inputs(&req.items);
         self.item_repo
             .create_batch(db, id, &item_inputs)
-            .await
-            ?;
+            .await?;
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "SalesOrderStatus", id, "Draft", None)
             .await
             .ok();
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "SalesOrder", id, AuditAction::Create, None, None)
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -181,7 +152,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         quotation_id: i64,
     ) -> Result<i64> {
-        let quotation = self.quotation_svc.find_by_id(ctx, db, quotation_id).await?;
+        let quotation = new_quotation_service(self.pool.clone()).find_by_id(ctx, db, quotation_id).await?;
 
         if quotation.status != crate::sales::quotation::model::QuotationStatus::Accepted {
             return Err(DomainError::business_rule(
@@ -193,7 +164,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             return Err(DomainError::business_rule("Quotation has expired"));
         }
 
-        let quotation_items = self.quotation_svc.list_items(ctx, db, quotation_id).await?;
+        let quotation_items = new_quotation_service(self.pool.clone()).list_items(ctx, db, quotation_id).await?;
 
         let order_items: Vec<CreateSalesOrderItemReq> = quotation_items
             .iter()
@@ -209,8 +180,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             })
             .collect();
 
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::SalesOrder)
             .await?;
 
@@ -232,16 +202,14 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 &quotation.remark,
                 ctx.operator_id,
             )
-            .await
-            ?;
+            .await?;
 
         let item_inputs = Self::build_item_inputs(&order_items);
         self.item_repo
             .create_batch(db, id, &item_inputs)
-            .await
-            ?;
+            .await?;
 
-        self.doc_link
+        new_document_link_service(self.pool.clone())
             .create_links(
                 ctx,
                 db,
@@ -255,12 +223,12 @@ impl SalesOrderService for SalesOrderServiceImpl {
             )
             .await?;
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "SalesOrderStatus", id, "Draft", None)
             .await
             .ok();
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -272,7 +240,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -300,8 +268,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
     ) -> Result<SalesOrder> {
         self.repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))
     }
 
@@ -314,8 +281,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Draft {
@@ -324,10 +290,9 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         self.repo
             .update(db, id, &req)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "SalesOrder", id, AuditAction::Update, None, None)
             .await?;
 
@@ -365,7 +330,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .update_amounts(db, id, total_amount, total_cost)
             .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "SalesOrder", id, AuditAction::Update, None, None)
             .await?;
 
@@ -387,23 +352,21 @@ impl SalesOrderService for SalesOrderServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Draft {
             return Err(DomainError::business_rule("Only Draft orders can be confirmed"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "SalesOrderStatus", id, "Confirmed", None)
             .await?;
 
         let items = self
             .item_repo
             .find_by_order_id(db, id)
-            .await
-            ?;
+            .await?;
 
         // Reserve inventory in a savepoint so failures don't abort the main transaction
         let ttl = chrono::Utc::now() + TimeDelta::days(7);
@@ -426,7 +389,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .execute(&mut *db)
             .await
             .ok();
-        match self.inv_res.reserve(ctx, db, reserve_requests).await {
+        match new_inventory_reservation_service(self.pool.clone()).reserve(ctx, db, reserve_requests).await {
             Ok(batch) if batch.failed_items.is_empty() => {
                 sqlx::query("RELEASE SAVEPOINT sp_reserve")
                     .execute(&mut *db)
@@ -454,14 +417,13 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         self.repo
             .update_status(db, id, SalesOrderStatus::Confirmed)
-            .await
-            ?;
+            .await?;
 
         sqlx::query("SAVEPOINT sp_audit")
             .execute(&mut *db)
             .await
             .ok();
-        if let Err(e) = self.audit
+        if let Err(e) = new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -489,7 +451,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .execute(&mut *db)
             .await
             .ok();
-        if let Err(e) = self.event_bus
+        if let Err(e) = new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -522,24 +484,22 @@ impl SalesOrderService for SalesOrderServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Confirmed {
             return Err(DomainError::business_rule("Only Confirmed orders can start progress"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "SalesOrderStatus", id, "InProduction", None)
             .await?;
 
         self.repo
             .update_status(db, id, SalesOrderStatus::InProduction)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -558,8 +518,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Shipped {
@@ -569,8 +528,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         let items = self
             .item_repo
             .find_by_order_id(db, id)
-            .await
-            ?;
+            .await?;
 
         for item in &items {
             if item.shipped_qty < item.quantity {
@@ -581,16 +539,15 @@ impl SalesOrderService for SalesOrderServiceImpl {
             }
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "SalesOrderStatus", id, "Completed", None)
             .await?;
 
         self.repo
             .update_status(db, id, SalesOrderStatus::Completed)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -609,8 +566,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Draft
@@ -621,22 +577,21 @@ impl SalesOrderService for SalesOrderServiceImpl {
             ));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "SalesOrderStatus", id, "Cancelled", None)
             .await?;
 
         if existing.status == SalesOrderStatus::Confirmed {
-            self.inv_res
+            new_inventory_reservation_service(self.pool.clone())
                 .cancel_by_source(ctx, db, DocumentType::SalesOrder, id)
                 .await?;
         }
 
         self.repo
             .update_status(db, id, SalesOrderStatus::Cancelled)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -648,7 +603,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -678,7 +633,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         self.repo.soft_delete(db, id).await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -690,7 +645,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,

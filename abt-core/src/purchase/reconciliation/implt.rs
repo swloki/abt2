@@ -1,5 +1,3 @@
-﻿use std::sync::Arc;
-
 use async_trait::async_trait;
 use rust_decimal::Decimal;
 use serde_json::json;
@@ -9,19 +7,18 @@ use super::model::PurchaseReconciliation;
 use super::repo::{NewReconItem, PurchaseReconItemRepo, PurchaseReconciliationRepo};
 use super::service::PurchaseReconciliationService;
 use crate::purchase::enums::{PurchaseReconStatus, PurchaseReturnStatus};
-use crate::shared::idempotency::service::key_to_i64;
-use crate::shared::types::PgExecutor;
 use crate::purchase::order::repo::PurchaseOrderItemRepo;
 use crate::purchase::return_order::repo::PurchaseReturnRepo;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::idempotency::service::IdempotencyService;
-use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
+use crate::shared::idempotency::{new_idempotency_service, service::{key_to_i64, IdempotencyService}};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
+use crate::shared::types::PgExecutor;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -29,33 +26,12 @@ use crate::shared::types::Result;
 const ENTITY_TYPE: &str = "PurchaseReconciliation";
 
 pub struct PurchaseReconciliationServiceImpl {
-    #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    audit_log: Arc<dyn AuditLogService>,
-    #[allow(dead_code)]
-    idempotency: Arc<dyn IdempotencyService>,
 }
 
 impl PurchaseReconciliationServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        audit_log: Arc<dyn AuditLogService>,
-        idempotency: Arc<dyn IdempotencyService>,
-    ) -> Self {
-        Self {
-            pool,
-            doc_seq,
-            state_machine,
-            event_bus,
-            audit_log,
-            idempotency,
-        }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -70,13 +46,12 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
     ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseReconciliation:create").await? {
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "PurchaseReconciliation:create").await? {
                 return Err(DomainError::duplicate("PurchaseReconciliation"));
             }
         }
         // 1. 生成单据编号
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::PurchaseReconciliation)
             .await?;
 
@@ -130,7 +105,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         }
 
         // 7. 审计日志
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -159,7 +134,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseReconciliation:confirm").await? {
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "PurchaseReconciliation:confirm").await? {
                 return Err(DomainError::duplicate("PurchaseReconciliation"));
             }
         }
@@ -221,7 +196,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         for ret in &returns {
-            self.state_machine
+            new_state_machine_service(self.pool.clone())
                 .transition(
                     ctx, db,
                     "PurchaseReturn",
@@ -245,7 +220,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
             }
 
             // 发布退货结算事件，通知 FMS 生成贷项通知单
-            self.event_bus
+            new_domain_event_bus(self.pool.clone())
                 .publish(
                     ctx, db,
                     EventPublishRequest {
@@ -263,7 +238,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         }
 
         // 6. 状态转换 Draft -> Confirmed
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Confirmed", None)
             .await?;
 
@@ -280,8 +255,8 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // 6. 发布领域事件
-        self.event_bus
+        // 8. 发布领域事件
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
                 EventPublishRequest {
@@ -296,8 +271,8 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
             )
             .await?;
 
-        // 7. 审计日志
-        self.audit_log
+        // 9. 审计日志
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 

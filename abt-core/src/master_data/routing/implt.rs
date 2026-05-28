@@ -1,33 +1,27 @@
-﻿use std::sync::Arc;
+use sqlx::PgPool;
 
 use super::model::*;
 use super::repo::RoutingRepo;
 use super::service::RoutingService;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::event::DomainEventType;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::event_bus::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::types::{
     DomainError, PageParams, PaginatedResult, PgExecutor, Result, ServiceContext,
 };
 
 pub struct RoutingServiceImpl {
     repo: RoutingRepo,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
+    pool: PgPool,
 }
 
 impl RoutingServiceImpl {
-    pub fn new(
-        repo: RoutingRepo,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-    ) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
-            repo,
-            audit,
-            event_bus,
+            repo: RoutingRepo,
+            pool,
         }
     }
 }
@@ -71,11 +65,11 @@ impl RoutingService for RoutingServiceImpl {
 
         self.repo.insert_steps(db, id, &req.steps).await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "Routing", id, AuditAction::Create, None, None)
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -117,11 +111,11 @@ impl RoutingService for RoutingServiceImpl {
             self.repo.insert_steps(db, id, steps).await?;
         }
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "Routing", id, AuditAction::Update, None, None)
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -156,11 +150,11 @@ impl RoutingService for RoutingServiceImpl {
 
         self.repo.delete(db, id).await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "Routing", id, AuditAction::Delete, None, None)
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -221,7 +215,7 @@ impl RoutingService for RoutingServiceImpl {
             .set_bom_routing(db, &product_code, routing_id, ctx.operator_id)
             .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -233,13 +227,14 @@ impl RoutingService for RoutingServiceImpl {
             )
             .await?;
 
-        self.event_bus.publish(ctx, db, EventPublishRequest {
-            event_type: DomainEventType::BomRoutingChanged,
-            aggregate_type: "BomRouting".to_string(),
-            aggregate_id: routing_id,
-            payload: serde_json::json!({ "product_code": product_code, "routing_id": routing_id }),
-            idempotency_key: None,
-        }).await?;
+        new_domain_event_bus(self.pool.clone())
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::BomRoutingChanged,
+                aggregate_type: "BomRouting".to_string(),
+                aggregate_id: routing_id,
+                payload: serde_json::json!({ "product_code": product_code, "routing_id": routing_id }),
+                idempotency_key: None,
+            }).await?;
 
         Ok(())
     }

@@ -1,5 +1,3 @@
-﻿use std::sync::Arc;
-
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
@@ -9,57 +7,29 @@ use super::repo::ProductionReceiptRepo;
 use super::service::ProductionReceiptService;
 use crate::mes::production_batch::repo::ProductionBatchRepo;
 use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
-use crate::qms::inspection_result::model::InspectionResultFilter;
-use crate::qms::inspection_result::service::InspectionResultService;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::qms::inspection_result::{new_inspection_result_service, model::InspectionResultFilter, service::InspectionResultService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
 use crate::shared::types::PgExecutor;
-use crate::shared::cost_entry::model::EntryRequest;
-use crate::shared::cost_entry::service::CostEntryService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::cost_entry::{new_cost_entry_service, model::EntryRequest, service::CostEntryService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::{AuditAction, CostEntityType, CostType, DocumentType};
-use crate::shared::inventory_reservation::service::InventoryReservationService;
+use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
 use crate::shared::types::Result;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::PageParams;
-use crate::wms::backflush::service::BackflushService;
+use crate::wms::backflush::{new_backflush_service, service::BackflushService};
 use crate::wms::enums::TransactionType;
-use crate::wms::inventory_transaction::model::RecordTransactionReq;
-use crate::wms::inventory_transaction::service::InventoryTransactionService;
+use crate::wms::inventory_transaction::{new_inventory_transaction_service, model::RecordTransactionReq, service::InventoryTransactionService};
 
 pub struct ProductionReceiptServiceImpl {
     #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    qms: Arc<dyn InspectionResultService>,
-    inv_txn: Arc<dyn InventoryTransactionService>,
-    cost_entry: Arc<dyn CostEntryService>,
-    backflush: Arc<dyn BackflushService>,
-    inv_res: Arc<dyn InventoryReservationService>,
-    audit: Arc<dyn AuditLogService>,
 }
 
 impl ProductionReceiptServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        qms: Arc<dyn InspectionResultService>,
-        inv_txn: Arc<dyn InventoryTransactionService>,
-        cost_entry: Arc<dyn CostEntryService>,
-        backflush: Arc<dyn BackflushService>,
-        inv_res: Arc<dyn InventoryReservationService>,
-        audit: Arc<dyn AuditLogService>,
-    ) -> Self {
-        Self {
-            pool,
-            doc_seq,
-            qms,
-            inv_txn,
-            cost_entry,
-            backflush,
-            inv_res,
-            audit,
-        }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -100,8 +70,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 .ok_or_else(|| DomainError::not_found("ProductionBatch for WorkOrder"))?
         };
 
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::ProductionReceipt)
             .await
             .unwrap_or_else(|_| format!("PR{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
@@ -146,8 +115,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         }
 
         // 1. QMS FQC hard gate — 查询检验结果（在状态更新前验证）
-        let fqc_results = self
-            .qms
+        let fqc_results = new_inspection_result_service(self.pool.clone())
             .list_by_source(
                 ctx, db,
                 InspectionResultFilter {
@@ -186,7 +154,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 2. WMS inventory transaction — production receipt (入库)
-        self.inv_txn
+        new_inventory_transaction_service(self.pool.clone())
             .record(
                 ctx, db,
                 RecordTransactionReq {
@@ -208,7 +176,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
 
         // 3. Cost entry — finished goods receipt cost
         let period = chrono::Local::now().format("%Y-%m").to_string();
-        self.cost_entry
+        new_cost_entry_service(self.pool.clone())
             .create_entries(
                 ctx, db,
                 vec![EntryRequest {
@@ -227,14 +195,12 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .await?;
 
         // 4. Backflush — failure does not block receipt but is audited
-        let backflush_result = self
-            .backflush
+        let backflush_result = new_backflush_service(self.pool.clone())
             .execute(ctx, db, receipt.work_order_id, receipt.received_qty)
             .await;
 
         if let Err(e) = backflush_result {
-            if let Err(audit_err) = self
-                .audit
+            if let Err(audit_err) = new_audit_log_service(self.pool.clone())
                 .record(
                     ctx, db,
                     "production_receipt",
@@ -254,7 +220,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         }
 
         // 5. Release hard reservation
-        self.inv_res
+        new_inventory_reservation_service(self.pool.clone())
             .cancel_by_source(
                 ctx, db,
                 DocumentType::WorkOrder,

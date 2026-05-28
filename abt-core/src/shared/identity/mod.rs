@@ -23,14 +23,8 @@ pub use implt::{
     UserServiceImpl,
 };
 
-use std::sync::Arc;
 use sqlx::PgPool;
 
 pub fn new_user_service(pool: PgPool) -> impl UserService {
-    use implt::UserServiceImpl;
-    use crate::shared::audit_log::implt::AuditLogServiceImpl;
-
-    let audit = Arc::new(AuditLogServiceImpl::new(pool.clone()));
-
-    UserServiceImpl::new(pool, audit)
+    implt::UserServiceImpl::new(pool)
 }

@@ -1,5 +1,3 @@
-﻿use std::sync::Arc;
-
 use async_trait::async_trait;
 use serde_json::json;
 use sqlx::postgres::PgPool;
@@ -9,15 +7,14 @@ use super::repo;
 use super::service::MrbService;
 use crate::qms::enums::*;
 use crate::qms::inspection_result;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
 use crate::shared::types::PgExecutor;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
-use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::event_bus::{new_domain_event_bus, model::EventPublishRequest, service::DomainEventBus};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -28,21 +25,11 @@ const ENTITY_TYPE: &str = "MRB";
 pub struct MrbServiceImpl {
     #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    audit_log: Arc<dyn AuditLogService>,
 }
 
 impl MrbServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        audit_log: Arc<dyn AuditLogService>,
-    ) -> Self {
-        Self { pool, doc_seq, state_machine, event_bus, audit_log }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -72,8 +59,7 @@ impl MrbService for MrbServiceImpl {
         }
 
         // 2. 生成单据编号
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::Mrb)
             .await?;
 
@@ -101,7 +87,7 @@ impl MrbService for MrbServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 4. 审计日志
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
             .await?;
 
@@ -124,7 +110,7 @@ impl MrbService for MrbServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "UnderReview", None)
             .await?;
 
@@ -141,7 +127,7 @@ impl MrbService for MrbServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
@@ -154,7 +140,7 @@ impl MrbService for MrbServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Approved", None)
             .await?;
 
@@ -171,7 +157,7 @@ impl MrbService for MrbServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
@@ -185,7 +171,7 @@ impl MrbService for MrbServiceImpl {
         id: i64,
         _req: ExecuteDispositionReq,
     ) -> Result<()> {
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Completed", None)
             .await?;
 
@@ -209,7 +195,7 @@ impl MrbService for MrbServiceImpl {
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
 
         // 推进关联检验结果到 Dispositioned
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(
                 ctx,
                 db,
@@ -233,7 +219,7 @@ impl MrbService for MrbServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -250,7 +236,7 @@ impl MrbService for MrbServiceImpl {
             )
             .await?;
 
-        self.audit_log
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 

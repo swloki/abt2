@@ -1,51 +1,30 @@
-﻿use std::sync::Arc;
+use async_trait::async_trait;
 
 use super::model::*;
 use super::repo::{SupplierBankAccountRepo, SupplierContactRepo, SupplierRepo};
 use super::service::SupplierService;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
+use crate::shared::types::{PgExecutor, DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use sqlx::PgPool;
 
 pub struct SupplierServiceImpl {
-    repo: SupplierRepo,
-    contact_repo: SupplierContactRepo,
-    bank_account_repo: SupplierBankAccountRepo,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    state_machine: Arc<dyn StateMachineService>,
+    pool: PgPool,
 }
 
 impl SupplierServiceImpl {
-    pub fn new(
-        repo: SupplierRepo,
-        contact_repo: SupplierContactRepo,
-        bank_account_repo: SupplierBankAccountRepo,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        state_machine: Arc<dyn StateMachineService>,
-    ) -> Self {
-        Self {
-            repo,
-            contact_repo,
-            bank_account_repo,
-            doc_seq,
-            audit,
-            event_bus,
-            state_machine,
-        }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
-#[async_trait::async_trait]
+#[async_trait]
 impl SupplierService for SupplierServiceImpl {
     // -- Supplier CRUD ---------------------------------------------------------
 
@@ -55,8 +34,7 @@ impl SupplierService for SupplierServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateSupplierReq,
     ) -> Result<i64> {
-        let code = self
-            .doc_seq
+        let code = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::Supplier)
             .await?;
 
@@ -64,25 +42,19 @@ impl SupplierService for SupplierServiceImpl {
         let mut warnings = Vec::new();
         if let Some(ref tax) = req.tax_number {
             if !tax.is_empty() {
-                let exists = self
-                    .repo
-                    .check_tax_number_exists(db, tax)
-                    .await
-                    ?;
+                let exists = SupplierRepo.check_tax_number_exists(db, tax)
+                    .await?;
                 if exists {
                     warnings.push(format!("tax_number '{tax}' already exists in suppliers or customers"));
                 }
             }
         }
 
-        let id = self
-            .repo
-            .create(db, &code, &req, ctx.operator_id)
-            .await
-            ?;
+        let id = SupplierRepo.create(db, &code, &req, ctx.operator_id)
+            .await?;
 
         // Init state machine — Prospective
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(
                 ctx, db,
                 "SupplierStatus",
@@ -94,7 +66,7 @@ impl SupplierService for SupplierServiceImpl {
             .ok();
 
         // Audit
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
                 "Supplier",
@@ -111,7 +83,7 @@ impl SupplierService for SupplierServiceImpl {
             "supplier_code": code,
             "supplier_name": req.supplier_name,
         });
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -129,10 +101,8 @@ impl SupplierService for SupplierServiceImpl {
     }
 
     async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<Supplier> {
-        self.repo
-            .find_by_id(db, id)
-            .await
-            ?
+        SupplierRepo.find_by_id(db, id)
+            .await?
             .ok_or_else(|| DomainError::not_found("Supplier"))
     }
 
@@ -143,17 +113,14 @@ impl SupplierService for SupplierServiceImpl {
         id: i64,
         req: UpdateSupplierReq,
     ) -> Result<()> {
-        let existing = self
-            .repo
-            .find_by_id(db, id)
-            .await
-            ?
+        let existing = SupplierRepo.find_by_id(db, id)
+            .await?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
         // Handle status transition
         if let Some(new_status) = req.status {
             if new_status != existing.status {
-                self.state_machine
+                new_state_machine_service(self.pool.clone())
                     .transition(
                         ctx, db,
                         "SupplierStatus",
@@ -170,7 +137,7 @@ impl SupplierService for SupplierServiceImpl {
                         "old_status": existing.status.as_i16(),
                         "new_status": new_status.as_i16(),
                     });
-                    self.event_bus
+                    new_domain_event_bus(self.pool.clone())
                         .publish(
                             ctx, db,
                             EventPublishRequest {
@@ -186,12 +153,9 @@ impl SupplierService for SupplierServiceImpl {
             }
         }
 
-        self.repo
-            .update(db, id, &req)
-            .await
-            ?;
+        SupplierRepo.update(db, id, &req).await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -212,10 +176,7 @@ impl SupplierService for SupplierServiceImpl {
         filter: SupplierQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<Supplier>> {
-        self.repo
-            .query(db, &filter, &page)
-            .await
-            
+        SupplierRepo.query(db, &filter, &page).await
     }
 
     // -- Contacts --------------------------------------------------------------
@@ -227,19 +188,13 @@ impl SupplierService for SupplierServiceImpl {
         req: CreateContactReq,
     ) -> Result<i64> {
         // Verify supplier exists
-        self.repo
-            .find_by_id(db, sid)
-            .await
-            ?
+        SupplierRepo.find_by_id(db, sid)
+            .await?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
-        let contact_id = self
-            .contact_repo
-            .create(db, sid, &req)
-            .await
-            ?;
+        let contact_id = SupplierContactRepo.create(db, sid, &req).await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -262,23 +217,17 @@ impl SupplierService for SupplierServiceImpl {
         req: UpdateContactReq,
     ) -> Result<()> {
         // Verify contact belongs to supplier
-        let existing = self
-            .contact_repo
-            .find_by_id(db, contact_id)
-            .await
-            ?
+        let existing = SupplierContactRepo.find_by_id(db, contact_id)
+            .await?
             .ok_or_else(|| DomainError::not_found("SupplierContact"))?;
 
         if existing.supplier_id != sid {
             return Err(DomainError::not_found("SupplierContact"));
         }
 
-        self.contact_repo
-            .update(db, contact_id, sid, &req)
-            .await
-            ?;
+        SupplierContactRepo.update(db, contact_id, sid, &req).await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -300,23 +249,17 @@ impl SupplierService for SupplierServiceImpl {
         contact_id: i64,
     ) -> Result<()> {
         // Verify contact belongs to supplier
-        let existing = self
-            .contact_repo
-            .find_by_id(db, contact_id)
-            .await
-            ?
+        let existing = SupplierContactRepo.find_by_id(db, contact_id)
+            .await?
             .ok_or_else(|| DomainError::not_found("SupplierContact"))?;
 
         if existing.supplier_id != sid {
             return Err(DomainError::not_found("SupplierContact"));
         }
 
-        self.contact_repo
-            .delete(db, contact_id, sid)
-            .await
-            ?;
+        SupplierContactRepo.delete(db, contact_id, sid).await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -336,10 +279,7 @@ impl SupplierService for SupplierServiceImpl {
         _ctx: &ServiceContext, db: PgExecutor<'_>,
         sid: i64,
     ) -> Result<Vec<SupplierContact>> {
-        self.contact_repo
-            .find_by_supplier_id(db, sid)
-            .await
-            
+        SupplierContactRepo.find_by_supplier_id(db, sid).await
     }
 
     // -- Bank Accounts (P0 high-risk) ------------------------------------------
@@ -351,17 +291,11 @@ impl SupplierService for SupplierServiceImpl {
         req: CreateBankAccountReq,
     ) -> Result<i64> {
         // Verify supplier exists
-        self.repo
-            .find_by_id(db, sid)
-            .await
-            ?
+        SupplierRepo.find_by_id(db, sid)
+            .await?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
-        let account_id = self
-            .bank_account_repo
-            .create(db, sid, &req)
-            .await
-            ?;
+        let account_id = SupplierBankAccountRepo.create(db, sid, &req).await?;
 
         // P0: mandatory audit with field-level detail
         let changes = serde_json::json!({
@@ -372,7 +306,7 @@ impl SupplierService for SupplierServiceImpl {
             "account_name": req.account_name,
             "account_number": req.account_number,
         });
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
                 "SupplierBankAccount",
@@ -389,7 +323,7 @@ impl SupplierService for SupplierServiceImpl {
             "account_id": account_id,
             "action": "created",
         });
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
                 EventPublishRequest {
@@ -414,11 +348,8 @@ impl SupplierService for SupplierServiceImpl {
         req: UpdateBankAccountReq,
     ) -> Result<()> {
         // Update returns the before-state for diff generation
-        let before = self
-            .bank_account_repo
-            .update(db, account_id, sid, &req)
-            .await
-            ?
+        let before = SupplierBankAccountRepo.update(db, account_id, sid, &req)
+            .await?
             .ok_or_else(|| DomainError::not_found("SupplierBankAccount"))?;
 
         // P0: mandatory audit with field-level diff
@@ -463,7 +394,7 @@ impl SupplierService for SupplierServiceImpl {
             "account_id": account_id,
             "diffs": field_diffs,
         });
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
                 "SupplierBankAccount",
@@ -481,7 +412,7 @@ impl SupplierService for SupplierServiceImpl {
             "action": "updated",
             "changed_fields": field_diffs.keys().collect::<Vec<_>>(),
         });
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
                 EventPublishRequest {
@@ -504,21 +435,15 @@ impl SupplierService for SupplierServiceImpl {
         account_id: i64,
     ) -> Result<()> {
         // Verify account belongs to supplier
-        let existing = self
-            .bank_account_repo
-            .find_by_id(db, account_id)
-            .await
-            ?
+        let existing = SupplierBankAccountRepo.find_by_id(db, account_id)
+            .await?
             .ok_or_else(|| DomainError::not_found("SupplierBankAccount"))?;
 
         if existing.supplier_id != sid {
             return Err(DomainError::not_found("SupplierBankAccount"));
         }
 
-        self.bank_account_repo
-            .delete(db, account_id, sid)
-            .await
-            ?;
+        SupplierBankAccountRepo.delete(db, account_id, sid).await?;
 
         // P0: mandatory audit
         let changes = serde_json::json!({
@@ -526,7 +451,7 @@ impl SupplierService for SupplierServiceImpl {
             "supplier_id": sid,
             "account_id": account_id,
         });
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
                 "SupplierBankAccount",
@@ -543,7 +468,7 @@ impl SupplierService for SupplierServiceImpl {
             "account_id": account_id,
             "action": "deleted",
         });
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
                 EventPublishRequest {
@@ -564,9 +489,6 @@ impl SupplierService for SupplierServiceImpl {
         _ctx: &ServiceContext, db: PgExecutor<'_>,
         sid: i64,
     ) -> Result<Vec<SupplierBankAccount>> {
-        self.bank_account_repo
-            .find_by_supplier_id(db, sid)
-            .await
-            
+        SupplierBankAccountRepo.find_by_supplier_id(db, sid).await
     }
 }

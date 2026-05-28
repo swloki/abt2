@@ -1,9 +1,7 @@
-﻿//! ProductionBatchService 具体实现
+//! ProductionBatchService 具体实现
 //!
 //! 核心方法 `confirm_routing_step` 是 MES 执行层的原子事务入口。
 //! WorkOrderRouting 属于工单级，批次通过 work_order_id 引用工序。
-
-use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -16,10 +14,10 @@ use crate::mes::enums::*;
 use crate::mes::work_order::repo::WorkOrderRepo;
 use crate::mes::production_inspection::model::CreateInspectionReq;
 use crate::mes::production_inspection::repo::ProductionInspectionRepo;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
-use crate::shared::inventory_reservation::service::InventoryReservationService;
+use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -27,17 +25,11 @@ use crate::shared::types::Result;
 pub struct ProductionBatchServiceImpl {
     #[allow(dead_code)]
     pool: PgPool,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    inv_res: Arc<dyn InventoryReservationService>,
 }
 
 impl ProductionBatchServiceImpl {
-    pub fn new(
-        pool: PgPool,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        inv_res: Arc<dyn InventoryReservationService>,
-    ) -> Self {
-        Self { pool, doc_seq, inv_res }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 }
 
@@ -49,11 +41,13 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateBatchReq,
     ) -> Result<i64> {
-        let batch_no = self.doc_seq.next_number(ctx, db, DocumentType::WorkOrder)
+        let batch_no = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("PB{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
-        let card_sn = self.doc_seq.next_number(ctx, db, DocumentType::WorkOrder)
+        let card_sn = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("CS{}", chrono::Utc::now().format("%Y%m%d%H%M%S%3f")));
 
@@ -182,7 +176,8 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         let wage_amount = (req.completed_qty + non_operator_defect_qty) * unit_price;
 
         // --- e. 幂等 INSERT work_reports ---
-        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::WorkReport)
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::WorkReport)
             .await
             .unwrap_or_else(|_| format!("WR{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
@@ -245,7 +240,8 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 disposition: None,
                 remark: Some(format!("工序 {step_no} 自动触发 IPQC")),
             };
-            let inspection_doc = self.doc_seq.next_number(ctx, db, DocumentType::ProductionInspection)
+            let inspection_doc = new_document_sequence_service(self.pool.clone())
+                .next_number(ctx, db, DocumentType::ProductionInspection)
                 .await
                 .unwrap_or_else(|_| format!("PI{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
@@ -437,7 +433,8 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 释放 HARD 预留
-        self.inv_res.cancel_by_source(ctx, db, DocumentType::WorkOrder, batch_id).await?;
+        new_inventory_reservation_service(self.pool.clone())
+            .cancel_by_source(ctx, db, DocumentType::WorkOrder, batch_id).await?;
 
         Ok(())
     }

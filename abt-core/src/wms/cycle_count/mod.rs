@@ -8,3 +8,9 @@ pub use model::{
     CycleCount, CycleCountFilter, CycleCountItem,
 };
 pub use service::CycleCountService;
+
+use sqlx::PgPool;
+
+pub fn new_cycle_count_service(pool: PgPool) -> impl CycleCountService {
+    implt::CycleCountServiceImpl::new(pool)
+}

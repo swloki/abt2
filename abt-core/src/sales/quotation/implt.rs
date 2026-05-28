@@ -1,50 +1,33 @@
-﻿use std::sync::Arc;
-
 use chrono::Local;
 use rust_decimal::Decimal;
+use sqlx::postgres::PgPool;
 
-use crate::master_data::customer::service::CustomerService;
+use crate::master_data::customer::{new_customer_service, service::CustomerService};
 use crate::sales::quotation::model::*;
 use crate::sales::quotation::repo::{QuotationItemRepo, QuotationRepo};
 use crate::sales::quotation::service::QuotationService;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
+use crate::shared::types::{PgExecutor, DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct QuotationServiceImpl {
     repo: QuotationRepo,
     item_repo: QuotationItemRepo,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    customer_svc: Arc<dyn CustomerService>,
+    pool: PgPool,
 }
 
 impl QuotationServiceImpl {
-    pub fn new(
-        repo: QuotationRepo,
-        item_repo: QuotationItemRepo,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        customer_svc: Arc<dyn CustomerService>,
-    ) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
-            repo,
-            item_repo,
-            doc_seq,
-            state_machine,
-            audit,
-            event_bus,
-            customer_svc,
+            repo: QuotationRepo,
+            item_repo: QuotationItemRepo,
+            pool,
         }
     }
 
@@ -105,7 +88,7 @@ impl QuotationService for QuotationServiceImpl {
         }
 
         if req.customer_id > 0 && req.contact_id > 0 {
-            self.customer_svc
+            new_customer_service(self.pool.clone())
                 .validate_contact_ownership(ctx, db, req.customer_id, req.contact_id)
                 .await?;
         }
@@ -118,8 +101,7 @@ impl QuotationService for QuotationServiceImpl {
             return Err(DomainError::validation("报价单中所有产品的单价不能都为 0"));
         }
 
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::Quotation)
             .await?;
 
@@ -137,25 +119,23 @@ impl QuotationService for QuotationServiceImpl {
                 estimated_margin,
                 ctx.operator_id,
             )
-            .await
-            ?;
+            .await?;
 
         let item_inputs = Self::build_item_inputs(&req.items);
         self.item_repo
             .create_batch(db, id, &item_inputs)
-            .await
-            ?;
+            .await?;
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "QuotationStatus", id, "Draft", None)
             .await
             .ok();
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "Quotation", id, AuditAction::Create, None, None)
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -183,8 +163,7 @@ impl QuotationService for QuotationServiceImpl {
     ) -> Result<Quotation> {
         self.repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("Quotation"))
     }
 
@@ -197,8 +176,7 @@ impl QuotationService for QuotationServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
         if existing.status != QuotationStatus::Draft {
@@ -216,28 +194,24 @@ impl QuotationService for QuotationServiceImpl {
         if let Some(ref items) = req.items {
             self.item_repo
                 .delete_by_quotation_id(db, id)
-                .await
-                ?;
+                .await?;
 
             let item_inputs = Self::build_item_inputs(items);
             self.item_repo
                 .create_batch(db, id, &item_inputs)
-                .await
-                ?;
+                .await?;
 
             let (total_amount, total_cost, estimated_margin) = Self::calculate_amounts(items);
             self.repo
                 .update_amounts(db, id, total_amount, total_cost, estimated_margin)
-                .await
-                ?;
+                .await?;
         }
 
         self.repo
             .update(db, id, &req)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "Quotation", id, AuditAction::Update, None, None)
             .await?;
 
@@ -248,8 +222,7 @@ impl QuotationService for QuotationServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
         if existing.status != QuotationStatus::Draft {
@@ -261,8 +234,7 @@ impl QuotationService for QuotationServiceImpl {
         let items = self
             .item_repo
             .find_by_quotation_id(db, id)
-            .await
-            ?;
+            .await?;
 
         if items.is_empty() {
             return Err(DomainError::business_rule(
@@ -270,16 +242,15 @@ impl QuotationService for QuotationServiceImpl {
             ));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "QuotationStatus", id, "Sent", None)
             .await?;
 
         self.repo
             .update_status(db, id, QuotationStatus::Sent)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -294,7 +265,7 @@ impl QuotationService for QuotationServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -318,24 +289,22 @@ impl QuotationService for QuotationServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
         if existing.status != QuotationStatus::Sent {
             return Err(DomainError::business_rule("Only Sent quotations can be accepted"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "QuotationStatus", id, "Accepted", None)
             .await?;
 
         self.repo
             .update_status(db, id, QuotationStatus::Accepted)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -350,7 +319,7 @@ impl QuotationService for QuotationServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -375,24 +344,22 @@ impl QuotationService for QuotationServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
         if existing.status != QuotationStatus::Sent {
             return Err(DomainError::business_rule("Only Sent quotations can be rejected"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "QuotationStatus", id, "Rejected", None)
             .await?;
 
         self.repo
             .update_status(db, id, QuotationStatus::Rejected)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -407,7 +374,7 @@ impl QuotationService for QuotationServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -431,8 +398,7 @@ impl QuotationService for QuotationServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
         if existing.status != QuotationStatus::Draft && existing.status != QuotationStatus::Sent {
@@ -441,16 +407,15 @@ impl QuotationService for QuotationServiceImpl {
             ));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "QuotationStatus", id, "Expired", None)
             .await?;
 
         self.repo
             .update_status(db, id, QuotationStatus::Expired)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -465,7 +430,7 @@ impl QuotationService for QuotationServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -489,8 +454,7 @@ impl QuotationService for QuotationServiceImpl {
         let count = self
             .repo
             .expire_overdue(db)
-            .await
-            ?;
+            .await?;
         Ok(count as i32)
     }
 
@@ -518,7 +482,7 @@ impl QuotationService for QuotationServiceImpl {
 
         self.repo.soft_delete(db, id).await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -530,7 +494,7 @@ impl QuotationService for QuotationServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,

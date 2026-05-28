@@ -1,20 +1,20 @@
-﻿use std::sync::Arc;
+use sqlx::PgPool;
 
 use super::model::*;
 use super::repo::CategoryRepo;
 use super::service::CategoryService;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct CategoryServiceImpl {
     repo: CategoryRepo,
-    audit: Arc<dyn AuditLogService>,
+    pool: PgPool,
 }
 
 impl CategoryServiceImpl {
-    pub fn new(repo: CategoryRepo, audit: Arc<dyn AuditLogService>) -> Self {
-        Self { repo, audit }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: CategoryRepo, pool }
     }
 }
 
@@ -39,7 +39,8 @@ impl CategoryService for CategoryServiceImpl {
         self.repo.update_path(db, id, &correct_path)
             .await?;
 
-        self.audit.record(ctx, db, "Category", id, AuditAction::Create, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "Category", id, AuditAction::Create, None, None).await?;
         Ok(id)
     }
 
@@ -51,7 +52,8 @@ impl CategoryService for CategoryServiceImpl {
         self.repo.update(db, category_id, &req)
             .await?;
 
-        self.audit.record(ctx, db, "Category", category_id, AuditAction::Update, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "Category", category_id, AuditAction::Update, None, None).await?;
         Ok(())
     }
 
@@ -71,7 +73,8 @@ impl CategoryService for CategoryServiceImpl {
         self.repo.delete(db, category_id)
             .await?;
 
-        self.audit.record(ctx, db, "Category", category_id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "Category", category_id, AuditAction::Delete, None, None).await?;
         Ok(())
     }
 
@@ -126,7 +129,8 @@ impl CategoryService for CategoryServiceImpl {
         self.repo.update_path_subtree(db, &old_prefix, &new_prefix)
             .await?;
 
-        self.audit.record(ctx, db, "Category", category_id, AuditAction::Update, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "Category", category_id, AuditAction::Update, None, None).await?;
         Ok(())
     }
 

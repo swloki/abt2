@@ -1,70 +1,43 @@
-﻿use std::sync::Arc;
-
 use rust_decimal::Decimal;
+use sqlx::postgres::PgPool;
 
+use crate::qms::rma::{new_rma_service, service::RmaService};
+use crate::qms::rma::model::CreateRmaReq;
 use crate::sales::sales_order::repo::SalesOrderItemRepo;
 use crate::sales::sales_return::model::*;
 use crate::sales::sales_return::repo::{SalesReturnItemRepo, SalesReturnRepo};
 use crate::sales::sales_return::service::SalesReturnService;
-use crate::sales::shipping_request::service::ShippingRequestService;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::sales::shipping_request::{new_shipping_request_service, service::ShippingRequestService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::cost_entry::model::EntryRequest;
-use crate::shared::cost_entry::service::CostEntryService;
+use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
 use crate::shared::document_link::model::LinkRequest;
-use crate::shared::document_link::service::DocumentLinkService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::cost::{CostEntityType, CostType};
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::enums::link_type::LinkType;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
-use crate::qms::rma::model::CreateRmaReq;
-use crate::qms::rma::service::RmaService;
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
+use crate::shared::types::{PgExecutor, DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct SalesReturnServiceImpl {
     repo: SalesReturnRepo,
     item_repo: SalesReturnItemRepo,
     order_item_repo: SalesOrderItemRepo,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    shipping_svc: Arc<dyn ShippingRequestService>,
-    doc_link: Arc<dyn DocumentLinkService>,
-    cost_entry: Arc<dyn CostEntryService>,
-    rma: Arc<dyn RmaService>,
+    pool: PgPool,
 }
 
 impl SalesReturnServiceImpl {
-    pub fn new(
-        repo: SalesReturnRepo,
-        item_repo: SalesReturnItemRepo,
-        order_item_repo: SalesOrderItemRepo,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        shipping_svc: Arc<dyn ShippingRequestService>,
-        doc_link: Arc<dyn DocumentLinkService>,
-        cost_entry: Arc<dyn CostEntryService>,
-        rma: Arc<dyn RmaService>,
-    ) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
-            repo,
-            item_repo,
-            order_item_repo,
-            doc_seq,
-            state_machine,
-            audit,
-            event_bus,
-            shipping_svc,
-            doc_link,
-            cost_entry,
-            rma,
+            repo: SalesReturnRepo,
+            item_repo: SalesReturnItemRepo,
+            order_item_repo: SalesOrderItemRepo,
+            pool,
         }
     }
 }
@@ -77,7 +50,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         req: CreateReturnReq,
     ) -> Result<i64> {
         // Validate shipping request is Shipped
-        let shipping = self.shipping_svc.find_by_id(ctx, db, req.shipping_request_id).await?;
+        let shipping = new_shipping_request_service(self.pool.clone()).find_by_id(ctx, db, req.shipping_request_id).await?;
         if shipping.status != crate::sales::shipping_request::model::ShippingStatus::Shipped {
             return Err(DomainError::business_rule(
                 "Shipping request must be Shipped to create return",
@@ -94,8 +67,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         let order_items = self
             .order_item_repo
             .find_by_order_id(db, req.order_id)
-            .await
-            ?;
+            .await?;
 
         let mut return_inputs = Vec::with_capacity(req.items.len());
         let mut total_amount = Decimal::ZERO;
@@ -134,8 +106,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             });
         }
 
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::SalesReturn)
             .await?;
 
@@ -152,15 +123,13 @@ impl SalesReturnService for SalesReturnServiceImpl {
                 "",
                 ctx.operator_id,
             )
-            .await
-            ?;
+            .await?;
 
         self.item_repo
             .create_batch(db, id, &return_inputs)
-            .await
-            ?;
+            .await?;
 
-        self.doc_link
+        new_document_link_service(self.pool.clone())
             .create_links(
                 ctx,
                 db,
@@ -174,12 +143,12 @@ impl SalesReturnService for SalesReturnServiceImpl {
             )
             .await?;
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ReturnStatus", id, "Draft", None)
             .await
             .ok();
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -204,8 +173,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
     ) -> Result<SalesReturn> {
         self.repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))
     }
 
@@ -213,24 +181,22 @@ impl SalesReturnService for SalesReturnServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Draft {
             return Err(DomainError::business_rule("Only Draft returns can be approved"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ReturnStatus", id, "Confirmed", None)
             .await?;
 
         self.repo
             .update_status(db, id, ReturnStatus::Confirmed)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -249,24 +215,22 @@ impl SalesReturnService for SalesReturnServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Confirmed {
             return Err(DomainError::business_rule("Only Confirmed returns can be received"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ReturnStatus", id, "Received", None)
             .await?;
 
         self.repo
             .update_status(db, id, ReturnStatus::Received)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -285,24 +249,22 @@ impl SalesReturnService for SalesReturnServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Received {
             return Err(DomainError::business_rule("Only Received returns can be inspected"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ReturnStatus", id, "Inspecting", None)
             .await?;
 
         self.repo
             .update_status(db, id, ReturnStatus::Inspecting)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -321,8 +283,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Inspecting {
@@ -332,23 +293,20 @@ impl SalesReturnService for SalesReturnServiceImpl {
         let return_items = self
             .item_repo
             .find_by_return_id(db, id)
-            .await
-            ?;
+            .await?;
 
         // Update order_item.returned_qty
         for item in &return_items {
             self.order_item_repo
                 .update_returned_qty(db, item.order_item_id, item.returned_qty)
-                .await
-                ?;
+                .await?;
         }
 
         // Create reverse CostEntry (credit side) — use unit_cost to match forward COGS entry
         let order_items = self
             .order_item_repo
             .find_by_order_id(db, existing.order_id)
-            .await
-            ?;
+            .await?;
 
         let period = chrono::Utc::now().format("%Y-%m").to_string();
         let mut cost_entries = Vec::with_capacity(return_items.len());
@@ -374,13 +332,13 @@ impl SalesReturnService for SalesReturnServiceImpl {
         }
 
         if !cost_entries.is_empty() {
-            self.cost_entry
+            new_cost_entry_service(self.pool.clone())
                 .create_entries(ctx, db, cost_entries)
                 .await?;
         }
 
         // QMS: 创建 RMA 记录关联退货
-        self.rma.create(
+        new_rma_service(self.pool.clone()).create(
             ctx,
             db,
             CreateRmaReq {
@@ -396,16 +354,15 @@ impl SalesReturnService for SalesReturnServiceImpl {
         )
         .await?;
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ReturnStatus", id, "Completed", None)
             .await?;
 
         self.repo
             .update_status(db, id, ReturnStatus::Completed)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -417,7 +374,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -442,24 +399,22 @@ impl SalesReturnService for SalesReturnServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Draft {
             return Err(DomainError::business_rule("Only Draft returns can be rejected"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ReturnStatus", id, "Rejected", None)
             .await?;
 
         self.repo
             .update_status(db, id, ReturnStatus::Rejected)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -478,24 +433,22 @@ impl SalesReturnService for SalesReturnServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
 
         if existing.status != ReturnStatus::Inspecting {
             return Err(DomainError::business_rule("Only Inspecting returns can be cancelled"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ReturnStatus", id, "Cancelled", None)
             .await?;
 
         self.repo
             .update_status(db, id, ReturnStatus::Cancelled)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -539,7 +492,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         self.repo.soft_delete(db, id).await?;
 
-        self.audit.record(ctx, db, "SalesReturn", id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone()).record(ctx, db, "SalesReturn", id, AuditAction::Delete, None, None).await?;
 
         Ok(())
     }

@@ -1,79 +1,48 @@
-﻿use std::sync::Arc;
-
 use rust_decimal::Decimal;
+use sqlx::postgres::PgPool;
 
+use crate::qms::inspection_result::{new_inspection_result_service, service::InspectionResultService};
+use crate::qms::inspection_result::model::InspectionResultFilter;
+use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
 use crate::sales::sales_order::model::SalesOrderStatus;
 use crate::sales::sales_order::repo::{SalesOrderItemRepo, SalesOrderRepo};
-use crate::sales::sales_order::service::SalesOrderService;
+use crate::sales::sales_order::{new_sales_order_service, service::SalesOrderService};
 use crate::sales::shipping_request::model::*;
 use crate::sales::shipping_request::repo::{ShippingRequestItemRepo, ShippingRequestRepo};
 use crate::sales::shipping_request::service::ShippingRequestService;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::cost_entry::model::EntryRequest;
-use crate::shared::cost_entry::service::CostEntryService;
+use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
 use crate::shared::document_link::model::LinkRequest;
-use crate::shared::document_link::service::DocumentLinkService;
-use crate::qms::inspection_result::service::InspectionResultService;
-use crate::qms::inspection_result::model::InspectionResultFilter;
-use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::cost::{CostEntityType, CostType};
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::enums::link_type::LinkType;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::inventory_reservation::service::InventoryReservationService;
-use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
+use crate::shared::types::{PgExecutor, DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct ShippingRequestServiceImpl {
     repo: ShippingRequestRepo,
     item_repo: ShippingRequestItemRepo,
     order_repo: SalesOrderRepo,
     order_item_repo: SalesOrderItemRepo,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    state_machine: Arc<dyn StateMachineService>,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    sales_order_svc: Arc<dyn SalesOrderService>,
-    doc_link: Arc<dyn DocumentLinkService>,
-    inv_res: Arc<dyn InventoryReservationService>,
-    cost_entry: Arc<dyn CostEntryService>,
-    qms: Arc<dyn InspectionResultService>,
+    pool: PgPool,
 }
 
 impl ShippingRequestServiceImpl {
-    pub fn new(
-        repo: ShippingRequestRepo,
-        item_repo: ShippingRequestItemRepo,
-        order_repo: SalesOrderRepo,
-        order_item_repo: SalesOrderItemRepo,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        state_machine: Arc<dyn StateMachineService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        sales_order_svc: Arc<dyn SalesOrderService>,
-        doc_link: Arc<dyn DocumentLinkService>,
-        inv_res: Arc<dyn InventoryReservationService>,
-        cost_entry: Arc<dyn CostEntryService>,
-        qms: Arc<dyn InspectionResultService>,
-    ) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
-            repo,
-            item_repo,
-            order_repo,
-            order_item_repo,
-            doc_seq,
-            state_machine,
-            audit,
-            event_bus,
-            sales_order_svc,
-            doc_link,
-            inv_res,
-            cost_entry,
-            qms,
+            repo: ShippingRequestRepo,
+            item_repo: ShippingRequestItemRepo,
+            order_repo: SalesOrderRepo,
+            order_item_repo: SalesOrderItemRepo,
+            pool,
         }
     }
 }
@@ -85,7 +54,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateFromOrderReq,
     ) -> Result<i64> {
-        let order = self.sales_order_svc.find_by_id(ctx, db, req.order_id).await?;
+        let order = new_sales_order_service(self.pool.clone()).find_by_id(ctx, db, req.order_id).await?;
 
         if order.status != SalesOrderStatus::Confirmed
             && order.status != SalesOrderStatus::InProduction
@@ -99,8 +68,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         let order_items = self
             .order_item_repo
             .find_by_order_id(db, req.order_id)
-            .await
-            ?;
+            .await?;
 
         let mut shipping_inputs = Vec::with_capacity(req.items.len());
         for (i, item) in req.items.iter().enumerate() {
@@ -132,8 +100,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             });
         }
 
-        let doc_number = self
-            .doc_seq
+        let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::ShippingRequest)
             .await?;
 
@@ -149,15 +116,13 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 "",
                 ctx.operator_id,
             )
-            .await
-            ?;
+            .await?;
 
         self.item_repo
             .create_batch(db, id, &shipping_inputs)
-            .await
-            ?;
+            .await?;
 
-        self.doc_link
+        new_document_link_service(self.pool.clone())
             .create_links(
                 ctx,
                 db,
@@ -171,12 +136,12 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             )
             .await?;
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ShippingStatus", id, "Draft", None)
             .await
             .ok();
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -198,8 +163,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
     ) -> Result<ShippingRequest> {
         self.repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))
     }
 
@@ -212,8 +176,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
         if existing.status != ShippingStatus::Draft {
@@ -222,10 +185,9 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         self.repo
             .update(db, id, &req)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "ShippingRequest", id, AuditAction::Update, None, None)
             .await?;
 
@@ -236,8 +198,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
         if existing.status != ShippingStatus::Draft {
@@ -245,7 +206,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         }
 
         // QMS OQC hard gate: 查询发货请求的检验结果
-        let qms_results = self.qms.list_by_source(
+        let qms_results = new_inspection_result_service(self.pool.clone()).list_by_source(
             ctx,
             db,
             InspectionResultFilter {
@@ -266,16 +227,15 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             }
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ShippingStatus", id, "Confirmed", None)
             .await?;
 
         self.repo
             .update_status(db, id, ShippingStatus::Confirmed)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -294,24 +254,22 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
         if existing.status != ShippingStatus::Confirmed {
             return Err(DomainError::business_rule("Only Confirmed shipping requests can be picked"));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ShippingStatus", id, "Picking", None)
             .await?;
 
         self.repo
             .update_status(db, id, ShippingStatus::Picking)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -330,8 +288,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
         if existing.status != ShippingStatus::Picking {
@@ -341,21 +298,18 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         let shipping_items = self
             .item_repo
             .find_by_shipping_request_id(db, id)
-            .await
-            ?;
+            .await?;
 
         for item in &shipping_items {
             self.item_repo
                 .update_shipped_qty(db, item.id, item.requested_qty)
-                .await
-                ?;
+                .await?;
 
             self.order_item_repo
                 .update_shipped_qty(db, item.order_item_id, item.requested_qty)
-                .await
-                ?;
+                .await?;
 
-            self.inv_res
+            new_inventory_reservation_service(self.pool.clone())
                 .fulfill_by_source_line(
                     ctx,
                     db,
@@ -369,8 +323,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         let order_items = self
             .order_item_repo
             .find_by_order_id(db, existing.order_id)
-            .await
-            ?;
+            .await?;
 
         let period = chrono::Utc::now().format("%Y-%m").to_string();
         let mut cost_entries = Vec::with_capacity(shipping_items.len());
@@ -397,19 +350,18 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         }
 
         if !cost_entries.is_empty() {
-            self.cost_entry
+            new_cost_entry_service(self.pool.clone())
                 .create_entries(ctx, db, cost_entries)
                 .await?;
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ShippingStatus", id, "Shipped", None)
             .await?;
 
         self.repo
             .update_status(db, id, ShippingStatus::Shipped)
-            .await
-            ?;
+            .await?;
 
         // Update SalesOrder status: PartiallyShipped or Shipped
         let all_fully_shipped = order_items
@@ -424,10 +376,9 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         self.order_repo
             .update_status(db, existing.order_id, new_order_status)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -439,7 +390,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx,
                 db,
@@ -464,8 +415,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         let existing = self
             .repo
             .find_by_id(db, id)
-            .await
-            ?
+            .await?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
 
         if existing.status != ShippingStatus::Draft && existing.status != ShippingStatus::Confirmed {
@@ -474,16 +424,15 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             ));
         }
 
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "ShippingStatus", id, "Cancelled", None)
             .await?;
 
         self.repo
             .update_status(db, id, ShippingStatus::Cancelled)
-            .await
-            ?;
+            .await?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -527,7 +476,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         self.repo.soft_delete(db, id).await?;
 
-        self.audit.record(ctx, db, "ShippingRequest", id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone()).record(ctx, db, "ShippingRequest", id, AuditAction::Delete, None, None).await?;
 
         Ok(())
     }

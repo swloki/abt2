@@ -1,23 +1,20 @@
-﻿use std::sync::Arc;
+use sqlx::PgPool;
 
 use super::model::*;
 use super::repo::BomLaborProcessRepo;
 use super::service::BomLaborProcessService;
-use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct BomLaborProcessServiceImpl {
     repo: BomLaborProcessRepo,
-    audit: Arc<dyn AuditLogService>,
+    pool: PgPool,
 }
 
 impl BomLaborProcessServiceImpl {
-    pub fn new(
-        repo: BomLaborProcessRepo,
-        audit: Arc<dyn AuditLogService>,
-    ) -> Self {
-        Self { repo, audit }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: BomLaborProcessRepo, pool }
     }
 }
 
@@ -32,7 +29,8 @@ impl BomLaborProcessService for BomLaborProcessServiceImpl {
         let id = self.repo.create(db, &req, ctx.operator_id)
             .await?;
 
-        self.audit.record(ctx, db, "BomLaborProcess", id, AuditAction::Create, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BomLaborProcess", id, AuditAction::Create, None, None).await?;
 
         Ok(id)
     }
@@ -45,7 +43,8 @@ impl BomLaborProcessService for BomLaborProcessServiceImpl {
         self.repo.update(db, id, &req, ctx.operator_id)
             .await?;
 
-        self.audit.record(ctx, db, "BomLaborProcess", id, AuditAction::Update, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BomLaborProcess", id, AuditAction::Update, None, None).await?;
 
         Ok(())
     }
@@ -58,7 +57,8 @@ impl BomLaborProcessService for BomLaborProcessServiceImpl {
         self.repo.delete(db, id)
             .await?;
 
-        self.audit.record(ctx, db, "BomLaborProcess", id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, "BomLaborProcess", id, AuditAction::Delete, None, None).await?;
 
         Ok(())
     }

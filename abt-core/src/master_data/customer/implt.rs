@@ -1,46 +1,32 @@
-﻿use std::sync::Arc;
+use sqlx::PgPool;
 
 use crate::master_data::customer::model::*;
 use crate::master_data::customer::repo::{CustomerAddressRepo, CustomerContactRepo, CustomerRepo};
 use crate::master_data::customer::service::CustomerService;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
-use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::state_machine::service::StateMachineService;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct CustomerServiceImpl {
     repo: CustomerRepo,
     contact_repo: CustomerContactRepo,
     address_repo: CustomerAddressRepo,
-    doc_seq: Arc<dyn DocumentSequenceService>,
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
-    state_machine: Arc<dyn StateMachineService>,
+    pool: PgPool,
 }
 
 impl CustomerServiceImpl {
-    pub fn new(
-        repo: CustomerRepo,
-        contact_repo: CustomerContactRepo,
-        address_repo: CustomerAddressRepo,
-        doc_seq: Arc<dyn DocumentSequenceService>,
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        state_machine: Arc<dyn StateMachineService>,
-    ) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
-            repo,
-            contact_repo,
-            address_repo,
-            doc_seq,
-            audit,
-            event_bus,
-            state_machine,
+            repo: CustomerRepo,
+            contact_repo: CustomerContactRepo,
+            address_repo: CustomerAddressRepo,
+            pool,
         }
     }
 }
@@ -52,8 +38,7 @@ impl CustomerService for CustomerServiceImpl {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateCustomerReq,
     ) -> Result<i64> {
-        let code = self
-            .doc_seq
+        let code = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::Customer)
             .await?;
 
@@ -64,7 +49,7 @@ impl CustomerService for CustomerServiceImpl {
             ?;
 
         // Initialize state machine to Prospective
-        self.state_machine
+        new_state_machine_service(self.pool.clone())
             .transition(
                 ctx, db,
                 "CustomerStatus",
@@ -90,11 +75,11 @@ impl CustomerService for CustomerServiceImpl {
             }
         }
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "Customer", id, AuditAction::Create, None, None)
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
                 EventPublishRequest {
@@ -146,13 +131,13 @@ impl CustomerService for CustomerServiceImpl {
                     CustomerStatus::Blacklisted => "Blacklisted",
                 };
 
-                self.state_machine
+                new_state_machine_service(self.pool.clone())
                     .transition(ctx, db, "CustomerStatus", id, to_state, None)
                     .await?;
 
                 // Publish blacklist event if transitioning to Blacklisted
                 if new_status == CustomerStatus::Blacklisted {
-                    self.event_bus
+                    new_domain_event_bus(self.pool.clone())
                         .publish(
                             ctx, db,
                             EventPublishRequest {
@@ -177,7 +162,7 @@ impl CustomerService for CustomerServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "Customer", id, AuditAction::Update, None, None)
             .await?;
 
@@ -204,7 +189,7 @@ impl CustomerService for CustomerServiceImpl {
                 ctx.department_id,
             )
             .await
-            
+
     }
 
     async fn add_contact(
@@ -226,7 +211,7 @@ impl CustomerService for CustomerServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -256,7 +241,7 @@ impl CustomerService for CustomerServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "CustomerContact", contact_id, AuditAction::Update, None, None)
             .await?;
 
@@ -277,7 +262,7 @@ impl CustomerService for CustomerServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "CustomerContact", contact_id, AuditAction::Delete, None, None)
             .await?;
 
@@ -292,7 +277,7 @@ impl CustomerService for CustomerServiceImpl {
         self.contact_repo
             .find_by_customer_id(db, cid)
             .await
-            
+
     }
 
     async fn add_address(
@@ -314,7 +299,7 @@ impl CustomerService for CustomerServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx,
                 db,
@@ -355,7 +340,7 @@ impl CustomerService for CustomerServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "CustomerAddress", address_id, AuditAction::Update, None, None)
             .await?;
 
@@ -387,7 +372,7 @@ impl CustomerService for CustomerServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "CustomerAddress", address_id, AuditAction::Delete, None, None)
             .await?;
 
@@ -402,7 +387,7 @@ impl CustomerService for CustomerServiceImpl {
         self.address_repo
             .find_by_customer_id(db, cid)
             .await
-            
+
     }
 
     async fn validate_contact_ownership(
@@ -457,7 +442,7 @@ impl CustomerService for CustomerServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(ctx, db, "Customer", id, AuditAction::Update, None, None)
             .await?;
 
@@ -483,7 +468,7 @@ impl CustomerService for CustomerServiceImpl {
             .await
             ?;
 
-        self.audit
+        new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
                 "Customer",
@@ -500,7 +485,7 @@ impl CustomerService for CustomerServiceImpl {
             )
             .await?;
 
-        self.event_bus
+        new_domain_event_bus(self.pool.clone())
             .publish(
                 ctx, db,
                 EventPublishRequest {

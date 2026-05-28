@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
@@ -13,18 +11,17 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::stock_ledger::model::{StockFilter, UpsertStockReq};
-use crate::wms::stock_ledger::StockLedgerService;
+use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerService};
 use crate::wms::stock_ledger::model::StockLedger;
 
 pub struct InventoryTransactionServiceImpl {
-    #[allow(dead_code)]
+    repo: InventoryTransactionRepo,
     pool: PgPool,
-    stock_ledger_svc: Arc<dyn StockLedgerService>,
 }
 
 impl InventoryTransactionServiceImpl {
-    pub fn new(pool: PgPool, stock_ledger_svc: Arc<dyn StockLedgerService>) -> Self {
-        Self { pool, stock_ledger_svc }
+    pub fn new(pool: PgPool) -> Self {
+        Self { repo: InventoryTransactionRepo, pool }
     }
 }
 
@@ -41,7 +38,8 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
 
         // 自动更新库存台账（设计要求：record -> auto update StockLedger）
         if let (Some(zone_id), Some(bin_id)) = (req.zone_id, req.bin_id) {
-            self.stock_ledger_svc.upsert(
+            new_stock_ledger_service(self.pool.clone())
+            .upsert(
                 ctx,
                 db,
                 UpsertStockReq {
@@ -89,7 +87,8 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<StockLedger>> {
-        self.stock_ledger_svc.query(ctx, db, filter, page, page_size).await
+        new_stock_ledger_service(self.pool.clone())
+            .query(ctx, db, filter, page, page_size).await
     }
 
     async fn query_available(
@@ -98,6 +97,7 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
         product_id: i64,
         warehouse_id: Option<i64>,
     ) -> Result<Decimal> {
-        self.stock_ledger_svc.query_available(ctx, db, product_id, warehouse_id).await
+        new_stock_ledger_service(self.pool.clone())
+            .query_available(ctx, db, product_id, warehouse_id).await
     }
 }

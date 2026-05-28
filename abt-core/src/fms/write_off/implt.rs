@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use chrono::Utc;
+﻿use chrono::Utc;
 use sqlx::PgPool;
 
 use crate::fms::cash_journal::repo::CashJournalRepo;
@@ -9,27 +7,23 @@ use crate::fms::write_off::model::*;
 use crate::fms::write_off::repo::WriteOffRepo;
 use crate::fms::write_off::service::WriteOffService;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::audit_log::new_audit_log_service;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
+use crate::shared::event_bus::new_domain_event_bus;
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 use crate::fms::enums::WriteOffType;
 
 pub struct WriteOffServiceImpl {
-    audit: Arc<dyn AuditLogService>,
-    event_bus: Arc<dyn DomainEventBus>,
     pool: PgPool,
 }
 
 impl WriteOffServiceImpl {
-    pub fn new(
-        audit: Arc<dyn AuditLogService>,
-        event_bus: Arc<dyn DomainEventBus>,
-        pool: PgPool,
-    ) -> Self {
-        Self { audit, event_bus, pool }
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
     }
 
     /// Derive WriteOffType from the source document type.
@@ -145,7 +139,7 @@ impl WriteOffService for WriteOffServiceImpl {
         // Audit log
         {
             let tx_ctx = ServiceContext::new(ctx.operator_id);
-            self.audit
+            new_audit_log_service(self.pool.clone())
                 .record(
                     &tx_ctx, &mut *tx,
                     "WriteOff",
@@ -163,7 +157,7 @@ impl WriteOffService for WriteOffServiceImpl {
                 .await?;
 
             // Publish domain event
-            self.event_bus
+            new_domain_event_bus(self.pool.clone())
                 .publish(
                     &tx_ctx, &mut *tx,
                     EventPublishRequest {

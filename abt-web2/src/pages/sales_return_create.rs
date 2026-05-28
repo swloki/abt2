@@ -1,11 +1,10 @@
-use axum::extract::{Query, State};
+use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum::Form;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
-use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
@@ -18,41 +17,16 @@ use abt_core::sales::sales_return::model::{
 use abt_core::sales::sales_return::SalesReturnService;
 use abt_core::sales::shipping_request::model::ShippingQuery;
 use abt_core::sales::shipping_request::ShippingRequestService;
-use abt_core::shared::types::{PageParams, ServiceContext};
+use abt_core::shared::types::PageParams;
 
-use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
 use crate::errors::Result;
 use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::sales_return::*;
-use crate::state::AppState;
+use crate::utils::RequestContext;
 
 // ── Helpers ──
-
-fn make_ctx(operator_id: i64) -> ServiceContext {
-    ServiceContext::new(operator_id)
-}
-
-async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
-    session
-        .get(CURRENT_USER_KEY)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| abt_core::shared::identity::model::Claims {
-            sub: 0,
-            username: "未知用户".into(),
-            display_name: "未知用户".into(),
-            system_role: "user".into(),
-            role_ids: vec![],
-            role_codes: vec![],
-            department_ids: vec![],
-            iss: String::new(),
-            exp: 0,
-            iat: 0,
-        })
-}
 
 fn order_status_text(s: SalesOrderStatus) -> &'static str {
     match s {
@@ -98,22 +72,15 @@ pub struct OrderSearchQuery {
 
 pub async fn get_return_create(
     _path: ReturnCreatePath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
-    let customer_svc = state.customer_service();
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(DomainError::from)?;
+    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
 
-    let ctx = make_ctx(claims.sub);
+    let customer_svc = state.customer_service();
     let customers = customer_svc
         .list(
-            &ctx,
+            &service_ctx,
             &mut conn,
             CustomerQuery {
                 name: None,
@@ -142,22 +109,15 @@ pub async fn get_return_create(
 
 /// HTMX: search orders -> returns HTML fragment with embedded JSON data
 pub async fn get_orders(
-    State(state): State<AppState>,
-    _session: Session,
+    ctx: RequestContext,
     Query(params): Query<OrderSearchQuery>,
 ) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+
     let customer_id = match params.customer_id {
         Some(id) if id > 0 => id,
         _ => return Ok(Html(order_search_empty().into_string())),
     };
-
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(DomainError::from)?;
-
-    let ctx = make_ctx(0);
 
     // 1. Fetch orders via SalesOrderService::list
     let order_svc = state.sales_order_service();
@@ -170,7 +130,7 @@ pub async fn get_orders(
     });
     let orders_result = order_svc
         .list(
-            &ctx,
+            &service_ctx,
             &mut conn,
             SalesOrderQuery {
                 customer_id: Some(customer_id),
@@ -205,7 +165,7 @@ pub async fn get_orders(
         std::collections::HashMap::new();
     for &oid in &order_ids {
         let items = order_svc
-            .list_items(&ctx, &mut conn, oid)
+            .list_items(&service_ctx, &mut conn, oid)
             .await?;
         items_map.insert(oid, items);
     }
@@ -223,7 +183,7 @@ pub async fn get_orders(
         vec![]
     } else {
         product_svc
-            .get_by_ids(&ctx, &mut conn, all_product_ids)
+            .get_by_ids(&service_ctx, &mut conn, all_product_ids)
             .await?
     };
     let product_map: std::collections::HashMap<i64, &abt_core::master_data::product::model::Product> =
@@ -235,7 +195,7 @@ pub async fn get_orders(
     for &oid in &order_ids {
         let shippings = shipping_svc
             .list(
-                &ctx,
+                &service_ctx,
                 &mut conn,
                 ShippingQuery {
                     order_id: Some(oid),
@@ -258,16 +218,10 @@ pub async fn get_orders(
 /// POST: create return from form submission
 pub async fn create_return(
     _path: ReturnCreatePath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Form(form): Form<ReturnCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(DomainError::from)?;
+    let RequestContext { claims: _, mut conn, state, service_ctx } = ctx;
 
     if form.customer_id == 0 {
         return Err(DomainError::validation("请选择客户").into());
@@ -309,9 +263,8 @@ pub async fn create_return(
         items,
     };
 
-    let ctx = make_ctx(claims.sub);
     let svc = state.sales_return_service();
-    let return_id = svc.create(&ctx, &mut conn, req).await?;
+    let return_id = svc.create(&service_ctx, &mut conn, req).await?;
 
     let redirect = ReturnDetailPath { id: return_id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

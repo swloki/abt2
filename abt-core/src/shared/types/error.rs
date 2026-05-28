@@ -9,6 +9,9 @@ pub enum DomainError {
     #[error("{0} already exists")]
     Duplicate(String),
 
+    #[error("Unauthorized: {0}")]
+    Unauthorized(String),
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
 
@@ -54,6 +57,10 @@ impl DomainError {
 
     pub fn permission_denied(msg: impl fmt::Display) -> Self {
         Self::PermissionDenied(msg.to_string())
+    }
+
+    pub fn unauthorized(msg: impl fmt::Display) -> Self {
+        Self::Unauthorized(msg.to_string())
     }
 
     pub fn business_rule(msg: impl fmt::Display) -> Self {

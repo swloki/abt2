@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
-use axum::extract::{Query, State};
+use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
-use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
@@ -14,7 +13,6 @@ use abt_core::sales::reconciliation::model::*;
 use abt_core::sales::reconciliation::ReconciliationService;
 use abt_core::shared::types::{PageParams, ServiceContext};
 
-use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
@@ -23,8 +21,7 @@ use crate::errors::Result;
 use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::reconciliation::*;
-use crate::state::AppState;
-use crate::utils::{empty_as_none, resolve_customer_names};
+use crate::utils::{empty_as_none, resolve_customer_names, RequestContext};
 
 // ── Query Params ──
 
@@ -42,26 +39,6 @@ pub struct ReconciliationQueryParams {
 }
 
 // ── Helpers ──
-
-async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
-    session
-        .get(CURRENT_USER_KEY)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| abt_core::shared::identity::model::Claims {
-            sub: 0,
-            username: "未知用户".into(),
-            display_name: "未知用户".into(),
-            system_role: "user".into(),
-            role_ids: vec![],
-            role_codes: vec![],
-            department_ids: vec![],
-            iss: String::new(),
-            exp: 0,
-            iat: 0,
-        })
-}
 
 fn build_query_string(params: &ReconciliationQueryParams) -> String {
     let mut q = vec![];
@@ -130,14 +107,11 @@ async fn count_by_status<S: ReconciliationService>(
 
 pub async fn get_reconciliation_list(
     _path: ReconciliationListPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     headers: HeaderMap,
     Query(params): Query<ReconciliationQueryParams>,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-    let ctx = ServiceContext::new(claims.sub);
+    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
 
     let reconciliation_svc = state.reconciliation_service();
     let customer_svc = state.customer_service();
@@ -149,13 +123,13 @@ pub async fn get_reconciliation_list(
         keyword: params.keyword.clone(),
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = reconciliation_svc.list(&ctx, &mut conn, filter, page).await?;
+    let result = reconciliation_svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    let status_counts = count_by_status(&reconciliation_svc, &ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
+    let status_counts = count_by_status(&reconciliation_svc, &service_ctx, &mut conn, params.customer_id).await;
+    let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
 
     let customers = customer_svc
-        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     let content = reconciliation_list_page(&claims, &result, &customer_names, &customers.items, &params, &status_counts);
@@ -167,13 +141,10 @@ pub async fn get_reconciliation_list(
 }
 
 pub async fn get_reconciliation_table(
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Query(params): Query<ReconciliationQueryParams>,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-    let ctx = ServiceContext::new(claims.sub);
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     let reconciliation_svc = state.reconciliation_service();
     let customer_svc = state.customer_service();
@@ -185,13 +156,13 @@ pub async fn get_reconciliation_table(
         keyword: params.keyword.clone(),
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = reconciliation_svc.list(&ctx, &mut conn, filter, page).await?;
+    let result = reconciliation_svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    let status_counts = count_by_status(&reconciliation_svc, &ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
+    let status_counts = count_by_status(&reconciliation_svc, &service_ctx, &mut conn, params.customer_id).await;
+    let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
 
     let customers = customer_svc
-        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     Ok(Html(reconciliation_table_fragment(&result, &customer_names, &customers.items, &params, &status_counts).into_string()))
@@ -199,15 +170,12 @@ pub async fn get_reconciliation_table(
 
 pub async fn delete_reconciliation(
     path: ReconciliationDeletePath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-    let ctx = ServiceContext::new(claims.sub);
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     let reconciliation_svc = state.reconciliation_service();
-    reconciliation_svc.delete(&ctx, &mut conn, path.id).await?;
+    reconciliation_svc.delete(&service_ctx, &mut conn, path.id).await?;
 
     let redirect = ReconciliationListPath::PATH.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -215,10 +183,8 @@ pub async fn delete_reconciliation(
 
 pub async fn get_reconciliation_create_placeholder(
     _path: ReconciliationCreatePath,
-    State(_state): State<AppState>,
-    session: Session,
+    _ctx: RequestContext,
 ) -> Result<Html<String>> {
-    let _claims = get_claims(&session).await;
     Err(DomainError::business_rule("新建对账单功能开发中").into())
 }
 

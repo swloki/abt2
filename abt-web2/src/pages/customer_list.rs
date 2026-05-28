@@ -1,25 +1,21 @@
-use axum::extract::{Query, State};
+use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum::Form;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
-use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::*;
 use abt_core::master_data::customer::CustomerService;
-use abt_core::shared::types::{PageParams, ServiceContext};
+use abt_core::shared::types::PageParams;
 
-use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
-use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::customer::{CreateCustomerPath, CustomerDetailPath, CustomerListPath, CustomerTablePath, EditCustomerFormPath, UpdateCustomerPath, DeleteCustomerPath};
-use crate::state::AppState;
-use crate::utils::empty_as_none;
+use crate::utils::{empty_as_none, RequestContext};
 
 // ── Query Params ──
 
@@ -38,20 +34,17 @@ pub struct CustomerQueryParams {
 
 pub async fn get_customer_list(
     _path: CustomerListPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     headers: HeaderMap,
     Query(params): Query<CustomerQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
 
-    let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut conn, filter, page).await?;
+    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
     let content = customer_list_page(&claims, &result, &params);
     let page_html = admin_page(
@@ -62,32 +55,27 @@ pub async fn get_customer_list(
 }
 
 pub async fn get_customer_table(
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Query(params): Query<CustomerQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
 
-    let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut conn, filter, page).await?;
+    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
     Ok(Html(customer_table_fragment(&result, &params).into_string()))
 }
 
 pub async fn create_customer(
     _path: CreateCustomerPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Form(form): Form<CreateCustomerForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let category = form
         .category
@@ -110,8 +98,7 @@ pub async fn create_customer(
         remark: form.remark,
     };
 
-    let ctx = make_ctx(claims.sub);
-    let id = svc.create(&ctx, &mut conn, req).await?;
+    let id = svc.create(&service_ctx, &mut conn, req).await?;
 
     Ok((
         [("HX-Redirect", format!("/admin/customers/{id}"))],
@@ -121,15 +108,12 @@ pub async fn create_customer(
 
 pub async fn get_edit_customer_form(
     path: EditCustomerFormPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
-    let ctx = make_ctx(claims.sub);
-    let customer = svc.get(&ctx, &mut conn, path.id).await?;
+    let customer = svc.get(&service_ctx, &mut conn, path.id).await?;
 
     let update_path = UpdateCustomerPath { id: path.id };
     let form_html = customer_form(&Some(customer), "edit-customer-form", &update_path.to_string());
@@ -139,13 +123,11 @@ pub async fn get_edit_customer_form(
 
 pub async fn update_customer(
     path: UpdateCustomerPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Form(form): Form<CreateCustomerForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let req = UpdateCustomerReq {
         customer_name: Some(form.customer_name),
@@ -160,8 +142,7 @@ pub async fn update_customer(
         remark: form.remark,
     };
 
-    let ctx = make_ctx(claims.sub);
-    svc.update(&ctx, &mut conn, path.id, req).await?;
+    svc.update(&service_ctx, &mut conn, path.id, req).await?;
 
     let redirect = CustomerDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -169,15 +150,12 @@ pub async fn update_customer(
 
 pub async fn delete_customer(
     path: DeleteCustomerPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> crate::errors::Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
-    let ctx = make_ctx(claims.sub);
-    svc.delete(&ctx, &mut conn, path.id).await?;
+    svc.delete(&service_ctx, &mut conn, path.id).await?;
 
     Ok(([("HX-Redirect", CustomerListPath::PATH)], Html(String::new())))
 }
@@ -191,30 +169,6 @@ fn build_filter(params: &CustomerQueryParams) -> CustomerQuery {
         category: params.category.and_then(CustomerCategory::from_i16),
         owner_id: None,
     }
-}
-
-fn make_ctx(operator_id: i64) -> ServiceContext {
-    ServiceContext::new(operator_id)
-}
-
-async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
-    session
-        .get(CURRENT_USER_KEY)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| abt_core::shared::identity::model::Claims {
-            sub: 0,
-            username: "未知用户".into(),
-            display_name: "未知用户".into(),
-            system_role: "user".into(),
-            role_ids: vec![],
-            role_codes: vec![],
-            department_ids: vec![],
-            iss: String::new(),
-            exp: 0,
-            iat: 0,
-        })
 }
 
 // ── Form Data ──

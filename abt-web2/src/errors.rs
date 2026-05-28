@@ -18,6 +18,7 @@ impl IntoResponse for WebError {
     fn into_response(self) -> Response {
         let (status, message) = match &self.0 {
             DomainError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
+            DomainError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
             DomainError::PermissionDenied(msg) => (StatusCode::FORBIDDEN, msg.clone()),
             DomainError::Duplicate(msg)
             | DomainError::Validation(msg)

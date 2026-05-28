@@ -1,11 +1,9 @@
 use std::collections::{HashMap, HashSet};
 
-use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
-use tower_sessions::Session;
 
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
@@ -13,42 +11,15 @@ use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::sales::shipping_request::model::*;
 use abt_core::sales::shipping_request::ShippingRequestService;
 use abt_core::shared::identity::UserService;
-use abt_core::shared::types::ServiceContext;
 use abt_core::wms::warehouse::WarehouseService;
 
-use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
 use crate::errors::Result;
-use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::shipping::*;
-use crate::state::AppState;
+use crate::utils::RequestContext;
 
 // ── Helpers ──
-
-fn make_ctx(operator_id: i64) -> ServiceContext {
-    ServiceContext::new(operator_id)
-}
-
-async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
-    session
-        .get(CURRENT_USER_KEY)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| abt_core::shared::identity::model::Claims {
-            sub: 0,
-            username: "未知用户".into(),
-            display_name: "未知用户".into(),
-            system_role: "user".into(),
-            role_ids: vec![],
-            role_codes: vec![],
-            department_ids: vec![],
-            iss: String::new(),
-            exp: 0,
-            iat: 0,
-        })
-}
 
 fn status_label(s: ShippingStatus) -> (&'static str, &'static str) {
     match s {
@@ -71,29 +42,26 @@ struct ProductDetail {
 
 pub async fn get_shipping_detail(
     path: ShippingDetailPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+
     let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
     let order_svc = state.sales_order_service();
     let product_svc = state.product_service();
     let warehouse_svc = state.warehouse_service();
     let user_svc = state.user_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
+    let shipping = shipping_svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
 
-    let ctx = make_ctx(claims.sub);
-    let shipping = shipping_svc.find_by_id(&ctx, &mut conn, path.id).await?;
+    let items = shipping_svc.list_items(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
 
-    let items = shipping_svc.list_items(&ctx, &mut conn, path.id).await.unwrap_or_default();
-
-    let customer_name = customer_svc.get(&ctx, &mut conn, shipping.customer_id)
+    let customer_name = customer_svc.get(&service_ctx, &mut conn, shipping.customer_id)
         .await.map(|c| c.name).unwrap_or_else(|_| "未知客户".into());
-    let order_number = order_svc.find_by_id(&ctx, &mut conn, shipping.order_id)
+    let order_number = order_svc.find_by_id(&service_ctx, &mut conn, shipping.order_id)
         .await.map(|o| o.doc_number).unwrap_or_else(|_| "—".into());
-    let operator_name = user_svc.get_user(&ctx, &mut conn, shipping.operator_id)
+    let operator_name = user_svc.get_user(&service_ctx, &mut conn, shipping.operator_id)
         .await.map(|u| u.display_name.unwrap_or(u.username)).unwrap_or_else(|_| "—".into());
 
     // Resolve product details via product service
@@ -101,7 +69,7 @@ pub async fn get_shipping_detail(
     let product_details: HashMap<i64, ProductDetail> = if product_ids.is_empty() {
         HashMap::new()
     } else {
-        product_svc.get_by_ids(&ctx, &mut conn, product_ids)
+        product_svc.get_by_ids(&service_ctx, &mut conn, product_ids)
             .await
             .map(|products| products.into_iter().map(|p| {
                 (p.product_id, ProductDetail {
@@ -119,7 +87,7 @@ pub async fn get_shipping_detail(
     let mut seen_wh = HashSet::new();
     for item in &items {
         if seen_wh.insert(item.warehouse_id)
-            && let Ok(wh) = warehouse_svc.get(&ctx, &mut conn, item.warehouse_id).await {
+            && let Ok(wh) = warehouse_svc.get(&service_ctx, &mut conn, item.warehouse_id).await {
                 warehouse_names.insert(item.warehouse_id, wh.name);
             }
     }
@@ -136,15 +104,12 @@ pub async fn get_shipping_detail(
 
 pub async fn confirm_shipping(
     path: ConfirmShippingPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let svc = state.shipping_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
-    let ctx = make_ctx(claims.sub);
-    svc.confirm(&ctx, &mut conn, path.id).await?;
+    let svc = state.shipping_service();
+    svc.confirm(&service_ctx, &mut conn, path.id).await?;
 
     let redirect = ShippingDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -152,15 +117,12 @@ pub async fn confirm_shipping(
 
 pub async fn pick_shipping(
     path: PickShippingPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let svc = state.shipping_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
-    let ctx = make_ctx(claims.sub);
-    svc.pick(&ctx, &mut conn, path.id).await?;
+    let svc = state.shipping_service();
+    svc.pick(&service_ctx, &mut conn, path.id).await?;
 
     let redirect = ShippingDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -168,15 +130,12 @@ pub async fn pick_shipping(
 
 pub async fn ship_shipping(
     path: ShipShippingPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let svc = state.shipping_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
-    let ctx = make_ctx(claims.sub);
-    svc.ship(&ctx, &mut conn, path.id).await?;
+    let svc = state.shipping_service();
+    svc.ship(&service_ctx, &mut conn, path.id).await?;
 
     let redirect = ShippingDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -184,15 +143,12 @@ pub async fn ship_shipping(
 
 pub async fn cancel_shipping(
     path: CancelShippingPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let svc = state.shipping_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
-    let ctx = make_ctx(claims.sub);
-    svc.cancel(&ctx, &mut conn, path.id).await?;
+    let svc = state.shipping_service();
+    svc.cancel(&service_ctx, &mut conn, path.id).await?;
 
     let redirect = ShippingDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

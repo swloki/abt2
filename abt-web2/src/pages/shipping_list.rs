@@ -1,12 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
-use axum::extract::{Query, State};
+use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
-use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
@@ -15,18 +14,15 @@ use abt_core::sales::shipping_request::model::*;
 use abt_core::sales::shipping_request::ShippingRequestService;
 use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
-use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
 use crate::errors::Result;
-use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
 use crate::routes::shipping::*;
-use crate::state::AppState;
-use crate::utils::{empty_as_none, resolve_customer_names};
+use crate::utils::{empty_as_none, resolve_customer_names, RequestContext};
 
 // ── Query Params ──
 
@@ -42,30 +38,6 @@ pub struct ShippingQueryParams {
 }
 
 // ── Helpers ──
-
-fn make_ctx(operator_id: i64) -> ServiceContext {
-    ServiceContext::new(operator_id)
-}
-
-async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
-    session
-        .get(CURRENT_USER_KEY)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| abt_core::shared::identity::model::Claims {
-            sub: 0,
-            username: "未知用户".into(),
-            display_name: "未知用户".into(),
-            system_role: "user".into(),
-            role_ids: vec![],
-            role_codes: vec![],
-            department_ids: vec![],
-            iss: String::new(),
-            exp: 0,
-            iat: 0,
-        })
-}
 
 fn build_query_string(params: &ShippingQueryParams) -> String {
     let mut q = vec![];
@@ -148,18 +120,15 @@ async fn resolve_order_numbers<S: SalesOrderService>(
 
 pub async fn get_shipping_list(
     _path: ShippingListPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     headers: HeaderMap,
     Query(params): Query<ShippingQueryParams>,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+
     let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
     let order_svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-
-    let ctx = make_ctx(claims.sub);
     let filter = ShippingQuery {
         order_id: None,
         status: params.status.and_then(ShippingStatus::from_i16),
@@ -167,14 +136,14 @@ pub async fn get_shipping_list(
         customer_id: params.customer_id,
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = shipping_svc.list(&ctx, &mut conn, filter, page).await?;
+    let result = shipping_svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    let status_counts = count_by_status(&shipping_svc, &ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
-    let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut conn, &result.items).await;
+    let status_counts = count_by_status(&shipping_svc, &service_ctx, &mut conn, params.customer_id).await;
+    let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
+    let order_numbers = resolve_order_numbers(&order_svc, &service_ctx, &mut conn, &result.items).await;
 
     let customers = customer_svc
-        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     let content = shipping_list_page(&claims, &result, &customer_names, &order_numbers, &customers.items, &params, &status_counts);
@@ -186,17 +155,14 @@ pub async fn get_shipping_list(
 }
 
 pub async fn get_shipping_table(
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Query(params): Query<ShippingQueryParams>,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+
     let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
     let order_svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-
-    let ctx = make_ctx(claims.sub);
     let filter = ShippingQuery {
         order_id: None,
         status: params.status.and_then(ShippingStatus::from_i16),
@@ -204,14 +170,14 @@ pub async fn get_shipping_table(
         customer_id: params.customer_id,
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = shipping_svc.list(&ctx, &mut conn, filter, page).await?;
+    let result = shipping_svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    let status_counts = count_by_status(&shipping_svc, &ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
-    let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut conn, &result.items).await;
+    let status_counts = count_by_status(&shipping_svc, &service_ctx, &mut conn, params.customer_id).await;
+    let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
+    let order_numbers = resolve_order_numbers(&order_svc, &service_ctx, &mut conn, &result.items).await;
 
     let customers = customer_svc
-        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     Ok(Html(shipping_table_fragment(&result, &customer_names, &order_numbers, &customers.items, &params, &status_counts).into_string()))
@@ -219,15 +185,12 @@ pub async fn get_shipping_table(
 
 pub async fn delete_shipping(
     path: ShippingDeletePath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-    let ctx = make_ctx(claims.sub);
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     let shipping_svc = state.shipping_service();
-    shipping_svc.delete(&ctx, &mut conn, path.id).await?;
+    shipping_svc.delete(&service_ctx, &mut conn, path.id).await?;
 
     let redirect = ShippingListPath::PATH.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

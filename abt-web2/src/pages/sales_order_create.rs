@@ -1,10 +1,9 @@
-use axum::extract::{Query, State};
+use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
-use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
@@ -12,42 +11,15 @@ use abt_core::master_data::product::model::ProductQuery;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::shared::types::{PageParams, ServiceContext};
+use abt_core::shared::types::PageParams;
 
-use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::customer_info::{customer_info_panel, CustomerContactsParams};
 use crate::components::icon;
 use crate::errors::Result;
 use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
-use crate::state::AppState;
-
-// ── Helpers ──
-
-fn make_ctx(operator_id: i64) -> ServiceContext {
-    ServiceContext::new(operator_id)
-}
-
-async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
-    session
-        .get(CURRENT_USER_KEY)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| abt_core::shared::identity::model::Claims {
-            sub: 0,
-            username: "未知用户".into(),
-            display_name: "未知用户".into(),
-            system_role: "user".into(),
-            role_ids: vec![],
-            role_codes: vec![],
-            department_ids: vec![],
-            iss: String::new(),
-            exp: 0,
-            iat: 0,
-        })
-}
+use crate::utils::RequestContext;
 
 // ── Query Params ──
 
@@ -86,17 +58,14 @@ struct ItemWeb {
 
 pub async fn get_order_create(
     _path: OrderCreatePath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
     let customer_svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
-    let ctx = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     let content = order_create_page(&customers.items);
@@ -109,25 +78,21 @@ pub async fn get_order_create(
 
 /// HTMX: fetch customer contacts → return full customer-info panel
 pub async fn get_customer_contacts(
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Query(params): Query<CustomerContactsParams>,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let customer_svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let contacts = match params.customer_id {
         Some(cid) if cid > 0 => {
-            let ctx = make_ctx(claims.sub);
-            customer_svc.list_contacts(&ctx, &mut conn, cid).await.unwrap_or_default()
+            customer_svc.list_contacts(&service_ctx, &mut conn, cid).await.unwrap_or_default()
         }
         _ => vec![],
     };
 
-    let ctx2 = make_ctx(claims.sub);
     let result = customer_svc
-        .list(&ctx2, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     Ok(Html(customer_info_panel(&result.items, &contacts, params.customer_id, OrderCustomerContactsPath::PATH).into_string()))
@@ -135,13 +100,11 @@ pub async fn get_customer_contacts(
 
 /// HTMX: search products
 pub async fn get_products(
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Query(params): Query<ProductSearchParams>,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.product_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = ProductQuery {
         name: params.name,
@@ -149,8 +112,7 @@ pub async fn get_products(
         status: None,
         owner_department_id: None,
     };
-    let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
+    let result = svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
 
     Ok(Html(product_list_fragment(&result.items).into_string()))
 }
@@ -158,13 +120,11 @@ pub async fn get_products(
 /// POST: create order from form submission (HTMX)
 pub async fn create_order(
     _path: OrderCreatePath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     axum::Form(form): axum::Form<OrderCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     if form.customer_id == 0 {
         return Err(DomainError::validation("请选择客户").into());
@@ -212,8 +172,7 @@ pub async fn create_order(
         remark: form.remark,
     };
 
-    let ctx = ServiceContext::new(claims.sub);
-    let id = svc.create(&ctx, &mut conn, create_req).await?;
+    let id = svc.create(&service_ctx, &mut conn, create_req).await?;
 
     let redirect = OrderDetailPath { id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

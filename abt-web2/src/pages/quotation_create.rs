@@ -1,10 +1,9 @@
-use axum::extract::{Query, State};
+use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{Markup, html};
 use serde::Deserialize;
-use tower_sessions::Session;
 
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::CustomerQuery;
@@ -12,9 +11,8 @@ use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::ProductQuery;
 use abt_core::sales::quotation::QuotationService;
 use abt_core::sales::quotation::model::*;
-use abt_core::shared::types::{PageParams, ServiceContext};
+use abt_core::shared::types::PageParams;
 
-use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::customer_info::{CustomerContactsParams, customer_info_panel};
 use crate::components::icon;
 use crate::errors::Result;
@@ -24,33 +22,7 @@ use crate::routes::quotation::{
     QuotationCreatePath, QuotationCustomerContactsPath, QuotationDetailPath, QuotationListPath,
     QuotationProductsPath,
 };
-use crate::state::AppState;
-
-// ── Helpers ──
-
-fn make_ctx(operator_id: i64) -> ServiceContext {
-    ServiceContext::new(operator_id)
-}
-
-async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
-    session
-        .get(CURRENT_USER_KEY)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| abt_core::shared::identity::model::Claims {
-            sub: 0,
-            username: "未知用户".into(),
-            display_name: "未知用户".into(),
-            system_role: "user".into(),
-            role_ids: vec![],
-            role_codes: vec![],
-            department_ids: vec![],
-            iss: String::new(),
-            exp: 0,
-            iat: 0,
-        })
-}
+use crate::utils::RequestContext;
 
 // ── Query Params ──
 
@@ -89,22 +61,15 @@ struct ItemWeb {
 
 pub async fn get_quotation_create(
     _path: QuotationCreatePath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let customer_svc = state.customer_service();
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(DomainError::from)?;
 
-    let ctx = make_ctx(claims.sub);
     let customers = customer_svc
         .list(
-            &ctx,
+            &service_ctx,
             &mut conn,
             CustomerQuery {
                 name: None,
@@ -133,33 +98,25 @@ pub async fn get_quotation_create(
 
 /// HTMX: fetch customer contacts → return full customer-info panel
 pub async fn get_customer_contacts(
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Query(params): Query<CustomerContactsParams>,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let customer_svc = state.customer_service();
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(DomainError::from)?;
 
     let contacts = match params.customer_id {
         Some(cid) if cid > 0 => {
-            let ctx = make_ctx(claims.sub);
             customer_svc
-                .list_contacts(&ctx, &mut conn, cid)
+                .list_contacts(&service_ctx, &mut conn, cid)
                 .await
                 .unwrap_or_default()
         }
         _ => vec![],
     };
 
-    let ctx2 = make_ctx(claims.sub);
     let result = customer_svc
         .list(
-            &ctx2,
+            &service_ctx,
             &mut conn,
             CustomerQuery {
                 name: None,
@@ -184,17 +141,11 @@ pub async fn get_customer_contacts(
 
 /// HTMX: search products → return HTML fragment
 pub async fn get_products(
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Query(params): Query<ProductSearchParams>,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.product_service();
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(DomainError::from)?;
 
     let filter = ProductQuery {
         name: params.name,
@@ -202,9 +153,8 @@ pub async fn get_products(
         status: None,
         owner_department_id: None,
     };
-    let ctx = make_ctx(claims.sub);
     let result = svc
-        .list(&ctx, &mut conn, filter, PageParams::new(1, 20))
+        .list(&service_ctx, &mut conn, filter, PageParams::new(1, 20))
         .await?;
 
     Ok(Html(product_list_fragment(&result.items).into_string()))
@@ -213,17 +163,11 @@ pub async fn get_products(
 /// POST: create quotation from form submission (HTMX)
 pub async fn create_quotation(
     _path: QuotationCreatePath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     axum::Form(form): axum::Form<QuotationCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.quotation_service();
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(DomainError::from)?;
 
     let valid_until = chrono::NaiveDate::parse_from_str(&form.valid_until, "%Y-%m-%d")
         .map_err(|e| DomainError::validation(format!("无效日期格式: {e}")))?;
@@ -260,8 +204,7 @@ pub async fn create_quotation(
         remark: form.remark,
     };
 
-    let ctx = ServiceContext::new(claims.sub);
-    let id = svc.create(&ctx, &mut conn, create_req).await?;
+    let id = svc.create(&service_ctx, &mut conn, create_req).await?;
 
     let redirect = QuotationDetailPath { id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

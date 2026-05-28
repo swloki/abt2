@@ -1,11 +1,9 @@
 use std::collections::HashMap;
 
-use axum::extract::State;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
-use tower_sessions::Session;
 
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
@@ -14,39 +12,19 @@ use abt_core::sales::sales_return::model::*;
 use abt_core::sales::sales_return::SalesReturnService;
 use abt_core::sales::shipping_request::ShippingRequestService;
 use abt_core::shared::identity::UserService;
-use abt_core::shared::types::{PgExecutor, ServiceContext};
+use abt_core::shared::types::PgExecutor;
+use abt_core::shared::types::ServiceContext;
+use crate::state::AppState;
 
-use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
 use crate::errors::Result;
-use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
 use crate::routes::sales_return::*;
 use crate::routes::shipping::ShippingDetailPath;
-use crate::state::AppState;
+use crate::utils::RequestContext;
 
 // ── Helpers ──
-
-async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
-    session
-        .get(CURRENT_USER_KEY)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| abt_core::shared::identity::model::Claims {
-            sub: 0,
-            username: "未知用户".into(),
-            display_name: "未知用户".into(),
-            system_role: "user".into(),
-            role_ids: vec![],
-            role_codes: vec![],
-            department_ids: vec![],
-            iss: String::new(),
-            exp: 0,
-            iat: 0,
-        })
-}
 
 fn status_label(s: ReturnStatus) -> (&'static str, &'static str) {
     match s {
@@ -72,55 +50,52 @@ fn disposition_label(d: ReturnDisposition) -> &'static str {
 
 pub async fn get_return_detail(
     path: ReturnDetailPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-    let ctx = ServiceContext::new(claims.sub);
+    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
 
     // Fetch return header
     let ret = state.sales_return_service()
-        .find_by_id(&ctx, &mut conn, path.id)
+        .find_by_id(&service_ctx, &mut conn, path.id)
         .await?;
 
     // Fetch return items
     let items = state.sales_return_service()
-        .list_items(&ctx, &mut conn, path.id)
+        .list_items(&service_ctx, &mut conn, path.id)
         .await
         .unwrap_or_default();
 
     // Resolve customer name
     let customer_name = state.customer_service()
-        .get(&ctx, &mut conn, ret.customer_id)
+        .get(&service_ctx, &mut conn, ret.customer_id)
         .await
         .map(|c| c.name)
         .unwrap_or_else(|_| "未知客户".into());
 
     // Resolve order number
     let order_number = state.sales_order_service()
-        .find_by_id(&ctx, &mut conn, ret.order_id)
+        .find_by_id(&service_ctx, &mut conn, ret.order_id)
         .await
         .map(|o| o.doc_number)
         .unwrap_or_else(|_| "—".into());
 
     // Resolve shipping number
     let shipping_number = state.shipping_service()
-        .find_by_id(&ctx, &mut conn, ret.shipping_request_id)
+        .find_by_id(&service_ctx, &mut conn, ret.shipping_request_id)
         .await
         .map(|s| s.doc_number)
         .unwrap_or_else(|_| "—".into());
 
     // Resolve operator name
     let operator_name = state.user_service()
-        .get_user(&ctx, &mut conn, ret.operator_id)
+        .get_user(&service_ctx, &mut conn, ret.operator_id)
         .await
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| "—".into());
 
     // Resolve product details
-    let product_details = resolve_product_details(&state, &ctx, &mut conn, &items).await;
+    let product_details = resolve_product_details(&state, &service_ctx, &mut conn, &items).await;
 
     let content = return_detail_page(&ret, &items, &customer_name, &order_number, &shipping_number, &operator_name, &product_details);
     let page_html = admin_page(
@@ -134,15 +109,12 @@ pub async fn get_return_detail(
 
 pub async fn confirm_return(
     path: ConfirmReturnPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-    let ctx = ServiceContext::new(claims.sub);
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     state.sales_return_service()
-        .approve(&ctx, &mut conn, path.id)
+        .approve(&service_ctx, &mut conn, path.id)
         .await?;
 
     let redirect = ReturnDetailPath { id: path.id }.to_string();
@@ -151,15 +123,12 @@ pub async fn confirm_return(
 
 pub async fn receive_return(
     path: ReceiveReturnPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-    let ctx = ServiceContext::new(claims.sub);
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     state.sales_return_service()
-        .receive(&ctx, &mut conn, path.id)
+        .receive(&service_ctx, &mut conn, path.id)
         .await?;
 
     let redirect = ReturnDetailPath { id: path.id }.to_string();
@@ -168,15 +137,12 @@ pub async fn receive_return(
 
 pub async fn inspect_return(
     path: InspectReturnPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-    let ctx = ServiceContext::new(claims.sub);
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     state.sales_return_service()
-        .inspect(&ctx, &mut conn, path.id)
+        .inspect(&service_ctx, &mut conn, path.id)
         .await?;
 
     let redirect = ReturnDetailPath { id: path.id }.to_string();
@@ -185,15 +151,12 @@ pub async fn inspect_return(
 
 pub async fn complete_return(
     path: CompleteReturnPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-    let ctx = ServiceContext::new(claims.sub);
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     state.sales_return_service()
-        .complete(&ctx, &mut conn, path.id)
+        .complete(&service_ctx, &mut conn, path.id)
         .await?;
 
     let redirect = ReturnDetailPath { id: path.id }.to_string();
@@ -202,15 +165,12 @@ pub async fn complete_return(
 
 pub async fn reject_return(
     path: RejectReturnPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
-    let ctx = ServiceContext::new(claims.sub);
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     state.sales_return_service()
-        .reject(&ctx, &mut conn, path.id)
+        .reject(&service_ctx, &mut conn, path.id)
         .await?;
 
     let redirect = ReturnDetailPath { id: path.id }.to_string();

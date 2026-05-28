@@ -1,30 +1,26 @@
 use std::collections::{HashMap, HashSet};
 
-use axum::extract::{Query, State};
+use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum::Form;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
-use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::sales::quotation::model::*;
 use abt_core::sales::quotation::QuotationService;
-use abt_core::shared::types::{PageParams, ServiceContext};
+use abt_core::shared::types::PageParams;
 
-use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
 use crate::errors::Result;
-use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::quotation::*;
-use crate::state::AppState;
-use crate::utils::empty_as_none;
+use crate::utils::{empty_as_none, RequestContext};
 
 // ── Query Params ──
 
@@ -42,30 +38,6 @@ pub struct QuotationQueryParams {
 }
 
 // ── Helpers ──
-
-fn make_ctx(operator_id: i64) -> ServiceContext {
-    ServiceContext::new(operator_id)
-}
-
-async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
-    session
-        .get(CURRENT_USER_KEY)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| abt_core::shared::identity::model::Claims {
-            sub: 0,
-            username: "未知用户".into(),
-            display_name: "未知用户".into(),
-            system_role: "user".into(),
-            role_ids: vec![],
-            role_codes: vec![],
-            department_ids: vec![],
-            iss: String::new(),
-            exp: 0,
-            iat: 0,
-        })
-}
 
 fn parse_date_range(range: &str) -> (Option<chrono::NaiveDate>, Option<chrono::NaiveDate>) {
     let today = chrono::Local::now().date_naive();
@@ -125,33 +97,29 @@ fn status_label(s: QuotationStatus) -> (&'static str, &'static str) {
 
 pub async fn get_quotation_list(
     _path: QuotationListPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     headers: HeaderMap,
     Query(params): Query<QuotationQueryParams>,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.quotation_service();
     let customer_svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut conn, filter, page).await?;
+    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
     let mut names = HashMap::new();
     let mut seen = HashSet::new();
     for q in &result.items {
         if seen.insert(q.customer_id)
-            && let Ok(c) = customer_svc.get(&ctx, &mut conn, q.customer_id).await {
+            && let Ok(c) = customer_svc.get(&service_ctx, &mut conn, q.customer_id).await {
                 names.insert(q.customer_id, c.name);
             }
     }
 
-    let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx2, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     let content = quotation_list_page(&claims, &result, &names, &customers.items, &params);
@@ -163,32 +131,28 @@ pub async fn get_quotation_list(
 }
 
 pub async fn get_quotation_table(
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Query(params): Query<QuotationQueryParams>,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.quotation_service();
     let customer_svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut conn, filter, page).await?;
+    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
     let mut names = HashMap::new();
     let mut seen = HashSet::new();
     for q in &result.items {
         if seen.insert(q.customer_id)
-            && let Ok(c) = customer_svc.get(&ctx, &mut conn, q.customer_id).await {
+            && let Ok(c) = customer_svc.get(&service_ctx, &mut conn, q.customer_id).await {
                 names.insert(q.customer_id, c.name);
             }
     }
 
-    let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx2, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     Ok(Html(quotation_table_fragment(&result, &names, &customers.items, &params).into_string()))
@@ -196,15 +160,12 @@ pub async fn get_quotation_table(
 
 pub async fn get_edit_quotation_form(
     path: EditQuotationFormPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<Html<String>> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.quotation_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
-    let ctx = make_ctx(claims.sub);
-    let quotation = svc.find_by_id(&ctx, &mut conn, path.id).await?;
+    let quotation = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
 
     let update_path = UpdateQuotationPath { id: path.id };
     let form_html = quotation_edit_form(&quotation, &update_path.to_string());
@@ -223,13 +184,11 @@ pub struct UpdateQuotationForm {
 
 pub async fn update_quotation(
     path: UpdateQuotationPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
     Form(form): Form<UpdateQuotationForm>,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.quotation_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let req = UpdateQuotationReq {
         payment_terms: form.payment_terms,
@@ -238,8 +197,7 @@ pub async fn update_quotation(
         ..Default::default()
     };
 
-    let ctx = make_ctx(claims.sub);
-    svc.update(&ctx, &mut conn, path.id, req).await?;
+    svc.update(&service_ctx, &mut conn, path.id, req).await?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -247,15 +205,12 @@ pub async fn update_quotation(
 
 pub async fn delete_quotation(
     path: DeleteQuotationPath,
-    State(state): State<AppState>,
-    session: Session,
+    ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let claims = get_claims(&session).await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.quotation_service();
-    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
-    let ctx = make_ctx(claims.sub);
-    svc.delete(&ctx, &mut conn, path.id).await?;
+    svc.delete(&service_ctx, &mut conn, path.id).await?;
 
     Ok(([("HX-Redirect", QuotationListPath::PATH)], Html(String::new())))
 }

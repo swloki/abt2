@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 use tracing::instrument;
 
@@ -15,11 +13,11 @@ use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 pub struct DomainEventBusImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl DomainEventBusImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 }

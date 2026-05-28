@@ -17,7 +17,6 @@ pub fn new_product_service(pool: PgPool) -> impl ProductService {
     use crate::shared::event_bus::implt::DomainEventBusImpl;
     use crate::shared::state_machine::implt::StateMachineServiceImpl;
 
-    let pool = Arc::new(pool);
     let doc_seq = Arc::new(DocumentSequenceServiceImpl::new(pool.clone()));
     let audit = Arc::new(AuditLogServiceImpl::new(pool.clone()));
     let event_bus: Arc<dyn crate::shared::event_bus::service::DomainEventBus> =

@@ -24,7 +24,7 @@ use crate::shared::types::error::DomainError;
 
 pub struct WorkOrderServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     doc_seq: Arc<dyn DocumentSequenceService>,
     inv_res: Arc<dyn InventoryReservationService>,
     material_req: Arc<dyn MaterialRequisitionService>,
@@ -33,7 +33,7 @@ pub struct WorkOrderServiceImpl {
 
 impl WorkOrderServiceImpl {
     pub fn new(
-        pool: Arc<PgPool>,
+        pool: PgPool,
         doc_seq: Arc<dyn DocumentSequenceService>,
         inv_res: Arc<dyn InventoryReservationService>,
         material_req: Arc<dyn MaterialRequisitionService>,

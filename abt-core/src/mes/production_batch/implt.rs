@@ -26,14 +26,14 @@ use crate::shared::types::Result;
 
 pub struct ProductionBatchServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     doc_seq: Arc<dyn DocumentSequenceService>,
     inv_res: Arc<dyn InventoryReservationService>,
 }
 
 impl ProductionBatchServiceImpl {
     pub fn new(
-        pool: Arc<PgPool>,
+        pool: PgPool,
         doc_seq: Arc<dyn DocumentSequenceService>,
         inv_res: Arc<dyn InventoryReservationService>,
     ) -> Self {

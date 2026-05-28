@@ -22,7 +22,7 @@ const ENTITY_TYPE: &str = "InspectionSpecification";
 
 pub struct InspectionSpecificationServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     doc_seq: Arc<dyn DocumentSequenceService>,
     state_machine: Arc<dyn StateMachineService>,
     audit_log: Arc<dyn AuditLogService>,
@@ -30,7 +30,7 @@ pub struct InspectionSpecificationServiceImpl {
 
 impl InspectionSpecificationServiceImpl {
     pub fn new(
-        pool: Arc<PgPool>,
+        pool: PgPool,
         doc_seq: Arc<dyn DocumentSequenceService>,
         state_machine: Arc<dyn StateMachineService>,
         audit_log: Arc<dyn AuditLogService>,

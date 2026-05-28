@@ -30,7 +30,7 @@ const ENTITY_TYPE: &str = "RMA";
 
 pub struct RmaServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     doc_seq: Arc<dyn DocumentSequenceService>,
     state_machine: Arc<dyn StateMachineService>,
     event_bus: Arc<dyn DomainEventBus>,
@@ -40,7 +40,7 @@ pub struct RmaServiceImpl {
 
 impl RmaServiceImpl {
     pub fn new(
-        pool: Arc<PgPool>,
+        pool: PgPool,
         doc_seq: Arc<dyn DocumentSequenceService>,
         state_machine: Arc<dyn StateMachineService>,
         event_bus: Arc<dyn DomainEventBus>,

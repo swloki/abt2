@@ -1,7 +1,5 @@
 //! 工作流超时扫描 Worker
 
-use std::sync::Arc;
-
 use anyhow::Result;
 use serde_json::json;
 use sqlx::PgPool;
@@ -12,13 +10,13 @@ use crate::workflow::model::SYSTEM_USER_ID;
 use crate::workflow::repo::{WorkflowHistoryRepo, WorkflowTaskRepo};
 
 pub struct WorkflowWorker {
-    pool: Arc<PgPool>,
+    pool: PgPool,
     cancel_token: CancellationToken,
     scan_interval_secs: u64,
 }
 
 impl WorkflowWorker {
-    pub fn new(pool: Arc<PgPool>, cancel_token: CancellationToken) -> Self {
+    pub fn new(pool: PgPool, cancel_token: CancellationToken) -> Self {
         let scan_interval_secs = std::env::var("WORKER_SCAN_INTERVAL_SECS")
             .ok()
             .and_then(|v| v.parse().ok())

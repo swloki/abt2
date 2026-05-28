@@ -24,7 +24,6 @@ pub fn new_bom_command_service(pool: PgPool) -> impl BomCommandService {
     use crate::shared::event_bus::implt::DomainEventBusImpl;
     use crate::shared::state_machine::implt::StateMachineServiceImpl;
 
-    let pool = Arc::new(pool);
     let doc_seq = Arc::new(DocumentSequenceServiceImpl::new(pool.clone()));
     let audit = Arc::new(AuditLogServiceImpl::new(pool.clone()));
     let event_bus: Arc<dyn crate::shared::event_bus::service::DomainEventBus> =
@@ -48,7 +47,6 @@ pub fn new_bom_node_service(pool: PgPool) -> impl BomNodeService {
     use crate::shared::audit_log::implt::AuditLogServiceImpl;
     use crate::shared::event_bus::implt::DomainEventBusImpl;
 
-    let pool = Arc::new(pool);
     let audit = Arc::new(AuditLogServiceImpl::new(pool.clone()));
     let event_bus: Arc<dyn crate::shared::event_bus::service::DomainEventBus> =
         Arc::new(DomainEventBusImpl::new(pool));

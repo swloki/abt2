@@ -18,12 +18,12 @@ use crate::wms::stock_ledger::model::StockLedger;
 
 pub struct InventoryTransactionServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     stock_ledger_svc: Arc<dyn StockLedgerService>,
 }
 
 impl InventoryTransactionServiceImpl {
-    pub fn new(pool: Arc<PgPool>, stock_ledger_svc: Arc<dyn StockLedgerService>) -> Self {
+    pub fn new(pool: PgPool, stock_ledger_svc: Arc<dyn StockLedgerService>) -> Self {
         Self { pool, stock_ledger_svc }
     }
 }

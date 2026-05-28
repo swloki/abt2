@@ -27,7 +27,6 @@ pub fn new_shipping_request_service(pool: PgPool) -> impl ShippingRequestService
     use crate::qms::inspection_specification::implt::InspectionSpecificationServiceImpl;
 
     let sales_order_svc: Arc<dyn SalesOrderService> = Arc::new(new_sales_order_service(pool.clone()));
-    let pool = Arc::new(pool);
     let doc_seq = Arc::new(DocumentSequenceServiceImpl::new(pool.clone()));
     let audit = Arc::new(AuditLogServiceImpl::new(pool.clone()));
     let event_bus = Arc::new(DomainEventBusImpl::new(pool.clone()));

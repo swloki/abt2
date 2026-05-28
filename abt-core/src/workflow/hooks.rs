@@ -90,7 +90,7 @@ async fn record_hook_history(
 
 /// 异步触发 hook（在事务 commit 后调用）
 pub async fn fire_hook(
-    pool: Arc<PgPool>,
+    pool: PgPool,
     hook_registry: Arc<HookRegistry>,
     instance: WorkflowInstance,
     event: &str,

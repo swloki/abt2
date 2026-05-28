@@ -19,12 +19,12 @@ use crate::shared::types::pagination::PaginatedResult;
 
 pub struct UserServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     audit: Arc<dyn AuditLogService>,
 }
 
 impl UserServiceImpl {
-    pub fn new(pool: Arc<PgPool>, audit: Arc<dyn AuditLogService>) -> Self {
+    pub fn new(pool: PgPool, audit: Arc<dyn AuditLogService>) -> Self {
         Self { pool, audit }
     }
 }

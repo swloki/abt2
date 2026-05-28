@@ -22,7 +22,6 @@ pub fn new_quotation_service(pool: PgPool) -> impl QuotationService {
     let customer_svc: Arc<dyn CustomerService> =
         Arc::new(crate::master_data::customer::new_customer_service(pool.clone()));
 
-    let pool = Arc::new(pool);
     let doc_seq = Arc::new(DocumentSequenceServiceImpl::new(pool.clone()));
     let audit = Arc::new(AuditLogServiceImpl::new(pool.clone()));
     let event_bus: Arc<dyn crate::shared::event_bus::service::DomainEventBus> =

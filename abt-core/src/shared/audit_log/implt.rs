@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use serde_json::Value as JsonValue;
 use sqlx::postgres::PgPool;
 
@@ -16,11 +14,11 @@ use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 pub struct AuditLogServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl AuditLogServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 }

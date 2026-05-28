@@ -26,13 +26,13 @@ use super::service::WorkflowService;
 
 #[derive(Clone)]
 pub struct WorkflowEngine {
-    pool: Arc<PgPool>,
+    pool: PgPool,
     action_registry: Arc<ActionRegistry>,
     hook_registry: Arc<HookRegistry>,
 }
 
 impl WorkflowEngine {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
             pool,
             action_registry: Arc::new(ActionRegistry::new()),

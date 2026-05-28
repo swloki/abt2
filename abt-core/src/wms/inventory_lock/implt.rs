@@ -17,12 +17,12 @@ use crate::wms::enums::LockStatus;
 
 pub struct InventoryLockServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     doc_seq: Arc<dyn DocumentSequenceService>,
 }
 
 impl InventoryLockServiceImpl {
-    pub fn new(pool: Arc<PgPool>, doc_seq: Arc<dyn DocumentSequenceService>) -> Self {
+    pub fn new(pool: PgPool, doc_seq: Arc<dyn DocumentSequenceService>) -> Self {
         Self { pool, doc_seq }
     }
 }

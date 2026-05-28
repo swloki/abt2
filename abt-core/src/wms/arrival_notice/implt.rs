@@ -29,7 +29,7 @@ use crate::wms::enums::ArrivalStatus;
 
 pub struct ArrivalNoticeServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     doc_seq: Arc<dyn DocumentSequenceService>,
     doc_link: Arc<dyn DocumentLinkService>,
     cost_entry: Arc<dyn CostEntryService>,
@@ -39,7 +39,7 @@ pub struct ArrivalNoticeServiceImpl {
 
 impl ArrivalNoticeServiceImpl {
     pub fn new(
-        pool: Arc<PgPool>,
+        pool: PgPool,
         doc_seq: Arc<dyn DocumentSequenceService>,
         doc_link: Arc<dyn DocumentLinkService>,
         cost_entry: Arc<dyn CostEntryService>,

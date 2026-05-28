@@ -24,14 +24,13 @@ pub fn new_sales_return_service(pool: PgPool) -> impl SalesReturnService {
     use crate::qms::rma::implt::RmaServiceImpl;
     use crate::qms::rma::service::RmaService;
 
-    let pool = Arc::new(pool);
     let doc_seq = Arc::new(DocumentSequenceServiceImpl::new(pool.clone()));
     let audit = Arc::new(AuditLogServiceImpl::new(pool.clone()));
     let event_bus: Arc<dyn crate::shared::event_bus::service::DomainEventBus> =
         Arc::new(DomainEventBusImpl::new(pool.clone()));
     let state_machine = Arc::new(StateMachineServiceImpl::new(pool.clone(), event_bus.clone()));
     let shipping_svc: Arc<dyn ShippingRequestService> =
-        Arc::new(new_shipping_request_service(pool.as_ref().clone()));
+        Arc::new(new_shipping_request_service(pool.clone()));
     let doc_link = Arc::new(DocumentLinkServiceImpl::new(pool.clone()));
     let cost_entry: Arc<dyn CostEntryService> = Arc::new(CostEntryServiceImpl::new(pool.clone()));
     let rma: Arc<dyn RmaService> = Arc::new(RmaServiceImpl::new(

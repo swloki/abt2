@@ -24,7 +24,6 @@ pub fn new_reconciliation_service(pool: PgPool) -> impl ReconciliationService {
     use crate::fms::cash_journal::implt::CashJournalServiceImpl;
     use crate::fms::cash_journal::service::CashJournalService;
 
-    let pool = Arc::new(pool);
     let doc_seq = Arc::new(DocumentSequenceServiceImpl::new(pool.clone()));
     let audit = Arc::new(AuditLogServiceImpl::new(pool.clone()));
     let event_bus: Arc<dyn crate::shared::event_bus::service::DomainEventBus> =

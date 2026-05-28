@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
 use super::model::{DocumentLink, LinkRequest};
@@ -16,11 +14,11 @@ use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 pub struct DocumentLinkServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl DocumentLinkServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 }

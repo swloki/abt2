@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use sqlx::postgres::PgPool;
 use tracing::instrument;
@@ -14,11 +12,11 @@ use crate::shared::types::Result;
 
 pub struct IdempotencyServiceImpl {
     #[allow(dead_code)] // 保留供未来独立事务模式使用
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl IdempotencyServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 }

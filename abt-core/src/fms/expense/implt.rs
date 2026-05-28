@@ -26,7 +26,7 @@ pub struct ExpenseReimbursementServiceImpl {
     state_machine: Arc<dyn StateMachineService>,
     audit: Arc<dyn AuditLogService>,
     event_bus: Arc<dyn DomainEventBus>,
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl ExpenseReimbursementServiceImpl {
@@ -35,7 +35,7 @@ impl ExpenseReimbursementServiceImpl {
         state_machine: Arc<dyn StateMachineService>,
         audit: Arc<dyn AuditLogService>,
         event_bus: Arc<dyn DomainEventBus>,
-        pool: Arc<PgPool>,
+        pool: PgPool,
     ) -> Self {
         Self {
             doc_seq,

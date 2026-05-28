@@ -32,7 +32,7 @@ const ENTITY_TYPE: &str = "PurchaseReturn";
 
 pub struct PurchaseReturnServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     doc_seq: Arc<dyn DocumentSequenceService>,
     state_machine: Arc<dyn StateMachineService>,
     event_bus: Arc<dyn DomainEventBus>,
@@ -44,7 +44,7 @@ pub struct PurchaseReturnServiceImpl {
 
 impl PurchaseReturnServiceImpl {
     pub fn new(
-        pool: Arc<PgPool>,
+        pool: PgPool,
         doc_seq: Arc<dyn DocumentSequenceService>,
         state_machine: Arc<dyn StateMachineService>,
         event_bus: Arc<dyn DomainEventBus>,

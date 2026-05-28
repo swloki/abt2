@@ -26,7 +26,7 @@ const DEFAULT_VARIANCE_THRESHOLD: Decimal = Decimal::from_parts(5, 0, 0, false, 
 
 pub struct BackflushServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     inventory_transaction_svc: Arc<dyn InventoryTransactionService>,
     doc_seq: Arc<dyn DocumentSequenceService>,
     cost_entry: Arc<dyn CostEntryService>,
@@ -36,7 +36,7 @@ pub struct BackflushServiceImpl {
 
 impl BackflushServiceImpl {
     pub fn new(
-        pool: Arc<PgPool>,
+        pool: PgPool,
         inventory_transaction_svc: Arc<dyn InventoryTransactionService>,
         doc_seq: Arc<dyn DocumentSequenceService>,
         cost_entry: Arc<dyn CostEntryService>,

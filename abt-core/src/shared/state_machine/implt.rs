@@ -20,12 +20,12 @@ use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 pub struct StateMachineServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     event_bus: Arc<dyn DomainEventBus>,
 }
 
 impl StateMachineServiceImpl {
-    pub fn new(pool: Arc<PgPool>, event_bus: Arc<dyn DomainEventBus>) -> Self {
+    pub fn new(pool: PgPool, event_bus: Arc<dyn DomainEventBus>) -> Self {
         Self { pool, event_bus }
     }
 }

@@ -19,14 +19,14 @@ use crate::shared::types::pagination::PaginatedResult;
 
 pub struct ProductionPlanServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     doc_seq: Arc<dyn DocumentSequenceService>,
     work_order: Arc<dyn WorkOrderService>,
 }
 
 impl ProductionPlanServiceImpl {
     pub fn new(
-        pool: Arc<PgPool>,
+        pool: PgPool,
         doc_seq: Arc<dyn DocumentSequenceService>,
         work_order: Arc<dyn WorkOrderService>,
     ) -> Self {

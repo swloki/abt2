@@ -20,12 +20,12 @@ use crate::wms::enums::CycleCountStatus;
 
 pub struct CycleCountServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     doc_seq: Arc<dyn DocumentSequenceService>,
 }
 
 impl CycleCountServiceImpl {
-    pub fn new(pool: Arc<PgPool>, doc_seq: Arc<dyn DocumentSequenceService>) -> Self {
+    pub fn new(pool: PgPool, doc_seq: Arc<dyn DocumentSequenceService>) -> Self {
         Self { pool, doc_seq }
     }
 

@@ -20,14 +20,14 @@ use crate::fms::enums::WriteOffType;
 pub struct WriteOffServiceImpl {
     audit: Arc<dyn AuditLogService>,
     event_bus: Arc<dyn DomainEventBus>,
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl WriteOffServiceImpl {
     pub fn new(
         audit: Arc<dyn AuditLogService>,
         event_bus: Arc<dyn DomainEventBus>,
-        pool: Arc<PgPool>,
+        pool: PgPool,
     ) -> Self {
         Self { audit, event_bus, pool }
     }

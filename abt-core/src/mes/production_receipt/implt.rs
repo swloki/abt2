@@ -29,7 +29,7 @@ use crate::wms::inventory_transaction::service::InventoryTransactionService;
 
 pub struct ProductionReceiptServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
     doc_seq: Arc<dyn DocumentSequenceService>,
     qms: Arc<dyn InspectionResultService>,
     inv_txn: Arc<dyn InventoryTransactionService>,
@@ -41,7 +41,7 @@ pub struct ProductionReceiptServiceImpl {
 
 impl ProductionReceiptServiceImpl {
     pub fn new(
-        pool: Arc<PgPool>,
+        pool: PgPool,
         doc_seq: Arc<dyn DocumentSequenceService>,
         qms: Arc<dyn InspectionResultService>,
         inv_txn: Arc<dyn InventoryTransactionService>,

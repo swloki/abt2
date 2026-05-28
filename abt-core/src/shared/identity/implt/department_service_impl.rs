@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
 use super::super::department_service::DepartmentService;
@@ -13,11 +11,11 @@ use crate::shared::types::Result;
 
 pub struct DepartmentServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl DepartmentServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 }

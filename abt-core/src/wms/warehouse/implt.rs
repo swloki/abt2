@@ -1,6 +1,4 @@
-﻿use std::sync::Arc;
-
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
 use super::model::{
@@ -18,11 +16,11 @@ use crate::shared::types::pagination::PaginatedResult;
 
 pub struct WarehouseServiceImpl {
     #[allow(dead_code)]
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl WarehouseServiceImpl {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 }

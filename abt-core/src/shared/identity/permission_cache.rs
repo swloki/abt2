@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 use std::time::Instant;
 
 use sqlx::postgres::PgPool;
@@ -31,11 +30,11 @@ impl CacheState {
 /// In-memory permission cache: role_id → resolved (inherited) permissions
 pub struct RolePermissionCache {
     state: RwLock<CacheState>,
-    pool: Arc<PgPool>,
+    pool: PgPool,
 }
 
 impl RolePermissionCache {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self {
             state: RwLock::new(CacheState::new(HashMap::new())),
             pool,
@@ -175,7 +174,7 @@ mod tests {
 
     fn make_test_cache() -> RolePermissionCache {
         // Tests that don't need DB can pass a dummy pool (tests won't trigger reload with fresh cache)
-        let pool = Arc::new(PgPool::connect_lazy("postgres://__test__").expect("lazy connect"));
+        let pool = PgPool::connect_lazy("postgres://__test__").expect("lazy connect");
         RolePermissionCache::new(pool)
     }
 

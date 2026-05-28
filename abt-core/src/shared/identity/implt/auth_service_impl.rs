@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -15,12 +13,12 @@ use crate::shared::types::Result;
 const JWT_ISSUER: &str = "abt-core";
 
 pub struct AuthServiceImpl {
-    pool: Arc<PgPool>,
+    pool: PgPool,
     jwt_secret: String,
 }
 
 impl AuthServiceImpl {
-    pub fn new(pool: Arc<PgPool>, jwt_secret: String) -> Self {
+    pub fn new(pool: PgPool, jwt_secret: String) -> Self {
         Self { pool, jwt_secret }
     }
 }

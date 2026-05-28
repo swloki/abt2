@@ -1,7 +1,5 @@
 //! H3Yun 事件处理器 — 监听领域事件触发 H3Yun 同步
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use sqlx::PgPool;
 use tracing::{info, warn};
@@ -18,12 +16,12 @@ use crate::shared::types::Result;
 
 /// Product create/update → sync to H3Yun
 pub struct ProductSyncHandler {
-    pool: Arc<PgPool>,
+    pool: PgPool,
     client: H3YunClient,
 }
 
 impl ProductSyncHandler {
-    pub fn new(pool: Arc<PgPool>, client: H3YunClient) -> Self {
+    pub fn new(pool: PgPool, client: H3YunClient) -> Self {
         Self { pool, client }
     }
 }
@@ -72,12 +70,12 @@ impl EventHandler for ProductSyncHandler {
 
 /// Product delete → delete from H3Yun
 pub struct ProductDeleteHandler {
-    pool: Arc<PgPool>,
+    pool: PgPool,
     client: H3YunClient,
 }
 
 impl ProductDeleteHandler {
-    pub fn new(pool: Arc<PgPool>, client: H3YunClient) -> Self {
+    pub fn new(pool: PgPool, client: H3YunClient) -> Self {
         Self { pool, client }
     }
 }
@@ -99,12 +97,12 @@ impl EventHandler for ProductDeleteHandler {
 
 /// Inventory sync → sync to H3Yun
 pub struct InventorySyncHandler {
-    pool: Arc<PgPool>,
+    pool: PgPool,
     client: H3YunClient,
 }
 
 impl InventorySyncHandler {
-    pub fn new(pool: Arc<PgPool>, client: H3YunClient) -> Self {
+    pub fn new(pool: PgPool, client: H3YunClient) -> Self {
         Self { pool, client }
     }
 }

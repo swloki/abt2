@@ -15,7 +15,6 @@ pub fn new_routing_service(pool: PgPool) -> impl RoutingService {
     use crate::shared::audit_log::implt::AuditLogServiceImpl;
     use crate::shared::event_bus::implt::DomainEventBusImpl;
 
-    let pool = Arc::new(pool);
     let audit = Arc::new(AuditLogServiceImpl::new(pool.clone()));
     let event_bus: Arc<dyn crate::shared::event_bus::service::DomainEventBus> =
         Arc::new(DomainEventBusImpl::new(pool));

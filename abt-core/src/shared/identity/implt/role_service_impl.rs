@@ -13,12 +13,12 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 
 pub struct RoleServiceImpl {
-    pool: Arc<PgPool>,
+    pool: PgPool,
     cache: Arc<RolePermissionCache>,
 }
 
 impl RoleServiceImpl {
-    pub fn new(pool: Arc<PgPool>, cache: Arc<RolePermissionCache>) -> Self {
+    pub fn new(pool: PgPool, cache: Arc<RolePermissionCache>) -> Self {
         Self { pool, cache }
     }
 }

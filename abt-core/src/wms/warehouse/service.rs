@@ -7,8 +7,8 @@ use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{
     Bin, BinFilter, BinInventoryStats, BinWithWarehouse, CreateBinReq, CreateWarehouseReq,
-    CreateZoneReq, UpdateBinReq, UpdateWarehouseReq, UpdateZoneReq, Warehouse, WarehouseFilter,
-    WarehouseInventoryStats, Zone,
+    CreateZoneReq, ListBinsByWarehouseParams, SearchBinsParams, UpdateBinReq, UpdateWarehouseReq,
+    UpdateZoneReq, Warehouse, WarehouseFilter, WarehouseInventoryStats, Zone,
 };
 
 #[async_trait]
@@ -118,11 +118,7 @@ pub trait WarehouseService: Send + Sync {
     async fn list_bins_by_warehouse(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
-        warehouse_id: i64,
-        keyword: Option<String>,
-        is_active: Option<bool>,
-        page: u32,
-        page_size: u32,
+        params: ListBinsByWarehouseParams,
     ) -> Result<PaginatedResult<Bin>>;
 
     /// 查找或创建默认库区（用于兼容旧 Location API 的自动 zone 分配）
@@ -143,11 +139,7 @@ pub trait WarehouseService: Send + Sync {
     async fn search_bins_with_warehouse(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
-        keyword: Option<String>,
-        is_active: Option<bool>,
-        warehouse_id: Option<i64>,
-        page: u32,
-        page_size: u32,
+        params: SearchBinsParams,
     ) -> Result<PaginatedResult<BinWithWarehouse>>;
 
     /// 获取所有 bin 及仓库信息（无分页）

@@ -1,5 +1,3 @@
-use chrono::NaiveDate;
-use rust_decimal::Decimal;
 use crate::shared::types::Result;
 
 use super::model::*;
@@ -10,16 +8,7 @@ pub struct ProductionReceiptRepo;
 impl ProductionReceiptRepo {
     pub async fn insert(
         executor: &mut sqlx::postgres::PgConnection,
-        work_order_id: i64,
-        batch_id: Option<i64>,
-        product_id: i64,
-        received_qty: Decimal,
-        warehouse_id: i64,
-        zone_id: Option<i64>,
-        bin_id: Option<i64>,
-        receipt_date: NaiveDate,
-        doc_number: &str,
-        operator_id: i64,
+        params: &InsertReceiptParams<'_>,
     ) -> Result<ProductionReceipt> {
         let row = sqlx::query!(
             r#"
@@ -33,17 +22,17 @@ impl ProductionReceiptRepo {
                       receipt_date, status as "status: i16", backflush_triggered, remark, operator_id,
                       created_at, updated_at
             "#,
-            doc_number,
-            work_order_id,
-            batch_id,
-            product_id,
-            received_qty,
-            warehouse_id,
-            zone_id,
-            bin_id,
-            receipt_date,
+            params.doc_number,
+            params.work_order_id,
+            params.batch_id,
+            params.product_id,
+            params.received_qty,
+            params.warehouse_id,
+            params.zone_id,
+            params.bin_id,
+            params.receipt_date,
             ReceiptStatus::Draft.as_i16(),
-            operator_id,
+            params.operator_id,
         )
         .fetch_one(&mut *executor)
         .await?;

@@ -22,6 +22,12 @@ pub trait QualityGateService: Send + Sync {
 /// 语义: 在调用方事务内执行 (InCallerTx)，失败回滚主事务。
 pub struct QualityGateServiceImpl;
 
+impl Default for QualityGateServiceImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl QualityGateServiceImpl {
     pub fn new() -> Self {
         Self

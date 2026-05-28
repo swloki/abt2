@@ -8,7 +8,7 @@ use super::service::ProductionReceiptService;
 use crate::mes::production_batch::repo::ProductionBatchRepo;
 use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
 use crate::qms::inspection_result::{new_inspection_result_service, model::InspectionResultFilter, service::InspectionResultService};
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::types::PgExecutor;
 use crate::shared::cost_entry::{new_cost_entry_service, model::EntryRequest, service::CostEntryService};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
@@ -77,16 +77,18 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
 
         let receipt = ProductionReceiptRepo::insert(
             &mut *db,
-            req.work_order_id,
-            req.batch_id,
-            product_id,
-            req.received_qty,
-            req.warehouse_id,
-            req.zone_id,
-            req.bin_id,
-            req.receipt_date,
-            &doc_number,
-            ctx.operator_id,
+            &InsertReceiptParams {
+                work_order_id: req.work_order_id,
+                batch_id: req.batch_id,
+                product_id,
+                received_qty: req.received_qty,
+                warehouse_id: req.warehouse_id,
+                zone_id: req.zone_id,
+                bin_id: req.bin_id,
+                receipt_date: req.receipt_date,
+                doc_number: &doc_number,
+                operator_id: ctx.operator_id,
+            },
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -203,11 +205,13 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             if let Err(audit_err) = new_audit_log_service(self.pool.clone())
                 .record(
                     ctx, db,
-                    "production_receipt",
-                    id,
-                    AuditAction::Update,
-                    Some(serde_json::json!({ "backflush_error": format!("{:?}", e) })),
-                    None,
+                    RecordAuditLogReq {
+                        entity_type: "production_receipt",
+                        entity_id: id,
+                        action: AuditAction::Update,
+                        changes: Some(serde_json::json!({ "backflush_error": format!("{:?}", e) })),
+                        context: None,
+                    },
                 )
                 .await
             {

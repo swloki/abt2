@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use super::model::*;
 use super::repo::LaborProcessDictRepo;
 use super::service::LaborProcessDictService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
@@ -38,7 +38,7 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "LaborProcessDict", id, AuditAction::Create, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "LaborProcessDict", entity_id: id, action: AuditAction::Create, changes: None, context: None }).await?;
 
         new_domain_event_bus(self.pool.clone())
             .publish(ctx, db, EventPublishRequest {
@@ -61,7 +61,7 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "LaborProcessDict", id, AuditAction::Update, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "LaborProcessDict", entity_id: id, action: AuditAction::Update, changes: None, context: None }).await?;
 
         new_domain_event_bus(self.pool.clone())
             .publish(ctx, db, EventPublishRequest {
@@ -90,7 +90,7 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "LaborProcessDict", id, AuditAction::Delete, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "LaborProcessDict", entity_id: id, action: AuditAction::Delete, changes: None, context: None }).await?;
 
         new_domain_event_bus(self.pool.clone())
             .publish(ctx, db, EventPublishRequest {

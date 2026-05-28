@@ -185,19 +185,21 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
 
         let (report, was_inserted) = WorkReportRepo::insert_or_get_existing(
             &mut *db,
-            &doc_number,
-            batch.work_order_id,
-            batch_id,
-            routing.id,
-            req.report_date,
-            req.shift,
-            req.worker_id,
-            req.completed_qty,
-            req.defect_qty,
-            req.defect_reason,
-            req.work_hours,
-            remark_str,
-            ctx.operator_id,
+            &InsertWorkReportParams {
+                doc_number: &doc_number,
+                work_order_id: batch.work_order_id,
+                batch_id,
+                routing_id: routing.id,
+                report_date: req.report_date,
+                shift: req.shift,
+                worker_id: req.worker_id,
+                completed_qty: req.completed_qty,
+                defect_qty: req.defect_qty,
+                defect_reason: req.defect_reason,
+                work_hours: req.work_hours,
+                remark: remark_str,
+                operator_id: ctx.operator_id,
+            },
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;

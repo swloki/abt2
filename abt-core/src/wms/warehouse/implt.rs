@@ -3,8 +3,8 @@ use sqlx::postgres::PgPool;
 
 use super::model::{
     Bin, BinFilter, BinInventoryStats, BinWithWarehouse, CreateBinReq, CreateWarehouseReq,
-    CreateZoneReq, UpdateBinReq, UpdateWarehouseReq, UpdateZoneReq, Warehouse, WarehouseFilter,
-    WarehouseInventoryStats, Zone,
+    CreateZoneReq, ListBinsByWarehouseParams, SearchBinsParams, UpdateBinReq, UpdateWarehouseReq,
+    UpdateZoneReq, Warehouse, WarehouseFilter, WarehouseInventoryStats, Zone,
 };
 use super::repo::WarehouseRepo;
 use super::service::WarehouseService;
@@ -220,19 +220,15 @@ impl WarehouseService for WarehouseServiceImpl {
     async fn list_bins_by_warehouse(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,
-        warehouse_id: i64,
-        keyword: Option<String>,
-        is_active: Option<bool>,
-        page: u32,
-        page_size: u32,
+        params: ListBinsByWarehouseParams,
     ) -> Result<PaginatedResult<Bin>> {
         WarehouseRepo::list_bins_by_warehouse(
             &mut *db,
-            warehouse_id,
-            keyword.as_deref(),
-            is_active,
-            page,
-            page_size,
+            params.warehouse_id,
+            params.keyword.as_deref(),
+            params.is_active,
+            params.page,
+            params.page_size,
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))
@@ -292,19 +288,15 @@ impl WarehouseService for WarehouseServiceImpl {
     async fn search_bins_with_warehouse(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,
-        keyword: Option<String>,
-        is_active: Option<bool>,
-        warehouse_id: Option<i64>,
-        page: u32,
-        page_size: u32,
+        params: SearchBinsParams,
     ) -> Result<PaginatedResult<BinWithWarehouse>> {
         WarehouseRepo::search_bins_with_warehouse(
             &mut *db,
-            keyword.as_deref(),
-            is_active,
-            warehouse_id,
-            page,
-            page_size,
+            params.keyword.as_deref(),
+            params.is_active,
+            params.warehouse_id,
+            params.page,
+            params.page_size,
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))

@@ -7,7 +7,7 @@ use super::repo;
 use super::service::InspectionResultService;
 use crate::qms::enums::*;
 use crate::qms::inspection_specification::{self, service::InspectionSpecificationService};
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::types::PgExecutor;
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
@@ -98,7 +98,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
 
         // 5. 审计日志
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         Ok(id)
@@ -160,13 +160,15 @@ impl InspectionResultService for InspectionResultServiceImpl {
         // 4. 更新检验数据并推进状态为 Completed
         let rows = repo::record_result(
             &mut *db,
-            id,
-            req.result.as_i16(),
-            req.qualified_qty,
-            req.unqualified_qty,
-            req.check_results,
-            req.inspector_id,
-            req.inspection_date,
+            &RecordResultParams {
+                id,
+                result: req.result.as_i16(),
+                qualified_qty: req.qualified_qty,
+                unqualified_qty: req.unqualified_qty,
+                check_results: req.check_results,
+                inspector_id: req.inspector_id,
+                inspection_date: req.inspection_date,
+            },
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -207,7 +209,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
 
         // 7. 审计日志
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
             .await?;
 
         // 8. 返回 QualityGateStatus

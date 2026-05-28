@@ -12,7 +12,7 @@ use crate::master_data::supplier::service::SupplierService;
 use crate::master_data::supplier::{new_supplier_service, model::SupplierStatus};
 use crate::purchase::enums::{PurchaseOrderStatus, PurchaseQuotationStatus};
 use crate::purchase::quotation::repo::{PurchaseQuotationItemRepo, PurchaseQuotationRepo};
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_link::{new_document_link_service, model::LinkRequest, service::DocumentLinkService};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
@@ -83,14 +83,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         // 5. 审计日志
         new_audit_log_service(self.pool.clone())
-            .record(
-                ctx, db,
-                ENTITY_TYPE,
-                id,
-                AuditAction::Create,
-                None,
-                None,
-            )
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         Ok(id)
@@ -199,14 +192,16 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         // 10. 审计日志
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                ENTITY_TYPE,
-                order_id,
-                AuditAction::Create,
-                Some(json!({ "from_quotation_id": quotation_id })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: ENTITY_TYPE,
+                        entity_id: order_id,
+                        action: AuditAction::Create,
+                        changes: Some(json!({ "from_quotation_id": quotation_id })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(order_id)
@@ -318,7 +313,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         // 7. 审计日志
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
             .await?;
 
         Ok(())

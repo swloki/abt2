@@ -18,7 +18,8 @@ use abt_core::shared::types::ServiceContext;
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::reconciliation::*;
 use crate::routes::order::OrderDetailPath;
@@ -70,9 +71,9 @@ pub async fn get_reconciliation_detail(
     State(state): State<AppState>,
     session: Session,
     headers: HeaderMap,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     let reconciliation_svc = state.reconciliation_service();
@@ -82,18 +83,18 @@ pub async fn get_reconciliation_detail(
     let product_svc = state.product_service();
     let user_svc = state.user_service();
 
-    let rec = reconciliation_svc.find_by_id(&ctx, &mut *conn, path.id).await?;
+    let rec = reconciliation_svc.find_by_id(&ctx, &mut conn, path.id).await?;
 
-    let items = reconciliation_svc.list_items(&ctx, &mut *conn, path.id).await?;
+    let items = reconciliation_svc.list_items(&ctx, &mut conn, path.id).await?;
 
     let customer_name = customer_svc
-        .get(&ctx, &mut *conn, rec.customer_id)
+        .get(&ctx, &mut conn, rec.customer_id)
         .await
         .map(|c| c.name)
         .unwrap_or_else(|_| "未知客户".into());
 
     let operator_name = user_svc
-        .get_user(&ctx, &mut *conn, rec.operator_id)
+        .get_user(&ctx, &mut conn, rec.operator_id)
         .await
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| "—".into());
@@ -104,7 +105,7 @@ pub async fn get_reconciliation_detail(
         HashMap::new()
     } else {
         product_svc
-            .get_by_ids(&ctx, &mut *conn, product_ids)
+            .get_by_ids(&ctx, &mut conn, product_ids)
             .await
             .map(|products| {
                 products
@@ -129,11 +130,10 @@ pub async fn get_reconciliation_detail(
         let mut map = HashMap::new();
         let mut seen = HashSet::new();
         for item in &items {
-            if seen.insert(item.sales_order_id) {
-                if let Ok(order) = order_svc.find_by_id(&ctx, &mut *conn, item.sales_order_id).await {
+            if seen.insert(item.sales_order_id)
+                && let Ok(order) = order_svc.find_by_id(&ctx, &mut conn, item.sales_order_id).await {
                     map.insert(item.sales_order_id, order.doc_number);
                 }
-            }
         }
         map
     };
@@ -143,11 +143,10 @@ pub async fn get_reconciliation_detail(
         let mut map = HashMap::new();
         let mut seen = HashSet::new();
         for item in &items {
-            if seen.insert(item.shipping_request_id) {
-                if let Ok(shipping) = shipping_svc.find_by_id(&ctx, &mut *conn, item.shipping_request_id).await {
+            if seen.insert(item.shipping_request_id)
+                && let Ok(shipping) = shipping_svc.find_by_id(&ctx, &mut conn, item.shipping_request_id).await {
                     map.insert(item.shipping_request_id, shipping.doc_number);
                 }
-            }
         }
         map
     };
@@ -166,13 +165,13 @@ pub async fn send_reconciliation(
     path: SendReconciliationPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     let reconciliation_svc = state.reconciliation_service();
-    reconciliation_svc.send(&ctx, &mut *conn, path.id).await?;
+    reconciliation_svc.send(&ctx, &mut conn, path.id).await?;
 
     let redirect = ReconciliationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -182,13 +181,13 @@ pub async fn confirm_reconciliation(
     path: ConfirmReconciliationPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     let reconciliation_svc = state.reconciliation_service();
-    reconciliation_svc.confirm(&ctx, &mut *conn, path.id).await?;
+    reconciliation_svc.confirm(&ctx, &mut conn, path.id).await?;
 
     let redirect = ReconciliationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -198,13 +197,13 @@ pub async fn dispute_reconciliation(
     path: DisputeReconciliationPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     let reconciliation_svc = state.reconciliation_service();
-    reconciliation_svc.dispute(&ctx, &mut *conn, path.id).await?;
+    reconciliation_svc.dispute(&ctx, &mut conn, path.id).await?;
 
     let redirect = ReconciliationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -214,13 +213,13 @@ pub async fn settle_reconciliation(
     path: SettleReconciliationPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     let reconciliation_svc = state.reconciliation_service();
-    reconciliation_svc.settle(&ctx, &mut *conn, path.id).await?;
+    reconciliation_svc.settle(&ctx, &mut conn, path.id).await?;
 
     let redirect = ReconciliationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

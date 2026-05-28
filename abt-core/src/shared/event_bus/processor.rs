@@ -156,11 +156,10 @@ impl EventProcessor {
         self.running.store(false, Ordering::Relaxed);
 
         let handle = self.handle.write().expect("lock poisoned").take();
-        if let Some(h) = handle {
-            if let Err(e) = h.await {
+        if let Some(h) = handle
+            && let Err(e) = h.await {
                 tracing::warn!("event processor task failed: {e}");
             }
-        }
     }
 
     /// 是否正在运行

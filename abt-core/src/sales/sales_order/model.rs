@@ -168,6 +168,21 @@ pub struct SalesOrderQuery {
     pub keyword: Option<String>,
 }
 
+/// 销售订单创建参数（repo 层使用）
+pub struct CreateSalesOrderParams<'a> {
+    pub doc_number: &'a str,
+    pub customer_id: i64,
+    pub contact_id: i64,
+    pub sales_rep_id: i64,
+    pub total_amount: Decimal,
+    pub total_cost: Decimal,
+    pub payment_terms: &'a str,
+    pub delivery_terms: &'a str,
+    pub delivery_address: &'a str,
+    pub remark: &'a str,
+    pub operator_id: i64,
+}
+
 /// 明细行批量插入输入
 pub struct SalesOrderItemInput {
     pub line_no: i32,

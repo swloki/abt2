@@ -16,7 +16,8 @@ use abt_core::shared::types::ServiceContext;
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
 use crate::state::AppState;
@@ -71,27 +72,27 @@ pub async fn get_order_detail(
     State(state): State<AppState>,
     session: Session,
     headers: HeaderMap,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
     let product_svc = state.product_service();
     let user_svc = state.user_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    let order = svc.find_by_id(&ctx, &mut *conn, path.id).await?;
+    let order = svc.find_by_id(&ctx, &mut conn, path.id).await?;
 
-    let items = svc.list_items(&ctx, &mut *conn, path.id).await.unwrap_or_default();
+    let items = svc.list_items(&ctx, &mut conn, path.id).await.unwrap_or_default();
 
     let customer_name = customer_svc
-        .get(&ctx, &mut *conn, order.customer_id)
+        .get(&ctx, &mut conn, order.customer_id)
         .await
         .map(|c| c.name)
         .unwrap_or_else(|_| "未知客户".into());
 
     let contact = {
-        let contacts = customer_svc.list_contacts(&ctx, &mut *conn, order.customer_id).await.unwrap_or_default();
+        let contacts = customer_svc.list_contacts(&ctx, &mut conn, order.customer_id).await.unwrap_or_default();
         contacts.into_iter().find(|c| c.id == order.contact_id).map(|c| ContactInfo {
             name: c.name,
             phone: c.phone,
@@ -99,7 +100,7 @@ pub async fn get_order_detail(
     };
 
     let sales_rep = user_svc
-        .get_user(&ctx, &mut *conn, order.sales_rep_id)
+        .get_user(&ctx, &mut conn, order.sales_rep_id)
         .await
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| "—".into());
@@ -109,7 +110,7 @@ pub async fn get_order_detail(
         if product_ids.is_empty() {
             (HashMap::new(), HashMap::new())
         } else {
-            let products = product_svc.get_by_ids(&ctx, &mut *conn, product_ids).await.unwrap_or_default();
+            let products = product_svc.get_by_ids(&ctx, &mut conn, product_ids).await.unwrap_or_default();
             let names: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect();
             let codes: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.product_code.clone())).collect();
             (names, codes)
@@ -130,13 +131,13 @@ pub async fn confirm_order(
     path: ConfirmOrderPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.confirm(&ctx, &mut *conn, path.id).await?;
+    svc.confirm(&ctx, &mut conn, path.id).await?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -146,13 +147,13 @@ pub async fn start_order(
     path: StartOrderPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.start_progress(&ctx, &mut *conn, path.id).await?;
+    svc.start_progress(&ctx, &mut conn, path.id).await?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -162,13 +163,13 @@ pub async fn complete_order(
     path: CompleteOrderPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.complete(&ctx, &mut *conn, path.id).await?;
+    svc.complete(&ctx, &mut conn, path.id).await?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -178,13 +179,13 @@ pub async fn cancel_order(
     path: CancelOrderPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.cancel(&ctx, &mut *conn, path.id).await?;
+    svc.cancel(&ctx, &mut conn, path.id).await?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

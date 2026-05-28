@@ -1,10 +1,10 @@
-use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use sqlx::Row;
 use crate::shared::types::Result;
 
 use super::model::{
     CreateOutsourcingOrderReq, OutsourcingMaterialItem, OutsourcingOrder, OutsourcingOrderQuery,
+    UpdateOutsourcingParams,
 };
 use crate::om::enums::OutsourcingStatus;
 use crate::shared::types::pagination::{DataScope, PageParams};
@@ -75,11 +75,7 @@ impl OutsourcingOrderRepo {
         executor: &mut sqlx::postgres::PgConnection,
         id: i64,
         expected_version: i32,
-        supplier_id: Option<i64>,
-        planned_qty: Option<Decimal>,
-        unit_price: Option<Decimal>,
-        scheduled_date: Option<NaiveDate>,
-        remark: Option<&str>,
+        params: &UpdateOutsourcingParams<'_>,
     ) -> Result<u64> {
         let result = sqlx::query(
             r#"
@@ -96,11 +92,11 @@ impl OutsourcingOrderRepo {
         )
         .bind(id)
         .bind(expected_version)
-        .bind(supplier_id)
-        .bind(planned_qty)
-        .bind(unit_price)
-        .bind(scheduled_date)
-        .bind(remark)
+        .bind(params.supplier_id)
+        .bind(params.planned_qty)
+        .bind(params.unit_price)
+        .bind(params.scheduled_date)
+        .bind(params.remark)
         .execute(executor)
         .await?;
 

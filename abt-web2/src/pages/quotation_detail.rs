@@ -14,7 +14,8 @@ use abt_core::sales::quotation::QuotationService;
 use abt_core::shared::types::ServiceContext;
 
 use crate::auth::session::CURRENT_USER_KEY;
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::quotation::*;
 use crate::state::AppState;
@@ -63,22 +64,22 @@ pub async fn get_quotation_detail(
     State(state): State<AppState>,
     session: Session,
     headers: HeaderMap,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.quotation_service();
     let customer_svc = state.customer_service();
     let product_svc = state.product_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    let quotation = svc.find_by_id(&ctx, &mut *conn, path.id).await?;
+    let quotation = svc.find_by_id(&ctx, &mut conn, path.id).await?;
 
-    let items = svc.list_items(&ctx, &mut *conn, path.id).await?;
+    let items = svc.list_items(&ctx, &mut conn, path.id).await?;
 
-    let customer_name = customer_svc.get(&ctx, &mut *conn, quotation.customer_id).await.map(|c| c.name).unwrap_or_else(|_| "未知客户".into());
+    let customer_name = customer_svc.get(&ctx, &mut conn, quotation.customer_id).await.map(|c| c.name).unwrap_or_else(|_| "未知客户".into());
     let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
     let products = if !product_ids.is_empty() {
-        product_svc.get_by_ids(&ctx, &mut *conn, product_ids).await.unwrap_or_default()
+        product_svc.get_by_ids(&ctx, &mut conn, product_ids).await.unwrap_or_default()
     } else { vec![] };
     let product_names: HashMap<i64, String> = products.into_iter().map(|p| (p.product_id, p.pdt_name)).collect();
 
@@ -96,13 +97,13 @@ pub async fn submit_quotation(
     path: SubmitQuotationPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.quotation_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.submit(&ctx, &mut *conn, path.id).await?;
+    svc.submit(&ctx, &mut conn, path.id).await?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -112,13 +113,13 @@ pub async fn accept_quotation(
     path: AcceptQuotationPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.quotation_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.accept(&ctx, &mut *conn, path.id).await?;
+    svc.accept(&ctx, &mut conn, path.id).await?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -128,13 +129,13 @@ pub async fn reject_quotation(
     path: RejectQuotationPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.quotation_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.reject(&ctx, &mut *conn, path.id).await?;
+    svc.reject(&ctx, &mut conn, path.id).await?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

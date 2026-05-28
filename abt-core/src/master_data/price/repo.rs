@@ -12,22 +12,17 @@ impl PriceRepo {
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
-        product_id: i64,
-        price_type: PriceType,
-        old_price: Option<Decimal>,
-        new_price: Decimal,
-        operator_id: i64,
-        remark: &str,
+        params: &CreatePriceParams<'_>,
     ) -> Result<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
             "INSERT INTO price_log (product_id, price_type, old_price, new_price, operator_id, remark) VALUES ($1, $2, $3, $4, $5, $6) RETURNING log_id",
         )
-        .bind(product_id)
-        .bind(price_type.as_i16())
-        .bind(old_price)
-        .bind(new_price)
-        .bind(operator_id)
-        .bind(remark)
+        .bind(params.product_id)
+        .bind(params.price_type.as_i16())
+        .bind(params.old_price)
+        .bind(params.new_price)
+        .bind(params.operator_id)
+        .bind(params.remark)
         .fetch_one(executor)
         .await?;
         Ok(id)

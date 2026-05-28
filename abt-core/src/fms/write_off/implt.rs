@@ -6,8 +6,7 @@ use crate::fms::enums::JournalStatus;
 use crate::fms::write_off::model::*;
 use crate::fms::write_off::repo::WriteOffRepo;
 use crate::fms::write_off::service::WriteOffService;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::audit_log::new_audit_log_service;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
@@ -50,7 +49,7 @@ impl WriteOffServiceImpl {
 impl WriteOffService for WriteOffServiceImpl {
     async fn write_off(
         &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
+        ctx: &ServiceContext, _db: PgExecutor<'_>,
         req: WriteOffReq,
     ) -> Result<i64> {
         // Validate amount > 0
@@ -141,25 +140,27 @@ impl WriteOffService for WriteOffServiceImpl {
             let tx_ctx = ServiceContext::new(ctx.operator_id);
             new_audit_log_service(self.pool.clone())
                 .record(
-                    &tx_ctx, &mut *tx,
-                    "WriteOff",
-                    id,
-                    AuditAction::Create,
-                    Some(serde_json::json!({
-                        "write_off_type": write_off_type.as_str(),
-                        "cash_journal_id": req.cash_journal_id,
-                        "source_type": req.source_type.as_i16(),
-                        "source_id": req.source_id,
-                        "amount": req.amount,
-                    })),
-                    None,
+                    &tx_ctx, &mut tx,
+                    RecordAuditLogReq {
+                        entity_type: "WriteOff",
+                        entity_id: id,
+                        action: AuditAction::Create,
+                        changes: Some(serde_json::json!({
+                            "write_off_type": write_off_type.as_str(),
+                            "cash_journal_id": req.cash_journal_id,
+                            "source_type": req.source_type.as_i16(),
+                            "source_id": req.source_id,
+                            "amount": req.amount,
+                        })),
+                        context: None,
+                    },
                 )
                 .await?;
 
             // Publish domain event
             new_domain_event_bus(self.pool.clone())
                 .publish(
-                    &tx_ctx, &mut *tx,
+                    &tx_ctx, &mut tx,
                     EventPublishRequest {
                         event_type: DomainEventType::WriteOffCompleted,
                         aggregate_type: "WriteOff".to_string(),

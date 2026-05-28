@@ -1,7 +1,6 @@
 use abt_core::master_data::customer::model::CustomerContact;
 use maud::{html, Markup};
 
-use crate::errors::AppError;
 
 /// HTMX query params for customer contacts endpoint
 #[derive(Debug, serde::Deserialize)]
@@ -61,11 +60,12 @@ pub fn customer_info_panel(
 
 /// Shared handler logic: fetch contacts for a customer and re-render the panel.
 /// Each page's handler calls this after querying its own customer list.
+#[allow(dead_code)]
 pub fn render_contacts_response(
     customers: &[abt_core::master_data::customer::model::Customer],
     contacts: &[CustomerContact],
     customer_id: Option<i64>,
     contacts_endpoint: &str,
-) -> Result<Markup, AppError> {
+) -> crate::errors::Result<Markup> {
     Ok(customer_info_panel(customers, contacts, customer_id, contacts_endpoint))
 }

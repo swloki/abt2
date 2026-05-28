@@ -14,7 +14,7 @@ use sqlx::PgPool;
 use super::helpers::{ProgressTracker, deserialize_optional_decimal, import_range_from_source};
 use super::types::ImportSource;
 use crate::master_data::bom::repo::BomRepo;
-use crate::master_data::bom_labor_process::repo::BomLaborProcessRepo;
+use crate::master_data::bom_labor_process::repo::{BomLaborProcessRepo, LaborProcessRow};
 use crate::master_data::labor_process_dict::repo::LaborProcessDictRepo;
 use crate::master_data::routing::repo::RoutingRepo;
 use crate::master_data::routing::model::RoutingStep;
@@ -365,7 +365,7 @@ impl LaborProcessImporter {
                 }
 
                 if !product_failed {
-                    let insert_rows: Vec<(String, i64, String, String, Decimal, Decimal, i32, Option<String>)> = rows_for_product
+                    let insert_rows: Vec<LaborProcessRow> = rows_for_product
                         .iter()
                         .map(|r| {
                             let dict_id: i64 = 0; // process_code → dict_id 查找在 import 层面简化
@@ -445,9 +445,9 @@ async fn find_and_bind_routing(
     product_code: &str,
     process_codes: &[String],
 ) -> Result<AutoRouteResult> {
-    let existing = routing_repo.get_bom_routing(&mut **tx, product_code).await?;
+    let existing = routing_repo.get_bom_routing(tx, product_code).await?;
     if let Some(br) = existing {
-        let routing = routing_repo.find_by_id(&mut **tx, br.routing_id).await?;
+        let routing = routing_repo.find_by_id(tx, br.routing_id).await?;
         if let Some(r) = routing {
             return Ok(AutoRouteResult {
                 name: Some(r.name),
@@ -456,10 +456,10 @@ async fn find_and_bind_routing(
         }
     }
 
-    let matched = routing_repo.find_matching_by_process_codes(&mut **tx, process_codes).await?;
+    let matched = routing_repo.find_matching_by_process_codes(tx, process_codes).await?;
     if let Some(matched_id) = matched {
-        routing_repo.set_bom_routing(&mut **tx, product_code, matched_id, 0).await?;
-        let routing = routing_repo.find_by_id(&mut **tx, matched_id).await?;
+        routing_repo.set_bom_routing(tx, product_code, matched_id, 0).await?;
+        let routing = routing_repo.find_by_id(tx, matched_id).await?;
         if let Some(r) = routing {
             return Ok(AutoRouteResult {
                 name: Some(r.name),

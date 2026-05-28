@@ -7,7 +7,7 @@ use super::repo;
 use super::service::MrbService;
 use crate::qms::enums::*;
 use crate::qms::inspection_result;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::types::PgExecutor;
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
@@ -88,7 +88,7 @@ impl MrbService for MrbServiceImpl {
 
         // 4. 审计日志
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         Ok(id)
@@ -128,7 +128,7 @@ impl MrbService for MrbServiceImpl {
         }
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -158,7 +158,7 @@ impl MrbService for MrbServiceImpl {
         }
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -237,7 +237,7 @@ impl MrbService for MrbServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
             .await?;
 
         Ok(())

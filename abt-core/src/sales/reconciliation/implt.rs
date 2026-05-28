@@ -6,7 +6,7 @@ use crate::sales::reconciliation::repo::{
     aggregate_shipping_items, ReconciliationItemRepo, ReconciliationRepo,
 };
 use crate::sales::reconciliation::service::ReconciliationService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::cost_entry::{new_cost_entry_service, model::EntryRequest, service::CostEntryService};
 use crate::shared::document_link::{new_document_link_service, model::LinkRequest, service::DocumentLinkService};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
@@ -61,7 +61,17 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         let id = self
             .repo
-            .create(db, &doc_number, customer_id, &period, total_amount, "", ctx.operator_id)
+            .create(
+                db,
+                &CreateReconciliationParams {
+                    doc_number: &doc_number,
+                    customer_id,
+                    period: &period,
+                    total_amount,
+                    remark: "",
+                    operator_id: ctx.operator_id,
+                },
+            )
             .await?;
 
         let item_inputs: Vec<ReconciliationItemInput> = aggregated
@@ -111,10 +121,15 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db, "Reconciliation", id, AuditAction::Create,
-                Some(serde_json::json!({ "customer_id": customer_id, "period": period })),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "Reconciliation",
+                        entity_id: id,
+                        action: AuditAction::Create,
+                        changes: Some(serde_json::json!({ "customer_id": customer_id, "period": period })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(id)
@@ -145,10 +160,15 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db, "Reconciliation", id, AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Draft", "to": "Sent" })),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "Reconciliation",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Draft", "to": "Sent" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -203,10 +223,15 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db, "Reconciliation", id, AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Sent", "to": "Confirmed" })),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "Reconciliation",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Sent", "to": "Confirmed" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -232,10 +257,15 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db, "Reconciliation", id, AuditAction::Transition,
-                Some(serde_json::json!({ "from": existing.status.as_str(), "to": "Disputed" })),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "Reconciliation",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": existing.status.as_str(), "to": "Disputed" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -257,10 +287,15 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db, "Reconciliation", id, AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Disputed", "to": "Draft" })),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "Reconciliation",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Disputed", "to": "Draft" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -314,10 +349,15 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db, "Reconciliation", id, AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Disputed", "to": "Settled" })),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "Reconciliation",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Disputed", "to": "Settled" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -360,10 +400,15 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db, "Reconciliation", id, AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Confirmed", "to": "Settled" })),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "Reconciliation",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Confirmed", "to": "Settled" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -389,7 +434,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         self.repo.soft_delete(db, id).await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Reconciliation", id, AuditAction::Delete, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Reconciliation", entity_id: id, action: AuditAction::Delete, changes: None, context: None })
             .await?;
 
         Ok(())

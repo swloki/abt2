@@ -7,7 +7,7 @@ use crate::sales::quotation::{new_quotation_service, service::QuotationService};
 use crate::sales::sales_order::model::*;
 use crate::sales::sales_order::repo::{SalesOrderItemRepo, SalesOrderRepo, savepoint, release_savepoint, rollback_savepoint};
 use crate::sales::sales_order::service::SalesOrderService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
@@ -98,17 +98,19 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .repo
             .create(
                 db,
-                &doc_number,
-                req.customer_id,
-                req.contact_id,
-                ctx.operator_id,
-                total_amount,
-                total_cost,
-                req.payment_terms.as_deref().unwrap_or(""),
-                req.delivery_terms.as_deref().unwrap_or(""),
-                req.delivery_address.as_deref().unwrap_or(""),
-                req.remark.as_deref().unwrap_or(""),
-                ctx.operator_id,
+                &CreateSalesOrderParams {
+                    doc_number: &doc_number,
+                    customer_id: req.customer_id,
+                    contact_id: req.contact_id,
+                    sales_rep_id: ctx.operator_id,
+                    total_amount,
+                    total_cost,
+                    payment_terms: req.payment_terms.as_deref().unwrap_or(""),
+                    delivery_terms: req.delivery_terms.as_deref().unwrap_or(""),
+                    delivery_address: req.delivery_address.as_deref().unwrap_or(""),
+                    remark: req.remark.as_deref().unwrap_or(""),
+                    operator_id: ctx.operator_id,
+                },
             )
             .await?;
 
@@ -123,7 +125,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .ok();
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "SalesOrder", id, AuditAction::Create, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "SalesOrder", entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -190,17 +192,19 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .repo
             .create(
                 db,
-                &doc_number,
-                quotation.customer_id,
-                quotation.contact_id,
-                quotation.sales_rep_id,
-                total_amount,
-                total_cost,
-                &quotation.payment_terms,
-                &quotation.delivery_terms,
-                "",
-                &quotation.remark,
-                ctx.operator_id,
+                &CreateSalesOrderParams {
+                    doc_number: &doc_number,
+                    customer_id: quotation.customer_id,
+                    contact_id: quotation.contact_id,
+                    sales_rep_id: quotation.sales_rep_id,
+                    total_amount,
+                    total_cost,
+                    payment_terms: &quotation.payment_terms,
+                    delivery_terms: &quotation.delivery_terms,
+                    delivery_address: "",
+                    remark: &quotation.remark,
+                    operator_id: ctx.operator_id,
+                },
             )
             .await?;
 
@@ -230,14 +234,16 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesOrder",
-                id,
-                AuditAction::Create,
-                Some(serde_json::json!({ "source": "quotation", "quotation_id": quotation_id })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesOrder",
+                        entity_id: id,
+                        action: AuditAction::Create,
+                        changes: Some(serde_json::json!({ "source": "quotation", "quotation_id": quotation_id })),
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -293,7 +299,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "SalesOrder", id, AuditAction::Update, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "SalesOrder", entity_id: id, action: AuditAction::Update, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -331,7 +337,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "SalesOrder", id, AuditAction::Update, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "SalesOrder", entity_id: id, action: AuditAction::Update, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -344,9 +350,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
     ) -> Result<Vec<SalesOrderItem>> {
         self.item_repo
             .find_by_order_id(db, order_id)
-            .await
-            .map_err(Into::into)
-    }
+            .await}
 
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
@@ -410,14 +414,16 @@ impl SalesOrderService for SalesOrderServiceImpl {
         savepoint(db, "sp_audit").await.ok();
         if let Err(e) = new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesOrder",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Draft", "to": "Confirmed" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesOrder",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Draft", "to": "Confirmed" })),
+                        context: None,
+                    },
+                )
             .await
         {
             tracing::warn!("audit record failed: {e}");
@@ -471,14 +477,16 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesOrder",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": existing.status.as_str(), "to": "InProduction" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesOrder",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": existing.status.as_str(), "to": "InProduction" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -519,14 +527,16 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesOrder",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": existing.status.as_str(), "to": "Completed" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesOrder",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": existing.status.as_str(), "to": "Completed" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -563,14 +573,16 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesOrder",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": existing.status.as_str(), "to": "Cancelled" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesOrder",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": existing.status.as_str(), "to": "Cancelled" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -605,14 +617,16 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesOrder",
-                id,
-                AuditAction::Delete,
-                Some(serde_json::json!({ "doc_number": existing.doc_number })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesOrder",
+                        entity_id: id,
+                        action: AuditAction::Delete,
+                        changes: Some(serde_json::json!({ "doc_number": existing.doc_number })),
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -647,7 +661,5 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 ctx.operator_id,
                 ctx.department_id,
             )
-            .await
-            .map_err(Into::into)
-    }
+            .await}
 }

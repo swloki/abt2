@@ -22,7 +22,8 @@ use abt_core::shared::types::{PageParams, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::sales_return::*;
 use crate::state::AppState;
@@ -68,6 +69,7 @@ fn order_status_text(s: SalesOrderStatus) -> &'static str {
 // ── Form & Query Structs ──
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct ReturnCreateForm {
     pub order_id: i64,
     pub shipping_request_id: i64,
@@ -78,6 +80,7 @@ pub struct ReturnCreateForm {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct ReturnItemWeb {
     order_item_id: i64,
     product_id: i64,
@@ -98,20 +101,20 @@ pub async fn get_return_create(
     State(state): State<AppState>,
     session: Session,
     headers: HeaderMap,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let customer_svc = state.customer_service();
     let mut conn = state
         .pool
         .acquire()
         .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
     let customers = customer_svc
         .list(
             &ctx,
-            &mut *conn,
+            &mut conn,
             CustomerQuery {
                 name: None,
                 status: None,
@@ -120,8 +123,7 @@ pub async fn get_return_create(
             },
             PageParams::new(1, 200),
         )
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .await?;
 
     let content = return_create_page(&customers.items);
     let page_html = admin_page(
@@ -143,7 +145,7 @@ pub async fn get_orders(
     State(state): State<AppState>,
     _session: Session,
     Query(params): Query<OrderSearchQuery>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let customer_id = match params.customer_id {
         Some(id) if id > 0 => id,
         _ => return Ok(Html(order_search_empty().into_string())),
@@ -153,7 +155,7 @@ pub async fn get_orders(
         .pool
         .acquire()
         .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .map_err(DomainError::from)?;
 
     let ctx = make_ctx(0);
 
@@ -169,7 +171,7 @@ pub async fn get_orders(
     let orders_result = order_svc
         .list(
             &ctx,
-            &mut *conn,
+            &mut conn,
             SalesOrderQuery {
                 customer_id: Some(customer_id),
                 keyword,
@@ -177,8 +179,7 @@ pub async fn get_orders(
             },
             PageParams::new(1, 10),
         )
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .await?;
 
     // Filter to only active statuses (2=Confirmed, 3=InProduction, 4=PartiallyShipped, 5=Shipped)
     let active_statuses = [
@@ -204,9 +205,8 @@ pub async fn get_orders(
         std::collections::HashMap::new();
     for &oid in &order_ids {
         let items = order_svc
-            .list_items(&ctx, &mut *conn, oid)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+            .list_items(&ctx, &mut conn, oid)
+            .await?;
         items_map.insert(oid, items);
     }
 
@@ -223,9 +223,8 @@ pub async fn get_orders(
         vec![]
     } else {
         product_svc
-            .get_by_ids(&ctx, &mut *conn, all_product_ids)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?
+            .get_by_ids(&ctx, &mut conn, all_product_ids)
+            .await?
     };
     let product_map: std::collections::HashMap<i64, &abt_core::master_data::product::model::Product> =
         products.iter().map(|p| (p.product_id, p)).collect();
@@ -237,15 +236,14 @@ pub async fn get_orders(
         let shippings = shipping_svc
             .list(
                 &ctx,
-                &mut *conn,
+                &mut conn,
                 ShippingQuery {
                     order_id: Some(oid),
                     ..Default::default()
                 },
                 PageParams::new(1, 100),
             )
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
+            .await?;
         // Take the latest shipping (highest ID) as the original DISTINCT ON logic did
         if let Some(latest) = shippings.items.iter().max_by_key(|s| s.id) {
             shipping_map.insert(oid, latest.id);
@@ -263,26 +261,26 @@ pub async fn create_return(
     State(state): State<AppState>,
     session: Session,
     Form(form): Form<ReturnCreateForm>,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let mut conn = state
         .pool
         .acquire()
         .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .map_err(DomainError::from)?;
 
     if form.customer_id == 0 {
-        return Err(AppError::BadRequest("请选择客户".into()));
+        return Err(DomainError::validation("请选择客户").into());
     }
     if form.order_id == 0 {
-        return Err(AppError::BadRequest("请选择来源订单".into()));
+        return Err(DomainError::validation("请选择来源订单").into());
     }
 
     let web_items: Vec<ReturnItemWeb> = serde_json::from_str(&form.items_json)
-        .map_err(|e| AppError::BadRequest(format!("无效退货明细数据: {e}")))?;
+        .map_err(|e| DomainError::validation(format!("无效退货明细数据: {e}")))?;
 
     if web_items.is_empty() {
-        return Err(AppError::BadRequest("请至少添加一个退货产品".into()));
+        return Err(DomainError::validation("请至少添加一个退货产品").into());
     }
 
     // Build CreateReturnReq for the service
@@ -313,7 +311,7 @@ pub async fn create_return(
 
     let ctx = make_ctx(claims.sub);
     let svc = state.sales_return_service();
-    let return_id = svc.create(&ctx, &mut *conn, req).await?;
+    let return_id = svc.create(&ctx, &mut conn, req).await?;
 
     let redirect = ReturnDetailPath { id: return_id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

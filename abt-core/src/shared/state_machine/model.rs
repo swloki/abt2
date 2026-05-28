@@ -91,3 +91,15 @@ pub struct TransitionDefInput {
     pub side_effects: Vec<SideEffect>,
     pub sort_order: i32,
 }
+
+/// 状态变更日志插入参数
+#[derive(Debug, Clone)]
+pub struct StateLogEntry<'a> {
+    pub entity_type: &'a str,
+    pub entity_id: i64,
+    pub from_state: Option<&'a str>,
+    pub to_state: &'a str,
+    pub transition_id: i64,
+    pub operator_id: i64,
+    pub remark: Option<&'a str>,
+}

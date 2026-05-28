@@ -15,13 +15,12 @@ use crate::wms::stock_ledger::{new_stock_ledger_service, service::StockLedgerSer
 use crate::wms::stock_ledger::model::StockLedger;
 
 pub struct InventoryTransactionServiceImpl {
-    repo: InventoryTransactionRepo,
     pool: PgPool,
 }
 
 impl InventoryTransactionServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { repo: InventoryTransactionRepo, pool }
+        Self { pool }
     }
 }
 

@@ -5,7 +5,7 @@ use sqlx::PgPool;
 
 use crate::h3yun::client::H3YunClient;
 use crate::h3yun::models::{schema, EntityType, SyncError};
-use crate::h3yun::product_sync::sync_entity_by_fields;
+use crate::h3yun::product_sync::{sync_entity_by_fields, SyncByFieldsParams};
 
 #[derive(Clone)]
 pub struct InventorySyncData {
@@ -51,12 +51,14 @@ pub async fn sync_inventory(
     sync_entity_by_fields(
         pool,
         client,
-        schema::WAREHOUSE,
-        EntityType::Inventory,
-        data.inventory_id,
-        &biz_json,
-        fields,
-        "inventory",
+        &SyncByFieldsParams {
+            schema_code: schema::WAREHOUSE,
+            entity_type: EntityType::Inventory,
+            entity_id: data.inventory_id,
+            biz_json: &biz_json,
+            fields,
+            label: "inventory",
+        },
     )
     .await
 }

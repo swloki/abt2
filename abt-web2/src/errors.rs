@@ -1,37 +1,36 @@
+use abt_core::shared::types::DomainError;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use maud::{html, Markup};
 
-pub enum AppError {
-    NotFound(String),
-    Unauthorized,
-    Forbidden(String),
-    BadRequest(String),
-    Internal(String),
-}
+#[derive(Debug)]
+pub struct WebError(DomainError);
 
-impl std::fmt::Debug for AppError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NotFound(msg) => write!(f, "NotFound: {msg}"),
-            Self::Unauthorized => write!(f, "Unauthorized"),
-            Self::Forbidden(msg) => write!(f, "Forbidden: {msg}"),
-            Self::BadRequest(msg) => write!(f, "BadRequest: {msg}"),
-            Self::Internal(msg) => write!(f, "Internal: {msg}"),
-        }
+pub type Result<T, E = WebError> = std::result::Result<T, E>;
+
+impl From<DomainError> for WebError {
+    fn from(e: DomainError) -> Self {
+        Self(e)
     }
 }
 
-impl IntoResponse for AppError {
+impl IntoResponse for WebError {
     fn into_response(self) -> Response {
-        let (status, message) = match &self {
-            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
-            AppError::Unauthorized => (StatusCode::UNAUTHORIZED, "未登录".into()),
-            AppError::Forbidden(msg) => (StatusCode::FORBIDDEN, msg.clone()),
-            AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
-            AppError::Internal(msg) => {
-                tracing::error!("Internal error: {msg}");
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("服务器错误: {msg}"))
+        let (status, message) = match &self.0 {
+            DomainError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
+            DomainError::PermissionDenied(msg) => (StatusCode::FORBIDDEN, msg.clone()),
+            DomainError::Duplicate(msg)
+            | DomainError::Validation(msg)
+            | DomainError::BusinessRule(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+            DomainError::InvalidStateTransition { from, to } => {
+                (StatusCode::BAD_REQUEST, format!("状态转换无效: {from} -> {to}"))
+            }
+            DomainError::ConcurrentConflict => {
+                (StatusCode::CONFLICT, "并发冲突".into())
+            }
+            DomainError::Internal(e) => {
+                tracing::error!("Internal error: {e}");
+                (StatusCode::INTERNAL_SERVER_ERROR, format!("服务器错误: {e}"))
             }
         };
 
@@ -39,20 +38,7 @@ impl IntoResponse for AppError {
     }
 }
 
-impl From<abt_core::shared::types::DomainError> for AppError {
-    fn from(e: abt_core::shared::types::DomainError) -> Self {
-        use abt_core::shared::types::DomainError::*;
-        match e {
-            NotFound(msg) => AppError::NotFound(msg),
-            Duplicate(msg) => AppError::BadRequest(msg),
-            PermissionDenied(msg) => AppError::Forbidden(msg),
-            Validation(msg) => AppError::BadRequest(msg),
-            BusinessRule(msg) => AppError::BadRequest(msg),
-            _ => AppError::Internal(e.to_string()),
-        }
-    }
-}
-
+#[allow(dead_code)]
 pub fn error_page(title: &str, message: &str) -> Markup {
     html! {
         div class="flex items-center justify-center min-h-[60vh]" {

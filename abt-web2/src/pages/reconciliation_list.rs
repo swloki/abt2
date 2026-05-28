@@ -19,14 +19,15 @@ use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::reconciliation::*;
 use crate::state::AppState;
 
 // ── Query Params ──
 
-fn empty_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
+fn empty_as_none<'de, D, T>(de: D) -> std::result::Result<Option<T>, D::Error>
 where
     D: serde::de::Deserializer<'de>,
     T: std::str::FromStr,
@@ -148,11 +149,10 @@ async fn resolve_customer_names<S: CustomerService>(
     let mut map = HashMap::new();
     let mut seen = HashSet::new();
     for item in items {
-        if seen.insert(item.customer_id) {
-            if let Ok(customer) = svc.get(ctx, db, item.customer_id).await {
+        if seen.insert(item.customer_id)
+            && let Ok(customer) = svc.get(ctx, db, item.customer_id).await {
                 map.insert(item.customer_id, customer.name);
             }
-        }
     }
     map
 }
@@ -165,9 +165,9 @@ pub async fn get_reconciliation_list(
     session: Session,
     headers: HeaderMap,
     Query(params): Query<ReconciliationQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     let reconciliation_svc = state.reconciliation_service();
@@ -180,13 +180,13 @@ pub async fn get_reconciliation_list(
         keyword: params.keyword.clone(),
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = reconciliation_svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = reconciliation_svc.list(&ctx, &mut conn, filter, page).await?;
 
-    let status_counts = count_by_status(&reconciliation_svc, &ctx, &mut *conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut *conn, &result.items).await;
+    let status_counts = count_by_status(&reconciliation_svc, &ctx, &mut conn, params.customer_id).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
 
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     let content = reconciliation_list_page(&claims, &result, &customer_names, &customers.items, &params, &status_counts);
@@ -201,9 +201,9 @@ pub async fn get_reconciliation_table(
     State(state): State<AppState>,
     session: Session,
     Query(params): Query<ReconciliationQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     let reconciliation_svc = state.reconciliation_service();
@@ -216,13 +216,13 @@ pub async fn get_reconciliation_table(
         keyword: params.keyword.clone(),
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = reconciliation_svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = reconciliation_svc.list(&ctx, &mut conn, filter, page).await?;
 
-    let status_counts = count_by_status(&reconciliation_svc, &ctx, &mut *conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut *conn, &result.items).await;
+    let status_counts = count_by_status(&reconciliation_svc, &ctx, &mut conn, params.customer_id).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
 
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     Ok(Html(reconciliation_table_fragment(&result, &customer_names, &customers.items, &params, &status_counts).into_string()))
@@ -232,13 +232,13 @@ pub async fn delete_reconciliation(
     path: ReconciliationDeletePath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     let reconciliation_svc = state.reconciliation_service();
-    reconciliation_svc.delete(&ctx, &mut *conn, path.id).await?;
+    reconciliation_svc.delete(&ctx, &mut conn, path.id).await?;
 
     let redirect = ReconciliationListPath::PATH.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -248,9 +248,9 @@ pub async fn get_reconciliation_create_placeholder(
     _path: ReconciliationCreatePath,
     State(_state): State<AppState>,
     session: Session,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let _claims = get_claims(&session).await;
-    Err(AppError::Internal("新建对账单功能开发中".into()))
+    Err(DomainError::business_rule("新建对账单功能开发中").into())
 }
 
 // ── Components ──

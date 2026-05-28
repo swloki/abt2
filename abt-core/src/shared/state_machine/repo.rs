@@ -1,6 +1,6 @@
 use sqlx::{FromRow, Row};
 
-use super::model::{EntityStateLog, StateDefinitionInput, StateTransitionDef, TransitionDefInput};
+use super::model::{EntityStateLog, StateDefinitionInput, StateLogEntry, StateTransitionDef, TransitionDefInput};
 use crate::shared::types::{DomainError, PgExecutor, Result};
 
 pub struct StateMachineRepo;
@@ -107,13 +107,7 @@ impl StateMachineRepo {
 
     pub async fn insert_state_log(
         db: PgExecutor<'_>,
-        entity_type: &str,
-        entity_id: i64,
-        from_state: Option<&str>,
-        to_state: &str,
-        transition_id: i64,
-        operator_id: i64,
-        remark: Option<&str>,
+        entry: &StateLogEntry<'_>,
     ) -> Result<EntityStateLog> {
         let row = sqlx::query(
             r#"
@@ -124,13 +118,13 @@ impl StateMachineRepo {
                       operator_id, remark, created_at
             "#,
         )
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(from_state)
-        .bind(to_state)
-        .bind(transition_id)
-        .bind(operator_id)
-        .bind(remark)
+        .bind(entry.entity_type)
+        .bind(entry.entity_id)
+        .bind(entry.from_state)
+        .bind(entry.to_state)
+        .bind(entry.transition_id)
+        .bind(entry.operator_id)
+        .bind(entry.remark)
         .fetch_one(&mut *db)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;

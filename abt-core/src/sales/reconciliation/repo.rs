@@ -18,24 +18,19 @@ impl ReconciliationRepo {
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
-        doc_number: &str,
-        customer_id: i64,
-        period: &str,
-        total_amount: rust_decimal::Decimal,
-        remark: &str,
-        operator_id: i64,
+        params: &CreateReconciliationParams<'_>,
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO reconciliations (doc_number, customer_id, period, total_amount, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6)
                RETURNING id"#,
         )
-        .bind(doc_number)
-        .bind(customer_id)
-        .bind(period)
-        .bind(total_amount)
-        .bind(remark)
-        .bind(operator_id)
+        .bind(params.doc_number)
+        .bind(params.customer_id)
+        .bind(params.period)
+        .bind(params.total_amount)
+        .bind(params.remark)
+        .bind(params.operator_id)
         .fetch_one(executor)
         .await?;
         Ok(row)

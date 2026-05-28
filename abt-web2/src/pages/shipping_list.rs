@@ -20,7 +20,8 @@ use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
 use crate::routes::shipping::*;
@@ -148,11 +149,10 @@ async fn resolve_customer_names_shipping<S: CustomerService>(
     let mut map = HashMap::new();
     let mut seen = HashSet::new();
     for item in items {
-        if seen.insert(item.customer_id) {
-            if let Ok(customer) = svc.get(ctx, db, item.customer_id).await {
+        if seen.insert(item.customer_id)
+            && let Ok(customer) = svc.get(ctx, db, item.customer_id).await {
                 map.insert(item.customer_id, customer.name);
             }
-        }
     }
     map
 }
@@ -167,11 +167,10 @@ async fn resolve_order_numbers<S: SalesOrderService>(
     let mut map = HashMap::new();
     let mut seen = HashSet::new();
     for item in items {
-        if seen.insert(item.order_id) {
-            if let Ok(order) = svc.find_by_id(ctx, db, item.order_id).await {
+        if seen.insert(item.order_id)
+            && let Ok(order) = svc.find_by_id(ctx, db, item.order_id).await {
                 map.insert(item.order_id, order.doc_number);
             }
-        }
     }
     map
 }
@@ -184,12 +183,12 @@ pub async fn get_shipping_list(
     session: Session,
     headers: HeaderMap,
     Query(params): Query<ShippingQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
     let order_svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
     let filter = ShippingQuery {
@@ -199,14 +198,14 @@ pub async fn get_shipping_list(
         customer_id: params.customer_id,
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = shipping_svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = shipping_svc.list(&ctx, &mut conn, filter, page).await?;
 
     let status_counts = count_by_status(&shipping_svc, &ctx, &mut conn, params.customer_id).await;
     let customer_names = resolve_customer_names_shipping(&customer_svc, &ctx, &mut conn, &result.items).await;
     let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut conn, &result.items).await;
 
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     let content = shipping_list_page(&claims, &result, &customer_names, &order_numbers, &customers.items, &params, &status_counts);
@@ -221,12 +220,12 @@ pub async fn get_shipping_table(
     State(state): State<AppState>,
     session: Session,
     Query(params): Query<ShippingQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
     let order_svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
     let filter = ShippingQuery {
@@ -236,14 +235,14 @@ pub async fn get_shipping_table(
         customer_id: params.customer_id,
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = shipping_svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = shipping_svc.list(&ctx, &mut conn, filter, page).await?;
 
     let status_counts = count_by_status(&shipping_svc, &ctx, &mut conn, params.customer_id).await;
     let customer_names = resolve_customer_names_shipping(&customer_svc, &ctx, &mut conn, &result.items).await;
     let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut conn, &result.items).await;
 
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     Ok(Html(shipping_table_fragment(&result, &customer_names, &order_numbers, &customers.items, &params, &status_counts).into_string()))
@@ -253,13 +252,13 @@ pub async fn delete_shipping(
     path: ShippingDeletePath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = make_ctx(claims.sub);
 
     let shipping_svc = state.shipping_service();
-    shipping_svc.delete(&ctx, &mut *conn, path.id).await?;
+    shipping_svc.delete(&ctx, &mut conn, path.id).await?;
 
     let redirect = ShippingListPath::PATH.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

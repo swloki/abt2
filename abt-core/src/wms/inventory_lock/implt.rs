@@ -14,13 +14,12 @@ use crate::shared::enums::DocumentType;
 use crate::wms::enums::LockStatus;
 
 pub struct InventoryLockServiceImpl {
-    repo: InventoryLockRepo,
     pool: PgPool,
 }
 
 impl InventoryLockServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { repo: InventoryLockRepo, pool }
+        Self { pool }
     }
 }
 

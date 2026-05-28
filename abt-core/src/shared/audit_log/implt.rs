@@ -4,9 +4,8 @@ use sqlx::postgres::PgPool;
 
 use super::repo::AuditLogRepo;
 use super::service::{AuditLog, AuditLogService};
-use crate::shared::audit_log::model::AuditLogQuery;
+use crate::shared::audit_log::model::{AuditLogQuery, RecordAuditLogReq};
 use crate::shared::types::PgExecutor;
-use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -44,12 +43,10 @@ impl AuditLogService for AuditLogServiceImpl {
     async fn record(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
-        entity_type: &str,
-        entity_id: i64,
-        action: AuditAction,
-        mut changes: Option<JsonValue>,
-        context: Option<JsonValue>,
+        req: RecordAuditLogReq,
     ) -> Result<i64> {
+        let RecordAuditLogReq { entity_type, entity_id, action, mut changes, context } = req;
+
         if let Some(ref mut ch) = changes {
             redact_sensitive(ch);
         }

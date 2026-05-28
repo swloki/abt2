@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use super::model::*;
 use super::repo::BomLaborProcessRepo;
 use super::service::BomLaborProcessService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
@@ -30,7 +30,7 @@ impl BomLaborProcessService for BomLaborProcessServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BomLaborProcess", id, AuditAction::Create, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BomLaborProcess", entity_id: id, action: AuditAction::Create, changes: None, context: None }).await?;
 
         Ok(id)
     }
@@ -44,7 +44,7 @@ impl BomLaborProcessService for BomLaborProcessServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BomLaborProcess", id, AuditAction::Update, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BomLaborProcess", entity_id: id, action: AuditAction::Update, changes: None, context: None }).await?;
 
         Ok(())
     }
@@ -58,7 +58,7 @@ impl BomLaborProcessService for BomLaborProcessServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BomLaborProcess", id, AuditAction::Delete, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BomLaborProcess", entity_id: id, action: AuditAction::Delete, changes: None, context: None }).await?;
 
         Ok(())
     }

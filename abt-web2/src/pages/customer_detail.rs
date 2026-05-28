@@ -12,13 +12,13 @@ use abt_core::shared::types::ServiceContext;
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
-use crate::errors::AppError;
 use crate::layout::page::admin_page;
 use crate::routes::customer::{
     CreateAddressPath, CreateContactPath, CustomerDetailPath, CustomerListPath, DeleteAddressPath,
     DeleteContactPath,
 };
 use crate::state::AppState;
+use abt_core::shared::types::DomainError;
 
 // ── Handlers ──
 
@@ -27,21 +27,17 @@ pub async fn get_customer_detail(
     State(state): State<AppState>,
     session: Session,
     headers: HeaderMap,
-) -> Result<Html<String>, AppError> {
+) -> crate::errors::Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    let customer = svc.get(&ctx, &mut *conn, path.id).await?;
+    let customer = svc.get(&ctx, &mut conn, path.id).await?;
 
-    let contacts = svc.list_contacts(&ctx, &mut *conn, path.id).await?;
+    let contacts = svc.list_contacts(&ctx, &mut conn, path.id).await?;
 
-    let addresses = svc.list_addresses(&ctx, &mut *conn, path.id).await?;
+    let addresses = svc.list_addresses(&ctx, &mut conn, path.id).await?;
 
     let content = customer_detail_page(&customer, &contacts, &addresses);
     let detail_path_str = CustomerDetailPath { id: path.id }.to_string();
@@ -64,10 +60,10 @@ pub async fn create_contact(
     State(state): State<AppState>,
     session: Session,
     Form(form): Form<ContactForm>,
-) -> Result<impl IntoResponse, AppError> {
+) -> crate::errors::Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let req = CreateContactReq {
         contact_name: form.contact_name,
@@ -78,7 +74,7 @@ pub async fn create_contact(
     };
 
     let ctx = make_ctx(claims.sub);
-    svc.add_contact(&ctx, &mut *conn, path.id, req).await?;
+    svc.add_contact(&ctx, &mut conn, path.id, req).await?;
 
     let redirect = format!("/admin/customers/{}", path.id);
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -88,17 +84,13 @@ pub async fn delete_contact(
     path: DeleteContactPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> crate::errors::Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.delete_contact(&ctx, &mut *conn, path.cid, path.contact_id)
+    svc.delete_contact(&ctx, &mut conn, path.cid, path.contact_id)
         .await?;
 
     let detail = CustomerDetailPath { id: path.cid };
@@ -110,14 +102,10 @@ pub async fn create_address(
     State(state): State<AppState>,
     session: Session,
     Form(form): Form<AddressForm>,
-) -> Result<impl IntoResponse, AppError> {
+) -> crate::errors::Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let req = CreateAddressReq {
         address_type: form.address_type,
@@ -131,7 +119,7 @@ pub async fn create_address(
     };
 
     let ctx = make_ctx(claims.sub);
-    svc.add_address(&ctx, &mut *conn, path.id, req).await?;
+    svc.add_address(&ctx, &mut conn, path.id, req).await?;
 
     let redirect = format!("/admin/customers/{}", path.id);
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -141,17 +129,13 @@ pub async fn delete_address(
     path: DeleteAddressPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> crate::errors::Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.delete_address(&ctx, &mut *conn, path.cid, path.address_id)
+    svc.delete_address(&ctx, &mut conn, path.cid, path.address_id)
         .await?;
 
     let detail = CustomerDetailPath { id: path.cid };

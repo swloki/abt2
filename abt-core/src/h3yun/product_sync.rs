@@ -23,13 +23,15 @@ pub async fn sync_product(
     sync_entity(
         pool,
         client,
-        schema::PRODUCT,
-        EntityType::Product,
-        product.product_id,
-        &biz_json,
-        "Procode",
-        &product.product_code,
-        "product",
+        &SyncEntityParams {
+            schema_code: schema::PRODUCT,
+            entity_type: EntityType::Product,
+            entity_id: product.product_id,
+            biz_json: &biz_json,
+            search_field: "Procode",
+            search_value: &product.product_code,
+            label: "product",
+        },
     )
     .await
 }
@@ -164,44 +166,59 @@ fn build_product_payload(
     })
 }
 
+/// 同步实体参数
+pub(crate) struct SyncEntityParams<'a> {
+    pub schema_code: &'a str,
+    pub entity_type: EntityType,
+    pub entity_id: i64,
+    pub biz_json: &'a str,
+    pub search_field: &'a str,
+    pub search_value: &'a str,
+    pub label: &'a str,
+}
+
+/// 多字段匹配同步参数
+pub(crate) struct SyncByFieldsParams<'a> {
+    pub schema_code: &'a str,
+    pub entity_type: EntityType,
+    pub entity_id: i64,
+    pub biz_json: &'a str,
+    pub fields: &'a [(&'a str, &'a str)],
+    pub label: &'a str,
+}
+
 /// Shared create-or-update logic for syncing an entity to H3Yun.
 /// 每次都先查 H3Yun，存在就 update，不存在就 create。
 pub(crate) async fn sync_entity(
     pool: &sqlx::PgPool,
     client: &H3YunClient,
-    schema_code: &str,
-    entity_type: EntityType,
-    entity_id: i64,
-    biz_json: &str,
-    search_field: &str,
-    search_value: &str,
-    label: &str,
+    params: &SyncEntityParams<'_>,
 ) -> Result<(), SyncError> {
     // 每次都先查 H3Yun（不依赖本地 mapping 判断存在性）
     let remote_id = client
-        .find_by_field(schema_code, search_field, search_value)
+        .find_by_field(params.schema_code, params.search_field, params.search_value)
         .await
         .ok()
         .flatten();
 
     if let Some(object_id) = remote_id {
         // H3Yun 已存在 -> update
-        client.update(schema_code, &object_id, biz_json).await?;
-        SyncStateRepo::upsert(pool, entity_type, entity_id, &object_id)
+        client.update(params.schema_code, &object_id, params.biz_json).await?;
+        SyncStateRepo::upsert(pool, params.entity_type, params.entity_id, &object_id)
             .await
             .map_err(|e| SyncError::FatalError {
                 reason: format!("DB upsert failed: {e}"),
             })?;
-        info!(label, entity_id, object_id, "Synced (update)");
+        info!(params.label, params.entity_id, object_id, "Synced (update)");
     } else {
         // H3Yun 不存在 -> create
-        let object_id = client.create(schema_code, biz_json).await?;
-        SyncStateRepo::upsert(pool, entity_type, entity_id, &object_id)
+        let object_id = client.create(params.schema_code, params.biz_json).await?;
+        SyncStateRepo::upsert(pool, params.entity_type, params.entity_id, &object_id)
             .await
             .map_err(|e| SyncError::FatalError {
                 reason: format!("DB upsert failed: {e}"),
             })?;
-        info!(label, entity_id, object_id, "Synced (create)");
+        info!(params.label, params.entity_id, object_id, "Synced (create)");
     }
 
     Ok(())
@@ -211,35 +228,30 @@ pub(crate) async fn sync_entity(
 pub(crate) async fn sync_entity_by_fields(
     pool: &sqlx::PgPool,
     client: &H3YunClient,
-    schema_code: &str,
-    entity_type: EntityType,
-    entity_id: i64,
-    biz_json: &str,
-    fields: &[(&str, &str)],
-    label: &str,
+    params: &SyncByFieldsParams<'_>,
 ) -> Result<(), SyncError> {
     let remote_id = client
-        .find_by_fields(schema_code, fields)
+        .find_by_fields(params.schema_code, params.fields)
         .await
         .ok()
         .flatten();
 
     if let Some(object_id) = remote_id {
-        client.update(schema_code, &object_id, biz_json).await?;
-        SyncStateRepo::upsert(pool, entity_type, entity_id, &object_id)
+        client.update(params.schema_code, &object_id, params.biz_json).await?;
+        SyncStateRepo::upsert(pool, params.entity_type, params.entity_id, &object_id)
             .await
             .map_err(|e| SyncError::FatalError {
                 reason: format!("DB upsert failed: {e}"),
             })?;
-        info!(label, entity_id, object_id, "Synced (update)");
+        info!(params.label, params.entity_id, object_id, "Synced (update)");
     } else {
-        let object_id = client.create(schema_code, biz_json).await?;
-        SyncStateRepo::upsert(pool, entity_type, entity_id, &object_id)
+        let object_id = client.create(params.schema_code, params.biz_json).await?;
+        SyncStateRepo::upsert(pool, params.entity_type, params.entity_id, &object_id)
             .await
             .map_err(|e| SyncError::FatalError {
                 reason: format!("DB upsert failed: {e}"),
             })?;
-        info!(label, entity_id, object_id, "Synced (create)");
+        info!(params.label, params.entity_id, object_id, "Synced (create)");
     }
 
     Ok(())

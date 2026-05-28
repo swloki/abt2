@@ -1,4 +1,3 @@
-use chrono::NaiveDate;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 
@@ -19,26 +18,20 @@ impl ShippingRequestRepo {
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
-        doc_number: &str,
-        order_id: i64,
-        customer_id: i64,
-        expected_ship_date: Option<NaiveDate>,
-        shipping_address: &str,
-        remark: &str,
-        operator_id: i64,
+        params: &CreateShippingRequestParams<'_>,
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO shipping_requests (doc_number, order_id, customer_id, expected_ship_date, shipping_address, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7)
                RETURNING id"#,
         )
-        .bind(doc_number)
-        .bind(order_id)
-        .bind(customer_id)
-        .bind(expected_ship_date)
-        .bind(shipping_address)
-        .bind(remark)
-        .bind(operator_id)
+        .bind(params.doc_number)
+        .bind(params.order_id)
+        .bind(params.customer_id)
+        .bind(params.expected_ship_date)
+        .bind(params.shipping_address)
+        .bind(params.remark)
+        .bind(params.operator_id)
         .fetch_one(executor)
         .await?;
         Ok(row)

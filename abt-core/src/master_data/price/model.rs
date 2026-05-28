@@ -73,6 +73,16 @@ pub struct PriceLogEntry {
     pub created_at: DateTime<Utc>,
 }
 
+/// 创建价格记录参数
+pub struct CreatePriceParams<'a> {
+    pub product_id: i64,
+    pub price_type: PriceType,
+    pub old_price: Option<Decimal>,
+    pub new_price: Decimal,
+    pub operator_id: i64,
+    pub remark: &'a str,
+}
+
 /// 价格查询过滤
 #[derive(Debug, Clone, Default)]
 pub struct PriceQuery {

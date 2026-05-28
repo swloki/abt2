@@ -126,15 +126,13 @@ pub async fn list(
     let limit = page.page_size as i64;
     let offset = page.offset() as i64;
 
-    let where_clause = format!(
-        "WHERE deleted_at IS NULL
+    let where_clause = "WHERE deleted_at IS NULL
           AND ($1::bigint IS NULL OR customer_id = $1)
           AND ($2::bigint IS NULL OR product_id = $2)
           AND ($3::smallint IS NULL OR severity = $3)
           AND ($4::smallint IS NULL OR status = $4)
           AND ($5::date IS NULL OR created_at::date >= $5)
-          AND ($6::date IS NULL OR created_at::date <= $6)"
-    );
+          AND ($6::date IS NULL OR created_at::date <= $6)".to_string();
 
     let count_sql = format!("SELECT COUNT(*) AS cnt FROM rmas {where_clause}");
     let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))

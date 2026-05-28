@@ -239,7 +239,7 @@ async fn upsert_bin(
             "UPDATE bins SET name = COALESCE($1, name), capacity_limit = COALESCE($2, capacity_limit), updated_at = NOW() WHERE zone_id = $3 AND code = $4 AND deleted_at IS NULL",
         )
         .bind(name)
-        .bind(capacity.map(|c| rust_decimal::Decimal::from(c)))
+        .bind(capacity.map(rust_decimal::Decimal::from))
         .bind(zone_id)
         .bind(code)
         .execute(&mut **tx)
@@ -252,7 +252,7 @@ async fn upsert_bin(
         .bind(zone_id)
         .bind(code)
         .bind(name)
-        .bind(capacity.map(|c| rust_decimal::Decimal::from(c)))
+        .bind(capacity.map(rust_decimal::Decimal::from))
         .execute(&mut **tx)
         .await?;
     }

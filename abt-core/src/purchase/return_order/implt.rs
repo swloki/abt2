@@ -8,7 +8,7 @@ use super::repo::{PurchaseReturnItemRepo, PurchaseReturnRepo};
 use super::service::PurchaseReturnService;
 use crate::purchase::enums::{PurchaseOrderStatus, PurchaseReturnStatus};
 use crate::purchase::order::repo::PurchaseOrderRepo;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_link::{new_document_link_service, model::LinkRequest, service::DocumentLinkService};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
@@ -115,14 +115,16 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         // 7. 审计日志
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                ENTITY_TYPE,
-                id,
-                AuditAction::Create,
-                None,
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: ENTITY_TYPE,
+                        entity_id: id,
+                        action: AuditAction::Create,
+                        changes: None,
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(id)
@@ -182,7 +184,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
 
         // 5. 审计日志
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
             .await?;
 
         Ok(())

@@ -86,6 +86,15 @@ pub struct CreateOutsourcingOrderReq {
     pub materials: Vec<OutsourcingMaterialItem>,
 }
 
+/// 委外单更新参数（不含 id 和 version）
+pub struct UpdateOutsourcingParams<'a> {
+    pub supplier_id: Option<i64>,
+    pub planned_qty: Option<Decimal>,
+    pub unit_price: Option<Decimal>,
+    pub scheduled_date: Option<NaiveDate>,
+    pub remark: Option<&'a str>,
+}
+
 pub struct UpdateOutsourcingOrderReq {
     pub id: i64,
     pub expected_version: i32,

@@ -6,6 +6,7 @@ use sqlx::postgres::PgPool;
 use super::model::{
     CancelOutsourcingReq, ConvertToInternalReq, CreateOutsourcingOrderReq, OutsourcingOrder,
     OutsourcingOrderQuery, ReceiveOutsourcingReq, SendOutsourcingReq, UpdateOutsourcingOrderReq,
+    UpdateOutsourcingParams,
 };
 use super::repo::{OutsourcingMaterialRepo, OutsourcingOrderRepo};
 use super::service::OutsourcingOrderService;
@@ -21,7 +22,7 @@ use crate::qms::inspection_result::model::{CreateInspectionResultReq, Inspection
 use crate::qms::inspection_result::{
     new_inspection_result_service, service::InspectionResultService,
 };
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::cost_entry::model::EntryRequest;
 use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::document_link::model::LinkRequest;
@@ -115,7 +116,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         }
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         Ok(id)
@@ -137,11 +138,13 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             &mut *db,
             req.id,
             req.expected_version,
-            req.supplier_id,
-            req.planned_qty,
-            req.unit_price,
-            req.scheduled_date,
-            req.remark.as_deref(),
+            &UpdateOutsourcingParams {
+                supplier_id: req.supplier_id,
+                planned_qty: req.planned_qty,
+                unit_price: req.unit_price,
+                scheduled_date: req.scheduled_date,
+                remark: req.remark.as_deref(),
+            },
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -159,11 +162,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             .record(
                 ctx,
                 db,
-                ENTITY_TYPE,
-                req.id,
-                AuditAction::Update,
-                None,
-                None,
+                RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: req.id, action: AuditAction::Update, changes: None, context: None },
             )
             .await?;
 
@@ -284,13 +283,14 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 审计
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                ENTITY_TYPE,
-                req.id,
-                AuditAction::Transition,
-                Some(json!({ "from": "Draft", "to": "Sent" })),
-                None,
+                ctx, db,
+                RecordAuditLogReq {
+                    entity_type: ENTITY_TYPE,
+                    entity_id: req.id,
+                    action: AuditAction::Transition,
+                    changes: Some(json!({ "from": "Draft", "to": "Sent" })),
+                    context: None,
+                },
             )
             .await?;
 
@@ -545,11 +545,13 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
-                ENTITY_TYPE,
-                req.id,
-                AuditAction::Transition,
-                Some(json!({ "from": format!("{:?}", order.status), "to": "Received", "received_qty": req.received_qty.to_string(), "iqc_passed_qty": iqc_qty.to_string() })),
-                None,
+                RecordAuditLogReq {
+                    entity_type: ENTITY_TYPE,
+                    entity_id: req.id,
+                    action: AuditAction::Transition,
+                    changes: Some(json!({ "from": format!("{:?}", order.status), "to": "Received", "received_qty": req.received_qty.to_string(), "iqc_passed_qty": iqc_qty.to_string() })),
+                    context: None,
+                },
             )
             .await?;
 
@@ -728,11 +730,13 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,
-                ENTITY_TYPE,
-                req.id,
-                AuditAction::Transition,
-                Some(json!({ "from": format!("{:?}", order.status), "to": "ConvertedToInternal", "new_work_order_id": new_wo_id })),
-                None,
+                RecordAuditLogReq {
+                    entity_type: ENTITY_TYPE,
+                    entity_id: req.id,
+                    action: AuditAction::Transition,
+                    changes: Some(json!({ "from": format!("{:?}", order.status), "to": "ConvertedToInternal", "new_work_order_id": new_wo_id })),
+                    context: None,
+                },
             )
             .await?;
 
@@ -812,13 +816,14 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 审计
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                ENTITY_TYPE,
-                req.id,
-                AuditAction::Transition,
-                Some(json!({ "from": "Draft", "to": "Cancelled" })),
-                None,
+                ctx, db,
+                RecordAuditLogReq {
+                    entity_type: ENTITY_TYPE,
+                    entity_id: req.id,
+                    action: AuditAction::Transition,
+                    changes: Some(json!({ "from": "Draft", "to": "Cancelled" })),
+                    context: None,
+                },
             )
             .await?;
 

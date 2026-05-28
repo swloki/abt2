@@ -95,8 +95,18 @@ enum AuditAction {
     Transition,
 }
 
+struct RecordAuditLogReq<'a> {
+    entity_type: &'a str,
+    entity_id: i64,
+    action: AuditAction,
+    changes: Option<JsonValue>,
+    context: Option<JsonValue>,
+    operator_id: i64,
+    remark: Option<&'a str>,
+}
+
 trait AuditLogService {
-    fn record(ctx, entity_type, entity_id, action: AuditAction, changes, context) -> Result<i64>;
+    fn record(ctx, db, req: RecordAuditLogReq) -> Result<i64>;
     fn query_logs(ctx, query) -> PaginatedResult<AuditLog>;
 }
 ```

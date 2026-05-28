@@ -109,15 +109,9 @@ pub async fn find_by_source(
 /// 记录检验结果 — 更新 result/qualified/unqualified/check_results/inspector/date 并推进状态
 pub async fn record_result(
     db: &mut sqlx::postgres::PgConnection,
-    id: i64,
-    result: i16,
-    qualified_qty: rust_decimal::Decimal,
-    unqualified_qty: rust_decimal::Decimal,
-    check_results: Vec<CheckResult>,
-    inspector_id: i64,
-    inspection_date: chrono::NaiveDate,
+    params: &RecordResultParams,
 ) -> Result<u64> {
-    let check_results_json = serde_json::to_value(&check_results)?;
+    let check_results_json = serde_json::to_value(&params.check_results)?;
     let r = sqlx::query(
         r#"
         UPDATE inspection_results
@@ -127,13 +121,13 @@ pub async fn record_result(
         WHERE id = $1 AND status = 1 AND deleted_at IS NULL
         "#,
     )
-    .bind(id)
-    .bind(result)
-    .bind(qualified_qty)
-    .bind(unqualified_qty)
+    .bind(params.id)
+    .bind(params.result)
+    .bind(params.qualified_qty)
+    .bind(params.unqualified_qty)
     .bind(check_results_json)
-    .bind(inspector_id)
-    .bind(inspection_date)
+    .bind(params.inspector_id)
+    .bind(params.inspection_date)
     .execute(db)
     .await?;
 
@@ -166,16 +160,14 @@ pub async fn list(
     let limit = page.page_size as i64;
     let offset = page.offset() as i64;
 
-    let where_clause = format!(
-        "WHERE deleted_at IS NULL
+    let where_clause = "WHERE deleted_at IS NULL
           AND ($1::smallint IS NULL OR source_type = $1)
           AND ($2::bigint IS NULL OR source_id = $2)
           AND ($3::smallint IS NULL OR inspection_type = $3)
           AND ($4::smallint IS NULL OR result = $4)
           AND ($5::smallint IS NULL OR status = $5)
           AND ($6::date IS NULL OR inspection_date >= $6)
-          AND ($7::date IS NULL OR inspection_date <= $7)"
-    );
+          AND ($7::date IS NULL OR inspection_date <= $7)".to_string();
 
     let count_sql = format!("SELECT COUNT(*) AS cnt FROM inspection_results {where_clause}");
     let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))

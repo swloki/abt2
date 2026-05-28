@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use super::model::*;
 use super::repo::{SupplierBankAccountRepo, SupplierContactRepo, SupplierRepo};
 use super::service::SupplierService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
@@ -67,14 +67,7 @@ impl SupplierService for SupplierServiceImpl {
 
         // Audit
         new_audit_log_service(self.pool.clone())
-            .record(
-                ctx, db,
-                "Supplier",
-                id,
-                AuditAction::Create,
-                None,
-                None,
-            )
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Supplier", entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         // Event: SupplierCreated
@@ -157,14 +150,16 @@ impl SupplierService for SupplierServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "Supplier",
-                id,
-                AuditAction::Update,
-                None,
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "Supplier",
+                        entity_id: id,
+                        action: AuditAction::Update,
+                        changes: None,
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -196,14 +191,16 @@ impl SupplierService for SupplierServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SupplierContact",
-                contact_id,
-                AuditAction::Create,
-                None,
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SupplierContact",
+                        entity_id: contact_id,
+                        action: AuditAction::Create,
+                        changes: None,
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(contact_id)
@@ -229,14 +226,16 @@ impl SupplierService for SupplierServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SupplierContact",
-                contact_id,
-                AuditAction::Update,
-                None,
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SupplierContact",
+                        entity_id: contact_id,
+                        action: AuditAction::Update,
+                        changes: None,
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -261,14 +260,16 @@ impl SupplierService for SupplierServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SupplierContact",
-                contact_id,
-                AuditAction::Delete,
-                None,
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SupplierContact",
+                        entity_id: contact_id,
+                        action: AuditAction::Delete,
+                        changes: None,
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -308,13 +309,15 @@ impl SupplierService for SupplierServiceImpl {
         });
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db,
-                "SupplierBankAccount",
-                account_id,
-                AuditAction::Create,
-                Some(changes),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "SupplierBankAccount",
+                        entity_id: account_id,
+                        action: AuditAction::Create,
+                        changes: Some(changes),
+                        context: None,
+                    },
+                )
             .await?;
 
         // P0: event SupplierBankAccountChanged
@@ -396,13 +399,15 @@ impl SupplierService for SupplierServiceImpl {
         });
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db,
-                "SupplierBankAccount",
-                account_id,
-                AuditAction::Update,
-                Some(changes),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "SupplierBankAccount",
+                        entity_id: account_id,
+                        action: AuditAction::Update,
+                        changes: Some(changes),
+                        context: None,
+                    },
+                )
             .await?;
 
         // P0: event SupplierBankAccountChanged
@@ -453,13 +458,15 @@ impl SupplierService for SupplierServiceImpl {
         });
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db,
-                "SupplierBankAccount",
-                account_id,
-                AuditAction::Delete,
-                Some(changes),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "SupplierBankAccount",
+                        entity_id: account_id,
+                        action: AuditAction::Delete,
+                        changes: Some(changes),
+                        context: None,
+                    },
+                )
             .await?;
 
         // P0: event SupplierBankAccountChanged

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 use tracing::instrument;
 
-use super::model::{EntityStateLog, StateDefinitionInput, TransitionDefInput};
+use super::model::{EntityStateLog, StateDefinitionInput, StateLogEntry, TransitionDefInput};
 use super::repo::StateMachineRepo;
 use super::service::StateMachineService;
 use crate::shared::enums::SideEffect;
@@ -77,13 +77,15 @@ impl StateMachineService for StateMachineServiceImpl {
         // Step 3: 插入 EntityStateLog
         let state_log = StateMachineRepo::insert_state_log(
             db,
-            entity_type,
-            entity_id,
-            from_state.as_deref(),
-            to_state,
-            transition_def.id,
-            ctx.operator_id,
-            remark,
+            &StateLogEntry {
+                entity_type,
+                entity_id,
+                from_state: from_state.as_deref(),
+                to_state,
+                transition_id: transition_def.id,
+                operator_id: ctx.operator_id,
+                remark,
+            },
         )
         .await?;
 

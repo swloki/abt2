@@ -19,31 +19,25 @@ impl QuotationRepo {
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
-        doc_number: &str,
-        req: &CreateQuotationReq,
-        sales_rep_id: i64,
-        total_amount: Decimal,
-        total_cost: Decimal,
-        estimated_margin: Decimal,
-        operator_id: i64,
+        params: &CreateQuotationParams<'_>,
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO quotations (doc_number, customer_id, contact_id, sales_rep_id, valid_until, total_amount, total_cost, estimated_margin, payment_terms, delivery_terms, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                RETURNING id"#,
         )
-        .bind(doc_number)
-        .bind(req.customer_id)
-        .bind(req.contact_id)
-        .bind(sales_rep_id)
-        .bind(req.valid_until)
-        .bind(total_amount)
-        .bind(total_cost)
-        .bind(estimated_margin)
-        .bind(req.payment_terms.as_deref().unwrap_or(""))
-        .bind(req.delivery_terms.as_deref().unwrap_or(""))
-        .bind(req.remark.as_deref().unwrap_or(""))
-        .bind(operator_id)
+        .bind(params.doc_number)
+        .bind(params.req.customer_id)
+        .bind(params.req.contact_id)
+        .bind(params.sales_rep_id)
+        .bind(params.req.valid_until)
+        .bind(params.total_amount)
+        .bind(params.total_cost)
+        .bind(params.estimated_margin)
+        .bind(params.req.payment_terms.as_deref().unwrap_or(""))
+        .bind(params.req.delivery_terms.as_deref().unwrap_or(""))
+        .bind(params.req.remark.as_deref().unwrap_or(""))
+        .bind(params.operator_id)
         .fetch_one(executor)
         .await?;
         Ok(row)

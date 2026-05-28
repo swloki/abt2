@@ -406,7 +406,6 @@ fn classify_error(message: &str) -> SyncError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::time::Duration;
 
     fn is_transient(err: SyncError) -> bool {
         matches!(err, SyncError::Transient { .. })

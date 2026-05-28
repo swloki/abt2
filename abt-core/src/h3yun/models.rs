@@ -65,6 +65,7 @@ impl std::error::Error for SyncError {}
 
 /// LoadBizObjects 用的 Filter 格式
 #[derive(Debug, Serialize)]
+#[allow(non_snake_case)]
 pub struct H3YunFilter {
     pub ActionName: String,
     pub SchemaCode: String,
@@ -73,6 +74,7 @@ pub struct H3YunFilter {
 
 /// Create/Update/Remove 用的请求格式
 #[derive(Debug, Serialize)]
+#[allow(non_snake_case)]
 pub struct H3YunRequest {
     pub ActionName: String,
     pub SchemaCode: String,
@@ -85,6 +87,7 @@ pub struct H3YunRequest {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(non_snake_case)]
 pub struct H3YunResponse {
     #[serde(default)]
     pub Successful: bool,

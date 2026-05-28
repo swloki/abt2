@@ -66,18 +66,22 @@ impl AppState {
         abt_core::wms::warehouse::new_warehouse_service(self.pool.clone())
     }
 
+    #[allow(dead_code)]
     pub fn bom_query_service(&self) -> impl abt_core::master_data::bom::BomQueryService {
         abt_core::master_data::bom::new_bom_query_service(self.pool.clone())
     }
 
+    #[allow(dead_code)]
     pub fn bom_command_service(&self) -> impl abt_core::master_data::bom::BomCommandService {
         abt_core::master_data::bom::new_bom_command_service(self.pool.clone())
     }
 
+    #[allow(dead_code)]
     pub fn bom_node_service(&self) -> impl abt_core::master_data::bom::BomNodeService {
         abt_core::master_data::bom::new_bom_node_service(self.pool.clone())
     }
 
+    #[allow(dead_code)]
     pub fn routing_service(&self) -> impl abt_core::master_data::routing::RoutingService {
         abt_core::master_data::routing::new_routing_service(self.pool.clone())
     }

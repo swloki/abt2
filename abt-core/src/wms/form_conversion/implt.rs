@@ -14,13 +14,12 @@ use crate::shared::enums::DocumentType;
 use crate::wms::enums::ConversionStatus;
 
 pub struct FormConversionServiceImpl {
-    repo: FormConversionRepo,
     pool: PgPool,
 }
 
 impl FormConversionServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { repo: FormConversionRepo, pool }
+        Self { pool }
     }
 }
 

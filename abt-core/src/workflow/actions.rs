@@ -249,7 +249,7 @@ mod tests {
             "${entity_snapshot.nonexistent}".into(),
         )]);
         let result = resolve_mapping(&mapping, &context);
-        assert!(result.get("product_id").is_none());
+        assert!(!result.contains_key("product_id"));
     }
 
     #[test]

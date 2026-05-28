@@ -21,7 +21,8 @@ use abt_core::wms::warehouse::WarehouseService;
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::shipping::*;
 use crate::state::AppState;
@@ -117,20 +118,20 @@ pub async fn get_shipping_create(
     State(state): State<AppState>,
     session: Session,
     headers: HeaderMap,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let customer_svc = state.customer_service();
     let warehouse_svc = state.warehouse_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     let ctx2 = make_ctx(claims.sub);
     let warehouses = warehouse_svc
-        .list(&ctx2, &mut *conn, WarehouseFilter::default(), 1, 100)
+        .list(&ctx2, &mut conn, WarehouseFilter::default(), 1, 100)
         .await?;
 
     let content = shipping_create_page(&customers.items, &warehouses.items);
@@ -147,23 +148,23 @@ pub async fn post_shipping_create(
     State(state): State<AppState>,
     session: Session,
     axum::Form(form): axum::Form<ShippingCreateForm>,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.shipping_service();
-    let conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     if form.customer_id == 0 {
-        return Err(AppError::BadRequest("请选择客户".into()));
+        return Err(DomainError::validation("请选择客户").into());
     }
     if form.order_id == 0 {
-        return Err(AppError::BadRequest("请选择来源订单".into()));
+        return Err(DomainError::validation("请选择来源订单").into());
     }
 
     let web_items: Vec<ShippingItemWeb> = serde_json::from_str(&form.items_json)
-        .map_err(|e| AppError::BadRequest(format!("无效产品数据: {e}")))?;
+        .map_err(|e| DomainError::validation(format!("无效产品数据: {e}")))?;
 
     if web_items.is_empty() {
-        return Err(AppError::BadRequest("请至少添加一个发货产品".into()));
+        return Err(DomainError::validation("请至少添加一个发货产品").into());
     }
 
     let items: Vec<CreateShippingItemReq> = web_items.into_iter().map(|item| {
@@ -187,12 +188,12 @@ pub async fn post_shipping_create(
 
     let mut tx = conn;
     let ctx = ServiceContext::new(claims.sub);
-    let id = svc.create_from_order(&ctx, &mut *tx, req).await?;
+    let id = svc.create_from_order(&ctx, &mut tx, req).await?;
 
     let carrier = form.carrier.filter(|s| !s.is_empty());
     let remark = form.remark.filter(|s| !s.is_empty());
     if carrier.is_some() || remark.is_some() {
-        svc.update(&ctx, &mut *tx, id, UpdateShippingReq {
+        svc.update(&ctx, &mut tx, id, UpdateShippingReq {
             carrier,
             remark,
             ..Default::default()
@@ -207,17 +208,17 @@ pub async fn get_customer_contacts(
     State(state): State<AppState>,
     session: Session,
     Query(params): Query<CustomerContactsQuery>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let customer_svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let (contacts, addresses) = match params.customer_id {
         Some(cid) if cid > 0 => {
             let ctx = make_ctx(claims.sub);
-            let contacts = customer_svc.list_contacts(&ctx, &mut *conn, cid).await.unwrap_or_default();
+            let contacts = customer_svc.list_contacts(&ctx, &mut conn, cid).await.unwrap_or_default();
             let ctx2 = make_ctx(claims.sub);
-            let addresses = customer_svc.list_addresses(&ctx2, &mut *conn, cid).await.unwrap_or_default();
+            let addresses = customer_svc.list_addresses(&ctx2, &mut conn, cid).await.unwrap_or_default();
             (contacts, addresses)
         }
         _ => (vec![], vec![]),
@@ -239,7 +240,7 @@ pub async fn get_customer_contacts(
 
     let ctx3 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx3, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx3, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     Ok(Html(customer_info_card(&customers.items, params.customer_id, contact_name, contact_phone, &shipping_address).into_string()))
@@ -249,10 +250,10 @@ pub async fn get_order_search(
     State(state): State<AppState>,
     session: Session,
     Query(params): Query<OrderSearchQuery>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let order_svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let customer_id = match params.customer_id {
         Some(id) if id > 0 => id,
@@ -265,7 +266,7 @@ pub async fn get_order_search(
         keyword: params.keyword.clone(),
         ..Default::default()
     };
-    let result = order_svc.list(&ctx, &mut *conn, filter, PageParams::new(1, 10))
+    let result = order_svc.list(&ctx, &mut conn, filter, PageParams::new(1, 10))
         .await?;
 
     if result.items.is_empty() {
@@ -279,7 +280,7 @@ pub async fn get_order_search(
     let mut all_items: Vec<(i64, abt_core::sales::sales_order::model::SalesOrderItem)> = Vec::new();
     let mut all_product_ids: Vec<i64> = Vec::new();
     for order in &result.items {
-        if let Ok(items) = order_svc_inner.list_items(&ctx, &mut *conn, order.id).await {
+        if let Ok(items) = order_svc_inner.list_items(&ctx, &mut conn, order.id).await {
             for item in &items {
                 all_product_ids.push(item.product_id);
             }
@@ -293,7 +294,7 @@ pub async fn get_order_search(
     let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = if all_product_ids.is_empty() {
         HashMap::new()
     } else {
-        product_svc.get_by_ids(&ctx, &mut *conn, all_product_ids)
+        product_svc.get_by_ids(&ctx, &mut conn, all_product_ids)
             .await
             .map(|ps| ps.into_iter().map(|p| (p.product_id, p)).collect())
             .unwrap_or_default()

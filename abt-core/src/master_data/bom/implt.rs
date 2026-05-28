@@ -7,7 +7,7 @@ use super::service::{
 };
 use crate::master_data::price::model::PriceType;
 use crate::master_data::price::repo::PriceRepo;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
@@ -131,7 +131,7 @@ impl BomCommandService for BomCommandServiceImpl {
             .ok();
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BOM", id, AuditAction::Create, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BOM", entity_id: id, action: AuditAction::Create, changes: None, context: None }).await?;
 
         Ok(id)
     }
@@ -168,7 +168,7 @@ impl BomCommandService for BomCommandServiceImpl {
         }
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BOM", id, AuditAction::Update, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BOM", entity_id: id, action: AuditAction::Update, changes: None, context: None }).await?;
         Ok(())
     }
 
@@ -185,7 +185,7 @@ impl BomCommandService for BomCommandServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BOM", id, AuditAction::Delete, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BOM", entity_id: id, action: AuditAction::Delete, changes: None, context: None }).await?;
         Ok(())
     }
 
@@ -233,7 +233,7 @@ impl BomCommandService for BomCommandServiceImpl {
             ).await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BOM", id, AuditAction::Transition, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BOM", entity_id: id, action: AuditAction::Transition, changes: None, context: None }).await?;
 
         Ok(id)
     }
@@ -267,7 +267,7 @@ impl BomCommandService for BomCommandServiceImpl {
             ).await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BOM", id, AuditAction::Transition, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BOM", entity_id: id, action: AuditAction::Transition, changes: None, context: None }).await?;
         Ok(())
     }
 
@@ -360,16 +360,18 @@ impl BomCommandService for BomCommandServiceImpl {
                 .record(
                     ctx,
                     db,
-                    "BOM",
-                    req.bom_id.unwrap_or(0),
-                    AuditAction::Update,
-                    Some(serde_json::json!({
-                        "action": "substitute",
-                        "old_product_id": req.old_product_id,
-                        "new_product_id": req.new_product_id,
-                        "affected_nodes": affected_nodes,
-                    })),
-                    None,
+                    RecordAuditLogReq {
+                        entity_type: "BOM",
+                        entity_id: req.bom_id.unwrap_or(0),
+                        action: AuditAction::Update,
+                        changes: Some(serde_json::json!({
+                            "action": "substitute",
+                            "old_product_id": req.old_product_id,
+                            "new_product_id": req.new_product_id,
+                            "affected_nodes": affected_nodes,
+                        })),
+                        context: None,
+                    },
                 ).await?;
         }
 
@@ -444,7 +446,7 @@ impl BomNodeService for BomNodeServiceImpl {
             ).await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BomNode", node_id, AuditAction::Create, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BomNode", entity_id: node_id, action: AuditAction::Create, changes: None, context: None }).await?;
 
         Ok(node_id)
     }
@@ -493,7 +495,7 @@ impl BomNodeService for BomNodeServiceImpl {
             ).await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BomNode", node_id, AuditAction::Update, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BomNode", entity_id: node_id, action: AuditAction::Update, changes: None, context: None }).await?;
         Ok(())
     }
 
@@ -541,7 +543,7 @@ impl BomNodeService for BomNodeServiceImpl {
             ).await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BomNode", node_id, AuditAction::Delete, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BomNode", entity_id: node_id, action: AuditAction::Delete, changes: None, context: None }).await?;
 
         Ok(node_id)
     }
@@ -620,15 +622,17 @@ impl BomNodeService for BomNodeServiceImpl {
             .record(
                 ctx,
                 db,
-                "BomNode",
-                node_id,
-                AuditAction::Update,
-                Some(serde_json::json!({
-                    "action": "move",
-                    "new_parent_id": new_parent_id,
-                    "order_num": order_num,
-                })),
-                None,
+                RecordAuditLogReq {
+                    entity_type: "BomNode",
+                    entity_id: node_id,
+                    action: AuditAction::Update,
+                    changes: Some(serde_json::json!({
+                        "action": "move",
+                        "new_parent_id": new_parent_id,
+                        "order_num": order_num,
+                    })),
+                    context: None,
+                },
             ).await?;
 
         Ok(())
@@ -730,7 +734,7 @@ impl BomCategoryService for BomCategoryServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BomCategory", id, AuditAction::Create, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BomCategory", entity_id: id, action: AuditAction::Create, changes: None, context: None }).await?;
         Ok(id)
     }
 
@@ -743,7 +747,7 @@ impl BomCategoryService for BomCategoryServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BomCategory", id, AuditAction::Update, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BomCategory", entity_id: id, action: AuditAction::Update, changes: None, context: None }).await?;
         Ok(())
     }
 
@@ -764,7 +768,7 @@ impl BomCategoryService for BomCategoryServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "BomCategory", id, AuditAction::Delete, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "BomCategory", entity_id: id, action: AuditAction::Delete, changes: None, context: None }).await?;
         Ok(())
     }
 

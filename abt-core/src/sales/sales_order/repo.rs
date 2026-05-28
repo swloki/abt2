@@ -19,34 +19,24 @@ impl SalesOrderRepo {
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
-        doc_number: &str,
-        customer_id: i64,
-        contact_id: i64,
-        sales_rep_id: i64,
-        total_amount: Decimal,
-        total_cost: Decimal,
-        payment_terms: &str,
-        delivery_terms: &str,
-        delivery_address: &str,
-        remark: &str,
-        operator_id: i64,
+        params: &CreateSalesOrderParams<'_>,
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO sales_orders (doc_number, customer_id, contact_id, sales_rep_id, total_amount, total_cost, payment_terms, delivery_terms, delivery_address, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                RETURNING id"#,
         )
-        .bind(doc_number)
-        .bind(customer_id)
-        .bind(contact_id)
-        .bind(sales_rep_id)
-        .bind(total_amount)
-        .bind(total_cost)
-        .bind(payment_terms)
-        .bind(delivery_terms)
-        .bind(delivery_address)
-        .bind(remark)
-        .bind(operator_id)
+        .bind(params.doc_number)
+        .bind(params.customer_id)
+        .bind(params.contact_id)
+        .bind(params.sales_rep_id)
+        .bind(params.total_amount)
+        .bind(params.total_cost)
+        .bind(params.payment_terms)
+        .bind(params.delivery_terms)
+        .bind(params.delivery_address)
+        .bind(params.remark)
+        .bind(params.operator_id)
         .fetch_one(executor)
         .await?;
         Ok(row)

@@ -14,13 +14,12 @@ use crate::shared::enums::DocumentType;
 use crate::wms::enums::TransferStatus;
 
 pub struct TransferServiceImpl {
-    repo: TransferRepo,
     pool: PgPool,
 }
 
 impl TransferServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { repo: TransferRepo, pool }
+        Self { pool }
     }
 }
 

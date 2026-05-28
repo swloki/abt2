@@ -311,19 +311,7 @@ impl WorkReportRepo {
     /// 幂等插入报工记录
     pub async fn insert_or_get_existing(
         executor: &mut sqlx::postgres::PgConnection,
-        doc_number: &str,
-        work_order_id: i64,
-        batch_id: i64,
-        routing_id: i64,
-        report_date: NaiveDate,
-        shift: ShiftType,
-        worker_id: i64,
-        completed_qty: Decimal,
-        defect_qty: Decimal,
-        defect_reason: Option<DefectReason>,
-        work_hours: Decimal,
-        remark: &str,
-        operator_id: i64,
+        params: &InsertWorkReportParams<'_>,
     ) -> Result<(WorkReportRow, bool)> {
         let row = sqlx::query(
             r#"
@@ -339,19 +327,19 @@ impl WorkReportRepo {
                       work_hours, remark, operator_id, created_at, updated_at
             "#,
         )
-        .bind(doc_number)
-        .bind(work_order_id)
-        .bind(batch_id)
-        .bind(routing_id)
-        .bind(report_date)
-        .bind(shift)
-        .bind(worker_id)
-        .bind(completed_qty)
-        .bind(defect_qty)
-        .bind(defect_reason)
-        .bind(work_hours)
-        .bind(remark)
-        .bind(operator_id)
+        .bind(params.doc_number)
+        .bind(params.work_order_id)
+        .bind(params.batch_id)
+        .bind(params.routing_id)
+        .bind(params.report_date)
+        .bind(params.shift)
+        .bind(params.worker_id)
+        .bind(params.completed_qty)
+        .bind(params.defect_qty)
+        .bind(params.defect_reason)
+        .bind(params.work_hours)
+        .bind(params.remark)
+        .bind(params.operator_id)
         .fetch_optional(&mut *executor)
         .await?;
 
@@ -371,11 +359,11 @@ impl WorkReportRepo {
                           AND shift = $4 AND report_date = $5
                     "#,
                 )
-                .bind(batch_id)
-                .bind(routing_id)
-                .bind(worker_id)
-                .bind(shift)
-                .bind(report_date)
+                .bind(params.batch_id)
+                .bind(params.routing_id)
+                .bind(params.worker_id)
+                .bind(params.shift)
+                .bind(params.report_date)
                 .fetch_one(&mut *executor)
                 .await?;
 

@@ -17,13 +17,12 @@ use crate::shared::enums::DocumentType;
 use crate::wms::enums::CycleCountStatus;
 
 pub struct CycleCountServiceImpl {
-    repo: CycleCountRepo,
     pool: PgPool,
 }
 
 impl CycleCountServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { repo: CycleCountRepo, pool }
+        Self { pool }
     }
 
     fn status_name(s: CycleCountStatus) -> String {

@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use super::model::*;
 use super::repo::RoutingRepo;
 use super::service::RoutingService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
@@ -66,7 +66,7 @@ impl RoutingService for RoutingServiceImpl {
         self.repo.insert_steps(db, id, &req.steps).await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Routing", id, AuditAction::Create, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Routing", entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -112,7 +112,7 @@ impl RoutingService for RoutingServiceImpl {
         }
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Routing", id, AuditAction::Update, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Routing", entity_id: id, action: AuditAction::Update, changes: None, context: None })
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -151,7 +151,7 @@ impl RoutingService for RoutingServiceImpl {
         self.repo.delete(db, id).await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Routing", id, AuditAction::Delete, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Routing", entity_id: id, action: AuditAction::Delete, changes: None, context: None })
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -217,14 +217,16 @@ impl RoutingService for RoutingServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "BomRouting",
-                routing_id,
-                AuditAction::Update,
-                None,
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "BomRouting",
+                        entity_id: routing_id,
+                        action: AuditAction::Update,
+                        changes: None,
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())

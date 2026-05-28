@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use crate::master_data::customer::model::*;
 use crate::master_data::customer::repo::{CustomerAddressRepo, CustomerContactRepo, CustomerRepo};
 use crate::master_data::customer::service::CustomerService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
@@ -76,7 +76,7 @@ impl CustomerService for CustomerServiceImpl {
         }
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Customer", id, AuditAction::Create, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Customer", entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -163,7 +163,7 @@ impl CustomerService for CustomerServiceImpl {
             ?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Customer", id, AuditAction::Update, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Customer", entity_id: id, action: AuditAction::Update, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -213,14 +213,16 @@ impl CustomerService for CustomerServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "CustomerContact",
-                contact_id,
-                AuditAction::Create,
-                None,
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "CustomerContact",
+                        entity_id: contact_id,
+                        action: AuditAction::Create,
+                        changes: None,
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(contact_id)
@@ -242,7 +244,7 @@ impl CustomerService for CustomerServiceImpl {
             ?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "CustomerContact", contact_id, AuditAction::Update, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "CustomerContact", entity_id: contact_id, action: AuditAction::Update, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -263,7 +265,7 @@ impl CustomerService for CustomerServiceImpl {
             ?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "CustomerContact", contact_id, AuditAction::Delete, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "CustomerContact", entity_id: contact_id, action: AuditAction::Delete, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -301,14 +303,16 @@ impl CustomerService for CustomerServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "CustomerAddress",
-                address_id,
-                AuditAction::Create,
-                None,
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "CustomerAddress",
+                        entity_id: address_id,
+                        action: AuditAction::Create,
+                        changes: None,
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(address_id)
@@ -341,7 +345,7 @@ impl CustomerService for CustomerServiceImpl {
             ?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "CustomerAddress", address_id, AuditAction::Update, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "CustomerAddress", entity_id: address_id, action: AuditAction::Update, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -373,7 +377,7 @@ impl CustomerService for CustomerServiceImpl {
             ?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "CustomerAddress", address_id, AuditAction::Delete, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "CustomerAddress", entity_id: address_id, action: AuditAction::Delete, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -443,7 +447,7 @@ impl CustomerService for CustomerServiceImpl {
             ?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Customer", id, AuditAction::Update, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Customer", entity_id: id, action: AuditAction::Update, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -470,19 +474,15 @@ impl CustomerService for CustomerServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db,
-                "Customer",
-                id,
-                AuditAction::Update,
-                Some(serde_json::json!({
-                    "action": "transfer",
-                    "old_owner_id": existing.owner_id,
-                    "new_owner_id": new_owner_id,
-                    "old_department_id": existing.department_id,
-                    "new_department_id": new_department_id,
-                })),
-                None,
-            )
+                    ctx, db,
+                    RecordAuditLogReq {
+                        entity_type: "Customer",
+                        entity_id: id,
+                        action: AuditAction::Update,
+                        changes: Some(serde_json::json!({ "action": "transfer", "old_owner_id": existing.owner_id, "new_owner_id": new_owner_id, "old_department_id": existing.department_id, "new_department_id": new_department_id, })),
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())

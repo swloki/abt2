@@ -21,7 +21,8 @@ use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
 use crate::routes::sales_return::*;
@@ -154,11 +155,10 @@ async fn resolve_customer_names<S: CustomerService>(
     let mut map = HashMap::new();
     let mut seen = std::collections::HashSet::new();
     for item in items {
-        if seen.insert(item.customer_id) {
-            if let Ok(customer) = svc.get(ctx, db, item.customer_id).await {
+        if seen.insert(item.customer_id)
+            && let Ok(customer) = svc.get(ctx, db, item.customer_id).await {
                 map.insert(item.customer_id, customer.name);
             }
-        }
     }
     map
 }
@@ -173,11 +173,10 @@ async fn resolve_shipping_numbers<S: ShippingRequestService>(
     let mut map = HashMap::new();
     let mut seen = std::collections::HashSet::new();
     for item in items {
-        if seen.insert(item.shipping_request_id) {
-            if let Ok(shipping) = svc.find_by_id(ctx, db, item.shipping_request_id).await {
+        if seen.insert(item.shipping_request_id)
+            && let Ok(shipping) = svc.find_by_id(ctx, db, item.shipping_request_id).await {
                 map.insert(item.shipping_request_id, shipping.doc_number);
             }
-        }
     }
     map
 }
@@ -192,11 +191,10 @@ async fn resolve_order_numbers<S: SalesOrderService>(
     let mut map = HashMap::new();
     let mut seen = std::collections::HashSet::new();
     for item in items {
-        if seen.insert(item.order_id) {
-            if let Ok(order) = svc.find_by_id(ctx, db, item.order_id).await {
+        if seen.insert(item.order_id)
+            && let Ok(order) = svc.find_by_id(ctx, db, item.order_id).await {
                 map.insert(item.order_id, order.doc_number);
             }
-        }
     }
     map
 }
@@ -209,9 +207,9 @@ pub async fn get_return_list(
     session: Session,
     headers: HeaderMap,
     Query(params): Query<ReturnQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = make_ctx(claims.sub);
 
     let return_svc = state.sales_return_service();
@@ -227,15 +225,15 @@ pub async fn get_return_list(
         keyword: params.keyword.clone(),
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = return_svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = return_svc.list(&ctx, &mut conn, filter, page).await?;
 
-    let status_counts = count_by_status(&return_svc, &ctx, &mut *conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut *conn, &result.items).await;
-    let shipping_numbers = resolve_shipping_numbers(&shipping_svc, &ctx, &mut *conn, &result.items).await;
-    let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut *conn, &result.items).await;
+    let status_counts = count_by_status(&return_svc, &ctx, &mut conn, params.customer_id).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let shipping_numbers = resolve_shipping_numbers(&shipping_svc, &ctx, &mut conn, &result.items).await;
+    let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut conn, &result.items).await;
 
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     let content = return_list_page(&claims, &result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params, &status_counts);
@@ -250,9 +248,9 @@ pub async fn get_return_table(
     State(state): State<AppState>,
     session: Session,
     Query(params): Query<ReturnQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = make_ctx(claims.sub);
 
     let return_svc = state.sales_return_service();
@@ -268,15 +266,15 @@ pub async fn get_return_table(
         keyword: params.keyword.clone(),
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = return_svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = return_svc.list(&ctx, &mut conn, filter, page).await?;
 
-    let status_counts = count_by_status(&return_svc, &ctx, &mut *conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut *conn, &result.items).await;
-    let shipping_numbers = resolve_shipping_numbers(&shipping_svc, &ctx, &mut *conn, &result.items).await;
-    let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut *conn, &result.items).await;
+    let status_counts = count_by_status(&return_svc, &ctx, &mut conn, params.customer_id).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let shipping_numbers = resolve_shipping_numbers(&shipping_svc, &ctx, &mut conn, &result.items).await;
+    let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut conn, &result.items).await;
 
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
     Ok(Html(return_table_fragment(&result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params, &status_counts).into_string()))
@@ -286,13 +284,13 @@ pub async fn delete_return(
     path: ReturnDeletePath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = make_ctx(claims.sub);
 
     let return_svc = state.sales_return_service();
-    return_svc.delete(&ctx, &mut *conn, path.id).await?;
+    return_svc.delete(&ctx, &mut conn, path.id).await?;
 
     let redirect = ReturnListPath::PATH.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -300,6 +298,7 @@ pub async fn delete_return(
 
 // ── Components ──
 
+#[allow(clippy::too_many_arguments)]
 fn return_list_page(
     _claims: &abt_core::shared::identity::model::Claims,
     result: &abt_core::shared::types::PaginatedResult<SalesReturn>,

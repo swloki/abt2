@@ -138,6 +138,24 @@ pub struct BinFilter {
     pub status: Option<BinStatus>,
 }
 
+/// 仓库下库位查询参数（含分页）
+pub struct ListBinsByWarehouseParams {
+    pub warehouse_id: i64,
+    pub keyword: Option<String>,
+    pub is_active: Option<bool>,
+    pub page: u32,
+    pub page_size: u32,
+}
+
+/// 跨仓库搜索库位参数（含分页）
+pub struct SearchBinsParams {
+    pub keyword: Option<String>,
+    pub is_active: Option<bool>,
+    pub warehouse_id: Option<i64>,
+    pub page: u32,
+    pub page_size: u32,
+}
+
 /// 库位 + 仓库关联信息（用于 Location 兼容查询）
 #[derive(Debug, Clone)]
 pub struct BinWithWarehouse {

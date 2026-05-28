@@ -20,7 +20,8 @@ use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
 use crate::state::AppState;
@@ -131,11 +132,10 @@ async fn resolve_customer_names<S: CustomerService>(
     let mut map = HashMap::new();
     let mut seen = HashSet::new();
     for order in orders {
-        if seen.insert(order.customer_id) {
-            if let Ok(customer) = svc.get(ctx, db, order.customer_id).await {
+        if seen.insert(order.customer_id)
+            && let Ok(customer) = svc.get(ctx, db, order.customer_id).await {
                 map.insert(order.customer_id, customer.name);
             }
-        }
     }
     map
 }
@@ -182,26 +182,25 @@ pub async fn get_order_list(
     session: Session,
     headers: HeaderMap,
     Query(params): Query<OrderQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
     let user_svc = state.user_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = svc.list(&ctx, &mut conn, filter, page).await?;
 
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut *conn, &result.items).await;
-    let sales_rep_names = resolve_sales_rep_names(&user_svc, &ctx, &mut *conn, &result.items).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let sales_rep_names = resolve_sales_rep_names(&user_svc, &ctx, &mut conn, &result.items).await;
 
     let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .list(&ctx2, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .await?;
 
     let content = order_list_page(&result, &customer_names, &sales_rep_names, &customers.items, &params);
     let page_html = admin_page(
@@ -215,26 +214,25 @@ pub async fn get_order_table(
     State(state): State<AppState>,
     session: Session,
     Query(params): Query<OrderQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
     let user_svc = state.user_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = svc.list(&ctx, &mut conn, filter, page).await?;
 
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut *conn, &result.items).await;
-    let sales_rep_names = resolve_sales_rep_names(&user_svc, &ctx, &mut *conn, &result.items).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let sales_rep_names = resolve_sales_rep_names(&user_svc, &ctx, &mut conn, &result.items).await;
 
     let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .list(&ctx2, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .await?;
 
     Ok(Html(order_table_fragment(&result, &customer_names, &sales_rep_names, &customers.items, &params).into_string()))
 }
@@ -245,13 +243,13 @@ pub async fn delete_order(
     path: DeleteOrderPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl axum::response::IntoResponse, AppError> {
+) -> Result<impl axum::response::IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.delete(&ctx, &mut *conn, path.id).await?;
+    svc.delete(&ctx, &mut conn, path.id).await?;
 
     Ok(([("HX-Redirect", OrderListPath::PATH)], Html(String::new())))
 }

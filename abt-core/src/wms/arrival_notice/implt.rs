@@ -26,13 +26,12 @@ use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::ArrivalStatus;
 
 pub struct ArrivalNoticeServiceImpl {
-    repo: ArrivalNoticeRepo,
     pool: PgPool,
 }
 
 impl ArrivalNoticeServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { repo: ArrivalNoticeRepo, pool }
+        Self { pool }
     }
 }
 

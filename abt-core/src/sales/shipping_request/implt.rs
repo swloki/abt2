@@ -10,7 +10,7 @@ use crate::sales::sales_order::{new_sales_order_service, service::SalesOrderServ
 use crate::sales::shipping_request::model::*;
 use crate::sales::shipping_request::repo::{ShippingRequestItemRepo, ShippingRequestRepo};
 use crate::sales::shipping_request::service::ShippingRequestService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::cost_entry::model::EntryRequest;
 use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
@@ -108,13 +108,15 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .repo
             .create(
                 db,
-                &doc_number,
-                req.order_id,
-                order.customer_id,
-                req.expected_ship_date,
-                req.shipping_address.as_deref().unwrap_or(""),
-                "",
-                ctx.operator_id,
+                &CreateShippingRequestParams {
+                    doc_number: &doc_number,
+                    order_id: req.order_id,
+                    customer_id: order.customer_id,
+                    expected_ship_date: req.expected_ship_date,
+                    shipping_address: req.shipping_address.as_deref().unwrap_or(""),
+                    remark: "",
+                    operator_id: ctx.operator_id,
+                },
             )
             .await?;
 
@@ -143,14 +145,16 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "ShippingRequest",
-                id,
-                AuditAction::Create,
-                Some(serde_json::json!({ "order_id": req.order_id })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "ShippingRequest",
+                        entity_id: id,
+                        action: AuditAction::Create,
+                        changes: Some(serde_json::json!({ "order_id": req.order_id })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(id)
@@ -188,7 +192,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "ShippingRequest", id, AuditAction::Update, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "ShippingRequest", entity_id: id, action: AuditAction::Update, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -237,14 +241,16 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "ShippingRequest",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Draft", "to": "Confirmed" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "ShippingRequest",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Draft", "to": "Confirmed" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -271,14 +277,16 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "ShippingRequest",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Confirmed", "to": "Picking" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "ShippingRequest",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Confirmed", "to": "Picking" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -380,14 +388,16 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "ShippingRequest",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Picking", "to": "Shipped" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "ShippingRequest",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Picking", "to": "Shipped" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -434,14 +444,16 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "ShippingRequest",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": existing.status.as_str(), "to": "Cancelled" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "ShippingRequest",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": existing.status.as_str(), "to": "Cancelled" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -476,7 +488,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         self.repo.soft_delete(db, id).await?;
 
-        new_audit_log_service(self.pool.clone()).record(ctx, db, "ShippingRequest", id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone()).record(ctx, db, RecordAuditLogReq { entity_type: "ShippingRequest", entity_id: id, action: AuditAction::Delete, changes: None, context: None }).await?;
 
         Ok(())
     }

@@ -1,8 +1,6 @@
-﻿use async_trait::async_trait;
-use serde_json::Value as JsonValue;
+use async_trait::async_trait;
 
-use super::model::AuditLogQuery;
-use super::super::enums::audit::AuditAction;
+use super::model::{AuditLogQuery, RecordAuditLogReq};
 use super::super::types::context::ServiceContext;
 use super::super::types::{PgExecutor, Result};
 use super::super::types::pagination::PaginatedResult;
@@ -15,11 +13,7 @@ pub trait AuditLogService: Send + Sync {
     async fn record(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
-        entity_type: &str,
-        entity_id: i64,
-        action: AuditAction,
-        changes: Option<JsonValue>,
-        context: Option<JsonValue>,
+        req: RecordAuditLogReq,
     ) -> Result<i64>;
 
     /// 分页查询审计日志，支持 entity_type / operator_id / action / time_range 过滤

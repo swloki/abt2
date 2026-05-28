@@ -6,7 +6,7 @@ use crate::master_data::customer::{new_customer_service, service::CustomerServic
 use crate::sales::quotation::model::*;
 use crate::sales::quotation::repo::{QuotationItemRepo, QuotationRepo};
 use crate::sales::quotation::service::QuotationService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
@@ -111,13 +111,15 @@ impl QuotationService for QuotationServiceImpl {
             .repo
             .create(
                 db,
-                &doc_number,
-                &req,
-                ctx.operator_id,
-                total_amount,
-                total_cost,
-                estimated_margin,
-                ctx.operator_id,
+                &CreateQuotationParams {
+                    doc_number: &doc_number,
+                    req: &req,
+                    sales_rep_id: ctx.operator_id,
+                    total_amount,
+                    total_cost,
+                    estimated_margin,
+                    operator_id: ctx.operator_id,
+                },
             )
             .await?;
 
@@ -132,7 +134,7 @@ impl QuotationService for QuotationServiceImpl {
             .ok();
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Quotation", id, AuditAction::Create, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Quotation", entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -212,7 +214,7 @@ impl QuotationService for QuotationServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Quotation", id, AuditAction::Update, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Quotation", entity_id: id, action: AuditAction::Update, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -252,17 +254,19 @@ impl QuotationService for QuotationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "Quotation",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "Quotation",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({
                     "from": "Draft",
                     "to": "Sent",
                 })),
-                None,
-            )
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -306,17 +310,19 @@ impl QuotationService for QuotationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "Quotation",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "Quotation",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({
                     "from": existing.status.as_str(),
                     "to": "Accepted",
                 })),
-                None,
-            )
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -361,17 +367,19 @@ impl QuotationService for QuotationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "Quotation",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "Quotation",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({
                     "from": existing.status.as_str(),
                     "to": "Rejected",
                 })),
-                None,
-            )
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -417,17 +425,19 @@ impl QuotationService for QuotationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "Quotation",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "Quotation",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({
                     "from": existing.status.as_str(),
                     "to": "Expired",
                 })),
-                None,
-            )
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -465,9 +475,7 @@ impl QuotationService for QuotationServiceImpl {
     ) -> Result<Vec<QuotationItem>> {
         self.item_repo
             .find_by_quotation_id(db, quotation_id)
-            .await
-            .map_err(Into::into)
-    }
+            .await}
 
     async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
@@ -484,14 +492,16 @@ impl QuotationService for QuotationServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "Quotation",
-                id,
-                AuditAction::Delete,
-                Some(serde_json::json!({ "doc_number": existing.doc_number })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "Quotation",
+                        entity_id: id,
+                        action: AuditAction::Delete,
+                        changes: Some(serde_json::json!({ "doc_number": existing.doc_number })),
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -526,7 +536,5 @@ impl QuotationService for QuotationServiceImpl {
                 ctx.operator_id,
                 ctx.department_id,
             )
-            .await
-            .map_err(Into::into)
-    }
+            .await}
 }

@@ -34,7 +34,7 @@ impl EventHandler for ProductSyncHandler {
         // 1. Fetch product from abt_v2
         let mut conn = self.pool.acquire().await.map_err(|e| DomainError::Internal(e.into()))?;
         let product = ProductRepo
-            .find_by_id(&mut *conn, product_id)
+            .find_by_id(&mut conn, product_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| {

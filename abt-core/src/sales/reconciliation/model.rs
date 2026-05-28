@@ -117,6 +117,16 @@ pub struct ReconciliationQuery {
     pub keyword: Option<String>,
 }
 
+/// 对账单创建参数（repo 层使用）
+pub struct CreateReconciliationParams<'a> {
+    pub doc_number: &'a str,
+    pub customer_id: i64,
+    pub period: &'a str,
+    pub total_amount: Decimal,
+    pub remark: &'a str,
+    pub operator_id: i64,
+}
+
 /// 明细行聚合输入（由 repo 查询填充）
 pub struct ReconciliationItemInput {
     pub shipping_request_id: i64,

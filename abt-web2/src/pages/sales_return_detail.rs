@@ -18,7 +18,8 @@ use abt_core::shared::types::{PgExecutor, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
 use crate::routes::sales_return::*;
@@ -74,9 +75,9 @@ pub async fn get_return_detail(
     State(state): State<AppState>,
     session: Session,
     headers: HeaderMap,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     // Fetch return header
@@ -135,9 +136,9 @@ pub async fn confirm_return(
     path: ConfirmReturnPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     state.sales_return_service()
@@ -152,9 +153,9 @@ pub async fn receive_return(
     path: ReceiveReturnPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     state.sales_return_service()
@@ -169,9 +170,9 @@ pub async fn inspect_return(
     path: InspectReturnPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     state.sales_return_service()
@@ -186,9 +187,9 @@ pub async fn complete_return(
     path: CompleteReturnPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     state.sales_return_service()
@@ -203,9 +204,9 @@ pub async fn reject_return(
     path: RejectReturnPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
     let ctx = ServiceContext::new(claims.sub);
 
     state.sales_return_service()

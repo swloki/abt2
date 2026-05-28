@@ -51,6 +51,17 @@ pub struct CreateInspectionResultReq {
     pub sample_qty: Decimal,
 }
 
+/// 记录检验结果参数
+pub struct RecordResultParams {
+    pub id: i64,
+    pub result: i16,
+    pub qualified_qty: Decimal,
+    pub unqualified_qty: Decimal,
+    pub check_results: Vec<CheckResult>,
+    pub inspector_id: i64,
+    pub inspection_date: NaiveDate,
+}
+
 /// 记录检验结果 — 录入实际检验数据，返回 QualityGateStatus
 #[derive(Debug, Clone)]
 pub struct RecordInspectionResultReq {

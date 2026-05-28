@@ -118,7 +118,7 @@ impl ProductInventoryImporter {
             .collect();
         let mut location_map: HashMap<String, (i64, i64, i64)> = HashMap::new();
         for code in &all_location_codes {
-            if let Some(loc) = WarehouseRepo::resolve_location_code(&mut *conn, code).await? {
+            if let Some(loc) = WarehouseRepo::resolve_location_code(&mut conn, code).await? {
                 location_map.insert(code.clone(), loc);
             }
         }
@@ -219,13 +219,12 @@ impl ProductInventoryImporter {
 
             let mut item_failed = false;
 
-            if let Some(ref name) = item.new_name {
-                if let Err(e) = ProductRepo::update_name(&mut tx, item.product_id, name).await {
+            if let Some(ref name) = item.new_name
+                && let Err(e) = ProductRepo::update_name(&mut tx, item.product_id, name).await {
                     result.failed_count += 1;
                     result.errors.push(format!("更新产品名称失败 {}: {}", item.product_code, e));
                     item_failed = true;
                 }
-            }
 
             if !item_failed
                 && let Some(price) = item.price
@@ -242,7 +241,7 @@ impl ProductInventoryImporter {
                 && let (Some(wh_id), Some(z_id), Some(b_id)) = (item.warehouse_id, item.zone_id, item.bin_id)
             {
                 if let Some(quantity) = item.quantity {
-                    match StockLedgerRepo::upsert_quantity(&mut *tx, item.product_id, wh_id, z_id, b_id, quantity).await {
+                    match StockLedgerRepo::upsert_quantity(&mut tx, item.product_id, wh_id, z_id, b_id, quantity).await {
                         Ok(_) => {}
                         Err(e) => {
                             result.failed_count += 1;
@@ -254,13 +253,11 @@ impl ProductInventoryImporter {
 
                 if !item_failed
                     && let Some(safety_stock) = item.safety_stock
-                {
-                    if let Err(e) = StockLedgerRepo::set_safety_stock(&mut *tx, item.product_id, wh_id, z_id, b_id, safety_stock).await {
+                    && let Err(e) = StockLedgerRepo::set_safety_stock(&mut tx, item.product_id, wh_id, z_id, b_id, safety_stock).await {
                         result.failed_count += 1;
                         result.errors.push(format!("更新安全库存失败: {}", e));
                         item_failed = true;
                     }
-                }
             }
 
             if !item_failed

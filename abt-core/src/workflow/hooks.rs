@@ -71,8 +71,8 @@ async fn record_hook_history(
         (false, Some(e), true) => json!({"success": false, "event": event, "error": e, "retry": true}),
         (false, None, retry) => json!({"success": false, "event": event, "retry": retry}),
     };
-    if let Ok(mut conn) = pool.acquire().await {
-        if let Err(e) = WorkflowHistoryRepo::insert(
+    if let Ok(mut conn) = pool.acquire().await
+        && let Err(e) = WorkflowHistoryRepo::insert(
             conn.as_mut(),
             instance_id,
             None,
@@ -85,7 +85,6 @@ async fn record_hook_history(
         {
             tracing::warn!("workflow history insert failed: {e}");
         }
-    }
 }
 
 /// 异步触发 hook（在事务 commit 后调用）

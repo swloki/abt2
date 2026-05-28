@@ -9,6 +9,12 @@ use super::service::ProductWatcherService;
 
 pub struct ProductWatcherServiceImpl;
 
+impl Default for ProductWatcherServiceImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProductWatcherServiceImpl {
     pub fn new() -> Self {
         Self

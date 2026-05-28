@@ -87,6 +87,7 @@ pub fn eye_icon(c: &str) -> Markup {
     svg(r#"<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>"#, c)
 }
 
+#[allow(dead_code)]
 pub fn eye_off_icon(c: &str) -> Markup {
     svg(r#"<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>"#, c)
 }
@@ -109,6 +110,7 @@ pub fn search_icon(c: &str) -> Markup {
     svg(r#"<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>"#, c)
 }
 
+#[allow(dead_code)]
 pub fn more_horizontal_icon(c: &str) -> Markup {
     svg(r#"<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>"#, c)
 }
@@ -121,6 +123,7 @@ pub fn edit_icon(c: &str) -> Markup {
     svg(r#"<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>"#, c)
 }
 
+#[allow(dead_code)]
 pub fn copy_icon(c: &str) -> Markup {
     svg(r#"<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>"#, c)
 }
@@ -145,10 +148,12 @@ pub fn monitor_icon(c: &str) -> Markup {
     svg(r#"<rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>"#, c)
 }
 
+#[allow(dead_code)]
 pub fn chevron_down_icon(c: &str) -> Markup {
     svg(r#"<polyline points="6 9 12 15 18 9"/>"#, c)
 }
 
+#[allow(dead_code)]
 pub fn chevron_right_icon(c: &str) -> Markup {
     svg(r#"<polyline points="9 18 15 12 9 6"/>"#, c)
 }
@@ -165,6 +170,7 @@ pub fn menu_icon(c: &str) -> Markup {
     svg(r#"<line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>"#, c)
 }
 
+#[allow(dead_code)]
 pub fn log_out_icon(c: &str) -> Markup {
     svg(r#"<path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>"#, c)
 }
@@ -183,6 +189,7 @@ pub fn truck_icon(c: &str) -> Markup {
     svg(r#"<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>"#, c)
 }
 
+#[allow(dead_code)]
 pub fn refresh_icon(c: &str) -> Markup {
     svg(r#"<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>"#, c)
 }
@@ -199,10 +206,12 @@ pub fn download_icon(c: &str) -> Markup {
     svg(r#"<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>"#, c)
 }
 
+#[allow(dead_code)]
 pub fn upload_icon(c: &str) -> Markup {
     svg(r#"<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>"#, c)
 }
 
+#[allow(dead_code)]
 pub fn filter_icon(c: &str) -> Markup {
     svg(r#"<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>"#, c)
 }

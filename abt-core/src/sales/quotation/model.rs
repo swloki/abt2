@@ -163,6 +163,17 @@ pub struct QuotationQuery {
     pub keyword: Option<String>,
 }
 
+/// 报价单创建参数（repo 层使用）
+pub struct CreateQuotationParams<'a> {
+    pub doc_number: &'a str,
+    pub req: &'a CreateQuotationReq,
+    pub sales_rep_id: i64,
+    pub total_amount: Decimal,
+    pub total_cost: Decimal,
+    pub estimated_margin: Decimal,
+    pub operator_id: i64,
+}
+
 /// 明细行批量插入输入
 pub struct QuotationItemInput {
     pub line_no: i32,

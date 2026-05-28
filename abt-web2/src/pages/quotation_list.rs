@@ -19,14 +19,15 @@ use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::quotation::*;
 use crate::state::AppState;
 
 // ── Query Params ──
 
-fn empty_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
+fn empty_as_none<'de, D, T>(de: D) -> std::result::Result<Option<T>, D::Error>
 where
     D: serde::de::Deserializer<'de>,
     T: std::str::FromStr,
@@ -141,32 +142,30 @@ pub async fn get_quotation_list(
     session: Session,
     headers: HeaderMap,
     Query(params): Query<QuotationQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.quotation_service();
     let customer_svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = svc.list(&ctx, &mut conn, filter, page).await?;
 
     let mut names = HashMap::new();
     let mut seen = HashSet::new();
     for q in &result.items {
-        if seen.insert(q.customer_id) {
-            if let Ok(c) = customer_svc.get(&ctx, &mut *conn, q.customer_id).await {
+        if seen.insert(q.customer_id)
+            && let Ok(c) = customer_svc.get(&ctx, &mut conn, q.customer_id).await {
                 names.insert(q.customer_id, c.name);
             }
-        }
     }
 
     let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .list(&ctx2, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .await?;
 
     let content = quotation_list_page(&claims, &result, &names, &customers.items, &params);
     let page_html = admin_page(
@@ -180,32 +179,30 @@ pub async fn get_quotation_table(
     State(state): State<AppState>,
     session: Session,
     Query(params): Query<QuotationQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.quotation_service();
     let customer_svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = svc.list(&ctx, &mut conn, filter, page).await?;
 
     let mut names = HashMap::new();
     let mut seen = HashSet::new();
     for q in &result.items {
-        if seen.insert(q.customer_id) {
-            if let Ok(c) = customer_svc.get(&ctx, &mut *conn, q.customer_id).await {
+        if seen.insert(q.customer_id)
+            && let Ok(c) = customer_svc.get(&ctx, &mut conn, q.customer_id).await {
                 names.insert(q.customer_id, c.name);
             }
-        }
     }
 
     let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .list(&ctx2, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .await?;
 
     Ok(Html(quotation_table_fragment(&result, &names, &customers.items, &params).into_string()))
 }
@@ -214,13 +211,13 @@ pub async fn get_edit_quotation_form(
     path: EditQuotationFormPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.quotation_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    let quotation = svc.find_by_id(&ctx, &mut *conn, path.id).await?;
+    let quotation = svc.find_by_id(&ctx, &mut conn, path.id).await?;
 
     let update_path = UpdateQuotationPath { id: path.id };
     let form_html = quotation_edit_form(&quotation, &update_path.to_string());
@@ -242,10 +239,10 @@ pub async fn update_quotation(
     State(state): State<AppState>,
     session: Session,
     Form(form): Form<UpdateQuotationForm>,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.quotation_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let req = UpdateQuotationReq {
         payment_terms: form.payment_terms,
@@ -255,7 +252,7 @@ pub async fn update_quotation(
     };
 
     let ctx = make_ctx(claims.sub);
-    svc.update(&ctx, &mut *conn, path.id, req).await?;
+    svc.update(&ctx, &mut conn, path.id, req).await?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -265,13 +262,13 @@ pub async fn delete_quotation(
     path: DeleteQuotationPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.quotation_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.delete(&ctx, &mut *conn, path.id).await?;
+    svc.delete(&ctx, &mut conn, path.id).await?;
 
     Ok(([("HX-Redirect", QuotationListPath::PATH)], Html(String::new())))
 }

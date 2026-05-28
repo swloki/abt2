@@ -200,6 +200,18 @@ pub struct ReturnQuery {
     pub keyword: Option<String>,
 }
 
+/// 退货单创建参数（repo 层使用）
+pub struct CreateSalesReturnParams<'a> {
+    pub doc_number: &'a str,
+    pub order_id: i64,
+    pub shipping_request_id: i64,
+    pub customer_id: i64,
+    pub return_reason: &'a str,
+    pub total_amount: Decimal,
+    pub remark: &'a str,
+    pub operator_id: i64,
+}
+
 /// 明细行批量插入输入
 pub struct ReturnItemInput {
     pub order_item_id: i64,

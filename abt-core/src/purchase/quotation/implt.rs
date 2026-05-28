@@ -5,7 +5,7 @@ use sqlx::postgres::PgPool;
 use super::model::{CreatePurchaseQuotationRequest, PurchaseQuotation, PurchaseQuotationQuery, QuotationComparison};
 use super::repo::{PurchaseQuotationItemRepo, PurchaseQuotationRepo};
 use super::service::PurchaseQuotationService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
@@ -75,7 +75,7 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
 
         // 4. 审计日志
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         Ok(id)
@@ -144,7 +144,7 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
 
         // 5. 审计日志
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
             .await?;
 
         Ok(())

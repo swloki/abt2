@@ -5,7 +5,7 @@ use super::model::*;
 use super::repo;
 use super::service::InspectionSpecificationService;
 use crate::qms::enums::*;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::types::PgExecutor;
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
@@ -80,7 +80,7 @@ impl InspectionSpecificationService for InspectionSpecificationServiceImpl {
 
         // 4. 审计日志
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         Ok(id)
@@ -133,13 +133,12 @@ impl InspectionSpecificationService for InspectionSpecificationServiceImpl {
         }
 
         // 3. 如果包含状态变更，先走状态机校验
-        if let Some(new_status) = req.status {
-            if new_status != existing.status {
+        if let Some(new_status) = req.status
+            && new_status != existing.status {
                 new_state_machine_service(self.pool.clone())
                     .transition(ctx, db, ENTITY_TYPE, id, &new_status.to_string(), None)
                     .await?;
             }
-        }
 
         // 4. 乐观锁更新
         let rows = repo::update_fields(
@@ -159,7 +158,7 @@ impl InspectionSpecificationService for InspectionSpecificationServiceImpl {
 
         // 5. 审计日志
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Update, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Update, changes: None, context: None })
             .await?;
 
         Ok(())

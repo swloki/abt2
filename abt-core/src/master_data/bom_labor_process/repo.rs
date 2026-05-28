@@ -5,6 +5,8 @@ use crate::shared::types::Result;
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
 
+pub type LaborProcessRow = (String, i64, String, String, Decimal, Decimal, i32, Option<String>);
+
 pub struct BomLaborProcessRepo;
 
 impl BomLaborProcessRepo {
@@ -141,7 +143,7 @@ impl BomLaborProcessRepo {
     /// 批量插入劳动工序（逐行 INSERT，用于 Excel 导入）
     pub async fn batch_insert(
         executor: PgExecutor<'_>,
-        rows: &[(String, i64, String, String, Decimal, Decimal, i32, Option<String>)],
+        rows: &[LaborProcessRow],
     ) -> Result<()> {
         for (product_code, dict_id, process_code, name, unit_price, quantity, sort_order, remark) in rows {
             sqlx::query(

@@ -8,8 +8,7 @@ use crate::fms::enums::{
 use crate::fms::expense::model::*;
 use crate::fms::expense::repo::{ExpenseReimbursementItemRepo, ExpenseReimbursementRepo};
 use crate::fms::expense::service::ExpenseReimbursementService;
-use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::audit_log::new_audit_log_service;
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::document_sequence::new_document_sequence_service;
 use crate::shared::enums::audit::AuditAction;
@@ -89,14 +88,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
 
         // Step 6: Audit log
         new_audit_log_service(self.pool.clone())
-            .record(
-                ctx, db,
-                "ExpenseReimbursement",
-                id,
-                AuditAction::Create,
-                None,
-                None,
-            )
+            .record(ctx, db, RecordAuditLogReq { entity_type: "ExpenseReimbursement", entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
         Ok(id)
@@ -134,7 +126,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
     /// Called by WorkflowEngine Hook with ServiceContext for interface alignment.
     async fn generate_payment_journal(
         &self,
-        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        _ctx: &ServiceContext, _db: PgExecutor<'_>,
         expense_id: i64,
     ) -> Result<i64> {
         // Step 1: Begin independent transaction
@@ -154,7 +146,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         let cj_doc_number = {
             let cj_ctx = ServiceContext::new(expense.operator_id);
             new_document_sequence_service(self.pool.clone())
-                .next_number(&cj_ctx, &mut *tx, DocumentType::CashJournal)
+                .next_number(&cj_ctx, &mut tx, DocumentType::CashJournal)
                 .await?
         };
 
@@ -256,7 +248,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             let event_ctx = ServiceContext::new(expense.operator_id);
             new_domain_event_bus(self.pool.clone())
                 .publish(
-                    &event_ctx, &mut *event_conn,
+                    &event_ctx, &mut event_conn,
                     EventPublishRequest {
                         event_type: DomainEventType::ExpensePaymentGenerated,
                         aggregate_type: "ExpenseReimbursement".to_string(),

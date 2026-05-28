@@ -8,7 +8,7 @@ use super::super::model::{User, UserWithRoles};
 use super::super::repo::IdentityRepo;
 use super::super::user_service::UserService;
 use crate::shared::audit_log::service::AuditLogService;
-use crate::shared::audit_log::new_audit_log_service;
+use crate::shared::audit_log::{new_audit_log_service, RecordAuditLogReq};
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::context::ServiceContext;
@@ -69,15 +69,17 @@ impl UserService for UserServiceImpl {
             .record(
                 ctx,
                 db,
-                "user",
-                user.user_id,
-                AuditAction::Create,
-                Some(json!({
-                    "username": { "old": null, "new": username },
-                    "display_name": { "old": null, "new": display_name },
-                    "is_super_admin": { "old": null, "new": is_super_admin },
-                })),
-                None,
+                RecordAuditLogReq {
+                    entity_type: "user",
+                    entity_id: user.user_id,
+                    action: AuditAction::Create,
+                    changes: Some(json!({
+                        "username": { "old": null, "new": username },
+                        "display_name": { "old": null, "new": display_name },
+                        "is_super_admin": { "old": null, "new": is_super_admin },
+                    })),
+                    context: None,
+                },
             )
             .await?;
 
@@ -96,16 +98,18 @@ impl UserService for UserServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "user",
-                user_id,
-                AuditAction::Update,
-                Some(json!({
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "user",
+                        entity_id: user_id,
+                        action: AuditAction::Update,
+                        changes: Some(json!({
                     "display_name": { "new": display_name }
                 })),
-                None,
-            )
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(user)
@@ -121,7 +125,7 @@ impl UserService for UserServiceImpl {
             ?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "user", user_id, AuditAction::Delete, None, None)
+            .record(ctx, db, RecordAuditLogReq { entity_type: "user", entity_id: user_id, action: AuditAction::Delete, changes: None, context: None })
             .await?;
 
         Ok(())
@@ -174,16 +178,18 @@ impl UserService for UserServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "user",
-                user_id,
-                AuditAction::Update,
-                Some(json!({
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "user",
+                        entity_id: user_id,
+                        action: AuditAction::Update,
+                        changes: Some(json!({
                     "role_ids": { "new": role_ids }
                 })),
-                None,
-            )
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -268,16 +274,18 @@ impl UserService for UserServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "user",
-                user_id,
-                AuditAction::Update,
-                Some(json!({
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "user",
+                        entity_id: user_id,
+                        action: AuditAction::Update,
+                        changes: Some(json!({
                     "assign_role_ids": { "new": role_ids }
                 })),
-                None,
-            )
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -299,16 +307,18 @@ impl UserService for UserServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "user",
-                user_id,
-                AuditAction::Update,
-                Some(json!({
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "user",
+                        entity_id: user_id,
+                        action: AuditAction::Update,
+                        changes: Some(json!({
                     "remove_role_ids": { "new": role_ids }
                 })),
-                None,
-            )
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -353,14 +363,16 @@ impl UserService for UserServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "user",
-                user_id,
-                AuditAction::Update,
-                Some(json!({ "password_changed": true })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "user",
+                        entity_id: user_id,
+                        action: AuditAction::Update,
+                        changes: Some(json!({ "password_changed": true })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -378,16 +390,18 @@ impl UserService for UserServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "user",
-                user_id,
-                AuditAction::Update,
-                Some(json!({
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "user",
+                        entity_id: user_id,
+                        action: AuditAction::Update,
+                        changes: Some(json!({
                     "is_active": { "new": is_active }
                 })),
-                None,
-            )
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(user)

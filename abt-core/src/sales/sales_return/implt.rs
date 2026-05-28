@@ -8,7 +8,7 @@ use crate::sales::sales_return::model::*;
 use crate::sales::sales_return::repo::{SalesReturnItemRepo, SalesReturnRepo};
 use crate::sales::sales_return::service::SalesReturnService;
 use crate::sales::shipping_request::{new_shipping_request_service, service::ShippingRequestService};
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::cost_entry::model::EntryRequest;
 use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
@@ -114,14 +114,16 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .repo
             .create(
                 db,
-                &doc_number,
-                req.order_id,
-                req.shipping_request_id,
-                req.customer_id,
-                &req.return_reason,
-                total_amount,
-                "",
-                ctx.operator_id,
+                &CreateSalesReturnParams {
+                    doc_number: &doc_number,
+                    order_id: req.order_id,
+                    shipping_request_id: req.shipping_request_id,
+                    customer_id: req.customer_id,
+                    return_reason: &req.return_reason,
+                    total_amount,
+                    remark: "",
+                    operator_id: ctx.operator_id,
+                },
             )
             .await?;
 
@@ -150,17 +152,19 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesReturn",
-                id,
-                AuditAction::Create,
-                Some(serde_json::json!({
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesReturn",
+                        entity_id: id,
+                        action: AuditAction::Create,
+                        changes: Some(serde_json::json!({
                     "order_id": req.order_id,
                     "shipping_request_id": req.shipping_request_id,
                 })),
-                None,
-            )
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(id)
@@ -198,14 +202,16 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesReturn",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Draft", "to": "Confirmed" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesReturn",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Draft", "to": "Confirmed" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -232,14 +238,16 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesReturn",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Confirmed", "to": "Received" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesReturn",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Confirmed", "to": "Received" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -266,14 +274,16 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesReturn",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Received", "to": "Inspecting" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesReturn",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Received", "to": "Inspecting" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -364,14 +374,16 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesReturn",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Inspecting", "to": "Completed" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesReturn",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Inspecting", "to": "Completed" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -416,14 +428,16 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesReturn",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Draft", "to": "Rejected" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesReturn",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Draft", "to": "Rejected" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -450,14 +464,16 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx,
-                db,
-                "SalesReturn",
-                id,
-                AuditAction::Transition,
-                Some(serde_json::json!({ "from": "Inspecting", "to": "Cancelled" })),
-                None,
-            )
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "SalesReturn",
+                        entity_id: id,
+                        action: AuditAction::Transition,
+                        changes: Some(serde_json::json!({ "from": "Inspecting", "to": "Cancelled" })),
+                        context: None,
+                    },
+                )
             .await?;
 
         Ok(())
@@ -492,7 +508,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         self.repo.soft_delete(db, id).await?;
 
-        new_audit_log_service(self.pool.clone()).record(ctx, db, "SalesReturn", id, AuditAction::Delete, None, None).await?;
+        new_audit_log_service(self.pool.clone()).record(ctx, db, RecordAuditLogReq { entity_type: "SalesReturn", entity_id: id, action: AuditAction::Delete, changes: None, context: None }).await?;
 
         Ok(())
     }

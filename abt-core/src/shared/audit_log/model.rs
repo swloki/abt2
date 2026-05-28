@@ -25,3 +25,13 @@ pub struct AuditLogQuery {
     pub time_range_start: Option<DateTime<Utc>>,
     pub time_range_end: Option<DateTime<Utc>>,
 }
+
+/// 记录审计日志请求参数
+#[derive(Debug, Clone)]
+pub struct RecordAuditLogReq {
+    pub entity_type: &'static str,
+    pub entity_id: i64,
+    pub action: AuditAction,
+    pub changes: Option<JsonValue>,
+    pub context: Option<JsonValue>,
+}

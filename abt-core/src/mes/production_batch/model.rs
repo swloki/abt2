@@ -69,6 +69,23 @@ pub struct StepConfirmationReq {
     pub remark: Option<String>,
 }
 
+/// 报工记录插入参数
+pub struct InsertWorkReportParams<'a> {
+    pub doc_number: &'a str,
+    pub work_order_id: i64,
+    pub batch_id: i64,
+    pub routing_id: i64,
+    pub report_date: chrono::NaiveDate,
+    pub shift: ShiftType,
+    pub worker_id: i64,
+    pub completed_qty: Decimal,
+    pub defect_qty: Decimal,
+    pub defect_reason: Option<DefectReason>,
+    pub work_hours: Decimal,
+    pub remark: &'a str,
+    pub operator_id: i64,
+}
+
 #[derive(Debug, Clone)]
 pub struct StepConfirmationResult {
     pub work_report_id: i64,

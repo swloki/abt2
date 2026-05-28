@@ -45,6 +45,7 @@ pub struct OrderEditFormPath {
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/orders/{id}/update")]
+#[allow(dead_code)]
 pub struct UpdateOrderPath {
     pub id: i64,
 }

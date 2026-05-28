@@ -5,7 +5,7 @@ use rust_decimal::Decimal;
 use super::model::*;
 use super::repo::PriceRepo;
 use super::service::ProductPriceService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
 
@@ -27,7 +27,14 @@ impl ProductPriceService for PriceServiceImpl {
             .await?
             .map(|e| e.new_price);
 
-        self.repo.create(db, product_id, price_type, old_price, new_price, ctx.operator_id, &remark)
+        self.repo.create(db, &CreatePriceParams {
+            product_id,
+            price_type,
+            old_price,
+            new_price,
+            operator_id: ctx.operator_id,
+            remark: &remark,
+        })
             .await?;
 
         let changes = serde_json::json!({
@@ -38,7 +45,7 @@ impl ProductPriceService for PriceServiceImpl {
             "remark": remark,
         });
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "PriceLog", product_id, AuditAction::Update, Some(changes), None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "PriceLog", entity_id: product_id, action: AuditAction::Update, changes: Some(changes), context: None }).await?;
         Ok(())
     }
 

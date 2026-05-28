@@ -3,7 +3,7 @@ use sqlx::PgPool;
 use super::model::*;
 use super::repo::CategoryRepo;
 use super::service::CategoryService;
-use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
@@ -40,7 +40,7 @@ impl CategoryService for CategoryServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Category", id, AuditAction::Create, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Category", entity_id: id, action: AuditAction::Create, changes: None, context: None }).await?;
         Ok(id)
     }
 
@@ -53,7 +53,7 @@ impl CategoryService for CategoryServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Category", category_id, AuditAction::Update, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Category", entity_id: category_id, action: AuditAction::Update, changes: None, context: None }).await?;
         Ok(())
     }
 
@@ -74,7 +74,7 @@ impl CategoryService for CategoryServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Category", category_id, AuditAction::Delete, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Category", entity_id: category_id, action: AuditAction::Delete, changes: None, context: None }).await?;
         Ok(())
     }
 
@@ -130,7 +130,7 @@ impl CategoryService for CategoryServiceImpl {
             .await?;
 
         new_audit_log_service(self.pool.clone())
-            .record(ctx, db, "Category", category_id, AuditAction::Update, None, None).await?;
+            .record(ctx, db, RecordAuditLogReq { entity_type: "Category", entity_id: category_id, action: AuditAction::Update, changes: None, context: None }).await?;
         Ok(())
     }
 

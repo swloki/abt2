@@ -17,7 +17,8 @@ use abt_core::shared::types::{PageParams, ServiceContext};
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::customer_info::{customer_info_panel, CustomerContactsParams};
 use crate::components::icon;
-use crate::errors::AppError;
+use crate::errors::Result;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
 use crate::state::AppState;
@@ -88,16 +89,15 @@ pub async fn get_order_create(
     State(state): State<AppState>,
     session: Session,
     headers: HeaderMap,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let customer_svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .await?;
 
     let content = order_create_page(&customers.items);
     let page_html = admin_page(
@@ -112,24 +112,23 @@ pub async fn get_customer_contacts(
     State(state): State<AppState>,
     session: Session,
     Query(params): Query<CustomerContactsParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let customer_svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let contacts = match params.customer_id {
         Some(cid) if cid > 0 => {
             let ctx = make_ctx(claims.sub);
-            customer_svc.list_contacts(&ctx, &mut *conn, cid).await.unwrap_or_default()
+            customer_svc.list_contacts(&ctx, &mut conn, cid).await.unwrap_or_default()
         }
         _ => vec![],
     };
 
     let ctx2 = make_ctx(claims.sub);
     let result = customer_svc
-        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .list(&ctx2, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .await?;
 
     Ok(Html(customer_info_panel(&result.items, &contacts, params.customer_id, OrderCustomerContactsPath::PATH).into_string()))
 }
@@ -139,10 +138,10 @@ pub async fn get_products(
     State(state): State<AppState>,
     session: Session,
     Query(params): Query<ProductSearchParams>,
-) -> Result<Html<String>, AppError> {
+) -> Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.product_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = ProductQuery {
         name: params.name,
@@ -151,7 +150,7 @@ pub async fn get_products(
         owner_department_id: None,
     };
     let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut *conn, filter, PageParams::new(1, 20)).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let result = svc.list(&ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
 
     Ok(Html(product_list_fragment(&result.items).into_string()))
 }
@@ -162,23 +161,23 @@ pub async fn create_order(
     State(state): State<AppState>,
     session: Session,
     axum::Form(form): axum::Form<OrderCreateForm>,
-) -> Result<impl IntoResponse, AppError> {
+) -> Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     if form.customer_id == 0 {
-        return Err(AppError::BadRequest("请选择客户".into()));
+        return Err(DomainError::validation("请选择客户").into());
     }
     if form.contact_id == 0 {
-        return Err(AppError::BadRequest("请选择联系人".into()));
+        return Err(DomainError::validation("请选择联系人").into());
     }
 
     let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
-        .map_err(|e| AppError::BadRequest(format!("无效产品数据: {e}")))?;
+        .map_err(|e| DomainError::validation(format!("无效产品数据: {e}")))?;
 
     if web_items.is_empty() {
-        return Err(AppError::BadRequest("请至少添加一个产品".into()));
+        return Err(DomainError::validation("请至少添加一个产品").into());
     }
 
     let items: Vec<CreateSalesOrderItemReq> = web_items.into_iter().map(|item| {
@@ -200,7 +199,7 @@ pub async fn create_order(
         subtotal * (rust_decimal::Decimal::ONE - discount)
     }).sum();
     if total <= rust_decimal::Decimal::ZERO {
-        return Err(AppError::BadRequest("订单总额不能为零，请填写产品单价".into()));
+        return Err(DomainError::validation("订单总额不能为零，请填写产品单价").into());
     }
 
     let create_req = CreateSalesOrderReq {
@@ -214,7 +213,7 @@ pub async fn create_order(
     };
 
     let ctx = ServiceContext::new(claims.sub);
-    let id = svc.create(&ctx, &mut *conn, create_req).await?;
+    let id = svc.create(&ctx, &mut conn, create_req).await?;
 
     let redirect = OrderDetailPath { id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

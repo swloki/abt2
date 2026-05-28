@@ -145,6 +145,17 @@ pub struct ShippingQuery {
     pub customer_id: Option<i64>,
 }
 
+/// 发货申请创建参数（repo 层使用）
+pub struct CreateShippingRequestParams<'a> {
+    pub doc_number: &'a str,
+    pub order_id: i64,
+    pub customer_id: i64,
+    pub expected_ship_date: Option<NaiveDate>,
+    pub shipping_address: &'a str,
+    pub remark: &'a str,
+    pub operator_id: i64,
+}
+
 /// 明细行批量插入输入
 pub struct ShippingItemInput {
     pub line_no: i32,

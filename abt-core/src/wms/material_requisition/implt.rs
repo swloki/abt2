@@ -19,13 +19,12 @@ use crate::wms::inventory_transaction::model::RecordTransactionReq;
 use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
 
 pub struct MaterialRequisitionServiceImpl {
-    repo: MaterialRequisitionRepo,
     pool: PgPool,
 }
 
 impl MaterialRequisitionServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { repo: MaterialRequisitionRepo, pool }
+        Self { pool }
     }
 }
 

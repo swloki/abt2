@@ -15,14 +15,14 @@ use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
-use crate::errors::AppError;
+use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::customer::{CreateCustomerPath, CustomerDetailPath, CustomerListPath, CustomerTablePath, EditCustomerFormPath, UpdateCustomerPath, DeleteCustomerPath};
 use crate::state::AppState;
 
 // ── Query Params ──
 
-fn empty_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
+fn empty_as_none<'de, D, T>(de: D) -> std::result::Result<Option<T>, D::Error>
 where
     D: de::Deserializer<'de>,
     T: std::str::FromStr,
@@ -55,16 +55,16 @@ pub async fn get_customer_list(
     session: Session,
     headers: HeaderMap,
     Query(params): Query<CustomerQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> crate::errors::Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
 
     let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = svc.list(&ctx, &mut conn, filter, page).await?;
 
     let content = customer_list_page(&claims, &result, &params);
     let page_html = admin_page(
@@ -78,16 +78,16 @@ pub async fn get_customer_table(
     State(state): State<AppState>,
     session: Session,
     Query(params): Query<CustomerQueryParams>,
-) -> Result<Html<String>, AppError> {
+) -> crate::errors::Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
 
     let ctx = make_ctx(claims.sub);
-    let result = svc.list(&ctx, &mut *conn, filter, page).await?;
+    let result = svc.list(&ctx, &mut conn, filter, page).await?;
 
     Ok(Html(customer_table_fragment(&result, &params).into_string()))
 }
@@ -97,10 +97,10 @@ pub async fn create_customer(
     State(state): State<AppState>,
     session: Session,
     Form(form): Form<CreateCustomerForm>,
-) -> Result<impl IntoResponse, AppError> {
+) -> crate::errors::Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let category = form
         .category
@@ -124,7 +124,7 @@ pub async fn create_customer(
     };
 
     let ctx = make_ctx(claims.sub);
-    let id = svc.create(&ctx, &mut *conn, req).await?;
+    let id = svc.create(&ctx, &mut conn, req).await?;
 
     Ok((
         [("HX-Redirect", format!("/admin/customers/{id}"))],
@@ -136,13 +136,13 @@ pub async fn get_edit_customer_form(
     path: EditCustomerFormPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<Html<String>, AppError> {
+) -> crate::errors::Result<Html<String>> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    let customer = svc.get(&ctx, &mut *conn, path.id).await?;
+    let customer = svc.get(&ctx, &mut conn, path.id).await?;
 
     let update_path = UpdateCustomerPath { id: path.id };
     let form_html = customer_form(&Some(customer), "edit-customer-form", &update_path.to_string());
@@ -155,10 +155,10 @@ pub async fn update_customer(
     State(state): State<AppState>,
     session: Session,
     Form(form): Form<CreateCustomerForm>,
-) -> Result<impl IntoResponse, AppError> {
+) -> crate::errors::Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let req = UpdateCustomerReq {
         customer_name: Some(form.customer_name),
@@ -174,7 +174,7 @@ pub async fn update_customer(
     };
 
     let ctx = make_ctx(claims.sub);
-    svc.update(&ctx, &mut *conn, path.id, req).await?;
+    svc.update(&ctx, &mut conn, path.id, req).await?;
 
     let redirect = CustomerDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -184,13 +184,13 @@ pub async fn delete_customer(
     path: DeleteCustomerPath,
     State(state): State<AppState>,
     session: Session,
-) -> Result<impl IntoResponse, AppError> {
+) -> crate::errors::Result<impl IntoResponse> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(DomainError::from)?;
 
     let ctx = make_ctx(claims.sub);
-    svc.delete(&ctx, &mut *conn, path.id).await?;
+    svc.delete(&ctx, &mut conn, path.id).await?;
 
     Ok(([("HX-Redirect", CustomerListPath::PATH)], Html(String::new())))
 }

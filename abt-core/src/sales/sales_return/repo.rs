@@ -18,28 +18,21 @@ impl SalesReturnRepo {
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
-        doc_number: &str,
-        order_id: i64,
-        shipping_request_id: i64,
-        customer_id: i64,
-        return_reason: &str,
-        total_amount: rust_decimal::Decimal,
-        remark: &str,
-        operator_id: i64,
+        params: &CreateSalesReturnParams<'_>,
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
             r#"INSERT INTO sales_returns (doc_number, order_id, shipping_request_id, customer_id, return_reason, total_amount, remark, operator_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                RETURNING id"#,
         )
-        .bind(doc_number)
-        .bind(order_id)
-        .bind(shipping_request_id)
-        .bind(customer_id)
-        .bind(return_reason)
-        .bind(total_amount)
-        .bind(remark)
-        .bind(operator_id)
+        .bind(params.doc_number)
+        .bind(params.order_id)
+        .bind(params.shipping_request_id)
+        .bind(params.customer_id)
+        .bind(params.return_reason)
+        .bind(params.total_amount)
+        .bind(params.remark)
+        .bind(params.operator_id)
         .fetch_one(executor)
         .await?;
         Ok(row)

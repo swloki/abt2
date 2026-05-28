@@ -23,13 +23,12 @@ use crate::shared::types::error::DomainError;
 const DEFAULT_VARIANCE_THRESHOLD: Decimal = Decimal::from_parts(5, 0, 0, false, 2);
 
 pub struct BackflushServiceImpl {
-    repo: BackflushRepo,
     pool: PgPool,
 }
 
 impl BackflushServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        Self { repo: BackflushRepo, pool }
+        Self { pool }
     }
 }
 

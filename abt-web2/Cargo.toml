@@ -22,8 +22,6 @@ tower = "0.5"
 # Async
 tokio = { workspace = true }
 
-# Database
-sqlx = { workspace = true }
 
 # Serialization
 serde = { workspace = true }

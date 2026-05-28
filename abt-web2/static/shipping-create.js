@@ -1,28 +1,27 @@
-function returnForm() {
+function shippingForm(warehouses) {
     return {
-        customerId: '0',
+        warehouses: warehouses || [],
+        customerId: '',
         selectedOrderId: '',
         selectedOrderNumber: '',
-        shippingRequestId: '0',
-        returnReason: '',
         orderModalOpen: false,
         items: [],
 
         selectOrder(orderData) {
             this.selectedOrderId = orderData.id;
             this.selectedOrderNumber = orderData.doc_number;
-            this.shippingRequestId = String(orderData.shipping_id || '0');
             this.items = orderData.items.map(function (item) {
                 return {
                     order_item_id: item.order_item_id,
                     product_id: item.product_id,
                     product_code: item.product_code,
                     product_name: item.product_name,
+                    specification: item.specification || '',
                     unit: item.unit || '',
-                    order_qty: item.order_qty,
-                    unit_price: item.unit_price,
-                    returned_qty: String(item.order_qty),
-                    disposition: '1'
+                    ordered_qty: item.ordered_qty,
+                    shipped_qty: item.shipped_qty,
+                    ship_qty: (parseFloat(item.ordered_qty) - parseFloat(item.shipped_qty)).toString(),
+                    warehouse_id: ''
                 };
             });
             this.orderModalOpen = false;
@@ -31,7 +30,6 @@ function returnForm() {
         clearOrder() {
             this.selectedOrderId = '';
             this.selectedOrderNumber = '';
-            this.shippingRequestId = '0';
             this.items = [];
         },
 
@@ -39,13 +37,22 @@ function returnForm() {
             this.items.splice(idx, 1);
         },
 
+        get totalItems() {
+            return this.items.length;
+        },
+
+        get totalQty() {
+            return this.items.reduce(function (s, i) {
+                return s + (parseFloat(i.ship_qty) || 0);
+            }, 0);
+        },
+
         get itemsJson() {
             return JSON.stringify(this.items.map(function (i) {
                 return {
                     order_item_id: i.order_item_id,
-                    product_id: i.product_id,
-                    returned_qty: i.returned_qty || '1',
-                    disposition: parseInt(i.disposition) || 1
+                    warehouse_id: i.warehouse_id || 0,
+                    requested_qty: i.ship_qty || '0'
                 };
             }));
         }
@@ -53,7 +60,7 @@ function returnForm() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    var form = document.getElementById('return-form');
+    var form = document.getElementById('shipping-form');
     if (!form) return;
 
     form.addEventListener('htmx:responseError', function (e) {

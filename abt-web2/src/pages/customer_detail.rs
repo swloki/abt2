@@ -67,11 +67,7 @@ pub async fn create_contact(
 ) -> Result<impl IntoResponse, AppError> {
     let claims = get_claims(&session).await;
     let svc = state.customer_service();
-    let mut conn = state
-        .pool
-        .acquire()
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let req = CreateContactReq {
         contact_name: form.contact_name,
@@ -102,7 +98,8 @@ pub async fn delete_contact(
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.delete_contact(&ctx, &mut *conn, path.cid, path.contact_id).await?;
+    svc.delete_contact(&ctx, &mut *conn, path.cid, path.contact_id)
+        .await?;
 
     let detail = CustomerDetailPath { id: path.cid };
     Ok(([("HX-Redirect", detail.to_string())], Html(String::new())))
@@ -154,7 +151,8 @@ pub async fn delete_address(
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.delete_address(&ctx, &mut *conn, path.cid, path.address_id).await?;
+    svc.delete_address(&ctx, &mut *conn, path.cid, path.address_id)
+        .await?;
 
     let detail = CustomerDetailPath { id: path.cid };
     Ok(([("HX-Redirect", detail.to_string())], Html(String::new())))

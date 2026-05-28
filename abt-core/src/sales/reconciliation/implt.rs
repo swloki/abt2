@@ -530,6 +530,30 @@ impl ReconciliationService for ReconciliationServiceImpl {
                 ctx.department_id,
             )
             .await
-            
+
+    }
+
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let existing = self.repo.find_by_id(db, id).await?
+            .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
+
+        if existing.status != ReconciliationStatus::Draft {
+            return Err(DomainError::business_rule("仅草稿状态的对账单可以删除"));
+        }
+
+        self.repo.soft_delete(db, id).await?;
+
+        self.audit.record(ctx, db, "Reconciliation", id, AuditAction::Delete, None, None).await?;
+
+        Ok(())
+    }
+
+    async fn list_items(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        reconciliation_id: i64,
+    ) -> Result<Vec<ReconciliationItem>> {
+        self.item_repo.find_by_reconciliation_id(db, reconciliation_id).await
     }
 }

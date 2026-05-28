@@ -32,6 +32,15 @@ pub trait ShippingRequestService: Send + Sync {
 
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+
+    async fn list_items(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        shipping_request_id: i64,
+    ) -> Result<Vec<ShippingRequestItem>>;
+
     async fn list(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

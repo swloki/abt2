@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
-use axum::response::Html;
+use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
@@ -8,16 +10,22 @@ use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
+use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::sales::sales_return::model::*;
-use abt_core::shared::types::PageParams;
+use abt_core::sales::sales_return::SalesReturnService;
+use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
+use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
 use crate::errors::AppError;
 use crate::layout::page::admin_page;
+use crate::routes::order::OrderDetailPath;
 use crate::routes::sales_return::*;
+use crate::routes::shipping::ShippingDetailPath;
 use crate::state::AppState;
 
 // ── Query Params ──
@@ -48,6 +56,10 @@ pub struct ReturnQueryParams {
 }
 
 // ── Helpers ──
+
+fn make_ctx(operator_id: i64) -> ServiceContext {
+    ServiceContext::new(operator_id)
+}
 
 async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
     session
@@ -95,112 +107,98 @@ fn status_label(s: ReturnStatus) -> (&'static str, &'static str) {
     }
 }
 
-async fn query_sales_returns(
-    conn: &mut sqlx::postgres::PgConnection,
-    params: &ReturnQueryParams,
-) -> abt_core::shared::types::PaginatedResult<SalesReturn> {
-    let page_num = params.page.unwrap_or(1);
-    let page_size = 20u32;
-    let offset = (page_num - 1) * page_size;
+/// Compute status counts by calling SalesReturnService::list for each status with page_size=1.
+/// Returns a map of status i16 -> total count.
+async fn count_by_status<S: SalesReturnService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    customer_id: Option<i64>,
+) -> HashMap<i16, u64> {
+    let statuses = [
+        (ReturnStatus::Draft, 1i16),
+        (ReturnStatus::Confirmed, 2),
+        (ReturnStatus::Received, 3),
+        (ReturnStatus::Inspecting, 4),
+        (ReturnStatus::Completed, 5),
+        (ReturnStatus::Rejected, 7),
+    ];
 
-    let count: i64 = sqlx::query_scalar(
-        r#"SELECT COUNT(*) FROM sales_returns
-           WHERE deleted_at IS NULL
-             AND ($1::smallint IS NULL OR status = $1)
-             AND ($2::text IS NULL OR doc_number ILIKE '%' || $2 || '%')
-             AND ($3::bigint IS NULL OR customer_id = $3)"#,
-    )
-    .bind(params.status)
-    .bind(params.keyword.as_deref())
-    .bind(params.customer_id)
-    .fetch_one(&mut *conn)
-    .await
-    .unwrap_or(0);
-
-    let items: Vec<SalesReturn> = sqlx::query_as(
-        r#"SELECT id, doc_number, order_id, shipping_request_id, customer_id,
-                  return_date, status, return_reason, total_amount, remark,
-                  operator_id, created_at, updated_at, deleted_at
-           FROM sales_returns
-           WHERE deleted_at IS NULL
-             AND ($1::smallint IS NULL OR status = $1)
-             AND ($2::text IS NULL OR doc_number ILIKE '%' || $2 || '%')
-             AND ($3::bigint IS NULL OR customer_id = $3)
-           ORDER BY id DESC
-           LIMIT $4 OFFSET $5"#,
-    )
-    .bind(params.status)
-    .bind(params.keyword.as_deref())
-    .bind(params.customer_id)
-    .bind(page_size as i64)
-    .bind(offset as i64)
-    .fetch_all(&mut *conn)
-    .await
-    .unwrap_or_default();
-
-    let total = count as u64;
-    let total_pages = total.div_ceil(page_size as u64) as u32;
-    abt_core::shared::types::PaginatedResult {
-        items,
-        total,
-        page: page_num,
-        total_pages,
-        page_size,
+    let mut counts = HashMap::new();
+    for (status, code) in statuses {
+        let filter = ReturnQuery {
+            customer_id,
+            status: Some(status),
+            ..Default::default()
+        };
+        let page = PageParams::new(1, 1);
+        if let Ok(result) = svc.list(ctx, db, filter, page).await {
+            counts.insert(code, result.total);
+        }
     }
+
+    // Total = sum of all per-status counts
+    let total: u64 = counts.values().sum();
+    counts.insert(0, total);
+
+    counts
 }
 
-async fn resolve_customer_names_return(
-    conn: &mut sqlx::postgres::PgConnection,
+/// Resolve customer names by calling CustomerService::get for each unique customer_id.
+async fn resolve_customer_names<S: CustomerService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
     items: &[SalesReturn],
-) -> std::collections::HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.customer_id).collect();
-    if ids.is_empty() {
-        return std::collections::HashMap::new();
+) -> HashMap<i64, String> {
+    let mut map = HashMap::new();
+    let mut seen = std::collections::HashSet::new();
+    for item in items {
+        if seen.insert(item.customer_id) {
+            if let Ok(customer) = svc.get(ctx, db, item.customer_id).await {
+                map.insert(item.customer_id, customer.name);
+            }
+        }
     }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, name FROM customers WHERE id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
+    map
 }
 
-async fn resolve_shipping_numbers(
-    conn: &mut sqlx::postgres::PgConnection,
+/// Resolve shipping doc_numbers by calling ShippingRequestService::find_by_id for each unique id.
+async fn resolve_shipping_numbers<S: ShippingRequestService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
     items: &[SalesReturn],
-) -> std::collections::HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.shipping_request_id).collect();
-    if ids.is_empty() {
-        return std::collections::HashMap::new();
+) -> HashMap<i64, String> {
+    let mut map = HashMap::new();
+    let mut seen = std::collections::HashSet::new();
+    for item in items {
+        if seen.insert(item.shipping_request_id) {
+            if let Ok(shipping) = svc.find_by_id(ctx, db, item.shipping_request_id).await {
+                map.insert(item.shipping_request_id, shipping.doc_number);
+            }
+        }
     }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, doc_number FROM shipping_requests WHERE id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
+    map
 }
 
-async fn resolve_order_numbers_return(
-    conn: &mut sqlx::postgres::PgConnection,
+/// Resolve order doc_numbers by calling SalesOrderService::find_by_id for each unique id.
+async fn resolve_order_numbers<S: SalesOrderService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
     items: &[SalesReturn],
-) -> std::collections::HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.order_id).collect();
-    if ids.is_empty() {
-        return std::collections::HashMap::new();
+) -> HashMap<i64, String> {
+    let mut map = HashMap::new();
+    let mut seen = std::collections::HashSet::new();
+    for item in items {
+        if seen.insert(item.order_id) {
+            if let Ok(order) = svc.find_by_id(ctx, db, item.order_id).await {
+                map.insert(item.order_id, order.doc_number);
+            }
+        }
     }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, doc_number FROM sales_orders WHERE id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
+    map
 }
 
 // ── Handlers ──
@@ -213,21 +211,34 @@ pub async fn get_return_list(
     Query(params): Query<ReturnQueryParams>,
 ) -> Result<Html<String>, AppError> {
     let claims = get_claims(&session).await;
-    let customer_svc = state.customer_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
 
-    let result = query_sales_returns(&mut conn, &params).await;
-    let customer_names = resolve_customer_names_return(&mut conn, &result.items).await;
-    let shipping_numbers = resolve_shipping_numbers(&mut conn, &result.items).await;
-    let order_numbers = resolve_order_numbers_return(&mut conn, &result.items).await;
+    let return_svc = state.sales_return_service();
+    let customer_svc = state.customer_service();
+    let shipping_svc = state.shipping_service();
+    let order_svc = state.sales_order_service();
 
-    let ctx = abt_core::shared::types::ServiceContext::new(claims.sub);
+    let filter = ReturnQuery {
+        order_id: None,
+        shipping_request_id: None,
+        customer_id: params.customer_id,
+        status: params.status.and_then(ReturnStatus::from_i16),
+        keyword: params.keyword.clone(),
+    };
+    let page = PageParams::new(params.page.unwrap_or(1), 20);
+    let result = return_svc.list(&ctx, &mut *conn, filter, page).await?;
+
+    let status_counts = count_by_status(&return_svc, &ctx, &mut *conn, params.customer_id).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut *conn, &result.items).await;
+    let shipping_numbers = resolve_shipping_numbers(&shipping_svc, &ctx, &mut *conn, &result.items).await;
+    let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut *conn, &result.items).await;
+
     let customers = customer_svc
         .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .await?;
 
-    let content = return_list_page(&claims, &result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params);
+    let content = return_list_page(&claims, &result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params, &status_counts);
     let page_html = admin_page(
         &headers, "销售退货", &claims, "sales", ReturnListPath::PATH, "销售管理", Some("销售退货"), content,
     );
@@ -241,21 +252,50 @@ pub async fn get_return_table(
     Query(params): Query<ReturnQueryParams>,
 ) -> Result<Html<String>, AppError> {
     let claims = get_claims(&session).await;
-    let customer_svc = state.customer_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
 
-    let result = query_sales_returns(&mut conn, &params).await;
-    let customer_names = resolve_customer_names_return(&mut conn, &result.items).await;
-    let shipping_numbers = resolve_shipping_numbers(&mut conn, &result.items).await;
-    let order_numbers = resolve_order_numbers_return(&mut conn, &result.items).await;
+    let return_svc = state.sales_return_service();
+    let customer_svc = state.customer_service();
+    let shipping_svc = state.shipping_service();
+    let order_svc = state.sales_order_service();
 
-    let ctx = abt_core::shared::types::ServiceContext::new(claims.sub);
+    let filter = ReturnQuery {
+        order_id: None,
+        shipping_request_id: None,
+        customer_id: params.customer_id,
+        status: params.status.and_then(ReturnStatus::from_i16),
+        keyword: params.keyword.clone(),
+    };
+    let page = PageParams::new(params.page.unwrap_or(1), 20);
+    let result = return_svc.list(&ctx, &mut *conn, filter, page).await?;
+
+    let status_counts = count_by_status(&return_svc, &ctx, &mut *conn, params.customer_id).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut *conn, &result.items).await;
+    let shipping_numbers = resolve_shipping_numbers(&shipping_svc, &ctx, &mut *conn, &result.items).await;
+    let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut *conn, &result.items).await;
+
     let customers = customer_svc
         .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .await?;
 
-    Ok(Html(return_table_fragment(&result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params).into_string()))
+    Ok(Html(return_table_fragment(&result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params, &status_counts).into_string()))
+}
+
+pub async fn delete_return(
+    path: ReturnDeletePath,
+    State(state): State<AppState>,
+    session: Session,
+) -> Result<impl IntoResponse, AppError> {
+    let claims = get_claims(&session).await;
+    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+
+    let return_svc = state.sales_return_service();
+    return_svc.delete(&ctx, &mut *conn, path.id).await?;
+
+    let redirect = ReturnListPath::PATH.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
@@ -268,6 +308,7 @@ fn return_list_page(
     order_numbers: &std::collections::HashMap<i64, String>,
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &ReturnQueryParams,
+    status_counts: &HashMap<i16, u64>,
 ) -> Markup {
     html! {
         div {
@@ -280,7 +321,7 @@ fn return_list_page(
                     }
                 }
             }
-            (return_table_fragment(result, customer_names, shipping_numbers, order_numbers, customers, params))
+            (return_table_fragment(result, customer_names, shipping_numbers, order_numbers, customers, params, status_counts))
         }
     }
 }
@@ -292,19 +333,27 @@ fn return_table_fragment(
     order_numbers: &std::collections::HashMap<i64, String>,
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &ReturnQueryParams,
+    status_counts: &HashMap<i16, u64>,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
-    let total_count = result.total;
+
+    let total_count: u64 = status_counts.get(&0).copied().unwrap_or_default();
+    let draft_count = status_counts.get(&1).copied();
+    let confirmed_count = status_counts.get(&2).copied();
+    let received_count = status_counts.get(&3).copied();
+    let inspecting_count = status_counts.get(&4).copied();
+    let completed_count = status_counts.get(&5).copied();
+    let rejected_count = status_counts.get(&7).copied();
 
     let tabs = &[
         TabItem { value: String::new(), label: "全部", count: Some(total_count) },
-        TabItem { value: "1".into(), label: "草稿", count: None },
-        TabItem { value: "2".into(), label: "已确认", count: None },
-        TabItem { value: "3".into(), label: "已收货", count: None },
-        TabItem { value: "4".into(), label: "质检中", count: None },
-        TabItem { value: "5".into(), label: "已完成", count: None },
-        TabItem { value: "7".into(), label: "已驳回", count: None },
+        TabItem { value: "1".into(), label: "草稿", count: draft_count },
+        TabItem { value: "2".into(), label: "已确认", count: confirmed_count },
+        TabItem { value: "3".into(), label: "已收货", count: received_count },
+        TabItem { value: "4".into(), label: "质检中", count: inspecting_count },
+        TabItem { value: "5".into(), label: "已完成", count: completed_count },
+        TabItem { value: "7".into(), label: "已驳回", count: rejected_count },
     ];
 
     let selected_customer = params.customer_id.map(|id| id.to_string()).unwrap_or_default();
@@ -317,7 +366,7 @@ fn return_table_fragment(
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
-                        placeholder="搜索退货单号…"
+                        placeholder="搜索退货单号、客户名称…"
                         value=(params.keyword.as_deref().unwrap_or(""))
                         hx-get=(ReturnTablePath::PATH)
                         hx-trigger="keyup changed delay:300ms"
@@ -385,24 +434,61 @@ fn return_row(
     let shipping_num = shipping_numbers.get(&r.shipping_request_id).map(|n| n.as_str()).unwrap_or("—");
     let order_num = order_numbers.get(&r.order_id).map(|n| n.as_str()).unwrap_or("—");
     let created = r.created_at.format("%Y-%m-%d %H:%M").to_string();
+    let onclick = format!("location.href='{}'", detail_path);
+    let is_draft = r.status == ReturnStatus::Draft;
+    let form_id = format!("delete-return-form-{}", r.id);
+    let delete_path = ReturnDeletePath { id: r.id };
+    let shipping_detail = ShippingDetailPath { id: r.shipping_request_id };
+    let order_detail = OrderDetailPath { id: r.order_id };
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (r.doc_number) }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) { (shipping_num) }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) { (order_num) }
-            td onclick=(format!("location.href='{}'", detail_path)) { (customer_name) }
-            td onclick=(format!("location.href='{}'", detail_path)) {
+            td class="link-cell mono" onclick=(&onclick) { (r.doc_number) }
+            td onclick=(&onclick) {
+                a href=(shipping_detail.to_string()) style="color:var(--info)" onclick="event.stopPropagation()" { (shipping_num) }
+            }
+            td onclick=(&onclick) {
+                a href=(order_detail.to_string()) style="color:var(--info)" onclick="event.stopPropagation()" { (order_num) }
+            }
+            td onclick=(&onclick) { (customer_name) }
+            td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
-            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="num-right" onclick=(&onclick) {
                 span class="mono" { "¥ " (format!("{:.2}", r.total_amount)) }
             }
-            td onclick=(format!("location.href='{}'", detail_path)) { (r.return_reason.as_str()) }
-            td onclick=(format!("location.href='{}'", detail_path)) { (created) }
-            td onclick="event.stopPropagation()" {
-                a class="row-action-btn" href=(detail_path.to_string()) title="查看详情" {
-                    (icon::eye_icon("w-4 h-4"))
+            td onclick=(&onclick) { (r.return_reason.as_str()) }
+            td onclick=(&onclick) { (created) }
+            td onclick="event.stopPropagation()" x-data=(format!("{{ deleteOpen: false }}")) {
+                div class="row-actions" {
+                    @if is_draft {
+                        a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
+                            (icon::edit_icon("w-4 h-4"))
+                        }
+                        button type="button" class="row-action-btn text-danger" title="删除"
+                            x-on:click="deleteOpen = true" {
+                            (icon::trash_icon("w-4 h-4"))
+                        }
+                    } @else {
+                        a class="row-action-btn" href=(detail_path.to_string()) title="查看详情" {
+                            (icon::eye_icon("w-4 h-4"))
+                        }
+                    }
+                }
+                @if is_draft {
+                    (confirm_dialog(
+                        "deleteOpen",
+                        "确认删除",
+                        &format!("确定要删除退货单 <strong>{}</strong> 吗？", r.doc_number),
+                        "确认删除",
+                        &form_id,
+                        html! {
+                            form id=(form_id) style="display:none"
+                                hx-post=(delete_path.to_string())
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:0.5s" {}
+                        },
+                    ))
                 }
             }
         }

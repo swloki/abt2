@@ -1,9 +1,11 @@
 pub mod auth;
+
 pub mod customer;
 pub mod dashboard;
 pub mod order;
 pub mod quotation;
 pub mod reconciliation;
+
 pub mod sales_return;
 pub mod shipping;
 pub mod sidebar;
@@ -28,7 +30,7 @@ pub fn router(state: AppState) -> Router {
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth_middleware,
-                ))
+                )),
         )
         .with_state(state)
 }

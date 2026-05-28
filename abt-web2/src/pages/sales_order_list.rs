@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
@@ -12,6 +12,7 @@ use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
+use abt_core::shared::identity::UserService;
 use abt_core::shared::types::{PageParams, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
@@ -121,40 +122,42 @@ fn build_query_string(params: &OrderQueryParams) -> String {
     q.join("&")
 }
 
-async fn resolve_customer_names(
-    conn: &mut sqlx::postgres::PgConnection,
+async fn resolve_customer_names<S: CustomerService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
     orders: &[SalesOrder],
 ) -> HashMap<i64, String> {
-    let ids: Vec<i64> = orders.iter().map(|o| o.customer_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
+    let mut map = HashMap::new();
+    let mut seen = HashSet::new();
+    for order in orders {
+        if seen.insert(order.customer_id) {
+            if let Ok(customer) = svc.get(ctx, db, order.customer_id).await {
+                map.insert(order.customer_id, customer.name);
+            }
+        }
     }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, name FROM customers WHERE id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
+    map
 }
 
-async fn resolve_sales_rep_names(
-    conn: &mut sqlx::postgres::PgConnection,
+async fn resolve_sales_rep_names<S: UserService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
     orders: &[SalesOrder],
 ) -> HashMap<i64, String> {
     let ids: Vec<i64> = orders.iter().map(|o| o.sales_rep_id).collect();
     if ids.is_empty() {
         return HashMap::new();
     }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT user_id, COALESCE(display_name, username) FROM users WHERE user_id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
+    svc.get_users_by_ids(ctx, db, ids)
+        .await
+        .map(|users| {
+            users.into_iter()
+                .map(|u| (u.user.user_id, u.user.display_name.unwrap_or(u.user.username)))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 // ── Status Labels ──
@@ -183,6 +186,7 @@ pub async fn get_order_list(
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
+    let user_svc = state.user_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let filter = build_filter(&params);
@@ -190,8 +194,8 @@ pub async fn get_order_list(
     let ctx = make_ctx(claims.sub);
     let result = svc.list(&ctx, &mut *conn, filter, page).await?;
 
-    let customer_names = resolve_customer_names(&mut conn, &result.items).await;
-    let sales_rep_names = resolve_sales_rep_names(&mut conn, &result.items).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut *conn, &result.items).await;
+    let sales_rep_names = resolve_sales_rep_names(&user_svc, &ctx, &mut *conn, &result.items).await;
 
     let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
@@ -215,6 +219,7 @@ pub async fn get_order_table(
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
+    let user_svc = state.user_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let filter = build_filter(&params);
@@ -222,8 +227,8 @@ pub async fn get_order_table(
     let ctx = make_ctx(claims.sub);
     let result = svc.list(&ctx, &mut *conn, filter, page).await?;
 
-    let customer_names = resolve_customer_names(&mut conn, &result.items).await;
-    let sales_rep_names = resolve_sales_rep_names(&mut conn, &result.items).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut *conn, &result.items).await;
+    let sales_rep_names = resolve_sales_rep_names(&user_svc, &ctx, &mut *conn, &result.items).await;
 
     let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc

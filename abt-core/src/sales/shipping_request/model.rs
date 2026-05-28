@@ -142,6 +142,7 @@ pub struct ShippingQuery {
     pub order_id: Option<i64>,
     pub status: Option<ShippingStatus>,
     pub keyword: Option<String>,
+    pub customer_id: Option<i64>,
 }
 
 /// 明细行批量插入输入

@@ -1,14 +1,23 @@
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
-use axum::response::{Html, IntoResponse, Json};
+use axum::response::{Html, IntoResponse};
 use axum::Form;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::product::ProductService;
+use abt_core::sales::sales_order::model::{SalesOrderQuery, SalesOrderStatus};
+use abt_core::sales::sales_order::SalesOrderService;
+use abt_core::sales::sales_return::model::{
+    CreateReturnItemReq, CreateReturnReq, ReturnDisposition,
+};
+use abt_core::sales::sales_return::SalesReturnService;
+use abt_core::sales::shipping_request::model::ShippingQuery;
+use abt_core::sales::shipping_request::ShippingRequestService;
 use abt_core::shared::types::{PageParams, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
@@ -44,14 +53,19 @@ async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Cla
         })
 }
 
-// ── Query ──
-
-#[derive(Debug, Deserialize)]
-pub struct OrderSearchParams {
-    pub keyword: Option<String>,
+fn order_status_text(s: SalesOrderStatus) -> &'static str {
+    match s {
+        SalesOrderStatus::Draft => "草稿",
+        SalesOrderStatus::Confirmed => "已确认",
+        SalesOrderStatus::InProduction => "生产中",
+        SalesOrderStatus::PartiallyShipped => "部分发货",
+        SalesOrderStatus::Shipped => "已发货",
+        SalesOrderStatus::Completed => "已完成",
+        SalesOrderStatus::Cancelled => "已取消",
+    }
 }
 
-// ── Form ──
+// ── Form & Query Structs ──
 
 #[derive(Debug, Deserialize)]
 pub struct ReturnCreateForm {
@@ -71,6 +85,12 @@ struct ReturnItemWeb {
     disposition: i16,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct OrderSearchQuery {
+    pub customer_id: Option<i64>,
+    pub keyword: Option<String>,
+}
+
 // ── Handlers ──
 
 pub async fn get_return_create(
@@ -81,145 +101,160 @@ pub async fn get_return_create(
 ) -> Result<Html<String>, AppError> {
     let claims = get_claims(&session).await;
     let customer_svc = state.customer_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state
+        .pool
+        .acquire()
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(
+            &ctx,
+            &mut *conn,
+            CustomerQuery {
+                name: None,
+                status: None,
+                category: None,
+                owner_id: None,
+            },
+            PageParams::new(1, 200),
+        )
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
     let content = return_create_page(&customers.items);
     let page_html = admin_page(
-        &headers, "新建退货单", &claims, "sales", ReturnCreatePath::PATH, "销售管理", Some("新建退货单"), content,
+        &headers,
+        "新建退货单",
+        &claims,
+        "sales",
+        ReturnCreatePath::PATH,
+        "销售管理",
+        Some("新建退货单"),
+        content,
     );
 
     Ok(Html(page_html.into_string()))
 }
 
-/// HTMX: search orders → return HTML fragment
+/// HTMX: search orders -> returns HTML fragment with embedded JSON data
 pub async fn get_orders(
     State(state): State<AppState>,
     _session: Session,
-    Query(params): Query<OrderSearchParams>,
+    Query(params): Query<OrderSearchQuery>,
 ) -> Result<Html<String>, AppError> {
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
-
-    let keyword = params.keyword.as_deref().unwrap_or("");
-    let pattern = format!("%{keyword}%");
-
-    let orders: Vec<(i64, String, i64, i16)> = sqlx::query_as(
-        r#"SELECT id, doc_number, customer_id, status
-           FROM sales_orders
-           WHERE deleted_at IS NULL
-             AND status IN (2, 3, 4, 5)
-             AND doc_number ILIKE $1
-           ORDER BY id DESC
-           LIMIT 20"#,
-    )
-    .bind(&pattern)
-    .fetch_all(&mut *conn)
-    .await
-    .unwrap_or_default();
-
-    // Resolve customer names
-    let customer_ids: Vec<i64> = orders.iter().map(|o| o.2).collect();
-    let customer_names: std::collections::HashMap<i64, String> = if customer_ids.is_empty() {
-        std::collections::HashMap::new()
-    } else {
-        let rows: Vec<(i64, String)> = sqlx::query_as(
-            "SELECT id, name FROM customers WHERE id = ANY($1)",
-        )
-        .bind(&customer_ids)
-        .fetch_all(&mut *conn)
-        .await
-        .unwrap_or_default();
-        rows.into_iter().collect()
+    let customer_id = match params.customer_id {
+        Some(id) if id > 0 => id,
+        _ => return Ok(Html(order_search_empty().into_string())),
     };
 
-    Ok(Html(order_list_fragment(&orders, &customer_names).into_string()))
-}
-
-/// HTMX: load order items for return → returns JSON
-pub async fn get_order_items(
-    State(state): State<AppState>,
-    _session: Session,
-    Query(params): Query<ItemsByOrderParams>,
-) -> Result<Json<OrderItemsResponse>, AppError> {
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
-
-    let items: Vec<(i64, i32, i64, String, rust_decimal::Decimal, String, rust_decimal::Decimal)> = sqlx::query_as(
-        r#"SELECT id, line_no, product_id, description, quantity, unit, unit_price
-           FROM sales_order_items
-           WHERE order_id = $1
-           ORDER BY line_no"#,
-    )
-    .bind(params.order_id)
-    .fetch_all(&mut *conn)
-    .await
-    .unwrap_or_default();
-
-    let product_ids: Vec<i64> = items.iter().map(|i| i.2).collect();
-    let product_names: std::collections::HashMap<i64, String> = if product_ids.is_empty() {
-        std::collections::HashMap::new()
-    } else {
-        let rows: Vec<(i64, String)> = sqlx::query_as(
-            "SELECT product_id, pdt_name FROM products WHERE product_id = ANY($1)",
-        )
-        .bind(&product_ids)
-        .fetch_all(&mut *conn)
+    let mut conn = state
+        .pool
+        .acquire()
         .await
-        .unwrap_or_default();
-        rows.into_iter().collect()
-    };
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let shipping_id: Option<i64> = sqlx::query_scalar(
-        "SELECT id FROM shipping_requests WHERE order_id = $1 AND status = 4 AND deleted_at IS NULL ORDER BY id DESC LIMIT 1",
-    )
-    .bind(params.order_id)
-    .fetch_optional(&mut *conn)
-    .await
-    .unwrap_or(None);
+    let ctx = make_ctx(0);
 
-    let items_json: Vec<OrderItemJson> = items.into_iter().map(|(id, _line_no, product_id, description, quantity, unit, unit_price)| {
-        let product_name = product_names.get(&product_id).map(|s| s.as_str()).unwrap_or("—");
-        OrderItemJson {
-            order_item_id: id,
-            product_id,
-            product_name: product_name.to_string(),
-            description,
-            order_qty: quantity.to_string(),
-            unit,
-            unit_price: unit_price.to_string(),
+    // 1. Fetch orders via SalesOrderService::list
+    let order_svc = state.sales_order_service();
+    let keyword = params.keyword.as_deref().and_then(|k| {
+        if k.is_empty() {
+            None
+        } else {
+            Some(k.to_string())
         }
-    }).collect();
+    });
+    let orders_result = order_svc
+        .list(
+            &ctx,
+            &mut *conn,
+            SalesOrderQuery {
+                customer_id: Some(customer_id),
+                keyword,
+                ..Default::default()
+            },
+            PageParams::new(1, 10),
+        )
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    Ok(Json(OrderItemsResponse {
-        items: items_json,
-        shipping_id,
-    }))
-}
+    // Filter to only active statuses (2=Confirmed, 3=InProduction, 4=PartiallyShipped, 5=Shipped)
+    let active_statuses = [
+        SalesOrderStatus::Confirmed,
+        SalesOrderStatus::InProduction,
+        SalesOrderStatus::PartiallyShipped,
+        SalesOrderStatus::Shipped,
+    ];
+    let orders: Vec<_> = orders_result
+        .items
+        .into_iter()
+        .filter(|o| active_statuses.contains(&o.status))
+        .collect();
 
-#[derive(Debug, Deserialize)]
-pub struct ItemsByOrderParams {
-    pub order_id: i64,
-}
+    if orders.is_empty() {
+        return Ok(Html(order_search_empty().into_string()));
+    }
 
-#[derive(Debug, Serialize)]
-pub struct OrderItemsResponse {
-    pub items: Vec<OrderItemJson>,
-    pub shipping_id: Option<i64>,
-}
+    let order_ids: Vec<i64> = orders.iter().map(|o| o.id).collect();
 
-#[derive(Debug, Serialize)]
-pub struct OrderItemJson {
-    order_item_id: i64,
-    product_id: i64,
-    product_name: String,
-    description: String,
-    order_qty: String,
-    unit: String,
-    unit_price: String,
+    // 2. Fetch order items for each order via SalesOrderService::list_items
+    let mut items_map: std::collections::HashMap<i64, Vec<abt_core::sales::sales_order::model::SalesOrderItem>> =
+        std::collections::HashMap::new();
+    for &oid in &order_ids {
+        let items = order_svc
+            .list_items(&ctx, &mut *conn, oid)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        items_map.insert(oid, items);
+    }
+
+    // 3. Collect all unique product IDs and batch-fetch product info
+    let all_product_ids: Vec<i64> = items_map
+        .values()
+        .flat_map(|items| items.iter().map(|i| i.product_id))
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    let product_svc = state.product_service();
+    let products = if all_product_ids.is_empty() {
+        vec![]
+    } else {
+        product_svc
+            .get_by_ids(&ctx, &mut *conn, all_product_ids)
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?
+    };
+    let product_map: std::collections::HashMap<i64, &abt_core::master_data::product::model::Product> =
+        products.iter().map(|p| (p.product_id, p)).collect();
+
+    // 4. Resolve shipping IDs for these orders (latest per order)
+    let shipping_svc = state.shipping_service();
+    let mut shipping_map: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
+    for &oid in &order_ids {
+        let shippings = shipping_svc
+            .list(
+                &ctx,
+                &mut *conn,
+                ShippingQuery {
+                    order_id: Some(oid),
+                    ..Default::default()
+                },
+                PageParams::new(1, 100),
+            )
+            .await
+            .map_err(|e| AppError::Internal(e.to_string()))?;
+        // Take the latest shipping (highest ID) as the original DISTINCT ON logic did
+        if let Some(latest) = shippings.items.iter().max_by_key(|s| s.id) {
+            shipping_map.insert(oid, latest.id);
+        }
+    }
+
+    Ok(Html(
+        order_search_results(&orders, &items_map, &product_map, &shipping_map).into_string(),
+    ))
 }
 
 /// POST: create return from form submission
@@ -230,76 +265,55 @@ pub async fn create_return(
     Form(form): Form<ReturnCreateForm>,
 ) -> Result<impl IntoResponse, AppError> {
     let claims = get_claims(&session).await;
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut conn = state
+        .pool
+        .acquire()
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+
+    if form.customer_id == 0 {
+        return Err(AppError::BadRequest("请选择客户".into()));
+    }
+    if form.order_id == 0 {
+        return Err(AppError::BadRequest("请选择来源订单".into()));
+    }
 
     let web_items: Vec<ReturnItemWeb> = serde_json::from_str(&form.items_json)
         .map_err(|e| AppError::BadRequest(format!("无效退货明细数据: {e}")))?;
 
-    let total_amount: rust_decimal::Decimal = web_items.iter().map(|_| rust_decimal::Decimal::ZERO).sum();
-
-    // Generate doc number
-    let doc_number = format!("RMA-{}", chrono::Local::now().format("%Y%m%d%H%M%S"));
-
-    let return_id: i64 = sqlx::query_scalar(
-        r#"INSERT INTO sales_returns (doc_number, order_id, shipping_request_id, customer_id, return_reason, total_amount, remark, operator_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           RETURNING id"#,
-    )
-    .bind(&doc_number)
-    .bind(form.order_id)
-    .bind(form.shipping_request_id)
-    .bind(form.customer_id)
-    .bind(&form.return_reason)
-    .bind(total_amount)
-    .bind(form.remark.as_deref().unwrap_or(""))
-    .bind(claims.sub)
-    .fetch_one(&mut *conn)
-    .await
-    .map_err(|e| AppError::Internal(e.to_string()))?;
-
-    // Insert items
-    for item in &web_items {
-        let qty: rust_decimal::Decimal = item.returned_qty.parse().unwrap_or(rust_decimal::Decimal::ONE);
-        let unit_price: rust_decimal::Decimal = sqlx::query_scalar(
-            "SELECT unit_price FROM sales_order_items WHERE id = $1",
-        )
-        .bind(item.order_item_id)
-        .fetch_one(&mut *conn)
-        .await
-        .unwrap_or(rust_decimal::Decimal::ZERO);
-
-        let amount = qty * unit_price;
-        sqlx::query(
-            r#"INSERT INTO sales_return_items (return_id, order_item_id, product_id, returned_qty, unit_price, amount, disposition)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)"#,
-        )
-        .bind(return_id)
-        .bind(item.order_item_id)
-        .bind(item.product_id)
-        .bind(qty)
-        .bind(unit_price)
-        .bind(amount)
-        .bind(item.disposition)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    if web_items.is_empty() {
+        return Err(AppError::BadRequest("请至少添加一个退货产品".into()));
     }
 
-    // Update total amount
-    let total: rust_decimal::Decimal = sqlx::query_scalar(
-        "SELECT COALESCE(SUM(amount), 0) FROM sales_return_items WHERE return_id = $1",
-    )
-    .bind(return_id)
-    .fetch_one(&mut *conn)
-    .await
-    .unwrap_or(rust_decimal::Decimal::ZERO);
+    // Build CreateReturnReq for the service
+    let items: Vec<CreateReturnItemReq> = web_items
+        .into_iter()
+        .map(|item| {
+            let qty: rust_decimal::Decimal = item
+                .returned_qty
+                .parse()
+                .unwrap_or(rust_decimal::Decimal::ONE);
+            let disposition = ReturnDisposition::from_i16(item.disposition)
+                .unwrap_or(ReturnDisposition::Restock);
+            CreateReturnItemReq {
+                order_item_id: item.order_item_id,
+                returned_qty: qty,
+                disposition,
+            }
+        })
+        .collect();
 
-    sqlx::query("UPDATE sales_returns SET total_amount = $2 WHERE id = $1")
-        .bind(return_id)
-        .bind(total)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let req = CreateReturnReq {
+        order_id: form.order_id,
+        shipping_request_id: form.shipping_request_id,
+        customer_id: form.customer_id,
+        return_reason: form.return_reason,
+        items,
+    };
+
+    let ctx = make_ctx(claims.sub);
+    let svc = state.sales_return_service();
+    let return_id = svc.create(&ctx, &mut *conn, req).await?;
 
     let redirect = ReturnDetailPath { id: return_id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -307,12 +321,12 @@ pub async fn create_return(
 
 // ── Components ──
 
-fn return_create_page(_customers: &[abt_core::master_data::customer::model::Customer]) -> Markup {
+fn return_create_page(customers: &[abt_core::master_data::customer::model::Customer]) -> Markup {
     html! {
         div x-data="returnForm()" {
             div class="page-header" {
                 a class="back-link" href=(ReturnListPath::PATH) {
-                    (icon::arrow_left_icon("w-4 h-4"))
+                    (icon::chevron_left_icon("w-4 h-4"))
                     "返回退货列表"
                 }
                 h1 class="page-title" { "新建退货单" }
@@ -322,22 +336,50 @@ fn return_create_page(_customers: &[abt_core::master_data::customer::model::Cust
                   hx-post=(ReturnCreatePath::PATH)
                   hx-swap="none" {
                 input type="hidden" name="items_json" x-model="itemsJson";
+                input type="hidden" name="customer_id" x-model="customerId";
                 input type="hidden" name="order_id" x-model="selectedOrderId";
                 input type="hidden" name="shipping_request_id" x-model="shippingRequestId";
-                input type="hidden" name="customer_id" x-model="selectedCustomerId";
 
-                // ── Related Order ──
+                // ── Customer ──
+                div class="data-card" style="margin-bottom:var(--space-4)" {
+                    div class="form-section-title" { "客户信息" }
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label { "客户名称" span style="color:var(--danger)" { "*" } }
+                            select x-model="customerId" {
+                                option value="0" { "请选择客户" }
+                                @for c in customers {
+                                    option value=(c.id) { (c.name) }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Order Picker ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
                     div class="form-section-title" { "关联单据" }
                     div class="form-grid" {
                         div class="form-field" {
-                            label { "搜索订单" }
-                            input class="form-input" type="text" placeholder="输入订单号搜索…"
-                                hx-get=(ReturnOrdersPath::PATH)
-                                hx-trigger="keyup changed delay:300ms"
-                                hx-target="#order-search-results"
-                                hx-swap="innerHTML"
-                                hx-include="this" {}
+                            label { "选择订单" span style="color:var(--danger)" { "*" } }
+                            div style="display:flex;gap:var(--space-2)" {
+                                input type="text" readonly
+                                    x-model="selectedOrderNumber"
+                                    placeholder="点击选择来源订单"
+                                    x-bind:disabled="!customerId"
+                                    x-on:click="customerId && (orderModalOpen = true)"
+                                    style="flex:1;cursor:pointer" {}
+                                button type="button" class="btn btn-sm btn-default"
+                                    x-show="selectedOrderNumber"
+                                    x-on:click="clearOrder()" title="清除" {
+                                    (icon::x_icon("w-3.5 h-3.5"))
+                                }
+                                button type="button" class="btn btn-sm btn-primary"
+                                    x-bind:disabled="!customerId"
+                                    x-on:click="orderModalOpen = true" {
+                                    "选择订单"
+                                }
+                            }
                         }
                         div class="form-field" {
                             label { "退货原因" span style="color:var(--danger)" { "*" } }
@@ -351,44 +393,51 @@ fn return_create_page(_customers: &[abt_core::master_data::customer::model::Cust
                             }
                         }
                     }
-                    div id="order-search-results" {}
                 }
 
-                // ── Return Items (loaded dynamically) ──
-                div id="return-items-section" x-show="selectedOrderId" {
-                    div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
-                        div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                            span class="form-section-title" style="margin:0;padding:0;border:none" { "退货明细" }
-                        }
-                        div style="overflow-x:auto" {
-                            table class="data-table" style="min-width:700px" {
-                                thead {
-                                    tr {
-                                        th { "产品" }
-                                        th class="num-right" { "订单数量" }
-                                        th class="num-right" { "单价" }
-                                        th style="width:100px;text-align:right" { "退货数量" }
-                                        th style="width:120px" { "处理方式" }
-                                        th { }
-                                    }
+                // ── Return Items ──
+                div x-show="selectedOrderId" class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
+                    div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
+                        span class="form-section-title" style="margin:0;padding:0;border:none" { "退货明细" }
+                    }
+                    div style="overflow-x:auto" {
+                        table class="data-table" style="min-width:700px" {
+                            thead {
+                                tr {
+                                    th { "产品编码" }
+                                    th { "产品名称" }
+                                    th { "单位" }
+                                    th class="num-right" { "订单数量" }
+                                    th class="num-right" { "单价" }
+                                    th style="width:100px;text-align:right" { "退货数量" }
+                                    th style="width:120px" { "处理方式" }
+                                    th style="width:36px" { }
                                 }
-                                tbody {
-                                    template x-for="(item, idx) in items" {
-                                        tr {
-                                            td x-text="item.product_name" {}
-                                            td class="num-right" x-text="item.order_qty" {}
-                                            td class="num-right mono" x-text="'¥ ' + parseFloat(item.unit_price).toFixed(2)" {}
-                                            td { input class="form-input" type="number" x-model="item.returned_qty" min="1" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                            td {
-                                                select x-model="item.disposition" style="width:120px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {
-                                                    option value="1" { "退回库存" }
-                                                    option value="2" { "报废" }
-                                                    option value="3" { "返工" }
-                                                }
+                            }
+                            tbody {
+                                template x-for="(item, idx) in items" {
+                                    tr {
+                                        td class="mono" x-text="item.product_code" {}
+                                        td x-text="item.product_name" {}
+                                        td x-text="item.unit" {}
+                                        td class="num-right" x-text="item.order_qty" {}
+                                        td class="num-right mono" x-text="'¥ ' + parseFloat(item.unit_price).toFixed(2)" {}
+                                        td {
+                                            input type="number" x-model="item.returned_qty" min="1"
+                                                style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {}
+                                        }
+                                        td {
+                                            select x-model="item.disposition"
+                                                style="width:120px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {
+                                                option value="1" { "退回库存" }
+                                                option value="2" { "报废" }
+                                                option value="3" { "返工" }
                                             }
-                                            td { button type="button" class="btn-remove-row" x-on:click="removeItem(idx)" title="删除" {
+                                        }
+                                        td {
+                                            button type="button" class="btn-remove-row" x-on:click="removeItem(idx)" title="删除" {
                                                 (icon::x_icon("w-3.5 h-3.5"))
-                                            } }
+                                            }
                                         }
                                     }
                                 }
@@ -400,7 +449,8 @@ fn return_create_page(_customers: &[abt_core::master_data::customer::model::Cust
                 // ── Remark ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
                     div class="form-section-title" { "备注" }
-                    textarea name="remark" placeholder="输入退货备注…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+                    textarea name="remark" placeholder="输入退货备注…"
+                        style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
                 }
 
                 // ── Action Bar ──
@@ -412,45 +462,105 @@ fn return_create_page(_customers: &[abt_core::master_data::customer::model::Cust
                 }
             }
 
-            script src="/return-create.js" {}
-        }
-    }
-}
-
-fn order_list_fragment(
-    orders: &[(i64, String, i64, i16)],
-    customer_names: &std::collections::HashMap<i64, String>,
-) -> Markup {
-    html! {
-        @if orders.is_empty() {
-            div style="text-align:center;padding:var(--space-4);color:var(--muted);font-size:var(--text-sm)" {
-                "未找到匹配的订单"
-            }
-        } @else {
-            div class="product-select-list" {
-                @for (id, doc_number, customer_id, _status) in orders {
-                    @let customer_name = customer_names.get(customer_id).map(|s| s.as_str()).unwrap_or("—");
-                    @let order_json = serde_json::json!({
-                        "order_id": id,
-                        "doc_number": doc_number,
-                        "customer_id": customer_id,
-                        "customer_name": customer_name,
-                    }).to_string();
-                    div class="product-select-item" {
-                        div class="product-select-info" {
-                            div class="product-select-name" { (doc_number) }
-                            div class="product-select-meta" {
-                                span { (customer_name) }
+            // ── Order Picker Modal ──
+            div class="modal-overlay"
+                x-bind:class="{ 'is-open': orderModalOpen }"
+                x-on:click="orderModalOpen = false" {
+                div class="modal modal-lg" x-on:click="event.stopPropagation()" {
+                    div class="modal-head" {
+                        h2 { "选择来源订单" }
+                        button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                            x-on:click="orderModalOpen = false" { "x" }
+                    }
+                    div class="modal-body" style="padding:0" {
+                        div class="product-search-bar" {
+                            input type="hidden" name="customer_id" x-model="customerId" {}
+                            div class="product-search-field" {
+                                label class="product-search-label" { "搜索订单" }
+                                input class="product-search-input" type="text" name="keyword" placeholder="输入订单号…"
+                                    hx-get=(ReturnOrdersPath::PATH)
+                                    hx-trigger="keyup changed delay:300ms"
+                                    hx-target="#return-order-results"
+                                    hx-swap="innerHTML"
+                                    hx-include=".product-search-bar input" {}
                             }
                         }
-                        button type="button" class="btn btn-sm btn-primary"
-                            data-order=(order_json)
-                            x-on:click="selectOrder(JSON.parse($el.dataset.order))" {
-                            "选择"
+                        div id="return-order-results" style="max-height:360px;overflow-y:auto"
+                            hx-get=(ReturnOrdersPath::PATH)
+                            hx-trigger="intersect once"
+                            hx-include=".product-search-bar input"
+                            hx-swap="innerHTML" {
+                            div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--muted)" {
+                                "加载中..."
+                            }
                         }
                     }
                 }
             }
+
+            script src="/return-create.js?v=2" {}
+        }
+    }
+}
+
+fn order_search_results(
+    orders: &[abt_core::sales::sales_order::model::SalesOrder],
+    items_map: &std::collections::HashMap<i64, Vec<abt_core::sales::sales_order::model::SalesOrderItem>>,
+    product_map: &std::collections::HashMap<i64, &abt_core::master_data::product::model::Product>,
+    shipping_map: &std::collections::HashMap<i64, i64>,
+) -> Markup {
+    html! {
+        div class="product-select-list" {
+            @for order in orders {
+                @let status_text = order_status_text(order.status);
+                @let order_date = order.order_date.format("%Y-%m-%d").to_string();
+                @let total = order.total_amount.to_string();
+                @let shipping_id = shipping_map.get(&order.id).copied().unwrap_or(0);
+                @let items_json = serde_json::json!({
+                    "id": order.id,
+                    "doc_number": &order.doc_number,
+                    "shipping_id": shipping_id,
+                    "items": items_map.get(&order.id).map(|items| items.iter().map(|item| {
+                        let product = product_map.get(&item.product_id);
+                        serde_json::json!({
+                            "order_item_id": item.id,
+                            "product_id": item.product_id,
+                            "product_code": product.map(|p| p.product_code.as_str()).unwrap_or(""),
+                            "product_name": product.map(|p| p.pdt_name.as_str()).unwrap_or_else(|| item.description.as_str()),
+                            "unit": product.map(|p| p.unit.as_str()).unwrap_or(""),
+                            "order_qty": item.quantity.to_string(),
+                            "unit_price": item.unit_price.to_string(),
+                        })
+                    }).collect::<Vec<_>>()).unwrap_or_default()
+                }).to_string();
+
+                div class="product-select-item" {
+                    div class="product-select-info" {
+                        div class="product-select-name" { (order.doc_number) }
+                        div class="product-select-meta" {
+                            span { (order_date) }
+                            span class="product-select-sep" { "·" }
+                            span { (status_text) }
+                            span class="product-select-sep" { "·" }
+                            span { "¥" (total) }
+                        }
+                    }
+                    button type="button" class="btn btn-sm btn-primary"
+                        data-order=(items_json)
+                        x-on:click="selectOrder(JSON.parse($el.dataset.order))" {
+                        "选择"
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn order_search_empty() -> Markup {
+    html! {
+        div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+            (icon::package_icon("w-8 h-8"))
+            p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "请先选择客户，或未找到匹配的订单" }
         }
     }
 }

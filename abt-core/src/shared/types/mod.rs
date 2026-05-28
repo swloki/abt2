@@ -10,5 +10,9 @@ pub use error::{DomainError, Result};
 pub use pagination::{DataScope, PageParams, PaginatedResult};
 pub use transaction::TransactionMode;
 
+// Re-export sqlx types for downstream crates that need PgPool but shouldn't depend on sqlx directly
+pub use sqlx::PgPool;
+pub use sqlx::postgres::PgPoolOptions;
+
 /// PostgreSQL 执行器类型
 pub type PgExecutor<'a> = &'a mut sqlx::postgres::PgConnection;

@@ -526,6 +526,30 @@ impl SalesReturnService for SalesReturnServiceImpl {
                 ctx.department_id,
             )
             .await
-            
+
+    }
+
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let existing = self.repo.find_by_id(db, id).await?
+            .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
+
+        if existing.status != ReturnStatus::Draft {
+            return Err(DomainError::business_rule("仅草稿状态的退货单可以删除"));
+        }
+
+        self.repo.soft_delete(db, id).await?;
+
+        self.audit.record(ctx, db, "SalesReturn", id, AuditAction::Delete, None, None).await?;
+
+        Ok(())
+    }
+
+    async fn list_items(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        return_id: i64,
+    ) -> Result<Vec<SalesReturnItem>> {
+        self.item_repo.find_by_return_id(db, return_id).await
     }
 }

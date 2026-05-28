@@ -4,14 +4,16 @@
 
 - **使用中文沟通**
 - **不要用 `cargo run` 启动服务**，服务已在运行中。验证代码正确性主要用 `cargo clippy`
-- 前端代码在 `abt-web/` 目录下，使用 Astro + Svelte 技术栈
 - **编写 `abt-web2/` 组件前，必须先读 `abt-web2/CLAUDE.md`**（组件化三原则、抗碎片化实践等约束）
 
 ## Project Overview
 
-ABT 是 BOM（物料清单）和库存管理系统，基于 Rust 构建。对外暴露 gRPC API，底层数据库为 PostgreSQL。核心库 `abt` 也可作为 NAPI 模块供 Node.js 使用。
+ABT 是 BOM（物料清单）和库存管理系统，基于 Rust 构建。底层数据库为 PostgreSQL。
 
-**环境变量：** `DATABASE_URL`（必须，PostgreSQL 连接串）。可选：`GRPC_HOST`（默认 `0.0.0.0`）、`GRPC_PORT`（默认 `8001`）、`MAX_CONNECTION`（默认 `20`）。`abt-grpc` 目录下的 `.env` 文件通过 `dotenvy` 加载。
+**环境变量**（`.env` 文件）：
+- `DATABASE_URL`（必须，PostgreSQL 连接串，指向 `abt_v2` 数据库）
+- `JWT_SECRET`（必须）
+- `WEB_PORT`（默认 `3000`）、`WEB_HOST`（默认 `0.0.0.0`）、`MAX_CONNECTION`（默认 `20`）
 
 ## Design Principle: Interface & Model First（接口与模型先行）
 
@@ -19,10 +21,10 @@ ABT 是 BOM（物料清单）和库存管理系统，基于 Rust 构建。对外
 
 **接口 + 模型设计 → 评审确认 → 交互设计 → 实现**
 
-1. **接口先行** — 先定义清晰稳定的 API 契约（Proto 定义），确认后不可随意变更
+1. **接口先行** — 先定义清晰稳定的 Service trait，确认后不可随意变更
 2. **模型先行** — 同步设计领域模型（请求/响应结构、实体、值对象），语义清晰、边界明确、职责单一
 3. **基于接口设计交互** — 禁止在接口未定义时设计前端交互或 UI
-4. **文档化** — 接口和模型以 Proto 定义作为文档，是系统的骨架和共享语言
+4. **文档化** — 接口和模型以 `docs/uml-design/` 设计文档为骨架和共享语言
 
 ## Design Authority（设计文档权威性）
 
@@ -39,12 +41,11 @@ ABT 是 BOM（物料清单）和库存管理系统，基于 Rust 构建。对外
 ## Build & Verification
 
 ```bash
-cargo build          # 构建所有 crate（同时重新生成 proto 代码）
+cargo build          # 构建所有 crate
 cargo clippy         # 主要验证手段
 cargo test           # 运行所有测试
-cargo test -p abt    # 运行 abt crate 测试
-cargo test -p abt-grpc # 运行 abt-grpc crate 测试
-cargo test -p abt -- test_name  # 运行单个测试
+cargo test -p abt-core          # 运行 abt-core 测试
+cargo test -p abt-core -- test_name  # 运行单个测试
 ```
 
 ## Architecture
@@ -52,43 +53,35 @@ cargo test -p abt -- test_name  # 运行单个测试
 ### Workspace Structure
 
 ```
-common/       — 共享类型别名（PgExecutor for sqlx）
-abt/          — 旧核心业务逻辑库（cdylib + rlib），将逐步被 abt-core 取代
-abt-core/     — 新核心业务逻辑库，实现 docs/uml-design/ 中设计的所有新功能
-abt-grpc/     — gRPC 服务端
-proto/        — Protobuf 服务定义
+abt-core/     — 核心业务库（lib），按业务域组织模块，暴露 Service trait
+abt-web2/     — Web 前端（Axum + Maud + HTMX），直接调用 abt-core Service trait
+abt-macros/   — 过程宏
 ```
 
-**`abt` vs `abt-core` 关系**：`docs/uml-design/` 中的设计功能统一在 `abt-core` 中实现，使用独立数据库 `abt_v2`（通过 `ABT_CORE_DATABASE_URL` 环境变量配置）。旧 `abt` crate 的功能后续会被 `abt-core` 逐步替代。**新功能一律在 `abt-core` 中开发，不要修改 `abt` crate。**
+### Module Structure（abt-core）
 
-### Layered Design
+每个业务模块采用**高内聚的文件组织**，所有层共处同一目录：
 
-每个功能遵循以下分层模式：
+```
+abt-core/src/sales/order/
+├── mod.rs       # 导出 + 工厂函数（new_order_service）
+├── service.rs   # Service trait 定义
+├── implt.rs     # Service trait 实现
+├── model.rs     # 数据模型（请求/响应/实体）
+└── repo.rs      # 数据库访问（sqlx 原始 SQL）
+```
 
-1. **Proto definition** (`proto/abt/v1/*.proto`) — gRPC 消息和服务定义
-2. **Model** (`abt/src/models/`) — Rust 结构体，映射数据库行和 Proto 消息
-3. **Repository** (`abt/src/repositories/`) — 通过 sqlx 执行原始 SQL
-4. **Service trait** (`abt/src/service/`) — 定义业务接口的 async trait，返回 `Result<T, DomainError>`
-5. **Service impl** (`abt/src/implt/`) — 基于 repository 的具体实现，集成共享基础设施服务
-6. **gRPC handler** (`abt-grpc/src/handlers/`) — Proto 请求与 Service 调用之间的转换，将 `DomainError` 映射为 `tonic::Status`
-
-Proto 编译由 `abt-grpc/build.rs` 处理，扫描 `proto/abt/v1/` 并输出到 `abt-grpc/src/generated/`。`cargo build` 会自动重新生成。
+**业务域模块**：`sales`、`master_data`、`purchase`、`wms`、`mes`、`qms`、`om`（委外）、`fms`（财务）、`workflow`
 
 ### Shared Infrastructure（共享基础设施层）
 
-业务 Service impl 通过共享服务完成横切关注点。**实现共享基础设施或集成共享服务前，必须先读 `docs/uml-design/README.md`**（接口签名、类型定义、集成规则）。详细类图见 `docs/uml-design/00-shared-infrastructure.html`。
+`abt-core/src/shared/` 提供横切关注点的共享服务。每个共享模块暴露工厂函数，业务模块按需调用。
 
-### Global State
-
-- `abt::AppContext` 持有 PostgreSQL 连接池，通过 `init_context_with_pool()` 一次性初始化
-- Service 实例通过 `abt/src/lib.rs` 中的工厂函数创建（如 `get_product_service(ctx)`）
-- `EventProcessor` 通过 `start()` / `stop()` 管理生命周期，服务启动时 start、关闭时 stop；`is_running()` + `last_processed_at()` 提供健康检查
-- Excel service 是全局单例（`OnceLock`），用于维护导入进度状态
-- `abt-grpc::server::AppState` 包装 `AppContext`，通过 `AppState::get().await` 访问
+**实现共享基础设施前，必须先读 `docs/uml-design/README.md`**（接口签名、类型定义、集成规则）。
 
 ### Database
 
-PostgreSQL + sqlx（通过 `sqlx::query!` 宏实现编译期检查）。Migration 在 `abt/migrations/` 中，按序编号的纯 SQL 文件。
+PostgreSQL + sqlx（通过 `sqlx::query!` 宏实现编译期检查）。Migration 在 `abt-core/migrations/` 中，按序编号的纯 SQL 文件。
 
 - JSONB 列用于灵活元数据（如 `products.meta`、`boms.bom_detail`）
 - 通过 `deleted_at` 时间戳实现软删除
@@ -97,15 +90,72 @@ PostgreSQL + sqlx（通过 `sqlx::query!` 宏实现编译期检查）。Migratio
 
 ### Key Conventions
 
-- **模块边界**：跨模块调用只允许通过 Service trait（`abt/src/service/`）和 Model（`abt/src/models/`）。禁止跨模块直接访问 Repository（`abt/src/repositories/`）或 Service impl（`abt/src/implt/`）。同模块内部可自由调用自身 Repository
-- **错误处理**：新服务使用 `thiserror` 定义的 `DomainError` 枚举，返回 `Result<T, DomainError>`；老服务保持 `anyhow::Result<T>`，渐进式迁移。`#[error(transparent)]` + `#[from] anyhow::Error` 保证老代码零改动。gRPC handler 层将 `DomainError` 映射为 `tonic::Status`
+- **模块边界**：跨模块调用只允许通过 Service trait 和 Model。禁止跨模块直接访问 Repository 或 Service impl（`implt`）。同模块内部可自由调用自身 Repository
+- **错误处理**：使用 `thiserror` 定义的 `DomainError` 枚举，返回 `Result<T, DomainError>`。Web handler 层将 `DomainError` 映射为 HTTP 响应
 - **禁止静默丢弃错误**：严禁使用 `let _ = expr.await;` 或 `let _ = result;` 来忽略错误。所有错误必须通过 `?` 传播、`map_err` 转换、或 `if let Err(e) { ... }` 显式处理（至少记录日志）
 - **共享基础设施**：集成共享服务前必须读 `docs/uml-design/README.md`（接口签名、AuditAction / SideEffect / EventPublishRequest 等类型定义、集成规则）
 - 所有 service trait 使用 `async-trait` crate 的 `#[async_trait]`
-- `abt/src/lib.rs` 中 `#![allow(non_snake_case)]` — Proto 生成的名称使用 CamelCase
 - 所有 crate edition 统一为 2024
-- `common` crate 提供 `PgExecutor` 类型别名，即可变 `PgConnection` 引用
-- 已启用 gRPC reflection，客户端可内省 API
+- `abt-core/src/shared/types/` 提供 `PgExecutor` 类型别名（`&mut PgConnection`）、`ServiceContext`、`DomainError`、`PageParams` 等共享类型
+
+### 共享服务调用：按需工厂模式（On-Demand Factory）
+
+业务 Service impl 使用共享服务时，遵循以下规则：
+
+**1. 每个共享模块的 `mod.rs` 暴露工厂函数**，返回 `impl Trait`，内部自行封装子依赖：
+
+```rust
+// shared/audit_log/mod.rs
+pub fn new_audit_log_service(pool: PgPool) -> impl AuditLogService {
+    implt::AuditLogServiceImpl::new(pool)
+}
+
+// shared/state_machine/mod.rs （内部处理自己的依赖）
+pub fn new_state_machine_service(pool: PgPool) -> impl StateMachineService {
+    let event_bus = Arc::new(DomainEventBusImpl::new(pool.clone()));
+    implt::StateMachineServiceImpl::new(pool, event_bus)
+}
+```
+
+**2. 消费方 struct 只持 `PgPool`**，不持有任何 `Arc<dyn Trait>` 字段：
+
+```rust
+pub struct XxxServiceImpl {
+    repo: XxxRepo,
+    pool: PgPool,
+}
+```
+
+**3. 方法体只依赖接口（trait）**，通过工厂函数获取接口实例，禁止直接依赖实现类型：
+
+```rust
+// ✓ 正确：use 引入 trait + 工厂函数，方法体只面向接口编程
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
+use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
+
+impl XxxService for XxxServiceImpl {
+    async fn some_method(&self, ...) -> Result<()> {
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, ...).await?;
+
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ...).await?;
+    }
+}
+
+// ✗ 禁止：使用全限定路径
+crate::shared::audit_log::new_audit_log_service(self.pool.clone())
+
+// ✗ 禁止：直接依赖实现类型
+use crate::shared::audit_log::implt::AuditLogServiceImpl;
+AuditLogServiceImpl::new(self.pool.clone())
+```
+
+**核心原则：**
+- struct 不持有 `Arc<dyn Trait>`，只持 `PgPool`
+- 方法体只面向 trait 接口编程，不依赖实现（implt）
+- 工厂函数在 `use` 中引入，代码中使用短名称
+- 共享服务按需创建，用完即弃，不做 upfront 注入
 
 ### Documented Solutions
 
@@ -113,13 +163,12 @@ PostgreSQL + sqlx（通过 `sqlx::query!` 宏实现编译期检查）。Migratio
 
 ### Adding a New Feature
 
-1. 在 `proto/abt/v1/` 添加 `.proto` 定义
-2. 在 `abt/src/models/` 创建 model
-3. 在 `abt/src/repositories/` 创建 repository
-4. 在 `abt/src/service/` 定义 service trait
-5. 在 `abt/src/implt/` 实现 service
-6. 在 `abt/src/lib.rs` 添加工厂函数
-7. 在 `abt-grpc/src/handlers/` 创建 handler（Proto 与 Model 类型互转，DomainError → tonic::Status）
-8. 在 `abt-grpc/src/server.rs` 注册 handler
-9. 在 `abt/migrations/` 添加数据库迁移
-10. **业务集成** — 根据功能需要，在 Service impl 中集成共享基础设施。具体接口签名和集成规则见 `docs/uml-design/README.md`
+1. 在 `abt-core/src/<domain>/<module>/` 下创建模块文件：
+   - `model.rs` — 数据模型
+   - `repo.rs` — 数据库访问
+   - `service.rs` — Service trait 定义
+   - `implt.rs` — Service trait 实现（struct 只持 `PgPool`，共享服务通过工厂函数按需获取）
+   - `mod.rs` — 导出 + 工厂函数
+3. 在 `abt-core/migrations/` 添加数据库迁移
+4. 在 `abt-web2/src/pages/` 创建页面（如需 UI）
+5. 同步更新 `docs/uml-design/` 设计文档

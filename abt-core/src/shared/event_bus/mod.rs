@@ -11,3 +11,9 @@ pub use service::DomainEventBus;
 pub use registry::{EventHandler, EventHandlerRegistry, EventHandlerRegistryImpl};
 pub use dead_letter::{DeadLetterService, DeadLetterServiceImpl};
 pub use processor::EventProcessor;
+
+use sqlx::PgPool;
+
+pub fn new_domain_event_bus(pool: PgPool) -> impl DomainEventBus {
+    implt::DomainEventBusImpl::new(pool)
+}

@@ -1,6 +1,5 @@
 use crate::config::Config;
 use abt_core::shared::types::{PgPool, PgPoolOptions};
-use std::sync::Arc;
 use tower_sessions_file_store::FileSessionStorage;
 
 #[derive(Clone)]
@@ -18,9 +17,13 @@ impl AppState {
             .connect(&config.database_url)
             .await?;
 
-        tracing::info!("Database pool initialized (max {} connections)", config.max_connection);
+        tracing::info!(
+            "Database pool initialized (max {} connections)",
+            config.max_connection
+        );
 
-        let session_store = FileSessionStorage::new_in_folder(std::path::PathBuf::from(&config.session_dir));
+        let session_store =
+            FileSessionStorage::new_in_folder(std::path::PathBuf::from(&config.session_dir));
 
         tracing::info!("File session store initialized at: {}", config.session_dir);
 
@@ -34,7 +37,7 @@ impl AppState {
 
     pub fn auth_service(&self) -> impl abt_core::shared::identity::AuthService {
         use abt_core::shared::identity::implt::AuthServiceImpl;
-        AuthServiceImpl::new(Arc::new(self.pool.clone()), self.jwt_secret.clone())
+        AuthServiceImpl::new(self.pool.clone(), self.jwt_secret.clone())
     }
 
     pub fn customer_service(&self) -> impl abt_core::master_data::customer::CustomerService {
@@ -53,7 +56,9 @@ impl AppState {
         abt_core::sales::sales_order::new_sales_order_service(self.pool.clone())
     }
 
-    pub fn shipping_service(&self) -> impl abt_core::sales::shipping_request::ShippingRequestService {
+    pub fn shipping_service(
+        &self,
+    ) -> impl abt_core::sales::shipping_request::ShippingRequestService {
         abt_core::sales::shipping_request::new_shipping_request_service(self.pool.clone())
     }
 
@@ -81,7 +86,9 @@ impl AppState {
         abt_core::sales::sales_return::new_sales_return_service(self.pool.clone())
     }
 
-    pub fn reconciliation_service(&self) -> impl abt_core::sales::reconciliation::ReconciliationService {
+    pub fn reconciliation_service(
+        &self,
+    ) -> impl abt_core::sales::reconciliation::ReconciliationService {
         abt_core::sales::reconciliation::new_reconciliation_service(self.pool.clone())
     }
 

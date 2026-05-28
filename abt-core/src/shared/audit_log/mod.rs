@@ -5,3 +5,9 @@ pub mod service;
 
 pub use model::{AuditLog, AuditLogQuery};
 pub use service::AuditLogService;
+
+use sqlx::PgPool;
+
+pub fn new_audit_log_service(pool: PgPool) -> impl AuditLogService {
+    implt::AuditLogServiceImpl::new(pool)
+}

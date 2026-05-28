@@ -95,14 +95,12 @@ enum AuditAction {
     Transition,
 }
 
-struct RecordAuditLogReq<'a> {
-    entity_type: &'a str,
+struct RecordAuditLogReq {
+    entity_type: &'static str,
     entity_id: i64,
     action: AuditAction,
     changes: Option<JsonValue>,
     context: Option<JsonValue>,
-    operator_id: i64,
-    remark: Option<&'a str>,
 }
 
 trait AuditLogService {

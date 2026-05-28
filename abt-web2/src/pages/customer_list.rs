@@ -4,7 +4,7 @@ use axum::response::{Html, IntoResponse};
 use axum::Form;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
-use serde::{Deserialize, de};
+use serde::Deserialize;
 use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::*;
@@ -19,22 +19,9 @@ use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::customer::{CreateCustomerPath, CustomerDetailPath, CustomerListPath, CustomerTablePath, EditCustomerFormPath, UpdateCustomerPath, DeleteCustomerPath};
 use crate::state::AppState;
+use crate::utils::empty_as_none;
 
 // ── Query Params ──
-
-fn empty_as_none<'de, D, T>(de: D) -> std::result::Result<Option<T>, D::Error>
-where
-    D: de::Deserializer<'de>,
-    T: std::str::FromStr,
-{
-    let s: Option<String> = Option::deserialize(de)?;
-    match s.as_deref() {
-        None | Some("") => Ok(None),
-        Some(v) => v.parse::<T>().map(Some).map_err(|_| {
-            de::Error::custom(format!("cannot parse '{v}'"))
-        }),
-    }
-}
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct CustomerQueryParams {

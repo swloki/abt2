@@ -65,38 +65,38 @@ impl std::error::Error for SyncError {}
 
 /// LoadBizObjects 用的 Filter 格式
 #[derive(Debug, Serialize)]
-#[allow(non_snake_case)]
+#[serde(rename_all = "PascalCase")]
 pub struct H3YunFilter {
-    pub ActionName: String,
-    pub SchemaCode: String,
-    pub Filter: String,
+    pub action_name: String,
+    pub schema_code: String,
+    pub filter: String,
 }
 
 /// Create/Update/Remove 用的请求格式
 #[derive(Debug, Serialize)]
-#[allow(non_snake_case)]
+#[serde(rename_all = "PascalCase")]
 pub struct H3YunRequest {
-    pub ActionName: String,
-    pub SchemaCode: String,
+    pub action_name: String,
+    pub schema_code: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub BizObject: Option<String>,
+    pub biz_object: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub BizObjectId: Option<String>,
+    pub biz_object_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub IsSubmit: Option<bool>,
+    pub is_submit: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
-#[allow(non_snake_case)]
+#[serde(rename_all = "PascalCase")]
 pub struct H3YunResponse {
     #[serde(default)]
-    pub Successful: bool,
+    pub successful: bool,
     #[serde(default, deserialize_with = "deserialize_null_string")]
-    pub ErrorMessage: String,
+    pub error_message: String,
     #[serde(default)]
-    pub ReturnData: Option<serde_json::Value>,
+    pub return_data: Option<serde_json::Value>,
     #[serde(default)]
-    pub ErrorCode: Option<i32>,
+    pub error_code: Option<i32>,
 }
 
 fn deserialize_null_string<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>

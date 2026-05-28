@@ -28,22 +28,9 @@ use crate::routes::order::OrderDetailPath;
 use crate::routes::sales_return::*;
 use crate::routes::shipping::ShippingDetailPath;
 use crate::state::AppState;
+use crate::utils::empty_as_none;
 
 // ── Query Params ──
-
-fn empty_as_none<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
-where
-    D: serde::de::Deserializer<'de>,
-    T: std::str::FromStr,
-{
-    let s: Option<String> = Option::deserialize(de)?;
-    match s.as_deref() {
-        None | Some("") => Ok(None),
-        Some(v) => v.parse::<T>().map(Some).map_err(|_| {
-            serde::de::Error::custom(format!("cannot parse '{v}'"))
-        }),
-    }
-}
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ReturnQueryParams {

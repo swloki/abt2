@@ -57,19 +57,19 @@ impl H3YunClient {
     /// 创建 BizObject，返回 ObjectId
     pub async fn create(&self, schema_code: &str, biz_object: &str) -> Result<String, SyncError> {
         let req = H3YunRequest {
-            ActionName: action::CREATE.to_string(),
-            SchemaCode: schema_code.to_string(),
-            BizObject: Some(biz_object.to_string()),
-            BizObjectId: None,
-            IsSubmit: Some(true),
+            action_name: action::CREATE.to_string(),
+            schema_code: schema_code.to_string(),
+            biz_object: Some(biz_object.to_string()),
+            biz_object_id: None,
+            is_submit: Some(true),
         };
 
         let resp = self.invoke(&req).await?;
-        if !resp.Successful {
-            return Err(classify_error(&resp.ErrorMessage));
+        if !resp.successful {
+            return Err(classify_error(&resp.error_message));
         }
 
-        let return_data = resp.ReturnData;
+        let return_data = resp.return_data;
         return_data
             .and_then(|d| {
                 d.get("BizObjectId")
@@ -93,16 +93,16 @@ impl H3YunClient {
     ) -> Result<(), SyncError> {
         // 和旧代码一致：BizObjectId 作为顶层字段，BizObject 是 JSON 字符串
         let req = H3YunRequest {
-            ActionName: action::UPDATE.to_string(),
-            SchemaCode: schema_code.to_string(),
-            BizObject: Some(biz_object.to_string()),
-            BizObjectId: Some(object_id.to_string()),
-            IsSubmit: Some(true),
+            action_name: action::UPDATE.to_string(),
+            schema_code: schema_code.to_string(),
+            biz_object: Some(biz_object.to_string()),
+            biz_object_id: Some(object_id.to_string()),
+            is_submit: Some(true),
         };
 
         let resp = self.invoke(&req).await?;
-        if !resp.Successful {
-            return Err(classify_error(&resp.ErrorMessage));
+        if !resp.successful {
+            return Err(classify_error(&resp.error_message));
         }
 
         Ok(())
@@ -111,16 +111,16 @@ impl H3YunClient {
     /// 删除 BizObject
     pub async fn delete(&self, schema_code: &str, object_id: &str) -> Result<(), SyncError> {
         let req = H3YunRequest {
-            ActionName: action::REMOVE.to_string(),
-            SchemaCode: schema_code.to_string(),
-            BizObject: None,
-            BizObjectId: Some(object_id.to_string()),
-            IsSubmit: None,
+            action_name: action::REMOVE.to_string(),
+            schema_code: schema_code.to_string(),
+            biz_object: None,
+            biz_object_id: Some(object_id.to_string()),
+            is_submit: None,
         };
 
         let resp = self.invoke(&req).await?;
-        if !resp.Successful {
-            return Err(classify_error(&resp.ErrorMessage));
+        if !resp.successful {
+            return Err(classify_error(&resp.error_message));
         }
 
         Ok(())
@@ -136,18 +136,18 @@ impl H3YunClient {
             "ToRowNum": 10000
         });
         let req = H3YunFilter {
-            ActionName: action::LOAD.to_string(),
-            SchemaCode: schema_code.to_string(),
-            Filter: filter.to_string(),
+            action_name: action::LOAD.to_string(),
+            schema_code: schema_code.to_string(),
+            filter: filter.to_string(),
         };
 
         let resp = self.invoke_filter(&req).await?;
-        if !resp.Successful {
-            return Err(classify_error(&resp.ErrorMessage));
+        if !resp.successful {
+            return Err(classify_error(&resp.error_message));
         }
 
         let items = resp
-            .ReturnData
+            .return_data
             .and_then(|d| {
                 if let Some(s) = d.as_str() {
                     serde_json::from_str::<Vec<Value>>(s).ok()
@@ -189,18 +189,18 @@ impl H3YunClient {
 
         // LoadBizObjects 用 "Filter" 字段，不是 "BizObject"
         let req = H3YunFilter {
-            ActionName: action::LOAD.to_string(),
-            SchemaCode: schema_code.to_string(),
-            Filter: filter.to_string(),
+            action_name: action::LOAD.to_string(),
+            schema_code: schema_code.to_string(),
+            filter: filter.to_string(),
         };
 
         let resp = self.invoke_filter(&req).await?;
-        if !resp.Successful {
-            return Err(classify_error(&resp.ErrorMessage));
+        if !resp.successful {
+            return Err(classify_error(&resp.error_message));
         }
 
-        let return_data_debug = format!("{:?}", resp.ReturnData);
-        let object_id = resp.ReturnData.and_then(|d| {
+        let return_data_debug = format!("{:?}", resp.return_data);
+        let object_id = resp.return_data.and_then(|d| {
             let data = if let Some(s) = d.as_str() {
                 serde_json::from_str::<Value>(s).ok().unwrap_or(d)
             } else {
@@ -261,17 +261,17 @@ impl H3YunClient {
         });
 
         let req = H3YunFilter {
-            ActionName: action::LOAD.to_string(),
-            SchemaCode: schema_code.to_string(),
-            Filter: filter.to_string(),
+            action_name: action::LOAD.to_string(),
+            schema_code: schema_code.to_string(),
+            filter: filter.to_string(),
         };
 
         let resp = self.invoke_filter(&req).await?;
-        if !resp.Successful {
-            return Err(classify_error(&resp.ErrorMessage));
+        if !resp.successful {
+            return Err(classify_error(&resp.error_message));
         }
 
-        let object_id = resp.ReturnData.and_then(|d| {
+        let object_id = resp.return_data.and_then(|d| {
             let data = if let Some(s) = d.as_str() {
                 serde_json::from_str::<Value>(s).ok().unwrap_or(d)
             } else {

@@ -103,7 +103,7 @@ pub async fn list(
           AND ($2::bigint IS NULL OR product_id = $2)
           AND ($3::smallint IS NULL OR disposition = $3)
           AND ($4::smallint IS NULL OR status = $4)
-          AND ($5::smallint IS NULL OR responsible_party = $5)".to_string();
+          AND ($5::smallint IS NULL OR responsible_party = $5)";
 
     let count_sql = format!("SELECT COUNT(*) AS cnt FROM mrbs {where_clause}");
     let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))

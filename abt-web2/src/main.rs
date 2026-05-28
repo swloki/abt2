@@ -6,6 +6,7 @@ mod layout;
 mod pages;
 mod routes;
 mod state;
+mod utils;
 
 use state::AppState;
 use time::Duration;

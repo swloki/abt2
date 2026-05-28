@@ -40,7 +40,7 @@ impl ProductionInspectionRepo {
         .bind(0i64)
         .bind(rust_decimal::Decimal::ZERO)
         .bind(rust_decimal::Decimal::ZERO)
-        .bind(req.remark.clone().unwrap_or_default())
+        .bind(req.remark.as_deref().unwrap_or_default())
         .bind(operator_id)
         .fetch_one(&mut *executor)
         .await?;

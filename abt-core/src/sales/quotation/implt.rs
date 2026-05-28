@@ -475,7 +475,8 @@ impl QuotationService for QuotationServiceImpl {
     ) -> Result<Vec<QuotationItem>> {
         self.item_repo
             .find_by_quotation_id(db, quotation_id)
-            .await}
+            .await
+    }
 
     async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
@@ -536,5 +537,6 @@ impl QuotationService for QuotationServiceImpl {
                 ctx.operator_id,
                 ctx.department_id,
             )
-            .await}
+            .await
+    }
 }

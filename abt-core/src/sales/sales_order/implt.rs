@@ -350,7 +350,8 @@ impl SalesOrderService for SalesOrderServiceImpl {
     ) -> Result<Vec<SalesOrderItem>> {
         self.item_repo
             .find_by_order_id(db, order_id)
-            .await}
+            .await
+    }
 
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
@@ -661,5 +662,6 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 ctx.operator_id,
                 ctx.department_id,
             )
-            .await}
+            .await
+    }
 }

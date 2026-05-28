@@ -167,7 +167,7 @@ pub async fn list(
           AND ($4::smallint IS NULL OR result = $4)
           AND ($5::smallint IS NULL OR status = $5)
           AND ($6::date IS NULL OR inspection_date >= $6)
-          AND ($7::date IS NULL OR inspection_date <= $7)".to_string();
+          AND ($7::date IS NULL OR inspection_date <= $7)";
 
     let count_sql = format!("SELECT COUNT(*) AS cnt FROM inspection_results {where_clause}");
     let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))

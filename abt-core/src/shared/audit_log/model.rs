@@ -35,3 +35,20 @@ pub struct RecordAuditLogReq {
     pub changes: Option<JsonValue>,
     pub context: Option<JsonValue>,
 }
+
+impl RecordAuditLogReq {
+    pub fn new(entity_type: &'static str, entity_id: i64, action: AuditAction) -> Self {
+        Self {
+            entity_type,
+            entity_id,
+            action,
+            changes: None,
+            context: None,
+        }
+    }
+
+    pub fn with_changes(mut self, changes: JsonValue) -> Self {
+        self.changes = Some(changes);
+        self
+    }
+}

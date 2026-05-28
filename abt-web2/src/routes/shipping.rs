@@ -18,8 +18,18 @@ pub struct ShippingListPath;
 pub struct ShippingTablePath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/shipping/create")]
+pub struct ShippingCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/shipping/{id}")]
 pub struct ShippingDetailPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/shipping/{id}/delete")]
+pub struct ShippingDeletePath {
     pub id: i64,
 }
 
@@ -54,6 +64,7 @@ pub fn router() -> Router<AppState> {
         .route(ShippingListPath::PATH, get(shipping_list::get_shipping_list))
         .route(ShippingTablePath::PATH, get(shipping_list::get_shipping_table))
         .route(ShippingDetailPath::PATH, get(shipping_detail::get_shipping_detail))
+        .route(ShippingDeletePath::PATH, post(shipping_list::delete_shipping))
         .route(ConfirmShippingPath::PATH, post(shipping_detail::confirm_shipping))
         .route(PickShippingPath::PATH, post(shipping_detail::pick_shipping))
         .route(ShipShippingPath::PATH, post(shipping_detail::ship_shipping))

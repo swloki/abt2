@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
-use axum::response::Html;
+use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
@@ -9,14 +11,17 @@ use tower_sessions::Session;
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::sales::shipping_request::model::*;
-use abt_core::shared::types::PageParams;
+use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::shared::types::{PageParams, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
+use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
 use crate::errors::AppError;
 use crate::layout::page::admin_page;
+use crate::routes::order::OrderDetailPath;
 use crate::routes::shipping::*;
 use crate::state::AppState;
 
@@ -48,6 +53,10 @@ pub struct ShippingQueryParams {
 }
 
 // ── Helpers ──
+
+fn make_ctx(operator_id: i64) -> ServiceContext {
+    ServiceContext::new(operator_id)
+}
 
 async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
     session
@@ -93,71 +102,36 @@ fn status_label(s: ShippingStatus) -> (&'static str, &'static str) {
     }
 }
 
-async fn query_shipping_requests(
+async fn count_by_status(
     conn: &mut sqlx::postgres::PgConnection,
-    params: &ShippingQueryParams,
-) -> abt_core::shared::types::PaginatedResult<ShippingRequest> {
-    let page_num = params.page.unwrap_or(1);
-    let page_size = 20u32;
-    let offset = (page_num - 1) * page_size;
-
-    let status_val = params.status;
-    let keyword_val = params.keyword.as_deref();
-    let customer_val = params.customer_id;
-
-    let count: i64 = sqlx::query_scalar(
-        r#"SELECT COUNT(*) FROM shipping_requests
-           WHERE deleted_at IS NULL
-             AND ($1::smallint IS NULL OR status = $1)
-             AND ($2::text IS NULL OR doc_number ILIKE '%' || $2 || '%')
-             AND ($3::bigint IS NULL OR customer_id = $3)"#,
-    )
-    .bind(status_val)
-    .bind(keyword_val)
-    .bind(customer_val)
-    .fetch_one(&mut *conn)
-    .await
-    .unwrap_or(0);
-
-    let items: Vec<ShippingRequest> = sqlx::query_as(
-        r#"SELECT id, doc_number, order_id, customer_id, request_date, expected_ship_date,
-                  status, shipping_address, carrier, tracking_number, remark,
-                  operator_id, created_at, updated_at, deleted_at
-           FROM shipping_requests
-           WHERE deleted_at IS NULL
-             AND ($1::smallint IS NULL OR status = $1)
-             AND ($2::text IS NULL OR doc_number ILIKE '%' || $2 || '%')
-             AND ($3::bigint IS NULL OR customer_id = $3)
-           ORDER BY id DESC
-           LIMIT $4 OFFSET $5"#,
-    )
-    .bind(status_val)
-    .bind(keyword_val)
-    .bind(customer_val)
-    .bind(page_size as i64)
-    .bind(offset as i64)
-    .fetch_all(&mut *conn)
-    .await
-    .unwrap_or_default();
-
-    let total = count as u64;
-    let total_pages = total.div_ceil(page_size as u64) as u32;
-    abt_core::shared::types::PaginatedResult {
-        items,
-        total,
-        page: page_num,
-        total_pages,
-        page_size,
-    }
+    customer_id: Option<i64>,
+) -> HashMap<i16, u64> {
+    let rows: Vec<(i16, i64)> = if customer_id.is_some() {
+        sqlx::query_as(
+            "SELECT status, COUNT(*) as cnt FROM shipping_requests WHERE deleted_at IS NULL AND customer_id = $1 GROUP BY status",
+        )
+        .bind(customer_id)
+        .fetch_all(&mut *conn)
+        .await
+        .unwrap_or_default()
+    } else {
+        sqlx::query_as(
+            "SELECT status, COUNT(*) as cnt FROM shipping_requests WHERE deleted_at IS NULL GROUP BY status",
+        )
+        .fetch_all(&mut *conn)
+        .await
+        .unwrap_or_default()
+    };
+    rows.into_iter().map(|(s, c)| (s, c as u64)).collect()
 }
 
 async fn resolve_customer_names_shipping(
     conn: &mut sqlx::postgres::PgConnection,
     items: &[ShippingRequest],
-) -> std::collections::HashMap<i64, String> {
+) -> HashMap<i64, String> {
     let ids: Vec<i64> = items.iter().map(|i| i.customer_id).collect();
     if ids.is_empty() {
-        return std::collections::HashMap::new();
+        return HashMap::new();
     }
     let rows: Vec<(i64, String)> = sqlx::query_as(
         "SELECT id, name FROM customers WHERE id = ANY($1)",
@@ -172,10 +146,10 @@ async fn resolve_customer_names_shipping(
 async fn resolve_order_numbers(
     conn: &mut sqlx::postgres::PgConnection,
     items: &[ShippingRequest],
-) -> std::collections::HashMap<i64, String> {
+) -> HashMap<i64, String> {
     let ids: Vec<i64> = items.iter().map(|i| i.order_id).collect();
     if ids.is_empty() {
-        return std::collections::HashMap::new();
+        return HashMap::new();
     }
     let rows: Vec<(i64, String)> = sqlx::query_as(
         "SELECT id, doc_number FROM sales_orders WHERE id = ANY($1)",
@@ -197,20 +171,31 @@ pub async fn get_shipping_list(
     Query(params): Query<ShippingQueryParams>,
 ) -> Result<Html<String>, AppError> {
     let claims = get_claims(&session).await;
+    let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let result = query_shipping_requests(&mut conn, &params).await;
+    let ctx = make_ctx(claims.sub);
+    let filter = ShippingQuery {
+        order_id: None,
+        status: params.status.and_then(ShippingStatus::from_i16),
+        keyword: params.keyword.clone(),
+        customer_id: params.customer_id,
+    };
+    let page = PageParams::new(params.page.unwrap_or(1), 20);
+    let result = shipping_svc.list(&ctx, &mut *conn, filter, page).await.map_err(|e| AppError::Internal(e.to_string()))?;
+
+    let status_counts = count_by_status(&mut conn, params.customer_id).await;
     let customer_names = resolve_customer_names_shipping(&mut conn, &result.items).await;
     let order_numbers = resolve_order_numbers(&mut conn, &result.items).await;
 
-    let ctx = abt_core::shared::types::ServiceContext::new(claims.sub);
+    let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let content = shipping_list_page(&claims, &result, &customer_names, &order_numbers, &customers.items, &params);
+    let content = shipping_list_page(&claims, &result, &customer_names, &order_numbers, &customers.items, &params, &status_counts);
     let page_html = admin_page(
         &headers, "发货申请", &claims, "sales", ShippingListPath::PATH, "销售管理", Some("发货申请"), content,
     );
@@ -224,20 +209,47 @@ pub async fn get_shipping_table(
     Query(params): Query<ShippingQueryParams>,
 ) -> Result<Html<String>, AppError> {
     let claims = get_claims(&session).await;
+    let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let result = query_shipping_requests(&mut conn, &params).await;
+    let ctx = make_ctx(claims.sub);
+    let filter = ShippingQuery {
+        order_id: None,
+        status: params.status.and_then(ShippingStatus::from_i16),
+        keyword: params.keyword.clone(),
+        customer_id: params.customer_id,
+    };
+    let page = PageParams::new(params.page.unwrap_or(1), 20);
+    let result = shipping_svc.list(&ctx, &mut *conn, filter, page).await.map_err(|e| AppError::Internal(e.to_string()))?;
+
+    let status_counts = count_by_status(&mut conn, params.customer_id).await;
     let customer_names = resolve_customer_names_shipping(&mut conn, &result.items).await;
     let order_numbers = resolve_order_numbers(&mut conn, &result.items).await;
 
-    let ctx = abt_core::shared::types::ServiceContext::new(claims.sub);
+    let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    Ok(Html(shipping_table_fragment(&result, &customer_names, &order_numbers, &customers.items, &params).into_string()))
+    Ok(Html(shipping_table_fragment(&result, &customer_names, &order_numbers, &customers.items, &params, &status_counts).into_string()))
+}
+
+pub async fn delete_shipping(
+    path: ShippingDeletePath,
+    State(state): State<AppState>,
+    session: Session,
+) -> Result<impl IntoResponse, AppError> {
+    let _claims = get_claims(&session).await;
+    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    sqlx::query("UPDATE shipping_requests SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND status = 1 AND deleted_at IS NULL")
+        .bind(path.id)
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let redirect = ShippingListPath::PATH.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
@@ -245,39 +257,53 @@ pub async fn get_shipping_table(
 fn shipping_list_page(
     _claims: &abt_core::shared::identity::model::Claims,
     result: &abt_core::shared::types::PaginatedResult<ShippingRequest>,
-    customer_names: &std::collections::HashMap<i64, String>,
-    order_numbers: &std::collections::HashMap<i64, String>,
+    customer_names: &HashMap<i64, String>,
+    order_numbers: &HashMap<i64, String>,
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &ShippingQueryParams,
+    status_counts: &HashMap<i16, u64>,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "发货申请" }
+                div class="page-actions" {
+                    a class="btn btn-primary" href=(ShippingCreatePath::PATH) {
+                        (icon::plus_icon("w-4 h-4"))
+                        "新建发货申请"
+                    }
+                }
             }
-            (shipping_table_fragment(result, customer_names, order_numbers, customers, params))
+            (shipping_table_fragment(result, customer_names, order_numbers, customers, params, status_counts))
         }
     }
 }
 
 fn shipping_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<ShippingRequest>,
-    customer_names: &std::collections::HashMap<i64, String>,
-    order_numbers: &std::collections::HashMap<i64, String>,
+    customer_names: &HashMap<i64, String>,
+    order_numbers: &HashMap<i64, String>,
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &ShippingQueryParams,
+    status_counts: &HashMap<i16, u64>,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
-    let total_count = result.total;
+
+    let total_count: u64 = status_counts.values().sum();
+    let draft_count = status_counts.get(&1).copied();
+    let confirmed_count = status_counts.get(&2).copied();
+    let picking_count = status_counts.get(&3).copied();
+    let shipped_count = status_counts.get(&4).copied();
+    let cancelled_count = status_counts.get(&5).copied();
 
     let tabs = &[
         TabItem { value: String::new(), label: "全部", count: Some(total_count) },
-        TabItem { value: "1".into(), label: "草稿", count: None },
-        TabItem { value: "2".into(), label: "已确认", count: None },
-        TabItem { value: "3".into(), label: "拣货中", count: None },
-        TabItem { value: "4".into(), label: "已发货", count: None },
-        TabItem { value: "5".into(), label: "已取消", count: None },
+        TabItem { value: "1".into(), label: "草稿", count: draft_count },
+        TabItem { value: "2".into(), label: "已确认", count: confirmed_count },
+        TabItem { value: "3".into(), label: "拣货中", count: picking_count },
+        TabItem { value: "4".into(), label: "已发货", count: shipped_count },
+        TabItem { value: "5".into(), label: "已取消", count: cancelled_count },
     ];
 
     let selected_customer = params.customer_id.map(|id| id.to_string()).unwrap_or_default();
@@ -290,7 +316,7 @@ fn shipping_table_fragment(
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
-                        placeholder="搜索发货单号…"
+                        placeholder="搜索发货单号、客户名称…"
                         value=(params.keyword.as_deref().unwrap_or(""))
                         hx-get=(ShippingTablePath::PATH)
                         hx-trigger="keyup changed delay:300ms"
@@ -348,8 +374,8 @@ fn shipping_table_fragment(
 
 fn shipping_row(
     s: &ShippingRequest,
-    customer_names: &std::collections::HashMap<i64, String>,
-    order_numbers: &std::collections::HashMap<i64, String>,
+    customer_names: &HashMap<i64, String>,
+    order_numbers: &HashMap<i64, String>,
 ) -> Markup {
     let detail_path = ShippingDetailPath { id: s.id };
     let (status_text, status_class) = status_label(s.status);
@@ -357,22 +383,56 @@ fn shipping_row(
     let order_num = order_numbers.get(&s.order_id).map(|n| n.as_str()).unwrap_or("—");
     let ship_date = s.expected_ship_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into());
     let created = s.created_at.format("%Y-%m-%d %H:%M").to_string();
+    let onclick = format!("location.href='{}'", detail_path);
+    let is_draft = s.status == ShippingStatus::Draft;
+    let form_id = format!("delete-shipping-form-{}", s.id);
+    let delete_path = ShippingDeletePath { id: s.id };
+    let order_detail = OrderDetailPath { id: s.order_id };
 
     html! {
         tr style="cursor:pointer" {
-            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (s.doc_number) }
-            td onclick=(format!("location.href='{}'", detail_path)) { (order_num) }
-            td onclick=(format!("location.href='{}'", detail_path)) { (customer_name) }
-            td onclick=(format!("location.href='{}'", detail_path)) {
+            td class="link-cell mono" onclick=(&onclick) { (s.doc_number) }
+            td onclick=(&onclick) {
+                a href=(order_detail.to_string()) style="color:var(--info)" onclick="event.stopPropagation()" { (order_num) }
+            }
+            td onclick=(&onclick) { (customer_name) }
+            td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
-            td onclick=(format!("location.href='{}'", detail_path)) { (ship_date) }
-            td onclick=(format!("location.href='{}'", detail_path)) { (s.carrier.as_str()) }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) { (s.tracking_number.as_str()) }
-            td onclick=(format!("location.href='{}'", detail_path)) { (created) }
+            td onclick=(&onclick) { (ship_date) }
+            td onclick=(&onclick) { (s.carrier.as_str()) }
+            td class="mono" onclick=(&onclick) { (s.tracking_number.as_str()) }
+            td onclick=(&onclick) { (created) }
             td onclick="event.stopPropagation()" {
-                a class="row-action-btn" href=(detail_path.to_string()) title="查看详情" {
-                    (icon::eye_icon("w-4 h-4"))
+                div class="row-actions" x-data=(format!("{{ deleteOpen: false }}")) {
+                    @if is_draft {
+                        a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
+                            (icon::edit_icon("w-4 h-4"))
+                        }
+                        button type="button" class="row-action-btn text-danger" title="删除"
+                            x-on:click="deleteOpen = true" {
+                            (icon::trash_icon("w-4 h-4"))
+                        }
+                    } @else {
+                        a class="row-action-btn" href=(detail_path.to_string()) title="查看详情" {
+                            (icon::eye_icon("w-4 h-4"))
+                        }
+                    }
+                }
+                @if is_draft {
+                    (confirm_dialog(
+                        "deleteOpen",
+                        "确认删除",
+                        &format!("确定要删除发货申请 <strong>{}</strong> 吗？", s.doc_number),
+                        "确认删除",
+                        &form_id,
+                        html! {
+                            form id=(form_id) style="display:none"
+                                hx-post=(delete_path.to_string())
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:0.5s" {}
+                        },
+                    ))
                 }
             }
         }

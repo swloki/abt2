@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
@@ -25,7 +25,7 @@ use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
 use crate::state::AppState;
-use crate::utils::empty_as_none;
+use crate::utils::{empty_as_none, resolve_customer_names};
 
 // ── Query Params ──
 
@@ -110,23 +110,6 @@ fn build_query_string(params: &OrderQueryParams) -> String {
     q.join("&")
 }
 
-async fn resolve_customer_names<S: CustomerService>(
-    svc: &S,
-    ctx: &ServiceContext,
-    db: abt_core::shared::types::PgExecutor<'_>,
-    orders: &[SalesOrder],
-) -> HashMap<i64, String> {
-    let mut map = HashMap::new();
-    let mut seen = HashSet::new();
-    for order in orders {
-        if seen.insert(order.customer_id)
-            && let Ok(customer) = svc.get(ctx, db, order.customer_id).await {
-                map.insert(order.customer_id, customer.name);
-            }
-    }
-    map
-}
-
 async fn resolve_sales_rep_names<S: UserService>(
     svc: &S,
     ctx: &ServiceContext,
@@ -181,7 +164,7 @@ pub async fn get_order_list(
     let ctx = make_ctx(claims.sub);
     let result = svc.list(&ctx, &mut conn, filter, page).await?;
 
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, result.items.iter().map(|o| o.customer_id)).await;
     let sales_rep_names = resolve_sales_rep_names(&user_svc, &ctx, &mut conn, &result.items).await;
 
     let ctx2 = make_ctx(claims.sub);
@@ -213,7 +196,7 @@ pub async fn get_order_table(
     let ctx = make_ctx(claims.sub);
     let result = svc.list(&ctx, &mut conn, filter, page).await?;
 
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, result.items.iter().map(|o| o.customer_id)).await;
     let sales_rep_names = resolve_sales_rep_names(&user_svc, &ctx, &mut conn, &result.items).await;
 
     let ctx2 = make_ctx(claims.sub);

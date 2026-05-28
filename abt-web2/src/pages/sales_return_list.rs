@@ -28,7 +28,7 @@ use crate::routes::order::OrderDetailPath;
 use crate::routes::sales_return::*;
 use crate::routes::shipping::ShippingDetailPath;
 use crate::state::AppState;
-use crate::utils::empty_as_none;
+use crate::utils::{empty_as_none, resolve_customer_names};
 
 // ── Query Params ──
 
@@ -132,24 +132,6 @@ async fn count_by_status<S: SalesReturnService>(
     counts
 }
 
-/// Resolve customer names by calling CustomerService::get for each unique customer_id.
-async fn resolve_customer_names<S: CustomerService>(
-    svc: &S,
-    ctx: &ServiceContext,
-    db: PgExecutor<'_>,
-    items: &[SalesReturn],
-) -> HashMap<i64, String> {
-    let mut map = HashMap::new();
-    let mut seen = std::collections::HashSet::new();
-    for item in items {
-        if seen.insert(item.customer_id)
-            && let Ok(customer) = svc.get(ctx, db, item.customer_id).await {
-                map.insert(item.customer_id, customer.name);
-            }
-    }
-    map
-}
-
 /// Resolve shipping doc_numbers by calling ShippingRequestService::find_by_id for each unique id.
 async fn resolve_shipping_numbers<S: ShippingRequestService>(
     svc: &S,
@@ -215,7 +197,7 @@ pub async fn get_return_list(
     let result = return_svc.list(&ctx, &mut conn, filter, page).await?;
 
     let status_counts = count_by_status(&return_svc, &ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
     let shipping_numbers = resolve_shipping_numbers(&shipping_svc, &ctx, &mut conn, &result.items).await;
     let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut conn, &result.items).await;
 
@@ -256,7 +238,7 @@ pub async fn get_return_table(
     let result = return_svc.list(&ctx, &mut conn, filter, page).await?;
 
     let status_counts = count_by_status(&return_svc, &ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
     let shipping_numbers = resolve_shipping_numbers(&shipping_svc, &ctx, &mut conn, &result.items).await;
     let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut conn, &result.items).await;
 

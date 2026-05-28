@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
@@ -24,7 +24,7 @@ use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::reconciliation::*;
 use crate::state::AppState;
-use crate::utils::empty_as_none;
+use crate::utils::{empty_as_none, resolve_customer_names};
 
 // ── Query Params ──
 
@@ -126,24 +126,6 @@ async fn count_by_status<S: ReconciliationService>(
     counts
 }
 
-/// Resolve customer names by calling CustomerService::get for each unique customer_id.
-async fn resolve_customer_names<S: CustomerService>(
-    svc: &S,
-    ctx: &ServiceContext,
-    db: abt_core::shared::types::PgExecutor<'_>,
-    items: &[Reconciliation],
-) -> HashMap<i64, String> {
-    let mut map = HashMap::new();
-    let mut seen = HashSet::new();
-    for item in items {
-        if seen.insert(item.customer_id)
-            && let Ok(customer) = svc.get(ctx, db, item.customer_id).await {
-                map.insert(item.customer_id, customer.name);
-            }
-    }
-    map
-}
-
 // ── Handlers ──
 
 pub async fn get_reconciliation_list(
@@ -170,7 +152,7 @@ pub async fn get_reconciliation_list(
     let result = reconciliation_svc.list(&ctx, &mut conn, filter, page).await?;
 
     let status_counts = count_by_status(&reconciliation_svc, &ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
 
     let customers = customer_svc
         .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
@@ -206,7 +188,7 @@ pub async fn get_reconciliation_table(
     let result = reconciliation_svc.list(&ctx, &mut conn, filter, page).await?;
 
     let status_counts = count_by_status(&reconciliation_svc, &ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let customer_names = resolve_customer_names(&customer_svc, &ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
 
     let customers = customer_svc
         .list(&ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))

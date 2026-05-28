@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use rust_decimal::Decimal;
 
@@ -26,7 +26,7 @@ use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct ShippingRequestServiceImpl {
     repo: ShippingRequestRepo,
@@ -82,10 +82,10 @@ impl ShippingRequestServiceImpl {
 impl ShippingRequestService for ShippingRequestServiceImpl {
     async fn create_from_order(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateFromOrderReq,
     ) -> Result<i64> {
-        let order = self.sales_order_svc.find_by_id(ctx.reborrow(), req.order_id).await?;
+        let order = self.sales_order_svc.find_by_id(ctx, db, req.order_id).await?;
 
         if order.status != SalesOrderStatus::Confirmed
             && order.status != SalesOrderStatus::InProduction
@@ -98,7 +98,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         let order_items = self
             .order_item_repo
-            .find_by_order_id(ctx.executor, req.order_id)
+            .find_by_order_id(db, req.order_id)
             .await
             ?;
 
@@ -134,13 +134,13 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::ShippingRequest)
+            .next_number(ctx, db, DocumentType::ShippingRequest)
             .await?;
 
         let id = self
             .repo
             .create(
-                ctx.executor,
+                db,
                 &doc_number,
                 req.order_id,
                 order.customer_id,
@@ -153,13 +153,14 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             ?;
 
         self.item_repo
-            .create_batch(ctx.executor, id, &shipping_inputs)
+            .create_batch(db, id, &shipping_inputs)
             .await
             ?;
 
         self.doc_link
             .create_links(
-                ctx.reborrow(),
+                ctx,
+                db,
                 vec![LinkRequest {
                     source_type: DocumentType::ShippingRequest,
                     source_id: id,
@@ -171,13 +172,14 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .await?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "ShippingStatus", id, "Draft", None)
+            .transition(ctx, db, "ShippingStatus", id, "Draft", None)
             .await
             .ok();
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "ShippingRequest",
                 id,
                 AuditAction::Create,
@@ -191,11 +193,11 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
     async fn find_by_id(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<ShippingRequest> {
         self.repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))
@@ -203,13 +205,13 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
     async fn update(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: UpdateShippingReq,
     ) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
@@ -219,21 +221,21 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         }
 
         self.repo
-            .update(ctx.executor, id, &req)
+            .update(db, id, &req)
             .await
             ?;
 
         self.audit
-            .record(ctx.reborrow(), "ShippingRequest", id, AuditAction::Update, None, None)
+            .record(ctx, db, "ShippingRequest", id, AuditAction::Update, None, None)
             .await?;
 
         Ok(())
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
@@ -244,7 +246,8 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         // QMS OQC hard gate: 查询发货请求的检验结果
         let qms_results = self.qms.list_by_source(
-            ctx.reborrow(),
+            ctx,
+            db,
             InspectionResultFilter {
                 source_type: Some(InspectionSourceType::ShippingRequest),
                 source_id: Some(id),
@@ -264,17 +267,18 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ShippingStatus", id, "Confirmed", None)
+            .transition(ctx, db, "ShippingStatus", id, "Confirmed", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ShippingStatus::Confirmed)
+            .update_status(db, id, ShippingStatus::Confirmed)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "ShippingRequest",
                 id,
                 AuditAction::Transition,
@@ -286,10 +290,10 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         Ok(())
     }
 
-    async fn pick(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn pick(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
@@ -299,17 +303,18 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ShippingStatus", id, "Picking", None)
+            .transition(ctx, db, "ShippingStatus", id, "Picking", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ShippingStatus::Picking)
+            .update_status(db, id, ShippingStatus::Picking)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "ShippingRequest",
                 id,
                 AuditAction::Transition,
@@ -321,10 +326,10 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         Ok(())
     }
 
-    async fn ship(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn ship(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
@@ -335,24 +340,25 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         let shipping_items = self
             .item_repo
-            .find_by_shipping_request_id(ctx.executor, id)
+            .find_by_shipping_request_id(db, id)
             .await
             ?;
 
         for item in &shipping_items {
             self.item_repo
-                .update_shipped_qty(ctx.executor, item.id, item.requested_qty)
+                .update_shipped_qty(db, item.id, item.requested_qty)
                 .await
                 ?;
 
             self.order_item_repo
-                .update_shipped_qty(ctx.executor, item.order_item_id, item.requested_qty)
+                .update_shipped_qty(db, item.order_item_id, item.requested_qty)
                 .await
                 ?;
 
             self.inv_res
                 .fulfill_by_source_line(
-                    ctx.reborrow(),
+                    ctx,
+                    db,
                     DocumentType::SalesOrder,
                     item.order_item_id,
                 )
@@ -362,7 +368,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         // COGS entries
         let order_items = self
             .order_item_repo
-            .find_by_order_id(ctx.executor, existing.order_id)
+            .find_by_order_id(db, existing.order_id)
             .await
             ?;
 
@@ -392,16 +398,16 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         if !cost_entries.is_empty() {
             self.cost_entry
-                .create_entries(ctx.reborrow(), cost_entries)
+                .create_entries(ctx, db, cost_entries)
                 .await?;
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ShippingStatus", id, "Shipped", None)
+            .transition(ctx, db, "ShippingStatus", id, "Shipped", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ShippingStatus::Shipped)
+            .update_status(db, id, ShippingStatus::Shipped)
             .await
             ?;
 
@@ -417,13 +423,14 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         };
 
         self.order_repo
-            .update_status(ctx.executor, existing.order_id, new_order_status)
+            .update_status(db, existing.order_id, new_order_status)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "ShippingRequest",
                 id,
                 AuditAction::Transition,
@@ -434,7 +441,8 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::ShipmentShipped,
                     aggregate_type: "ShippingRequest".to_string(),
@@ -452,10 +460,10 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         Ok(())
     }
 
-    async fn cancel(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
@@ -467,17 +475,18 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ShippingStatus", id, "Cancelled", None)
+            .transition(ctx, db, "ShippingStatus", id, "Cancelled", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ShippingStatus::Cancelled)
+            .update_status(db, id, ShippingStatus::Cancelled)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "ShippingRequest",
                 id,
                 AuditAction::Transition,
@@ -491,13 +500,13 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: ShippingQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<ShippingRequest>> {
         self.repo
             .query(
-                ctx.executor,
+                db,
                 &filter,
                 &page,
                 ctx.data_scope,

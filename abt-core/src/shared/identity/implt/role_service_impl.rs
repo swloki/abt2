@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -8,6 +8,7 @@ use super::super::permission_cache::RolePermissionCache;
 use super::super::repo::IdentityRepo;
 use super::super::role_service::RoleService;
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 
@@ -26,14 +27,14 @@ impl RoleServiceImpl {
 impl RoleService for RoleServiceImpl {
     async fn create_role(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         role_name: &str,
         role_code: &str,
         description: Option<&str>,
         parent_role_id: Option<i64>,
     ) -> Result<Role> {
         let role = IdentityRepo::insert_role(
-            &mut *ctx.executor,
+            &mut *db,
             role_name,
             role_code,
             description,
@@ -52,12 +53,12 @@ impl RoleService for RoleServiceImpl {
 
     async fn update_role(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         role_id: i64,
         role_name: &str,
         description: Option<&str>,
     ) -> Result<Role> {
-        let role = IdentityRepo::update_role(&mut *ctx.executor, role_id, role_name, description)
+        let role = IdentityRepo::update_role(&mut *db, role_id, role_name, description)
             .await
             .map_err(|e| match &e {
                 DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("Role"),
@@ -67,8 +68,8 @@ impl RoleService for RoleServiceImpl {
         Ok(role)
     }
 
-    async fn delete_role(&self, ctx: ServiceContext<'_>, role_id: i64) -> Result<()> {
-        IdentityRepo::delete_role(&mut *ctx.executor, role_id).await?;
+    async fn delete_role(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, role_id: i64) -> Result<()> {
+        IdentityRepo::delete_role(&mut *db, role_id).await?;
 
         // Reload permission cache after role deletion
         let pool = self.pool.clone();
@@ -77,17 +78,17 @@ impl RoleService for RoleServiceImpl {
         Ok(())
     }
 
-    async fn list_roles(&self, ctx: ServiceContext<'_>) -> Result<Vec<Role>> {
-        IdentityRepo::list_roles(&mut *ctx.executor).await
+    async fn list_roles(&self, _ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<Vec<Role>> {
+        IdentityRepo::list_roles(&mut *db).await
     }
 
     async fn assign_permissions(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         role_id: i64,
         permissions: Vec<(String, String)>,
     ) -> Result<()> {
-        IdentityRepo::assign_permissions(&mut *ctx.executor, role_id, &permissions).await?;
+        IdentityRepo::assign_permissions(&mut *db, role_id, &permissions).await?;
 
         // Reload permission cache after permission change
         let pool = self.pool.clone();
@@ -98,11 +99,11 @@ impl RoleService for RoleServiceImpl {
 
     async fn remove_permissions(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         role_id: i64,
         permissions: Vec<(String, String)>,
     ) -> Result<()> {
-        IdentityRepo::remove_permissions(&mut *ctx.executor, role_id, &permissions).await?;
+        IdentityRepo::remove_permissions(&mut *db, role_id, &permissions).await?;
 
         // Reload permission cache after permission change
         let pool = self.pool.clone();
@@ -113,10 +114,10 @@ impl RoleService for RoleServiceImpl {
 
     async fn get_role_with_permissions(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         role_id: i64,
     ) -> Result<RoleWithPermissions> {
-        let role = IdentityRepo::get_role_by_id(&mut *ctx.executor, role_id)
+        let role = IdentityRepo::get_role_by_id(&mut *db, role_id)
             .await
             .map_err(|e| match &e {
                 DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("Role"),
@@ -124,7 +125,7 @@ impl RoleService for RoleServiceImpl {
             })?;
 
         let permissions =
-            IdentityRepo::get_permissions_for_role(&mut *ctx.executor, role_id).await?;
+            IdentityRepo::get_permissions_for_role(&mut *db, role_id).await?;
 
         Ok(RoleWithPermissions { role, permissions })
     }

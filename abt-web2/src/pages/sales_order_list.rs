@@ -12,7 +12,7 @@ use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
+use abt_core::shared::types::{PageParams, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::confirm_dialog::confirm_dialog;
@@ -55,8 +55,8 @@ pub struct OrderQueryParams {
 
 // ── Helpers ──
 
-fn make_ctx<'a>(conn: &'a mut sqlx::postgres::PgConnection, operator_id: i64) -> ServiceContext<'a> {
-    ServiceContext::new(conn as PgExecutor<'a>, operator_id)
+fn make_ctx(operator_id: i64) -> ServiceContext {
+    ServiceContext::new(operator_id)
 }
 
 async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
@@ -187,15 +187,15 @@ pub async fn get_order_list(
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let result = svc.list(ctx, filter, page).await?;
+    let ctx = make_ctx(claims.sub);
+    let result = svc.list(&ctx, &mut *conn, filter, page).await?;
 
     let customer_names = resolve_customer_names(&mut conn, &result.items).await;
     let sales_rep_names = resolve_sales_rep_names(&mut conn, &result.items).await;
 
-    let ctx2 = make_ctx(&mut conn, claims.sub);
+    let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(ctx2, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
@@ -219,15 +219,15 @@ pub async fn get_order_table(
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let result = svc.list(ctx, filter, page).await?;
+    let ctx = make_ctx(claims.sub);
+    let result = svc.list(&ctx, &mut *conn, filter, page).await?;
 
     let customer_names = resolve_customer_names(&mut conn, &result.items).await;
     let sales_rep_names = resolve_sales_rep_names(&mut conn, &result.items).await;
 
-    let ctx2 = make_ctx(&mut conn, claims.sub);
+    let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(ctx2, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
@@ -245,8 +245,8 @@ pub async fn delete_order(
     let svc = state.sales_order_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.delete(ctx, path.id).await?;
+    let ctx = make_ctx(claims.sub);
+    svc.delete(&ctx, &mut *conn, path.id).await?;
 
     Ok(([("HX-Redirect", OrderListPath::PATH)], Html(String::new())))
 }

@@ -1,5 +1,3 @@
-var notyf = new Notyf({ duration: 5000, position: { x: 'right', y: 'top' }, dismissible: true });
-
 function returnForm() {
     return {
         selectedOrderId: '',
@@ -66,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function () {
     var form = document.getElementById('return-form');
     if (form) {
         form.addEventListener('htmx:responseError', function (e) {
-            notyf.error(e.detail.xhr.responseText || '提交失败');
+            htmx.trigger(document.body, 'show-toast', {message: e.detail.xhr.responseText || '提交失败', type: 'error'});
         });
     }
 });

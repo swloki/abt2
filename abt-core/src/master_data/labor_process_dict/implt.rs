@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use super::model::*;
 use super::repo::LaborProcessDictRepo;
@@ -10,7 +10,7 @@ use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct LaborProcessDictServiceImpl {
     repo: LaborProcessDictRepo,
@@ -32,20 +32,20 @@ impl LaborProcessDictServiceImpl {
 
 #[async_trait::async_trait]
 impl LaborProcessDictService for LaborProcessDictServiceImpl {
-    async fn list(&self, ctx: ServiceContext<'_>, query: LaborProcessDictQuery, page: PageParams) -> Result<PaginatedResult<LaborProcessDict>> {
-        self.repo.query(ctx.executor, &query, &page)
+    async fn list(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, query: LaborProcessDictQuery, page: PageParams) -> Result<PaginatedResult<LaborProcessDict>> {
+        self.repo.query(db, &query, &page)
             .await
     }
 
-    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateLaborProcessDictReq) -> Result<i64> {
-        let code = self.doc_seq.next_number(ctx.reborrow(), DocumentType::LaborProcessDict).await?;
+    async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateLaborProcessDictReq) -> Result<i64> {
+        let code = self.doc_seq.next_number(ctx, db, DocumentType::LaborProcessDict).await?;
 
-        let id = self.repo.create(ctx.executor, &code, &req, ctx.operator_id)
+        let id = self.repo.create(db, &code, &req, ctx.operator_id)
             .await?;
 
-        self.audit.record(ctx.reborrow(), "LaborProcessDict", id, AuditAction::Create, None, None).await?;
+        self.audit.record(ctx, db, "LaborProcessDict", id, AuditAction::Create, None, None).await?;
 
-        self.event_bus.publish(ctx, EventPublishRequest {
+        self.event_bus.publish(ctx, db, EventPublishRequest {
             event_type: DomainEventType::LaborProcessDictCreated,
             aggregate_type: "LaborProcessDict".to_string(),
             aggregate_id: id,
@@ -56,17 +56,17 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
         Ok(id)
     }
 
-    async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateLaborProcessDictReq) -> Result<()> {
-        let _existing = self.repo.find_by_id(ctx.executor, id)
+    async fn update(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, req: UpdateLaborProcessDictReq) -> Result<()> {
+        let _existing = self.repo.find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("LaborProcessDict"))?;
 
-        self.repo.update(ctx.executor, id, &req, ctx.operator_id)
+        self.repo.update(db, id, &req, ctx.operator_id)
             .await?;
 
-        self.audit.record(ctx.reborrow(), "LaborProcessDict", id, AuditAction::Update, None, None).await?;
+        self.audit.record(ctx, db, "LaborProcessDict", id, AuditAction::Update, None, None).await?;
 
-        self.event_bus.publish(ctx, EventPublishRequest {
+        self.event_bus.publish(ctx, db, EventPublishRequest {
             event_type: DomainEventType::LaborProcessDictUpdated,
             aggregate_type: "LaborProcessDict".to_string(),
             aggregate_id: id,
@@ -77,23 +77,23 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
         Ok(())
     }
 
-    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        let existing = self.repo.find_by_id(ctx.executor, id)
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let existing = self.repo.find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("LaborProcessDict"))?;
 
-        if self.repo.exists_routing_step_reference(ctx.executor, &existing.code)
+        if self.repo.exists_routing_step_reference(db, &existing.code)
             .await?
         {
             return Err(DomainError::business_rule(format!("工序编码 '{}' 已被工艺路线引用，无法删除", existing.code)));
         }
 
-        self.repo.delete(ctx.executor, id)
+        self.repo.delete(db, id)
             .await?;
 
-        self.audit.record(ctx.reborrow(), "LaborProcessDict", id, AuditAction::Delete, None, None).await?;
+        self.audit.record(ctx, db, "LaborProcessDict", id, AuditAction::Delete, None, None).await?;
 
-        self.event_bus.publish(ctx, EventPublishRequest {
+        self.event_bus.publish(ctx, db, EventPublishRequest {
             event_type: DomainEventType::LaborProcessDictDeleted,
             aggregate_type: "LaborProcessDict".to_string(),
             aggregate_id: id,

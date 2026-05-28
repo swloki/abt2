@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use super::model::*;
 use super::repo::{BomCategoryRepo, BomNodeRepo, BomRepo, BomSnapshotRepo};
@@ -15,7 +15,7 @@ use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 // ── BomQueryServiceImpl ──────────────────────────────────────────────────────
 
@@ -37,11 +37,11 @@ impl BomQueryServiceImpl {
 
 #[async_trait::async_trait]
 impl BomQueryService for BomQueryServiceImpl {
-    async fn get(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<Bom> {
-        let mut bom = self.repo.find_by_id(ctx.executor, bom_id)
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, bom_id: i64) -> Result<Bom> {
+        let mut bom = self.repo.find_by_id(db, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
-        let nodes = self.node_repo.find_by_bom_id(ctx.executor, bom_id)
+        let nodes = self.node_repo.find_by_bom_id(db, bom_id)
             .await?;
         bom.bom_detail = BomDetail { nodes };
         Ok(bom)
@@ -49,51 +49,51 @@ impl BomQueryService for BomQueryServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         query: BomQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<Bom>> {
-        self.repo.query(ctx.executor, &query, &page)
+        self.repo.query(db, &query, &page)
             .await
     }
 
     async fn get_leaf_nodes(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         bom_id: i64,
     ) -> Result<Vec<BomNode>> {
-        self.repo.find_by_id(ctx.executor, bom_id)
+        self.repo.find_by_id(db, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
-        self.node_repo.find_leaf_nodes(ctx.executor, bom_id)
+        self.node_repo.find_leaf_nodes(db, bom_id)
             .await
     }
 
     async fn get_snapshots(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         bom_id: i64,
         version: Option<i32>,
         limit: Option<i32>,
     ) -> Result<Vec<BomSnapshot>> {
         if let Some(ver) = version {
-            let snap = self.snapshot_repo.find_by_bom_and_version(ctx.executor, bom_id, ver)
+            let snap = self.snapshot_repo.find_by_bom_and_version(db, bom_id, ver)
                 .await?;
             Ok(snap.into_iter().collect())
         } else {
-            self.snapshot_repo.find_by_bom_id(ctx.executor, bom_id, limit)
+            self.snapshot_repo.find_by_bom_id(db, bom_id, limit)
                 .await
         }
     }
 
     async fn exists_name(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         name: &str,
         caller_id: Option<i64>,
     ) -> Result<bool> {
-        self.repo.check_name_unique(ctx.executor, name, caller_id)
+        self.repo.check_name_unique(db, name, caller_id)
             .await
     }
 }
@@ -126,24 +126,24 @@ impl BomCommandServiceImpl {
 
 #[async_trait::async_trait]
 impl BomCommandService for BomCommandServiceImpl {
-    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateBomReq) -> Result<i64> {
-        let code = self.doc_seq.next_number(ctx.reborrow(), DocumentType::Bom).await?;
+    async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateBomReq) -> Result<i64> {
+        let code = self.doc_seq.next_number(ctx, db, DocumentType::Bom).await?;
 
-        if !self.repo.check_name_unique(ctx.executor, &req.name, None)
+        if !self.repo.check_name_unique(db, &req.name, None)
             .await?
         {
             return Err(DomainError::duplicate(format!("BOM name: {}", req.name)));
         }
 
-        let id = self.repo.create(ctx.executor, &code, &req, ctx.operator_id)
+        let id = self.repo.create(db, &code, &req, ctx.operator_id)
             .await?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "BomStatus", id, "Draft", None)
+            .transition(ctx, db, "BomStatus", id, "Draft", None)
             .await
             .ok();
 
-        self.audit.record(ctx, "BOM", id, AuditAction::Create, None, None).await?;
+        self.audit.record(ctx, db, "BOM", id, AuditAction::Create, None, None).await?;
 
         Ok(id)
     }
@@ -151,12 +151,12 @@ impl BomCommandService for BomCommandServiceImpl {
     #[allow(clippy::collapsible_if)]
     async fn update(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: UpdateBomReq,
         expected_version: i32,
     ) -> Result<()> {
-        let existing = self.repo.find_by_id(ctx.executor, id)
+        let existing = self.repo.find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
@@ -165,26 +165,26 @@ impl BomCommandService for BomCommandServiceImpl {
         }
 
         if let Some(ref new_name) = req.name {
-            if !self.repo.check_name_unique(ctx.executor, new_name, Some(id))
+            if !self.repo.check_name_unique(db, new_name, Some(id))
                 .await?
             {
                 return Err(DomainError::duplicate(format!("BOM name: {new_name}")));
             }
         }
 
-        let updated = self.repo.update(ctx.executor, id, &req, expected_version)
+        let updated = self.repo.update(db, id, &req, expected_version)
             .await?;
 
         if !updated {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        self.audit.record(ctx, "BOM", id, AuditAction::Update, None, None).await?;
+        self.audit.record(ctx, db, "BOM", id, AuditAction::Update, None, None).await?;
         Ok(())
     }
 
-    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        let existing = self.repo.find_by_id(ctx.executor, id)
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let existing = self.repo.find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
@@ -192,15 +192,15 @@ impl BomCommandService for BomCommandServiceImpl {
             return Err(DomainError::business_rule("Cannot delete a published BOM"));
         }
 
-        self.repo.delete(ctx.executor, id)
+        self.repo.delete(db, id)
             .await?;
 
-        self.audit.record(ctx, "BOM", id, AuditAction::Delete, None, None).await?;
+        self.audit.record(ctx, db, "BOM", id, AuditAction::Delete, None, None).await?;
         Ok(())
     }
 
-    async fn publish(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<i64> {
-        let existing = self.repo.find_by_id(ctx.executor, id)
+    async fn publish(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<i64> {
+        let existing = self.repo.find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
@@ -208,30 +208,30 @@ impl BomCommandService for BomCommandServiceImpl {
             return Err(DomainError::business_rule("BOM is already published"));
         }
 
-        let node_count = self.node_repo.count_by_bom_id(ctx.executor, id)
+        let node_count = self.node_repo.count_by_bom_id(db, id)
             .await?;
         if node_count == 0 {
             return Err(DomainError::business_rule("Cannot publish a BOM with no nodes"));
         }
 
         // build BomDetail from nodes
-        let nodes = self.node_repo.find_by_bom_id(ctx.executor, id)
+        let nodes = self.node_repo.find_by_bom_id(db, id)
             .await?;
         let bom_detail = BomDetail { nodes };
 
         self.snapshot_repo.create(
-            ctx.executor, id, existing.version, &existing.bom_name, &bom_detail, ctx.operator_id,
+            db, id, existing.version, &existing.bom_name, &bom_detail, ctx.operator_id,
         ).await?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "BomStatus", id, "Published", None)
+            .transition(ctx, db, "BomStatus", id, "Published", None)
             .await?;
 
-        self.repo.update_status(ctx.executor, id, BomStatus::Published)
+        self.repo.update_status(db, id, BomStatus::Published)
             .await?;
 
         self.event_bus.publish(
-            ctx.reborrow(),
+            ctx, db,
             EventPublishRequest {
                 event_type: DomainEventType::BomPublished,
                 aggregate_type: "BOM".to_string(),
@@ -241,13 +241,13 @@ impl BomCommandService for BomCommandServiceImpl {
             },
         ).await?;
 
-        self.audit.record(ctx, "BOM", id, AuditAction::Transition, None, None).await?;
+        self.audit.record(ctx, db, "BOM", id, AuditAction::Transition, None, None).await?;
 
         Ok(id)
     }
 
-    async fn unpublish(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        let existing = self.repo.find_by_id(ctx.executor, id)
+    async fn unpublish(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let existing = self.repo.find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
@@ -256,14 +256,14 @@ impl BomCommandService for BomCommandServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "BomStatus", id, "Draft", None)
+            .transition(ctx, db, "BomStatus", id, "Draft", None)
             .await?;
 
-        self.repo.update_status(ctx.executor, id, BomStatus::Draft)
+        self.repo.update_status(db, id, BomStatus::Draft)
             .await?;
 
         self.event_bus.publish(
-            ctx.reborrow(),
+            ctx, db,
             EventPublishRequest {
                 event_type: DomainEventType::BomUnpublished,
                 aggregate_type: "BOM".to_string(),
@@ -273,12 +273,12 @@ impl BomCommandService for BomCommandServiceImpl {
             },
         ).await?;
 
-        self.audit.record(ctx, "BOM", id, AuditAction::Transition, None, None).await?;
+        self.audit.record(ctx, db, "BOM", id, AuditAction::Transition, None, None).await?;
         Ok(())
     }
 
-    async fn save_as(&self, mut ctx: ServiceContext<'_>, source_id: i64, new_name: String) -> Result<i64> {
-        let source = self.repo.find_by_id(ctx.executor, source_id)
+    async fn save_as(&self, ctx: &ServiceContext, db: PgExecutor<'_>, source_id: i64, new_name: String) -> Result<i64> {
+        let source = self.repo.find_by_id(db, source_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
@@ -287,10 +287,10 @@ impl BomCommandService for BomCommandServiceImpl {
             bom_category_id: source.bom_category_id,
         };
 
-        let new_id = self.create(ctx.reborrow(), create_req).await?;
+        let new_id = self.create(ctx, db, create_req).await?;
 
         // copy nodes
-        let source_nodes = self.node_repo.find_by_bom_id(ctx.executor, source_id)
+        let source_nodes = self.node_repo.find_by_bom_id(db, source_id)
             .await?;
 
         // build old -> new node id mapping
@@ -309,7 +309,7 @@ impl BomCommandService for BomCommandServiceImpl {
                 work_center: node.work_center.clone(),
                 properties: node.properties.clone(),
             };
-            let new_node_id = self.node_repo.create(ctx.executor, new_id, &new_node)
+            let new_node_id = self.node_repo.create(db, new_id, &new_node)
                 .await?;
             id_map.insert(node.id, new_node_id);
         }
@@ -320,22 +320,22 @@ impl BomCommandService for BomCommandServiceImpl {
     #[allow(clippy::collapsible_if)]
     async fn substitute_product(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: SubstituteReq,
     ) -> Result<SubstitutionResult> {
         // If bom_id is Some, scope to that BOM; otherwise global replace
         let affected_node_ids = if let Some(bom_id) = req.bom_id {
-            let _existing = self.repo.find_by_id(ctx.executor, bom_id)
+            let _existing = self.repo.find_by_id(db, bom_id)
                 .await?
                 .ok_or_else(|| DomainError::not_found("BOM"))?;
 
             if req.overrides != AttributeOverrides::default() {
                 self.node_repo.update_product_with_overrides(
-                    ctx.executor, bom_id, req.old_product_id, req.new_product_id, &req.overrides,
+                    db, bom_id, req.old_product_id, req.new_product_id, &req.overrides,
                 ).await?
             } else {
                 self.node_repo.update_product(
-                    ctx.executor, bom_id, req.old_product_id, req.new_product_id,
+                    db, bom_id, req.old_product_id, req.new_product_id,
                 ).await?
             }
         } else {
@@ -347,7 +347,7 @@ impl BomCommandService for BomCommandServiceImpl {
 
         if affected_nodes > 0 {
             self.event_bus.publish(
-                ctx.reborrow(),
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::BomSubstituted,
                     aggregate_type: "BOM".to_string(),
@@ -363,6 +363,7 @@ impl BomCommandService for BomCommandServiceImpl {
 
             self.audit.record(
                 ctx,
+                db,
                 "BOM",
                 req.bom_id.unwrap_or(0),
                 AuditAction::Update,
@@ -379,8 +380,8 @@ impl BomCommandService for BomCommandServiceImpl {
         Ok(SubstitutionResult { affected_boms, affected_nodes })
     }
 
-    async fn validate_cycle(&self, ctx: ServiceContext<'_>, bom_id: i64) -> Result<()> {
-        self.repo.find_by_id(ctx.executor, bom_id)
+    async fn validate_cycle(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, bom_id: i64) -> Result<()> {
+        self.repo.find_by_id(db, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
@@ -412,11 +413,11 @@ impl BomNodeServiceImpl {
 impl BomNodeService for BomNodeServiceImpl {
     async fn add_node(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         bom_id: i64,
         node: NewBomNode,
     ) -> Result<i64> {
-        let bom = self.repo.find_by_id(ctx.executor, bom_id)
+        let bom = self.repo.find_by_id(db, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
@@ -426,7 +427,7 @@ impl BomNodeService for BomNodeServiceImpl {
 
         // validate parent node belongs to same BOM (0 = root)
         if node.parent_id != 0 {
-            let parent = self.node_repo.find_by_id(ctx.executor, node.parent_id)
+            let parent = self.node_repo.find_by_id(db, node.parent_id)
                 .await?
                 .ok_or_else(|| DomainError::not_found("BomNode"))?;
             if parent.bom_id != bom_id {
@@ -434,11 +435,11 @@ impl BomNodeService for BomNodeServiceImpl {
             }
         }
 
-        let node_id = self.node_repo.create(ctx.executor, bom_id, &node)
+        let node_id = self.node_repo.create(db, bom_id, &node)
             .await?;
 
         self.event_bus.publish(
-            ctx.reborrow(),
+            ctx, db,
             EventPublishRequest {
                 event_type: DomainEventType::BomNodeAdded,
                 aggregate_type: "BOM".to_string(),
@@ -451,20 +452,20 @@ impl BomNodeService for BomNodeServiceImpl {
             },
         ).await?;
 
-        self.audit.record(ctx, "BomNode", node_id, AuditAction::Create, None, None).await?;
+        self.audit.record(ctx, db, "BomNode", node_id, AuditAction::Create, None, None).await?;
 
         Ok(node_id)
     }
 
     async fn update_node(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         bom_id: i64,
         node_id: i64,
         req: UpdateBomNodeReq,
         expected_version: i32,
     ) -> Result<()> {
-        let bom = self.repo.find_by_id(ctx.executor, bom_id)
+        let bom = self.repo.find_by_id(db, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
@@ -476,7 +477,7 @@ impl BomNodeService for BomNodeServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        let existing = self.node_repo.find_by_id(ctx.executor, node_id)
+        let existing = self.node_repo.find_by_id(db, node_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
@@ -484,11 +485,11 @@ impl BomNodeService for BomNodeServiceImpl {
             return Err(DomainError::business_rule("Node does not belong to this BOM"));
         }
 
-        self.node_repo.update(ctx.executor, node_id, &req)
+        self.node_repo.update(db, node_id, &req)
             .await?;
 
         self.event_bus.publish(
-            ctx.reborrow(),
+            ctx, db,
             EventPublishRequest {
                 event_type: DomainEventType::BomNodeUpdated,
                 aggregate_type: "BOM".to_string(),
@@ -498,17 +499,17 @@ impl BomNodeService for BomNodeServiceImpl {
             },
         ).await?;
 
-        self.audit.record(ctx, "BomNode", node_id, AuditAction::Update, None, None).await?;
+        self.audit.record(ctx, db, "BomNode", node_id, AuditAction::Update, None, None).await?;
         Ok(())
     }
 
     async fn delete_node(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         bom_id: i64,
         node_id: i64,
     ) -> Result<i64> {
-        let bom = self.repo.find_by_id(ctx.executor, bom_id)
+        let bom = self.repo.find_by_id(db, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
@@ -516,7 +517,7 @@ impl BomNodeService for BomNodeServiceImpl {
             return Err(DomainError::business_rule("Can only delete nodes in a draft BOM"));
         }
 
-        let existing = self.node_repo.find_by_id(ctx.executor, node_id)
+        let existing = self.node_repo.find_by_id(db, node_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
@@ -524,17 +525,17 @@ impl BomNodeService for BomNodeServiceImpl {
             return Err(DomainError::business_rule("Node does not belong to this BOM"));
         }
 
-        let child_count = self.node_repo.count_children(ctx.executor, node_id)
+        let child_count = self.node_repo.count_children(db, node_id)
             .await?;
         if child_count > 0 {
             return Err(DomainError::business_rule("Cannot delete a node that has children"));
         }
 
-        self.node_repo.delete(ctx.executor, node_id)
+        self.node_repo.delete(db, node_id)
             .await?;
 
         self.event_bus.publish(
-            ctx.reborrow(),
+            ctx, db,
             EventPublishRequest {
                 event_type: DomainEventType::BomNodeDeleted,
                 aggregate_type: "BOM".to_string(),
@@ -544,20 +545,20 @@ impl BomNodeService for BomNodeServiceImpl {
             },
         ).await?;
 
-        self.audit.record(ctx, "BomNode", node_id, AuditAction::Delete, None, None).await?;
+        self.audit.record(ctx, db, "BomNode", node_id, AuditAction::Delete, None, None).await?;
 
         Ok(node_id)
     }
 
     async fn move_node(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         bom_id: i64,
         node_id: i64,
         new_parent_id: i64,
         before_sibling_id: Option<i64>,
     ) -> Result<()> {
-        let bom = self.repo.find_by_id(ctx.executor, bom_id)
+        let bom = self.repo.find_by_id(db, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
@@ -565,7 +566,7 @@ impl BomNodeService for BomNodeServiceImpl {
             return Err(DomainError::business_rule("Can only move nodes in a draft BOM"));
         }
 
-        let existing = self.node_repo.find_by_id(ctx.executor, node_id)
+        let existing = self.node_repo.find_by_id(db, node_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
@@ -575,7 +576,7 @@ impl BomNodeService for BomNodeServiceImpl {
 
         // validate new parent (0 = root)
         if new_parent_id != 0 {
-            let new_parent = self.node_repo.find_by_id(ctx.executor, new_parent_id)
+            let new_parent = self.node_repo.find_by_id(db, new_parent_id)
                 .await?
                 .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
@@ -590,20 +591,20 @@ impl BomNodeService for BomNodeServiceImpl {
 
         // determine order_num
         let order_num = if let Some(sibling_id) = before_sibling_id {
-            let sibling = self.node_repo.find_by_id(ctx.executor, sibling_id)
+            let sibling = self.node_repo.find_by_id(db, sibling_id)
                 .await?
                 .ok_or_else(|| DomainError::not_found("BomNode"))?;
             self.node_repo.update_order_shift(
-                ctx.executor, bom_id, new_parent_id, sibling.order,
+                db, bom_id, new_parent_id, sibling.order,
             ).await?;
             sibling.order
         } else {
-            let max_order = self.node_repo.find_max_order(ctx.executor, bom_id, new_parent_id)
+            let max_order = self.node_repo.find_max_order(db, bom_id, new_parent_id)
                 .await?;
             max_order.unwrap_or(0) + 1
         };
 
-        self.node_repo.update_parent(ctx.executor, node_id, new_parent_id)
+        self.node_repo.update_parent(db, node_id, new_parent_id)
             .await?;
 
         let order_req = UpdateBomNodeReq {
@@ -616,11 +617,12 @@ impl BomNodeService for BomNodeServiceImpl {
             work_center: None,
             properties: None,
         };
-        self.node_repo.update(ctx.executor, node_id, &order_req)
+        self.node_repo.update(db, node_id, &order_req)
             .await?;
 
         self.audit.record(
             ctx,
+            db,
             "BomNode",
             node_id,
             AuditAction::Update,
@@ -658,15 +660,15 @@ impl BomCostServiceImpl {
 impl BomCostService for BomCostServiceImpl {
     async fn get_cost_report(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         bom_id: i64,
         as_of_date: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<BomCostReport> {
-        let bom = self.repo.find_by_id(ctx.executor, bom_id)
+        let bom = self.repo.find_by_id(db, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
-        let leaf_nodes = self.node_repo.find_leaf_nodes(ctx.executor, bom_id)
+        let leaf_nodes = self.node_repo.find_leaf_nodes(db, bom_id)
             .await?;
 
         let mut material_costs = Vec::new();
@@ -674,10 +676,10 @@ impl BomCostService for BomCostServiceImpl {
 
         for node in &leaf_nodes {
             let price_result = if let Some(date) = as_of_date {
-                self.price_repo.find_price_at(ctx.executor, node.product_id, PriceType::StandardCost, date)
+                self.price_repo.find_price_at(db, node.product_id, PriceType::StandardCost, date)
                     .await?
             } else {
-                self.price_repo.find_latest_price(ctx.executor, node.product_id, PriceType::StandardCost)
+                self.price_repo.find_latest_price(db, node.product_id, PriceType::StandardCost)
                     .await?
             };
 
@@ -732,32 +734,32 @@ impl BomCategoryServiceImpl {
 
 #[async_trait::async_trait]
 impl BomCategoryService for BomCategoryServiceImpl {
-    async fn create(&self, ctx: ServiceContext<'_>, req: CreateBomCategoryReq) -> Result<i64> {
-        let id = self.repo.create(ctx.executor, &req)
+    async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateBomCategoryReq) -> Result<i64> {
+        let id = self.repo.create(db, &req)
             .await?;
 
-        self.audit.record(ctx, "BomCategory", id, AuditAction::Create, None, None).await?;
+        self.audit.record(ctx, db, "BomCategory", id, AuditAction::Create, None, None).await?;
         Ok(id)
     }
 
-    async fn update(&self, ctx: ServiceContext<'_>, id: i64, req: UpdateBomCategoryReq) -> Result<()> {
-        self.repo.find_by_id(ctx.executor, id)
+    async fn update(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, req: UpdateBomCategoryReq) -> Result<()> {
+        self.repo.find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomCategory"))?;
 
-        self.repo.update(ctx.executor, id, &req)
+        self.repo.update(db, id, &req)
             .await?;
 
-        self.audit.record(ctx, "BomCategory", id, AuditAction::Update, None, None).await?;
+        self.audit.record(ctx, db, "BomCategory", id, AuditAction::Update, None, None).await?;
         Ok(())
     }
 
-    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        self.repo.find_by_id(ctx.executor, id)
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        self.repo.find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomCategory"))?;
 
-        let bom_count = self.repo.count_boms_by_category(ctx.executor, id)
+        let bom_count = self.repo.count_boms_by_category(db, id)
             .await?;
         if bom_count > 0 {
             return Err(DomainError::business_rule(
@@ -765,20 +767,20 @@ impl BomCategoryService for BomCategoryServiceImpl {
             ));
         }
 
-        self.repo.delete(ctx.executor, id)
+        self.repo.delete(db, id)
             .await?;
 
-        self.audit.record(ctx, "BomCategory", id, AuditAction::Delete, None, None).await?;
+        self.audit.record(ctx, db, "BomCategory", id, AuditAction::Delete, None, None).await?;
         Ok(())
     }
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         query: BomCategoryQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<BomCategory>> {
-        self.repo.query(ctx.executor, &query, &page)
+        self.repo.query(db, &query, &page)
             .await
     }
 }

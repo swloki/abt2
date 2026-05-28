@@ -120,21 +120,21 @@ classDiagram
 
   class OutsourcingOrderService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx, req: CreateOutsourcingOrderReq) Result~i64~
-    +update(ctx, req: UpdateOutsourcingOrderReq) Result~Unit~
-    +send(ctx, req: SendOutsourcingReq) Result~Unit~
-    +receive(ctx, req: ReceiveOutsourcingReq) Result~Unit~
-    +convert_to_internal(ctx, req: ConvertToInternalReq) Result~i64~
-    +cancel(ctx, req: CancelOutsourcingReq) Result~Unit~
-    +find_by_id(ctx, id: i64) Result~OutsourcingOrder~
-    +list(ctx, filter: OutsourcingOrderQuery, page: PageParams) Result~PaginatedResult~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateOutsourcingOrderReq) Result~i64~
+    +update(ctx: &ServiceContext, db: PgExecutor, req: UpdateOutsourcingOrderReq) Result~Unit~
+    +send(ctx: &ServiceContext, db: PgExecutor, req: SendOutsourcingReq) Result~Unit~
+    +receive(ctx: &ServiceContext, db: PgExecutor, req: ReceiveOutsourcingReq) Result~Unit~
+    +convert_to_internal(ctx: &ServiceContext, db: PgExecutor, req: ConvertToInternalReq) Result~i64~
+    +cancel(ctx: &ServiceContext, db: PgExecutor, req: CancelOutsourcingReq) Result~Unit~
+    +find_by_id(ctx: &ServiceContext, db: PgExecutor, id: i64) Result~OutsourcingOrder~
+    +list(ctx: &ServiceContext, db: PgExecutor, filter: OutsourcingOrderQuery, page: PageParams) Result~PaginatedResult~
   }
 
   class OutsourcingTrackingService {
     &lt;&lt;interface&gt;&gt;
-    +record_node(ctx, req: RecordNodeReq) Result~i64~
-    +list_by_outsourcing(ctx, outsourcing_id: i64, page: PageParams) Result~PaginatedResult~
-    +list_overdue(ctx, filter: OverdueTrackingQuery, page: PageParams) Result~PaginatedResult~
+    +record_node(ctx: &ServiceContext, db: PgExecutor, req: RecordNodeReq) Result~i64~
+    +list_by_outsourcing(ctx: &ServiceContext, db: PgExecutor, outsourcing_id: i64, page: PageParams) Result~PaginatedResult~
+    +list_overdue(ctx: &ServiceContext, db: PgExecutor, filter: OverdueTrackingQuery, page: PageParams) Result~PaginatedResult~
   }
 
   OutsourcingOrderService ..> OutsourcingTrackingService : record nodes
@@ -147,7 +147,7 @@ classDiagram
 
   note for OutsourcingOrder "version: i32 — Optimistic locking. Write operations require expected_version param. UPDATE ... SET version = version + 1 WHERE id = $1 AND version = $2"
 
-    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = &ServiceContext, db = PgExecutor| 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>
@@ -412,33 +412,33 @@ classDiagram
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">OutsourcingOrderService</span> {<br>
-          &nbsp;&nbsp;create(ctx, req: CreateOutsourcingOrderReq)<br>
+          &nbsp;&nbsp;create(ctx, db, req: CreateOutsourcingOrderReq)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;i64&gt;<br>
-          &nbsp;&nbsp;update(ctx, req: UpdateOutsourcingOrderReq)<br>
+          &nbsp;&nbsp;update(ctx, db, req: UpdateOutsourcingOrderReq)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;()&gt; <span style="color:#56b6c2;">// 仅 DRAFT</span><br>
-          &nbsp;&nbsp;send(ctx, req: SendOutsourcingReq)<br>
+          &nbsp;&nbsp;send(ctx, db, req: SendOutsourcingReq)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;()&gt;<br>
-          &nbsp;&nbsp;receive(ctx, req: ReceiveOutsourcingReq)<br>
+          &nbsp;&nbsp;receive(ctx, db, req: ReceiveOutsourcingReq)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;()&gt;<br>
-          &nbsp;&nbsp;convert_to_internal(ctx, req: ConvertToInternalReq)<br>
+          &nbsp;&nbsp;convert_to_internal(ctx, db, req: ConvertToInternalReq)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;i64&gt; <span style="color:#888;">// 新工单 ID</span><br>
-          &nbsp;&nbsp;cancel(ctx, req: CancelOutsourcingReq)<br>
+          &nbsp;&nbsp;cancel(ctx, db, req: CancelOutsourcingReq)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;()&gt; <span style="color:#56b6c2;">// 仅 DRAFT</span><br>
-          &nbsp;&nbsp;find_by_id(ctx, id: i64)<br>
+          &nbsp;&nbsp;find_by_id(ctx, db, id: i64)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;OutsourcingOrder&gt;<br>
-          &nbsp;&nbsp;list(ctx, filter: OutsourcingOrderQuery,<br>
+          &nbsp;&nbsp;list(ctx, db, filter: OutsourcingOrderQuery,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;page: PageParams)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;PaginatedResult&lt;OutsourcingOrder&gt;&gt;<br>
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">OutsourcingTrackingService</span> {<br>
-          &nbsp;&nbsp;record_node(ctx, req: RecordNodeReq)<br>
+          &nbsp;&nbsp;record_node(ctx, db, req: RecordNodeReq)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;i64&gt; <span style="color:#56b6c2;">// 含顺序校验</span><br>
-          &nbsp;&nbsp;list_by_outsourcing(ctx, outsourcing_id: i64,<br>
+          &nbsp;&nbsp;list_by_outsourcing(ctx, db, outsourcing_id: i64,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;page: PageParams)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;PaginatedResult&lt;OutsourcingTracking&gt;&gt;<br>
-          &nbsp;&nbsp;list_overdue(ctx, filter: OverdueTrackingQuery,<br>
+          &nbsp;&nbsp;list_overdue(ctx, db, filter: OverdueTrackingQuery,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;page: PageParams)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;PaginatedResult&lt;OutsourcingTracking&gt;&gt;<br>
           }

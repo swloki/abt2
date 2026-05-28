@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -11,6 +11,7 @@ use super::model::{
 use super::repo::WarehouseRepo;
 use super::service::WarehouseService;
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
@@ -30,10 +31,10 @@ impl WarehouseServiceImpl {
 impl WarehouseService for WarehouseServiceImpl {
     async fn create(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateWarehouseReq,
     ) -> Result<i64> {
-        let warehouse = WarehouseRepo::insert_warehouse(&mut *ctx.executor, &req, ctx.operator_id)
+        let warehouse = WarehouseRepo::insert_warehouse(&mut *db, &req, ctx.operator_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -42,10 +43,10 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<Warehouse> {
-        WarehouseRepo::get_by_id(&mut *ctx.executor, id)
+        WarehouseRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(format!("Warehouse #{id}")))
@@ -53,23 +54,23 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: WarehouseFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<Warehouse>> {
-        WarehouseRepo::list(&mut *ctx.executor, &filter, page, page_size)
+        WarehouseRepo::list(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn update(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: UpdateWarehouseReq,
     ) -> Result<()> {
-        let affected = WarehouseRepo::update(&mut *ctx.executor, id, &req)
+        let affected = WarehouseRepo::update(&mut *db, id, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -82,10 +83,10 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn delete(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let affected = WarehouseRepo::soft_delete(&mut *ctx.executor, id)
+        let affected = WarehouseRepo::soft_delete(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -98,17 +99,17 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn create_zone(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         warehouse_id: i64,
         req: CreateZoneReq,
     ) -> Result<i64> {
         // 验证仓库存在
-        WarehouseRepo::get_by_id(&mut *ctx.executor, warehouse_id)
+        WarehouseRepo::get_by_id(&mut *db, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(format!("Warehouse #{warehouse_id}")))?;
 
-        let zone = WarehouseRepo::insert_zone(&mut *ctx.executor, warehouse_id, &req)
+        let zone = WarehouseRepo::insert_zone(&mut *db, warehouse_id, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -117,21 +118,21 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn list_zones(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         warehouse_id: i64,
     ) -> Result<Vec<Zone>> {
-        WarehouseRepo::list_zones(&mut *ctx.executor, warehouse_id)
+        WarehouseRepo::list_zones(&mut *db, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn update_zone(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: UpdateZoneReq,
     ) -> Result<()> {
-        let affected = WarehouseRepo::update_zone(&mut *ctx.executor, id, &req)
+        let affected = WarehouseRepo::update_zone(&mut *db, id, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -144,10 +145,10 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn delete_zone(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let affected = WarehouseRepo::soft_delete_zone(&mut *ctx.executor, id)
+        let affected = WarehouseRepo::soft_delete_zone(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -160,11 +161,11 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn create_bin(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         zone_id: i64,
         req: CreateBinReq,
     ) -> Result<i64> {
-        let bin = WarehouseRepo::insert_bin(&mut *ctx.executor, zone_id, &req)
+        let bin = WarehouseRepo::insert_bin(&mut *db, zone_id, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -173,25 +174,25 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn list_bins(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         zone_id: i64,
         filter: Option<BinFilter>,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<Bin>> {
         let f = filter.unwrap_or_default();
-        WarehouseRepo::list_bins(&mut *ctx.executor, zone_id, &f, page, page_size)
+        WarehouseRepo::list_bins(&mut *db, zone_id, &f, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn update_bin(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: UpdateBinReq,
     ) -> Result<()> {
-        let affected = WarehouseRepo::update_bin(&mut *ctx.executor, id, &req)
+        let affected = WarehouseRepo::update_bin(&mut *db, id, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -204,10 +205,10 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn delete_bin(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let affected = WarehouseRepo::soft_delete_bin(&mut *ctx.executor, id)
+        let affected = WarehouseRepo::soft_delete_bin(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -220,7 +221,7 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn list_bins_by_warehouse(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         warehouse_id: i64,
         keyword: Option<String>,
         is_active: Option<bool>,
@@ -228,7 +229,7 @@ impl WarehouseService for WarehouseServiceImpl {
         page_size: u32,
     ) -> Result<PaginatedResult<Bin>> {
         WarehouseRepo::list_bins_by_warehouse(
-            &mut *ctx.executor,
+            &mut *db,
             warehouse_id,
             keyword.as_deref(),
             is_active,
@@ -241,17 +242,17 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn get_or_create_default_zone(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         warehouse_id: i64,
     ) -> Result<Zone> {
         // 验证仓库存在
-        WarehouseRepo::get_by_id(&mut *ctx.executor, warehouse_id)
+        WarehouseRepo::get_by_id(&mut *db, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(format!("Warehouse #{warehouse_id}")))?;
 
         // 查找已有默认库区
-        if let Some(zone) = WarehouseRepo::find_default_zone(&mut *ctx.executor, warehouse_id)
+        if let Some(zone) = WarehouseRepo::find_default_zone(&mut *db, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
         {
@@ -267,18 +268,18 @@ impl WarehouseService for WarehouseServiceImpl {
             sort_order: Some(0),
             remark: Some("系统自动创建的默认库区".to_string()),
         };
-        WarehouseRepo::insert_zone(&mut *ctx.executor, warehouse_id, &req)
+        WarehouseRepo::insert_zone(&mut *db, warehouse_id, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn get_bin_with_warehouse(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         bin_id: i64,
     ) -> Result<BinWithWarehouse> {
         let (bin, warehouse_id, warehouse_name) =
-            WarehouseRepo::get_bin_with_warehouse(&mut *ctx.executor, bin_id)
+            WarehouseRepo::get_bin_with_warehouse(&mut *db, bin_id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?
                 .ok_or_else(|| DomainError::not_found(format!("Bin #{bin_id}")))?;
@@ -292,7 +293,7 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn search_bins_with_warehouse(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         keyword: Option<String>,
         is_active: Option<bool>,
         warehouse_id: Option<i64>,
@@ -300,7 +301,7 @@ impl WarehouseService for WarehouseServiceImpl {
         page_size: u32,
     ) -> Result<PaginatedResult<BinWithWarehouse>> {
         WarehouseRepo::search_bins_with_warehouse(
-            &mut *ctx.executor,
+            &mut *db,
             keyword.as_deref(),
             is_active,
             warehouse_id,
@@ -313,19 +314,19 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn list_all_bins_with_warehouse(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
     ) -> Result<Vec<BinWithWarehouse>> {
-        WarehouseRepo::list_all_bins_with_warehouse(&mut *ctx.executor)
+        WarehouseRepo::list_all_bins_with_warehouse(&mut *db)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn get_warehouse_inventory_stats(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         warehouse_id: i64,
     ) -> Result<WarehouseInventoryStats> {
-        WarehouseRepo::get_warehouse_inventory_stats(&mut *ctx.executor, warehouse_id)
+        WarehouseRepo::get_warehouse_inventory_stats(&mut *db, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(format!("Warehouse#{warehouse_id}")))
@@ -333,10 +334,10 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn get_bin_inventory_stats(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         bin_id: i64,
     ) -> Result<BinInventoryStats> {
-        WarehouseRepo::get_bin_inventory_stats(&mut *ctx.executor, bin_id)
+        WarehouseRepo::get_bin_inventory_stats(&mut *db, bin_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(format!("Bin#{bin_id}")))
@@ -344,12 +345,12 @@ impl WarehouseService for WarehouseServiceImpl {
 
     async fn list_bin_stats_by_warehouse(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         warehouse_id: i64,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<BinInventoryStats>> {
-        WarehouseRepo::list_bin_stats_by_warehouse(&mut *ctx.executor, warehouse_id, page, page_size)
+        WarehouseRepo::list_bin_stats_by_warehouse(&mut *db, warehouse_id, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

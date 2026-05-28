@@ -204,12 +204,9 @@ pub async fn get_shipping_list(
     let customer_names = resolve_customer_names_shipping(&mut conn, &result.items).await;
     let order_numbers = resolve_order_numbers(&mut conn, &result.items).await;
 
-    let ctx = abt_core::shared::types::ServiceContext::new(
-        &mut conn as abt_core::shared::types::PgExecutor<'_>,
-        claims.sub,
-    );
+    let ctx = abt_core::shared::types::ServiceContext::new(claims.sub);
     let customers = customer_svc
-        .list(ctx, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
@@ -234,12 +231,9 @@ pub async fn get_shipping_table(
     let customer_names = resolve_customer_names_shipping(&mut conn, &result.items).await;
     let order_numbers = resolve_order_numbers(&mut conn, &result.items).await;
 
-    let ctx = abt_core::shared::types::ServiceContext::new(
-        &mut conn as abt_core::shared::types::PgExecutor<'_>,
-        claims.sub,
-    );
+    let ctx = abt_core::shared::types::ServiceContext::new(claims.sub);
     let customers = customer_svc
-        .list(ctx, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 

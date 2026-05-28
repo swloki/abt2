@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::Value as JsonValue;
@@ -7,6 +7,7 @@ use sqlx::postgres::PgPool;
 use super::repo::AuditLogRepo;
 use super::service::{AuditLog, AuditLogService};
 use crate::shared::audit_log::model::AuditLogQuery;
+use crate::shared::types::PgExecutor;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -44,7 +45,7 @@ fn redact_sensitive(changes: &mut JsonValue) {
 impl AuditLogService for AuditLogServiceImpl {
     async fn record(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         entity_id: i64,
         action: AuditAction,
@@ -56,7 +57,7 @@ impl AuditLogService for AuditLogServiceImpl {
         }
 
         let id = AuditLogRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             entity_type,
             entity_id,
             action,
@@ -72,7 +73,7 @@ impl AuditLogService for AuditLogServiceImpl {
 
     async fn query_logs(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         query: AuditLogQuery,
         page: u32,
         page_size: u32,
@@ -80,7 +81,7 @@ impl AuditLogService for AuditLogServiceImpl {
         let params = PageParams::new(page, page_size);
 
         let (items, total) = AuditLogRepo::query(
-            &mut *ctx.executor,
+            &mut *db,
             &query,
             params.page_size.into(),
             params.offset().into(),

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -8,6 +8,7 @@ use super::model::*;
 use super::repo::ProductionPlanRepo;
 use super::service::ProductionPlanService;
 use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
 use crate::mes::work_order::model::CreateWorkOrderReq;
 use crate::mes::work_order::service::WorkOrderService;
@@ -37,15 +38,15 @@ impl ProductionPlanServiceImpl {
 impl ProductionPlanService for ProductionPlanServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreatePlanReq,
     ) -> Result<i64> {
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ProductionPlan)
+        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::ProductionPlan)
             .await
             .unwrap_or_else(|_| format!("PP{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
         let plan = ProductionPlanRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &req,
             &doc_number,
             ctx.operator_id,
@@ -54,7 +55,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         if !req.items.is_empty() {
-            ProductionPlanRepo::insert_items(&mut *ctx.executor, plan.id, &req.items)
+            ProductionPlanRepo::insert_items(&mut *db, plan.id, &req.items)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
@@ -64,10 +65,10 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
 
     async fn find_by_id(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<ProductionPlan> {
-        ProductionPlanRepo::get_by_id(&mut *ctx.executor, id)
+        ProductionPlanRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionPlan"))
@@ -75,10 +76,10 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
 
     async fn confirm(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let plan = ProductionPlanRepo::get_by_id(&mut *ctx.executor, id)
+        let plan = ProductionPlanRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionPlan"))?;
@@ -90,7 +91,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
             });
         }
 
-        ProductionPlanRepo::update_status(&mut *ctx.executor, id, PlanStatus::Confirmed)
+        ProductionPlanRepo::update_status(&mut *db, id, PlanStatus::Confirmed)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -99,10 +100,10 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
 
     async fn release_to_work_orders(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         plan_id: i64,
     ) -> Result<BatchReleaseResult> {
-        let items = ProductionPlanRepo::get_items_by_plan_id(&mut *ctx.executor, plan_id)
+        let items = ProductionPlanRepo::get_items_by_plan_id(&mut *db, plan_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -114,7 +115,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
             let scheduled_end = scheduled_start + chrono::Duration::days(7);
 
             match self.work_order.create(
-                ctx.reborrow(),
+                ctx, db,
                 CreateWorkOrderReq {
                     plan_item_id: Some(item.id),
                     product_id: item.product_id,
@@ -129,7 +130,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
                 },
             ).await {
                 Ok(wo_id) => {
-                    if let Ok(wo) = self.work_order.find_by_id(ctx.reborrow(), wo_id).await {
+                    if let Ok(wo) = self.work_order.find_by_id(ctx, db, wo_id).await {
                         successful.push(wo);
                     }
                 }
@@ -146,12 +147,12 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: PlanFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<ProductionPlan>> {
-        ProductionPlanRepo::list(&mut *ctx.executor, &filter, page, page_size)
+        ProductionPlanRepo::list(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

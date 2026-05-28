@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -12,6 +12,7 @@ use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionSt
 use crate::qms::inspection_result::model::InspectionResultFilter;
 use crate::qms::inspection_result::service::InspectionResultService;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::types::PgExecutor;
 use crate::shared::cost_entry::model::EntryRequest;
 use crate::shared::cost_entry::service::CostEntryService;
 use crate::shared::document_sequence::service::DocumentSequenceService;
@@ -64,10 +65,10 @@ impl ProductionReceiptServiceImpl {
 
 #[async_trait]
 impl ProductionReceiptService for ProductionReceiptServiceImpl {
-    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateReceiptReq) -> Result<i64> {
+    async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateReceiptReq) -> Result<i64> {
         // Verify batch status if provided
         if let Some(bid) = req.batch_id {
-            let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, bid)
+            let batch = ProductionBatchRepo::get_by_id(&mut *db, bid)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?
                 .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
@@ -83,14 +84,14 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         let product_id = if req.product_id != 0 {
             req.product_id
         } else if let Some(bid) = req.batch_id {
-            let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, bid)
+            let batch = ProductionBatchRepo::get_by_id(&mut *db, bid)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?
                 .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
             batch.product_id
         } else {
             let batches =
-                ProductionBatchRepo::list_by_work_order(&mut *ctx.executor, req.work_order_id)
+                ProductionBatchRepo::list_by_work_order(&mut *db, req.work_order_id)
                     .await
                     .map_err(|e| DomainError::Internal(e.into()))?;
             batches
@@ -101,12 +102,12 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
 
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::ProductionReceipt)
+            .next_number(ctx, db, DocumentType::ProductionReceipt)
             .await
             .unwrap_or_else(|_| format!("PR{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
         let receipt = ProductionReceiptRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             req.work_order_id,
             req.batch_id,
             product_id,
@@ -124,15 +125,15 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         Ok(receipt.id)
     }
 
-    async fn find_by_id(&self, ctx: ServiceContext<'_>, id: i64) -> Result<ProductionReceipt> {
-        ProductionReceiptRepo::get_by_id(&mut *ctx.executor, id)
+    async fn find_by_id(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<ProductionReceipt> {
+        ProductionReceiptRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionReceipt"))
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        let receipt = ProductionReceiptRepo::get_by_id(&mut *ctx.executor, id)
+    async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let receipt = ProductionReceiptRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionReceipt"))?;
@@ -148,7 +149,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         let fqc_results = self
             .qms
             .list_by_source(
-                ctx.reborrow(),
+                ctx, db,
                 InspectionResultFilter {
                     source_type: Some(InspectionSourceType::ArrivalNotice),
                     source_id: Some(id),
@@ -180,14 +181,14 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         }
 
         // 所有验证通过，标记为 Confirmed 防止部分失败后重试导致副作用重复执行
-        ProductionReceiptRepo::update_status(&mut *ctx.executor, id, ReceiptStatus::Confirmed)
+        ProductionReceiptRepo::update_status(&mut *db, id, ReceiptStatus::Confirmed)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 2. WMS inventory transaction — production receipt (入库)
         self.inv_txn
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 RecordTransactionReq {
                     doc_number: None,
                     transaction_type: TransactionType::ProductionReceipt,
@@ -209,7 +210,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         let period = chrono::Local::now().format("%Y-%m").to_string();
         self.cost_entry
             .create_entries(
-                ctx.reborrow(),
+                ctx, db,
                 vec![EntryRequest {
                     entity_type: CostEntityType::WorkOrder,
                     entity_id: receipt.work_order_id,
@@ -228,14 +229,14 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         // 4. Backflush — failure does not block receipt but is audited
         let backflush_result = self
             .backflush
-            .execute(ctx.reborrow(), receipt.work_order_id, receipt.received_qty)
+            .execute(ctx, db, receipt.work_order_id, receipt.received_qty)
             .await;
 
         if let Err(e) = backflush_result {
             if let Err(audit_err) = self
                 .audit
                 .record(
-                    ctx.reborrow(),
+                    ctx, db,
                     "production_receipt",
                     id,
                     AuditAction::Update,
@@ -247,7 +248,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
                 tracing::warn!("audit log for backflush error failed: {audit_err}");
             }
         } else {
-            ProductionReceiptRepo::set_backflush_triggered(&mut *ctx.executor, id, true)
+            ProductionReceiptRepo::set_backflush_triggered(&mut *db, id, true)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
@@ -255,7 +256,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         // 5. Release hard reservation
         self.inv_res
             .cancel_by_source(
-                ctx.reborrow(),
+                ctx, db,
                 DocumentType::WorkOrder,
                 receipt.work_order_id,
             )
@@ -264,7 +265,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         // 6. Update batch status to Completed
         if let Some(batch_id) = receipt.batch_id {
             ProductionBatchRepo::update_status(
-                &mut *ctx.executor,
+                &mut *db,
                 batch_id,
                 BatchStatus::Completed,
             )

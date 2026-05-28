@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use rust_decimal::Decimal;
 
@@ -18,7 +18,7 @@ use crate::shared::enums::cost::CostEntityType;
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::link_type::LinkType;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 use crate::fms::cash_journal::model::CreateCashJournalReq;
 use crate::fms::cash_journal::service::CashJournalService;
 
@@ -61,13 +61,13 @@ impl ReconciliationServiceImpl {
 impl ReconciliationService for ReconciliationServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         customer_id: i64,
         period: String,
     ) -> Result<i64> {
         if self
             .repo
-            .exists_by_customer_period(ctx.executor, customer_id, &period)
+            .exists_by_customer_period(db, customer_id, &period)
             .await
             ?
         {
@@ -77,7 +77,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         }
 
         // Aggregate shipping items for this customer+period
-        let aggregated = aggregate_shipping_items(ctx.executor, customer_id, &period)
+        let aggregated = aggregate_shipping_items(db, customer_id, &period)
             .await
             ?;
 
@@ -85,13 +85,13 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::Reconciliation)
+            .next_number(ctx, db, DocumentType::Reconciliation)
             .await?;
 
         let id = self
             .repo
             .create(
-                ctx.executor,
+                db,
                 &doc_number,
                 customer_id,
                 &period,
@@ -116,7 +116,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         if !item_inputs.is_empty() {
             self.item_repo
-                .create_batch(ctx.executor, id, &item_inputs)
+                .create_batch(db, id, &item_inputs)
                 .await
                 ?;
         }
@@ -141,17 +141,18 @@ impl ReconciliationService for ReconciliationServiceImpl {
             .collect();
 
         if !links.is_empty() {
-            self.doc_link.create_links(ctx.reborrow(), links).await?;
+            self.doc_link.create_links(ctx, db, links).await?;
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReconciliationStatus", id, "Draft", None)
+            .transition(ctx, db, "ReconciliationStatus", id, "Draft", None)
             .await
             .ok();
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Reconciliation",
                 id,
                 AuditAction::Create,
@@ -165,20 +166,20 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
     async fn find_by_id(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<Reconciliation> {
         self.repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))
     }
 
-    async fn send(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn send(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
@@ -188,17 +189,18 @@ impl ReconciliationService for ReconciliationServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReconciliationStatus", id, "Sent", None)
+            .transition(ctx, db, "ReconciliationStatus", id, "Sent", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReconciliationStatus::Sent)
+            .update_status(db, id, ReconciliationStatus::Sent)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Reconciliation",
                 id,
                 AuditAction::Transition,
@@ -210,10 +212,10 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
@@ -224,7 +226,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         let all_confirmed = self
             .item_repo
-            .all_confirmed(ctx.executor, id)
+            .all_confirmed(db, id)
             .await
             ?;
 
@@ -236,23 +238,23 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         // confirmed_amount = total_amount (all items confirmed), difference = 0
         self.repo
-            .update_amounts(ctx.executor, id, existing.total_amount, Decimal::ZERO)
+            .update_amounts(db, id, existing.total_amount, Decimal::ZERO)
             .await
             ?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReconciliationStatus", id, "Confirmed", None)
+            .transition(ctx, db, "ReconciliationStatus", id, "Confirmed", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReconciliationStatus::Confirmed)
+            .update_status(db, id, ReconciliationStatus::Confirmed)
             .await
             ?;
 
         // Create AR voucher via CostEntry
         let items = self
             .item_repo
-            .find_by_reconciliation_id(ctx.executor, id)
+            .find_by_reconciliation_id(db, id)
             .await
             ?;
 
@@ -275,13 +277,14 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         if !cost_entries.is_empty() {
             self.cost_entry
-                .create_entries(ctx.reborrow(), cost_entries)
+                .create_entries(ctx, db, cost_entries)
                 .await?;
         }
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Reconciliation",
                 id,
                 AuditAction::Transition,
@@ -293,10 +296,10 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
-    async fn dispute(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn dispute(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
@@ -310,17 +313,18 @@ impl ReconciliationService for ReconciliationServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReconciliationStatus", id, "Disputed", None)
+            .transition(ctx, db, "ReconciliationStatus", id, "Disputed", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReconciliationStatus::Disputed)
+            .update_status(db, id, ReconciliationStatus::Disputed)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Reconciliation",
                 id,
                 AuditAction::Transition,
@@ -335,10 +339,10 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
-    async fn reopen(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn reopen(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
@@ -348,17 +352,18 @@ impl ReconciliationService for ReconciliationServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReconciliationStatus", id, "Draft", None)
+            .transition(ctx, db, "ReconciliationStatus", id, "Draft", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReconciliationStatus::Draft)
+            .update_status(db, id, ReconciliationStatus::Draft)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Reconciliation",
                 id,
                 AuditAction::Transition,
@@ -370,10 +375,10 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
-    async fn force_settle(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn force_settle(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
@@ -387,7 +392,7 @@ impl ReconciliationService for ReconciliationServiceImpl {
         // Settle with difference as the confirmed amount
         self.repo
             .update_amounts(
-                ctx.executor,
+                db,
                 id,
                 existing.total_amount - existing.difference,
                 existing.difference,
@@ -396,18 +401,18 @@ impl ReconciliationService for ReconciliationServiceImpl {
             ?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReconciliationStatus", id, "Settled", None)
+            .transition(ctx, db, "ReconciliationStatus", id, "Settled", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReconciliationStatus::Settled)
+            .update_status(db, id, ReconciliationStatus::Settled)
             .await
             ?;
 
         // Create AR voucher via CostEntry for confirmed items (disputed path bypasses confirm)
         let items = self
             .item_repo
-            .find_by_reconciliation_id(ctx.executor, id)
+            .find_by_reconciliation_id(db, id)
             .await
             ?;
 
@@ -432,13 +437,14 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         if !cost_entries.is_empty() {
             self.cost_entry
-                .create_entries(ctx.reborrow(), cost_entries)
+                .create_entries(ctx, db, cost_entries)
                 .await?;
         }
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Reconciliation",
                 id,
                 AuditAction::Transition,
@@ -450,10 +456,10 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
-    async fn settle(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn settle(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Reconciliation"))?;
@@ -465,17 +471,18 @@ impl ReconciliationService for ReconciliationServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReconciliationStatus", id, "Settled", None)
+            .transition(ctx, db, "ReconciliationStatus", id, "Settled", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReconciliationStatus::Settled)
+            .update_status(db, id, ReconciliationStatus::Settled)
             .await
             ?;
 
         // FMS: 对账结算时创建现金日记账 + 核销
         self.cash_journal.create(
-            ctx.reborrow(),
+            ctx,
+            db,
             CreateCashJournalReq {
                 journal_type: crate::fms::enums::JournalType::SalesReceipt,
                 direction: crate::fms::enums::CashDirection::Inflow,
@@ -494,7 +501,8 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Reconciliation",
                 id,
                 AuditAction::Transition,
@@ -508,13 +516,13 @@ impl ReconciliationService for ReconciliationServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: ReconciliationQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<Reconciliation>> {
         self.repo
             .query(
-                ctx.executor,
+                db,
                 &filter,
                 &page,
                 ctx.data_scope,

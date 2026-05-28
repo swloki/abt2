@@ -12,7 +12,7 @@ use abt_core::master_data::product::model::ProductQuery;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
+use abt_core::shared::types::{PageParams, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::customer_info::{customer_info_panel, CustomerContactsParams};
@@ -24,8 +24,8 @@ use crate::state::AppState;
 
 // ── Helpers ──
 
-fn make_ctx<'a>(conn: &'a mut sqlx::postgres::PgConnection, operator_id: i64) -> ServiceContext<'a> {
-    ServiceContext::new(conn as PgExecutor<'a>, operator_id)
+fn make_ctx(operator_id: i64) -> ServiceContext {
+    ServiceContext::new(operator_id)
 }
 
 async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
@@ -93,9 +93,9 @@ pub async fn get_order_create(
     let customer_svc = state.customer_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
+    let ctx = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(ctx, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
@@ -119,15 +119,15 @@ pub async fn get_customer_contacts(
 
     let contacts = match params.customer_id {
         Some(cid) if cid > 0 => {
-            let ctx = make_ctx(&mut conn, claims.sub);
-            customer_svc.list_contacts(ctx, cid).await.unwrap_or_default()
+            let ctx = make_ctx(claims.sub);
+            customer_svc.list_contacts(&ctx, &mut *conn, cid).await.unwrap_or_default()
         }
         _ => vec![],
     };
 
-    let ctx2 = make_ctx(&mut conn, claims.sub);
+    let ctx2 = make_ctx(claims.sub);
     let result = customer_svc
-        .list(ctx2, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
@@ -150,8 +150,8 @@ pub async fn get_products(
         status: None,
         owner_department_id: None,
     };
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let result = svc.list(ctx, filter, PageParams::new(1, 20)).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+    let result = svc.list(&ctx, &mut *conn, filter, PageParams::new(1, 20)).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     Ok(Html(product_list_fragment(&result.items).into_string()))
 }
@@ -217,8 +217,8 @@ pub async fn create_order(
     // is rolled back if any subsequent step fails.
     let mut tx: sqlx::Transaction<'_, sqlx::Postgres> = sqlx::Connection::begin(&mut *conn)
         .await.map_err(|e| AppError::Internal(e.to_string()))?;
-    let ctx = ServiceContext::new(&mut *tx, claims.sub);
-    let id = svc.create(ctx, create_req).await?;
+    let ctx = ServiceContext::new(claims.sub);
+    let id = svc.create(&ctx, &mut *tx, create_req).await?;
     tx.commit().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let redirect = OrderDetailPath { id }.to_string();

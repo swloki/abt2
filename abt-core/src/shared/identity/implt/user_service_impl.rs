@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
@@ -10,6 +10,7 @@ use super::super::model::{User, UserWithRoles};
 use super::super::repo::IdentityRepo;
 use super::super::user_service::UserService;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::types::PgExecutor;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -32,7 +33,7 @@ impl UserServiceImpl {
 impl UserService for UserServiceImpl {
     async fn create_user(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         username: &str,
         password: &str,
         display_name: Option<&str>,
@@ -58,7 +59,7 @@ impl UserService for UserServiceImpl {
             .to_string();
 
         let user = IdentityRepo::insert_user(
-            &mut *ctx.executor,
+            &mut *db,
             username,
             &password_hash,
             display_name,
@@ -70,6 +71,7 @@ impl UserService for UserServiceImpl {
         self.audit
             .record(
                 ctx,
+                db,
                 "user",
                 user.user_id,
                 AuditAction::Create,
@@ -87,17 +89,18 @@ impl UserService for UserServiceImpl {
 
     async fn update_user(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
         display_name: Option<&str>,
     ) -> Result<User> {
-        let user = IdentityRepo::update_user(&mut *ctx.executor, user_id, display_name)
+        let user = IdentityRepo::update_user(&mut *db, user_id, display_name)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "user",
                 user_id,
                 AuditAction::Update,
@@ -113,15 +116,15 @@ impl UserService for UserServiceImpl {
 
     async fn delete_user(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
     ) -> Result<()> {
-        IdentityRepo::deactivate_user(&mut *ctx.executor, user_id)
+        IdentityRepo::deactivate_user(&mut *db, user_id)
             .await
             ?;
 
         self.audit
-            .record(ctx, "user", user_id, AuditAction::Delete, None, None)
+            .record(ctx, db, "user", user_id, AuditAction::Delete, None, None)
             .await?;
 
         Ok(())
@@ -129,10 +132,10 @@ impl UserService for UserServiceImpl {
 
     async fn get_user(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
     ) -> Result<User> {
-        IdentityRepo::get_user(&mut *ctx.executor, user_id)
+        IdentityRepo::get_user(&mut *db, user_id)
             .await
             .map_err(|e| match &e {
                 DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"),
@@ -142,13 +145,13 @@ impl UserService for UserServiceImpl {
 
     async fn list_users(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<User>> {
         let params = crate::shared::types::pagination::PageParams::new(page, page_size);
         let (items, total) = IdentityRepo::list_users(
-            &mut *ctx.executor,
+            &mut *db,
             params.page_size.into(),
             params.offset().into(),
         )
@@ -160,21 +163,22 @@ impl UserService for UserServiceImpl {
 
     async fn batch_assign_roles(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
         role_ids: Vec<i64>,
     ) -> Result<()> {
-        IdentityRepo::get_user(&mut *ctx.executor, user_id)
+        IdentityRepo::get_user(&mut *db, user_id)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
-        IdentityRepo::replace_user_roles(&mut *ctx.executor, user_id, &role_ids)
+        IdentityRepo::replace_user_roles(&mut *db, user_id, &role_ids)
             .await
             ?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "user",
                 user_id,
                 AuditAction::Update,
@@ -190,14 +194,14 @@ impl UserService for UserServiceImpl {
 
     async fn get_user_with_roles(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
     ) -> Result<UserWithRoles> {
-        let user = IdentityRepo::get_user(&mut *ctx.executor, user_id)
+        let user = IdentityRepo::get_user(&mut *db, user_id)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
-        let roles = IdentityRepo::get_role_info_for_user(&mut *ctx.executor, user_id)
+        let roles = IdentityRepo::get_role_info_for_user(&mut *db, user_id)
             .await
             ?;
 
@@ -206,10 +210,10 @@ impl UserService for UserServiceImpl {
 
     async fn list_users_with_roles(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
     ) -> Result<Vec<UserWithRoles>> {
         let (users, _total) = IdentityRepo::list_users(
-            &mut *ctx.executor,
+            &mut *db,
             i64::MAX,
             0,
         )
@@ -218,7 +222,7 @@ impl UserService for UserServiceImpl {
 
         let mut result = Vec::with_capacity(users.len());
         for user in users {
-            let roles = IdentityRepo::get_role_info_for_user(&mut *ctx.executor, user.user_id)
+            let roles = IdentityRepo::get_role_info_for_user(&mut *db, user.user_id)
                 .await
                 ?;
             result.push(UserWithRoles { user, roles });
@@ -229,20 +233,20 @@ impl UserService for UserServiceImpl {
 
     async fn get_users_by_ids(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         user_ids: Vec<i64>,
     ) -> Result<Vec<UserWithRoles>> {
         if user_ids.is_empty() {
             return Ok(Vec::new());
         }
 
-        let users = IdentityRepo::get_users_by_ids(&mut *ctx.executor, &user_ids)
+        let users = IdentityRepo::get_users_by_ids(&mut *db, &user_ids)
             .await
             ?;
 
         let mut result = Vec::with_capacity(users.len());
         for user in users {
-            let roles = IdentityRepo::get_role_info_for_user(&mut *ctx.executor, user.user_id)
+            let roles = IdentityRepo::get_role_info_for_user(&mut *db, user.user_id)
                 .await
                 ?;
             result.push(UserWithRoles { user, roles });
@@ -253,21 +257,22 @@ impl UserService for UserServiceImpl {
 
     async fn assign_roles(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
         role_ids: Vec<i64>,
     ) -> Result<()> {
-        IdentityRepo::get_user(&mut *ctx.executor, user_id)
+        IdentityRepo::get_user(&mut *db, user_id)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
-        IdentityRepo::add_user_roles(&mut *ctx.executor, user_id, &role_ids)
+        IdentityRepo::add_user_roles(&mut *db, user_id, &role_ids)
             .await
             ?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "user",
                 user_id,
                 AuditAction::Update,
@@ -283,21 +288,22 @@ impl UserService for UserServiceImpl {
 
     async fn remove_roles(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
         role_ids: Vec<i64>,
     ) -> Result<()> {
-        IdentityRepo::get_user(&mut *ctx.executor, user_id)
+        IdentityRepo::get_user(&mut *db, user_id)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
-        IdentityRepo::remove_user_roles(&mut *ctx.executor, user_id, &role_ids)
+        IdentityRepo::remove_user_roles(&mut *db, user_id, &role_ids)
             .await
             ?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "user",
                 user_id,
                 AuditAction::Update,
@@ -313,13 +319,13 @@ impl UserService for UserServiceImpl {
 
     async fn change_password(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
         old_password: &str,
         new_password: &str,
     ) -> Result<()> {
         // Fetch stored password hash
-        let stored_hash = IdentityRepo::get_user_password_hash(&mut *ctx.executor, user_id)
+        let stored_hash = IdentityRepo::get_user_password_hash(&mut *db, user_id)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
@@ -344,13 +350,14 @@ impl UserService for UserServiceImpl {
             .map_err(|e| DomainError::Internal(anyhow::anyhow!("argon2 hash error: {e}")))?
             .to_string();
 
-        IdentityRepo::update_user_password(&mut *ctx.executor, user_id, &new_hash)
+        IdentityRepo::update_user_password(&mut *db, user_id, &new_hash)
             .await
             ?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "user",
                 user_id,
                 AuditAction::Update,
@@ -364,17 +371,18 @@ impl UserService for UserServiceImpl {
 
     async fn update_user_status(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
         is_active: bool,
     ) -> Result<User> {
-        let user = IdentityRepo::update_user_status(&mut *ctx.executor, user_id, is_active)
+        let user = IdentityRepo::update_user_status(&mut *db, user_id, is_active)
             .await
             .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "user",
                 user_id,
                 AuditAction::Update,

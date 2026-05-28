@@ -279,19 +279,19 @@ classDiagram
   WorkOrder "1" *-- "0..*" ProductionBatch
   class ProductionPlanService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
+    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
     +find_by_id(id) Result~ProductionPlan~
-    +confirm(ctx: ServiceContext, id) Result~Unit~
-    +release_to_work_orders(ctx: ServiceContext, plan_id) Result~BatchReleaseResult~
+    +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +release_to_work_orders(ctx: &ServiceContext, db: PgExecutor, plan_id) Result~BatchReleaseResult~
     +list(filter) PaginatedResult~ProductionPlan~
   }
   class WorkOrderService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
+    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
     +find_by_id(id) Result~WorkOrder~
-    +release(ctx: ServiceContext, id, expected_version i32) Result~Unit~
-    +close(ctx: ServiceContext, id, expected_version i32) Result~Unit~
-    +cancel(ctx: ServiceContext, id, expected_version i32) Result~Unit~
+    +release(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
+    +close(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
+    +cancel(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +list(filter) PaginatedResult~WorkOrder~
   }
   class WorkReportService {
@@ -303,27 +303,27 @@ classDiagram
   }
   class ProductionBatchService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
-    +split_work_order(ctx: ServiceContext, work_order_id, splits) Result~Vec~i64~~
+    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
+    +split_work_order(ctx: &ServiceContext, db: PgExecutor, work_order_id, splits) Result~Vec~i64~~
     +find_by_id(id) Result~ProductionBatch~
     +list_by_work_order(work_order_id) Result~Vec~ProductionBatch~~
-    +confirm_routing_step(ctx: ServiceContext, batch_id, step_no, req) Result~StepConfirmationResult~
-    +advance_to_receipt(ctx: ServiceContext, batch_id) Result~Unit~
-    +suspend(ctx: ServiceContext, batch_id, reason) Result~Unit~
-    +resume(ctx: ServiceContext, batch_id) Result~Unit~
-    +scrap(ctx: ServiceContext, batch_id, reason) Result~Unit~
+    +confirm_routing_step(ctx: &ServiceContext, db: PgExecutor, batch_id, step_no, req) Result~StepConfirmationResult~
+    +advance_to_receipt(ctx: &ServiceContext, db: PgExecutor, batch_id) Result~Unit~
+    +suspend(ctx: &ServiceContext, db: PgExecutor, batch_id, reason) Result~Unit~
+    +resume(ctx: &ServiceContext, db: PgExecutor, batch_id) Result~Unit~
+    +scrap(ctx: &ServiceContext, db: PgExecutor, batch_id, reason) Result~Unit~
   }
   class ProductionInspectionService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
+    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
     +find_by_id(id) Result~ProductionInspection~
-    +record_result(ctx: ServiceContext, id, result) Result~Unit~
+    +record_result(ctx: &ServiceContext, db: PgExecutor, id, result) Result~Unit~
   }
   class ProductionReceiptService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req: CreateReceiptReq) Result~i64~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateReceiptReq) Result~i64~
     +find_by_id(id) Result~ProductionReceipt~
-    +confirm(ctx: ServiceContext, id) Result~Unit~
+    +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
   }
   ProductionPlanService ..> WorkOrderService : release_to_work_orders
   WorkOrderService ..> ProductionBatchService : split batches
@@ -378,7 +378,7 @@ classDiagram
   note for ProductionInspectionService "QMS: MES-specific production inspection QMS module provides unified InspectionResultService IPQC: auto-triggered by WorkOrderRouting.is_inspection_point FQC: triggered before ProductionReceipt"
   note for ProductionBatchService "EXECUTION LAYER: owns completed_qty/scrap_qty/actual_start/actual_end current_step is the routing state machine split_work_order -> DocSeq(ProductionBatch) generate card_sn validate sum(batch_qty) <= work_order.planned_qty confirm_routing_step ATOMIC ENTRY POINT (single transaction): IDEMPOTENCY: UNIQUE(batch_id + step_no + worker_id + shift + report_date) on work_reports duplicate -> return existing StepConfirmationResult (no error, terminal UX) 1. Guard: current_step == step_no - 1 (anti-skip) 2. Check idempotency key -> if exists return cached result 3. DocSeq(WorkReport) + INSERT work_report (req must contain: completed_qty, defect_qty, defect_reason?, worker_id, shift, report_date) 3. SQL ATOMIC INCREMENT WorkOrderRouting.completed_qty/defect_qty 4. If is_inspection_point -> create ProductionInspection(IPQC) + suspend batch 5. Update batch.current_step 6. If last step -> auto advance to PendingReceipt 7. Return StepConfirmationResult (batch_status + inspection_triggered + wage_amount) advance_to_receipt -> validate last step completed update batch.status to PendingReceipt suspend -> pause execution retain HARD reservation resume -> resume from suspended state scrap -> mark batch as scrapped release HARD reservation publish BackflushShortageEvent if needed cancel(WO) -> sync release current batch HARD reservation publish WorkOrderCancelled event -> MES handler async cleanup remaining batches avoid long transaction blocking plan layer"
     note for ProductionReceiptService "confirm -> PRE-CHECK: QMS.InspectionResultService.is_passed(FQC) fail -> DomainError::BusinessRule(Quality gate not passed) block receipt WMS.InventoryTransactionService.record(ProductionReceipt) CostEntry(finished goods cost) BackflushService.execute() -> on failure: publish BackflushShortageEvent to DeadLetter DO NOT block receipt cost diff -> CostEntry(VARIANCE) InvRes.fulfill/cancel(release Hard) FMS: CostAccountingService.get_work_order_cost"
-    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = &ServiceContext, db = PgExecutor| 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>

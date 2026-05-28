@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -22,6 +22,7 @@ use crate::qms::inspection_result::service::InspectionResultService;
 use crate::wms::transfer::model::{CreateTransferItemReq, CreateTransferReq};
 use crate::wms::transfer::service::TransferService;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::types::PgExecutor;
 use crate::shared::cost_entry::model::EntryRequest;
 use crate::shared::cost_entry::service::CostEntryService;
 use crate::shared::document_link::model::LinkRequest;
@@ -92,10 +93,10 @@ impl OutsourcingOrderServiceImpl {
 }
 
 async fn get_order(
-    ctx: &mut ServiceContext<'_>,
+    db: PgExecutor<'_>,
     id: i64,
 ) -> Result<OutsourcingOrder> {
-    OutsourcingOrderRepo::get_by_id(&mut *ctx.executor, id)
+    OutsourcingOrderRepo::get_by_id(db, id)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?
         .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
@@ -112,7 +113,7 @@ fn check_version(order: &OutsourcingOrder, expected: i32) -> Result<()> {
 impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateOutsourcingOrderReq,
         idempotency_key: Option<String>,
     ) -> Result<i64> {
@@ -120,7 +121,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             let hash = key_to_i64(key);
             if !self
                 .idempotency
-                .check_and_mark(ctx.reborrow(), hash, "OutsourcingOrder:create")
+                .check_and_mark(ctx, db, hash, "OutsourcingOrder:create")
                 .await?
             {
                 return Err(DomainError::duplicate(ENTITY_TYPE));
@@ -129,10 +130,10 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::OutsourcingOrder)
+            .next_number(ctx, db, DocumentType::OutsourcingOrder)
             .await?;
 
-        let id = OutsourcingOrderRepo::insert(&mut *ctx.executor, &req, &doc_number, ctx.operator_id)
+        let id = OutsourcingOrderRepo::insert(&mut *db, &req, &doc_number, ctx.operator_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -145,14 +146,14 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                     )));
                 }
             }
-            OutsourcingMaterialRepo::insert_batch(&mut *ctx.executor, id, &req.materials)
+            OutsourcingMaterialRepo::insert_batch(&mut *db, id, &req.materials)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
 
         self.audit_log
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 ENTITY_TYPE,
                 id,
                 AuditAction::Create,
@@ -166,17 +167,17 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn update(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: UpdateOutsourcingOrderReq,
     ) -> Result<()> {
-        let order = get_order(&mut ctx.reborrow(), req.id).await?;
+        let order = get_order(db, req.id).await?;
         if order.status != OutsourcingStatus::Draft {
             return Err(DomainError::validation("仅 DRAFT 状态可修改"));
         }
         check_version(&order, req.expected_version)?;
 
         let rows = OutsourcingOrderRepo::update(
-            &mut *ctx.executor,
+            &mut *db,
             req.id,
             req.expected_version,
             req.supplier_id,
@@ -192,7 +193,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         }
 
         if let Some(materials) = req.materials {
-            OutsourcingMaterialRepo::replace_batch(&mut *ctx.executor, req.id, &materials)
+            OutsourcingMaterialRepo::replace_batch(&mut *db, req.id, &materials)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
@@ -200,6 +201,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         self.audit_log
             .record(
                 ctx,
+                db,
                 ENTITY_TYPE,
                 req.id,
                 AuditAction::Update,
@@ -213,13 +215,13 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn send(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: SendOutsourcingReq,
     ) -> Result<()> {
-        let order = get_order(&mut ctx.reborrow(), req.id).await?;
+        let order = get_order(db, req.id).await?;
         check_version(&order, req.expected_version)?;
 
-        let materials = OutsourcingMaterialRepo::list_by_outsourcing_id(&mut *ctx.executor, req.id)
+        let materials = OutsourcingMaterialRepo::list_by_outsourcing_id(&mut *db, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
         if materials.is_empty() {
@@ -227,11 +229,11 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, req.id, "Sent", req.remark.as_deref())
+            .transition(ctx, db, ENTITY_TYPE, req.id, "Sent", req.remark.as_deref())
             .await?;
 
         let rows = OutsourcingOrderRepo::update_status_and_version(
-            &mut *ctx.executor,
+            &mut *db,
             req.id,
             req.expected_version,
             OutsourcingStatus::Sent,
@@ -258,7 +260,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         if !transfer_items.is_empty() {
             let tid = self.transfer_service
                 .create(
-                    ctx.reborrow(),
+                    ctx, db,
                     CreateTransferReq {
                         from_warehouse_id: 0,
                         from_zone_id: None,
@@ -271,14 +273,14 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                     },
                 )
                 .await?;
-            self.transfer_service.dispatch(ctx.reborrow(), tid).await?;
+            self.transfer_service.dispatch(ctx, db, tid).await?;
             transfer_ids.push(tid);
         }
 
         // 更新材料已发数量
         for mat in &materials {
             OutsourcingMaterialRepo::update_sent_qty(
-                &mut *ctx.executor,
+                &mut *db,
                 req.id,
                 mat.product_id,
                 mat.planned_qty,
@@ -290,7 +292,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 追踪节点: SendMaterial
         let tracking_id = self.tracking_service
             .record_node(
-                ctx.reborrow(),
+                ctx, db,
                 RecordNodeReq {
                     outsourcing_id: req.id,
                     node_type: crate::om::enums::TrackingNodeType::SendMaterial,
@@ -303,7 +305,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 单据关联: OutsourcingOrder → OutsourcingTracking
         self.doc_link
             .create_links(
-                ctx.reborrow(),
+                ctx, db,
                 vec![LinkRequest {
                     source_type: DocumentType::OutsourcingOrder,
                     source_id: req.id,
@@ -317,7 +319,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 审计
         self.audit_log
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 ENTITY_TYPE,
                 req.id,
                 AuditAction::Transition,
@@ -330,7 +332,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         let material_ids: Vec<i64> = materials.iter().map(|m| m.id).collect();
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::OutsourcingSent,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -372,7 +374,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             });
         }
         if !links.is_empty() {
-            self.doc_link.create_links(ctx, links).await?;
+            self.doc_link.create_links(ctx, db, links).await?;
         }
 
         Ok(())
@@ -380,20 +382,20 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn receive(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: ReceiveOutsourcingReq,
     ) -> Result<()> {
-        let order = get_order(&mut ctx.reborrow(), req.id).await?;
+        let order = get_order(db, req.id).await?;
         check_version(&order, req.expected_version)?;
 
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, req.id, "Received", req.remark.as_deref())
+            .transition(ctx, db, ENTITY_TYPE, req.id, "Received", req.remark.as_deref())
             .await?;
 
         // QMS: 创建 IQC 检验结果
         let iqc_qty = req.iqc_passed_qty.unwrap_or(req.received_qty);
         self.qms.create(
-            ctx.reborrow(),
+            ctx, db,
             CreateInspectionResultReq {
                 spec_id: 0,
                 source_type: InspectionSourceType::OutsourcingOrder,
@@ -406,7 +408,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
         // QMS: 质量门禁检查 — 查询检验结果
         let qms_results = self.qms.list_by_source(
-            ctx.reborrow(),
+            ctx, db,
             InspectionResultFilter {
                 source_type: Some(InspectionSourceType::OutsourcingOrder),
                 source_id: Some(req.id),
@@ -425,7 +427,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         }
 
         let rows = OutsourcingOrderRepo::update_completed_qty(
-            &mut *ctx.executor,
+            &mut *db,
             req.id,
             req.expected_version,
             OutsourcingStatus::Received,
@@ -443,7 +445,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             .ok_or_else(|| DomainError::validation("收货仓库 ID 不能为空"))?;
         let transfer_id = self.transfer_service
             .create(
-                ctx.reborrow(),
+                ctx, db,
                 CreateTransferReq {
                     from_warehouse_id: order.virtual_warehouse_id,
                     from_zone_id: None,
@@ -460,13 +462,13 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                 },
             )
             .await?;
-        self.transfer_service.dispatch(ctx.reborrow(), transfer_id).await?;
-        self.transfer_service.complete(ctx.reborrow(), transfer_id).await?;
+        self.transfer_service.dispatch(ctx, db, transfer_id).await?;
+        self.transfer_service.complete(ctx, db, transfer_id).await?;
 
         // 追踪节点: IqcInspected → Warehoused
         self.tracking_service
             .record_node(
-                ctx.reborrow(),
+                ctx, db,
                 RecordNodeReq {
                     outsourcing_id: req.id,
                     node_type: crate::om::enums::TrackingNodeType::IqcInspected,
@@ -477,7 +479,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             .await?;
         let tracking_id = self.tracking_service
             .record_node(
-                ctx.reborrow(),
+                ctx, db,
                 RecordNodeReq {
                     outsourcing_id: req.id,
                     node_type: crate::om::enums::TrackingNodeType::Warehoused,
@@ -490,7 +492,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 单据关联: OutsourcingOrder → OutsourcingTracking + InventoryTransfer
         self.doc_link
             .create_links(
-                ctx.reborrow(),
+                ctx, db,
                 vec![
                     LinkRequest {
                         source_type: DocumentType::OutsourcingOrder,
@@ -515,7 +517,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         let period = chrono::Utc::now().format("%Y-%m").to_string();
         self.cost_entry
             .create_entries(
-                ctx.reborrow(),
+                ctx, db,
                 vec![
                     EntryRequest {
                         entity_type: CostEntityType::OutsourcingOrder,
@@ -548,7 +550,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 审计
         self.audit_log
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 ENTITY_TYPE,
                 req.id,
                 AuditAction::Transition,
@@ -561,6 +563,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         self.event_bus
             .publish(
                 ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::OutsourcingReceived,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -584,10 +587,10 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn convert_to_internal(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: ConvertToInternalReq,
     ) -> Result<i64> {
-        let order = get_order(&mut ctx.reborrow(), req.id).await?;
+        let order = get_order(db, req.id).await?;
         check_version(&order, req.expected_version)?;
 
         if !matches!(order.status, OutsourcingStatus::Draft | OutsourcingStatus::Sent) {
@@ -600,11 +603,11 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, req.id, "ConvertedToInternal", req.remark.as_deref())
+            .transition(ctx, db, ENTITY_TYPE, req.id, "ConvertedToInternal", req.remark.as_deref())
             .await?;
 
         let rows = OutsourcingOrderRepo::update_status_and_version(
-            &mut *ctx.executor,
+            &mut *db,
             req.id,
             req.expected_version,
             OutsourcingStatus::ConvertedToInternal,
@@ -621,7 +624,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         let scheduled_start = chrono::Local::now().date_naive();
         let scheduled_end = scheduled_start + chrono::Duration::days(7);
         let new_wo_id = self.work_order.create(
-            ctx.reborrow(),
+            ctx, db,
             CreateWorkOrderReq {
                 plan_item_id: None,
                 product_id: order.product_id,
@@ -639,14 +642,14 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
         // 获取原始工单的仓库信息
         let wo = if let Some(orig_wo_id) = order.work_order_id {
-            self.work_order.find_by_id(ctx.reborrow(), orig_wo_id).await.ok()
+            self.work_order.find_by_id(ctx, db, orig_wo_id).await.ok()
         } else {
             None
         };
         let return_warehouse_id = wo.and_then(|w| w.work_center_id).unwrap_or(0);
 
         // WMS: 材料回调 — 创建调拨单、发货、完成
-        let materials = OutsourcingMaterialRepo::list_by_outsourcing_id(&mut *ctx.executor, req.id)
+        let materials = OutsourcingMaterialRepo::list_by_outsourcing_id(&mut *db, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
         let in_transit_items: Vec<CreateTransferItemReq> = materials
@@ -663,7 +666,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             let transfer_date = chrono::Utc::now().date_naive();
             let tid = self.transfer_service
                 .create(
-                    ctx.reborrow(),
+                    ctx, db,
                     CreateTransferReq {
                         from_warehouse_id: order.virtual_warehouse_id,
                         from_zone_id: None,
@@ -676,8 +679,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                     },
                 )
                 .await?;
-            self.transfer_service.dispatch(ctx.reborrow(), tid).await?;
-            self.transfer_service.complete(ctx.reborrow(), tid).await?;
+            self.transfer_service.dispatch(ctx, db, tid).await?;
+            self.transfer_service.complete(ctx, db, tid).await?;
             convert_transfer_id = Some(tid);
         }
 
@@ -700,13 +703,13 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             link_type: LinkType::DerivedFrom,
         });
         if !convert_links.is_empty() {
-            self.doc_link.create_links(ctx.reborrow(), convert_links).await?;
+            self.doc_link.create_links(ctx, db, convert_links).await?;
         }
 
         // 审计
         self.audit_log
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 ENTITY_TYPE,
                 req.id,
                 AuditAction::Transition,
@@ -728,6 +731,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         self.event_bus
             .publish(
                 ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::ConvertedToInternal,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -750,21 +754,21 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn cancel(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CancelOutsourcingReq,
     ) -> Result<()> {
-        let order = get_order(&mut ctx.reborrow(), req.id).await?;
+        let order = get_order(db, req.id).await?;
         if order.status != OutsourcingStatus::Draft {
             return Err(DomainError::validation("仅 DRAFT 状态可取消"));
         }
         check_version(&order, req.expected_version)?;
 
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, req.id, "Cancelled", req.remark.as_deref())
+            .transition(ctx, db, ENTITY_TYPE, req.id, "Cancelled", req.remark.as_deref())
             .await?;
 
         let rows = OutsourcingOrderRepo::update_status_and_version(
-            &mut *ctx.executor,
+            &mut *db,
             req.id,
             req.expected_version,
             OutsourcingStatus::Cancelled,
@@ -780,7 +784,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 审计
         self.audit_log
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 ENTITY_TYPE,
                 req.id,
                 AuditAction::Transition,
@@ -793,6 +797,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         self.event_bus
             .publish(
                 ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::OutsourcingCancelled,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -808,20 +813,20 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn find_by_id(
         &self,
-        mut ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<OutsourcingOrder> {
-        get_order(&mut ctx.reborrow(), id).await
+        get_order(db, id).await
     }
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: OutsourcingOrderQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<OutsourcingOrder>> {
         let scope = (ctx.data_scope, ctx.operator_id, ctx.department_id);
-        let (items, total) = OutsourcingOrderRepo::query(&mut *ctx.executor, &filter, &page, scope)
+        let (items, total) = OutsourcingOrderRepo::query(&mut *db, &filter, &page, scope)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 

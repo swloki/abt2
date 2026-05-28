@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -14,6 +14,7 @@ use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionSt
 use crate::qms::inspection_result::model::InspectionResultFilter;
 use crate::qms::inspection_result::service::InspectionResultService;
 use crate::shared::cost_entry::model::EntryRequest;
+use crate::shared::types::PgExecutor;
 use crate::shared::cost_entry::service::CostEntryService;
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::document_link::service::DocumentLinkService;
@@ -53,19 +54,19 @@ impl ArrivalNoticeServiceImpl {
 impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateArrivalNoticeReq,
     ) -> Result<i64> {
         if req.items.is_empty() {
             return Err(DomainError::validation("来料通知必须包含至少一条明细"));
         }
 
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ArrivalNotice)
+        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::ArrivalNotice)
             .await
             .unwrap_or_else(|_| generate_doc_number_fallback());
 
         let notice = ArrivalNoticeRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &doc_number,
             &req,
             ctx.operator_id,
@@ -76,7 +77,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         // DocumentLink: 来料 → 采购单
         if let Some(po_id) = req.purchase_order_id {
             self.doc_link.create_links(
-                ctx.reborrow(),
+                ctx, db,
                 vec![LinkRequest {
                     source_type: DocumentType::ArrivalNotice,
                     source_id: notice.id,
@@ -93,10 +94,10 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<ArrivalNotice> {
-        ArrivalNoticeRepo::get_by_id(&mut *ctx.executor, id)
+        ArrivalNoticeRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(format!("ArrivalNotice #{id}")))
@@ -104,22 +105,22 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: ArrivalNoticeFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<ArrivalNotice>> {
-        ArrivalNoticeRepo::list(&mut *ctx.executor, &filter, page, page_size)
+        ArrivalNoticeRepo::list(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn receive(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         req: ReceiveArrivalNoticeReq,
     ) -> Result<()> {
-        let notice = ArrivalNoticeRepo::get_by_id(&mut *ctx.executor, req.id)
+        let notice = ArrivalNoticeRepo::get_by_id(&mut *db, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(format!("ArrivalNotice #{}", req.id)))?;
@@ -133,7 +134,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
         for item in &req.items {
             let affected =
-                ArrivalNoticeRepo::update_item_received(&mut *ctx.executor, item.item_id, item.received_qty, item.batch_no.as_deref())
+                ArrivalNoticeRepo::update_item_received(&mut *db, item.item_id, item.received_qty, item.batch_no.as_deref())
                     .await
                     .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -146,7 +147,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         }
 
         let affected = ArrivalNoticeRepo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             req.id,
             ArrivalStatus::Received,
         )
@@ -165,10 +166,10 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
     async fn inspect(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: InspectArrivalNoticeReq,
     ) -> Result<()> {
-        let notice = ArrivalNoticeRepo::get_by_id(&mut *ctx.executor, req.id)
+        let notice = ArrivalNoticeRepo::get_by_id(&mut *db, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(format!("ArrivalNotice #{}", req.id)))?;
@@ -182,7 +183,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
         // Received -> Inspecting
         ArrivalNoticeRepo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             req.id,
             ArrivalStatus::Inspecting,
         )
@@ -192,7 +193,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         // 更新每条明细的 accepted_qty
         for item in &req.items {
             let affected = ArrivalNoticeRepo::update_item_accepted(
-                &mut *ctx.executor,
+                &mut *db,
                 item.item_id,
                 item.accepted_qty,
             )
@@ -208,7 +209,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         }
 
         // 查询更新后的所有明细，判定最终状态
-        let items = ArrivalNoticeRepo::get_items(&mut *ctx.executor, req.id)
+        let items = ArrivalNoticeRepo::get_items(&mut *db, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -217,7 +218,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
         // IQC 硬门禁：查询 QMS 检验结果，判定是否通过
         let quality_passed = check_qms_gate(
             &self.qms,
-            ctx.reborrow(),
+            ctx, db,
             InspectionSourceType::ArrivalNotice,
             req.id,
         )
@@ -239,7 +240,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
             let period = chrono::Local::now().format("%Y-%m").to_string();
 
             self.cost_entry.create_entries(
-                ctx.reborrow(),
+                ctx, db,
                 vec![EntryRequest {
                     entity_type: CostEntityType::PurchaseOrder,
                     entity_id: req.id,
@@ -257,14 +258,14 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
             // confirm -> InvRes(release safety stock)
             self.inv_res.cancel_by_source(
-                ctx.reborrow(),
+                ctx, db,
                 DocumentType::ArrivalNotice,
                 req.id,
             )
             .await?;
         }
 
-        ArrivalNoticeRepo::update_status(&mut *ctx.executor, req.id, final_status)
+        ArrivalNoticeRepo::update_status(&mut *db, req.id, final_status)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -273,10 +274,10 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 
     async fn cancel(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let notice = ArrivalNoticeRepo::get_by_id(&mut *ctx.executor, id)
+        let notice = ArrivalNoticeRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(format!("ArrivalNotice #{id}")))?;
@@ -288,7 +289,7 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
             });
         }
 
-        let affected = ArrivalNoticeRepo::soft_delete(&mut *ctx.executor, id)
+        let affected = ArrivalNoticeRepo::soft_delete(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -303,12 +304,13 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
 /// 检查 QMS 质量关卡：查询 source 关联的检验结果，判断是否全部通过
 async fn check_qms_gate(
     qms: &Arc<dyn InspectionResultService>,
-    ctx: ServiceContext<'_>,
+    ctx: &ServiceContext, db: PgExecutor<'_>,
     source_type: InspectionSourceType,
     source_id: i64,
 ) -> Result<bool> {
     let results = qms.list_by_source(
         ctx,
+        db,
         InspectionResultFilter {
             source_type: Some(source_type),
             source_id: Some(source_id),

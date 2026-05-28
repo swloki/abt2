@@ -270,49 +270,49 @@ classDiagram
 
     class PurchaseQuotationService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, req) Result~i64~
+        +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
         +get(ctx, id) Result~PurchaseQuotation~
-        +activate(ctx: ServiceContext, id) Result~Unit~
+        +activate(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list(ctx, filter) PaginatedResult~PurchaseQuotation~
         +compare(ctx, product_id) Result~Vec~QuotationComparison~~
     }
 
     class PurchaseOrderService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, req) Result~i64~
-        +create_from_quotation(ctx: ServiceContext, pqid) Result~i64~
+        +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
+        +create_from_quotation(ctx: &ServiceContext, db: PgExecutor, pqid) Result~i64~
         +get(ctx, id) Result~PurchaseOrder~
-        +confirm(ctx: ServiceContext, id) Result~Unit~
+        +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list(ctx, filter) PaginatedResult~PurchaseOrder~
     }
 
     class PurchaseReturnService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, req) Result~i64~
+        +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
         +get(ctx, id) Result~PurchaseReturn~
-        +confirm(ctx: ServiceContext, id) Result~Unit~
+        +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     }
 
     class PurchaseReconciliationService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, supplier_id, period) Result~i64~
+        +create(ctx: &ServiceContext, db: PgExecutor, supplier_id, period) Result~i64~
         +get(ctx, id) Result~PurchaseReconciliation~
-        +confirm(ctx: ServiceContext, id) Result~Unit~
+        +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     }
 
     class PaymentRequestService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, req) Result~i64~
+        +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
         +get(ctx, id) Result~PaymentRequest~
-        +approve(ctx: ServiceContext, id) Result~Unit~
-        +mark_paid_by_fms(ctx: ServiceContext, id, payment_doc_no: String) Result~Unit~
+        +approve(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +mark_paid_by_fms(ctx: &ServiceContext, db: PgExecutor, id, payment_doc_no: String) Result~Unit~
     }
 
     class MiscellaneousRequestService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, req) Result~i64~
+        +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
         +get(ctx, id) Result~MiscellaneousRequest~
-        +approve(ctx: ServiceContext, id) Result~Unit~
+        +approve(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     }
 
     PurchaseOrderService ..> PurchaseQuotationService : create_from_quotation
@@ -328,7 +328,7 @@ classDiagram
     note for PurchaseReturnService "Shipped → Settled 由 PurchaseReconciliation.confirm() 异步驱动，或监听 WMS SupplierReturnReceived 事件\n状态变更时发布 PurchaseReturnSettled 事件，通知 FMS 生成贷项通知单(Credit Memo)\nShared: DocSeq(PRT), DocLink(REFERENCES)"
     note for PaymentRequestService "Three-way match: receipt + invoice + payment\nValidation: PO.received_qty + Invoice qty/amount match, tolerance_rate configurable\napprove -> CostEntry(cash outflow)\nmark_paid_by_fms: FMS 执行付款后回调，或监听 PaymentExecuted 事件\nShared: DocSeq(PAY)\nFMS: CashJournal(PurchasePayment)\nBoundary: SRM=应付申请+三单匹配, FMS=资金流水+核销"
 
-    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult | Decimal精度: unit_price/quantity/min_order_qty/estimated_price→(18,6), amount/total_amount/confirmed_amount/difference→(20,4) | 写接口支持 idempotency_key"
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = &ServiceContext, db = PgExecutor | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult | Decimal精度: unit_price/quantity/min_order_qty/estimated_price→(18,6), amount/total_amount/confirmed_amount/difference→(20,4) | 写接口支持 idempotency_key"
     </div>
   </div>
 </div>

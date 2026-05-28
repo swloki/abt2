@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -10,6 +10,7 @@ use super::repo::{NewReconItem, PurchaseReconItemRepo, PurchaseReconciliationRep
 use super::service::PurchaseReconciliationService;
 use crate::purchase::enums::{PurchaseReconStatus, PurchaseReturnStatus};
 use crate::shared::idempotency::service::key_to_i64;
+use crate::shared::types::PgExecutor;
 use crate::purchase::order::repo::PurchaseOrderItemRepo;
 use crate::purchase::return_order::repo::PurchaseReturnRepo;
 use crate::shared::audit_log::service::AuditLogService;
@@ -62,27 +63,27 @@ impl PurchaseReconciliationServiceImpl {
 impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         supplier_id: i64,
         period: String,
         idempotency_key: Option<String>,
     ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReconciliation:create").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseReconciliation:create").await? {
                 return Err(DomainError::duplicate("PurchaseReconciliation"));
             }
         }
         // 1. 生成单据编号
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::PurchaseReconciliation)
+            .next_number(ctx, db, DocumentType::PurchaseReconciliation)
             .await?;
 
         // 2. 查询该供应商当期所有已收货订单明细
         //    通过 PurchaseOrderItemRepo 获取已确认/已收货状态的订单明细
         let order_items = PurchaseOrderItemRepo::list_received_by_supplier(
-            &mut *ctx.executor,
+            &mut *db,
             supplier_id,
         )
         .await
@@ -110,7 +111,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
 
         // 5. 插入主表
         let id = PurchaseReconciliationRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             supplier_id,
             &period,
             total_amount,
@@ -123,7 +124,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
 
         // 6. 插入对账明细
         if !recon_items.is_empty() {
-            PurchaseReconItemRepo::insert_items(&mut *ctx.executor, id, &recon_items)
+            PurchaseReconItemRepo::insert_items(&mut *db, id, &recon_items)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
@@ -132,6 +133,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         self.audit_log
             .record(
                 ctx,
+                db,
                 ENTITY_TYPE,
                 id,
                 AuditAction::Create,
@@ -145,29 +147,29 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<PurchaseReconciliation> {
-        PurchaseReconciliationRepo::get_by_id(ctx.executor, id)
+        PurchaseReconciliationRepo::get_by_id(db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
+    async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReconciliation:confirm").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseReconciliation:confirm").await? {
                 return Err(DomainError::duplicate("PurchaseReconciliation"));
             }
         }
         // 1. 获取对账单及明细
-        let recon = PurchaseReconciliationRepo::get_by_id(&mut *ctx.executor, id)
+        let recon = PurchaseReconciliationRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
 
-        let recon_items = PurchaseReconItemRepo::list_by_reconciliation_id(&mut *ctx.executor, id)
+        let recon_items = PurchaseReconItemRepo::list_by_reconciliation_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -180,7 +182,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
 
         // 3. 写回确认金额和差异到主表
         let rows = PurchaseReconciliationRepo::update_confirmed_amount(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             confirmed_amount,
             difference,
@@ -193,14 +195,14 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         }
 
         // 3.1 重新读取以获取 update_confirmed_amount 设置的 updated_at = NOW()
-        let recon = PurchaseReconciliationRepo::get_by_id(&mut *ctx.executor, id)
+        let recon = PurchaseReconciliationRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
 
         // 4. 更新确认标识（逐行标记 confirmed = true）
         for item in &recon_items {
-            PurchaseReconItemRepo::confirm_item(&mut *ctx.executor, item.id)
+            PurchaseReconItemRepo::confirm_item(&mut *db, item.id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
@@ -211,7 +213,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         order_ids.dedup();
 
         let returns = PurchaseReturnRepo::list_shipped_by_supplier_for_orders(
-            &mut *ctx.executor,
+            &mut *db,
             recon.supplier_id,
             &order_ids,
         )
@@ -221,7 +223,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         for ret in &returns {
             self.state_machine
                 .transition(
-                    ctx.reborrow(),
+                    ctx, db,
                     "PurchaseReturn",
                     ret.id,
                     "Settled",
@@ -231,7 +233,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
 
             // 同步更新退货单实体表状态
             let rows = PurchaseReturnRepo::update_status(
-                &mut *ctx.executor,
+                &mut *db,
                 ret.id,
                 PurchaseReturnStatus::Settled,
                 &ret.updated_at,
@@ -245,7 +247,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
             // 发布退货结算事件，通知 FMS 生成贷项通知单
             self.event_bus
                 .publish(
-                    ctx.reborrow(),
+                    ctx, db,
                     EventPublishRequest {
                         event_type: DomainEventType::PurchaseReturnSettled,
                         aggregate_type: "PurchaseReturn".to_string(),
@@ -262,12 +264,12 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
 
         // 6. 状态转换 Draft -> Confirmed
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "Confirmed", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "Confirmed", None)
             .await?;
 
         // 7. 更新实体表状态
         let rows = PurchaseReconciliationRepo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             PurchaseReconStatus::Confirmed,
             &recon.updated_at,
@@ -281,7 +283,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         // 6. 发布领域事件
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::PurchaseReconciliationConfirmed,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -296,7 +298,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
 
         // 7. 审计日志
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         Ok(())

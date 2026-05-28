@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -7,6 +7,7 @@ use super::model::{ConversionFilter, CreateConversionReq, FormConversion};
 use super::repo::FormConversionRepo;
 use super::service::FormConversionService;
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
@@ -30,15 +31,15 @@ impl FormConversionServiceImpl {
 impl FormConversionService for FormConversionServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateConversionReq,
     ) -> Result<i64> {
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::FormConversion)
+        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::FormConversion)
             .await
             .unwrap_or_else(|_| format!("FC{}", chrono::Utc::now().format("%Y%m%d%H%M%S%3f")));
 
         let conversion =
-            FormConversionRepo::insert(&mut *ctx.executor, &doc_number, &req, ctx.operator_id)
+            FormConversionRepo::insert(&mut *db, &doc_number, &req, ctx.operator_id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -47,10 +48,10 @@ impl FormConversionService for FormConversionServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<FormConversion> {
-        FormConversionRepo::get_by_id(&mut *ctx.executor, id)
+        FormConversionRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("FormConversion"))
@@ -58,22 +59,22 @@ impl FormConversionService for FormConversionServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: ConversionFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<FormConversion>> {
-        FormConversionRepo::list(&mut *ctx.executor, &filter, page, page_size)
+        FormConversionRepo::list(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn complete(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let conversion = self.get(ctx.reborrow(), id).await?;
+        let conversion = self.get(ctx, db, id).await?;
 
         if conversion.status != ConversionStatus::Draft {
             return Err(DomainError::InvalidStateTransition {
@@ -82,7 +83,7 @@ impl FormConversionService for FormConversionServiceImpl {
             });
         }
 
-        FormConversionRepo::update_status(&mut *ctx.executor, id, ConversionStatus::Completed)
+        FormConversionRepo::update_status(&mut *db, id, ConversionStatus::Completed)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -91,10 +92,10 @@ impl FormConversionService for FormConversionServiceImpl {
 
     async fn cancel(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let conversion = self.get(ctx.reborrow(), id).await?;
+        let conversion = self.get(ctx, db, id).await?;
 
         if conversion.status != ConversionStatus::Draft {
             return Err(DomainError::InvalidStateTransition {
@@ -103,7 +104,7 @@ impl FormConversionService for FormConversionServiceImpl {
             });
         }
 
-        FormConversionRepo::update_status(&mut *ctx.executor, id, ConversionStatus::Cancelled)
+        FormConversionRepo::update_status(&mut *db, id, ConversionStatus::Cancelled)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 

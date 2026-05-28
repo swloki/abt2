@@ -1,9 +1,9 @@
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use rust_decimal::Decimal;
 
 use super::model::*;
 use crate::shared::enums::document_type::DocumentType;
-use crate::shared::types::{PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
 
 #[async_trait]
 pub trait WriteOffService: Send + Sync {
@@ -11,14 +11,14 @@ pub trait WriteOffService: Send + Sync {
     /// Idempotency is handled via DB unique index on idempotency_key.
     async fn write_off(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: WriteOffReq,
     ) -> Result<i64>;
 
     /// List write-off records for a given source document.
     async fn list_by_source(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         source_type: DocumentType,
         source_id: i64,
         page: PageParams,
@@ -29,7 +29,7 @@ pub trait WriteOffService: Send + Sync {
     /// The caller must provide the source_total since source documents live in other modules.
     async fn get_unreconciled_amount(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         source_type: DocumentType,
         source_id: i64,
         source_total: Decimal,

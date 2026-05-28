@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use chrono::Utc;
 use sqlx::PgPool;
@@ -14,7 +14,7 @@ use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 use crate::fms::enums::WriteOffType;
 
 pub struct WriteOffServiceImpl {
@@ -56,7 +56,7 @@ impl WriteOffServiceImpl {
 impl WriteOffService for WriteOffServiceImpl {
     async fn write_off(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: WriteOffReq,
     ) -> Result<i64> {
         // Validate amount > 0
@@ -144,13 +144,10 @@ impl WriteOffService for WriteOffServiceImpl {
 
         // Audit log
         {
-            let mut tx_ctx = ServiceContext::new(
-                &mut *tx as crate::shared::types::PgExecutor<'_>,
-                ctx.operator_id,
-            );
+            let tx_ctx = ServiceContext::new(ctx.operator_id);
             self.audit
                 .record(
-                    tx_ctx.reborrow(),
+                    &tx_ctx, &mut *tx,
                     "WriteOff",
                     id,
                     AuditAction::Create,
@@ -168,7 +165,7 @@ impl WriteOffService for WriteOffServiceImpl {
             // Publish domain event
             self.event_bus
                 .publish(
-                    tx_ctx.reborrow(),
+                    &tx_ctx, &mut *tx,
                     EventPublishRequest {
                         event_type: DomainEventType::WriteOffCompleted,
                         aggregate_type: "WriteOff".to_string(),
@@ -194,13 +191,13 @@ impl WriteOffService for WriteOffServiceImpl {
 
     async fn list_by_source(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         source_type: DocumentType,
         source_id: i64,
         page: PageParams,
     ) -> Result<PaginatedResult<WriteOff>> {
         let (items, total) =
-            WriteOffRepo::list_by_source(ctx.executor, source_type, source_id, &page)
+            WriteOffRepo::list_by_source(db, source_type, source_id, &page)
                 .await
                 ?;
 
@@ -209,13 +206,13 @@ impl WriteOffService for WriteOffServiceImpl {
 
     async fn get_unreconciled_amount(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         source_type: DocumentType,
         source_id: i64,
         source_total: rust_decimal::Decimal,
     ) -> Result<rust_decimal::Decimal> {
         let total_written_off =
-            WriteOffRepo::sum_written_off_by_source(ctx.executor, source_type, source_id)
+            WriteOffRepo::sum_written_off_by_source(db, source_type, source_id)
                 .await
                 ?;
 

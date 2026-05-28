@@ -8,7 +8,7 @@ use tower_sessions::Session;
 
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::*;
-use abt_core::shared::types::{PgExecutor, ServiceContext};
+use abt_core::shared::types::ServiceContext;
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
@@ -36,14 +36,12 @@ pub async fn get_customer_detail(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let customer = svc.get(ctx, path.id).await?;
+    let ctx = make_ctx(claims.sub);
+    let customer = svc.get(&ctx, &mut *conn, path.id).await?;
 
-    let ctx2 = make_ctx(&mut conn, claims.sub);
-    let contacts = svc.list_contacts(ctx2, path.id).await?;
+    let contacts = svc.list_contacts(&ctx, &mut *conn, path.id).await?;
 
-    let ctx3 = make_ctx(&mut conn, claims.sub);
-    let addresses = svc.list_addresses(ctx3, path.id).await?;
+    let addresses = svc.list_addresses(&ctx, &mut *conn, path.id).await?;
 
     let content = customer_detail_page(&customer, &contacts, &addresses);
     let detail_path_str = CustomerDetailPath { id: path.id }.to_string();
@@ -83,8 +81,8 @@ pub async fn create_contact(
         is_primary: form.is_primary.unwrap_or(false),
     };
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.add_contact(ctx, path.id, req).await?;
+    let ctx = make_ctx(claims.sub);
+    svc.add_contact(&ctx, &mut *conn, path.id, req).await?;
 
     let redirect = format!("/admin/customers/{}", path.id);
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -103,8 +101,8 @@ pub async fn delete_contact(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.delete_contact(ctx, path.cid, path.contact_id).await?;
+    let ctx = make_ctx(claims.sub);
+    svc.delete_contact(&ctx, &mut *conn, path.cid, path.contact_id).await?;
 
     let detail = CustomerDetailPath { id: path.cid };
     Ok(([("HX-Redirect", detail.to_string())], Html(String::new())))
@@ -135,8 +133,8 @@ pub async fn create_address(
         is_default: form.is_default.unwrap_or(false),
     };
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.add_address(ctx, path.id, req).await?;
+    let ctx = make_ctx(claims.sub);
+    svc.add_address(&ctx, &mut *conn, path.id, req).await?;
 
     let redirect = format!("/admin/customers/{}", path.id);
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -155,8 +153,8 @@ pub async fn delete_address(
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.delete_address(ctx, path.cid, path.address_id).await?;
+    let ctx = make_ctx(claims.sub);
+    svc.delete_address(&ctx, &mut *conn, path.cid, path.address_id).await?;
 
     let detail = CustomerDetailPath { id: path.cid };
     Ok(([("HX-Redirect", detail.to_string())], Html(String::new())))
@@ -164,11 +162,8 @@ pub async fn delete_address(
 
 // ── Helpers ──
 
-fn make_ctx<'a>(
-    conn: &'a mut sqlx::postgres::PgConnection,
-    operator_id: i64,
-) -> ServiceContext<'a> {
-    ServiceContext::new(conn as PgExecutor<'a>, operator_id)
+fn make_ctx(operator_id: i64) -> ServiceContext {
+    ServiceContext::new(operator_id)
 }
 
 async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {

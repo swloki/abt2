@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use crate::fms::cash_journal::model::*;
 use crate::fms::cash_journal::repo::{CashJournalLineRepo, CashJournalRepo};
@@ -12,7 +12,7 @@ use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::idempotency::service::IdempotencyService;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct CashJournalServiceImpl {
     doc_seq: Arc<dyn DocumentSequenceService>,
@@ -44,7 +44,7 @@ impl CashJournalServiceImpl {
 impl CashJournalService for CashJournalServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateCashJournalReq,
     ) -> Result<i64> {
         if req.amount <= rust_decimal::Decimal::ZERO {
@@ -65,24 +65,24 @@ impl CashJournalService for CashJournalServiceImpl {
 
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::CashJournal)
+            .next_number(ctx, db, DocumentType::CashJournal)
             .await?;
 
-        let id = CashJournalRepo::create(ctx.executor, &doc_number, &req, ctx.operator_id)
+        let id = CashJournalRepo::create(db, &doc_number, &req, ctx.operator_id)
             .await
             ?;
 
-        CashJournalLineRepo::batch_insert(ctx.executor, id, &req.lines)
+        CashJournalLineRepo::batch_insert(db, id, &req.lines)
             .await
             ?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "JournalStatus", id, "Draft", None)
+            .transition(ctx, db, "JournalStatus", id, "Draft", None)
             .await?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 "CashJournal",
                 id,
                 AuditAction::Create,
@@ -96,7 +96,7 @@ impl CashJournalService for CashJournalServiceImpl {
 
     async fn confirm(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         idempotency_key: Option<String>,
     ) -> Result<()> {
@@ -105,7 +105,7 @@ impl CashJournalService for CashJournalServiceImpl {
             let hash = crate::shared::idempotency::service::key_to_i64(key);
             let is_first = self
                 .idempotency
-                .check_and_mark(ctx.reborrow(), hash, "CashJournal:confirm")
+                .check_and_mark(ctx, db, hash, "CashJournal:confirm")
                 .await?;
             if !is_first {
                 return Ok(());
@@ -113,7 +113,7 @@ impl CashJournalService for CashJournalServiceImpl {
         }
 
         // Step 2: Lock journal FOR UPDATE
-        let journal = CashJournalRepo::get_for_update(ctx.executor, id)
+        let journal = CashJournalRepo::get_for_update(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("CashJournal"))?;
@@ -125,7 +125,7 @@ impl CashJournalService for CashJournalServiceImpl {
         }
 
         // Step 3: Aggregate lines debit/credit
-        let (total_debit, total_credit) = CashJournalLineRepo::sum_debit_credit(ctx.executor, id)
+        let (total_debit, total_credit) = CashJournalLineRepo::sum_debit_credit(db, id)
             .await
             ?;
 
@@ -139,12 +139,12 @@ impl CashJournalService for CashJournalServiceImpl {
 
         // Step 5: State transition
         self.state_machine
-            .transition(ctx.reborrow(), "JournalStatus", id, "Confirmed", None)
+            .transition(ctx, db, "JournalStatus", id, "Confirmed", None)
             .await?;
 
         // Update status with optimistic lock
         let rows = CashJournalRepo::update_status(
-            ctx.executor,
+            db,
             id,
             super::super::enums::JournalStatus::Confirmed,
             journal.version,
@@ -158,7 +158,7 @@ impl CashJournalService for CashJournalServiceImpl {
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 "CashJournal",
                 id,
                 AuditAction::Transition,
@@ -172,7 +172,7 @@ impl CashJournalService for CashJournalServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::CashJournalConfirmed,
                     aggregate_type: "CashJournal".to_string(),
@@ -191,8 +191,8 @@ impl CashJournalService for CashJournalServiceImpl {
         Ok(())
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<CashJournal> {
-        CashJournalRepo::get_by_id(ctx.executor, id)
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<CashJournal> {
+        CashJournalRepo::get_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("CashJournal"))
@@ -200,13 +200,13 @@ impl CashJournalService for CashJournalServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: CashJournalFilter,
         page: PageParams,
     ) -> Result<PaginatedResult<CashJournal>> {
         let (items, total) =
             CashJournalRepo::query(
-                ctx.executor,
+                db,
                 &filter,
                 &page,
                 ctx.data_scope,
@@ -221,11 +221,11 @@ impl CashJournalService for CashJournalServiceImpl {
 
     async fn get_balance(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         period: String,
     ) -> Result<BalanceSummary> {
         let (total_inflow, total_outflow) =
-            CashJournalRepo::sum_balance_by_period(ctx.executor, &period)
+            CashJournalRepo::sum_balance_by_period(db, &period)
                 .await
                 ?;
 

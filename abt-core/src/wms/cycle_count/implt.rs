@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 
@@ -10,6 +10,7 @@ use super::model::{
 use super::repo::CycleCountRepo;
 use super::service::CycleCountService;
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
@@ -43,19 +44,19 @@ impl CycleCountServiceImpl {
 impl CycleCountService for CycleCountServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateCycleCountReq,
     ) -> Result<i64> {
         if req.items.is_empty() {
             return Err(DomainError::validation("盘点单明细不能为空"));
         }
 
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::CycleCount)
+        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::CycleCount)
             .await
             .unwrap_or_else(|_| format!("CC{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
         let count = CycleCountRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &doc_number,
             &req,
             ctx.operator_id,
@@ -68,10 +69,10 @@ impl CycleCountService for CycleCountServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<CycleCount> {
-        CycleCountRepo::get_by_id(&mut *ctx.executor, id)
+        CycleCountRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("盘点单"))
@@ -79,18 +80,18 @@ impl CycleCountService for CycleCountServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: CycleCountFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<CycleCount>> {
-        CycleCountRepo::list(&mut *ctx.executor, &filter, page, page_size)
+        CycleCountRepo::list(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
-    async fn start_count(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        let count = CycleCountRepo::get_by_id(&mut *ctx.executor, id)
+    async fn start_count(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let count = CycleCountRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("盘点单"))?;
@@ -102,7 +103,7 @@ impl CycleCountService for CycleCountServiceImpl {
             });
         }
 
-        CycleCountRepo::update_status(&mut *ctx.executor, id, CycleCountStatus::Counting)
+        CycleCountRepo::update_status(&mut *db, id, CycleCountStatus::Counting)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -111,10 +112,10 @@ impl CycleCountService for CycleCountServiceImpl {
 
     async fn count(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CountCycleCountReq,
     ) -> Result<()> {
-        let cc = CycleCountRepo::get_by_id(&mut *ctx.executor, req.id)
+        let cc = CycleCountRepo::get_by_id(&mut *db, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("盘点单"))?;
@@ -127,7 +128,7 @@ impl CycleCountService for CycleCountServiceImpl {
         }
 
         // 一次性获取所有明细，用于计算差异
-        let items = CycleCountRepo::get_items(&mut *ctx.executor, req.id)
+        let items = CycleCountRepo::get_items(&mut *db, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -140,7 +141,7 @@ impl CycleCountService for CycleCountServiceImpl {
             let variance_qty = item.counted_qty - cc_item.system_qty;
 
             CycleCountRepo::update_item_counted(
-                &mut *ctx.executor,
+                &mut *db,
                 item.item_id,
                 item.counted_qty,
                 variance_qty,
@@ -153,8 +154,8 @@ impl CycleCountService for CycleCountServiceImpl {
         Ok(())
     }
 
-    async fn complete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        let count = CycleCountRepo::get_by_id(&mut *ctx.executor, id)
+    async fn complete(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let count = CycleCountRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("盘点单"))?;
@@ -166,15 +167,15 @@ impl CycleCountService for CycleCountServiceImpl {
             });
         }
 
-        CycleCountRepo::update_status(&mut *ctx.executor, id, CycleCountStatus::Completed)
+        CycleCountRepo::update_status(&mut *db, id, CycleCountStatus::Completed)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         Ok(())
     }
 
-    async fn adjust(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        let count = CycleCountRepo::get_by_id(&mut *ctx.executor, id)
+    async fn adjust(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let count = CycleCountRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("盘点单"))?;
@@ -186,19 +187,19 @@ impl CycleCountService for CycleCountServiceImpl {
             });
         }
 
-        CycleCountRepo::update_status(&mut *ctx.executor, id, CycleCountStatus::Adjusted)
+        CycleCountRepo::update_status(&mut *db, id, CycleCountStatus::Adjusted)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-        CycleCountRepo::mark_items_adjusted(&mut *ctx.executor, id)
+        CycleCountRepo::mark_items_adjusted(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         Ok(())
     }
 
-    async fn cancel(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        let count = CycleCountRepo::get_by_id(&mut *ctx.executor, id)
+    async fn cancel(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let count = CycleCountRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("盘点单"))?;
@@ -210,7 +211,7 @@ impl CycleCountService for CycleCountServiceImpl {
             });
         }
 
-        CycleCountRepo::update_status(&mut *ctx.executor, id, CycleCountStatus::Cancelled)
+        CycleCountRepo::update_status(&mut *db, id, CycleCountStatus::Cancelled)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Datelike;
@@ -7,6 +7,7 @@ use sqlx::postgres::PgPool;
 use super::repo::DocumentSequenceRepo;
 use super::service::DocumentSequenceService;
 use crate::shared::enums::document_type::DocumentType;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -26,7 +27,7 @@ impl DocumentSequenceServiceImpl {
 impl DocumentSequenceService for DocumentSequenceServiceImpl {
     async fn next_number(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         doc_type: DocumentType,
     ) -> Result<String> {
         // Timestamp 策略：仅 Product 使用
@@ -39,7 +40,7 @@ impl DocumentSequenceService for DocumentSequenceServiceImpl {
         let prefix = doc_type.prefix();
         let padding_len: i32 = 6;
 
-        let seq = DocumentSequenceRepo::next_sequential(&mut *ctx.executor, prefix, padding_len)
+        let seq = DocumentSequenceRepo::next_sequential(&mut *db, prefix, padding_len)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 

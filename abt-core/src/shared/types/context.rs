@@ -1,10 +1,9 @@
-use crate::shared::types::PgExecutor;
-
 use super::pagination::DataScope;
 
-/// 服务调用上下文 — 包装事务执行器 + 操作元数据
-pub struct ServiceContext<'a> {
-    pub executor: PgExecutor<'a>,
+/// 服务调用上下文 — 纯操作元数据，不持有数据库连接
+/// 连接由 PgExecutor 参数单独传递
+#[derive(Clone)]
+pub struct ServiceContext {
     pub operator_id: i64,
     pub department_id: Option<i64>,
     pub data_scope: DataScope,
@@ -12,10 +11,9 @@ pub struct ServiceContext<'a> {
     pub request_id: Option<String>,
 }
 
-impl<'a> ServiceContext<'a> {
-    pub fn new(executor: PgExecutor<'a>, operator_id: i64) -> Self {
+impl ServiceContext {
+    pub fn new(operator_id: i64) -> Self {
         Self {
-            executor,
             operator_id,
             department_id: None,
             data_scope: DataScope::All,
@@ -45,26 +43,13 @@ impl<'a> ServiceContext<'a> {
     }
 
     /// 系统级上下文 — 用于定时任务、后台进程等无用户操作场景
-    pub fn system(executor: PgExecutor<'a>) -> Self {
+    pub fn system() -> Self {
         Self {
-            executor,
             operator_id: 0,
             department_id: None,
             data_scope: DataScope::All,
             trace_id: Some("system".to_string()),
             request_id: Some(uuid::Uuid::new_v4().to_string()),
-        }
-    }
-
-    /// 从现有 context 中 reborrow executor，避免手动重复构造
-    pub fn reborrow(&mut self) -> ServiceContext<'_> {
-        ServiceContext {
-            executor: &mut *self.executor,
-            operator_id: self.operator_id,
-            department_id: self.department_id,
-            data_scope: self.data_scope,
-            trace_id: self.trace_id.clone(),
-            request_id: self.request_id.clone(),
         }
     }
 }

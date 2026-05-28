@@ -1,7 +1,8 @@
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 
 use super::model::{EntityStateLog, StateDefinitionInput, TransitionDefInput};
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
@@ -11,7 +12,7 @@ pub trait StateMachineService: Send + Sync {
     /// 批量配置状态定义和转换规则（启动时一次性或按需）
     async fn configure(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         states: Vec<StateDefinitionInput>,
         transitions: Vec<TransitionDefInput>,
@@ -20,7 +21,7 @@ pub trait StateMachineService: Send + Sync {
     /// 执行状态转换 — 五步校验
     async fn transition(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         entity_id: i64,
         to_state: &str,
@@ -30,7 +31,7 @@ pub trait StateMachineService: Send + Sync {
     /// 获取当前状态
     async fn get_current_state(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         entity_id: i64,
     ) -> Result<String>;
@@ -38,7 +39,7 @@ pub trait StateMachineService: Send + Sync {
     /// 获取允许的目标状态列表
     async fn get_allowed_transitions(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         state: &str,
     ) -> Result<Vec<String>>;
@@ -46,7 +47,7 @@ pub trait StateMachineService: Send + Sync {
     /// 分页查询状态历史
     async fn get_state_history(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         entity_id: i64,
         page: u32,

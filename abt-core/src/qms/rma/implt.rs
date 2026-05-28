@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::json;
@@ -10,6 +10,7 @@ use super::service::RmaService;
 use crate::qms::enums::*;
 use crate::qms::inspection_result;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::types::PgExecutor;
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::document_link::service::DocumentLinkService;
 use crate::shared::document_sequence::service::DocumentSequenceService;
@@ -54,12 +55,12 @@ impl RmaServiceImpl {
 impl RmaService for RmaServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateRmaReq,
     ) -> Result<i64> {
         // 1. 校验关联检验结果（如有）
         if let Some(ir_id) = req.linked_inspection_result_id {
-            let ir = inspection_result::repo::find_by_id(&mut *ctx.executor, ir_id)
+            let ir = inspection_result::repo::find_by_id(&mut *db, ir_id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
             if ir.is_none() {
@@ -73,7 +74,7 @@ impl RmaService for RmaServiceImpl {
         // 2. 生成单据编号
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::Rma)
+            .next_number(ctx, db, DocumentType::Rma)
             .await?;
 
         // 3. 构建实体并插入
@@ -98,14 +99,15 @@ impl RmaService for RmaServiceImpl {
             deleted_at: None,
         };
 
-        let id = repo::insert(&mut *ctx.executor, &rma)
+        let id = repo::insert(&mut *db, &rma)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 4. 发布 RMACreated 事件
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::RMACreated,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -123,14 +125,15 @@ impl RmaService for RmaServiceImpl {
 
         // 5. 审计日志
         self.audit_log
-            .record(ctx.reborrow(), ENTITY_TYPE, id, AuditAction::Create, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
             .await?;
 
         // 6. 构建 DocumentLink: RMA → InspectionResult（正向→逆向追溯链）
         if let Some(ir_id) = req.linked_inspection_result_id {
             self.doc_link
                 .create_links(
-                    ctx.reborrow(),
+                    ctx,
+                    db,
                     vec![LinkRequest {
                         source_type: DocumentType::Rma,
                         source_id: id,
@@ -147,10 +150,10 @@ impl RmaService for RmaServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<Rma> {
-        repo::find_by_id(&mut *ctx.executor, id)
+        repo::find_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
@@ -159,12 +162,12 @@ impl RmaService for RmaServiceImpl {
     /// 记录根因 — 自动触发 Reported → Investigating → ActionTaken
     async fn record_root_cause(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: RecordRootCauseReq,
     ) -> Result<()> {
         // 1. 获取当前状态并校验
-        let existing = repo::find_by_id(&mut *ctx.executor, id)
+        let existing = repo::find_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
@@ -179,10 +182,10 @@ impl RmaService for RmaServiceImpl {
         // 2. 自动触发状态转换: Reported → Investigating（仅 Reported 起始）
         if existing.status == RMAStatus::Reported {
             self.state_machine
-                .transition(ctx.reborrow(), ENTITY_TYPE, id, "Investigating", None)
+                .transition(ctx, db, ENTITY_TYPE, id, "Investigating", None)
                 .await?;
             let rows = repo::update_status(
-                &mut *ctx.executor,
+                &mut *db,
                 id,
                 RMAStatus::Investigating.as_i16(),
                 RMAStatus::Reported.as_i16(),
@@ -196,7 +199,7 @@ impl RmaService for RmaServiceImpl {
 
         // 3. 写入根因和纠正措施（在状态验证通过后）
         let rows = repo::update_root_cause(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             &req.root_cause,
             &req.corrective_action,
@@ -210,10 +213,10 @@ impl RmaService for RmaServiceImpl {
 
         // 4. 推进到 ActionTaken
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "ActionTaken", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "ActionTaken", None)
             .await?;
         let rows = repo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             RMAStatus::ActionTaken.as_i16(),
             RMAStatus::Investigating.as_i16(),
@@ -226,7 +229,7 @@ impl RmaService for RmaServiceImpl {
 
         // 5. 审计日志
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         Ok(())
@@ -234,15 +237,15 @@ impl RmaService for RmaServiceImpl {
 
     async fn close(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "Closed", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "Closed", None)
             .await?;
 
         let rows = repo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             RMAStatus::Closed.as_i16(),
             RMAStatus::ActionTaken.as_i16(),
@@ -255,7 +258,7 @@ impl RmaService for RmaServiceImpl {
         }
 
         // 构建 DocumentLink: RMA → SalesOrder / ShippingRequest（追溯链）
-        let rma = repo::find_by_id(&mut *ctx.executor, id)
+        let rma = repo::find_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
@@ -280,11 +283,11 @@ impl RmaService for RmaServiceImpl {
             });
         }
         if !links.is_empty() {
-            self.doc_link.create_links(ctx.reborrow(), links).await?;
+            self.doc_link.create_links(ctx, db, links).await?;
         }
 
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         Ok(())
@@ -292,11 +295,11 @@ impl RmaService for RmaServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: RmaFilter,
         page: PageParams,
     ) -> Result<PaginatedResult<Rma>> {
-        repo::list(&mut *ctx.executor, &filter, &page)
+        repo::list(&mut *db, &filter, &page)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

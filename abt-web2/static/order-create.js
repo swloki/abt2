@@ -1,5 +1,3 @@
-var notyf = new Notyf({ duration: 5000, position: { x: 'right', y: 'top' }, dismissible: true });
-
 function orderForm(initialItems) {
     return {
         items: initialItems || [],
@@ -64,6 +62,6 @@ document.addEventListener('DOMContentLoaded', function () {
     // 4xx 业务错误（BadRequest/NotFound/Forbidden）
     form.addEventListener('htmx:responseError', function (e) {
         var msg = e.detail.xhr.responseText || '提交失败';
-        notyf.error(msg);
+        htmx.trigger(document.body, 'show-toast', {message: msg, type: 'error'});
     });
 });

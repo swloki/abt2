@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -7,6 +7,7 @@ use super::model::{PickStrategy, PutawayStrategy};
 use super::repo::StrategyRepo;
 use super::service::StrategyService;
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::wms::enums::{PickType, PutawayType};
@@ -26,14 +27,14 @@ impl StrategyServiceImpl {
 impl StrategyService for StrategyServiceImpl {
     async fn create_putaway(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         name: String,
         strategy_type: PutawayType,
         warehouse_id: Option<i64>,
         priority: i32,
     ) -> Result<i64> {
         let strategy = StrategyRepo::insert_putaway(
-            &mut *ctx.executor,
+            &mut *db,
             &name,
             strategy_type,
             warehouse_id,
@@ -47,24 +48,24 @@ impl StrategyService for StrategyServiceImpl {
 
     async fn list_putaway(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         warehouse_id: Option<i64>,
     ) -> Result<Vec<PutawayStrategy>> {
-        StrategyRepo::list_putaway(&mut *ctx.executor, warehouse_id)
+        StrategyRepo::list_putaway(&mut *db, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn create_pick(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         name: String,
         strategy_type: PickType,
         warehouse_id: Option<i64>,
         priority: i32,
     ) -> Result<i64> {
         let strategy = StrategyRepo::insert_pick(
-            &mut *ctx.executor,
+            &mut *db,
             &name,
             strategy_type,
             warehouse_id,
@@ -78,10 +79,10 @@ impl StrategyService for StrategyServiceImpl {
 
     async fn list_pick(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         warehouse_id: Option<i64>,
     ) -> Result<Vec<PickStrategy>> {
-        StrategyRepo::list_pick(&mut *ctx.executor, warehouse_id)
+        StrategyRepo::list_pick(&mut *db, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

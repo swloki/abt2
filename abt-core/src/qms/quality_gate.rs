@@ -2,14 +2,14 @@ use async_trait::async_trait;
 
 use crate::qms::enums::*;
 use crate::qms::inspection_result;
-use crate::shared::types::{DomainError, ServiceContext, Result};
+use crate::shared::types::{DomainError, PgExecutor, ServiceContext, Result};
 
 /// 质量关卡服务 trait — 检查某个来源是否通过质量检验
 #[async_trait]
 pub trait QualityGateService: Send + Sync {
     async fn check_gate(
         &self,
-        ctx: &mut ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         source_type: i16,
         source_id: i64,
         inspection_type: i16,
@@ -32,13 +32,13 @@ impl QualityGateServiceImpl {
 impl QualityGateService for QualityGateServiceImpl {
     async fn check_gate(
         &self,
-        ctx: &mut ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         source_type: i16,
         source_id: i64,
         inspection_type: i16,
     ) -> Result<QualityGateStatus> {
         let result = inspection_result::repo::find_by_source(
-            &mut *ctx.executor,
+            db,
             source_type,
             source_id,
             inspection_type,

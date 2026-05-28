@@ -1,11 +1,11 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use super::model::*;
 use super::repo::BomLaborProcessRepo;
 use super::service::BomLaborProcessService;
 use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::enums::audit::AuditAction;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct BomLaborProcessServiceImpl {
     repo: BomLaborProcessRepo,
@@ -23,42 +23,42 @@ impl BomLaborProcessServiceImpl {
 
 #[async_trait::async_trait]
 impl BomLaborProcessService for BomLaborProcessServiceImpl {
-    async fn list(&self, ctx: ServiceContext<'_>, query: BomLaborProcessQuery, page: PageParams) -> Result<PaginatedResult<BomLaborProcess>> {
-        self.repo.query(ctx.executor, &query, &page)
+    async fn list(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, query: BomLaborProcessQuery, page: PageParams) -> Result<PaginatedResult<BomLaborProcess>> {
+        self.repo.query(db, &query, &page)
             .await
     }
 
-    async fn create(&self, mut ctx: ServiceContext<'_>, req: CreateBomLaborProcessReq) -> Result<i64> {
-        let id = self.repo.create(ctx.executor, &req, ctx.operator_id)
+    async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateBomLaborProcessReq) -> Result<i64> {
+        let id = self.repo.create(db, &req, ctx.operator_id)
             .await?;
 
-        self.audit.record(ctx.reborrow(), "BomLaborProcess", id, AuditAction::Create, None, None).await?;
+        self.audit.record(ctx, db, "BomLaborProcess", id, AuditAction::Create, None, None).await?;
 
         Ok(id)
     }
 
-    async fn update(&self, mut ctx: ServiceContext<'_>, id: i64, req: UpdateBomLaborProcessReq) -> Result<()> {
-        let _existing = self.repo.find_by_id(ctx.executor, id)
+    async fn update(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, req: UpdateBomLaborProcessReq) -> Result<()> {
+        let _existing = self.repo.find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomLaborProcess"))?;
 
-        self.repo.update(ctx.executor, id, &req, ctx.operator_id)
+        self.repo.update(db, id, &req, ctx.operator_id)
             .await?;
 
-        self.audit.record(ctx.reborrow(), "BomLaborProcess", id, AuditAction::Update, None, None).await?;
+        self.audit.record(ctx, db, "BomLaborProcess", id, AuditAction::Update, None, None).await?;
 
         Ok(())
     }
 
-    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        let _existing = self.repo.find_by_id(ctx.executor, id)
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let _existing = self.repo.find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("BomLaborProcess"))?;
 
-        self.repo.delete(ctx.executor, id)
+        self.repo.delete(db, id)
             .await?;
 
-        self.audit.record(ctx.reborrow(), "BomLaborProcess", id, AuditAction::Delete, None, None).await?;
+        self.audit.record(ctx, db, "BomLaborProcess", id, AuditAction::Delete, None, None).await?;
 
         Ok(())
     }

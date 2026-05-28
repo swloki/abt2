@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::json;
@@ -8,6 +8,7 @@ use super::model::{CreateMiscRequestRequest, MiscellaneousRequest};
 use super::repo::{MiscRequestItemRepo, MiscRequestRepo};
 use super::service::MiscellaneousRequestService;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::types::PgExecutor;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
@@ -52,19 +53,19 @@ impl MiscellaneousRequestServiceImpl {
 impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateMiscRequestRequest,
         idempotency_key: Option<String>,
     ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "MiscellaneousRequest:create").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "MiscellaneousRequest:create").await? {
                 return Err(DomainError::duplicate("MiscellaneousRequest"));
             }
         }
         // 1. 生成单据编号
         let doc_number = self.doc_seq
-            .next_number(ctx.reborrow(), DocumentType::MiscellaneousRequest)
+            .next_number(ctx, db, DocumentType::MiscellaneousRequest)
             .await?;
 
         // 2. 计算明细估算总金额
@@ -74,7 +75,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
 
         // 3. 插入主表
         let id = MiscRequestRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &req,
             &doc_number,
             total_amount,
@@ -86,7 +87,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         // 4. 插入明细
         if !req.items.is_empty() {
             MiscRequestItemRepo::insert_items(
-                &mut *ctx.executor,
+                &mut *db,
                 id,
                 &req.items,
             )
@@ -96,7 +97,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
 
         // 5. 审计日志
         self.audit_log
-            .record(ctx.reborrow(), ENTITY_TYPE, id, AuditAction::Create, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
             .await?;
 
         Ok(id)
@@ -104,10 +105,10 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<MiscellaneousRequest> {
-        MiscRequestRepo::get_by_id(&mut *ctx.executor, id)
+        MiscRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
@@ -115,30 +116,30 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
 
     async fn approve(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         idempotency_key: Option<String>,
     ) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "MiscellaneousRequest:approve").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "MiscellaneousRequest:approve").await? {
                 return Err(DomainError::duplicate("MiscellaneousRequest"));
             }
         }
         // 1. 获取当前记录（用于乐观锁）
-        let request = MiscRequestRepo::get_by_id(&mut *ctx.executor, id)
+        let request = MiscRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
 
         // 2. 状态转换 Draft -> Approved
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "Approved", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "Approved", None)
             .await?;
 
         // 3. 更新实体表状态
         let rows = MiscRequestRepo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             MiscRequestStatus::Approved,
             &request.updated_at,
@@ -152,7 +153,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         // 4. 发布领域事件
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::MiscellaneousRequestApproved,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -165,7 +166,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
 
         // 3. 审计日志
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         Ok(())

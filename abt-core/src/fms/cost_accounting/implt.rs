@@ -1,7 +1,7 @@
-use crate::fms::cost_accounting::model::*;
+﻿use crate::fms::cost_accounting::model::*;
 use crate::fms::cost_accounting::repo::CostAccountingRepo;
 use crate::fms::cost_accounting::service::CostAccountingService;
-use crate::shared::types::{PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
 
 /// 成本核算服务实现 — 所有方法均为只读查询，无共享服务依赖
 #[derive(Default)]
@@ -17,35 +17,35 @@ impl CostAccountingServiceImpl {
 impl CostAccountingService for CostAccountingServiceImpl {
     async fn get_product_cost(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         product_id: i64,
         period: String,
     ) -> Result<ProductCostSummary> {
-        CostAccountingRepo::get_product_cost_by_period(ctx.executor, product_id, &period)
+        CostAccountingRepo::get_product_cost_by_period(db, product_id, &period)
             .await
             
     }
 
     async fn get_work_order_cost(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64,
     ) -> Result<WorkOrderCostSummary> {
-        CostAccountingRepo::get_work_order_cost(ctx.executor, work_order_id)
+        CostAccountingRepo::get_work_order_cost(db, work_order_id)
             .await
             
     }
 
     async fn get_profit_center_summary(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         profit_center_id: i64,
         from: String,
         to: String,
         page: PageParams,
     ) -> Result<PaginatedResult<ProfitCenterSummary>> {
         let (items, total) = CostAccountingRepo::get_profit_center_summary(
-            ctx.executor,
+            db,
             profit_center_id,
             &from,
             &to,
@@ -60,10 +60,10 @@ impl CostAccountingService for CostAccountingServiceImpl {
 
     async fn get_margin_analysis(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         order_id: i64,
     ) -> Result<MarginAnalysis> {
-        CostAccountingRepo::get_margin_analysis(ctx.executor, order_id)
+        CostAccountingRepo::get_margin_analysis(db, order_id)
             .await
             
     }

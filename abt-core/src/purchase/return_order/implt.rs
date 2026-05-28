@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -11,6 +11,7 @@ use super::service::PurchaseReturnService;
 use crate::purchase::enums::{PurchaseOrderStatus, PurchaseReturnStatus};
 use crate::purchase::order::repo::PurchaseOrderRepo;
 use crate::shared::idempotency::service::key_to_i64;
+use crate::shared::types::PgExecutor;
 use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::document_link::service::DocumentLinkService;
@@ -67,18 +68,18 @@ impl PurchaseReturnServiceImpl {
 impl PurchaseReturnService for PurchaseReturnServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreatePurchaseReturnRequest,
         idempotency_key: Option<String>,
     ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReturn:create").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseReturn:create").await? {
                 return Err(DomainError::duplicate("PurchaseReturn"));
             }
         }
         // 1. 验证关联订单存在且状态允许退货
-        let order = PurchaseOrderRepo::get_by_id(&mut *ctx.executor, req.order_id)
+        let order = PurchaseOrderRepo::get_by_id(&mut *db, req.order_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("PurchaseOrder"))?;
@@ -105,12 +106,12 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         // 3. 生成单据编号
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::PurchaseReturn)
+            .next_number(ctx, db, DocumentType::PurchaseReturn)
             .await?;
 
         // 4. 插入主表
         let id = PurchaseReturnRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &req,
             &doc_number,
             total_amount,
@@ -121,7 +122,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
 
         // 5. 插入明细
         if !req.items.is_empty() {
-            PurchaseReturnItemRepo::insert_items(&mut *ctx.executor, id, &req.items)
+            PurchaseReturnItemRepo::insert_items(&mut *db, id, &req.items)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
@@ -129,7 +130,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         // 6. 创建单据关联
         self.doc_link
             .create_links(
-                ctx.reborrow(),
+                ctx, db,
                 vec![LinkRequest {
                     source_type: DocumentType::PurchaseReturn,
                     source_id: id,
@@ -144,6 +145,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         self.audit_log
             .record(
                 ctx,
+                db,
                 ENTITY_TYPE,
                 id,
                 AuditAction::Create,
@@ -155,34 +157,34 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         Ok(id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PurchaseReturn> {
-        PurchaseReturnRepo::get_by_id(&mut *ctx.executor, id)
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<PurchaseReturn> {
+        PurchaseReturnRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
+    async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseReturn:confirm").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseReturn:confirm").await? {
                 return Err(DomainError::duplicate("PurchaseReturn"));
             }
         }
         // 1. 获取当前记录（用于乐观锁）
-        let ret = PurchaseReturnRepo::get_by_id(&mut *ctx.executor, id)
+        let ret = PurchaseReturnRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
 
         // 2. 状态转换 Draft -> Confirmed
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "Confirmed", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "Confirmed", None)
             .await?;
 
         // 3. 更新实体表状态
         let rows = PurchaseReturnRepo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             PurchaseReturnStatus::Confirmed,
             &ret.updated_at,
@@ -196,7 +198,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         // 4. 发布领域事件
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::PurchaseReturnConfirmed,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -209,7 +211,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
 
         // 3. 审计日志
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         Ok(())

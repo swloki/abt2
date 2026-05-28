@@ -1,4 +1,4 @@
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use rust_decimal::Decimal;
 
 use super::model::{
@@ -8,6 +8,7 @@ use super::model::{
 use super::repo::InventoryRepo;
 use super::service::InventoryService;
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
@@ -35,34 +36,34 @@ impl Default for InventoryServiceImpl {
 impl InventoryService for InventoryServiceImpl {
     async fn stock_in(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: StockChangeReq,
     ) -> Result<StockOperationResult> {
-        self.execute_stock_op(&mut *ctx.executor, ctx.operator_id, &req, req.quantity, TransactionType::PurchaseReceipt).await
+        self.execute_stock_op(&mut *db, ctx.operator_id, &req, req.quantity, TransactionType::PurchaseReceipt).await
     }
 
     async fn stock_out(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: StockChangeReq,
     ) -> Result<StockOperationResult> {
-        self.execute_stock_op(&mut *ctx.executor, ctx.operator_id, &req, req.quantity, TransactionType::SalesShipment).await
+        self.execute_stock_op(&mut *db, ctx.operator_id, &req, req.quantity, TransactionType::SalesShipment).await
     }
 
     async fn adjust(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: StockChangeReq,
     ) -> Result<StockOperationResult> {
-        self.execute_stock_op(&mut *ctx.executor, ctx.operator_id, &req, req.quantity, TransactionType::Adjustment).await
+        self.execute_stock_op(&mut *db, ctx.operator_id, &req, req.quantity, TransactionType::Adjustment).await
     }
 
     async fn set_quantity(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: StockChangeReq,
     ) -> Result<StockOperationResult> {
-        let exec = &mut *ctx.executor;
+        let exec = &mut *db;
 
         let before = StockLedgerRepo::find_by_location(
             exec, req.product_id, req.warehouse_id, req.zone_id, req.bin_id, None,
@@ -99,10 +100,10 @@ impl InventoryService for InventoryServiceImpl {
 
     async fn transfer(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: StockTransferReq,
     ) -> Result<(StockOperationResult, StockOperationResult)> {
-        let exec = &mut *ctx.executor;
+        let exec = &mut *db;
 
         // out
         let out_req = StockChangeReq {
@@ -139,13 +140,13 @@ impl InventoryService for InventoryServiceImpl {
 
     async fn set_safety_stock(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         product_id: i64,
         bin_id: i64,
         safety_stock: Decimal,
     ) -> Result<()> {
         let Some((warehouse_id, zone_id, _)) =
-            InventoryRepo::resolve_bin(&mut *ctx.executor, bin_id)
+            InventoryRepo::resolve_bin(&mut *db, bin_id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?
         else {
@@ -153,7 +154,7 @@ impl InventoryService for InventoryServiceImpl {
         };
 
         StockLedgerRepo::set_safety_stock(
-            &mut *ctx.executor,
+            &mut *db,
             product_id,
             warehouse_id,
             zone_id,
@@ -168,11 +169,11 @@ impl InventoryService for InventoryServiceImpl {
 
     async fn get_by_product(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         product_id: i64,
     ) -> Result<Vec<InventoryDetailView>> {
         let result = InventoryRepo::query_stock_details(
-            &mut *ctx.executor, Some(product_id), None, None, None, 1, 10000,
+            &mut *db, Some(product_id), None, None, None, 1, 10000,
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -182,11 +183,11 @@ impl InventoryService for InventoryServiceImpl {
 
     async fn get_by_bin(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         bin_id: i64,
     ) -> Result<Vec<InventoryDetailView>> {
         let result = InventoryRepo::query_stock_details(
-            &mut *ctx.executor, None, None, None, Some(bin_id), 1, 10000,
+            &mut *db, None, None, None, Some(bin_id), 1, 10000,
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -196,22 +197,22 @@ impl InventoryService for InventoryServiceImpl {
 
     async fn list_low_stock(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
     ) -> Result<Vec<InventoryDetailView>> {
-        InventoryRepo::list_low_stock(&mut *ctx.executor)
+        InventoryRepo::list_low_stock(&mut *db)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn query(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: InventoryQueryFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<InventoryDetailView>> {
         InventoryRepo::query_stock_details(
-            &mut *ctx.executor,
+            &mut *db,
             filter.product_id,
             filter.keyword.as_deref(),
             filter.warehouse_id,
@@ -227,42 +228,42 @@ impl InventoryService for InventoryServiceImpl {
 
     async fn query_logs(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: TransactionLogFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<TransactionDetailView>> {
-        InventoryRepo::query_transaction_details(&mut *ctx.executor, &filter, page, page_size)
+        InventoryRepo::query_transaction_details(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn list_logs_by_product(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         product_id: i64,
     ) -> Result<Vec<TransactionDetailView>> {
-        InventoryRepo::list_txn_details_by_product(&mut *ctx.executor, product_id)
+        InventoryRepo::list_txn_details_by_product(&mut *db, product_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn list_logs_by_bin(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         bin_id: i64,
     ) -> Result<Vec<TransactionDetailView>> {
-        InventoryRepo::list_txn_details_by_bin(&mut *ctx.executor, bin_id)
+        InventoryRepo::list_txn_details_by_bin(&mut *db, bin_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn list_logs_by_warehouse(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         warehouse_id: i64,
     ) -> Result<Vec<TransactionDetailView>> {
-        InventoryRepo::list_txn_details_by_warehouse(&mut *ctx.executor, warehouse_id)
+        InventoryRepo::list_txn_details_by_warehouse(&mut *db, warehouse_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

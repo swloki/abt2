@@ -135,7 +135,7 @@ classDiagram
     }
 
     class ServiceContext {
-        +executor: PgExecutor
+        &lt;&lt;derive Clone&gt;&gt;
         +operator_id: i64
         +department_id: Option~i64~
         +data_scope: DataScope
@@ -344,35 +344,35 @@ classDiagram
 
     class DocumentSequenceService {
         &lt;&lt;interface&gt;&gt;
-        +next_number(ctx: ServiceContext, doc_type: DocumentType) Result~String~
+        +next_number(ctx: &ServiceContext, db: PgExecutor, doc_type: DocumentType) Result~String~
     }
 
     class DocumentLinkService {
         &lt;&lt;interface&gt;&gt;
-        +create_links(ctx: ServiceContext, requests: Vec~LinkRequest~) Result~BatchResult~
-        +find_linked(ctx: ServiceContext, source_type, source_id, page, page_size) PaginatedResult
+        +create_links(ctx: &ServiceContext, db: PgExecutor, requests: Vec~LinkRequest~) Result~BatchResult~
+        +find_linked(ctx: &ServiceContext, db: PgExecutor, source_type, source_id, page, page_size) PaginatedResult
     }
 
     class InventoryReservationService {
         &lt;&lt;interface&gt;&gt;
-        +reserve(ctx: ServiceContext, requests: Vec~ReserveRequest~) Result~BatchResult~
-        +fulfill(ctx: ServiceContext, id: i64) Result
-        +cancel(ctx: ServiceContext, id: i64) Result
-        +total_reserved(ctx: ServiceContext, product_id, warehouse_id?) Result~Decimal~
+        +reserve(ctx: &ServiceContext, db: PgExecutor, requests: Vec~ReserveRequest~) Result~BatchResult~
+        +fulfill(ctx: &ServiceContext, db: PgExecutor, id: i64) Result
+        +cancel(ctx: &ServiceContext, db: PgExecutor, id: i64) Result
+        +total_reserved(ctx: &ServiceContext, db: PgExecutor, product_id, warehouse_id?) Result~Decimal~
     }
 
     class CostEntryService {
         &lt;&lt;interface&gt;&gt;
-        +create_entries(ctx: ServiceContext, entries: Vec~EntryRequest~) Result~BatchResult~
-        +find_by_entity(ctx: ServiceContext, entity_type, entity_id, page, page_size) PaginatedResult
+        +create_entries(ctx: &ServiceContext, db: PgExecutor, entries: Vec~EntryRequest~) Result~BatchResult~
+        +find_by_entity(ctx: &ServiceContext, db: PgExecutor, entity_type, entity_id, page, page_size) PaginatedResult
     }
 
     class DomainEventBus {
         &lt;&lt;interface&gt;&gt;
-        +publish(ctx: ServiceContext, req: EventPublishRequest) Result~i64~
-        +mark_processed(ctx: ServiceContext, ids: Vec~i64~) Result~u64~
-        +mark_failed(ctx: ServiceContext, id, reason) Result
-        +find_events(ctx: ServiceContext, query) PaginatedResult
+        +publish(ctx: &ServiceContext, db: PgExecutor, req: EventPublishRequest) Result~i64~
+        +mark_processed(ctx: &ServiceContext, db: PgExecutor, ids: Vec~i64~) Result~u64~
+        +mark_failed(ctx: &ServiceContext, db: PgExecutor, id, reason) Result
+        +find_events(ctx: &ServiceContext, db: PgExecutor, query) PaginatedResult
     }
 
     class EventHandlerRegistry {
@@ -394,24 +394,24 @@ classDiagram
 
     class StateMachineService {
         &lt;&lt;interface&gt;&gt;
-        +configure(ctx: ServiceContext, entity_type, states, transitions) Result
-        +transition(ctx: ServiceContext) Result~EntityStateLog~
-        +get_current_state(ctx: ServiceContext, entity_type, entity_id) Result~String~
-        +get_allowed_transitions(ctx: ServiceContext, entity_type, state) Result~Vec~
-        +get_state_history(ctx: ServiceContext, entity_type, entity_id, page, page_size) PaginatedResult
+        +configure(ctx: &ServiceContext, db: PgExecutor, entity_type, states, transitions) Result
+        +transition(ctx: &ServiceContext, db: PgExecutor) Result~EntityStateLog~
+        +get_current_state(ctx: &ServiceContext, db: PgExecutor, entity_type, entity_id) Result~String~
+        +get_allowed_transitions(ctx: &ServiceContext, db: PgExecutor, entity_type, state) Result~Vec~
+        +get_state_history(ctx: &ServiceContext, db: PgExecutor, entity_type, entity_id, page, page_size) PaginatedResult
     }
 
     class AuditLogService {
         &lt;&lt;interface&gt;&gt;
-        +record(ctx: ServiceContext, entity_type, entity_id, action: AuditAction, changes, context) Result~i64~
-        +query_logs(ctx: ServiceContext, query) PaginatedResult
+        +record(ctx: &ServiceContext, db: PgExecutor, entity_type, entity_id, action: AuditAction, changes, context) Result~i64~
+        +query_logs(ctx: &ServiceContext, db: PgExecutor, query) PaginatedResult
     }
 
     class IdempotencyService {
         &lt;&lt;interface&gt;&gt;
-        +check_and_mark(ctx: ServiceContext, event_id, handler_name) Result~bool~
-        +mark_processed(ctx: ServiceContext, event_id, handler_name, result) Result
-        +cleanup_expired(ctx: ServiceContext, before) Result~u64~
+        +check_and_mark(ctx: &ServiceContext, db: PgExecutor, event_id, handler_name) Result~bool~
+        +mark_processed(ctx: &ServiceContext, db: PgExecutor, event_id, handler_name, result) Result
+        +cleanup_expired(ctx: &ServiceContext, db: PgExecutor, before) Result~u64~
     }
 
     class DocumentSequenceServiceImpl {
@@ -441,9 +441,9 @@ classDiagram
 
     class DeadLetterService {
         &lt;&lt;interface&gt;&gt;
-        +list_dead_letters(ctx: ServiceContext, page, page_size) PaginatedResult~DomainEvent~
-        +retry_one(ctx: ServiceContext, event_id: i64) Result
-        +archive(ctx: ServiceContext, before: DateTime) Result~u64~
+        +list_dead_letters(ctx: &ServiceContext, db: PgExecutor, page, page_size) PaginatedResult~DomainEvent~
+        +retry_one(ctx: &ServiceContext, db: PgExecutor, event_id: i64) Result
+        +archive(ctx: &ServiceContext, db: PgExecutor, before: DateTime) Result~u64~
     }
 
     class DeadLetterServiceImpl {
@@ -460,7 +460,6 @@ classDiagram
     IdempotencyServiceImpl ..|> IdempotencyService : implements
     DeadLetterServiceImpl ..|> DeadLetterService : implements
 
-    ServiceContext ..> PgExecutor : wraps
     ServiceContext --> DataScope : data_scope
     DocumentSequenceService ..> ServiceContext : ctx
     DocumentLinkService ..> ServiceContext : ctx
@@ -548,22 +547,22 @@ classDiagram
 
     class UserService {
         &lt;&lt;interface&gt;&gt;
-        +create_user(ctx: ServiceContext) User
-        +update_user(ctx: ServiceContext) User
-        +delete_user(ctx: ServiceContext)
+        +create_user(ctx: &ServiceContext, db: PgExecutor) User
+        +update_user(ctx: &ServiceContext, db: PgExecutor) User
+        +delete_user(ctx: &ServiceContext, db: PgExecutor)
         +get_user(user_id: i64) User
         +list_users(query) PaginatedResult
-        +batch_assign_roles(ctx: ServiceContext)
+        +batch_assign_roles(ctx: &ServiceContext, db: PgExecutor)
     }
 
     class RoleService {
         &lt;&lt;interface&gt;&gt;
-        +create_role(ctx: ServiceContext) Role
-        +update_role(ctx: ServiceContext) Role
-        +delete_role(ctx: ServiceContext)
+        +create_role(ctx: &ServiceContext, db: PgExecutor) Role
+        +update_role(ctx: &ServiceContext, db: PgExecutor) Role
+        +delete_role(ctx: &ServiceContext, db: PgExecutor)
         +list_roles() Vec~Role~
-        +assign_permissions(ctx: ServiceContext)
-        +remove_permissions(ctx: ServiceContext)
+        +assign_permissions(ctx: &ServiceContext, db: PgExecutor)
+        +remove_permissions(ctx: &ServiceContext, db: PgExecutor)
     }
 
     class AuthService {
@@ -583,12 +582,12 @@ classDiagram
 
     class DepartmentService {
         &lt;&lt;interface&gt;&gt;
-        +create_department(ctx: ServiceContext) Department
-        +update_department(ctx: ServiceContext) Department
-        +delete_department(ctx: ServiceContext)
+        +create_department(ctx: &ServiceContext, db: PgExecutor) Department
+        +update_department(ctx: &ServiceContext, db: PgExecutor) Department
+        +delete_department(ctx: &ServiceContext, db: PgExecutor)
         +list_departments() Vec~Department~
-        +assign_departments(ctx: ServiceContext)
-        +remove_departments(ctx: ServiceContext)
+        +assign_departments(ctx: &ServiceContext, db: PgExecutor)
+        +remove_departments(ctx: &ServiceContext, db: PgExecutor)
     }
 
     class UserServiceImpl {
@@ -664,11 +663,11 @@ classDiagram
 
     class NotificationService {
         &lt;&lt;interface&gt;&gt;
-        +list_notifications(ctx: ServiceContext, user_id: i64, query: NotificationQuery) PaginatedResult~Notification~
-        +mark_as_read(ctx: ServiceContext, notification_id: i64, user_id: i64) bool
-        +mark_all_as_read(ctx: ServiceContext, user_id: i64, notification_type: Option~NotificationType~) u64
-        +get_unread_count(ctx: ServiceContext, user_id: i64) (i64, Vec~UnreadCountByType~)
-        +create_notification(ctx: ServiceContext, user_id: i64, title: String, content: String, notification_type: NotificationType, source_type: Option~String~, source_id: Option~i64~) i64
+        +list_notifications(ctx: &ServiceContext, db: PgExecutor, user_id: i64, query: NotificationQuery) PaginatedResult~Notification~
+        +mark_as_read(ctx: &ServiceContext, db: PgExecutor, notification_id: i64, user_id: i64) bool
+        +mark_all_as_read(ctx: &ServiceContext, db: PgExecutor, user_id: i64, notification_type: Option~NotificationType~) u64
+        +get_unread_count(ctx: &ServiceContext, db: PgExecutor, user_id: i64) (i64, Vec~UnreadCountByType~)
+        +create_notification(ctx: &ServiceContext, db: PgExecutor, user_id: i64, title: String, content: String, notification_type: NotificationType, source_type: Option~String~, source_id: Option~i64~) i64
     }
 
     Notification --> NotificationType : type
@@ -711,18 +710,18 @@ classDiagram
 
     class ExcelImportService {
         &lt;&lt;interface&gt;&gt;
-        +start_import(ctx, source: ImportSource) Result~i64~
-        +get_import_progress(ctx, id: i64) Result~ImportProgress~
-        +list_import_history(ctx, page, page_size) Result~PaginatedResult~ImportResult~~
-        +cancel_import(ctx, id: i64) Result
+        +start_import(ctx: &ServiceContext, db: PgExecutor, source: ImportSource) Result~i64~
+        +get_import_progress(ctx: &ServiceContext, db: PgExecutor, id: i64) Result~ImportProgress~
+        +list_import_history(ctx: &ServiceContext, db: PgExecutor, page, page_size) Result~PaginatedResult~ImportResult~~
+        +cancel_import(ctx: &ServiceContext, db: PgExecutor, id: i64) Result
     }
 
     class ExcelExportService {
         &lt;&lt;interface&gt;&gt;
-        +start_export(ctx, query: ExportQuery) Result~i64~
-        +get_export_status(ctx, id: i64) Result~ImportProgress~
-        +download(ctx, id: i64) Result~Vec~u8~~
-        +list_export_history(ctx, page, page_size) Result~PaginatedResult~ImportResult~~
+        +start_export(ctx: &ServiceContext, db: PgExecutor, query: ExportQuery) Result~i64~
+        +get_export_status(ctx: &ServiceContext, db: PgExecutor, id: i64) Result~ImportProgress~
+        +download(ctx: &ServiceContext, db: PgExecutor, id: i64) Result~Vec~u8~~
+        +list_export_history(ctx: &ServiceContext, db: PgExecutor, page, page_size) Result~PaginatedResult~ImportResult~~
     }
 
     ImportResult *-- "0..*" RowError : row_errors
@@ -775,10 +774,10 @@ classDiagram
 
     class TaskSchedulerService {
         &lt;&lt;interface&gt;&gt;
-        +register_task(ctx, name, interval_secs, timeout_secs) Result~i64~
-        +execute_task(ctx, name) Result~TaskRunResult~
-        +list_tasks(ctx) Result~Vec~ScheduledTaskDef~~
-        +get_task_history(ctx, name, limit) Result~Vec~TaskRunLog~~
+        +register_task(ctx: &ServiceContext, db: PgExecutor, name, interval_secs, timeout_secs) Result~i64~
+        +execute_task(ctx: &ServiceContext, db: PgExecutor, name) Result~TaskRunResult~
+        +list_tasks(ctx: &ServiceContext, db: PgExecutor) Result~Vec~ScheduledTaskDef~~
+        +get_task_history(ctx: &ServiceContext, db: PgExecutor, name, limit) Result~Vec~TaskRunLog~~
     }
 
     TaskSchedulerService o-- "0..*" ScheduledTask : manages
@@ -798,7 +797,7 @@ Sequential (default): PREFIX-YYYY-MM-SEQ (e.g. SO-2026-05-00142)
 Timestamp: x+Unix秒级时间戳 (e.g. x1747891200, for Product)
 Atomic: INSERT ON CONFLICT DO UPDATE
 Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
-    note for PgExecutor "底层事务连接类型\ntype PgExecutor<'a> = &'a mut PgConnection\n被 ServiceContext 包装\n不再直接作为 service 参数\n替代 common crate，消除额外依赖层"
+    note for PgExecutor "底层事务连接类型\ntype PgExecutor<'a> = &'a mut PgConnection\n作为 service 方法第二参数单独传入\n替代 common crate，消除额外依赖层"
     note for DomainError "统一错误模型 (thiserror)\n#[error] auto Display\n#[from] anyhow 兼容老代码\nNotFound / Duplicate / PermissionDenied\nBusinessRule / Validation / ConcurrentConflict\nInvalidStateTransition: 状态转换不合法\nInternal: #[from] anyhow 兼容老代码，gRPC 映射时日志记录完整错误链，返回客户端泛化消息\n映射 tonic::Status 语义化错误码\n渐进式迁移：新服务直接用\nServiceError 标记 deprecated，新代码禁止使用"
     note for DocumentLinkService "Directed graph: source -> target\n7 LinkTypes for audit trail\ncreate_links: 批量创建关联（单条传 vec![one]），订单确认时一次性创建多个"
     note for InventoryReservationService "Available = OnHand - total_reserved()\nHard: WO lock | Soft: Sales TTL\nSafetyStock: permanent\nreserve: 批量预留（单条传 vec![one]），expire_old 改为后台定时任务不暴露\nsource_line_id: 单据行级精确释放（如订单第 N 行的预留）
@@ -810,7 +809,7 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
     note for AuditLogService "Called directly by business Service\naction: AuditAction enum (Create/Update/Delete/Transition)\nSame tx as business operation\nField-level diffs (old -> new)\nISO 9001 / financial compliance\nquery_logs 统一查询接口（支持 entity_type, operator_id, action, time_range 过滤）\nquery_logs 统一查询（替代 list_audit_logs）"
     note for BatchResult "每个 batch_* 方法固定语义:\ncreate_links: Atomic（全建或全不建）\nreserve: ContinueOnError（部分失败不影响其他行）\ncreate_entries (CostEntry): Atomic（双层记账完整）\nmode 字段标识当前结果的模式"
     note for DeadLetterService "死信队列运维接口\nretry_count > max_retries → DEAD_LETTER\nlist_dead_letters: 查询死信事件（分页）\nretry_one: 重置状态→PENDING，重新投递\narchive: 归档指定时间前的死信\nEventProcessor 超限后自动标记，人工通过此接口干预"
-    note for ServiceContext "服务调用上下文\n包装 PgExecutor + 操作元数据\noperator_id → AuditLog/EventBus 自动获取\ndepartment_id + data_scope → 行级数据权限(RLS)\ntrace_id + request_id → 全链路追踪\n替代裸 PgExecutor 传入 service"
+    note for ServiceContext "服务调用元数据上下文（#[derive(Clone)]）\n纯元数据结构，不含 executor\noperator_id → AuditLog/EventBus 自动获取\ndepartment_id + data_scope → 行级数据权限(RLS)\ntrace_id + request_id → 全链路追踪\n与 PgExecutor 分离，各自独立传入 service 方法"
     note for TransactionMode "显式事务模式声明\nInCallerTx: 调用者事务内\nIndependentTx: 独立事务提交后\nAsyncOutbox: Outbox 异步消费\n每个共享服务方法声明自己的事务模式"
     </div>
   </div>
@@ -1292,9 +1291,9 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
             &nbsp;&nbsp;expires_at: Timestamp? <span style="color:#888;">// 过期清理</span><br>
             }<br><br>
             <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">IdempotencyService</span> {<br>
-            &nbsp;&nbsp;check_and_mark(event_id, handler): bool<br>
-            &nbsp;&nbsp;mark_processed(event_id, handler, result?)<br>
-            &nbsp;&nbsp;cleanup_expired(before): u64<br>
+            &nbsp;&nbsp;check_and_mark(ctx: &amp;ServiceContext, db: PgExecutor, event_id, handler): bool<br>
+            &nbsp;&nbsp;mark_processed(ctx: &amp;ServiceContext, db: PgExecutor, event_id, handler, result?)<br>
+            &nbsp;&nbsp;cleanup_expired(ctx: &amp;ServiceContext, db: PgExecutor, before): u64<br>
             }
           </div>
         </div>
@@ -1335,9 +1334,8 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
           <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 12px; border-radius: 6px; font-size: 11px;">
             <span style="color:#888;">// 事务执行器 — 调用者控制事务边界</span><br>
             <span style="color:#c678dd;">pub type</span> <span style="color:#e5c07b;">PgExecutor</span>&lt;'a&gt; = &amp;'a mut PgConnection<br><br>
-            <span style="color:#888;">// 服务调用上下文 — 包装 executor + 操作元数据</span><br>
+            <span style="color:#888;">// 服务调用上下文 — 纯元数据结构，#[derive(Clone)]</span><br>
             <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ServiceContext</span> {<br>
-            &nbsp;&nbsp;executor: PgExecutor<br>
             &nbsp;&nbsp;operator_id: i64<br>
             &nbsp;&nbsp;department_id: Option&lt;i64&gt;<br>
             &nbsp;&nbsp;data_scope: DataScope<br>
@@ -1409,25 +1407,25 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
         <div>
           <div style="background: rgba(249,115,22,0.15); padding: 12px; border-radius: 6px; height: 100%;">
             <h4 style="margin: 0 0 8px 0; color: #f97316;">功能</h4>
-            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>ServiceContext</strong>：服务调用上下文，包装 PgExecutor + operator_id + department_id + data_scope + trace_id + request_id。data_scope (All/Department/Self) 由 Auth 服务从 JWT 解析注入，支持行级数据权限（RLS）。所有共享服务接受 ServiceContext 作为第一参数，消除逐参数传递 operator_id / trace_id 的冗余。共享服务（如 AuditLog.record、EventBus.publish）在调用者事务内执行，保证强一致</p>
+            <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>ServiceContext</strong>：服务调用元数据上下文（#[derive(Clone)]），纯元数据结构，不含 executor。包含 operator_id + department_id + data_scope + trace_id + request_id。data_scope (All/Department/Self) 由 Auth 服务从 JWT 解析注入，支持行级数据权限（RLS）。所有共享服务方法接受 <code style="color:#e5c07b;">(&amp;ServiceContext, PgExecutor)</code> 作为前两个参数，元数据与事务连接分离。共享服务（如 AuditLog.record、EventBus.publish）在调用者事务内执行，保证强一致</p>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>DomainError</strong>：基于 <code style="color:#e5c07b;">thiserror</code> 定义结构化错误枚举，自动派生 <code style="color:#e5c07b;">Display + Error</code> trait。新增 Validation 变体用于输入校验，Internal 的完整错误链仅记录到日志（含 Error::source 链追溯根因），不泄露给客户端。<code style="color:#e5c07b;">ServiceError</code> 标记 <code style="color:#e5c07b;">#[deprecated]</code>，新代码统一使用 DomainError</p>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>PaginatedResult</strong>：所有查询接口的标准分页返回结构。<strong>PageParams</strong>：所有分页查询的标准输入参数（page + page_size）</p>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;"><strong>BatchResult</strong>：所有 batch_* 方法的统一返回结构。<code style="color:#e5c07b;">mode</code> 标识语义：<code style="color:#e5c07b;">Atomic</code>（全成功或全失败，如 batch_create_link、batch_create 成本分录）或 <code style="color:#e5c07b;">ContinueOnError</code>（部分失败继续，如 batch_reserve）。<code style="color:#e5c07b;">success_count</code> 记录成功数，<code style="color:#e5c07b;">failed_items</code> 记录每个失败项的位置和原因</p>
             <h4 style="margin: 0 0 8px 0; color: #f97316;">PgExecutor 设计要点</h4>
             <p style="margin: 0 0 10px 0; color: #ccc; font-size: 12px;">
-            <strong>ServiceContext 封装</strong> — PgExecutor 不再直接传入 service，而是包装在 ServiceContext 中，携带 operator_id / trace_id / request_id<br>
+            <strong>参数分离</strong> — PgExecutor 作为独立的第二参数传入 service 方法，ServiceContext 为纯元数据（可 Clone），两者解耦<br>
             <strong>TransactionMode 声明</strong> — 每个共享服务方法明确声明事务模式（InCallerTx / IndependentTx / AsyncOutbox），编译器辅助检查<br>
             <strong>强一致保证</strong> — InCallerTx 模式下 AuditLog.record + EventBus.publish + StateMachine.transition 全部在同一事务内完成</p>
             <h4 style="margin: 0 0 8px 0; color: #f97316;">迁移策略</h4>
             <p style="margin: 0; color: #ccc; font-size: 12px;">
-            <strong>ServiceContext</strong>：在 <code style="color:#e5c07b;">abt/src/repositories/mod.rs</code> 定义，所有共享服务接受 <code style="color:#e5c07b;">ServiceContext</code> 作为第一参数<br>
-            <strong>新服务</strong>：共享基础设施组件返回 <code style="color:#e5c07b;">Result&lt;T, DomainError&gt;</code>，接受 <code style="color:#e5c07b;">ServiceContext</code><br>
+            <strong>ServiceContext</strong>：在 <code style="color:#e5c07b;">abt-core</code> 中定义，所有共享服务方法接受 <code style="color:#e5c07b;">(&amp;ServiceContext, PgExecutor)</code> 作为前两个参数<br>
+            <strong>新服务</strong>：共享基础设施组件返回 <code style="color:#e5c07b;">Result&lt;T, DomainError&gt;</code>，接受 <code style="color:#e5c07b;">(&amp;ServiceContext, PgExecutor)</code><br>
             <strong>老服务</strong>：<code style="color:#e5c07b;">ServiceError</code> 标记 deprecated，<code style="color:#e5c07b;">anyhow::Result</code> 保持兼容</p>
           </div>
         </div>
       </div>
       <div style="margin-top: 10px; padding: 8px 12px; background: rgba(249,115,22,0.1); border-radius: 4px; font-size: 11px; color: #aaa;">
-        <strong style="color: #f97316;">设计原则：</strong>ServiceContext 封装 PgExecutor + 操作元数据（operator_id / trace_id / request_id）| TransactionMode 显式声明事务模式（InCallerTx / IndependentTx / AsyncOutbox）| DomainError 统一错误模型（ServiceError deprecated）| thiserror 自动 Display + Error | #[from] anyhow::Error 兼容老代码 | PaginatedResult 查询统一返回 | BatchResult batch_* 统一返回（Atomic 全建全不建 | ContinueOnError 部分失败继续）
+        <strong style="color: #f97316;">设计原则：</strong>ServiceContext 纯元数据结构（#[derive(Clone)]，不含 executor）+ PgExecutor 独立传入 | 所有共享服务方法签名: (ctx: &amp;ServiceContext, db: PgExecutor, ...) | TransactionMode 显式声明事务模式（InCallerTx / IndependentTx / AsyncOutbox）| DomainError 统一错误模型（ServiceError deprecated）| thiserror 自动 Display + Error | #[from] anyhow::Error 兼容老代码 | PaginatedResult 查询统一返回 | BatchResult batch_* 统一返回（Atomic 全建全不建 | ContinueOnError 部分失败继续）
       </div>
     </div>
 
@@ -1727,11 +1725,11 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
         &nbsp;&nbsp;run_once(ctx) → Result&lt;TaskRunResult&gt;<br>
         }<br><br>
         <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">TaskSchedulerService</span>: Send + Sync {<br>
-        &nbsp;&nbsp;register_task(ctx, name, interval_secs, timeout_secs)<br>
+        &nbsp;&nbsp;register_task(ctx: &amp;ServiceContext, db: PgExecutor, name, interval_secs, timeout_secs)<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;i64&gt; <span style="color:#888;">// 持久化任务定义，返回 task_id</span><br>
-        &nbsp;&nbsp;execute_task(ctx, name) → Result&lt;TaskRunResult&gt; <span style="color:#888;">// 手动触发</span><br>
-        &nbsp;&nbsp;list_tasks(ctx) → Result&lt;Vec&lt;ScheduledTaskDef&gt;&gt;<br>
-        &nbsp;&nbsp;get_task_history(ctx, name, limit)<br>
+        &nbsp;&nbsp;execute_task(ctx: &amp;ServiceContext, db: PgExecutor, name) → Result&lt;TaskRunResult&gt; <span style="color:#888;">// 手动触发</span><br>
+        &nbsp;&nbsp;list_tasks(ctx: &amp;ServiceContext, db: PgExecutor) → Result&lt;Vec&lt;ScheduledTaskDef&gt;&gt;<br>
+        &nbsp;&nbsp;get_task_history(ctx: &amp;ServiceContext, db: PgExecutor, name, limit)<br>
         &nbsp;&nbsp;&nbsp;&nbsp;→ Result&lt;Vec&lt;TaskRunLog&gt;&gt;<br>
         }
       </div>
@@ -1758,8 +1756,7 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
         <span style="color:#56b6c2;">AuditLogService</span> ──── 操作审计追踪 ──→ 业务 Service 直接调用（同事务内，字段级 diff，全链路可追溯）| query_logs 统一查询（支持所有过滤）<br>
         <span style="color:#c678dd;">IdempotencyService</span> ── 幂等去重保障 ──→ 三级幂等：API防重复提交 + Handler防重复消费 + Saga补偿防重复执行<br>
         <span style="color:#a78bfa;">DeadLetterService</span> ── 死信队列运维 ──→ list_dead_letters 查询 / retry_one 重试 / archive 归档（EventProcessor 超限自动标记 DEAD_LETTER，人工通过此接口干预）<br>
-        <span style="color:#f97316;">ServiceContext</span> ──────────── 服务调用上下文 ──→ 包装 PgExecutor + operator_id + department_id + data_scope(行级权限) + trace_id + request_id，所有共享服务第一参数<br>
-        <span style="color:#f97316;">TransactionMode</span> ─────── 显式事务模式声明 ──→ InCallerTx（调用者事务）/ IndependentTx（独立事务）/ AsyncOutbox（异步消费）
+        <span style="color:#f97316;">ServiceContext</span> ──────────── 纯元数据上下文（#[derive(Clone)]）──→ operator_id + department_id + data_scope(行级权限) + trace_id + request_id，与 PgExecutor 分离传入，所有共享服务方法签名: (ctx: &amp;ServiceContext, db: PgExecutor, ...)<br>
         <span style="color:#f97316;">DomainError</span> ────────── 统一错误模型 ──→ 唯一标准错误类型（ServiceError deprecated），gRPC 语义化 status code<br>
         <span style="color:#f97316;">PaginatedResult</span> ──── 统一分页结构 ──→ 所有查询接口返回 { items, total, page, page_size, total_pages }<br>
         <span style="color:#f97316;">BatchResult</span> ———————— 批量操作统一返回 —→ 所有 batch_* 方法返回 { success_count, failed_items, total }<br>
@@ -1777,7 +1774,7 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
         <span style="color:#888;">EventBus + StateMachine 构成事件驱动架构骨架，所有业务模块和 <a href="08-workflow-engine.html" style="color:#6bc76b;">Workflow Engine</a> 均通过它们协作</span><br>
         <span style="color:#888;">所有共享实体通过 DocumentType 枚举与具体业务模块解耦</span><br>
         <span style="color:#888;">ServiceContext + DomainError + TransactionMode + PaginatedResult + EventPublishRequest + AuditAction + SideEffect 构成统一的接口契约基础，ServiceContext 提供事务上下文 + 操作元数据，TransactionMode 显式声明事务边界，新服务直接采用，老服务渐进迁移</span>
-      </div>
+        <span style="color:#888;">ServiceContext(纯元数据, #[derive(Clone)]) + PgExecutor(独立传入) + DomainError + TransactionMode + PaginatedResult + EventPublishRequest + AuditAction + SideEffect 构成统一的接口契约基础，所有共享服务方法签名: (ctx: &amp;ServiceContext, db: PgExecutor, ...)，TransactionMode 显式声明事务边界，新服务直接采用，老服务渐进迁移</span><br>
     </div>
 
   </div>

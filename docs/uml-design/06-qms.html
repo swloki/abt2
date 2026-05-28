@@ -327,43 +327,43 @@ classDiagram
   %% ===== Service Interfaces =====
   class InspectionSpecificationService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx, req: CreateInspectionSpecificationReq) Result~i64~
-    +get(ctx, id) Result~InspectionSpecification~
-    +find_by_product_and_type(ctx, product_id, inspection_type) Result~Option~
-    +update(ctx, id, req: UpdateInspectionSpecificationReq) Result~Unit~
-    +list(ctx, filter: InspectionSpecFilter, page: PageParams) PaginatedResult~InspectionSpecification~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateInspectionSpecificationReq) Result~i64~
+    +get(ctx: &ServiceContext, db: PgExecutor, id) Result~InspectionSpecification~
+    +find_by_product_and_type(ctx: &ServiceContext, db: PgExecutor, product_id, inspection_type) Result~Option~
+    +update(ctx: &ServiceContext, db: PgExecutor, id, req: UpdateInspectionSpecificationReq) Result~Unit~
+    +list(ctx: &ServiceContext, db: PgExecutor, filter: InspectionSpecFilter, page: PageParams) PaginatedResult~InspectionSpecification~
   }
 
   class InspectionResultService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx, req: CreateInspectionResultReq) Result~i64~
-    +get(ctx, id) Result~InspectionResult~
-    +record_result(ctx, id, req: RecordInspectionResultReq) Result~QualityGateStatus~
-    +list_by_source(ctx, filter: InspectionResultFilter, page: PageParams) PaginatedResult~InspectionResult~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateInspectionResultReq) Result~i64~
+    +get(ctx: &ServiceContext, db: PgExecutor, id) Result~InspectionResult~
+    +record_result(ctx, db, id, req: RecordInspectionResultReq) Result~QualityGateStatus~
+    +list_by_source(ctx: &ServiceContext, db: PgExecutor, filter: InspectionResultFilter, page: PageParams) PaginatedResult~InspectionResult~
   }
 
   class QualityGateService {
     &lt;&lt;interface&gt;&gt;
-    +check_gate(ctx, source_type, source_id, inspection_type) Result~QualityGateStatus~
+    +check_gate(ctx: &ServiceContext, db: PgExecutor, source_type, source_id, inspection_type) Result~QualityGateStatus~
   }
 
   class MRBService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx, req: CreateMRBReq) Result~i64~
-    +get(ctx, id) Result~MRB~
-    +submit_for_review(ctx, id) Result~Unit~
-    +approve(ctx, id) Result~Unit~
-    +execute_disposition(ctx, id, req: ExecuteDispositionReq) Result~Unit~
-    +list(ctx, filter: MRBFilter, page: PageParams) PaginatedResult~MRB~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateMRBReq) Result~i64~
+    +get(ctx: &ServiceContext, db: PgExecutor, id) Result~MRB~
+    +submit_for_review(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +approve(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +execute_disposition(ctx, db, id, req: ExecuteDispositionReq) Result~Unit~
+    +list(ctx: &ServiceContext, db: PgExecutor, filter: MRBFilter, page: PageParams) PaginatedResult~MRB~
   }
 
   class RMAService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx, req: CreateRMAReq) Result~i64~
-    +get(ctx, id) Result~RMA~
-    +record_root_cause(ctx, id, req: RecordRootCauseReq) Result~Unit~
-    +close(ctx, id) Result~Unit~
-    +list(ctx, filter: RMAFilter, page: PageParams) PaginatedResult~RMA~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateRMAReq) Result~i64~
+    +get(ctx: &ServiceContext, db: PgExecutor, id) Result~RMA~
+    +record_root_cause(ctx, db, id, req: RecordRootCauseReq) Result~Unit~
+    +close(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +list(ctx: &ServiceContext, db: PgExecutor, filter: RMAFilter, page: PageParams) PaginatedResult~RMA~
   }
 
   note for InspectionResultService "Quality Gate — QualityGateService.check_gate():\n  Passed → 放行(含 Conditional) | Failed → 阻断(含 Pending) | NotRequired → 免检\n  record_result() 同时返回 QualityGateStatus（省一次 round-trip）\n\n  TransactionMode:\n  record_result → IndependentTx\n  幂等约束: DB UNIQUE(source_type, source_id, inspection_type)\n  实现层: IdempotencyService::check_and_mark 防网络重试\n\n  InspectionSourceType 映射:\n  ArrivalNotice → DocumentType::ArrivalNotice\n  WorkOrderRouting → DocumentType::WorkOrderRouting\n  ShippingRequest → DocumentType::ShippingRequest\n  OutsourcingOrder → DocumentType::OutsourcingOrder"
@@ -731,44 +731,44 @@ classDiagram
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InspectionSpecificationService</span> {<br>
-          &nbsp;&nbsp;create(ctx, req: CreateInspectionSpecificationReq): Result&lt;i64&gt;<br>
-          &nbsp;&nbsp;get(ctx, id): Result&lt;InspectionSpecification&gt;<br>
-          &nbsp;&nbsp;find_by_product_and_type(ctx, product_id, inspection_type): Result&lt;Option&gt;<br>
-          &nbsp;&nbsp;update(ctx, id, req: UpdateInspectionSpecificationReq): Result&lt;Unit&gt;<br>
-          &nbsp;&nbsp;list(ctx, filter: InspectionSpecFilter, page: PageParams): PaginatedResult<br>
+          &nbsp;&nbsp;create(ctx: &ServiceContext, db: PgExecutor, req: CreateInspectionSpecificationReq): Result&lt;i64&gt;<br>
+          &nbsp;&nbsp;get(ctx: &ServiceContext, db: PgExecutor, id): Result&lt;InspectionSpecification&gt;<br>
+          &nbsp;&nbsp;find_by_product_and_type(ctx: &ServiceContext, db: PgExecutor, product_id, inspection_type): Result&lt;Option&gt;<br>
+          &nbsp;&nbsp;update(ctx, db, id, req: UpdateInspectionSpecificationReq): Result&lt;Unit&gt;<br>
+          &nbsp;&nbsp;list(ctx: &ServiceContext, db: PgExecutor, filter: InspectionSpecFilter, page: PageParams): PaginatedResult<br>
           }<br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">InspectionResultService</span> {<br>
-          &nbsp;&nbsp;create(ctx, req: CreateInspectionResultReq): Result&lt;i64&gt;<br>
-          &nbsp;&nbsp;get(ctx, id): Result&lt;InspectionResult&gt;<br>
-          &nbsp;&nbsp;record_result(ctx, id, req: RecordInspectionResultReq): <span style="color:#56b6c2;">Result&lt;QualityGateStatus&gt;</span><br>
-          &nbsp;&nbsp;list_by_source(ctx, filter: InspectionResultFilter, page: PageParams): PaginatedResult<br>
+          &nbsp;&nbsp;create(ctx: &ServiceContext, db: PgExecutor, req: CreateInspectionResultReq): Result&lt;i64&gt;<br>
+          &nbsp;&nbsp;get(ctx: &ServiceContext, db: PgExecutor, id): Result&lt;InspectionResult&gt;<br>
+          &nbsp;&nbsp;record_result(ctx, db, id, req: RecordInspectionResultReq): <span style="color:#56b6c2;">Result&lt;QualityGateStatus&gt;</span><br>
+          &nbsp;&nbsp;list_by_source(ctx: &ServiceContext, db: PgExecutor, filter: InspectionResultFilter, page: PageParams): PaginatedResult<br>
           }<br><br>
           <span style="color:#56b6c2;">interface</span> <span style="color:#56b6c2;">QualityGateService</span> {<br>
-          &nbsp;&nbsp;check_gate(ctx, source_type, source_id, inspection_type): Result&lt;QualityGateStatus&gt;<br>
+          &nbsp;&nbsp;check_gate(ctx: &ServiceContext, db: PgExecutor, source_type, source_id, inspection_type): Result&lt;QualityGateStatus&gt;<br>
           &nbsp;&nbsp;<span style="color:#888;">// 独立 trait，WMS/MES/OQC 仅依赖此接口</span><br>
           &nbsp;&nbsp;<span style="color:#888;">// InCallerTx — 调用方事务内读取</span><br>
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">MRBService</span> {<br>
-          &nbsp;&nbsp;create(ctx, req: CreateMRBReq): Result&lt;i64&gt;<br>
-          &nbsp;&nbsp;get(ctx, id): Result&lt;MRB&gt;<br>
-          &nbsp;&nbsp;<span style="color:#56b6c2;">submit_for_review</span>(ctx, id): Result&lt;Unit&gt;<br>
-          &nbsp;&nbsp;approve(ctx, id): Result&lt;Unit&gt; <span style="color:#888;">// 临时 — WorkflowEngine 尚为 stub</span><br>
-          &nbsp;&nbsp;execute_disposition(ctx, id, req: ExecuteDispositionReq): Result&lt;Unit&gt; <span style="color:#888;">// 仅 WorkflowHook 回调</span><br>
-          &nbsp;&nbsp;list(ctx, filter: MRBFilter, page: PageParams): PaginatedResult<br>
+          &nbsp;&nbsp;create(ctx: &ServiceContext, db: PgExecutor, req: CreateMRBReq): Result&lt;i64&gt;<br>
+          &nbsp;&nbsp;get(ctx: &ServiceContext, db: PgExecutor, id): Result&lt;MRB&gt;<br>
+          &nbsp;&nbsp;<span style="color:#56b6c2;">submit_for_review</span>(ctx: &ServiceContext, db: PgExecutor, id): Result&lt;Unit&gt;<br>
+          &nbsp;&nbsp;approve(ctx: &ServiceContext, db: PgExecutor, id): Result&lt;Unit&gt; <span style="color:#888;">// 临时 — WorkflowEngine 尚为 stub</span><br>
+          &nbsp;&nbsp;execute_disposition(ctx, db, id, req: ExecuteDispositionReq): Result&lt;Unit&gt; <span style="color:#888;">// 仅 WorkflowHook 回调</span><br>
+          &nbsp;&nbsp;list(ctx: &ServiceContext, db: PgExecutor, filter: MRBFilter, page: PageParams): PaginatedResult<br>
           }<br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">RMAService</span> {<br>
-          &nbsp;&nbsp;create(ctx, req: CreateRMAReq): Result&lt;i64&gt;<br>
-          &nbsp;&nbsp;get(ctx, id): Result&lt;RMA&gt;<br>
-          &nbsp;&nbsp;record_root_cause(ctx, id, req: RecordRootCauseReq): Result&lt;Unit&gt;<br>
-          &nbsp;&nbsp;close(ctx, id): Result&lt;Unit&gt;<br>
-          &nbsp;&nbsp;list(ctx, filter: RMAFilter, page: PageParams): PaginatedResult<br>
+          &nbsp;&nbsp;create(ctx: &ServiceContext, db: PgExecutor, req: CreateRMAReq): Result&lt;i64&gt;<br>
+          &nbsp;&nbsp;get(ctx: &ServiceContext, db: PgExecutor, id): Result&lt;RMA&gt;<br>
+          &nbsp;&nbsp;record_root_cause(ctx, db, id, req: RecordRootCauseReq): Result&lt;Unit&gt;<br>
+          &nbsp;&nbsp;close(ctx: &ServiceContext, db: PgExecutor, id): Result&lt;Unit&gt;<br>
+          &nbsp;&nbsp;list(ctx: &ServiceContext, db: PgExecutor, filter: RMAFilter, page: PageParams): PaginatedResult<br>
           }
         </div>
       </div>
       <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
-        <strong>约定：</strong>ctx = ServiceContext 首参 | Result&lt;T&gt; = Result&lt;T, DomainError&gt; | Unit = () | PageParams 见 00-shared-infrastructure.html
+        <strong>约定：</strong>ctx = &ServiceContext, db = PgExecutor首参 | Result&lt;T&gt; = Result&lt;T, DomainError&gt; | Unit = () | PageParams 见 00-shared-infrastructure.html
       </p>
     </div>
 
@@ -846,10 +846,10 @@ classDiagram
       <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px; line-height: 2;">
         <span style="color:#e5a655;">JSONB 强类型</span> CheckItem / SamplePlan / CheckResult 派生 Serialize + Deserialize + Clone + Debug + PartialEq<br>
         <span style="color:#e5a655;">错误链</span> 使用 thiserror 定义 QmsError，通过 #[from] 兼容 DomainError::Internal(anyhow::Error)，gRPC interceptor 统一映射<br>
-        <span style="color:#e5a655;">审计</span> create / record_result / approve / close 实现末尾同事务调用 AuditLogService::record(ctx, entity_type, id, action, diff, context)<br>
+        <span style="color:#e5a655;">审计</span> create / record_result / approve / close 实现末尾同事务调用 AuditLogService::record(ctx, db, entity_type, id, action, diff, context)<br>
         <span style="color:#e5a655;">事件</span> record_result → InspectionPassed / InspectionFailed; execute_disposition → MRBDispositioned; RMA.close 按需发布 RMAClosed<br>
         <span style="color:#e5a655;">check_gate 语义</span> 增加 inspection_type 参数，区分同一来源的不同检验类型（IQC/IPQC/FQC/OQC） Conditional（让步接收）→ 映射为 Passed；Pending（待检）→ 映射为 Failed；无活跃规格 → NotRequired<br>
-        <span style="color:#e5a655;">幂等</span> record_result 实现层调用 IdempotencyService::check_and_mark(ctx, "qms:record:{source_type}:{source_id}", "RecordResult")<br>
+        <span style="color:#e5a655;">幂等</span> record_result 实现层调用 IdempotencyService::check_and_mark(ctx, db, "qms:record:{source_type}:{source_id}", "RecordResult")<br>
         <span style="color:#e5a655;">gRPC</span> 所有 Req/Filter 结构体与 Proto 定义 1:1 映射，prost 自动生成<br>
         <span style="color:#e5a655;">Guard 层级</span> 业务不变量（数量守恒等）在 Service 层前置校验，StateMachine 只负责拓扑推进，禁止依赖状态机配置兜底<br>
         <span style="color:#e5a655;">异步边界</span> execute_disposition 内 CostEntry/WMS 库存调整必须通过 DomainEventBus 异步消费，禁止同步直调<br>

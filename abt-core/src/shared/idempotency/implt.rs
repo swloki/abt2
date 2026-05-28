@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -8,6 +8,7 @@ use tracing::instrument;
 use super::repo::IdempotencyRepo;
 use super::service::IdempotencyService;
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 
@@ -24,15 +25,15 @@ impl IdempotencyServiceImpl {
 
 #[async_trait]
 impl IdempotencyService for IdempotencyServiceImpl {
-    #[instrument(skip(self, ctx), fields(event_id, handler_name))]
+    #[instrument(skip(self, _ctx), fields(event_id, handler_name))]
     async fn check_and_mark(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         event_id: i64,
         handler_name: &str,
     ) -> Result<bool> {
         let is_first = IdempotencyRepo::check_and_mark(
-            &mut *ctx.executor,
+            &mut *db,
             event_id,
             handler_name,
         )
@@ -42,16 +43,16 @@ impl IdempotencyService for IdempotencyServiceImpl {
         Ok(is_first)
     }
 
-    #[instrument(skip(self, ctx, result), fields(event_id, handler_name))]
+    #[instrument(skip(self, _ctx, result), fields(event_id, handler_name))]
     async fn mark_processed(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         event_id: i64,
         handler_name: &str,
         result: Option<serde_json::Value>,
     ) -> Result<()> {
         IdempotencyRepo::mark_processed(
-            &mut *ctx.executor,
+            &mut *db,
             event_id,
             handler_name,
             result.as_ref(),
@@ -62,13 +63,13 @@ impl IdempotencyService for IdempotencyServiceImpl {
         Ok(())
     }
 
-    #[instrument(skip(self, ctx), fields(before = %before.to_rfc3339()))]
+    #[instrument(skip(self, _ctx), fields(before = %before.to_rfc3339()))]
     async fn cleanup_expired(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         before: DateTime<Utc>,
     ) -> Result<u64> {
-        let deleted = IdempotencyRepo::cleanup_expired(&mut *ctx.executor, before)
+        let deleted = IdempotencyRepo::cleanup_expired(&mut *db, before)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 

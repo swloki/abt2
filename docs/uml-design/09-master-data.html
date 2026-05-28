@@ -279,13 +279,13 @@ classDiagram
   %% PageParams 定义在 00-shared-infrastructure.html
   class ProductService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req: CreateProductReq) Result~i64~
-    +update(ctx: ServiceContext, id, req: UpdateProductReq) Result~Unit~
-    +delete(ctx: ServiceContext, id) Result~Unit~
-    +get(ctx: ServiceContext, id) Result~Product~
-    +get_by_ids(ctx: ServiceContext, ids) Vec~Product~
-    +list(ctx: ServiceContext, filter, page: PageParams) PaginatedResult~Product~
-    +check_product_usage(ctx: ServiceContext, id, query: UsageQuery) PaginatedResult~UsageEntry~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateProductReq) Result~i64~
+    +update(ctx: &ServiceContext, db: PgExecutor, id, req: UpdateProductReq) Result~Unit~
+    +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +get(ctx: &ServiceContext, db: PgExecutor, id) Result~Product~
+    +get_by_ids(ctx: &ServiceContext, db: PgExecutor, ids) Vec~Product~
+    +list(ctx: &ServiceContext, db: PgExecutor, filter, page: PageParams) PaginatedResult~Product~
+    +check_product_usage(ctx: &ServiceContext, db: PgExecutor, id, query: UsageQuery) PaginatedResult~UsageEntry~
   }
   class UsageQuery {
     +page: u32
@@ -310,73 +310,73 @@ classDiagram
 
   class ProductWatcherService {
     &lt;&lt;interface&gt;&gt;
-    +watch_product(ctx: ServiceContext, product_id, safety_stock_override: Option~Decimal~) Result~bool~
-    +unwatch_product(ctx: ServiceContext, product_id) Result~bool~
-    +list_watched_products(ctx: ServiceContext, page, page_size) PaginatedResult~WatchedProductWithInventory~
+    +watch_product(ctx: &ServiceContext, db: PgExecutor, product_id, safety_stock_override: Option~Decimal~) Result~bool~
+    +unwatch_product(ctx: &ServiceContext, db: PgExecutor, product_id) Result~bool~
+    +list_watched_products(ctx: &ServiceContext, db: PgExecutor, page, page_size) PaginatedResult~WatchedProductWithInventory~
   }
 
   class ProductPriceService {
     &lt;&lt;interface&gt;&gt;
-    +update_price(ctx: ServiceContext, product_id, price_type, new_price, remark: String) Result~Unit~
-    +list_price_history(ctx: ServiceContext, query) PaginatedResult
-    +get_current_price(ctx: ServiceContext, product_id, price_type) Option~Decimal~
-    +get_price_at(ctx: ServiceContext, product_id, price_type, as_of) Option~Decimal~
+    +update_price(ctx: &ServiceContext, db: PgExecutor, product_id, price_type, new_price, remark: String) Result~Unit~
+    +list_price_history(ctx: &ServiceContext, db: PgExecutor, query) PaginatedResult
+    +get_current_price(ctx: &ServiceContext, db: PgExecutor, product_id, price_type) Option~Decimal~
+    +get_price_at(ctx: &ServiceContext, db: PgExecutor, product_id, price_type, as_of) Option~Decimal~
   }
 
   class CategoryService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
-    +update(ctx: ServiceContext, category_id, req) Result~Unit~
-    +delete(ctx: ServiceContext, category_id) Result~Unit~
-    +get(ctx: ServiceContext, category_id) Result~Category~
-    +list(ctx: ServiceContext, filter, page: PageParams) PaginatedResult~Category~
-    +get_tree(ctx: ServiceContext, root_id, depth_limit) Vec~CategoryTree~
-    +move_to(ctx: ServiceContext, category_id, new_parent_id) Result~Unit~
-    +assign_products(ctx: ServiceContext, category_id, product_ids) Result~Unit~
-    +remove_products(ctx: ServiceContext, category_id, product_ids) Result~Unit~
+    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
+    +update(ctx: &ServiceContext, db: PgExecutor, category_id, req) Result~Unit~
+    +delete(ctx: &ServiceContext, db: PgExecutor, category_id) Result~Unit~
+    +get(ctx: &ServiceContext, db: PgExecutor, category_id) Result~Category~
+    +list(ctx: &ServiceContext, db: PgExecutor, filter, page: PageParams) PaginatedResult~Category~
+    +get_tree(ctx: &ServiceContext, db: PgExecutor, root_id, depth_limit) Vec~CategoryTree~
+    +move_to(ctx: &ServiceContext, db: PgExecutor, category_id, new_parent_id) Result~Unit~
+    +assign_products(ctx: &ServiceContext, db: PgExecutor, category_id, product_ids) Result~Unit~
+    +remove_products(ctx: &ServiceContext, db: PgExecutor, category_id, product_ids) Result~Unit~
   }
 
   %% BOM 拆分为 4 个 Service（CQRS 风格）
   class BomQueryService {
     &lt;&lt;interface&gt;&gt;
-    +get(ctx: ServiceContext, bom_id) Result~Bom~
-    +list(ctx: ServiceContext, query) PaginatedResult~Bom~
-    +get_leaf_nodes(ctx: ServiceContext, bom_id) Vec~BomNode~
-    +get_snapshots(ctx: ServiceContext, bom_id, version, limit: i32) Vec~BomSnapshot~
-    +exists_name(ctx: ServiceContext, name, caller_id) bool
+    +get(ctx: &ServiceContext, db: PgExecutor, bom_id) Result~Bom~
+    +list(ctx: &ServiceContext, db: PgExecutor, query) PaginatedResult~Bom~
+    +get_leaf_nodes(ctx: &ServiceContext, db: PgExecutor, bom_id) Vec~BomNode~
+    +get_snapshots(ctx: &ServiceContext, db: PgExecutor, bom_id, version, limit: i32) Vec~BomSnapshot~
+    +exists_name(ctx: &ServiceContext, db: PgExecutor, name, caller_id) bool
   }
 
   class BomCommandService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req: CreateBomReq) Result~i64~
-    +update(ctx: ServiceContext, id, req: UpdateBomReq, expected_version) Result~Unit~
-    +delete(ctx: ServiceContext, id) Result~Unit~
-    +publish(ctx: ServiceContext, id) Result~i64~
-    +unpublish(ctx: ServiceContext, id) Result~Unit~
-    +save_as(ctx: ServiceContext, source_id, new_name) Result~i64~
-    +substitute_product(ctx: ServiceContext, req: SubstituteReq) SubstitutionResult
-    +validate_cycle(ctx: ServiceContext, bom_id) Result~Unit~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateBomReq) Result~i64~
+    +update(ctx: &ServiceContext, db: PgExecutor, id, req: UpdateBomReq, expected_version) Result~Unit~
+    +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +publish(ctx: &ServiceContext, db: PgExecutor, id) Result~i64~
+    +unpublish(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +save_as(ctx: &ServiceContext, db: PgExecutor, source_id, new_name) Result~i64~
+    +substitute_product(ctx: &ServiceContext, db: PgExecutor, req: SubstituteReq) SubstitutionResult
+    +validate_cycle(ctx: &ServiceContext, db: PgExecutor, bom_id) Result~Unit~
   }
 
   class BomNodeService {
     &lt;&lt;interface&gt;&gt;
-    +add_node(ctx: ServiceContext, bom_id, node: NewBomNode) Result~i64~
-    +update_node(ctx: ServiceContext, bom_id, node_id, req: UpdateBomNodeReq, expected_version) Result~Unit~
-    +delete_node(ctx: ServiceContext, bom_id, node_id) Result~i64~
-    +move_node(ctx: ServiceContext, bom_id, node_id, new_parent_id, before_sibling_id) Result~Unit~
+    +add_node(ctx: &ServiceContext, db: PgExecutor, bom_id, node: NewBomNode) Result~i64~
+    +update_node(ctx: &ServiceContext, db: PgExecutor, bom_id, node_id, req: UpdateBomNodeReq, expected_version) Result~Unit~
+    +delete_node(ctx: &ServiceContext, db: PgExecutor, bom_id, node_id) Result~i64~
+    +move_node(ctx: &ServiceContext, db: PgExecutor, bom_id, node_id, new_parent_id, before_sibling_id) Result~Unit~
   }
 
   class BomCostService {
     &lt;&lt;interface&gt;&gt;
-    +get_cost_report(ctx: ServiceContext, bom_id, as_of_date) BomCostReport
+    +get_cost_report(ctx: &ServiceContext, db: PgExecutor, bom_id, as_of_date) BomCostReport
   }
 
   class BomCategoryService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
-    +update(ctx: ServiceContext, id, req) Result~Unit~
-    +delete(ctx: ServiceContext, id) Result~Unit~
-    +list(ctx: ServiceContext, query) PaginatedResult
+    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
+    +update(ctx: &ServiceContext, db: PgExecutor, id, req) Result~Unit~
+    +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +list(ctx: &ServiceContext, db: PgExecutor, query) PaginatedResult
   }
 
   %% ==================== 客商主数据 ====================
@@ -497,37 +497,37 @@ classDiagram
 
   class CustomerService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
-    +get(ctx: ServiceContext, id) Result~Customer~
-    +update(ctx: ServiceContext, id, req) Result~Unit~
-    +list(ctx: ServiceContext, filter, page: PageParams) PaginatedResult~Customer~
-    +add_contact(ctx: ServiceContext, cid, req) Result~i64~
-    +update_contact(ctx: ServiceContext, cid, contact_id, req) Result~Unit~
-    +delete_contact(ctx: ServiceContext, cid, contact_id) Result~Unit~
-    +list_contacts(ctx: ServiceContext, cid) Vec~CustomerContact~
-    +add_address(ctx: ServiceContext, cid, req) Result~i64~
-    +update_address(ctx: ServiceContext, cid, address_id, req) Result~Unit~
-    +delete_address(ctx: ServiceContext, cid, address_id) Result~Unit~
-    +list_addresses(ctx: ServiceContext, cid) Vec~CustomerAddress~
-    +validate_contact_ownership(ctx: ServiceContext, cid, contact_id) bool
-    +claim(ctx: ServiceContext, id) Result~Unit~
-    +transfer(ctx: ServiceContext, id, new_owner_id, new_department_id) Result~Unit~
+    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
+    +get(ctx: &ServiceContext, db: PgExecutor, id) Result~Customer~
+    +update(ctx: &ServiceContext, db: PgExecutor, id, req) Result~Unit~
+    +list(ctx: &ServiceContext, db: PgExecutor, filter, page: PageParams) PaginatedResult~Customer~
+    +add_contact(ctx: &ServiceContext, db: PgExecutor, cid, req) Result~i64~
+    +update_contact(ctx: &ServiceContext, db: PgExecutor, cid, contact_id, req) Result~Unit~
+    +delete_contact(ctx: &ServiceContext, db: PgExecutor, cid, contact_id) Result~Unit~
+    +list_contacts(ctx: &ServiceContext, db: PgExecutor, cid) Vec~CustomerContact~
+    +add_address(ctx: &ServiceContext, db: PgExecutor, cid, req) Result~i64~
+    +update_address(ctx: &ServiceContext, db: PgExecutor, cid, address_id, req) Result~Unit~
+    +delete_address(ctx: &ServiceContext, db: PgExecutor, cid, address_id) Result~Unit~
+    +list_addresses(ctx: &ServiceContext, db: PgExecutor, cid) Vec~CustomerAddress~
+    +validate_contact_ownership(ctx: &ServiceContext, db: PgExecutor, cid, contact_id) bool
+    +claim(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +transfer(ctx: &ServiceContext, db: PgExecutor, id, new_owner_id, new_department_id) Result~Unit~
   }
 
   class SupplierService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
-    +get(ctx: ServiceContext, id) Result~Supplier~
-    +update(ctx: ServiceContext, id, req) Result~Unit~
-    +list(ctx: ServiceContext, filter, page: PageParams) PaginatedResult~Supplier~
-    +add_contact(ctx: ServiceContext, sid, req) Result~i64~
-    +update_contact(ctx: ServiceContext, sid, contact_id, req) Result~Unit~
-    +delete_contact(ctx: ServiceContext, sid, contact_id) Result~Unit~
-    +list_contacts(ctx: ServiceContext, sid) Vec~SupplierContact~
-    +add_bank_account(ctx: ServiceContext, sid, req) Result~i64~
-    +update_bank_account(ctx: ServiceContext, sid, account_id, req) Result~Unit~
-    +delete_bank_account(ctx: ServiceContext, sid, account_id) Result~Unit~
-    +list_bank_accounts(ctx: ServiceContext, sid) Vec~SupplierBankAccount~
+    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
+    +get(ctx: &ServiceContext, db: PgExecutor, id) Result~Supplier~
+    +update(ctx: &ServiceContext, db: PgExecutor, id, req) Result~Unit~
+    +list(ctx: &ServiceContext, db: PgExecutor, filter, page: PageParams) PaginatedResult~Supplier~
+    +add_contact(ctx: &ServiceContext, db: PgExecutor, sid, req) Result~i64~
+    +update_contact(ctx: &ServiceContext, db: PgExecutor, sid, contact_id, req) Result~Unit~
+    +delete_contact(ctx: &ServiceContext, db: PgExecutor, sid, contact_id) Result~Unit~
+    +list_contacts(ctx: &ServiceContext, db: PgExecutor, sid) Vec~SupplierContact~
+    +add_bank_account(ctx: &ServiceContext, db: PgExecutor, sid, req) Result~i64~
+    +update_bank_account(ctx: &ServiceContext, db: PgExecutor, sid, account_id, req) Result~Unit~
+    +delete_bank_account(ctx: &ServiceContext, db: PgExecutor, sid, account_id) Result~Unit~
+    +list_bank_accounts(ctx: &ServiceContext, db: PgExecutor, sid) Vec~SupplierBankAccount~
   }
 
   %% 实体关系
@@ -725,31 +725,31 @@ classDiagram
 
   class RoutingService {
     &lt;&lt;interface&gt;&gt;
-    +list(ctx: ServiceContext, query: ListRoutingQuery) PaginatedResult~Routing~
-    +get_detail(ctx: ServiceContext, id) Result~RoutingDetail~
-    +create(ctx: ServiceContext, req: CreateRoutingReq) Result~i64~
-    +update(ctx: ServiceContext, id: i64, req: UpdateRoutingReq) Result~Unit~
-    +delete(ctx: ServiceContext, id) Result~Unit~
-    +find_matching_routing(ctx: ServiceContext, process_codes: Vec~String~) Result~Option~RoutingDetail~~
-    +set_bom_routing(ctx: ServiceContext, product_code: String, routing_id: i64) Result~Unit~
-    +get_bom_routing(ctx: ServiceContext, product_code: String) Result~Option~RoutingDetail~
-    +list_boms_by_routing(ctx: ServiceContext, routing_id: i64) Result~Vec~BomRouting~
+    +list(ctx: &ServiceContext, db: PgExecutor, query: ListRoutingQuery) PaginatedResult~Routing~
+    +get_detail(ctx: &ServiceContext, db: PgExecutor, id) Result~RoutingDetail~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateRoutingReq) Result~i64~
+    +update(ctx: &ServiceContext, db: PgExecutor, id: i64, req: UpdateRoutingReq) Result~Unit~
+    +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +find_matching_routing(ctx: &ServiceContext, db: PgExecutor, process_codes: Vec~String~) Result~Option~RoutingDetail~~
+    +set_bom_routing(ctx: &ServiceContext, db: PgExecutor, product_code: String, routing_id: i64) Result~Unit~
+    +get_bom_routing(ctx: &ServiceContext, db: PgExecutor, product_code: String) Result~Option~RoutingDetail~
+    +list_boms_by_routing(ctx: &ServiceContext, db: PgExecutor, routing_id: i64) Result~Vec~BomRouting~
   }
 
   class LaborProcessDictService {
     &lt;&lt;interface&gt;&gt;
-    +list(ctx: ServiceContext, query: ListLaborProcessDictQuery) PaginatedResult~LaborProcessDict~
-    +create(ctx: ServiceContext, req: CreateLaborProcessDictReq) Result~i64~
-    +update(ctx: ServiceContext, req: UpdateLaborProcessDictReq) Result~Unit~
-    +delete(ctx: ServiceContext, id) Result~u64~
+    +list(ctx: &ServiceContext, db: PgExecutor, query: ListLaborProcessDictQuery) PaginatedResult~LaborProcessDict~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateLaborProcessDictReq) Result~i64~
+    +update(ctx: &ServiceContext, db: PgExecutor, req: UpdateLaborProcessDictReq) Result~Unit~
+    +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~u64~
   }
 
   class BomLaborProcessService {
     &lt;&lt;interface&gt;&gt;
-    +list(ctx: ServiceContext, query: ListLaborProcessQuery) PaginatedResult~BomLaborProcess~
-    +create(ctx: ServiceContext, req: CreateLaborProcessReq) Result~i64~
-    +update(ctx: ServiceContext, req: UpdateLaborProcessReq) Result~Unit~
-    +delete(ctx: ServiceContext, id: i64) Result~Unit~
+    +list(ctx: &ServiceContext, db: PgExecutor, query: ListLaborProcessQuery) PaginatedResult~BomLaborProcess~
+    +create(ctx: &ServiceContext, db: PgExecutor, req: CreateLaborProcessReq) Result~i64~
+    +update(ctx: &ServiceContext, db: PgExecutor, req: UpdateLaborProcessReq) Result~Unit~
+    +delete(ctx: &ServiceContext, db: PgExecutor, id: i64) Result~Unit~
   }
 
   %% 工艺路线关系
@@ -768,7 +768,7 @@ classDiagram
   %% ProductWatcher 关系
   ProductWatcherService ..> WatchedProductWithInventory
 
-    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult\nCustomer 行级安全: list/get 底层必须根据 ctx.data_scope 强制拼接 WHERE 条件，禁止前端越权"
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = &ServiceContext, db = PgExecutor | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult\nCustomer 行级安全: list/get 底层必须根据 ctx.data_scope 强制拼接 WHERE 条件，禁止前端越权"
     </div>
   </div>
 </div>
@@ -894,24 +894,24 @@ classDiagram
           &nbsp;&nbsp;BLACKLISTED <span style="color:#888;">// 黑名单</span><br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">CustomerService</span> {<br>
-          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
-          &nbsp;&nbsp;create(ctx, req) → i64<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部调用 DocumentSequenceService.next_number(ctx, "CUS")</span><br>
-          &nbsp;&nbsp;get(ctx, id) → Customer<br>
-          &nbsp;&nbsp;update(ctx, id, req)<br>
-          &nbsp;&nbsp;list(ctx, filter, page) → PaginatedResult<br>
-          &nbsp;&nbsp;add_contact(ctx, cid, req) → i64<br>
-          &nbsp;&nbsp;update_contact(ctx, cid, contact_id, req)<br>
-          &nbsp;&nbsp;delete_contact(ctx, cid, contact_id)<br>
-          &nbsp;&nbsp;list_contacts(ctx, cid) → Vec&lt;CustomerContact&gt;<br>
-          &nbsp;&nbsp;add_address(ctx, cid, req) → i64<br>
-          &nbsp;&nbsp;update_address(ctx, cid, address_id, req)<br>
-          &nbsp;&nbsp;delete_address(ctx, cid, address_id)<br>
-          &nbsp;&nbsp;list_addresses(ctx, cid) → Vec&lt;CustomerAddress&gt;<br>
-          &nbsp;&nbsp;validate_contact_ownership(ctx, cid, contact_id) → bool<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: &amp;ServiceContext, db: PgExecutor</span><br>
+          &nbsp;&nbsp;create(ctx, db, req) → i64<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部调用 DocumentSequenceService.next_number(ctx, db, "CUS")</span><br>
+          &nbsp;&nbsp;get(ctx, db, id) → Customer<br>
+          &nbsp;&nbsp;update(ctx, db, id, req)<br>
+          &nbsp;&nbsp;list(ctx, db, filter, page) → PaginatedResult<br>
+          &nbsp;&nbsp;add_contact(ctx, db, cid, req) → i64<br>
+          &nbsp;&nbsp;update_contact(ctx, db, cid, contact_id, req)<br>
+          &nbsp;&nbsp;delete_contact(ctx, db, cid, contact_id)<br>
+          &nbsp;&nbsp;list_contacts(ctx, db, cid) → Vec&lt;CustomerContact&gt;<br>
+          &nbsp;&nbsp;add_address(ctx, db, cid, req) → i64<br>
+          &nbsp;&nbsp;update_address(ctx, db, cid, address_id, req)<br>
+          &nbsp;&nbsp;delete_address(ctx, db, cid, address_id)<br>
+          &nbsp;&nbsp;list_addresses(ctx, db, cid) → Vec&lt;CustomerAddress&gt;<br>
+          &nbsp;&nbsp;validate_contact_ownership(ctx, db, cid, contact_id) → bool<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// Sales 模块校验 contact_id 是否归属该客户</span><br>
-          &nbsp;&nbsp;claim(ctx, id) <span style="color:#888;">// 公海客户认领，设 owner_id=operator_id</span><br>
-          &nbsp;&nbsp;transfer(ctx, id, new_owner_id,<br>
+          &nbsp;&nbsp;claim(ctx, db, id) <span style="color:#888;">// 公海客户认领，设 owner_id=operator_id</span><br>
+          &nbsp;&nbsp;transfer(ctx, db, id, new_owner_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;new_department_id?) <span style="color:#888;">// 客户转移（高权限）</span><br>
           }
         </div>
@@ -970,20 +970,20 @@ classDiagram
           &nbsp;&nbsp;BLACKLISTED <span style="color:#888;">// 黑名单</span><br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">SupplierService</span> {<br>
-          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
-          &nbsp;&nbsp;create(ctx, req) → i64<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部调用 DocumentSequenceService.next_number(ctx, "SUP")</span><br>
-          &nbsp;&nbsp;get(ctx, id) → Supplier<br>
-          &nbsp;&nbsp;update(ctx, id, req)<br>
-          &nbsp;&nbsp;list(ctx, filter, page) → PaginatedResult<br>
-          &nbsp;&nbsp;add_contact(ctx, sid, req) → i64<br>
-          &nbsp;&nbsp;update_contact(ctx, sid, contact_id, req)<br>
-          &nbsp;&nbsp;delete_contact(ctx, sid, contact_id)<br>
-          &nbsp;&nbsp;list_contacts(ctx, sid) → Vec&lt;SupplierContact&gt;<br>
-          &nbsp;&nbsp;add_bank_account(ctx, sid, req) → i64<br>
-          &nbsp;&nbsp;update_bank_account(ctx, sid, account_id, req)<br>
-          &nbsp;&nbsp;delete_bank_account(ctx, sid, account_id)<br>
-          &nbsp;&nbsp;list_bank_accounts(ctx, sid) → Vec&lt;SupplierBankAccount&gt;<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: &amp;ServiceContext, db: PgExecutor</span><br>
+          &nbsp;&nbsp;create(ctx, db, req) → i64<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部调用 DocumentSequenceService.next_number(ctx, db, "SUP")</span><br>
+          &nbsp;&nbsp;get(ctx, db, id) → Supplier<br>
+          &nbsp;&nbsp;update(ctx, db, id, req)<br>
+          &nbsp;&nbsp;list(ctx, db, filter, page) → PaginatedResult<br>
+          &nbsp;&nbsp;add_contact(ctx, db, sid, req) → i64<br>
+          &nbsp;&nbsp;update_contact(ctx, db, sid, contact_id, req)<br>
+          &nbsp;&nbsp;delete_contact(ctx, db, sid, contact_id)<br>
+          &nbsp;&nbsp;list_contacts(ctx, db, sid) → Vec&lt;SupplierContact&gt;<br>
+          &nbsp;&nbsp;add_bank_account(ctx, db, sid, req) → i64<br>
+          &nbsp;&nbsp;update_bank_account(ctx, db, sid, account_id, req)<br>
+          &nbsp;&nbsp;delete_bank_account(ctx, db, sid, account_id)<br>
+          &nbsp;&nbsp;list_bank_accounts(ctx, db, sid) → Vec&lt;SupplierBankAccount&gt;<br>
           }
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
@@ -1041,15 +1041,15 @@ classDiagram
           &nbsp;&nbsp;meta: ProductMeta?<br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ProductService</span> {<br>
-          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
-          &nbsp;&nbsp;create(ctx, req: CreateProductReq) → Product<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部调用 DocumentSequenceService.next_number(ctx, "PRODUCT")</span><br>
-          &nbsp;&nbsp;update(ctx, id, req: UpdateProductReq) → Product<br>
-          &nbsp;&nbsp;delete(ctx, id) <span style="color:#888;">// 内部调用 check_product_usage</span><br>
-          &nbsp;&nbsp;get(ctx, id) → Product <span style="color:#888;">// 不存在返回 DomainError::NotFound</span><br>
-          &nbsp;&nbsp;get_by_ids(ctx, ids) → Vec&lt;Product&gt;<br>
-          &nbsp;&nbsp;list(ctx, filter, page) → PaginatedResult<br>
-          &nbsp;&nbsp;check_product_usage(ctx, id, query) → PaginatedResult<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: &amp;ServiceContext, db: PgExecutor</span><br>
+          &nbsp;&nbsp;create(ctx, db, req: CreateProductReq) → Product<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部调用 DocumentSequenceService.next_number(ctx, db, "PRODUCT")</span><br>
+          &nbsp;&nbsp;update(ctx, db, id, req: UpdateProductReq) → Product<br>
+          &nbsp;&nbsp;delete(ctx, db, id) <span style="color:#888;">// 内部调用 check_product_usage</span><br>
+          &nbsp;&nbsp;get(ctx, db, id) → Product <span style="color:#888;">// 不存在返回 DomainError::NotFound</span><br>
+          &nbsp;&nbsp;get_by_ids(ctx, db, ids) → Vec&lt;Product&gt;<br>
+          &nbsp;&nbsp;list(ctx, db, filter, page) → PaginatedResult<br>
+          &nbsp;&nbsp;check_product_usage(ctx, db, id, query) → PaginatedResult<br>
           }<br><br>
           <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">UsageQuery</span> {<br>
           &nbsp;&nbsp;page: u32<br>
@@ -1088,21 +1088,21 @@ classDiagram
           &nbsp;&nbsp;children: Vec&lt;CategoryTree&gt;<br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">CategoryService</span> {<br>
-          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
-          &nbsp;&nbsp;create(ctx, req) → i64<br>
-          &nbsp;&nbsp;update(ctx, category_id, req)<br>
-          &nbsp;&nbsp;delete(ctx, category_id) <span style="color:#888;">// 内部检查子分类和关联产品</span><br>
-          &nbsp;&nbsp;get(ctx, category_id) → Category<br>
-          &nbsp;&nbsp;list(ctx, filter, page) → PaginatedResult<br>
-          &nbsp;&nbsp;get_tree(ctx, root_id?,<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: &amp;ServiceContext, db: PgExecutor</span><br>
+          &nbsp;&nbsp;create(ctx, db, req) → i64<br>
+          &nbsp;&nbsp;update(ctx, db, category_id, req)<br>
+          &nbsp;&nbsp;delete(ctx, db, category_id) <span style="color:#888;">// 内部检查子分类和关联产品</span><br>
+          &nbsp;&nbsp;get(ctx, db, category_id) → Category<br>
+          &nbsp;&nbsp;list(ctx, db, filter, page) → PaginatedResult<br>
+          &nbsp;&nbsp;get_tree(ctx, db, root_id?,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;depth_limit?) → Vec&lt;CategoryTree&gt;<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// null=全树, id=子树</span><br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// depth_limit 防止全量树爆炸</span><br>
-          &nbsp;&nbsp;move_to(ctx, category_id, new_parent_id)<br>
+          &nbsp;&nbsp;move_to(ctx, db, category_id, new_parent_id)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 级联更新path (CTE)</span><br>
-          &nbsp;&nbsp;assign_products(ctx, category_id,<br>
+          &nbsp;&nbsp;assign_products(ctx, db, category_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;product_ids)<br>
-          &nbsp;&nbsp;remove_products(ctx, category_id,<br>
+          &nbsp;&nbsp;remove_products(ctx, db, category_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;product_ids)<br>
           }
         </div>
@@ -1213,15 +1213,15 @@ classDiagram
           &nbsp;&nbsp;created_at: DateTime<br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ProductPriceService</span> {<br>
-          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
-          &nbsp;&nbsp;update_price(ctx, product_id,<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: &amp;ServiceContext, db: PgExecutor</span><br>
+          &nbsp;&nbsp;update_price(ctx, db, product_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;price_type, new_price,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;remark: String) <span style="color:#888;">// 必填</span><br>
-          &nbsp;&nbsp;list_price_history(ctx, query)<br>
+          &nbsp;&nbsp;list_price_history(ctx, db, query)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult<br>
-          &nbsp;&nbsp;get_current_price(ctx,<br>
+          &nbsp;&nbsp;get_current_price(ctx, db,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;product_id, price_type) → Decimal?<br>
-          &nbsp;&nbsp;get_price_at(ctx, product_id,<br>
+          &nbsp;&nbsp;get_price_at(ctx, db, product_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;price_type, as_of) → Decimal? <span style="color:#888;">// 历史时间点</span><br>
           }
         </div>
@@ -1234,27 +1234,27 @@ classDiagram
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10px;">
           <span style="color:#61afef;">// 只读查询</span><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomQueryService</span> {<br>
-          &nbsp;&nbsp;get(ctx, bom_id) → Bom <span style="color:#888;">// 包含 bom_nodes（自动加载节点树）</span><br>
-          &nbsp;&nbsp;list(ctx, query) → PaginatedResult<br>
-          &nbsp;&nbsp;get_leaf_nodes(ctx, bom_id) → Vec<br>
-          &nbsp;&nbsp;get_snapshots(ctx, bom_id,<br>
+          &nbsp;&nbsp;get(ctx, db, bom_id) → Bom <span style="color:#888;">// 包含 bom_nodes（自动加载节点树）</span><br>
+          &nbsp;&nbsp;list(ctx, db, query) → PaginatedResult<br>
+          &nbsp;&nbsp;get_leaf_nodes(ctx, db, bom_id) → Vec<br>
+          &nbsp;&nbsp;get_snapshots(ctx, db, bom_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;version?, limit=10) → Vec<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// version 指定则返回单条，默认按 DESC 最新 10 条</span><br>
-          &nbsp;&nbsp;exists_name(ctx, name, caller_id?) → bool<br>
+          &nbsp;&nbsp;exists_name(ctx, db, name, caller_id?) → bool<br>
           }<br><br>
           <span style="color:#e5a655;">// 生命周期写操作</span><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomCommandService</span> {<br>
-          &nbsp;&nbsp;create(ctx, req: CreateBomReq) → i64<br>
-          &nbsp;&nbsp;update(ctx, id, req: UpdateBomReq,<br>
+          &nbsp;&nbsp;create(ctx, db, req: CreateBomReq) → i64<br>
+          &nbsp;&nbsp;update(ctx, db, id, req: UpdateBomReq,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#e06c75;">expected_version</span>) → Bom<br>
-          &nbsp;&nbsp;delete(ctx, id) <span style="color:#888;">// 检查工单引用快照</span><br>
-          &nbsp;&nbsp;publish(ctx, id) → <span style="color:#e06c75;">BomSnapshot</span><br>
-          &nbsp;&nbsp;unpublish(ctx, id) → Bom<br>
-          &nbsp;&nbsp;save_as(ctx, source_id, new_name) → i64<br>
-          &nbsp;&nbsp;substitute_product(ctx,<br>
+          &nbsp;&nbsp;delete(ctx, db, id) <span style="color:#888;">// 检查工单引用快照</span><br>
+          &nbsp;&nbsp;publish(ctx, db, id) → <span style="color:#e06c75;">BomSnapshot</span><br>
+          &nbsp;&nbsp;unpublish(ctx, db, id) → Bom<br>
+          &nbsp;&nbsp;save_as(ctx, db, source_id, new_name) → i64<br>
+          &nbsp;&nbsp;substitute_product(ctx, db,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;req: SubstituteReq)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ SubstitutionResult<br>
-          &nbsp;&nbsp;validate_cycle(ctx, bom_id) → Unit <span style="color:#888;">// DFS 环检测，防止循环依赖 BOM</span><br>
+          &nbsp;&nbsp;validate_cycle(ctx, db, bom_id) → Unit <span style="color:#888;">// DFS 环检测，防止循环依赖 BOM</span><br>
           }
         </div>
       </div>
@@ -1266,20 +1266,20 @@ classDiagram
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 10px;">
           <span style="color:#e06c75;">// 节点树操作（原子性要求高）</span><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomNodeService</span> {<br>
-          &nbsp;&nbsp;add_node(ctx, bom_id,<br>
+          &nbsp;&nbsp;add_node(ctx, db, bom_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;node: NewBomNode) → i64<br>
-          &nbsp;&nbsp;update_node(ctx, bom_id, node_id,<br>
+          &nbsp;&nbsp;update_node(ctx, db, bom_id, node_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;req: UpdateBomNodeReq,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#e06c75;">expected_version</span>)<br>
-          &nbsp;&nbsp;delete_node(ctx, bom_id,<br>
+          &nbsp;&nbsp;delete_node(ctx, db, bom_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;node_id) → i64<br>
-          &nbsp;&nbsp;<span style="color:#e06c75;">move_node</span>(ctx, bom_id, node_id,<br>
+          &nbsp;&nbsp;<span style="color:#e06c75;">move_node</span>(ctx, db, bom_id, node_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;new_parent_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;before_sibling_id?) <span style="color:#888;">// 跨父节点移动，含 swap</span><br>
           }<br><br>
           <span style="color:#98c379;">// 成本核算</span><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomCostService</span> {<br>
-          &nbsp;&nbsp;get_cost_report(ctx, bom_id,<br>
+          &nbsp;&nbsp;get_cost_report(ctx, db, bom_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;as_of_date?) → BomCostReport<br>
           }
         </div>
@@ -1302,19 +1302,19 @@ classDiagram
           <span style="color:#888;">// Handler 映射为 gRPC Aborted (ABORTED)</span><br>
           <span style="color:#888;">// 服务端不自动重试，客户端获取最新版本后重新提交</span><br><br>
           <span style="color:#e5a655;">// 发布流程（BomCommandService.publish）</span><br>
-          <span style="color:#e5c07b;">publish</span>(ctx, bom_id) → BomSnapshot<br>
+          <span style="color:#e5c07b;">publish</span>(ctx, db, bom_id) → BomSnapshot<br>
           &nbsp;&nbsp;Draft → Published<br>
           &nbsp;&nbsp;<span style="color:#888;">// version 自增</span><br>
           &nbsp;&nbsp;<span style="color:#888;">// 自动生成 BomSnapshot(bom_id, version, ...)</span><br>
           &nbsp;&nbsp;<span style="color:#888;">// 同事务内:</span><br>
-          &nbsp;&nbsp;<span style="color:#888;">//   AuditLog.record(ctx, Publish, ...)</span><br>
-          &nbsp;&nbsp;<span style="color:#888;">//   EventBus.publish(ctx, BomPublished{...})</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">//   AuditLog.record(ctx, db, Publish, ...)</span><br>
+          &nbsp;&nbsp;<span style="color:#888;">//   EventBus.publish(ctx, db, BomPublished{...})</span><br>
           &nbsp;&nbsp;<span style="color:#888;">// 返回 BomSnapshot（不可变）</span><br><br>
-          <span style="color:#e5c07b;">unpublish</span>(ctx, bom_id) → Bom<br>
+          <span style="color:#e5c07b;">unpublish</span>(ctx, db, bom_id) → Bom<br>
           &nbsp;&nbsp;Published → Draft<br>
           &nbsp;&nbsp;<span style="color:#888;">// 不删除快照</span><br><br>
           <span style="color:#e5a655;">// 物料替换（InCallerTx + FOR UPDATE）</span><br>
-          <span style="color:#e5c07b;">substitute_product</span>(ctx,<br>
+          <span style="color:#e5c07b;">substitute_product</span>(ctx, db,<br>
           &nbsp;&nbsp;req: SubstituteReq)<br>
           &nbsp;&nbsp;→ SubstitutionResult {<br>
           &nbsp;&nbsp;&nbsp;&nbsp;affected_boms, affected_nodes<br>
@@ -1389,10 +1389,10 @@ classDiagram
       <h3 style="margin: 0 0 8px 0; color: #98c379;">共享基础设施集成点</h3>
       <div style="font-family: monospace; font-size: 12px; color: #ccc; line-height: 1.8;">
         <span style="color:#e5c07b;">ServiceContext</span> → 所有 Service 方法统一接受 <a href="00-shared-infrastructure.html" style="color:#e5c07b;">ServiceContext</a>，审计/事件自动获取操作元数据<br>
-        <span style="color:#e5c07b;">DocumentSequenceService</span> → ProductService.create(ctx) 调用 next_number(ctx, "PRODUCT") 生成编码，Timestamp 策略输出 x+Unix时间戳格式（如 x1747891200）。CustomerService.create → next_number(ctx, "CUS")，SupplierService.create → next_number(ctx, "SUP")<br>
-        <span style="color:#e5c07b;">AuditLogService</span> → 所有 create / update / delete / publish / unpublish 操作内调用 record(ctx, AuditAction, ...)（同事务内，AuditAction 枚举 + 字段级 diff）<br>
+        <span style="color:#e5c07b;">DocumentSequenceService</span> → ProductService.create(ctx) 调用 next_number(ctx, db, "PRODUCT") 生成编码，Timestamp 策略输出 x+Unix时间戳格式（如 x1747891200）。CustomerService.create → next_number(ctx, db, "CUS")，SupplierService.create → next_number(ctx, db, "SUP")<br>
+        <span style="color:#e5c07b;">AuditLogService</span> → 所有 create / update / delete / publish / unpublish 操作内调用 record(ctx, db, AuditAction, ...)（同事务内，AuditAction 枚举 + 字段级 diff）<br>
         <span style="color:#e5c07b;">StateMachineService</span> → BomStatus (Draft ↔ Published)、ProductStatus (Active → Inactive → Obsolete)、CustomerStatus (Prospective → Active ↔ Inactive → Blacklisted)、SupplierStatus (Prospective → Qualified ↔ Probation → Disqualified → Blacklisted) 状态转换管理<br>
-        <span style="color:#e5c07b;">DomainEventBus</span> → publish(ctx, EventPublishRequest{...}) 发布细粒度事件：BomPublished / BomUnpublished / BomNodeAdded / BomNodeUpdated / BomNodeDeleted / BomSubstituted / ProductStatusChanged / CustomerCreated / CustomerBlacklisted / SupplierCreated / SupplierBlacklisted / SupplierBankAccountChanged
+        <span style="color:#e5c07b;">DomainEventBus</span> → publish(ctx, db, EventPublishRequest{...}) 发布细粒度事件：BomPublished / BomUnpublished / BomNodeAdded / BomNodeUpdated / BomNodeDeleted / BomSubstituted / ProductStatusChanged / CustomerCreated / CustomerBlacklisted / SupplierCreated / SupplierBlacklisted / SupplierBankAccountChanged
       </div>
     </div>
 
@@ -1470,11 +1470,11 @@ classDiagram
         &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> 若传入 tax_number，跨表检索 Customer + Supplier。若已存在，<span style="color:#e5c07b;">不阻断但返回 Warning</span>，同上<br><br>
         <span style="color:#e5a655;">CustomerService.validate_contact_ownership</span><br>
         &nbsp;&nbsp;Sales 模块创建报价单/订单时，校验 contact_id 是否归属 customer_id，防止张冠李戴。内部实现：list_contacts → 内存比对<br><br>
-        <span style="color:#e5a655;">CustomerService.claim(ctx, id)</span><br>
+        <span style="color:#e5a655;">CustomerService.claim(ctx, db, id)</span><br>
         &nbsp;&nbsp;公海客户认领：owner_id=null → owner_id=ctx.operator_id, department_id=ctx.department_id<br>
         &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> 客户必须为公海状态（owner_id IS NULL）且 status=Active<br>
         &nbsp;&nbsp;<span style="color:#e06c75;">Validation:</span> 同一业务员认领上限可配置（防止囤积客户）<br><br>
-        <span style="color:#e5a655;">CustomerService.transfer(ctx, id, new_owner_id, new_department_id)</span><br>
+        <span style="color:#e5a655;">CustomerService.transfer(ctx, db, id, new_owner_id, new_department_id)</span><br>
         &nbsp;&nbsp;客户转移（高权限，需销售总监角色）<br>
         &nbsp;&nbsp;发布 CustomerTransferred 事件，通知原业务员和新业务员<br><br>
         <span style="color:#e5a655;">CustomerService.list — 行级数据过滤（Row-Level Security）</span><br>
@@ -1558,26 +1558,26 @@ classDiagram
           &nbsp;&nbsp;remark: String?<br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">RoutingService</span> {<br>
-          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
-          &nbsp;&nbsp;list(ctx, query: ListRoutingQuery)<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: &amp;ServiceContext, db: PgExecutor</span><br>
+          &nbsp;&nbsp;list(ctx, db, query: ListRoutingQuery)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult&lt;Routing&gt;<br>
-          &nbsp;&nbsp;get_detail(ctx, id)<br>
+          &nbsp;&nbsp;get_detail(ctx, db, id)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ RoutingDetail<br>
-          &nbsp;&nbsp;create(ctx, req: CreateRoutingReq) → i64<br>
+          &nbsp;&nbsp;create(ctx, db, req: CreateRoutingReq) → i64<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 校验 process_code 必须存在于 LaborProcessDict</span><br>
-          &nbsp;&nbsp;update(ctx, id, req: UpdateRoutingReq)<br>
+          &nbsp;&nbsp;update(ctx, db, id, req: UpdateRoutingReq)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 整体替换 steps（先删后插）</span><br>
-          &nbsp;&nbsp;delete(ctx, id) → Unit<br>
+          &nbsp;&nbsp;delete(ctx, db, id) → Unit<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 校验无 BOM 绑定、无工单引用</span><br>
-          &nbsp;&nbsp;find_matching_routing(ctx,<br>
+          &nbsp;&nbsp;find_matching_routing(ctx, db,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;process_codes: Vec&lt;String&gt;)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Option&lt;RoutingDetail&gt; <span style="color:#888;">// 自动匹配路线</span><br>
-          &nbsp;&nbsp;set_bom_routing(ctx,<br>
+          &nbsp;&nbsp;set_bom_routing(ctx, db,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;product_code, routing_id)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// UPSERT bom_routings</span><br>
-          &nbsp;&nbsp;get_bom_routing(ctx, product_code)<br>
+          &nbsp;&nbsp;get_bom_routing(ctx, db, product_code)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ Option&lt;RoutingDetail&gt;<br>
-          &nbsp;&nbsp;list_boms_by_routing(ctx,<br>
+          &nbsp;&nbsp;list_boms_by_routing(ctx, db,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;routing_id) → Vec&lt;BomRouting&gt;<br>
           }
         </div>
@@ -1615,13 +1615,13 @@ classDiagram
           &nbsp;&nbsp;sort_order: i32<br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">LaborProcessDictService</span> {<br>
-          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
-          &nbsp;&nbsp;list(ctx, query: ListLaborProcessDictQuery)<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: &amp;ServiceContext, db: PgExecutor</span><br>
+          &nbsp;&nbsp;list(ctx, db, query: ListLaborProcessDictQuery)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult&lt;LaborProcessDict&gt;<br>
-          &nbsp;&nbsp;create(ctx, req) → i64<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// code = next_number(ctx, "PROC")</span><br>
-          &nbsp;&nbsp;update(ctx, req)<br>
-          &nbsp;&nbsp;delete(ctx, id) → u64<br>
+          &nbsp;&nbsp;create(ctx, db, req) → i64<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// code = next_number(ctx, db, "PROC")</span><br>
+          &nbsp;&nbsp;update(ctx, db, req)<br>
+          &nbsp;&nbsp;delete(ctx, db, id) → u64<br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 校验无 routing_steps/bom_labor_processes 引用</span><br>
           }
         </div>
@@ -1665,12 +1665,12 @@ classDiagram
           &nbsp;&nbsp;remark: String?<br>
           }<br><br>
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomLaborProcessService</span> {<br>
-          &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext</span><br>
-          &nbsp;&nbsp;list(ctx, query: ListLaborProcessQuery)<br>
+          &nbsp;&nbsp;<span style="color:#888;">// ctx: &amp;ServiceContext, db: PgExecutor</span><br>
+          &nbsp;&nbsp;list(ctx, db, query: ListLaborProcessQuery)<br>
           &nbsp;&nbsp;&nbsp;&nbsp;→ PaginatedResult&lt;BomLaborProcess&gt;<br>
-          &nbsp;&nbsp;create(ctx, req) → i64<br>
-          &nbsp;&nbsp;update(ctx, id, req)<br>
-          &nbsp;&nbsp;delete(ctx, id) → Unit<br>
+          &nbsp;&nbsp;create(ctx, db, req) → i64<br>
+          &nbsp;&nbsp;update(ctx, db, id, req)<br>
+          &nbsp;&nbsp;delete(ctx, db, id) → Unit<br>
           }
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
@@ -1806,10 +1806,10 @@ classDiagram
         &nbsp;&nbsp;is_alerting: bool <span style="color:#888;">// current_quantity &lt; effective_safety_stock</span><br>
         }<br><br>
         <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">ProductWatcherService</span> {<br>
-        &nbsp;&nbsp;<span style="color:#888;">// ctx: ServiceContext (user_id 从 ctx.operator_id 获取)</span><br>
-        &nbsp;&nbsp;watch_product(ctx, product_id, safety_stock_override?) → bool <span style="color:#888;">// UPSERT, 返回 is_new</span><br>
-        &nbsp;&nbsp;unwatch_product(ctx, product_id) → bool <span style="color:#888;">// DELETE, 返回 found</span><br>
-        &nbsp;&nbsp;list_watched_products(ctx, page, page_size) → PaginatedResult~WatchedProductWithInventory~<br>
+        &nbsp;&nbsp;<span style="color:#888;">// ctx: &amp;ServiceContext, db: PgExecutor (user_id 从 ctx.operator_id 获取)</span><br>
+        &nbsp;&nbsp;watch_product(ctx, db, product_id, safety_stock_override?) → bool <span style="color:#888;">// UPSERT, 返回 is_new</span><br>
+        &nbsp;&nbsp;unwatch_product(ctx, db, product_id) → bool <span style="color:#888;">// DELETE, 返回 found</span><br>
+        &nbsp;&nbsp;list_watched_products(ctx, db, page, page_size) → PaginatedResult~WatchedProductWithInventory~<br>
         }
       </div>
       <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">

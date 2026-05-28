@@ -152,17 +152,17 @@ classDiagram
 
   class WorkflowService {
     &lt;&lt;interface&gt;&gt;
-    +create_template(ctx: ServiceContext, req) Result~i64~
-    +publish_template(ctx: ServiceContext, id) Result~Unit~
-    +start_instance(ctx: ServiceContext, template_id, variables) Result~i64~
-    +start_instance_with_context(ctx: ServiceContext, template_id, variables, parent_instance_id) Result~i64~
-    +cancel_instance(ctx: ServiceContext, id) Result~Unit~
-    +approve_task(ctx: ServiceContext, id, remark) Result~Unit~
-    +reject_task(ctx: ServiceContext, id, remark) Result~Unit~
-    +delegate_task(ctx: ServiceContext, id, target_user_id) Result~Unit~
-    +signal(ctx: ServiceContext, instance_id, signal_name) Result~Unit~
-    +compensate_instance(ctx: ServiceContext, id) Result~Unit~
-    +trigger(ctx: ServiceContext, event) Result~i64~
+    +create_template(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
+    +publish_template(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +start_instance(ctx: &ServiceContext, db: PgExecutor, template_id, variables) Result~i64~
+    +start_instance_with_context(ctx: &ServiceContext, db: PgExecutor, template_id, variables, parent_instance_id) Result~i64~
+    +cancel_instance(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +approve_task(ctx: &ServiceContext, db: PgExecutor, id, remark) Result~Unit~
+    +reject_task(ctx: &ServiceContext, db: PgExecutor, id, remark) Result~Unit~
+    +delegate_task(ctx: &ServiceContext, db: PgExecutor, id, target_user_id) Result~Unit~
+    +signal(ctx: &ServiceContext, db: PgExecutor, instance_id, signal_name) Result~Unit~
+    +compensate_instance(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +trigger(ctx: &ServiceContext, db: PgExecutor, event) Result~i64~
     +list_history(filter) PaginatedResult~WorkflowTask~
   }
 
@@ -205,7 +205,7 @@ classDiagram
   note for WorkflowInstance "parent_instance_id: SubProcess parent. saga_compensation_log: completed steps for reverse compensation"
   note for WorkflowNode "compensate_action: action name for saga rollback, only AutoTask and ServiceTask"
   note for WorkflowEngine "Depends on shared DomainEventBus + StateMachineService. Orchestrates approvals, auto-tasks, saga compensation"
-    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
+    note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = &ServiceContext, db = PgExecutor | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>
@@ -772,7 +772,7 @@ classDiagram
             <span class="cm">// operator_id 从 ServiceContext 自动获取</span><br>
             }<br><br>
             <span class="kw">trait</span> <span class="ty">DomainEventBus</span> {<br>
-            &nbsp;&nbsp;publish(ctx: ServiceContext, req: EventPublishRequest): i64<br>
+            &nbsp;&nbsp;publish(ctx: &ServiceContext, db: PgExecutor, req: EventPublishRequest): i64<br>
             &nbsp;&nbsp;find_events(aggregate_type, id): Vec<br>
             &nbsp;&nbsp;find_by_type(event_type, since?): Vec<br>
             }<br><br>

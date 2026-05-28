@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -11,6 +11,7 @@ use super::service::PaymentRequestService;
 use crate::purchase::enums::PaymentStatus;
 use crate::purchase::reconciliation::repo::PurchaseReconciliationRepo;
 use crate::shared::idempotency::service::key_to_i64;
+use crate::shared::types::PgExecutor;
 use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::audit::AuditAction;
@@ -73,20 +74,20 @@ impl PaymentRequestServiceImpl {
 impl PaymentRequestService for PaymentRequestServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreatePaymentRequestRequest,
         idempotency_key: Option<String>,
     ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PaymentRequest:create").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "PaymentRequest:create").await? {
                 return Err(DomainError::duplicate("PaymentRequest"));
             }
         }
         // 1. 三单匹配校验
         // 1a. 若关联对账单，查对账单 confirmed_amount 作为收货侧金额
         if let Some(recon_id) = req.reconciliation_id {
-            let recon = PurchaseReconciliationRepo::get_by_id(&mut *ctx.executor, recon_id)
+            let recon = PurchaseReconciliationRepo::get_by_id(&mut *db, recon_id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?
                 .ok_or_else(|| DomainError::not_found("PurchaseReconciliation"))?;
@@ -113,12 +114,12 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         // 2. 生成单据编号
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::PaymentRequest)
+            .next_number(ctx, db, DocumentType::PaymentRequest)
             .await?;
 
         // 3. 插入主表
         let id = PaymentRequestRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &req,
             &doc_number,
             ctx.operator_id,
@@ -130,6 +131,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         self.audit_log
             .record(
                 ctx,
+                db,
                 ENTITY_TYPE,
                 id,
                 AuditAction::Create,
@@ -141,34 +143,34 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         Ok(id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PaymentRequest> {
-        PaymentRequestRepo::get_by_id(&mut *ctx.executor, id)
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<PaymentRequest> {
+        PaymentRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn approve(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
+    async fn approve(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PaymentRequest:approve").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "PaymentRequest:approve").await? {
                 return Err(DomainError::duplicate("PaymentRequest"));
             }
         }
         // 1. 获取当前记录（用于乐观锁）
-        let payment = PaymentRequestRepo::get_by_id(&mut *ctx.executor, id)
+        let payment = PaymentRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
 
         // 2. 状态转换 Draft -> Approved
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "Approved", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "Approved", None)
             .await?;
 
         // 3. 更新实体表状态
         let rows = PaymentRequestRepo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             PaymentStatus::Approved,
             &payment.updated_at,
@@ -182,7 +184,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         // 4. 发布领域事件
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::PaymentRequestApproved,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -195,7 +197,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
 
         // 3. 审计日志
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         Ok(())
@@ -203,19 +205,19 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
 
     async fn mark_paid_by_fms(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         payment_doc_no: String,
         idempotency_key: Option<String>,
     ) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PaymentRequest:mark_paid_by_fms").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "PaymentRequest:mark_paid_by_fms").await? {
                 return Err(DomainError::duplicate("PaymentRequest"));
             }
         }
         // 1. 获取当前记录（用于乐观锁）
-        let payment = PaymentRequestRepo::get_by_id(&mut *ctx.executor, id)
+        let payment = PaymentRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
@@ -223,7 +225,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         // 2. 状态转换 Approved -> Paid
         self.state_machine
             .transition(
-                ctx.reborrow(),
+                ctx, db,
                 ENTITY_TYPE,
                 id,
                 "Paid",
@@ -233,7 +235,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
 
         // 3. 标记已付款（写入 FMS 付款单号）
         let rows = PaymentRequestRepo::mark_paid(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             &payment_doc_no,
             &payment.updated_at,
@@ -248,6 +250,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         self.audit_log
             .record(
                 ctx,
+                db,
                 ENTITY_TYPE,
                 id,
                 AuditAction::Transition,

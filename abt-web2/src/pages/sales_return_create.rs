@@ -9,7 +9,7 @@ use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
-use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
+use abt_core::shared::types::{PageParams, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
@@ -20,8 +20,8 @@ use crate::state::AppState;
 
 // ── Helpers ──
 
-fn make_ctx<'a>(conn: &'a mut sqlx::postgres::PgConnection, operator_id: i64) -> ServiceContext<'a> {
-    ServiceContext::new(conn as PgExecutor<'a>, operator_id)
+fn make_ctx(operator_id: i64) -> ServiceContext {
+    ServiceContext::new(operator_id)
 }
 
 async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
@@ -83,9 +83,9 @@ pub async fn get_return_create(
     let customer_svc = state.customer_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
+    let ctx = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(ctx, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 

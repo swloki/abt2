@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use super::model::*;
 use super::repo::{SupplierBankAccountRepo, SupplierContactRepo, SupplierRepo};
@@ -11,7 +11,7 @@ use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct SupplierServiceImpl {
     repo: SupplierRepo,
@@ -52,12 +52,12 @@ impl SupplierService for SupplierServiceImpl {
     #[allow(clippy::collapsible_if)]
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateSupplierReq,
     ) -> Result<i64> {
         let code = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::Supplier)
+            .next_number(ctx, db, DocumentType::Supplier)
             .await?;
 
         // Check tax_number — warn but don't fail
@@ -66,7 +66,7 @@ impl SupplierService for SupplierServiceImpl {
             if !tax.is_empty() {
                 let exists = self
                     .repo
-                    .check_tax_number_exists(ctx.executor, tax)
+                    .check_tax_number_exists(db, tax)
                     .await
                     ?;
                 if exists {
@@ -77,14 +77,14 @@ impl SupplierService for SupplierServiceImpl {
 
         let id = self
             .repo
-            .create(ctx.executor, &code, &req, ctx.operator_id)
+            .create(db, &code, &req, ctx.operator_id)
             .await
             ?;
 
         // Init state machine — Prospective
         self.state_machine
             .transition(
-                ctx.reborrow(),
+                ctx, db,
                 "SupplierStatus",
                 id,
                 SupplierStatus::Prospective.as_str(),
@@ -96,7 +96,7 @@ impl SupplierService for SupplierServiceImpl {
         // Audit
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 "Supplier",
                 id,
                 AuditAction::Create,
@@ -114,6 +114,7 @@ impl SupplierService for SupplierServiceImpl {
         self.event_bus
             .publish(
                 ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::SupplierCreated,
                     aggregate_type: "Supplier".to_string(),
@@ -127,9 +128,9 @@ impl SupplierService for SupplierServiceImpl {
         Ok(id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Supplier> {
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<Supplier> {
         self.repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Supplier"))
@@ -138,13 +139,13 @@ impl SupplierService for SupplierServiceImpl {
     #[allow(clippy::collapsible_if)]
     async fn update(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: UpdateSupplierReq,
     ) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
@@ -154,7 +155,7 @@ impl SupplierService for SupplierServiceImpl {
             if new_status != existing.status {
                 self.state_machine
                     .transition(
-                        ctx.reborrow(),
+                        ctx, db,
                         "SupplierStatus",
                         id,
                         new_status.as_str(),
@@ -171,7 +172,7 @@ impl SupplierService for SupplierServiceImpl {
                     });
                     self.event_bus
                         .publish(
-                            ctx.reborrow(),
+                            ctx, db,
                             EventPublishRequest {
                                 event_type: DomainEventType::SupplierBlacklisted,
                                 aggregate_type: "Supplier".to_string(),
@@ -186,13 +187,14 @@ impl SupplierService for SupplierServiceImpl {
         }
 
         self.repo
-            .update(ctx.executor, id, &req)
+            .update(db, id, &req)
             .await
             ?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "Supplier",
                 id,
                 AuditAction::Update,
@@ -206,12 +208,12 @@ impl SupplierService for SupplierServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: SupplierQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<Supplier>> {
         self.repo
-            .query(ctx.executor, &filter, &page)
+            .query(db, &filter, &page)
             .await
             
     }
@@ -220,26 +222,27 @@ impl SupplierService for SupplierServiceImpl {
 
     async fn add_contact(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         sid: i64,
         req: CreateContactReq,
     ) -> Result<i64> {
         // Verify supplier exists
         self.repo
-            .find_by_id(ctx.executor, sid)
+            .find_by_id(db, sid)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
         let contact_id = self
             .contact_repo
-            .create(ctx.executor, sid, &req)
+            .create(db, sid, &req)
             .await
             ?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "SupplierContact",
                 contact_id,
                 AuditAction::Create,
@@ -253,7 +256,7 @@ impl SupplierService for SupplierServiceImpl {
 
     async fn update_contact(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         sid: i64,
         contact_id: i64,
         req: UpdateContactReq,
@@ -261,7 +264,7 @@ impl SupplierService for SupplierServiceImpl {
         // Verify contact belongs to supplier
         let existing = self
             .contact_repo
-            .find_by_id(ctx.executor, contact_id)
+            .find_by_id(db, contact_id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SupplierContact"))?;
@@ -271,13 +274,14 @@ impl SupplierService for SupplierServiceImpl {
         }
 
         self.contact_repo
-            .update(ctx.executor, contact_id, sid, &req)
+            .update(db, contact_id, sid, &req)
             .await
             ?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "SupplierContact",
                 contact_id,
                 AuditAction::Update,
@@ -291,14 +295,14 @@ impl SupplierService for SupplierServiceImpl {
 
     async fn delete_contact(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         sid: i64,
         contact_id: i64,
     ) -> Result<()> {
         // Verify contact belongs to supplier
         let existing = self
             .contact_repo
-            .find_by_id(ctx.executor, contact_id)
+            .find_by_id(db, contact_id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SupplierContact"))?;
@@ -308,13 +312,14 @@ impl SupplierService for SupplierServiceImpl {
         }
 
         self.contact_repo
-            .delete(ctx.executor, contact_id, sid)
+            .delete(db, contact_id, sid)
             .await
             ?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "SupplierContact",
                 contact_id,
                 AuditAction::Delete,
@@ -328,11 +333,11 @@ impl SupplierService for SupplierServiceImpl {
 
     async fn list_contacts(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         sid: i64,
     ) -> Result<Vec<SupplierContact>> {
         self.contact_repo
-            .find_by_supplier_id(ctx.executor, sid)
+            .find_by_supplier_id(db, sid)
             .await
             
     }
@@ -341,20 +346,20 @@ impl SupplierService for SupplierServiceImpl {
 
     async fn add_bank_account(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         sid: i64,
         req: CreateBankAccountReq,
     ) -> Result<i64> {
         // Verify supplier exists
         self.repo
-            .find_by_id(ctx.executor, sid)
+            .find_by_id(db, sid)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Supplier"))?;
 
         let account_id = self
             .bank_account_repo
-            .create(ctx.executor, sid, &req)
+            .create(db, sid, &req)
             .await
             ?;
 
@@ -369,7 +374,7 @@ impl SupplierService for SupplierServiceImpl {
         });
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 "SupplierBankAccount",
                 account_id,
                 AuditAction::Create,
@@ -386,7 +391,7 @@ impl SupplierService for SupplierServiceImpl {
         });
         self.event_bus
             .publish(
-                ctx,
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::SupplierBankAccountChanged,
                     aggregate_type: "Supplier".to_string(),
@@ -403,7 +408,7 @@ impl SupplierService for SupplierServiceImpl {
     #[allow(clippy::collapsible_if)]
     async fn update_bank_account(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         sid: i64,
         account_id: i64,
         req: UpdateBankAccountReq,
@@ -411,7 +416,7 @@ impl SupplierService for SupplierServiceImpl {
         // Update returns the before-state for diff generation
         let before = self
             .bank_account_repo
-            .update(ctx.executor, account_id, sid, &req)
+            .update(db, account_id, sid, &req)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SupplierBankAccount"))?;
@@ -460,7 +465,7 @@ impl SupplierService for SupplierServiceImpl {
         });
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 "SupplierBankAccount",
                 account_id,
                 AuditAction::Update,
@@ -478,7 +483,7 @@ impl SupplierService for SupplierServiceImpl {
         });
         self.event_bus
             .publish(
-                ctx,
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::SupplierBankAccountChanged,
                     aggregate_type: "Supplier".to_string(),
@@ -494,14 +499,14 @@ impl SupplierService for SupplierServiceImpl {
 
     async fn delete_bank_account(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         sid: i64,
         account_id: i64,
     ) -> Result<()> {
         // Verify account belongs to supplier
         let existing = self
             .bank_account_repo
-            .find_by_id(ctx.executor, account_id)
+            .find_by_id(db, account_id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SupplierBankAccount"))?;
@@ -511,7 +516,7 @@ impl SupplierService for SupplierServiceImpl {
         }
 
         self.bank_account_repo
-            .delete(ctx.executor, account_id, sid)
+            .delete(db, account_id, sid)
             .await
             ?;
 
@@ -523,7 +528,7 @@ impl SupplierService for SupplierServiceImpl {
         });
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 "SupplierBankAccount",
                 account_id,
                 AuditAction::Delete,
@@ -540,7 +545,7 @@ impl SupplierService for SupplierServiceImpl {
         });
         self.event_bus
             .publish(
-                ctx,
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::SupplierBankAccountChanged,
                     aggregate_type: "Supplier".to_string(),
@@ -556,11 +561,11 @@ impl SupplierService for SupplierServiceImpl {
 
     async fn list_bank_accounts(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         sid: i64,
     ) -> Result<Vec<SupplierBankAccount>> {
         self.bank_account_repo
-            .find_by_supplier_id(ctx.executor, sid)
+            .find_by_supplier_id(db, sid)
             .await
             
     }

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -7,6 +7,7 @@ use super::model::{CostEntry, EntryRequest};
 use super::repo::CostEntryRepo;
 use super::service::CostEntryService;
 use crate::shared::enums::CostEntityType;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::batch::BatchResult;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -29,7 +30,7 @@ impl CostEntryService for CostEntryServiceImpl {
     /// Atomic 模式 — 双层记账必须完整
     async fn create_entries(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         entries: Vec<EntryRequest>,
     ) -> Result<BatchResult> {
         let total = entries.len() as i32;
@@ -37,7 +38,7 @@ impl CostEntryService for CostEntryServiceImpl {
             return Ok(BatchResult::atomic_ok(0));
         }
 
-        CostEntryRepo::batch_insert(&mut *ctx.executor, &entries)
+        CostEntryRepo::batch_insert(&mut *db, &entries)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -46,7 +47,7 @@ impl CostEntryService for CostEntryServiceImpl {
 
     async fn find_by_entity(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: CostEntityType,
         entity_id: i64,
         page: u32,
@@ -55,7 +56,7 @@ impl CostEntryService for CostEntryServiceImpl {
         let params = PageParams::new(page, page_size);
 
         let (items, total) = CostEntryRepo::find_by_entity(
-            &mut *ctx.executor,
+            &mut *db,
             entity_type.as_i16(),
             entity_id,
             params.page_size.into(),

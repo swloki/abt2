@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -7,6 +7,7 @@ use super::model::{CreateTransferReq, InventoryTransfer, TransferFilter};
 use super::repo::TransferRepo;
 use super::service::TransferService;
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
@@ -30,7 +31,7 @@ impl TransferServiceImpl {
 impl TransferService for TransferServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateTransferReq,
     ) -> Result<i64> {
         // 校验：至少一条明细
@@ -46,12 +47,12 @@ impl TransferService for TransferServiceImpl {
         }
 
         // 生成单据编号
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::InventoryTransfer)
+        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::InventoryTransfer)
             .await
             .unwrap_or_else(|_| format!("TR{}", chrono::Utc::now().format("%Y%m%d%H%M%S%.f")));
 
         let transfer =
-            TransferRepo::insert(&mut *ctx.executor, &doc_number, &req, ctx.operator_id)
+            TransferRepo::insert(&mut *db, &doc_number, &req, ctx.operator_id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -60,10 +61,10 @@ impl TransferService for TransferServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<InventoryTransfer> {
-        TransferRepo::get_by_id(&mut *ctx.executor, id)
+        TransferRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("调拨单"))
@@ -71,22 +72,22 @@ impl TransferService for TransferServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: TransferFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<InventoryTransfer>> {
-        TransferRepo::list(&mut *ctx.executor, &filter, page, page_size)
+        TransferRepo::list(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn dispatch(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let transfer = self.get(ctx.reborrow(), id).await?;
+        let transfer = self.get(ctx, db, id).await?;
 
         // 状态校验：仅 Draft → InTransit
         if transfer.status != TransferStatus::Draft {
@@ -96,7 +97,7 @@ impl TransferService for TransferServiceImpl {
             });
         }
 
-        TransferRepo::update_status(&mut *ctx.executor, id, TransferStatus::InTransit)
+        TransferRepo::update_status(&mut *db, id, TransferStatus::InTransit)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -105,10 +106,10 @@ impl TransferService for TransferServiceImpl {
 
     async fn complete(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let transfer = self.get(ctx.reborrow(), id).await?;
+        let transfer = self.get(ctx, db, id).await?;
 
         // 状态校验：仅 InTransit → Completed
         if transfer.status != TransferStatus::InTransit {
@@ -118,7 +119,7 @@ impl TransferService for TransferServiceImpl {
             });
         }
 
-        TransferRepo::update_status(&mut *ctx.executor, id, TransferStatus::Completed)
+        TransferRepo::update_status(&mut *db, id, TransferStatus::Completed)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -127,10 +128,10 @@ impl TransferService for TransferServiceImpl {
 
     async fn cancel(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let transfer = self.get(ctx.reborrow(), id).await?;
+        let transfer = self.get(ctx, db, id).await?;
 
         // 状态校验：仅 Draft → Cancelled
         if transfer.status != TransferStatus::Draft {
@@ -140,7 +141,7 @@ impl TransferService for TransferServiceImpl {
             });
         }
 
-        TransferRepo::update_status(&mut *ctx.executor, id, TransferStatus::Cancelled)
+        TransferRepo::update_status(&mut *db, id, TransferStatus::Cancelled)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 

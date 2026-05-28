@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use chrono::Local;
 use rust_decimal::Decimal;
@@ -15,7 +15,7 @@ use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct QuotationServiceImpl {
     repo: QuotationRepo,
@@ -97,7 +97,7 @@ impl QuotationServiceImpl {
 impl QuotationService for QuotationServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateQuotationReq,
     ) -> Result<i64> {
         if req.valid_until <= Local::now().date_naive() {
@@ -106,7 +106,7 @@ impl QuotationService for QuotationServiceImpl {
 
         if req.customer_id > 0 && req.contact_id > 0 {
             self.customer_svc
-                .validate_contact_ownership(ctx.reborrow(), req.customer_id, req.contact_id)
+                .validate_contact_ownership(ctx, db, req.customer_id, req.contact_id)
                 .await?;
         }
 
@@ -120,7 +120,7 @@ impl QuotationService for QuotationServiceImpl {
 
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::Quotation)
+            .next_number(ctx, db, DocumentType::Quotation)
             .await?;
 
         let (total_amount, total_cost, estimated_margin) = Self::calculate_amounts(&req.items);
@@ -128,7 +128,7 @@ impl QuotationService for QuotationServiceImpl {
         let id = self
             .repo
             .create(
-                ctx.executor,
+                db,
                 &doc_number,
                 &req,
                 ctx.operator_id,
@@ -142,22 +142,23 @@ impl QuotationService for QuotationServiceImpl {
 
         let item_inputs = Self::build_item_inputs(&req.items);
         self.item_repo
-            .create_batch(ctx.executor, id, &item_inputs)
+            .create_batch(db, id, &item_inputs)
             .await
             ?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "QuotationStatus", id, "Draft", None)
+            .transition(ctx, db, "QuotationStatus", id, "Draft", None)
             .await
             .ok();
 
         self.audit
-            .record(ctx.reborrow(), "Quotation", id, AuditAction::Create, None, None)
+            .record(ctx, db, "Quotation", id, AuditAction::Create, None, None)
             .await?;
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::QuotationCreated,
                     aggregate_type: "Quotation".to_string(),
@@ -177,11 +178,11 @@ impl QuotationService for QuotationServiceImpl {
 
     async fn find_by_id(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<Quotation> {
         self.repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Quotation"))
@@ -189,13 +190,13 @@ impl QuotationService for QuotationServiceImpl {
 
     async fn update(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: UpdateQuotationReq,
     ) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
@@ -214,39 +215,39 @@ impl QuotationService for QuotationServiceImpl {
 
         if let Some(ref items) = req.items {
             self.item_repo
-                .delete_by_quotation_id(ctx.executor, id)
+                .delete_by_quotation_id(db, id)
                 .await
                 ?;
 
             let item_inputs = Self::build_item_inputs(items);
             self.item_repo
-                .create_batch(ctx.executor, id, &item_inputs)
+                .create_batch(db, id, &item_inputs)
                 .await
                 ?;
 
             let (total_amount, total_cost, estimated_margin) = Self::calculate_amounts(items);
             self.repo
-                .update_amounts(ctx.executor, id, total_amount, total_cost, estimated_margin)
+                .update_amounts(db, id, total_amount, total_cost, estimated_margin)
                 .await
                 ?;
         }
 
         self.repo
-            .update(ctx.executor, id, &req)
+            .update(db, id, &req)
             .await
             ?;
 
         self.audit
-            .record(ctx.reborrow(), "Quotation", id, AuditAction::Update, None, None)
+            .record(ctx, db, "Quotation", id, AuditAction::Update, None, None)
             .await?;
 
         Ok(())
     }
 
-    async fn submit(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn submit(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
@@ -259,7 +260,7 @@ impl QuotationService for QuotationServiceImpl {
 
         let items = self
             .item_repo
-            .find_by_quotation_id(ctx.executor, id)
+            .find_by_quotation_id(db, id)
             .await
             ?;
 
@@ -270,17 +271,18 @@ impl QuotationService for QuotationServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "QuotationStatus", id, "Sent", None)
+            .transition(ctx, db, "QuotationStatus", id, "Sent", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, QuotationStatus::Sent)
+            .update_status(db, id, QuotationStatus::Sent)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Quotation",
                 id,
                 AuditAction::Transition,
@@ -294,7 +296,8 @@ impl QuotationService for QuotationServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::QuotationSubmitted,
                     aggregate_type: "Quotation".to_string(),
@@ -311,10 +314,10 @@ impl QuotationService for QuotationServiceImpl {
         Ok(())
     }
 
-    async fn accept(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn accept(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
@@ -324,17 +327,18 @@ impl QuotationService for QuotationServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "QuotationStatus", id, "Accepted", None)
+            .transition(ctx, db, "QuotationStatus", id, "Accepted", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, QuotationStatus::Accepted)
+            .update_status(db, id, QuotationStatus::Accepted)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Quotation",
                 id,
                 AuditAction::Transition,
@@ -348,7 +352,8 @@ impl QuotationService for QuotationServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::QuotationAccepted,
                     aggregate_type: "Quotation".to_string(),
@@ -366,10 +371,10 @@ impl QuotationService for QuotationServiceImpl {
         Ok(())
     }
 
-    async fn reject(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn reject(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
@@ -379,17 +384,18 @@ impl QuotationService for QuotationServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "QuotationStatus", id, "Rejected", None)
+            .transition(ctx, db, "QuotationStatus", id, "Rejected", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, QuotationStatus::Rejected)
+            .update_status(db, id, QuotationStatus::Rejected)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Quotation",
                 id,
                 AuditAction::Transition,
@@ -403,7 +409,8 @@ impl QuotationService for QuotationServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::QuotationRejected,
                     aggregate_type: "Quotation".to_string(),
@@ -420,10 +427,10 @@ impl QuotationService for QuotationServiceImpl {
         Ok(())
     }
 
-    async fn expire(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn expire(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
@@ -435,17 +442,18 @@ impl QuotationService for QuotationServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "QuotationStatus", id, "Expired", None)
+            .transition(ctx, db, "QuotationStatus", id, "Expired", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, QuotationStatus::Expired)
+            .update_status(db, id, QuotationStatus::Expired)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Quotation",
                 id,
                 AuditAction::Transition,
@@ -459,7 +467,8 @@ impl QuotationService for QuotationServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::QuotationExpired,
                     aggregate_type: "Quotation".to_string(),
@@ -476,10 +485,10 @@ impl QuotationService for QuotationServiceImpl {
         Ok(())
     }
 
-    async fn batch_expire_overdue(&self, ctx: ServiceContext<'_>) -> Result<i32> {
+    async fn batch_expire_overdue(&self, _ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<i32> {
         let count = self
             .repo
-            .expire_overdue(ctx.executor)
+            .expire_overdue(db)
             .await
             ?;
         Ok(count as i32)
@@ -487,19 +496,19 @@ impl QuotationService for QuotationServiceImpl {
 
     async fn list_items(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         quotation_id: i64,
     ) -> Result<Vec<QuotationItem>> {
         self.item_repo
-            .find_by_quotation_id(ctx.executor, quotation_id)
+            .find_by_quotation_id(db, quotation_id)
             .await
             .map_err(Into::into)
     }
 
-    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("Quotation"))?;
 
@@ -507,11 +516,12 @@ impl QuotationService for QuotationServiceImpl {
             return Err(DomainError::business_rule("仅草稿状态的报价单可以删除"));
         }
 
-        self.repo.soft_delete(ctx.executor, id).await?;
+        self.repo.soft_delete(db, id).await?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "Quotation",
                 id,
                 AuditAction::Delete,
@@ -522,7 +532,8 @@ impl QuotationService for QuotationServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::QuotationDeleted,
                     aggregate_type: "Quotation".to_string(),
@@ -538,13 +549,13 @@ impl QuotationService for QuotationServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: QuotationQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<Quotation>> {
         self.repo
             .query(
-                ctx.executor,
+                db,
                 &filter,
                 &page,
                 ctx.data_scope,

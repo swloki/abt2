@@ -1,6 +1,6 @@
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 
-use super::super::types::Result;
+use super::super::types::{PgExecutor, Result};
 use super::super::types::context::ServiceContext;
 use super::super::enums::document_type::DocumentType;
 
@@ -11,7 +11,7 @@ pub trait DocumentSequenceService: Send + Sync {
     /// - Timestamp 策略（Product）：x+Unix 秒级时间戳（如 x1747891200）
     async fn next_number(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         doc_type: DocumentType,
     ) -> Result<String>;
 }

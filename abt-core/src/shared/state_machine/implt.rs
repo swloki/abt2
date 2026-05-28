@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::Value as JsonValue;
@@ -9,6 +9,7 @@ use tracing::instrument;
 use super::model::{EntityStateLog, StateDefinitionInput, StateTransitionDef, TransitionDefInput};
 use super::service::StateMachineService;
 use crate::shared::enums::SideEffect;
+use crate::shared::types::PgExecutor;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
@@ -31,15 +32,15 @@ impl StateMachineServiceImpl {
 
 #[async_trait]
 impl StateMachineService for StateMachineServiceImpl {
-    #[instrument(skip(self, ctx, states, transitions))]
+    #[instrument(skip(self, _ctx, states, transitions))]
     async fn configure(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         states: Vec<StateDefinitionInput>,
         transitions: Vec<TransitionDefInput>,
     ) -> Result<()> {
-        let executor = &mut *ctx.executor;
+        let executor = &mut *db;
 
         sqlx::query("DELETE FROM state_transition_defs WHERE entity_type = $1")
             .bind(entity_type)
@@ -99,7 +100,7 @@ impl StateMachineService for StateMachineServiceImpl {
     #[instrument(skip(self, ctx), fields(entity_type = %entity_type, entity_id = %entity_id, to_state = %to_state))]
     async fn transition(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         entity_id: i64,
         to_state: &str,
@@ -107,7 +108,7 @@ impl StateMachineService for StateMachineServiceImpl {
     ) -> Result<EntityStateLog> {
         // Step 1: 查询当前状态（NotFound 表示新实体，使用空字符串）
         let from_state = match self
-            .get_current_state(ctx.reborrow(), entity_type, entity_id)
+            .get_current_state(ctx, db, entity_type, entity_id)
             .await
         {
             Ok(state) => Some(state),
@@ -130,7 +131,7 @@ impl StateMachineService for StateMachineServiceImpl {
         .bind(entity_type)
         .bind(from)
         .bind(to_state)
-        .fetch_optional(&mut *ctx.executor)
+        .fetch_optional(&mut *db)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -163,7 +164,7 @@ impl StateMachineService for StateMachineServiceImpl {
         .bind(transition_def.id)
         .bind(ctx.operator_id)
         .bind(remark)
-        .fetch_one(&mut *ctx.executor)
+        .fetch_one(&mut *db)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -194,7 +195,7 @@ impl StateMachineService for StateMachineServiceImpl {
                                 et.as_i16()
                             )),
                         };
-                        self.event_bus.publish(ctx.reborrow(), req).await?;
+                        self.event_bus.publish(ctx, db, req).await?;
                     }
                 }
                 SideEffect::Notify { .. } => {}
@@ -206,10 +207,10 @@ impl StateMachineService for StateMachineServiceImpl {
         Ok(state_log)
     }
 
-    #[instrument(skip(self, ctx))]
+    #[instrument(skip(self, _ctx))]
     async fn get_current_state(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         entity_id: i64,
     ) -> Result<String> {
@@ -224,7 +225,7 @@ impl StateMachineService for StateMachineServiceImpl {
         )
         .bind(entity_type)
         .bind(entity_id)
-        .fetch_optional(&mut *ctx.executor)
+        .fetch_optional(&mut *db)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -242,7 +243,7 @@ impl StateMachineService for StateMachineServiceImpl {
                     "#,
                 )
                 .bind(entity_type)
-                .fetch_optional(&mut *ctx.executor)
+                .fetch_optional(&mut *db)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -261,10 +262,10 @@ impl StateMachineService for StateMachineServiceImpl {
         }
     }
 
-    #[instrument(skip(self, ctx))]
+    #[instrument(skip(self, _ctx))]
     async fn get_allowed_transitions(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         state: &str,
     ) -> Result<Vec<String>> {
@@ -278,7 +279,7 @@ impl StateMachineService for StateMachineServiceImpl {
         )
         .bind(entity_type)
         .bind(state)
-        .fetch_all(&mut *ctx.executor)
+        .fetch_all(&mut *db)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -290,10 +291,10 @@ impl StateMachineService for StateMachineServiceImpl {
             .collect()
     }
 
-    #[instrument(skip(self, ctx))]
+    #[instrument(skip(self, _ctx))]
     async fn get_state_history(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         entity_type: &str,
         entity_id: i64,
         page: u32,
@@ -306,7 +307,7 @@ impl StateMachineService for StateMachineServiceImpl {
         )
         .bind(entity_type)
         .bind(entity_id)
-        .fetch_one(&mut *ctx.executor)
+        .fetch_one(&mut *db)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
         let total: i64 = count_row
@@ -327,7 +328,7 @@ impl StateMachineService for StateMachineServiceImpl {
         .bind(entity_id)
         .bind(params.page_size as i64)
         .bind(params.offset() as i64)
-        .fetch_all(&mut *ctx.executor)
+        .fetch_all(&mut *db)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 

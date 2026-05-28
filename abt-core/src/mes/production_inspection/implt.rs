@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -8,6 +8,7 @@ use super::repo::ProductionInspectionRepo;
 use super::service::ProductionInspectionService;
 use super::super::enums::InspectionResultType;
 use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -29,15 +30,15 @@ impl ProductionInspectionServiceImpl {
 impl ProductionInspectionService for ProductionInspectionServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateInspectionReq,
     ) -> Result<i64> {
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ProductionInspection)
+        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::ProductionInspection)
             .await
             .unwrap_or_else(|_| format!("PI{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
         let inspection = ProductionInspectionRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &req,
             &doc_number,
             ctx.operator_id,
@@ -50,10 +51,10 @@ impl ProductionInspectionService for ProductionInspectionServiceImpl {
 
     async fn find_by_id(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<ProductionInspection> {
-        ProductionInspectionRepo::get_by_id(&mut *ctx.executor, id)
+        ProductionInspectionRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionInspection"))
@@ -61,11 +62,11 @@ impl ProductionInspectionService for ProductionInspectionServiceImpl {
 
     async fn record_result(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         result: InspectionResultType,
     ) -> Result<()> {
-        let inspection = ProductionInspectionRepo::get_by_id(&mut *ctx.executor, id)
+        let inspection = ProductionInspectionRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionInspection"))?;
@@ -85,7 +86,7 @@ impl ProductionInspectionService for ProductionInspectionServiceImpl {
         };
 
         let updated = ProductionInspectionRepo::update_result(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             result,
             qualified_qty,

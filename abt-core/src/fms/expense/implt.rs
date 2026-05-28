@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use chrono::Datelike;
 use sqlx::PgPool;
@@ -19,7 +19,7 @@ use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::types::context::ServiceContext;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, Result};
 
 pub struct ExpenseReimbursementServiceImpl {
     doc_seq: Arc<dyn DocumentSequenceService>,
@@ -51,7 +51,7 @@ impl ExpenseReimbursementServiceImpl {
 impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateExpenseReq,
     ) -> Result<i64> {
         if req.items.is_empty() {
@@ -78,12 +78,12 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         // Step 2: Generate doc number
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::ExpenseReimbursement)
+            .next_number(ctx, db, DocumentType::ExpenseReimbursement)
             .await?;
 
         // Step 3: Insert expense reimbursement
         let id = ExpenseReimbursementRepo::create(
-            ctx.executor,
+            db,
             &doc_number,
             &req,
             total_amount,
@@ -93,19 +93,19 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         ?;
 
         // Step 4: Batch insert items
-        ExpenseReimbursementItemRepo::batch_insert(ctx.executor, id, &req.items)
+        ExpenseReimbursementItemRepo::batch_insert(db, id, &req.items)
             .await
             ?;
 
         // Step 5: State machine transition to Draft
         self.state_machine
-            .transition(ctx.reborrow(), "ExpenseStatus", id, "Draft", None)
+            .transition(ctx, db, "ExpenseStatus", id, "Draft", None)
             .await?;
 
         // Step 6: Audit log
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 "ExpenseReimbursement",
                 id,
                 AuditAction::Create,
@@ -117,8 +117,8 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         Ok(id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<ExpenseReimbursement> {
-        ExpenseReimbursementRepo::get_by_id(ctx.executor, id)
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<ExpenseReimbursement> {
+        ExpenseReimbursementRepo::get_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("ExpenseReimbursement"))
@@ -126,13 +126,13 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: ExpenseFilter,
         page: PageParams,
     ) -> Result<PaginatedResult<ExpenseReimbursement>> {
         let (items, total) =
             ExpenseReimbursementRepo::query(
-                ctx.executor,
+                db,
                 &filter,
                 &page,
                 ctx.data_scope,
@@ -149,7 +149,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
     /// Called by WorkflowEngine Hook with ServiceContext for interface alignment.
     async fn generate_payment_journal(
         &self,
-        _ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         expense_id: i64,
     ) -> Result<i64> {
         // Step 1: Begin independent transaction
@@ -167,12 +167,9 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
 
         // Step 3: Generate a proper CJ doc_number via DocumentSequenceService
         let cj_doc_number = {
-            let mut cj_ctx = ServiceContext::new(
-                &mut *tx as crate::shared::types::PgExecutor<'_>,
-                expense.operator_id,
-            );
+            let cj_ctx = ServiceContext::new(expense.operator_id);
             self.doc_seq
-                .next_number(cj_ctx.reborrow(), DocumentType::CashJournal)
+                .next_number(&cj_ctx, &mut *tx, DocumentType::CashJournal)
                 .await?
         };
 
@@ -271,13 +268,10 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
 
         // Step 8: Publish event — failure does not affect committed business data
         if let Ok(mut event_conn) = self.pool.acquire().await {
-            let event_ctx = ServiceContext::new(
-                &mut *event_conn as crate::shared::types::PgExecutor<'_>,
-                expense.operator_id,
-            );
+            let event_ctx = ServiceContext::new(expense.operator_id);
             self.event_bus
                 .publish(
-                    event_ctx,
+                    &event_ctx, &mut *event_conn,
                     EventPublishRequest {
                         event_type: DomainEventType::ExpensePaymentGenerated,
                         aggregate_type: "ExpenseReimbursement".to_string(),

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use crate::master_data::customer::model::*;
 use crate::master_data::customer::repo::{CustomerAddressRepo, CustomerContactRepo, CustomerRepo};
@@ -11,7 +11,7 @@ use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct CustomerServiceImpl {
     repo: CustomerRepo,
@@ -49,24 +49,24 @@ impl CustomerServiceImpl {
 impl CustomerService for CustomerServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateCustomerReq,
     ) -> Result<i64> {
         let code = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::Customer)
+            .next_number(ctx, db, DocumentType::Customer)
             .await?;
 
         let id = self
             .repo
-            .create(ctx.executor, &code, &req, ctx.operator_id)
+            .create(db, &code, &req, ctx.operator_id)
             .await
             ?;
 
         // Initialize state machine to Prospective
         self.state_machine
             .transition(
-                ctx.reborrow(),
+                ctx, db,
                 "CustomerStatus",
                 id,
                 "Prospective",
@@ -80,7 +80,7 @@ impl CustomerService for CustomerServiceImpl {
         if let Some(ref tax) = req.tax_number {
             let exists = self
                 .repo
-                .check_tax_number_exists(ctx.executor, tax)
+                .check_tax_number_exists(db, tax)
                 .await
                 ?;
             if exists {
@@ -91,12 +91,12 @@ impl CustomerService for CustomerServiceImpl {
         }
 
         self.audit
-            .record(ctx.reborrow(), "Customer", id, AuditAction::Create, None, None)
+            .record(ctx, db, "Customer", id, AuditAction::Create, None, None)
             .await?;
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::CustomerCreated,
                     aggregate_type: "Customer".to_string(),
@@ -114,9 +114,9 @@ impl CustomerService for CustomerServiceImpl {
         Ok(id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<Customer> {
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<Customer> {
         self.repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Customer"))
@@ -125,13 +125,13 @@ impl CustomerService for CustomerServiceImpl {
     #[allow(clippy::collapsible_if)]
     async fn update(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: UpdateCustomerReq,
     ) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Customer"))?;
@@ -147,14 +147,14 @@ impl CustomerService for CustomerServiceImpl {
                 };
 
                 self.state_machine
-                    .transition(ctx.reborrow(), "CustomerStatus", id, to_state, None)
+                    .transition(ctx, db, "CustomerStatus", id, to_state, None)
                     .await?;
 
                 // Publish blacklist event if transitioning to Blacklisted
                 if new_status == CustomerStatus::Blacklisted {
                     self.event_bus
                         .publish(
-                            ctx.reborrow(),
+                            ctx, db,
                             EventPublishRequest {
                                 event_type: DomainEventType::CustomerBlacklisted,
                                 aggregate_type: "Customer".to_string(),
@@ -173,30 +173,30 @@ impl CustomerService for CustomerServiceImpl {
         }
 
         self.repo
-            .update(ctx.executor, id, &req)
+            .update(db, id, &req)
             .await
             ?;
 
         self.audit
-            .record(ctx, "Customer", id, AuditAction::Update, None, None)
+            .record(ctx, db, "Customer", id, AuditAction::Update, None, None)
             .await?;
 
         Ok(())
     }
 
-    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        self.repo.delete(ctx.executor, id).await
+    async fn delete(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        self.repo.delete(db, id).await
     }
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: CustomerQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<Customer>> {
         self.repo
             .query(
-                ctx.executor,
+                db,
                 &filter,
                 &page,
                 ctx.data_scope,
@@ -209,26 +209,27 @@ impl CustomerService for CustomerServiceImpl {
 
     async fn add_contact(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         cid: i64,
         req: CreateContactReq,
     ) -> Result<i64> {
         // Verify customer exists
         self.repo
-            .find_by_id(ctx.executor, cid)
+            .find_by_id(db, cid)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Customer"))?;
 
         let contact_id = self
             .contact_repo
-            .create(ctx.executor, cid, &req)
+            .create(db, cid, &req)
             .await
             ?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "CustomerContact",
                 contact_id,
                 AuditAction::Create,
@@ -242,21 +243,21 @@ impl CustomerService for CustomerServiceImpl {
 
     async fn update_contact(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         cid: i64,
         contact_id: i64,
         req: UpdateContactReq,
     ) -> Result<()> {
         // Validate ownership
-        self.validate_contact_ownership(ctx.reborrow(), cid, contact_id).await?;
+        self.validate_contact_ownership(ctx, db, cid, contact_id).await?;
 
         self.contact_repo
-            .update(ctx.executor, contact_id, &req)
+            .update(db, contact_id, &req)
             .await
             ?;
 
         self.audit
-            .record(ctx, "CustomerContact", contact_id, AuditAction::Update, None, None)
+            .record(ctx, db, "CustomerContact", contact_id, AuditAction::Update, None, None)
             .await?;
 
         Ok(())
@@ -264,20 +265,20 @@ impl CustomerService for CustomerServiceImpl {
 
     async fn delete_contact(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         cid: i64,
         contact_id: i64,
     ) -> Result<()> {
         // Validate ownership
-        self.validate_contact_ownership(ctx.reborrow(), cid, contact_id).await?;
+        self.validate_contact_ownership(ctx, db, cid, contact_id).await?;
 
         self.contact_repo
-            .delete(ctx.executor, contact_id)
+            .delete(db, contact_id)
             .await
             ?;
 
         self.audit
-            .record(ctx, "CustomerContact", contact_id, AuditAction::Delete, None, None)
+            .record(ctx, db, "CustomerContact", contact_id, AuditAction::Delete, None, None)
             .await?;
 
         Ok(())
@@ -285,37 +286,38 @@ impl CustomerService for CustomerServiceImpl {
 
     async fn list_contacts(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         cid: i64,
     ) -> Result<Vec<CustomerContact>> {
         self.contact_repo
-            .find_by_customer_id(ctx.executor, cid)
+            .find_by_customer_id(db, cid)
             .await
             
     }
 
     async fn add_address(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         cid: i64,
         req: CreateAddressReq,
     ) -> Result<i64> {
         // Verify customer exists
         self.repo
-            .find_by_id(ctx.executor, cid)
+            .find_by_id(db, cid)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Customer"))?;
 
         let address_id = self
             .address_repo
-            .create(ctx.executor, cid, &req)
+            .create(db, cid, &req)
             .await
             ?;
 
         self.audit
             .record(
                 ctx,
+                db,
                 "CustomerAddress",
                 address_id,
                 AuditAction::Create,
@@ -329,7 +331,7 @@ impl CustomerService for CustomerServiceImpl {
 
     async fn update_address(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         cid: i64,
         address_id: i64,
         req: UpdateAddressReq,
@@ -337,7 +339,7 @@ impl CustomerService for CustomerServiceImpl {
         // Validate address belongs to customer
         let address = self
             .address_repo
-            .find_by_id(ctx.executor, address_id)
+            .find_by_id(db, address_id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("CustomerAddress"))?;
@@ -349,12 +351,12 @@ impl CustomerService for CustomerServiceImpl {
         }
 
         self.address_repo
-            .update(ctx.executor, address_id, &req)
+            .update(db, address_id, &req)
             .await
             ?;
 
         self.audit
-            .record(ctx, "CustomerAddress", address_id, AuditAction::Update, None, None)
+            .record(ctx, db, "CustomerAddress", address_id, AuditAction::Update, None, None)
             .await?;
 
         Ok(())
@@ -362,14 +364,14 @@ impl CustomerService for CustomerServiceImpl {
 
     async fn delete_address(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         cid: i64,
         address_id: i64,
     ) -> Result<()> {
         // Validate address belongs to customer
         let address = self
             .address_repo
-            .find_by_id(ctx.executor, address_id)
+            .find_by_id(db, address_id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("CustomerAddress"))?;
@@ -381,12 +383,12 @@ impl CustomerService for CustomerServiceImpl {
         }
 
         self.address_repo
-            .delete(ctx.executor, address_id)
+            .delete(db, address_id)
             .await
             ?;
 
         self.audit
-            .record(ctx, "CustomerAddress", address_id, AuditAction::Delete, None, None)
+            .record(ctx, db, "CustomerAddress", address_id, AuditAction::Delete, None, None)
             .await?;
 
         Ok(())
@@ -394,24 +396,24 @@ impl CustomerService for CustomerServiceImpl {
 
     async fn list_addresses(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         cid: i64,
     ) -> Result<Vec<CustomerAddress>> {
         self.address_repo
-            .find_by_customer_id(ctx.executor, cid)
+            .find_by_customer_id(db, cid)
             .await
             
     }
 
     async fn validate_contact_ownership(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         cid: i64,
         contact_id: i64,
     ) -> Result<bool> {
         let contact = self
             .contact_repo
-            .find_by_id(ctx.executor, contact_id)
+            .find_by_id(db, contact_id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("CustomerContact"))?;
@@ -425,10 +427,10 @@ impl CustomerService for CustomerServiceImpl {
         Ok(true)
     }
 
-    async fn claim(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn claim(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let customer = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Customer"))?;
@@ -447,7 +449,7 @@ impl CustomerService for CustomerServiceImpl {
 
         self.repo
             .set_owner(
-                ctx.executor,
+                db,
                 id,
                 Some(ctx.operator_id),
                 ctx.department_id,
@@ -456,7 +458,7 @@ impl CustomerService for CustomerServiceImpl {
             ?;
 
         self.audit
-            .record(ctx, "Customer", id, AuditAction::Update, None, None)
+            .record(ctx, db, "Customer", id, AuditAction::Update, None, None)
             .await?;
 
         Ok(())
@@ -464,26 +466,26 @@ impl CustomerService for CustomerServiceImpl {
 
     async fn transfer(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         new_owner_id: i64,
         new_department_id: Option<i64>,
     ) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("Customer"))?;
 
         self.repo
-            .set_owner(ctx.executor, id, Some(new_owner_id), new_department_id)
+            .set_owner(db, id, Some(new_owner_id), new_department_id)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 "Customer",
                 id,
                 AuditAction::Update,
@@ -500,7 +502,7 @@ impl CustomerService for CustomerServiceImpl {
 
         self.event_bus
             .publish(
-                ctx,
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::CustomerTransferred,
                     aggregate_type: "Customer".to_string(),

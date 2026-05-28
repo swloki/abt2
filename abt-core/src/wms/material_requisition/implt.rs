@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -8,6 +8,7 @@ use super::repo::MaterialRequisitionRepo;
 use super::service::MaterialRequisitionService;
 use crate::mes::work_order::service::WorkOrderService;
 use crate::shared::document_link::model::LinkRequest;
+use crate::shared::types::PgExecutor;
 use crate::shared::document_link::service::DocumentLinkService;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::{DocumentType, LinkType};
@@ -44,20 +45,20 @@ impl MaterialRequisitionServiceImpl {
 impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
     async fn create_for_work_order(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64,
     ) -> Result<i64> {
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::MaterialRequisition)
+        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::MaterialRequisition)
             .await
             .unwrap_or_else(|_| format!("MR{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
         let requisition_date = chrono::Local::now().date_naive();
 
-        let wo = self.work_order.find_by_id(ctx.reborrow(), work_order_id).await?;
+        let wo = self.work_order.find_by_id(ctx, db, work_order_id).await?;
         let warehouse_id = wo.work_center_id.unwrap_or(0);
 
         let requisition = MaterialRequisitionRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &doc_number,
             work_order_id,
             requisition_date,
@@ -68,7 +69,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         self.doc_link.create_links(
-            ctx.reborrow(),
+            ctx, db,
             vec![LinkRequest {
                 source_type: DocumentType::MaterialRequisition,
                 source_id: requisition.id,
@@ -84,10 +85,10 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<MaterialRequisition> {
-        MaterialRequisitionRepo::get_by_id(&mut *ctx.executor, id)
+        MaterialRequisitionRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("MaterialRequisition"))
@@ -95,22 +96,22 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: RequisitionFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<MaterialRequisition>> {
-        MaterialRequisitionRepo::list(&mut *ctx.executor, &filter, page, page_size)
+        MaterialRequisitionRepo::list(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn confirm(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let requisition = MaterialRequisitionRepo::get_by_id(&mut *ctx.executor, id)
+        let requisition = MaterialRequisitionRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("MaterialRequisition"))?;
@@ -123,7 +124,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         }
 
         let affected = MaterialRequisitionRepo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             RequisitionStatus::Confirmed,
         )
@@ -141,10 +142,10 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
     /// 设计：issue -> InventoryTransaction.record(MaterialIssue)
     async fn issue(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: IssueMaterialReq,
     ) -> Result<()> {
-        let requisition = MaterialRequisitionRepo::get_by_id(&mut *ctx.executor, req.id)
+        let requisition = MaterialRequisitionRepo::get_by_id(&mut *db, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("MaterialRequisition"))?;
@@ -156,7 +157,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             });
         }
 
-        let existing_items = MaterialRequisitionRepo::get_items(&mut *ctx.executor, req.id)
+        let existing_items = MaterialRequisitionRepo::get_items(&mut *db, req.id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -172,7 +173,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             let variance_qty = item.issued_qty - found_item.requested_qty;
 
             MaterialRequisitionRepo::update_item_issued(
-                &mut *ctx.executor,
+                &mut *db,
                 item.item_id,
                 item.issued_qty,
                 variance_qty,
@@ -183,7 +184,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
 
             // issue -> InventoryTransaction.record(MaterialIssue)
             self.inventory_transaction_svc.record(
-                ctx.reborrow(),
+                ctx, db,
                 RecordTransactionReq {
                     doc_number: None,
                     transaction_type: crate::wms::enums::TransactionType::MaterialIssue,
@@ -203,7 +204,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         }
 
         let affected = MaterialRequisitionRepo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             req.id,
             RequisitionStatus::Issued,
         )
@@ -219,10 +220,10 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
 
     async fn cancel(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
-        let requisition = MaterialRequisitionRepo::get_by_id(&mut *ctx.executor, id)
+        let requisition = MaterialRequisitionRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("MaterialRequisition"))?;
@@ -237,7 +238,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         }
 
         let affected =
-            MaterialRequisitionRepo::soft_delete(&mut *ctx.executor, id)
+            MaterialRequisitionRepo::soft_delete(&mut *db, id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
 

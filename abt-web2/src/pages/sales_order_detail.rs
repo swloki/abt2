@@ -9,7 +9,7 @@ use tower_sessions::Session;
 
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::shared::types::{PgExecutor, ServiceContext};
+use abt_core::shared::types::ServiceContext;
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
@@ -20,8 +20,8 @@ use crate::state::AppState;
 
 // ── Helpers ──
 
-fn make_ctx<'a>(conn: &'a mut sqlx::postgres::PgConnection, operator_id: i64) -> ServiceContext<'a> {
-    ServiceContext::new(conn as PgExecutor<'a>, operator_id)
+fn make_ctx(operator_id: i64) -> ServiceContext {
+    ServiceContext::new(operator_id)
 }
 
 async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
@@ -157,8 +157,8 @@ pub async fn get_order_detail(
     let svc = state.sales_order_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let order = svc.find_by_id(ctx, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+    let order = svc.find_by_id(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let items = fetch_order_items(&mut conn, path.id).await;
     let customer_name = resolve_customer_name(&mut conn, order.customer_id).await;
@@ -186,8 +186,8 @@ pub async fn confirm_order(
     let svc = state.sales_order_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.confirm(ctx, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+    svc.confirm(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -202,8 +202,8 @@ pub async fn start_order(
     let svc = state.sales_order_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.start_progress(ctx, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+    svc.start_progress(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -218,8 +218,8 @@ pub async fn complete_order(
     let svc = state.sales_order_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.complete(ctx, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+    svc.complete(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -234,8 +234,8 @@ pub async fn cancel_order(
     let svc = state.sales_order_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.cancel(ctx, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+    svc.cancel(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

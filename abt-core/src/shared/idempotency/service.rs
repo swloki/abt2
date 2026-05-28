@@ -1,9 +1,9 @@
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde_json::Value as JsonValue;
 
 use super::super::types::context::ServiceContext;
-use super::super::types::Result;
+use super::super::types::{PgExecutor, Result};
 
 #[async_trait]
 pub trait IdempotencyService: Send + Sync {
@@ -12,7 +12,7 @@ pub trait IdempotencyService: Send + Sync {
     /// - false = 重复事件，应跳过
     async fn check_and_mark(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         event_id: i64,
         handler_name: &str,
     ) -> Result<bool>;
@@ -20,7 +20,7 @@ pub trait IdempotencyService: Send + Sync {
     /// 标记事件处理完成，存储可选结果
     async fn mark_processed(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         event_id: i64,
         handler_name: &str,
         result: Option<JsonValue>,
@@ -29,7 +29,7 @@ pub trait IdempotencyService: Send + Sync {
     /// 清理过期的幂等记录，返回删除条数
     async fn cleanup_expired(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         before: DateTime<Utc>,
     ) -> Result<u64>;
 }

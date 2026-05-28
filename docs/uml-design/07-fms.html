@@ -215,34 +215,34 @@ classDiagram
 
   class CashJournalService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
-    +confirm(ctx: ServiceContext, id, idempotency_key: Option~String~) Result~Unit~
-    +get(ctx: ServiceContext, id) Result~CashJournal~
-    +list(ctx: ServiceContext, filter: CashJournalFilter, page: PageParams) PaginatedResult~CashJournal~
-    +get_balance(ctx: ServiceContext, period) Result~BalanceSummary~
+    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
+    +confirm(ctx: &ServiceContext, db: PgExecutor, id, idempotency_key: Option~String~) Result~Unit~
+    +get(ctx: &ServiceContext, db: PgExecutor, id) Result~CashJournal~
+    +list(ctx: &ServiceContext, db: PgExecutor, filter: CashJournalFilter, page: PageParams) PaginatedResult~CashJournal~
+    +get_balance(ctx: &ServiceContext, db: PgExecutor, period) Result~BalanceSummary~
   }
 
   class WriteOffService {
     &lt;&lt;interface&gt;&gt;
-    +write_off(ctx: ServiceContext, req: WriteOffReq) Result~i64~
-    +list_by_source(ctx: ServiceContext, source_type, source_id, page: PageParams) PaginatedResult~WriteOff~
-    +get_unreconciled_amount(ctx: ServiceContext, source_type, source_id, source_total: Decimal) Result~Decimal~
+    +write_off(ctx: &ServiceContext, db: PgExecutor, req: WriteOffReq) Result~i64~
+    +list_by_source(ctx: &ServiceContext, db: PgExecutor, source_type, source_id, page: PageParams) PaginatedResult~WriteOff~
+    +get_unreconciled_amount(ctx: &ServiceContext, db: PgExecutor, source_type, source_id, source_total: Decimal) Result~Decimal~
   }
 
   class ExpenseReimbursementService {
     &lt;&lt;interface&gt;&gt;
-    +create(ctx: ServiceContext, req) Result~i64~
-    +get(ctx: ServiceContext, id) Result~ExpenseReimbursement~
-    +list(ctx: ServiceContext, filter: ExpenseFilter, page: PageParams) PaginatedResult~ExpenseReimbursement~
-    +generate_payment_journal(ctx: ServiceContext, expense_id: i64) Result~i64~
+    +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
+    +get(ctx: &ServiceContext, db: PgExecutor, id) Result~ExpenseReimbursement~
+    +list(ctx: &ServiceContext, db: PgExecutor, filter: ExpenseFilter, page: PageParams) PaginatedResult~ExpenseReimbursement~
+    +generate_payment_journal(ctx: &ServiceContext, db: PgExecutor, expense_id: i64) Result~i64~
   }
 
   class CostAccountingService {
     &lt;&lt;interface&gt;&gt;
-    +get_product_cost(ctx: ServiceContext, product_id: i64, period: String) Result~ProductCostSummary~
-    +get_work_order_cost(ctx: ServiceContext, work_order_id: i64) Result~WorkOrderCostSummary~
-    +get_profit_center_summary(ctx: ServiceContext, profit_center_id: i64, from: String, to: String, page: PageParams) PaginatedResult~ProfitCenterSummary~
-    +get_margin_analysis(ctx: ServiceContext, order_id: i64) Result~MarginAnalysis~
+    +get_product_cost(ctx: &ServiceContext, db: PgExecutor, product_id: i64, period: String) Result~ProductCostSummary~
+    +get_work_order_cost(ctx: &ServiceContext, db: PgExecutor, work_order_id: i64) Result~WorkOrderCostSummary~
+    +get_profit_center_summary(ctx: &ServiceContext, db: PgExecutor, profit_center_id: i64, from: String, to: String, page: PageParams) PaginatedResult~ProfitCenterSummary~
+    +get_margin_analysis(ctx: &ServiceContext, db: PgExecutor, order_id: i64) Result~MarginAnalysis~
   }
 
   note for CashJournal "DB 层: counterparty_type + counterparty_id 两列\nRust Model: CounterpartyRef 枚举（Repository 层拆包/装包）"
@@ -250,7 +250,7 @@ classDiagram
   note for WriteOffService "TransactionMode: InCallerTx (write_off)\nAnti-over-write-off (P0):\n  pg_advisory_xact_lock(source_type, source_id) serializes concurrent writes\n  Check unreconciled >= amount\n  DB CHECK constraint (amount > 0) as safety net\n  get_unreconciled_amount is read-only snapshot\n  OverWriteOff -> DomainError::BusinessRule\n  source_total provided by caller (gRPC handler queries source module)\n  unreconciled = source_total - SUM(write_off.amount)\nIdempotency: unique index on write_offs(idempotency_key)\n  WHERE idempotency_key IS NOT NULL (no IdempotencyService needed)\nSales Receipt WriteOff:\n  source_type = ShippingRequest\n  One shipping request can have multiple partial write-offs\nPurchase Payment WriteOff:\n  source_type = PurchaseOrder / ArrivalNotice\n  Three-way match: invoice + arrival + payment\nEvent: WriteOffCompleted"
   note for ExpenseReimbursementService "TransactionMode: InCallerTx (create)\nTransactionMode: IndependentTx (generate_payment_journal)\n  Hook fires async AFTER caller tx.commit()\n  IndependentTx: opens own tx from pool\n  Creates CashJournal internally, returns journal_id\n  Saga compensation on failure:\n    Rollback created CashJournal\n    Expense status stays Approved (Hook retries)\n    Dead-letter after max retries: manual intervention\n  Precondition: ExpenseStatus == Approved\n  Error handling: return Result, Hook retries or dead-letter\n  NO tx.rollback propagation to caller\nStatus transitions:\n  Draft->Submitted->Approved: StateMachineService.transition()\n  Approved->Paid: generate_payment_journal internally\n  PROHIBITED: external modules modifying status directly\nOptimistic locking: version field on confirm/generate_payment_journal\nEvent: ExpensePaymentGenerated"
   note for CostAccountingService "TransactionMode: None (read-only)\nIsolation: READ COMMITTED (default, no OLTP blocking)\nCost data is eventually consistent derived value, NOT real-time\nFor real-time cost blocking, use SalesOrder pre-reservation flow\nHigh-freq queries: consider materialized view or cache (TTL=5min)\nReads from shared CostEntry table:\n  get_product_cost -> SUM by entity_type=Product, period\n  get_work_order_cost -> SUM by entity_type=WorkOrder\n  get_profit_center_summary -> SUM by profit_center, date range\n  get_margin_analysis -> compare estimated vs actual margin"
-  note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = ServiceContext | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
+  note "Convention: Result~T~ = Result&lt;T, DomainError&gt; | Unit = () | ctx = &ServiceContext, db = PgExecutor | 写操作返回 i64 或 Unit | 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>
@@ -500,36 +500,36 @@ classDiagram
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CashJournalService</span> {<br>
-          &nbsp;&nbsp;create(ctx, req): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
-          &nbsp;&nbsp;confirm(ctx, id, idempotency_key?): Result&lt;()&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
+          &nbsp;&nbsp;create(ctx, db, req): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
+          &nbsp;&nbsp;confirm(ctx, db, id, idempotency_key?): Result&lt;()&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 锁定→聚合借贷→校验→状态变更→审计→事件，同一 COMMIT</span><br>
-          &nbsp;&nbsp;get(ctx, id): Result&lt;CashJournal&gt;<br>
-          &nbsp;&nbsp;list(ctx, filter: CashJournalFilter, page): PaginatedResult<br>
-          &nbsp;&nbsp;get_balance(ctx, period): Result&lt;BalanceSummary&gt;<br>
+          &nbsp;&nbsp;get(ctx, db, id): Result&lt;CashJournal&gt;<br>
+          &nbsp;&nbsp;list(ctx, db, filter: CashJournalFilter, page): PaginatedResult<br>
+          &nbsp;&nbsp;get_balance(ctx, db, period): Result&lt;BalanceSummary&gt;<br>
           }<br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">WriteOffService</span> {<br>
-          &nbsp;&nbsp;write_off(ctx, req: WriteOffReq): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
+          &nbsp;&nbsp;write_off(ctx, db, req: WriteOffReq): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// pg_advisory_xact_lock 串行化并发核销 → 校验未核销余额 → DB CHECK 兜底</span><br>
-          &nbsp;&nbsp;list_by_source(ctx, source_type, source_id, page): PaginatedResult<br>
-          &nbsp;&nbsp;get_unreconciled_amount(ctx, source_type, source_id, source_total): Result&lt;Decimal&gt; <span style="color:#888;">// 只读快照，返回 source_total - SUM</span><br>
+          &nbsp;&nbsp;list_by_source(ctx, db, source_type, source_id, page): PaginatedResult<br>
+          &nbsp;&nbsp;get_unreconciled_amount(ctx, db, source_type, source_id, source_total): Result&lt;Decimal&gt; <span style="color:#888;">// 只读快照，返回 source_total - SUM</span><br>
           }
         </div>
         <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11px;">
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">ExpenseReimbursementService</span> {<br>
-          &nbsp;&nbsp;create(ctx, req): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
-          &nbsp;&nbsp;get(ctx, id): Result&lt;ExpenseReimbursement&gt;<br>
-          &nbsp;&nbsp;list(ctx, filter: ExpenseFilter, page): PaginatedResult<br>
-          &nbsp;&nbsp;generate_payment_journal(ctx, expense_id): Result&lt;i64&gt; <span style="color:#e5c07b;">[IndependentTx]</span> <span style="color:#e06c75;">internal</span><br>
+          &nbsp;&nbsp;create(ctx, db, req): Result&lt;i64&gt; <span style="color:#56b6c2;">[InCallerTx]</span><br>
+          &nbsp;&nbsp;get(ctx, db, id): Result&lt;ExpenseReimbursement&gt;<br>
+          &nbsp;&nbsp;list(ctx, db, filter: ExpenseFilter, page): PaginatedResult<br>
+          &nbsp;&nbsp;generate_payment_journal(ctx, db, expense_id): Result&lt;i64&gt; <span style="color:#e5c07b;">[IndependentTx]</span> <span style="color:#e06c75;">internal</span><br>
           }<br>
           <span style="color:#888;">// Draft→Submitted→Approved: StateMachineService.transition()</span><br>
           <span style="color:#888;">// Approved→Paid: generate_payment_journal 内部更新</span><br>
           <span style="color:#888;">// 禁止外部模块直接修改 ExpenseReimbursement.status</span><br>
           <span style="color:#888;">// Hook 异步触发，独立事务，失败返回 Result 由 Hook 重试/死信</span><br><br>
           <span style="color:#c678dd;">interface</span> <span style="color:#e5c07b;">CostAccountingService</span> {<br>
-          &nbsp;&nbsp;get_product_cost(ctx, product_id, period): Result&lt;ProductCostSummary&gt; <span style="color:#888;">[None]</span><br>
-          &nbsp;&nbsp;get_work_order_cost(ctx, work_order_id): Result&lt;WorkOrderCostSummary&gt; <span style="color:#888;">[None]</span><br>
-          &nbsp;&nbsp;get_profit_center_summary(ctx, profit_center_id, from, to, page): PaginatedResult <span style="color:#888;">[None]</span><br>
-          &nbsp;&nbsp;get_margin_analysis(ctx, order_id): Result&lt;MarginAnalysis&gt; <span style="color:#888;">[None]</span><br>
+          &nbsp;&nbsp;get_product_cost(ctx, db, product_id, period): Result&lt;ProductCostSummary&gt; <span style="color:#888;">[None]</span><br>
+          &nbsp;&nbsp;get_work_order_cost(ctx, db, work_order_id): Result&lt;WorkOrderCostSummary&gt; <span style="color:#888;">[None]</span><br>
+          &nbsp;&nbsp;get_profit_center_summary(ctx, db, profit_center_id, from, to, page): PaginatedResult <span style="color:#888;">[None]</span><br>
+          &nbsp;&nbsp;get_margin_analysis(ctx, db, order_id): Result&lt;MarginAnalysis&gt; <span style="color:#888;">[None]</span><br>
           }<br>
           <span style="color:#888;">// READ COMMITTED 隔离，最终一致派生值，非实时强一致</span><br>
           <span style="color:#888;">// 高频查询建议物化视图或缓存 (TTL=5min)</span>

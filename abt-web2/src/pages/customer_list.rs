@@ -9,7 +9,7 @@ use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::*;
 use abt_core::master_data::customer::CustomerService;
-use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
+use abt_core::shared::types::{PageParams, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
@@ -63,8 +63,8 @@ pub async fn get_customer_list(
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let result = svc.list(ctx, filter, page).await?;
+    let ctx = make_ctx(claims.sub);
+    let result = svc.list(&ctx, &mut *conn, filter, page).await?;
 
     let content = customer_list_page(&claims, &result, &params);
     let page_html = admin_page(
@@ -86,8 +86,8 @@ pub async fn get_customer_table(
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let result = svc.list(ctx, filter, page).await?;
+    let ctx = make_ctx(claims.sub);
+    let result = svc.list(&ctx, &mut *conn, filter, page).await?;
 
     Ok(Html(customer_table_fragment(&result, &params).into_string()))
 }
@@ -123,8 +123,8 @@ pub async fn create_customer(
         remark: form.remark,
     };
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let id = svc.create(ctx, req).await?;
+    let ctx = make_ctx(claims.sub);
+    let id = svc.create(&ctx, &mut *conn, req).await?;
 
     Ok((
         [("HX-Redirect", format!("/admin/customers/{id}"))],
@@ -141,8 +141,8 @@ pub async fn get_edit_customer_form(
     let svc = state.customer_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let customer = svc.get(ctx, path.id).await?;
+    let ctx = make_ctx(claims.sub);
+    let customer = svc.get(&ctx, &mut *conn, path.id).await?;
 
     let update_path = UpdateCustomerPath { id: path.id };
     let form_html = customer_form(&Some(customer), "edit-customer-form", &update_path.to_string());
@@ -173,8 +173,8 @@ pub async fn update_customer(
         remark: form.remark,
     };
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.update(ctx, path.id, req).await?;
+    let ctx = make_ctx(claims.sub);
+    svc.update(&ctx, &mut *conn, path.id, req).await?;
 
     let redirect = CustomerDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -189,8 +189,8 @@ pub async fn delete_customer(
     let svc = state.customer_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.delete(ctx, path.id).await?;
+    let ctx = make_ctx(claims.sub);
+    svc.delete(&ctx, &mut *conn, path.id).await?;
 
     Ok(([("HX-Redirect", CustomerListPath::PATH)], Html(String::new())))
 }
@@ -206,8 +206,8 @@ fn build_filter(params: &CustomerQueryParams) -> CustomerQuery {
     }
 }
 
-fn make_ctx<'a>(conn: &'a mut sqlx::postgres::PgConnection, operator_id: i64) -> ServiceContext<'a> {
-    ServiceContext::new(conn as PgExecutor<'a>, operator_id)
+fn make_ctx(operator_id: i64) -> ServiceContext {
+    ServiceContext::new(operator_id)
 }
 
 async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {

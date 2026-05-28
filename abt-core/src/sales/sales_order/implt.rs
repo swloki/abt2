@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use chrono::{Local, TimeDelta};
 use rust_decimal::Decimal;
@@ -22,7 +22,7 @@ use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::inventory_reservation::model::ReserveRequest;
 use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct SalesOrderServiceImpl {
     repo: SalesOrderRepo,
@@ -107,16 +107,16 @@ impl SalesOrderServiceImpl {
 impl SalesOrderService for SalesOrderServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateSalesOrderReq,
     ) -> Result<i64> {
         self.customer_svc
-            .validate_contact_ownership(ctx.reborrow(), req.customer_id, req.contact_id)
+            .validate_contact_ownership(ctx, db, req.customer_id, req.contact_id)
             .await?;
 
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::SalesOrder)
+            .next_number(ctx, db, DocumentType::SalesOrder)
             .await?;
 
         let (total_amount, total_cost) = Self::calculate_amounts(&req.items);
@@ -124,7 +124,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         let id = self
             .repo
             .create(
-                ctx.executor,
+                db,
                 &doc_number,
                 req.customer_id,
                 req.contact_id,
@@ -142,22 +142,23 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         let item_inputs = Self::build_item_inputs(&req.items);
         self.item_repo
-            .create_batch(ctx.executor, id, &item_inputs)
+            .create_batch(db, id, &item_inputs)
             .await
             ?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "SalesOrderStatus", id, "Draft", None)
+            .transition(ctx, db, "SalesOrderStatus", id, "Draft", None)
             .await
             .ok();
 
         self.audit
-            .record(ctx.reborrow(), "SalesOrder", id, AuditAction::Create, None, None)
+            .record(ctx, db, "SalesOrder", id, AuditAction::Create, None, None)
             .await?;
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::SalesOrderCreated,
                     aggregate_type: "SalesOrder".to_string(),
@@ -177,10 +178,10 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
     async fn create_from_quotation(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         quotation_id: i64,
     ) -> Result<i64> {
-        let quotation = self.quotation_svc.find_by_id(ctx.reborrow(), quotation_id).await?;
+        let quotation = self.quotation_svc.find_by_id(ctx, db, quotation_id).await?;
 
         if quotation.status != crate::sales::quotation::model::QuotationStatus::Accepted {
             return Err(DomainError::business_rule(
@@ -192,7 +193,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
             return Err(DomainError::business_rule("Quotation has expired"));
         }
 
-        let quotation_items = self.quotation_svc.list_items(ctx.reborrow(), quotation_id).await?;
+        let quotation_items = self.quotation_svc.list_items(ctx, db, quotation_id).await?;
 
         let order_items: Vec<CreateSalesOrderItemReq> = quotation_items
             .iter()
@@ -210,7 +211,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::SalesOrder)
+            .next_number(ctx, db, DocumentType::SalesOrder)
             .await?;
 
         let (total_amount, total_cost) = Self::calculate_amounts(&order_items);
@@ -218,7 +219,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
         let id = self
             .repo
             .create(
-                ctx.executor,
+                db,
                 &doc_number,
                 quotation.customer_id,
                 quotation.contact_id,
@@ -236,13 +237,14 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         let item_inputs = Self::build_item_inputs(&order_items);
         self.item_repo
-            .create_batch(ctx.executor, id, &item_inputs)
+            .create_batch(db, id, &item_inputs)
             .await
             ?;
 
         self.doc_link
             .create_links(
-                ctx.reborrow(),
+                ctx,
+                db,
                 vec![LinkRequest {
                     source_type: DocumentType::SalesOrder,
                     source_id: id,
@@ -254,13 +256,14 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .await?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "SalesOrderStatus", id, "Draft", None)
+            .transition(ctx, db, "SalesOrderStatus", id, "Draft", None)
             .await
             .ok();
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesOrder",
                 id,
                 AuditAction::Create,
@@ -271,7 +274,8 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::SalesOrderCreated,
                     aggregate_type: "SalesOrder".to_string(),
@@ -291,11 +295,11 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
     async fn find_by_id(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<SalesOrder> {
         self.repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))
@@ -303,13 +307,13 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
     async fn update_header(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: UpdateSalesOrderReq,
     ) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
@@ -319,12 +323,12 @@ impl SalesOrderService for SalesOrderServiceImpl {
         }
 
         self.repo
-            .update(ctx.executor, id, &req)
+            .update(db, id, &req)
             .await
             ?;
 
         self.audit
-            .record(ctx.reborrow(), "SalesOrder", id, AuditAction::Update, None, None)
+            .record(ctx, db, "SalesOrder", id, AuditAction::Update, None, None)
             .await?;
 
         Ok(())
@@ -332,14 +336,14 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
     async fn update(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: UpdateSalesOrderReq,
         items: Vec<CreateSalesOrderItemReq>,
     ) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
@@ -347,22 +351,22 @@ impl SalesOrderService for SalesOrderServiceImpl {
             return Err(DomainError::business_rule("仅草稿状态的订单可以编辑"));
         }
 
-        self.repo.update(ctx.executor, id, &req).await?;
+        self.repo.update(db, id, &req).await?;
 
-        self.item_repo.delete_by_order_id(ctx.executor, id).await?;
+        self.item_repo.delete_by_order_id(db, id).await?;
 
         let item_inputs = Self::build_item_inputs(&items);
         self.item_repo
-            .create_batch(ctx.executor, id, &item_inputs)
+            .create_batch(db, id, &item_inputs)
             .await?;
 
         let (total_amount, total_cost) = Self::calculate_amounts(&items);
         self.repo
-            .update_amounts(ctx.executor, id, total_amount, total_cost)
+            .update_amounts(db, id, total_amount, total_cost)
             .await?;
 
         self.audit
-            .record(ctx.reborrow(), "SalesOrder", id, AuditAction::Update, None, None)
+            .record(ctx, db, "SalesOrder", id, AuditAction::Update, None, None)
             .await?;
 
         Ok(())
@@ -370,19 +374,19 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
     async fn list_items(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         order_id: i64,
     ) -> Result<Vec<SalesOrderItem>> {
         self.item_repo
-            .find_by_order_id(ctx.executor, order_id)
+            .find_by_order_id(db, order_id)
             .await
             .map_err(Into::into)
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
@@ -392,12 +396,12 @@ impl SalesOrderService for SalesOrderServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "SalesOrderStatus", id, "Confirmed", None)
+            .transition(ctx, db, "SalesOrderStatus", id, "Confirmed", None)
             .await?;
 
         let items = self
             .item_repo
-            .find_by_order_id(ctx.executor, id)
+            .find_by_order_id(db, id)
             .await
             ?;
 
@@ -419,13 +423,13 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .collect();
 
         sqlx::query("SAVEPOINT sp_reserve")
-            .execute(&mut *ctx.executor)
+            .execute(&mut *db)
             .await
             .ok();
-        match self.inv_res.reserve(ctx.reborrow(), reserve_requests).await {
+        match self.inv_res.reserve(ctx, db, reserve_requests).await {
             Ok(batch) if batch.failed_items.is_empty() => {
                 sqlx::query("RELEASE SAVEPOINT sp_reserve")
-                    .execute(&mut *ctx.executor)
+                    .execute(&mut *db)
                     .await
                     .ok();
             }
@@ -435,31 +439,32 @@ impl SalesOrderService for SalesOrderServiceImpl {
                     batch.success_count, batch.total
                 );
                 sqlx::query("ROLLBACK TO SAVEPOINT sp_reserve")
-                    .execute(&mut *ctx.executor)
+                    .execute(&mut *db)
                     .await
                     .ok();
             }
             Err(e) => {
                 tracing::warn!("inventory reserve error: {e}");
                 sqlx::query("ROLLBACK TO SAVEPOINT sp_reserve")
-                    .execute(&mut *ctx.executor)
+                    .execute(&mut *db)
                     .await
                     .ok();
             }
         }
 
         self.repo
-            .update_status(ctx.executor, id, SalesOrderStatus::Confirmed)
+            .update_status(db, id, SalesOrderStatus::Confirmed)
             .await
             ?;
 
         sqlx::query("SAVEPOINT sp_audit")
-            .execute(&mut *ctx.executor)
+            .execute(&mut *db)
             .await
             .ok();
         if let Err(e) = self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesOrder",
                 id,
                 AuditAction::Transition,
@@ -470,23 +475,24 @@ impl SalesOrderService for SalesOrderServiceImpl {
         {
             tracing::warn!("audit record failed: {e}");
             sqlx::query("ROLLBACK TO SAVEPOINT sp_audit")
-                .execute(&mut *ctx.executor)
+                .execute(&mut *db)
                 .await
                 .ok();
         } else {
             sqlx::query("RELEASE SAVEPOINT sp_audit")
-                .execute(&mut *ctx.executor)
+                .execute(&mut *db)
                 .await
                 .ok();
         }
 
         sqlx::query("SAVEPOINT sp_event")
-            .execute(&mut *ctx.executor)
+            .execute(&mut *db)
             .await
             .ok();
         if let Err(e) = self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::SalesOrderConfirmed,
                     aggregate_type: "SalesOrder".to_string(),
@@ -499,12 +505,12 @@ impl SalesOrderService for SalesOrderServiceImpl {
         {
             tracing::warn!("event publish failed: {e}");
             sqlx::query("ROLLBACK TO SAVEPOINT sp_event")
-                .execute(&mut *ctx.executor)
+                .execute(&mut *db)
                 .await
                 .ok();
         } else {
             sqlx::query("RELEASE SAVEPOINT sp_event")
-                .execute(&mut *ctx.executor)
+                .execute(&mut *db)
                 .await
                 .ok();
         }
@@ -512,10 +518,10 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
-    async fn start_progress(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn start_progress(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
@@ -525,17 +531,18 @@ impl SalesOrderService for SalesOrderServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "SalesOrderStatus", id, "InProduction", None)
+            .transition(ctx, db, "SalesOrderStatus", id, "InProduction", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, SalesOrderStatus::InProduction)
+            .update_status(db, id, SalesOrderStatus::InProduction)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesOrder",
                 id,
                 AuditAction::Transition,
@@ -547,10 +554,10 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
-    async fn complete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
@@ -561,7 +568,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         let items = self
             .item_repo
-            .find_by_order_id(ctx.executor, id)
+            .find_by_order_id(db, id)
             .await
             ?;
 
@@ -575,17 +582,18 @@ impl SalesOrderService for SalesOrderServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "SalesOrderStatus", id, "Completed", None)
+            .transition(ctx, db, "SalesOrderStatus", id, "Completed", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, SalesOrderStatus::Completed)
+            .update_status(db, id, SalesOrderStatus::Completed)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesOrder",
                 id,
                 AuditAction::Transition,
@@ -597,10 +605,10 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
-    async fn cancel(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
@@ -614,23 +622,24 @@ impl SalesOrderService for SalesOrderServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "SalesOrderStatus", id, "Cancelled", None)
+            .transition(ctx, db, "SalesOrderStatus", id, "Cancelled", None)
             .await?;
 
         if existing.status == SalesOrderStatus::Confirmed {
             self.inv_res
-                .cancel_by_source(ctx.reborrow(), DocumentType::SalesOrder, id)
+                .cancel_by_source(ctx, db, DocumentType::SalesOrder, id)
                 .await?;
         }
 
         self.repo
-            .update_status(ctx.executor, id, SalesOrderStatus::Cancelled)
+            .update_status(db, id, SalesOrderStatus::Cancelled)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesOrder",
                 id,
                 AuditAction::Transition,
@@ -641,7 +650,8 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::SalesOrderCancelled,
                     aggregate_type: "SalesOrder".to_string(),
@@ -655,10 +665,10 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
-    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
@@ -666,11 +676,12 @@ impl SalesOrderService for SalesOrderServiceImpl {
             return Err(DomainError::business_rule("仅草稿状态的订单可以删除"));
         }
 
-        self.repo.soft_delete(ctx.executor, id).await?;
+        self.repo.soft_delete(db, id).await?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesOrder",
                 id,
                 AuditAction::Delete,
@@ -681,7 +692,8 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::SalesOrderDeleted,
                     aggregate_type: "SalesOrder".to_string(),
@@ -697,13 +709,13 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: SalesOrderQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<SalesOrder>> {
         self.repo
             .query(
-                ctx.executor,
+                db,
                 &filter,
                 &page,
                 ctx.data_scope,

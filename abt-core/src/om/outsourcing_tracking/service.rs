@@ -1,7 +1,8 @@
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 
 use super::model::{OutsourcingTracking, OverdueTrackingQuery, RecordNodeReq};
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
@@ -9,20 +10,20 @@ use crate::shared::types::pagination::PaginatedResult;
 pub trait OutsourcingTrackingService: Send + Sync {
     async fn record_node(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: RecordNodeReq,
     ) -> Result<i64>;
 
     async fn list_by_outsourcing(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         outsourcing_id: i64,
         page: crate::shared::types::pagination::PageParams,
     ) -> Result<PaginatedResult<OutsourcingTracking>>;
 
     async fn list_overdue(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: OverdueTrackingQuery,
         page: crate::shared::types::pagination::PageParams,
     ) -> Result<PaginatedResult<OutsourcingTracking>>;

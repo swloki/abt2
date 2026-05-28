@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -12,6 +12,7 @@ use crate::master_data::bom::service::BomQueryService;
 use crate::mes::production_batch::model::WorkOrderRouting;
 use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
 use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::types::PgExecutor;
 use crate::shared::enums::{DocumentType, ReservationType};
 use crate::shared::inventory_reservation::model::ReserveRequest;
 use crate::shared::inventory_reservation::service::InventoryReservationService;
@@ -46,15 +47,15 @@ impl WorkOrderServiceImpl {
 impl WorkOrderService for WorkOrderServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateWorkOrderReq,
     ) -> Result<i64> {
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::WorkOrder)
+        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("WO{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
 
         let work_order = WorkOrderRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &doc_number,
             &req,
             WorkOrderStatus::Draft,
@@ -68,10 +69,10 @@ impl WorkOrderService for WorkOrderServiceImpl {
 
     async fn find_by_id(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<WorkOrder> {
-        WorkOrderRepo::get_by_id(&mut *ctx.executor, id)
+        WorkOrderRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("WorkOrder"))
@@ -84,12 +85,12 @@ impl WorkOrderService for WorkOrderServiceImpl {
     /// - 创建领料单
     async fn release(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         expected_version: i32,
     ) -> Result<()> {
         // 1. 验证工单存在且状态允许下达
-        let work_order = WorkOrderRepo::get_by_id(&mut *ctx.executor, id)
+        let work_order = WorkOrderRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("WorkOrder"))?;
@@ -106,7 +107,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         // 2. 乐观锁更新状态
         let updated =
             WorkOrderRepo::update_status_with_version(
-                &mut *ctx.executor,
+                &mut *db,
                 id,
                 WorkOrderStatus::Released,
                 expected_version,
@@ -120,7 +121,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
 
         // 3. 获取 BOM 叶子节点（组件）
         let bom_nodes = if let Some(bom_id) = work_order.bom_snapshot_id {
-            self.bom.get_leaf_nodes(ctx.reborrow(), bom_id).await?
+            self.bom.get_leaf_nodes(ctx, db, bom_id).await?
         } else {
             vec![]
         };
@@ -149,7 +150,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 })
                 .collect();
 
-            WorkOrderRoutingRepo::insert_for_work_order(&mut *ctx.executor, &routing_steps)
+            WorkOrderRoutingRepo::insert_for_work_order(&mut *db, &routing_steps)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
@@ -163,7 +164,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         };
 
         let batch_no = self.doc_seq.next_number(
-            ctx.reborrow(),
+            ctx, db,
             DocumentType::WorkOrder,
         )
         .await
@@ -172,7 +173,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         let card_sn = format!("SN-{}", chrono::Local::now().format("%Y%m%d%H%M%S%3f"));
 
         ProductionBatchRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &batch_req,
             &batch_no,
             &card_sn,
@@ -183,7 +184,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
 
         // 6. 库存 HARD 预留（planned_qty）
         self.inv_res.reserve(
-            ctx.reborrow(),
+            ctx, db,
             vec![ReserveRequest {
                 product_id: work_order.product_id,
                 warehouse_id: 0,
@@ -199,7 +200,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .await?;
 
         // 7. 创建领料单
-        self.material_req.create_for_work_order(ctx.reborrow(), id).await?;
+        self.material_req.create_for_work_order(ctx, db, id).await?;
 
         Ok(())
     }
@@ -207,11 +208,11 @@ impl WorkOrderService for WorkOrderServiceImpl {
     /// 关闭工单：Released -> Closed
     async fn close(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         expected_version: i32,
     ) -> Result<()> {
-        let work_order = WorkOrderRepo::get_by_id(&mut *ctx.executor, id)
+        let work_order = WorkOrderRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("WorkOrder"))?;
@@ -223,7 +224,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
             });
         }
 
-        let batches = ProductionBatchRepo::list_by_work_order(&mut *ctx.executor, id)
+        let batches = ProductionBatchRepo::list_by_work_order(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -241,7 +242,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
 
         let updated =
             WorkOrderRepo::update_status_with_version(
-                &mut *ctx.executor,
+                &mut *db,
                 id,
                 WorkOrderStatus::Closed,
                 expected_version,
@@ -253,7 +254,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, id).await?;
+        self.inv_res.cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await?;
 
         Ok(())
     }
@@ -261,11 +262,11 @@ impl WorkOrderService for WorkOrderServiceImpl {
     /// 取消工单：Draft/Planned/Released -> Cancelled
     async fn cancel(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         expected_version: i32,
     ) -> Result<()> {
-        let work_order = WorkOrderRepo::get_by_id(&mut *ctx.executor, id)
+        let work_order = WorkOrderRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("WorkOrder"))?;
@@ -282,7 +283,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
 
         let updated =
             WorkOrderRepo::update_status_with_version(
-                &mut *ctx.executor,
+                &mut *db,
                 id,
                 WorkOrderStatus::Cancelled,
                 expected_version,
@@ -294,21 +295,21 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, id).await?;
-        WorkOrderRepo::soft_delete(&mut *ctx.executor, id).await.map_err(|e| DomainError::Internal(e.into()))?;
-        WorkOrderRepo::soft_delete_batches(&mut *ctx.executor, id).await.map_err(|e| DomainError::Internal(e.into()))?;
+        self.inv_res.cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await?;
+        WorkOrderRepo::soft_delete(&mut *db, id).await.map_err(|e| DomainError::Internal(e.into()))?;
+        WorkOrderRepo::soft_delete_batches(&mut *db, id).await.map_err(|e| DomainError::Internal(e.into()))?;
 
         Ok(())
     }
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: WorkOrderFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<WorkOrder>> {
-        WorkOrderRepo::list(&mut *ctx.executor, &filter, page, page_size)
+        WorkOrderRepo::list(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

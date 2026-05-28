@@ -18,13 +18,12 @@ fn document(title: &str, body: Markup) -> Markup {
                 title { (title) " - ABT 管理系统" }
                 link rel="icon" type="image/svg+xml" href="/favicon.svg";
                 link rel="stylesheet" href="/app.css";
-                link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css";
                 script src="/htmx.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer {}
             }
             body {
                 (body)
+                (toast_container())
             }
         }
     }
@@ -90,4 +89,23 @@ pub fn admin_page(
 /// Renders a standalone page (e.g. login) — no admin shell.
 pub fn standalone_page(title: &str, body: Markup) -> Markup {
     document(title, body)
+}
+
+fn toast_container() -> Markup {
+    let alpine_data = r#"{ toasts: [], init() { var self = this; window.addEventListener('show-toast', function(e) { var t = { id: Date.now(), message: e.detail.message, type: e.detail.type || 'success' }; self.toasts.push(t); setTimeout(function() { self.toasts = self.toasts.filter(function(x) { return x.id !== t.id; }) }, 3000); }) }, removeToast(id) { this.toasts = this.toasts.filter(function(x) { return x.id !== id; }) } }"#;
+    let bind_class = r#"'toast-' + toast.type"#;
+    html! {
+        div
+            x-data=(alpine_data)
+            class="toast-container" {
+            template x-for="toast in toasts" {
+                div
+                    class="toast toast-show"
+                    x-bind:class=(bind_class) {
+                    span x-text="toast.message" {}
+                    button class="toast-close" x-on:click="removeToast(toast.id)" { "×" }
+                }
+            }
+        }
+    }
 }

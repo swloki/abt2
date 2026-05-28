@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::json;
@@ -10,6 +10,7 @@ use super::service::MrbService;
 use crate::qms::enums::*;
 use crate::qms::inspection_result;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::types::PgExecutor;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
@@ -49,11 +50,11 @@ impl MrbServiceImpl {
 impl MrbService for MrbServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateMrbReq,
     ) -> Result<i64> {
         // 1. 验证检验结果存在、已完成、且为 Fail 或 Conditional
-        let ir = inspection_result::repo::find_by_id(&mut *ctx.executor, req.inspection_result_id)
+        let ir = inspection_result::repo::find_by_id(&mut *db, req.inspection_result_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("InspectionResult"))?;
@@ -73,7 +74,7 @@ impl MrbService for MrbServiceImpl {
         // 2. 生成单据编号
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::Mrb)
+            .next_number(ctx, db, DocumentType::Mrb)
             .await?;
 
         // 3. 构建实体并插入
@@ -95,13 +96,13 @@ impl MrbService for MrbServiceImpl {
             deleted_at: None,
         };
 
-        let id = repo::insert(&mut *ctx.executor, &mrb)
+        let id = repo::insert(&mut *db, &mrb)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 4. 审计日志
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Create, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
             .await?;
 
         Ok(id)
@@ -109,10 +110,10 @@ impl MrbService for MrbServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<Mrb> {
-        repo::find_by_id(&mut *ctx.executor, id)
+        repo::find_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
@@ -120,15 +121,15 @@ impl MrbService for MrbServiceImpl {
 
     async fn submit_for_review(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "UnderReview", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "UnderReview", None)
             .await?;
 
         let rows = repo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             MRBStatus::UnderReview.as_i16(),
             MRBStatus::Draft.as_i16(),
@@ -141,7 +142,7 @@ impl MrbService for MrbServiceImpl {
         }
 
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         Ok(())
@@ -150,15 +151,15 @@ impl MrbService for MrbServiceImpl {
     /// MRB approve: UnderReview -> Approved
     async fn approve(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "Approved", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "Approved", None)
             .await?;
 
         let rows = repo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             MRBStatus::Approved.as_i16(),
             MRBStatus::UnderReview.as_i16(),
@@ -171,7 +172,7 @@ impl MrbService for MrbServiceImpl {
         }
 
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         Ok(())
@@ -180,16 +181,16 @@ impl MrbService for MrbServiceImpl {
     /// 执行处置 — 由 WorkflowHook.on_approved 回调触发
     async fn execute_disposition(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         _req: ExecuteDispositionReq,
     ) -> Result<()> {
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "Completed", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "Completed", None)
             .await?;
 
         let rows = repo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             MRBStatus::Completed.as_i16(),
             MRBStatus::Approved.as_i16(),
@@ -202,7 +203,7 @@ impl MrbService for MrbServiceImpl {
         }
 
         // 发布 MRBDispositioned 事件
-        let mrb = repo::find_by_id(&mut *ctx.executor, id)
+        let mrb = repo::find_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
@@ -210,7 +211,8 @@ impl MrbService for MrbServiceImpl {
         // 推进关联检验结果到 Dispositioned
         self.state_machine
             .transition(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "InspectionResult",
                 mrb.inspection_result_id,
                 "Dispositioned",
@@ -219,7 +221,7 @@ impl MrbService for MrbServiceImpl {
             .await?;
 
         let ir_rows = inspection_result::repo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             mrb.inspection_result_id,
             InspectionStatus::Dispositioned.as_i16(),
             InspectionStatus::Completed.as_i16(),
@@ -233,7 +235,8 @@ impl MrbService for MrbServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::MRBDispositioned,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -248,7 +251,7 @@ impl MrbService for MrbServiceImpl {
             .await?;
 
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         Ok(())
@@ -256,11 +259,11 @@ impl MrbService for MrbServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: MrbFilter,
         page: PageParams,
     ) -> Result<PaginatedResult<Mrb>> {
-        repo::list(&mut *ctx.executor, &filter, &page)
+        repo::list(&mut *db, &filter, &page)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

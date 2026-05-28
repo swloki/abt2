@@ -1,10 +1,10 @@
-use std::collections::{HashMap, HashSet};
+﻿use std::collections::{HashMap, HashSet};
 
 use rust_decimal::Decimal;
 
 use super::model::*;
 use super::service::InventoryCascadeService;
-use crate::shared::types::{DomainError, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, ServiceContext, Result};
 
 const MAX_BOM_REFS: i32 = 10;
 
@@ -72,7 +72,7 @@ fn collect_descendants<'a>(
 
 #[async_trait::async_trait]
 impl InventoryCascadeService for InventoryCascadeServiceImpl {
-    async fn cascade_inventory(&self, ctx: ServiceContext<'_>, query: CascadeInventoryQuery) -> Result<CascadeInventoryResult> {
+    async fn cascade_inventory(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, query: CascadeInventoryQuery) -> Result<CascadeInventoryResult> {
         if query.product_id.is_none() && query.product_code.is_none() {
             return Err(DomainError::validation("必须提供 product_id 或 product_code"));
         }
@@ -83,14 +83,14 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
                 "SELECT product_id, product_code, pdt_name FROM products WHERE product_id = $1 LIMIT 1",
             )
             .bind(id)
-            .fetch_optional(&mut *ctx.executor)
+            .fetch_optional(&mut *db)
             .await.map_err(|e| DomainError::Internal(e.into()))?
         } else {
             sqlx::query_as::<sqlx::Postgres, ProductInfoRow>(
                 "SELECT product_id, product_code, pdt_name FROM products WHERE product_code = $1 LIMIT 1",
             )
             .bind(&query.product_code)
-            .fetch_optional(&mut *ctx.executor)
+            .fetch_optional(&mut *db)
             .await.map_err(|e| DomainError::Internal(e.into()))?
         };
 
@@ -109,7 +109,7 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
         )
         .bind(product.product_id)
         .bind(MAX_BOM_REFS)
-        .fetch_all(&mut *ctx.executor)
+        .fetch_all(&mut *db)
         .await.map_err(|e| DomainError::Internal(e.into()))?;
 
         if bom_refs.is_empty() {
@@ -130,7 +130,7 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
                ORDER BY order_num"#,
         )
         .bind(&bom_ids)
-        .fetch_all(&mut *ctx.executor)
+        .fetch_all(&mut *db)
         .await.map_err(|e| DomainError::Internal(e.into()))?;
         let all_product_ids: Vec<i64> = all_nodes
             .iter()
@@ -146,7 +146,7 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
                 "SELECT product_id, product_code, pdt_name FROM products WHERE product_id = ANY($1)",
             )
             .bind(&all_product_ids)
-            .fetch_all(&mut *ctx.executor)
+            .fetch_all(&mut *db)
             .await.map_err(|e| DomainError::Internal(e.into()))?
         };
 
@@ -217,7 +217,7 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
                 "SELECT product_id, SUM(quantity) AS total_stock FROM stock_ledger WHERE product_id = ANY($1) GROUP BY product_id",
             )
             .bind(&descendant_product_ids)
-            .fetch_all(&mut *ctx.executor)
+            .fetch_all(&mut *db)
             .await.map_err(|e| DomainError::Internal(e.into()))?;
 
             stocks.into_iter().map(|s| (s.product_id, s.total_stock)).collect()

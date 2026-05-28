@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -8,6 +8,7 @@ use super::model::{InventoryTransaction, RecordTransactionReq, TransactionFilter
 use super::repo::InventoryTransactionRepo;
 use super::service::InventoryTransactionService;
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
@@ -31,10 +32,10 @@ impl InventoryTransactionServiceImpl {
 impl InventoryTransactionService for InventoryTransactionServiceImpl {
     async fn record(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: RecordTransactionReq,
     ) -> Result<i64> {
-        let txn = InventoryTransactionRepo::insert(&mut *ctx.executor, &req, ctx.operator_id)
+        let txn = InventoryTransactionRepo::insert(&mut *db, &req, ctx.operator_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -42,6 +43,7 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
         if let (Some(zone_id), Some(bin_id)) = (req.zone_id, req.bin_id) {
             self.stock_ledger_svc.upsert(
                 ctx,
+                db,
                 UpsertStockReq {
                     product_id: req.product_id,
                     warehouse_id: req.warehouse_id,
@@ -59,43 +61,43 @@ impl InventoryTransactionService for InventoryTransactionServiceImpl {
 
     async fn find_by_source(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         source_type: &str,
         source_id: i64,
     ) -> Result<Vec<InventoryTransaction>> {
-        InventoryTransactionRepo::find_by_source(&mut *ctx.executor, source_type, source_id)
+        InventoryTransactionRepo::find_by_source(&mut *db, source_type, source_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn query(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: TransactionFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<InventoryTransaction>> {
-        InventoryTransactionRepo::query(&mut *ctx.executor, &filter, page, page_size)
+        InventoryTransactionRepo::query(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn query_stock(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: StockFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<StockLedger>> {
-        self.stock_ledger_svc.query(ctx, filter, page, page_size).await
+        self.stock_ledger_svc.query(ctx, db, filter, page, page_size).await
     }
 
     async fn query_available(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         product_id: i64,
         warehouse_id: Option<i64>,
     ) -> Result<Decimal> {
-        self.stock_ledger_svc.query_available(ctx, product_id, warehouse_id).await
+        self.stock_ledger_svc.query_available(ctx, db, product_id, warehouse_id).await
     }
 }

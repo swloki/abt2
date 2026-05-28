@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -15,6 +15,7 @@ use crate::master_data::supplier::service::SupplierService;
 use crate::purchase::enums::{PurchaseOrderStatus, PurchaseQuotationStatus};
 use crate::purchase::quotation::repo::{PurchaseQuotationItemRepo, PurchaseQuotationRepo};
 use crate::shared::idempotency::service::key_to_i64;
+use crate::shared::types::PgExecutor;
 use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::document_link::service::DocumentLinkService;
@@ -75,20 +76,20 @@ impl PurchaseOrderServiceImpl {
 impl PurchaseOrderService for PurchaseOrderServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreatePurchaseOrderRequest,
         idempotency_key: Option<String>,
     ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseOrder:create").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseOrder:create").await? {
                 return Err(DomainError::duplicate("PurchaseOrder"));
             }
         }
         // 1. 生成单据编号
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::PurchaseOrder)
+            .next_number(ctx, db, DocumentType::PurchaseOrder)
             .await?;
 
         // 2. 计算总金额
@@ -96,7 +97,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         // 3. 插入主表
         let id = PurchaseOrderRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &req,
             &doc_number,
             total_amount,
@@ -107,7 +108,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         // 4. 插入明细
         if !req.items.is_empty() {
-            PurchaseOrderItemRepo::insert_items(&mut *ctx.executor, id, &req.items)
+            PurchaseOrderItemRepo::insert_items(&mut *db, id, &req.items)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
@@ -115,7 +116,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         // 5. 审计日志
         self.audit_log
             .record(
-                ctx.reborrow(),
+                ctx, db,
                 ENTITY_TYPE,
                 id,
                 AuditAction::Create,
@@ -129,18 +130,18 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
     async fn create_from_quotation(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         quotation_id: i64,
         idempotency_key: Option<String>,
     ) -> Result<i64> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseOrder:create_from_quotation").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseOrder:create_from_quotation").await? {
                 return Err(DomainError::duplicate("PurchaseOrder"));
             }
         }
         // 1. 获取报价单并验证状态
-        let quotation = PurchaseQuotationRepo::get_by_id(&mut *ctx.executor, quotation_id)
+        let quotation = PurchaseQuotationRepo::get_by_id(&mut *db, quotation_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("PurchaseQuotation"))?;
@@ -154,7 +155,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         // 2. 获取报价明细
         let quotation_items =
-            PurchaseQuotationItemRepo::list_by_quotation_id(&mut *ctx.executor, quotation_id)
+            PurchaseQuotationItemRepo::list_by_quotation_id(&mut *db, quotation_id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -182,7 +183,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         // 5. 生成单据编号
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::PurchaseOrder)
+            .next_number(ctx, db, DocumentType::PurchaseOrder)
             .await?;
 
         // 6. 构建创建请求
@@ -198,7 +199,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         // 7. 插入主表
         let order_id = PurchaseOrderRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &req,
             &doc_number,
             total_amount,
@@ -209,7 +210,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         // 8. 插入明细
         if !order_items.is_empty() {
-            PurchaseOrderItemRepo::insert_items(&mut *ctx.executor, order_id, &order_items)
+            PurchaseOrderItemRepo::insert_items(&mut *db, order_id, &order_items)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
@@ -217,7 +218,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         // 9. 创建单据关联
         self.doc_link
             .create_links(
-                ctx.reborrow(),
+                ctx, db,
                 vec![LinkRequest {
                     source_type: DocumentType::PurchaseOrder,
                     source_id: order_id,
@@ -232,6 +233,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         self.audit_log
             .record(
                 ctx,
+                db,
                 ENTITY_TYPE,
                 order_id,
                 AuditAction::Create,
@@ -243,32 +245,32 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         Ok(order_id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<PurchaseOrder> {
-        PurchaseOrderRepo::get_by_id(&mut *ctx.executor, id)
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<PurchaseOrder> {
+        PurchaseOrderRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
-    async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
+    async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
-            if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "PurchaseOrder:confirm").await? {
+            if !self.idempotency.check_and_mark(ctx, db, hash, "PurchaseOrder:confirm").await? {
                 return Err(DomainError::duplicate("PurchaseOrder"));
             }
         }
         // 1. 获取订单及明细
-        let order = PurchaseOrderRepo::get_by_id(&mut *ctx.executor, id)
+        let order = PurchaseOrderRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
 
-        let items = PurchaseOrderItemRepo::list_by_order_id(&mut *ctx.executor, id)
+        let items = PurchaseOrderItemRepo::list_by_order_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 2. 校验供应商状态 ∉ {Blacklisted, Disqualified}
-        let supplier = self.supplier.get(ctx.reborrow(), order.supplier_id).await?;
+        let supplier = self.supplier.get(ctx, db, order.supplier_id).await?;
         if matches!(supplier.status, SupplierStatus::Blacklisted | SupplierStatus::Disqualified) {
             return Err(DomainError::validation(format!(
                 "供应商状态为 {:?}，无法确认订单",
@@ -294,7 +296,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         // 4. 若关联 Quotation，校验 quotation.status == Active 且 valid_until >= today
         if let Some(qi_id) = items.iter().find_map(|i| i.quotation_item_id) {
-            let quotation = PurchaseQuotationRepo::get_by_item_id(&mut *ctx.executor, qi_id)
+            let quotation = PurchaseQuotationRepo::get_by_item_id(&mut *db, qi_id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -317,12 +319,12 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         // 5. 状态转换 Draft -> Confirmed
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "Confirmed", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "Confirmed", None)
             .await?;
 
         // 5.1 更新实体表状态
         let rows = PurchaseOrderRepo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             PurchaseOrderStatus::Confirmed,
             &order.updated_at,
@@ -336,7 +338,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         // 6. 发布领域事件
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::PurchaseOrderConfirmed,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -349,7 +351,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
         // 7. 审计日志
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         Ok(())
@@ -357,12 +359,12 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         query: PurchaseOrderQuery,
     ) -> Result<PaginatedResult<PurchaseOrder>> {
         let params = PageParams::new(1, 20);
         let scope = (ctx.data_scope, ctx.operator_id, ctx.department_id);
-        let (items, total) = PurchaseOrderRepo::query(&mut *ctx.executor, &query, &params, scope)
+        let (items, total) = PurchaseOrderRepo::query(&mut *db, &query, &params, scope)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 

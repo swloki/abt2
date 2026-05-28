@@ -1,7 +1,8 @@
-use async_trait::async_trait;
+﻿use async_trait::async_trait;
 
 use super::model::{DomainEvent, EventPublishRequest, EventQuery};
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
@@ -12,21 +13,21 @@ pub trait DomainEventBus: Send + Sync {
     /// 返回事件 id（若重复则返回已有 id）。
     async fn publish(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: EventPublishRequest,
     ) -> Result<i64>;
 
     /// 批量标记已处理
     async fn mark_processed(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         ids: Vec<i64>,
     ) -> Result<u64>;
 
     /// 标记失败并记录原因
     async fn mark_failed(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         reason: &str,
     ) -> Result<()>;
@@ -34,7 +35,7 @@ pub trait DomainEventBus: Send + Sync {
     /// 多维度可选过滤 + 分页查询
     async fn find_events(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         query: EventQuery,
         page: u32,
         page_size: u32,

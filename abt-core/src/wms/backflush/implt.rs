@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -9,6 +9,7 @@ use super::repo::BackflushRepo;
 use super::service::BackflushService;
 use crate::master_data::bom::service::BomQueryService;
 use crate::shared::cost_entry::model::EntryRequest;
+use crate::shared::types::PgExecutor;
 use crate::shared::cost_entry::service::CostEntryService;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::{CostEntityType, CostType, DocumentType};
@@ -50,23 +51,23 @@ impl BackflushServiceImpl {
 impl BackflushService for BackflushServiceImpl {
     async fn execute(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64,
         completed_qty: Decimal,
     ) -> Result<i64> {
         let backflush_date = chrono::Local::now().date_naive();
         let variance_threshold = DEFAULT_VARIANCE_THRESHOLD;
 
-        let wo = self.work_order.find_by_id(ctx.reborrow(), work_order_id).await?;
+        let wo = self.work_order.find_by_id(ctx, db, work_order_id).await?;
         let product_id = wo.product_id;
 
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::Backflush)
+        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::Backflush)
             .await
             .unwrap_or_else(|_| format!("BF{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
         // 1. 插入冲扣记录（Draft 状态）
         let record = BackflushRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &CreateBackflushReq {
                 doc_number,
                 work_order_id,
@@ -81,7 +82,7 @@ impl BackflushService for BackflushServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 2. 从 BOM 获取组件，计算差异并插入明细
-        let bom_components = get_bom_components(&self.bom, ctx.reborrow(), &wo).await?;
+        let bom_components = get_bom_components(&self.bom, ctx, db, &wo).await?;
 
         for component in &bom_components {
             let theoretical_qty = component.required_qty * completed_qty;
@@ -95,7 +96,7 @@ impl BackflushService for BackflushServiceImpl {
             let is_over_threshold = variance_rate.abs() > variance_threshold;
 
             BackflushRepo::insert_item(
-                &mut *ctx.executor,
+                &mut *db,
                 &CreateBackflushItemReq {
                     record_id: record.id,
                     component_id: component.product_id,
@@ -113,7 +114,7 @@ impl BackflushService for BackflushServiceImpl {
             if is_over_threshold {
                 let period = chrono::Local::now().format("%Y-%m").to_string();
                 self.cost_entry.create_entries(
-                    ctx.reborrow(),
+                    ctx, db,
                     vec![EntryRequest {
                         entity_type: CostEntityType::WorkOrder,
                         entity_id: work_order_id,
@@ -132,7 +133,7 @@ impl BackflushService for BackflushServiceImpl {
 
             // execute -> InventoryTransaction.record(Backflush)
             self.inventory_transaction_svc.record(
-                ctx.reborrow(),
+                ctx, db,
                 RecordTransactionReq {
                     doc_number: None,
                     transaction_type: crate::wms::enums::TransactionType::Backflush,
@@ -153,7 +154,7 @@ impl BackflushService for BackflushServiceImpl {
 
         // 3. 更新状态为 Executed
         BackflushRepo::update_status(
-            &mut *ctx.executor,
+            &mut *db,
             record.id,
             BackflushStatus::Executed,
         )
@@ -163,8 +164,8 @@ impl BackflushService for BackflushServiceImpl {
         Ok(record.id)
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, id: i64) -> Result<BackflushRecord> {
-        BackflushRepo::get_by_id(&mut *ctx.executor, id)
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<BackflushRecord> {
+        BackflushRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("BackflushRecord"))
@@ -172,18 +173,18 @@ impl BackflushService for BackflushServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: BackflushFilter,
         page: u32,
         page_size: u32,
     ) -> Result<PaginatedResult<BackflushRecord>> {
-        BackflushRepo::list(&mut *ctx.executor, &filter, page, page_size)
+        BackflushRepo::list(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
-    async fn adjust(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()> {
-        let record = BackflushRepo::get_by_id(&mut *ctx.executor, id)
+    async fn adjust(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let record = BackflushRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("BackflushRecord"))?;
@@ -195,7 +196,7 @@ impl BackflushService for BackflushServiceImpl {
             });
         }
 
-        BackflushRepo::update_status(&mut *ctx.executor, id, BackflushStatus::Adjusted)
+        BackflushRepo::update_status(&mut *db, id, BackflushStatus::Adjusted)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -206,12 +207,12 @@ impl BackflushService for BackflushServiceImpl {
 /// 从工单的 BOM snapshot 获取组件列表
 async fn get_bom_components(
     bom: &Arc<dyn BomQueryService>,
-    ctx: ServiceContext<'_>,
+    ctx: &ServiceContext, db: PgExecutor<'_>,
     wo: &crate::mes::work_order::model::WorkOrder,
 ) -> Result<Vec<BomComponent>> {
     let bom_id = wo.bom_snapshot_id;
     if let Some(bom_id) = bom_id {
-        let nodes = bom.get_leaf_nodes(ctx, bom_id).await?;
+        let nodes = bom.get_leaf_nodes(ctx, db, bom_id).await?;
         Ok(nodes.into_iter().map(|n| BomComponent {
             product_id: n.product_id,
             required_qty: n.quantity,

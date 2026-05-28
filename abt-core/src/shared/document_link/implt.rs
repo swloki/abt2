@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use sqlx::postgres::PgPool;
@@ -7,6 +7,7 @@ use super::model::{DocumentLink, LinkRequest};
 use super::repo::DocumentLinkRepo;
 use super::service::DocumentLinkService;
 use crate::shared::enums::DocumentType;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::batch::BatchResult;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
@@ -28,7 +29,7 @@ impl DocumentLinkServiceImpl {
 impl DocumentLinkService for DocumentLinkServiceImpl {
     async fn create_links(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         requests: Vec<LinkRequest>,
     ) -> Result<BatchResult> {
         let total = requests.len() as i32;
@@ -37,7 +38,7 @@ impl DocumentLinkService for DocumentLinkServiceImpl {
         }
 
         DocumentLinkRepo::batch_insert(
-            &mut *ctx.executor,
+            &mut *db,
             &requests,
             Some(ctx.operator_id),
         )
@@ -49,7 +50,7 @@ impl DocumentLinkService for DocumentLinkServiceImpl {
 
     async fn find_linked(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         source_type: DocumentType,
         source_id: i64,
         page: u32,
@@ -58,7 +59,7 @@ impl DocumentLinkService for DocumentLinkServiceImpl {
         let params = PageParams::new(page, page_size);
 
         let (items, total) = DocumentLinkRepo::find_linked(
-            &mut *ctx.executor,
+            &mut *db,
             source_type,
             source_id,
             params.page_size.into(),

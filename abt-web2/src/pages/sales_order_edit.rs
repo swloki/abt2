@@ -10,7 +10,7 @@ use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::{CustomerContact, CustomerQuery};
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
+use abt_core::shared::types::{PageParams, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::customer_info::customer_info_panel;
@@ -22,8 +22,8 @@ use crate::state::AppState;
 
 // ── Helpers ──
 
-fn make_ctx<'a>(conn: &'a mut sqlx::postgres::PgConnection, operator_id: i64) -> ServiceContext<'a> {
-    ServiceContext::new(conn as PgExecutor<'a>, operator_id)
+fn make_ctx(operator_id: i64) -> ServiceContext {
+    ServiceContext::new(operator_id)
 }
 
 async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
@@ -84,22 +84,19 @@ pub async fn get_order_edit(
     let customer_svc = state.customer_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let order = svc.find_by_id(ctx, path.id).await
+    let ctx = make_ctx(claims.sub);
+    let order = svc.find_by_id(&ctx, &mut *conn, path.id).await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx2 = make_ctx(&mut conn, claims.sub);
-    let items = svc.list_items(ctx2, path.id).await
+    let items = svc.list_items(&ctx, &mut *conn, path.id).await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx3 = make_ctx(&mut conn, claims.sub);
     let customers = customer_svc
-        .list(ctx3, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await
         .map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx4 = make_ctx(&mut conn, claims.sub);
-    let contacts = customer_svc.list_contacts(ctx4, order.customer_id).await.unwrap_or_default();
+    let contacts = customer_svc.list_contacts(&ctx, &mut *conn, order.customer_id).await.unwrap_or_default();
 
     // Resolve product codes for items
     let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
@@ -182,8 +179,8 @@ pub async fn update_order(
 
     let mut tx: sqlx::Transaction<'_, sqlx::Postgres> = sqlx::Connection::begin(&mut *conn)
         .await.map_err(|e| AppError::Internal(e.to_string()))?;
-    let ctx = ServiceContext::new(&mut *tx, claims.sub);
-    svc.update(ctx, path.id, req, items).await?;
+    let ctx = ServiceContext::new(claims.sub);
+    svc.update(&ctx, &mut *tx, path.id, req, items).await?;
     tx.commit().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();

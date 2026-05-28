@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use rust_decimal::Decimal;
 
@@ -21,7 +21,7 @@ use crate::shared::enums::link_type::LinkType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::service::DomainEventBus;
 use crate::shared::state_machine::service::StateMachineService;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 use crate::qms::rma::model::CreateRmaReq;
 use crate::qms::rma::service::RmaService;
 
@@ -73,11 +73,11 @@ impl SalesReturnServiceImpl {
 impl SalesReturnService for SalesReturnServiceImpl {
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateReturnReq,
     ) -> Result<i64> {
         // Validate shipping request is Shipped
-        let shipping = self.shipping_svc.find_by_id(ctx.reborrow(), req.shipping_request_id).await?;
+        let shipping = self.shipping_svc.find_by_id(ctx, db, req.shipping_request_id).await?;
         if shipping.status != crate::sales::shipping_request::model::ShippingStatus::Shipped {
             return Err(DomainError::business_rule(
                 "Shipping request must be Shipped to create return",
@@ -93,7 +93,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         // Get order items for validation and price lookup
         let order_items = self
             .order_item_repo
-            .find_by_order_id(ctx.executor, req.order_id)
+            .find_by_order_id(db, req.order_id)
             .await
             ?;
 
@@ -136,13 +136,13 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::SalesReturn)
+            .next_number(ctx, db, DocumentType::SalesReturn)
             .await?;
 
         let id = self
             .repo
             .create(
-                ctx.executor,
+                db,
                 &doc_number,
                 req.order_id,
                 req.shipping_request_id,
@@ -156,13 +156,14 @@ impl SalesReturnService for SalesReturnServiceImpl {
             ?;
 
         self.item_repo
-            .create_batch(ctx.executor, id, &return_inputs)
+            .create_batch(db, id, &return_inputs)
             .await
             ?;
 
         self.doc_link
             .create_links(
-                ctx.reborrow(),
+                ctx,
+                db,
                 vec![LinkRequest {
                     source_type: DocumentType::SalesReturn,
                     source_id: id,
@@ -174,13 +175,14 @@ impl SalesReturnService for SalesReturnServiceImpl {
             .await?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReturnStatus", id, "Draft", None)
+            .transition(ctx, db, "ReturnStatus", id, "Draft", None)
             .await
             .ok();
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesReturn",
                 id,
                 AuditAction::Create,
@@ -197,20 +199,20 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
     async fn find_by_id(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<SalesReturn> {
         self.repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))
     }
 
-    async fn approve(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn approve(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
@@ -220,17 +222,18 @@ impl SalesReturnService for SalesReturnServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReturnStatus", id, "Confirmed", None)
+            .transition(ctx, db, "ReturnStatus", id, "Confirmed", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReturnStatus::Confirmed)
+            .update_status(db, id, ReturnStatus::Confirmed)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesReturn",
                 id,
                 AuditAction::Transition,
@@ -242,10 +245,10 @@ impl SalesReturnService for SalesReturnServiceImpl {
         Ok(())
     }
 
-    async fn receive(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn receive(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
@@ -255,17 +258,18 @@ impl SalesReturnService for SalesReturnServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReturnStatus", id, "Received", None)
+            .transition(ctx, db, "ReturnStatus", id, "Received", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReturnStatus::Received)
+            .update_status(db, id, ReturnStatus::Received)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesReturn",
                 id,
                 AuditAction::Transition,
@@ -277,10 +281,10 @@ impl SalesReturnService for SalesReturnServiceImpl {
         Ok(())
     }
 
-    async fn inspect(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn inspect(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
@@ -290,17 +294,18 @@ impl SalesReturnService for SalesReturnServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReturnStatus", id, "Inspecting", None)
+            .transition(ctx, db, "ReturnStatus", id, "Inspecting", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReturnStatus::Inspecting)
+            .update_status(db, id, ReturnStatus::Inspecting)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesReturn",
                 id,
                 AuditAction::Transition,
@@ -312,10 +317,10 @@ impl SalesReturnService for SalesReturnServiceImpl {
         Ok(())
     }
 
-    async fn complete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
@@ -326,14 +331,14 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         let return_items = self
             .item_repo
-            .find_by_return_id(ctx.executor, id)
+            .find_by_return_id(db, id)
             .await
             ?;
 
         // Update order_item.returned_qty
         for item in &return_items {
             self.order_item_repo
-                .update_returned_qty(ctx.executor, item.order_item_id, item.returned_qty)
+                .update_returned_qty(db, item.order_item_id, item.returned_qty)
                 .await
                 ?;
         }
@@ -341,7 +346,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
         // Create reverse CostEntry (credit side) — use unit_cost to match forward COGS entry
         let order_items = self
             .order_item_repo
-            .find_by_order_id(ctx.executor, existing.order_id)
+            .find_by_order_id(db, existing.order_id)
             .await
             ?;
 
@@ -370,13 +375,14 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         if !cost_entries.is_empty() {
             self.cost_entry
-                .create_entries(ctx.reborrow(), cost_entries)
+                .create_entries(ctx, db, cost_entries)
                 .await?;
         }
 
         // QMS: 创建 RMA 记录关联退货
         self.rma.create(
-            ctx.reborrow(),
+            ctx,
+            db,
             CreateRmaReq {
                 customer_id: 0,
                 sales_order_id: None,
@@ -391,17 +397,18 @@ impl SalesReturnService for SalesReturnServiceImpl {
         .await?;
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReturnStatus", id, "Completed", None)
+            .transition(ctx, db, "ReturnStatus", id, "Completed", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReturnStatus::Completed)
+            .update_status(db, id, ReturnStatus::Completed)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesReturn",
                 id,
                 AuditAction::Transition,
@@ -412,7 +419,8 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::SalesReturnReceived,
                     aggregate_type: "SalesReturn".to_string(),
@@ -430,10 +438,10 @@ impl SalesReturnService for SalesReturnServiceImpl {
         Ok(())
     }
 
-    async fn reject(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn reject(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
@@ -443,17 +451,18 @@ impl SalesReturnService for SalesReturnServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReturnStatus", id, "Rejected", None)
+            .transition(ctx, db, "ReturnStatus", id, "Rejected", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReturnStatus::Rejected)
+            .update_status(db, id, ReturnStatus::Rejected)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesReturn",
                 id,
                 AuditAction::Transition,
@@ -465,10 +474,10 @@ impl SalesReturnService for SalesReturnServiceImpl {
         Ok(())
     }
 
-    async fn cancel(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+    async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
-            .find_by_id(ctx.executor, id)
+            .find_by_id(db, id)
             .await
             ?
             .ok_or_else(|| DomainError::not_found("SalesReturn"))?;
@@ -478,17 +487,18 @@ impl SalesReturnService for SalesReturnServiceImpl {
         }
 
         self.state_machine
-            .transition(ctx.reborrow(), "ReturnStatus", id, "Cancelled", None)
+            .transition(ctx, db, "ReturnStatus", id, "Cancelled", None)
             .await?;
 
         self.repo
-            .update_status(ctx.executor, id, ReturnStatus::Cancelled)
+            .update_status(db, id, ReturnStatus::Cancelled)
             .await
             ?;
 
         self.audit
             .record(
-                ctx.reborrow(),
+                ctx,
+                db,
                 "SalesReturn",
                 id,
                 AuditAction::Transition,
@@ -502,13 +512,13 @@ impl SalesReturnService for SalesReturnServiceImpl {
 
     async fn list(
         &self,
-        ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: ReturnQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<SalesReturn>> {
         self.repo
             .query(
-                ctx.executor,
+                db,
                 &filter,
                 &page,
                 ctx.data_scope,

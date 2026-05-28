@@ -1,10 +1,11 @@
-use chrono::Utc;
+﻿use chrono::Utc;
 
 use super::model::{OutsourcingTracking, OverdueTrackingQuery, RecordNodeReq};
 use super::repo::OutsourcingTrackingRepo;
 use super::service::OutsourcingTrackingService;
 use crate::om::enums::TrackingNodeType;
 use crate::shared::types::context::ServiceContext;
+use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
@@ -30,7 +31,7 @@ fn validate_node_sequence(max_ordinal: Option<i16>, target: i16) -> Result<()> {
 }
 
 async fn validate_prerequisites(
-    ctx: &mut ServiceContext<'_>,
+    db: PgExecutor<'_>,
     outsourcing_id: i64,
     node_type: TrackingNodeType,
 ) -> Result<()> {
@@ -41,7 +42,7 @@ async fn validate_prerequisites(
     };
     if let Some(req_nt) = required {
         let exists = OutsourcingTrackingRepo::has_node_type(
-            &mut *ctx.executor,
+            db,
             outsourcing_id,
             req_nt,
         )
@@ -60,13 +61,13 @@ async fn validate_prerequisites(
 impl OutsourcingTrackingService for OutsourcingTrackingServiceImpl {
     async fn record_node(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: RecordNodeReq,
     ) -> Result<i64> {
         let target_ordinal = req.node_type.ordinal();
 
         let max_ordinal = OutsourcingTrackingRepo::get_max_node_ordinal(
-            &mut *ctx.executor,
+            &mut *db,
             req.outsourcing_id,
         )
         .await
@@ -74,12 +75,12 @@ impl OutsourcingTrackingService for OutsourcingTrackingServiceImpl {
 
         validate_node_sequence(max_ordinal, target_ordinal)?;
 
-        validate_prerequisites(&mut ctx.reborrow(), req.outsourcing_id, req.node_type).await?;
+        validate_prerequisites(db, req.outsourcing_id, req.node_type).await?;
 
         let tracked_at = req.tracked_at.or(Some(Utc::now()));
 
         let id = OutsourcingTrackingRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             req.outsourcing_id,
             req.node_type,
             tracked_at,
@@ -94,12 +95,12 @@ impl OutsourcingTrackingService for OutsourcingTrackingServiceImpl {
 
     async fn list_by_outsourcing(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         outsourcing_id: i64,
         page: PageParams,
     ) -> Result<PaginatedResult<OutsourcingTracking>> {
         let (items, total) = OutsourcingTrackingRepo::list_by_outsourcing_id(
-            &mut *ctx.executor,
+            &mut *db,
             outsourcing_id,
             &page,
         )
@@ -111,12 +112,12 @@ impl OutsourcingTrackingService for OutsourcingTrackingServiceImpl {
 
     async fn list_overdue(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: OverdueTrackingQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<OutsourcingTracking>> {
         let (items, total) =
-            OutsourcingTrackingRepo::query_overdue(&mut *ctx.executor, &filter, &page)
+            OutsourcingTrackingRepo::query_overdue(&mut *db, &filter, &page)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
 

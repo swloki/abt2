@@ -9,7 +9,7 @@ use tower_sessions::Session;
 
 use abt_core::sales::quotation::model::*;
 use abt_core::sales::quotation::QuotationService;
-use abt_core::shared::types::{PgExecutor, ServiceContext};
+use abt_core::shared::types::ServiceContext;
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::errors::AppError;
@@ -19,8 +19,8 @@ use crate::state::AppState;
 
 // ── Helpers ──
 
-fn make_ctx<'a>(conn: &'a mut sqlx::postgres::PgConnection, operator_id: i64) -> ServiceContext<'a> {
-    ServiceContext::new(conn as PgExecutor<'a>, operator_id)
+fn make_ctx(operator_id: i64) -> ServiceContext {
+    ServiceContext::new(operator_id)
 }
 
 async fn get_claims(session: &Session) -> abt_core::shared::identity::model::Claims {
@@ -91,11 +91,10 @@ pub async fn get_quotation_detail(
     let svc = state.quotation_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let quotation = svc.find_by_id(ctx, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+    let quotation = svc.find_by_id(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    let items = svc.list_items(ctx, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let items = svc.list_items(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let customer_name = resolve_customer_name(&mut conn, quotation.customer_id).await;
     let product_names = resolve_product_names(&mut conn, &items).await;
@@ -119,8 +118,8 @@ pub async fn submit_quotation(
     let svc = state.quotation_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.submit(ctx, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+    svc.submit(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -135,8 +134,8 @@ pub async fn accept_quotation(
     let svc = state.quotation_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.accept(ctx, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+    svc.accept(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -151,8 +150,8 @@ pub async fn reject_quotation(
     let svc = state.quotation_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
-    let ctx = make_ctx(&mut conn, claims.sub);
-    svc.reject(ctx, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+    svc.reject(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

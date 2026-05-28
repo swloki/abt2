@@ -1,4 +1,4 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::json;
@@ -10,6 +10,7 @@ use super::service::InspectionResultService;
 use crate::qms::enums::*;
 use crate::qms::inspection_specification;
 use crate::shared::audit_log::service::AuditLogService;
+use crate::shared::types::PgExecutor;
 use crate::shared::document_sequence::service::DocumentSequenceService;
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::document_type::DocumentType;
@@ -55,11 +56,11 @@ impl InspectionResultService for InspectionResultServiceImpl {
     /// 创建检验结果 — 仅录入来源信息和样本数量，状态为 Pending
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateInspectionResultReq,
     ) -> Result<i64> {
         // 1. 验证检验规格存在
-        let spec = self.spec_service.get(ctx.reborrow(), req.spec_id).await?;
+        let spec = self.spec_service.get(ctx, db, req.spec_id).await?;
         if spec.status != SpecStatus::Active {
             return Err(DomainError::validation(format!(
                 "检验规格 {} 状态不是 Active（当前: {:?}）",
@@ -75,14 +76,14 @@ impl InspectionResultService for InspectionResultServiceImpl {
             spec.inspection_type.as_i16()
         );
         let hash = key_to_i64(&idem_key);
-        if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "InspectionResult:create").await? {
+        if !self.idempotency.check_and_mark(ctx, db, hash, "InspectionResult:create").await? {
             return Err(DomainError::duplicate(ENTITY_TYPE));
         }
 
         // 3. 生成单据编号
         let doc_number = self
             .doc_seq
-            .next_number(ctx.reborrow(), DocumentType::InspectionResult)
+            .next_number(ctx, db, DocumentType::InspectionResult)
             .await?;
 
         // 4. 构建实体 — 仅来源信息和样本数量，结果字段留空/默认
@@ -109,13 +110,13 @@ impl InspectionResultService for InspectionResultServiceImpl {
             deleted_at: None,
         };
 
-        let id = repo::insert(&mut *ctx.executor, &result)
+        let id = repo::insert(&mut *db, &result)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 5. 审计日志
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Create, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
             .await?;
 
         Ok(id)
@@ -123,10 +124,10 @@ impl InspectionResultService for InspectionResultServiceImpl {
 
     async fn get(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<InspectionResult> {
-        repo::find_by_id(&mut *ctx.executor, id)
+        repo::find_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
@@ -135,12 +136,12 @@ impl InspectionResultService for InspectionResultServiceImpl {
     /// 记录检验结果 — Guard: qualified_qty + unqualified_qty == sample_qty
     async fn record_result(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
         req: RecordInspectionResultReq,
     ) -> Result<QualityGateStatus> {
         // 1. 获取现有记录
-        let existing = repo::find_by_id(&mut *ctx.executor, id)
+        let existing = repo::find_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
@@ -155,7 +156,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
         // 2. 幂等检查
         let idem_key = format!("qms:record_result:{}:{}", id, req.inspector_id);
         let hash = key_to_i64(&idem_key);
-        if !self.idempotency.check_and_mark(ctx.reborrow(), hash, "InspectionResult:record_result").await? {
+        if !self.idempotency.check_and_mark(ctx, db, hash, "InspectionResult:record_result").await? {
             return Err(DomainError::duplicate(ENTITY_TYPE));
         }
 
@@ -176,7 +177,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
 
         // 4. 更新检验数据并推进状态为 Completed
         let rows = repo::record_result(
-            &mut *ctx.executor,
+            &mut *db,
             id,
             req.result.as_i16(),
             req.qualified_qty,
@@ -194,7 +195,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
 
         // 5. 状态机转换
         self.state_machine
-            .transition(ctx.reborrow(), ENTITY_TYPE, id, "Completed", None)
+            .transition(ctx, db, ENTITY_TYPE, id, "Completed", None)
             .await?;
 
         // 6. 发布领域事件
@@ -204,7 +205,8 @@ impl InspectionResultService for InspectionResultServiceImpl {
         };
         self.event_bus
             .publish(
-                ctx.reborrow(),
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -223,7 +225,7 @@ impl InspectionResultService for InspectionResultServiceImpl {
 
         // 7. 审计日志
         self.audit_log
-            .record(ctx, ENTITY_TYPE, id, AuditAction::Transition, None, None)
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Transition, None, None)
             .await?;
 
         // 8. 返回 QualityGateStatus
@@ -236,11 +238,11 @@ impl InspectionResultService for InspectionResultServiceImpl {
 
     async fn list_by_source(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: InspectionResultFilter,
         page: PageParams,
     ) -> Result<PaginatedResult<InspectionResult>> {
-        repo::list(&mut *ctx.executor, &filter, &page)
+        repo::list(&mut *db, &filter, &page)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

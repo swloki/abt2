@@ -1,11 +1,11 @@
-use std::sync::Arc;
+﻿use std::sync::Arc;
 
 use super::model::*;
 use super::repo::CategoryRepo;
 use super::service::CategoryService;
 use crate::shared::audit_log::service::AuditLogService;
 use crate::shared::enums::audit::AuditAction;
-use crate::shared::types::{DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
 
 pub struct CategoryServiceImpl {
     repo: CategoryRepo,
@@ -20,74 +20,74 @@ impl CategoryServiceImpl {
 
 #[async_trait::async_trait]
 impl CategoryService for CategoryServiceImpl {
-    async fn create(&self, ctx: ServiceContext<'_>, req: CreateCategoryReq) -> Result<i64> {
+    async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateCategoryReq) -> Result<i64> {
         let meta = CategoryMeta::default();
 
         // Insert with placeholder, get id, then fix path
-        let id = self.repo.create(ctx.executor, &req.category_name, req.parent_id, "/__placeholder__/", &meta)
+        let id = self.repo.create(db, &req.category_name, req.parent_id, "/__placeholder__/", &meta)
             .await?;
 
         let correct_path = if req.parent_id == 0 {
             format!("/{id}/")
         } else {
-            let parent = self.repo.find_by_id(ctx.executor, req.parent_id)
+            let parent = self.repo.find_by_id(db, req.parent_id)
                 .await?
                 .ok_or_else(|| DomainError::not_found("Category parent"))?;
             format!("{}{id}/", parent.path)
         };
 
-        self.repo.update_path(ctx.executor, id, &correct_path)
+        self.repo.update_path(db, id, &correct_path)
             .await?;
 
-        self.audit.record(ctx, "Category", id, AuditAction::Create, None, None).await?;
+        self.audit.record(ctx, db, "Category", id, AuditAction::Create, None, None).await?;
         Ok(id)
     }
 
-    async fn update(&self, ctx: ServiceContext<'_>, category_id: i64, req: UpdateCategoryReq) -> Result<()> {
-        let _existing = self.repo.find_by_id(ctx.executor, category_id)
+    async fn update(&self, ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, req: UpdateCategoryReq) -> Result<()> {
+        let _existing = self.repo.find_by_id(db, category_id)
             .await?
             .ok_or_else(|| DomainError::not_found("Category"))?;
 
-        self.repo.update(ctx.executor, category_id, &req)
+        self.repo.update(db, category_id, &req)
             .await?;
 
-        self.audit.record(ctx, "Category", category_id, AuditAction::Update, None, None).await?;
+        self.audit.record(ctx, db, "Category", category_id, AuditAction::Update, None, None).await?;
         Ok(())
     }
 
-    async fn delete(&self, ctx: ServiceContext<'_>, category_id: i64) -> Result<()> {
-        let children = self.repo.find_children_count(ctx.executor, category_id)
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64) -> Result<()> {
+        let children = self.repo.find_children_count(db, category_id)
             .await?;
         if children > 0 {
             return Err(DomainError::business_rule("分类下存在子分类，无法删除"));
         }
 
-        let products = self.repo.find_products_count(ctx.executor, category_id)
+        let products = self.repo.find_products_count(db, category_id)
             .await?;
         if products > 0 {
             return Err(DomainError::business_rule("分类下存在关联产品，无法删除"));
         }
 
-        self.repo.delete(ctx.executor, category_id)
+        self.repo.delete(db, category_id)
             .await?;
 
-        self.audit.record(ctx, "Category", category_id, AuditAction::Delete, None, None).await?;
+        self.audit.record(ctx, db, "Category", category_id, AuditAction::Delete, None, None).await?;
         Ok(())
     }
 
-    async fn get(&self, ctx: ServiceContext<'_>, category_id: i64) -> Result<Category> {
-        self.repo.find_by_id(ctx.executor, category_id)
+    async fn get(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64) -> Result<Category> {
+        self.repo.find_by_id(db, category_id)
             .await?
             .ok_or_else(|| DomainError::not_found("Category"))
     }
 
-    async fn list(&self, ctx: ServiceContext<'_>, filter: CategoryQuery, page: PageParams) -> Result<PaginatedResult<Category>> {
-        self.repo.query(ctx.executor, &filter, &page)
+    async fn list(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, filter: CategoryQuery, page: PageParams) -> Result<PaginatedResult<Category>> {
+        self.repo.query(db, &filter, &page)
             .await
     }
 
-    async fn get_tree(&self, ctx: ServiceContext<'_>, root_id: Option<i64>, depth_limit: Option<i32>) -> Result<Vec<CategoryTree>> {
-        let all = self.repo.find_all(ctx.executor)
+    async fn get_tree(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, root_id: Option<i64>, depth_limit: Option<i32>) -> Result<Vec<CategoryTree>> {
+        let all = self.repo.find_all(db)
             .await?;
 
         let filtered: Vec<Category> = if let Some(root) = root_id {
@@ -99,13 +99,13 @@ impl CategoryService for CategoryServiceImpl {
         Ok(build_tree(&filtered, 0, depth_limit.unwrap_or(i32::MAX), 0))
     }
 
-    async fn move_to(&self, ctx: ServiceContext<'_>, category_id: i64, new_parent_id: i64) -> Result<()> {
-        let category = self.repo.find_by_id(ctx.executor, category_id)
+    async fn move_to(&self, ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, new_parent_id: i64) -> Result<()> {
+        let category = self.repo.find_by_id(db, category_id)
             .await?
             .ok_or_else(|| DomainError::not_found("Category"))?;
 
         if new_parent_id != 0 {
-            let _parent = self.repo.find_by_id(ctx.executor, new_parent_id)
+            let _parent = self.repo.find_by_id(db, new_parent_id)
                 .await?
                 .ok_or_else(|| DomainError::not_found("Category parent"))?;
         }
@@ -114,38 +114,38 @@ impl CategoryService for CategoryServiceImpl {
         let parent_path = if new_parent_id == 0 {
             String::new()
         } else {
-            self.repo.find_by_id(ctx.executor, new_parent_id)
+            self.repo.find_by_id(db, new_parent_id)
                 .await?
                 .map(|p| p.path).unwrap_or_default()
         };
         let new_prefix = format!("{}{category_id}/", parent_path);
 
-        self.repo.update_parent(ctx.executor, category_id, new_parent_id)
+        self.repo.update_parent(db, category_id, new_parent_id)
             .await?;
 
-        self.repo.update_path_subtree(ctx.executor, &old_prefix, &new_prefix)
+        self.repo.update_path_subtree(db, &old_prefix, &new_prefix)
             .await?;
 
-        self.audit.record(ctx, "Category", category_id, AuditAction::Update, None, None).await?;
+        self.audit.record(ctx, db, "Category", category_id, AuditAction::Update, None, None).await?;
         Ok(())
     }
 
-    async fn assign_products(&self, ctx: ServiceContext<'_>, category_id: i64, product_ids: Vec<i64>) -> Result<()> {
-        self.repo.assign_products(ctx.executor, category_id, &product_ids)
+    async fn assign_products(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, product_ids: Vec<i64>) -> Result<()> {
+        self.repo.assign_products(db, category_id, &product_ids)
             .await?;
-        let count = self.repo.find_products_count(ctx.executor, category_id)
+        let count = self.repo.find_products_count(db, category_id)
             .await?;
-        self.repo.update_meta_count(ctx.executor, category_id, count)
+        self.repo.update_meta_count(db, category_id, count)
             .await?;
         Ok(())
     }
 
-    async fn remove_products(&self, ctx: ServiceContext<'_>, category_id: i64, product_ids: Vec<i64>) -> Result<()> {
-        self.repo.remove_products(ctx.executor, category_id, &product_ids)
+    async fn remove_products(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, product_ids: Vec<i64>) -> Result<()> {
+        self.repo.remove_products(db, category_id, &product_ids)
             .await?;
-        let count = self.repo.find_products_count(ctx.executor, category_id)
+        let count = self.repo.find_products_count(db, category_id)
             .await?;
-        self.repo.update_meta_count(ctx.executor, category_id, count)
+        self.repo.update_meta_count(db, category_id, count)
             .await?;
         Ok(())
     }

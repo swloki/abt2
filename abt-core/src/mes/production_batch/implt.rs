@@ -1,4 +1,4 @@
-//! ProductionBatchService 具体实现
+﻿//! ProductionBatchService 具体实现
 //!
 //! 核心方法 `confirm_routing_step` 是 MES 执行层的原子事务入口。
 //! WorkOrderRouting 属于工单级，批次通过 work_order_id 引用工序。
@@ -17,6 +17,7 @@ use crate::mes::work_order::repo::WorkOrderRepo;
 use crate::mes::production_inspection::model::CreateInspectionReq;
 use crate::mes::production_inspection::repo::ProductionInspectionRepo;
 use crate::shared::document_sequence::service::DocumentSequenceService;
+use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
 use crate::shared::inventory_reservation::service::InventoryReservationService;
 use crate::shared::types::context::ServiceContext;
@@ -45,19 +46,19 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     /// 创建生产批次（流转卡）
     async fn create(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         req: CreateBatchReq,
     ) -> Result<i64> {
-        let batch_no = self.doc_seq.next_number(ctx.reborrow(), DocumentType::WorkOrder)
+        let batch_no = self.doc_seq.next_number(ctx, db, DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("PB{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
-        let card_sn = self.doc_seq.next_number(ctx.reborrow(), DocumentType::WorkOrder)
+        let card_sn = self.doc_seq.next_number(ctx, db, DocumentType::WorkOrder)
             .await
             .unwrap_or_else(|_| format!("CS{}", chrono::Utc::now().format("%Y%m%d%H%M%S%3f")));
 
         let batch = ProductionBatchRepo::insert(
-            &mut *ctx.executor,
+            &mut *db,
             &req,
             &batch_no,
             &card_sn,
@@ -72,7 +73,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     /// 按工单拆分多个批次
     async fn split_work_order(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64,
         splits: Vec<SplitReq>,
     ) -> Result<Vec<i64>> {
@@ -80,7 +81,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             return Err(DomainError::validation("至少需要一个拆分项"));
         }
 
-        let work_order = WorkOrderRepo::get_by_id(&mut *ctx.executor, work_order_id)
+        let work_order = WorkOrderRepo::get_by_id(&mut *db, work_order_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("WorkOrder"))?;
@@ -95,7 +96,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 team_id: split.team_id,
             };
 
-            let id = self.create(ctx.reborrow(), req).await?;
+            let id = self.create(ctx, db, req).await?;
             results.push(id);
         }
 
@@ -105,10 +106,10 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     /// 按ID查找批次
     async fn find_by_id(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<ProductionBatch> {
-        ProductionBatchRepo::get_by_id(&mut *ctx.executor, id)
+        ProductionBatchRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionBatch"))
@@ -117,10 +118,10 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     /// 按工单ID列出所有批次
     async fn list_by_work_order(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64,
     ) -> Result<Vec<ProductionBatch>> {
-        ProductionBatchRepo::list_by_work_order(&mut *ctx.executor, work_order_id)
+        ProductionBatchRepo::list_by_work_order(&mut *db, work_order_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
@@ -130,13 +131,13 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     /// WorkOrderRouting 属于工单级，通过 batch.work_order_id 查找工序。
     async fn confirm_routing_step(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         batch_id: i64,
         step_no: i32,
         req: StepConfirmationReq,
     ) -> Result<StepConfirmationResult> {
         // --- a. 获取批次并验证状态 ---
-        let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
+        let batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
@@ -162,7 +163,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
 
         // --- c. 获取工序（工单级） ---
         let routing = WorkOrderRoutingRepo::get_by_work_order_and_step(
-            &mut *ctx.executor,
+            &mut *db,
             batch.work_order_id,
             step_no,
         )
@@ -181,14 +182,14 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         let wage_amount = (req.completed_qty + non_operator_defect_qty) * unit_price;
 
         // --- e. 幂等 INSERT work_reports ---
-        let doc_number = self.doc_seq.next_number(ctx.reborrow(), DocumentType::WorkReport)
+        let doc_number = self.doc_seq.next_number(ctx, db, DocumentType::WorkReport)
             .await
             .unwrap_or_else(|_| format!("WR{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
         let remark_str = req.remark.as_deref().unwrap_or("");
 
         let (report, was_inserted) = WorkReportRepo::insert_or_get_existing(
-            &mut *ctx.executor,
+            &mut *db,
             &doc_number,
             batch.work_order_id,
             batch_id,
@@ -211,7 +212,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         // --- f. 原子增量 completed_qty / defect_qty ---
         if was_inserted {
             WorkOrderRoutingRepo::atomic_increment_qty(
-                &mut *ctx.executor,
+                &mut *db,
                 routing.id,
                 req.completed_qty,
                 req.defect_qty,
@@ -222,7 +223,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             // --- g. 更新工序状态为 InProgress ---
             if routing.status == RoutingStatus::Pending {
                 WorkOrderRoutingRepo::update_status(
-                    &mut *ctx.executor,
+                    &mut *db,
                     routing.id,
                     RoutingStatus::InProgress,
                 )
@@ -244,12 +245,12 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 disposition: None,
                 remark: Some(format!("工序 {step_no} 自动触发 IPQC")),
             };
-            let inspection_doc = self.doc_seq.next_number(ctx.reborrow(), DocumentType::ProductionInspection)
+            let inspection_doc = self.doc_seq.next_number(ctx, db, DocumentType::ProductionInspection)
                 .await
                 .unwrap_or_else(|_| format!("PI{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
             ProductionInspectionRepo::insert(
-                &mut *ctx.executor,
+                &mut *db,
                 &inspection_req,
                 &inspection_doc,
                 ctx.operator_id,
@@ -260,7 +261,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             inspection_triggered = true;
 
             ProductionBatchRepo::update_status(
-                &mut *ctx.executor,
+                &mut *db,
                 batch_id,
                 BatchStatus::Suspended,
             )
@@ -270,14 +271,14 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
 
         // --- i. 更新 batch.current_step ---
         if was_inserted {
-            ProductionBatchRepo::update_current_step(&mut *ctx.executor, batch_id, step_no)
+            ProductionBatchRepo::update_current_step(&mut *db, batch_id, step_no)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
 
         // --- j. 计算下一工序 ---
         let all_routings = WorkOrderRoutingRepo::get_by_work_order_id(
-            &mut *ctx.executor,
+            &mut *db,
             batch.work_order_id,
         )
         .await
@@ -291,7 +292,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         if step_no == max_step && was_inserted {
             if !routing.is_inspection_point {
                 ProductionBatchRepo::update_status(
-                    &mut *ctx.executor,
+                    &mut *db,
                     batch_id,
                     BatchStatus::PendingReceipt,
                 )
@@ -303,7 +304,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 batch_status = BatchStatus::Suspended;
             }
         } else if was_inserted {
-            let updated_batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
+            let updated_batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?
                 .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
@@ -325,10 +326,10 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     /// 推进到待入库状态
     async fn advance_to_receipt(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         batch_id: i64,
     ) -> Result<()> {
-        let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
+        let batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
@@ -340,7 +341,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             });
         }
 
-        let routings = WorkOrderRoutingRepo::get_by_work_order_id(&mut *ctx.executor, batch.work_order_id)
+        let routings = WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, batch.work_order_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -354,7 +355,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             )));
         }
 
-        ProductionBatchRepo::update_status(&mut *ctx.executor, batch_id, BatchStatus::PendingReceipt)
+        ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::PendingReceipt)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -364,11 +365,11 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     /// 暂停批次
     async fn suspend(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         batch_id: i64,
         _reason: String,
     ) -> Result<()> {
-        let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
+        let batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
@@ -380,7 +381,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             });
         }
 
-        ProductionBatchRepo::update_status(&mut *ctx.executor, batch_id, BatchStatus::Suspended)
+        ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::Suspended)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -390,10 +391,10 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     /// 恢复批次
     async fn resume(
         &self,
-        ctx: ServiceContext<'_>,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
         batch_id: i64,
     ) -> Result<()> {
-        let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
+        let batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
@@ -405,7 +406,7 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             });
         }
 
-        ProductionBatchRepo::update_status(&mut *ctx.executor, batch_id, BatchStatus::InProgress)
+        ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::InProgress)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -415,11 +416,11 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
     /// 报废批次：标记为 Cancelled，释放 HARD 预留
     async fn scrap(
         &self,
-        mut ctx: ServiceContext<'_>,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
         batch_id: i64,
         _reason: String,
     ) -> Result<()> {
-        let batch = ProductionBatchRepo::get_by_id(&mut *ctx.executor, batch_id)
+        let batch = ProductionBatchRepo::get_by_id(&mut *db, batch_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
@@ -431,12 +432,12 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             });
         }
 
-        ProductionBatchRepo::update_status(&mut *ctx.executor, batch_id, BatchStatus::Cancelled)
+        ProductionBatchRepo::update_status(&mut *db, batch_id, BatchStatus::Cancelled)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
         // 释放 HARD 预留
-        self.inv_res.cancel_by_source(ctx.reborrow(), DocumentType::WorkOrder, batch_id).await?;
+        self.inv_res.cancel_by_source(ctx, db, DocumentType::WorkOrder, batch_id).await?;
 
         Ok(())
     }

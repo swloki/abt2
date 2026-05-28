@@ -275,65 +275,65 @@ classDiagram
 
     class QuotationService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, req) Result~i64~
+        +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
         +find_by_id(id) Result~Quotation~
-        +update(ctx: ServiceContext, id, req) Result~Unit~
-        +submit(ctx: ServiceContext, id) Result~Unit~
-        +accept(ctx: ServiceContext, id) Result~Unit~
-        +reject(ctx: ServiceContext, id) Result~Unit~
-        +expire(ctx: ServiceContext, id) Result~Unit~
-        +delete(ctx: ServiceContext, id) Result~Unit~
-        +batch_expire_overdue(ctx: ServiceContext) Result~i32~
+        +update(ctx: &ServiceContext, db: PgExecutor, id, req) Result~Unit~
+        +submit(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +accept(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +reject(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +expire(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +batch_expire_overdue(ctx: &ServiceContext, db: PgExecutor) Result~i32~
         +list_items(quotation_id) Result~Vec~QuotationItem~~
         +list(filter) PaginatedResult~Quotation~
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, req) Result~i64~
-        +create_from_quotation(ctx: ServiceContext, qid) Result~i64~
+        +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
+        +create_from_quotation(ctx: &ServiceContext, db: PgExecutor, qid) Result~i64~
         +find_by_id(id) Result~SalesOrder~
-        +update_header(ctx: ServiceContext, id, req) Result~Unit~
-        +confirm(ctx: ServiceContext, id) Result~Unit~
-        +start_progress(ctx: ServiceContext, id) Result~Unit~
-        +complete(ctx: ServiceContext, id) Result~Unit~
-        +cancel(ctx: ServiceContext, id) Result~Unit~
-        +delete(ctx: ServiceContext, id) Result~Unit~
+        +update_header(ctx: &ServiceContext, db: PgExecutor, id, req) Result~Unit~
+        +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +start_progress(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +complete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list(filter) PaginatedResult~SalesOrder~
     }
 
     class ShippingRequestService {
         &lt;&lt;interface&gt;&gt;
-        +create_from_order(ctx: ServiceContext, items) Result~i64~
+        +create_from_order(ctx: &ServiceContext, db: PgExecutor, items) Result~i64~
         +find_by_id(id) Result~ShippingRequest~
-        +update(ctx: ServiceContext, id, req) Result~Unit~
-        +confirm(ctx: ServiceContext, id) Result~Unit~
-        +pick(ctx: ServiceContext, id) Result~Unit~
-        +ship(ctx: ServiceContext, id) Result~Unit~
-        +cancel(ctx: ServiceContext, id) Result~Unit~
+        +update(ctx: &ServiceContext, db: PgExecutor, id, req) Result~Unit~
+        +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +pick(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +ship(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list(filter) PaginatedResult~ShippingRequest~
     }
 
     class SalesReturnService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, req) Result~i64~
+        +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
         +find_by_id(id) Result~SalesReturn~
-        +approve(ctx: ServiceContext, id) Result~Unit~
-        +receive(ctx: ServiceContext, id) Result~Unit~
-        +inspect(ctx: ServiceContext, id) Result~Unit~
-        +complete(ctx: ServiceContext, id) Result~Unit~
-        +reject(ctx: ServiceContext, id) Result~Unit~
-        +cancel(ctx: ServiceContext, id) Result~Unit~
+        +approve(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +receive(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +inspect(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +complete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +reject(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list(filter) PaginatedResult~SalesReturn~
     }
 
     class SalesReconciliationService {
         &lt;&lt;interface&gt;&gt;
-        +create(ctx: ServiceContext, cid, period) Result~i64~
+        +create(ctx: &ServiceContext, db: PgExecutor, cid, period) Result~i64~
         +find_by_id(id) Result~Reconciliation~
-        +send(ctx: ServiceContext, id) Result~Unit~
-        +confirm(ctx: ServiceContext, id) Result~Unit~
-        +dispute(ctx: ServiceContext, id) Result~Unit~
-        +reopen(ctx: ServiceContext, id) Result~Unit~
-        +force_settle(ctx: ServiceContext, id) Result~Unit~
-        +settle(ctx: ServiceContext, id) Result~Unit~
+        +send(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +dispute(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +reopen(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +force_settle(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +settle(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list(filter) PaginatedResult~Reconciliation~
     }
 
@@ -359,7 +359,7 @@ classDiagram
     note for SalesReturnService "Shared: DocSeq(SRT)\ncreate -> DocLink(REFERENCES)\ncomplete -> CostEntry(reverse) + QMS.RMAService\nValidation: return_qty &lt;= shipped_qty - returned_qty"
     note for SalesReconciliationService "Shared: DocSeq(REC)\ncreate -> DocLink(RECONCILES)\nconfirm -> CostEntry(AR voucher)\nsettle -> FMS CashJournal + WriteOff\nValidation: unique(customer, period)"
 
-    note "Convention:\n1. Result~T~ = Result&lt;T, DomainError&gt;\n2. Unit = () (空元组)\n3. ctx = ServiceContext (包装 PgExecutor + operator_id)\n4. 写操作返回 i64 或 Unit\n5. 读操作返回完整实体或 PaginatedResult"
+    note "Convention:\n1. Result~T~ = Result&lt;T, DomainError&gt;\n2. Unit = () (空元组)\n3. ctx = &ServiceContext, db = PgExecutor (ctx 包装 operator_id + data_scope, db 提供数据库连接)\n4. 写操作返回 i64 或 Unit\n5. 读操作返回完整实体或 PaginatedResult"
     </div>
   </div>
 </div>

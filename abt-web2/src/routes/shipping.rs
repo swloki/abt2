@@ -5,6 +5,7 @@ use serde::Deserialize;
 
 use crate::pages::shipping_list;
 use crate::pages::shipping_detail;
+use crate::pages::shipping_create;
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -57,6 +58,14 @@ pub struct CancelShippingPath {
     pub id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/shipping/customer-contacts")]
+pub struct ShippingCustomerContactsPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/shipping/order-search")]
+pub struct ShippingOrderSearchPath;
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -64,7 +73,10 @@ pub fn router() -> Router<AppState> {
         .route(ShippingListPath::PATH, get(shipping_list::get_shipping_list))
         .route(ShippingTablePath::PATH, get(shipping_list::get_shipping_table))
         .route(ShippingDetailPath::PATH, get(shipping_detail::get_shipping_detail))
+        .route(ShippingCreatePath::PATH, get(shipping_create::get_shipping_create).post(shipping_create::post_shipping_create))
         .route(ShippingDeletePath::PATH, post(shipping_list::delete_shipping))
+        .route(ShippingCustomerContactsPath::PATH, get(shipping_create::get_customer_contacts))
+        .route(ShippingOrderSearchPath::PATH, get(shipping_create::get_order_search))
         .route(ConfirmShippingPath::PATH, post(shipping_detail::confirm_shipping))
         .route(PickShippingPath::PATH, post(shipping_detail::pick_shipping))
         .route(ShipShippingPath::PATH, post(shipping_detail::ship_shipping))

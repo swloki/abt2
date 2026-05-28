@@ -12,6 +12,7 @@ pub mod sales_order_detail;
 pub mod sales_order_edit;
 pub mod shipping_list;
 pub mod shipping_detail;
+pub mod shipping_create;
 pub mod sales_return_list;
 pub mod sales_return_detail;
 pub mod sales_return_create;

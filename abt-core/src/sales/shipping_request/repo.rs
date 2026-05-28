@@ -136,6 +136,14 @@ impl ShippingRequestRepo {
         Ok(())
     }
 
+    pub async fn soft_delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
+        sqlx::query("UPDATE shipping_requests SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
+            .bind(id)
+            .execute(executor)
+            .await?;
+        Ok(())
+    }
+
     #[allow(unused_assignments)]
     pub async fn query(
         &self,

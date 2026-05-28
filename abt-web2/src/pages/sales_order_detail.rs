@@ -7,8 +7,11 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use tower_sessions::Session;
 
+use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
+use abt_core::shared::identity::UserService;
 use abt_core::shared::types::ServiceContext;
 
 use crate::auth::session::CURRENT_USER_KEY;
@@ -56,93 +59,9 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
     }
 }
 
-async fn resolve_customer_name(conn: &mut sqlx::postgres::PgConnection, customer_id: i64) -> String {
-    sqlx::query_scalar::<sqlx::Postgres, String>("SELECT name FROM customers WHERE id = $1")
-        .bind(customer_id)
-        .fetch_one(conn)
-        .await
-        .unwrap_or_else(|_| "未知客户".into())
-}
-
 struct ContactInfo {
     name: String,
     phone: Option<String>,
-}
-
-async fn resolve_contact(
-    conn: &mut sqlx::postgres::PgConnection,
-    contact_id: i64,
-) -> Option<ContactInfo> {
-    let row: Option<(String, Option<String>)> = sqlx::query_as(
-        "SELECT contact_name, phone FROM customer_contacts WHERE contact_id = $1",
-    )
-    .bind(contact_id)
-    .fetch_optional(conn)
-    .await
-    .ok()
-    .flatten();
-    row.map(|(name, phone)| ContactInfo { name, phone })
-}
-
-async fn resolve_sales_rep_name(
-    conn: &mut sqlx::postgres::PgConnection,
-    sales_rep_id: i64,
-) -> String {
-    sqlx::query_scalar::<sqlx::Postgres, String>(
-        "SELECT COALESCE(display_name, username) FROM users WHERE user_id = $1",
-    )
-    .bind(sales_rep_id)
-    .fetch_optional(conn)
-    .await
-    .ok()
-    .flatten()
-    .unwrap_or_else(|| "—".into())
-}
-
-async fn fetch_order_items(conn: &mut sqlx::postgres::PgConnection, order_id: i64) -> Vec<SalesOrderItem> {
-    sqlx::query_as::<sqlx::Postgres, SalesOrderItem>(
-        "SELECT id, order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, shipped_qty, returned_qty, delivery_date FROM sales_order_items WHERE order_id = $1 ORDER BY line_no",
-    )
-    .bind(order_id)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default()
-}
-
-async fn resolve_product_names(
-    conn: &mut sqlx::postgres::PgConnection,
-    items: &[SalesOrderItem],
-) -> HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
-    }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT product_id, pdt_name FROM products WHERE product_id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
-}
-
-async fn resolve_product_codes(
-    conn: &mut sqlx::postgres::PgConnection,
-    items: &[SalesOrderItem],
-) -> HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
-    }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT product_id, product_code FROM products WHERE product_id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
 }
 
 // ── Handlers ──
@@ -155,17 +74,47 @@ pub async fn get_order_detail(
 ) -> Result<Html<String>, AppError> {
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
+    let customer_svc = state.customer_service();
+    let product_svc = state.product_service();
+    let user_svc = state.user_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    let order = svc.find_by_id(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let order = svc.find_by_id(&ctx, &mut *conn, path.id).await?;
 
-    let items = fetch_order_items(&mut conn, path.id).await;
-    let customer_name = resolve_customer_name(&mut conn, order.customer_id).await;
-    let contact = resolve_contact(&mut conn, order.contact_id).await;
-    let sales_rep = resolve_sales_rep_name(&mut conn, order.sales_rep_id).await;
-    let product_names = resolve_product_names(&mut conn, &items).await;
-    let product_codes = resolve_product_codes(&mut conn, &items).await;
+    let items = svc.list_items(&ctx, &mut *conn, path.id).await.unwrap_or_default();
+
+    let customer_name = customer_svc
+        .get(&ctx, &mut *conn, order.customer_id)
+        .await
+        .map(|c| c.name)
+        .unwrap_or_else(|_| "未知客户".into());
+
+    let contact = {
+        let contacts = customer_svc.list_contacts(&ctx, &mut *conn, order.customer_id).await.unwrap_or_default();
+        contacts.into_iter().find(|c| c.id == order.contact_id).map(|c| ContactInfo {
+            name: c.name,
+            phone: c.phone,
+        })
+    };
+
+    let sales_rep = user_svc
+        .get_user(&ctx, &mut *conn, order.sales_rep_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+
+    let (product_names, product_codes) = {
+        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        if product_ids.is_empty() {
+            (HashMap::new(), HashMap::new())
+        } else {
+            let products = product_svc.get_by_ids(&ctx, &mut *conn, product_ids).await.unwrap_or_default();
+            let names: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect();
+            let codes: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.product_code.clone())).collect();
+            (names, codes)
+        }
+    };
 
     let content = order_detail_page(&order, &items, &customer_name, &contact, &sales_rep, &product_names, &product_codes);
     let page_html = admin_page(
@@ -187,7 +136,7 @@ pub async fn confirm_order(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.confirm(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.confirm(&ctx, &mut *conn, path.id).await?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -203,7 +152,7 @@ pub async fn start_order(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.start_progress(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.start_progress(&ctx, &mut *conn, path.id).await?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -219,7 +168,7 @@ pub async fn complete_order(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.complete(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.complete(&ctx, &mut *conn, path.id).await?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -235,7 +184,7 @@ pub async fn cancel_order(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.cancel(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.cancel(&ctx, &mut *conn, path.id).await?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

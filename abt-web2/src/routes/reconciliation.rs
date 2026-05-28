@@ -18,8 +18,18 @@ pub struct ReconciliationListPath;
 pub struct ReconciliationTablePath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/reconciliations/new")]
+pub struct ReconciliationCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/reconciliations/{id}")]
 pub struct ReconciliationDetailPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/reconciliations/{id}/delete")]
+pub struct ReconciliationDeletePath {
     pub id: i64,
 }
 
@@ -53,7 +63,9 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route(ReconciliationListPath::PATH, get(reconciliation_list::get_reconciliation_list))
         .route(ReconciliationTablePath::PATH, get(reconciliation_list::get_reconciliation_table))
+        .route(ReconciliationCreatePath::PATH, get(reconciliation_list::get_reconciliation_create_placeholder))
         .route(ReconciliationDetailPath::PATH, get(reconciliation_detail::get_reconciliation_detail))
+        .route(ReconciliationDeletePath::PATH, post(reconciliation_list::delete_reconciliation))
         .route(SendReconciliationPath::PATH, post(reconciliation_detail::send_reconciliation))
         .route(ConfirmReconciliationPath::PATH, post(reconciliation_detail::confirm_reconciliation))
         .route(DisputeReconciliationPath::PATH, post(reconciliation_detail::dispute_reconciliation))

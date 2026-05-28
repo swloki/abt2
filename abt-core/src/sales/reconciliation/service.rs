@@ -30,6 +30,15 @@ pub trait ReconciliationService: Send + Sync {
 
     async fn settle(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+
+    async fn list_items(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        reconciliation_id: i64,
+    ) -> Result<Vec<ReconciliationItem>>;
+
     async fn list(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

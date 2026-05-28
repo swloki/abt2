@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
@@ -121,24 +121,6 @@ fn build_query_string(params: &QuotationQueryParams) -> String {
     q.join("&")
 }
 
-async fn resolve_customer_names(
-    conn: &mut sqlx::postgres::PgConnection,
-    quotations: &[Quotation],
-) -> HashMap<i64, String> {
-    let ids: Vec<i64> = quotations.iter().map(|q| q.customer_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
-    }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, name FROM customers WHERE id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
-}
-
 // ── Status Labels ──
 
 fn status_label(s: QuotationStatus) -> (&'static str, &'static str) {
@@ -170,7 +152,15 @@ pub async fn get_quotation_list(
     let ctx = make_ctx(claims.sub);
     let result = svc.list(&ctx, &mut *conn, filter, page).await?;
 
-    let names = resolve_customer_names(&mut conn, &result.items).await;
+    let mut names = HashMap::new();
+    let mut seen = HashSet::new();
+    for q in &result.items {
+        if seen.insert(q.customer_id) {
+            if let Ok(c) = customer_svc.get(&ctx, &mut *conn, q.customer_id).await {
+                names.insert(q.customer_id, c.name);
+            }
+        }
+    }
 
     let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
@@ -201,7 +191,15 @@ pub async fn get_quotation_table(
     let ctx = make_ctx(claims.sub);
     let result = svc.list(&ctx, &mut *conn, filter, page).await?;
 
-    let names = resolve_customer_names(&mut conn, &result.items).await;
+    let mut names = HashMap::new();
+    let mut seen = HashSet::new();
+    for q in &result.items {
+        if seen.insert(q.customer_id) {
+            if let Ok(c) = customer_svc.get(&ctx, &mut *conn, q.customer_id).await {
+                names.insert(q.customer_id, c.name);
+            }
+        }
+    }
 
     let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc

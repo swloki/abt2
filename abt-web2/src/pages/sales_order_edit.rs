@@ -8,6 +8,7 @@ use tower_sessions::Session;
 
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::{CustomerContact, CustomerQuery};
+use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::shared::types::{PageParams, ServiceContext};
@@ -82,14 +83,13 @@ pub async fn get_order_edit(
     let claims = get_claims(&session).await;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
+    let product_svc = state.product_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    let order = svc.find_by_id(&ctx, &mut *conn, path.id).await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let order = svc.find_by_id(&ctx, &mut *conn, path.id).await?;
 
-    let items = svc.list_items(&ctx, &mut *conn, path.id).await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let items = svc.list_items(&ctx, &mut *conn, path.id).await?;
 
     let customers = customer_svc
         .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
@@ -101,14 +101,8 @@ pub async fn get_order_edit(
     // Resolve product codes for items
     let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
     let product_codes: std::collections::HashMap<i64, (String, String)> = if !product_ids.is_empty() {
-        let rows: Vec<(i64, String, String)> = sqlx::query_as(
-            "SELECT product_id, product_code, pdt_name FROM products WHERE product_id = ANY($1)",
-        )
-        .bind(&product_ids)
-        .fetch_all(&mut *conn)
-        .await
-        .unwrap_or_default();
-        rows.into_iter().map(|(id, code, name)| (id, (code, name))).collect()
+        let products = product_svc.get_by_ids(&ctx, &mut *conn, product_ids).await.unwrap_or_default();
+        products.into_iter().map(|p| (p.product_id, (p.product_code, p.pdt_name))).collect()
     } else {
         std::collections::HashMap::new()
     };
@@ -177,11 +171,8 @@ pub async fn update_order(
         remark: form.remark,
     };
 
-    let mut tx: sqlx::Transaction<'_, sqlx::Postgres> = sqlx::Connection::begin(&mut *conn)
-        .await.map_err(|e| AppError::Internal(e.to_string()))?;
     let ctx = ServiceContext::new(claims.sub);
-    svc.update(&ctx, &mut *tx, path.id, req, items).await?;
-    tx.commit().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.update(&ctx, &mut *conn, path.id, req, items).await?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

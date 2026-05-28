@@ -514,6 +514,30 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 ctx.department_id,
             )
             .await
-            
+
+    }
+
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let existing = self.repo.find_by_id(db, id).await?
+            .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
+
+        if existing.status != ShippingStatus::Draft {
+            return Err(DomainError::business_rule("仅草稿状态的发货单可以删除"));
+        }
+
+        self.repo.soft_delete(db, id).await?;
+
+        self.audit.record(ctx, db, "ShippingRequest", id, AuditAction::Delete, None, None).await?;
+
+        Ok(())
+    }
+
+    async fn list_items(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        shipping_request_id: i64,
+    ) -> Result<Vec<ShippingRequestItem>> {
+        self.item_repo.find_by_shipping_request_id(db, shipping_request_id).await
     }
 }

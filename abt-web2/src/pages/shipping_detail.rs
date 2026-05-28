@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use axum::extract::State;
 use axum::http::HeaderMap;
@@ -7,9 +7,14 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use tower_sessions::Session;
 
+use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::product::ProductService;
+use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::sales::shipping_request::model::*;
 use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::shared::identity::UserService;
 use abt_core::shared::types::ServiceContext;
+use abt_core::wms::warehouse::WarehouseService;
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
@@ -54,84 +59,11 @@ fn status_label(s: ShippingStatus) -> (&'static str, &'static str) {
     }
 }
 
-async fn fetch_shipping_items(conn: &mut sqlx::postgres::PgConnection, shipping_id: i64) -> Vec<ShippingRequestItem> {
-    sqlx::query_as::<sqlx::Postgres, ShippingRequestItem>(
-        "SELECT id, shipping_request_id, line_no, order_item_id, product_id, warehouse_id, requested_qty, shipped_qty, description FROM shipping_request_items WHERE shipping_request_id = $1 ORDER BY line_no",
-    )
-    .bind(shipping_id)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default()
-}
-
-async fn resolve_customer_name(conn: &mut sqlx::postgres::PgConnection, customer_id: i64) -> String {
-    sqlx::query_scalar::<sqlx::Postgres, String>("SELECT name FROM customers WHERE id = $1")
-        .bind(customer_id)
-        .fetch_one(conn)
-        .await
-        .unwrap_or_else(|_| "未知客户".into())
-}
-
-async fn resolve_order_number(conn: &mut sqlx::postgres::PgConnection, order_id: i64) -> String {
-    sqlx::query_scalar::<sqlx::Postgres, String>("SELECT doc_number FROM sales_orders WHERE id = $1")
-        .bind(order_id)
-        .fetch_one(conn)
-        .await
-        .unwrap_or_else(|_| "—".into())
-}
-
-async fn resolve_operator_name(conn: &mut sqlx::postgres::PgConnection, operator_id: i64) -> String {
-    sqlx::query_scalar::<sqlx::Postgres, String>("SELECT COALESCE(display_name, username) FROM users WHERE id = $1")
-        .bind(operator_id)
-        .fetch_optional(conn)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| "—".into())
-}
-
 struct ProductDetail {
     code: String,
     name: String,
     spec: Option<String>,
     unit: Option<String>,
-}
-
-async fn resolve_product_details(
-    conn: &mut sqlx::postgres::PgConnection,
-    items: &[ShippingRequestItem],
-) -> HashMap<i64, ProductDetail> {
-    let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
-    }
-    let rows: Vec<(i64, String, String, Option<String>, Option<String>)> = sqlx::query_as(
-        "SELECT product_id, product_code, pdt_name, meta->>'specification', unit FROM products WHERE product_id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter()
-        .map(|(id, code, name, spec, unit)| (id, ProductDetail { code, name, spec, unit }))
-        .collect()
-}
-
-async fn resolve_warehouse_names(
-    conn: &mut sqlx::postgres::PgConnection,
-    items: &[ShippingRequestItem],
-) -> HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.warehouse_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
-    }
-    sqlx::query_as::<_, (i64, String)>("SELECT id, name FROM warehouses WHERE id = ANY($1)")
-        .bind(&ids)
-        .fetch_all(conn)
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .collect()
 }
 
 // ── Handlers ──
@@ -143,18 +75,54 @@ pub async fn get_shipping_detail(
     headers: HeaderMap,
 ) -> Result<Html<String>, AppError> {
     let claims = get_claims(&session).await;
-    let svc = state.shipping_service();
+    let shipping_svc = state.shipping_service();
+    let customer_svc = state.customer_service();
+    let order_svc = state.sales_order_service();
+    let product_svc = state.product_service();
+    let warehouse_svc = state.warehouse_service();
+    let user_svc = state.user_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    let shipping = svc.find_by_id(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let shipping = shipping_svc.find_by_id(&ctx, &mut *conn, path.id).await?;
 
-    let items = fetch_shipping_items(&mut conn, path.id).await;
-    let customer_name = resolve_customer_name(&mut conn, shipping.customer_id).await;
-    let order_number = resolve_order_number(&mut conn, shipping.order_id).await;
-    let operator_name = resolve_operator_name(&mut conn, shipping.operator_id).await;
-    let product_details = resolve_product_details(&mut conn, &items).await;
-    let warehouse_names = resolve_warehouse_names(&mut conn, &items).await;
+    let items = shipping_svc.list_items(&ctx, &mut *conn, path.id).await.unwrap_or_default();
+
+    let customer_name = customer_svc.get(&ctx, &mut *conn, shipping.customer_id)
+        .await.map(|c| c.name).unwrap_or_else(|_| "未知客户".into());
+    let order_number = order_svc.find_by_id(&ctx, &mut *conn, shipping.order_id)
+        .await.map(|o| o.doc_number).unwrap_or_else(|_| "—".into());
+    let operator_name = user_svc.get_user(&ctx, &mut *conn, shipping.operator_id)
+        .await.map(|u| u.display_name.unwrap_or(u.username)).unwrap_or_else(|_| "—".into());
+
+    // Resolve product details via product service
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let product_details: HashMap<i64, ProductDetail> = if product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        product_svc.get_by_ids(&ctx, &mut *conn, product_ids)
+            .await
+            .map(|products| products.into_iter().map(|p| {
+                (p.product_id, ProductDetail {
+                    code: p.product_code,
+                    name: p.pdt_name,
+                    spec: Some(p.meta.specification),
+                    unit: Some(p.unit),
+                })
+            }).collect())
+            .unwrap_or_default()
+    };
+
+    // Resolve warehouse names via warehouse service
+    let mut warehouse_names = HashMap::new();
+    let mut seen_wh = HashSet::new();
+    for item in &items {
+        if seen_wh.insert(item.warehouse_id) {
+            if let Ok(wh) = warehouse_svc.get(&ctx, &mut *conn, item.warehouse_id).await {
+                warehouse_names.insert(item.warehouse_id, wh.name);
+            }
+        }
+    }
 
     let content = shipping_detail_page(&shipping, &items, &customer_name, &order_number, &operator_name, &product_details, &warehouse_names);
     let page_html = admin_page(
@@ -176,7 +144,7 @@ pub async fn confirm_shipping(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.confirm(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.confirm(&ctx, &mut *conn, path.id).await?;
 
     let redirect = ShippingDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -192,7 +160,7 @@ pub async fn pick_shipping(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.pick(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.pick(&ctx, &mut *conn, path.id).await?;
 
     let redirect = ShippingDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -208,7 +176,7 @@ pub async fn ship_shipping(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.ship(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.ship(&ctx, &mut *conn, path.id).await?;
 
     let redirect = ShippingDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -224,7 +192,7 @@ pub async fn cancel_shipping(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.cancel(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.cancel(&ctx, &mut *conn, path.id).await?;
 
     let redirect = ShippingDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

@@ -1,5 +1,5 @@
 use crate::config::Config;
-use sqlx::PgPool;
+use abt_core::shared::types::{PgPool, PgPoolOptions};
 use std::sync::Arc;
 use tower_sessions_file_store::FileSessionStorage;
 
@@ -13,7 +13,7 @@ pub struct AppState {
 
 impl AppState {
     pub async fn new(config: &Config) -> Result<Self, Box<dyn std::error::Error>> {
-        let pool = sqlx::postgres::PgPoolOptions::new()
+        let pool = PgPoolOptions::new()
             .max_connections(config.max_connection)
             .connect(&config.database_url)
             .await?;
@@ -59,5 +59,33 @@ impl AppState {
 
     pub fn warehouse_service(&self) -> impl abt_core::wms::warehouse::WarehouseService {
         abt_core::wms::warehouse::new_warehouse_service(self.pool.clone())
+    }
+
+    pub fn bom_query_service(&self) -> impl abt_core::master_data::bom::BomQueryService {
+        abt_core::master_data::bom::new_bom_query_service(self.pool.clone())
+    }
+
+    pub fn bom_command_service(&self) -> impl abt_core::master_data::bom::BomCommandService {
+        abt_core::master_data::bom::new_bom_command_service(self.pool.clone())
+    }
+
+    pub fn bom_node_service(&self) -> impl abt_core::master_data::bom::BomNodeService {
+        abt_core::master_data::bom::new_bom_node_service(self.pool.clone())
+    }
+
+    pub fn routing_service(&self) -> impl abt_core::master_data::routing::RoutingService {
+        abt_core::master_data::routing::new_routing_service(self.pool.clone())
+    }
+
+    pub fn sales_return_service(&self) -> impl abt_core::sales::sales_return::SalesReturnService {
+        abt_core::sales::sales_return::new_sales_return_service(self.pool.clone())
+    }
+
+    pub fn reconciliation_service(&self) -> impl abt_core::sales::reconciliation::ReconciliationService {
+        abt_core::sales::reconciliation::new_reconciliation_service(self.pool.clone())
+    }
+
+    pub fn user_service(&self) -> impl abt_core::shared::identity::UserService {
+        abt_core::shared::identity::new_user_service(self.pool.clone())
     }
 }

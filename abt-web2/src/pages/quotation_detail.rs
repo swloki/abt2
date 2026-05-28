@@ -7,6 +7,8 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use tower_sessions::Session;
 
+use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::product::ProductService;
 use abt_core::sales::quotation::model::*;
 use abt_core::sales::quotation::QuotationService;
 use abt_core::shared::types::ServiceContext;
@@ -53,31 +55,6 @@ fn status_label(s: QuotationStatus) -> (&'static str, &'static str) {
     }
 }
 
-async fn resolve_customer_name(conn: &mut sqlx::postgres::PgConnection, customer_id: i64) -> String {
-    sqlx::query_scalar::<sqlx::Postgres, String>("SELECT name FROM customers WHERE id = $1")
-        .bind(customer_id)
-        .fetch_one(conn)
-        .await
-        .unwrap_or_else(|_| "未知客户".into())
-}
-
-async fn resolve_product_names(
-    conn: &mut sqlx::postgres::PgConnection,
-    items: &[QuotationItem],
-) -> HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
-    }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT product_id, pdt_name FROM products WHERE product_id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
-}
 
 // ── Handlers ──
 
@@ -89,15 +66,21 @@ pub async fn get_quotation_detail(
 ) -> Result<Html<String>, AppError> {
     let claims = get_claims(&session).await;
     let svc = state.quotation_service();
+    let customer_svc = state.customer_service();
+    let product_svc = state.product_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    let quotation = svc.find_by_id(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let quotation = svc.find_by_id(&ctx, &mut *conn, path.id).await?;
 
-    let items = svc.list_items(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let items = svc.list_items(&ctx, &mut *conn, path.id).await?;
 
-    let customer_name = resolve_customer_name(&mut conn, quotation.customer_id).await;
-    let product_names = resolve_product_names(&mut conn, &items).await;
+    let customer_name = customer_svc.get(&ctx, &mut *conn, quotation.customer_id).await.map(|c| c.name).unwrap_or_else(|_| "未知客户".into());
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let products = if !product_ids.is_empty() {
+        product_svc.get_by_ids(&ctx, &mut *conn, product_ids).await.unwrap_or_default()
+    } else { vec![] };
+    let product_names: HashMap<i64, String> = products.into_iter().map(|p| (p.product_id, p.pdt_name)).collect();
 
     let content = quotation_detail_page(&quotation, &items, &customer_name, &product_names);
     let page_html = admin_page(
@@ -119,7 +102,7 @@ pub async fn submit_quotation(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.submit(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.submit(&ctx, &mut *conn, path.id).await?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -135,7 +118,7 @@ pub async fn accept_quotation(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.accept(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.accept(&ctx, &mut *conn, path.id).await?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -151,7 +134,7 @@ pub async fn reject_quotation(
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
-    svc.reject(&ctx, &mut *conn, path.id).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    svc.reject(&ctx, &mut *conn, path.id).await?;
 
     let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

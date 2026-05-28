@@ -7,12 +7,22 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use tower_sessions::Session;
 
+use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::product::ProductService;
+use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::sales::sales_return::model::*;
+use abt_core::sales::sales_return::SalesReturnService;
+use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::shared::identity::UserService;
+use abt_core::shared::types::{PgExecutor, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
+use crate::components::icon;
 use crate::errors::AppError;
 use crate::layout::page::admin_page;
+use crate::routes::order::OrderDetailPath;
 use crate::routes::sales_return::*;
+use crate::routes::shipping::ShippingDetailPath;
 use crate::state::AppState;
 
 // ── Helpers ──
@@ -57,69 +67,6 @@ fn disposition_label(d: ReturnDisposition) -> &'static str {
     }
 }
 
-async fn fetch_sales_return(conn: &mut sqlx::postgres::PgConnection, id: i64) -> Option<SalesReturn> {
-    sqlx::query_as::<sqlx::Postgres, SalesReturn>(
-        "SELECT id, doc_number, order_id, shipping_request_id, customer_id, return_date, status, return_reason, total_amount, remark, operator_id, created_at, updated_at, deleted_at FROM sales_returns WHERE id = $1 AND deleted_at IS NULL",
-    )
-    .bind(id)
-    .fetch_optional(conn)
-    .await
-    .ok()
-    .flatten()
-}
-
-async fn fetch_return_items(conn: &mut sqlx::postgres::PgConnection, return_id: i64) -> Vec<SalesReturnItem> {
-    sqlx::query_as::<sqlx::Postgres, SalesReturnItem>(
-        "SELECT id, return_id, order_item_id, product_id, returned_qty, unit_price, amount, disposition FROM sales_return_items WHERE return_id = $1 ORDER BY id",
-    )
-    .bind(return_id)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default()
-}
-
-async fn resolve_product_names(
-    conn: &mut sqlx::postgres::PgConnection,
-    items: &[SalesReturnItem],
-) -> HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
-    }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT product_id, pdt_name FROM products WHERE product_id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
-}
-
-async fn resolve_customer_name(conn: &mut sqlx::postgres::PgConnection, customer_id: i64) -> String {
-    sqlx::query_scalar::<sqlx::Postgres, String>("SELECT name FROM customers WHERE id = $1")
-        .bind(customer_id)
-        .fetch_one(conn)
-        .await
-        .unwrap_or_else(|_| "未知客户".into())
-}
-
-async fn resolve_order_number(conn: &mut sqlx::postgres::PgConnection, order_id: i64) -> String {
-    sqlx::query_scalar::<sqlx::Postgres, String>("SELECT doc_number FROM sales_orders WHERE id = $1")
-        .bind(order_id)
-        .fetch_one(conn)
-        .await
-        .unwrap_or_else(|_| "—".into())
-}
-
-async fn resolve_shipping_number(conn: &mut sqlx::postgres::PgConnection, shipping_id: i64) -> String {
-    sqlx::query_scalar::<sqlx::Postgres, String>("SELECT doc_number FROM shipping_requests WHERE id = $1")
-        .bind(shipping_id)
-        .fetch_one(conn)
-        .await
-        .unwrap_or_else(|_| "—".into())
-}
-
 // ── Handlers ──
 
 pub async fn get_return_detail(
@@ -130,18 +77,51 @@ pub async fn get_return_detail(
 ) -> Result<Html<String>, AppError> {
     let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    let ret = fetch_sales_return(&mut conn, path.id)
+    // Fetch return header
+    let ret = state.sales_return_service()
+        .find_by_id(&ctx, &mut conn, path.id)
+        .await?;
+
+    // Fetch return items
+    let items = state.sales_return_service()
+        .list_items(&ctx, &mut conn, path.id)
         .await
-        .ok_or_else(|| AppError::Internal("退货单不存在".into()))?;
+        .unwrap_or_default();
 
-    let items = fetch_return_items(&mut conn, path.id).await;
-    let customer_name = resolve_customer_name(&mut conn, ret.customer_id).await;
-    let order_number = resolve_order_number(&mut conn, ret.order_id).await;
-    let shipping_number = resolve_shipping_number(&mut conn, ret.shipping_request_id).await;
-    let product_names = resolve_product_names(&mut conn, &items).await;
+    // Resolve customer name
+    let customer_name = state.customer_service()
+        .get(&ctx, &mut conn, ret.customer_id)
+        .await
+        .map(|c| c.name)
+        .unwrap_or_else(|_| "未知客户".into());
 
-    let content = return_detail_page(&ret, &items, &customer_name, &order_number, &shipping_number, &product_names);
+    // Resolve order number
+    let order_number = state.sales_order_service()
+        .find_by_id(&ctx, &mut conn, ret.order_id)
+        .await
+        .map(|o| o.doc_number)
+        .unwrap_or_else(|_| "—".into());
+
+    // Resolve shipping number
+    let shipping_number = state.shipping_service()
+        .find_by_id(&ctx, &mut conn, ret.shipping_request_id)
+        .await
+        .map(|s| s.doc_number)
+        .unwrap_or_else(|_| "—".into());
+
+    // Resolve operator name
+    let operator_name = state.user_service()
+        .get_user(&ctx, &mut conn, ret.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+
+    // Resolve product details
+    let product_details = resolve_product_details(&state, &ctx, &mut conn, &items).await;
+
+    let content = return_detail_page(&ret, &items, &customer_name, &order_number, &shipping_number, &operator_name, &product_details);
     let page_html = admin_page(
         &headers, "退货详情", &claims, "sales",
         &format!("{}/{}", ReturnListPath::PATH, path.id),
@@ -156,14 +136,13 @@ pub async fn confirm_return(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, AppError> {
-    let _claims = get_claims(&session).await;
+    let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    sqlx::query("UPDATE sales_returns SET status = 2, updated_at = NOW() WHERE id = $1 AND status = 1 AND deleted_at IS NULL")
-        .bind(path.id)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    state.sales_return_service()
+        .approve(&ctx, &mut conn, path.id)
+        .await?;
 
     let redirect = ReturnDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -174,14 +153,13 @@ pub async fn receive_return(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, AppError> {
-    let _claims = get_claims(&session).await;
+    let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    sqlx::query("UPDATE sales_returns SET status = 3, updated_at = NOW() WHERE id = $1 AND status = 2 AND deleted_at IS NULL")
-        .bind(path.id)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    state.sales_return_service()
+        .receive(&ctx, &mut conn, path.id)
+        .await?;
 
     let redirect = ReturnDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -192,14 +170,13 @@ pub async fn inspect_return(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, AppError> {
-    let _claims = get_claims(&session).await;
+    let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    sqlx::query("UPDATE sales_returns SET status = 4, updated_at = NOW() WHERE id = $1 AND status = 3 AND deleted_at IS NULL")
-        .bind(path.id)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    state.sales_return_service()
+        .inspect(&ctx, &mut conn, path.id)
+        .await?;
 
     let redirect = ReturnDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -210,14 +187,13 @@ pub async fn complete_return(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, AppError> {
-    let _claims = get_claims(&session).await;
+    let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    sqlx::query("UPDATE sales_returns SET status = 5, updated_at = NOW() WHERE id = $1 AND status = 4 AND deleted_at IS NULL")
-        .bind(path.id)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    state.sales_return_service()
+        .complete(&ctx, &mut conn, path.id)
+        .await?;
 
     let redirect = ReturnDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -228,17 +204,47 @@ pub async fn reject_return(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, AppError> {
-    let _claims = get_claims(&session).await;
+    let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    sqlx::query("UPDATE sales_returns SET status = 7, updated_at = NOW() WHERE id = $1 AND status IN (2, 3, 4) AND deleted_at IS NULL")
-        .bind(path.id)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    state.sales_return_service()
+        .reject(&ctx, &mut conn, path.id)
+        .await?;
 
     let redirect = ReturnDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+// ── Product Detail Resolution ──
+
+struct ProductDetail {
+    code: String,
+    name: String,
+    unit: String,
+}
+
+async fn resolve_product_details(
+    state: &AppState,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    items: &[SalesReturnItem],
+) -> HashMap<i64, ProductDetail> {
+    let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    let products = state.product_service()
+        .get_by_ids(ctx, db, ids)
+        .await
+        .unwrap_or_default();
+    products.into_iter()
+        .map(|p| (p.product_id, ProductDetail {
+            code: p.product_code,
+            name: p.pdt_name,
+            unit: p.unit,
+        }))
+        .collect()
 }
 
 // ── Workflow Steps ──
@@ -300,14 +306,35 @@ fn return_detail_page(
     customer_name: &str,
     order_number: &str,
     shipping_number: &str,
-    product_names: &HashMap<i64, String>,
+    operator_name: &str,
+    product_details: &HashMap<i64, ProductDetail>,
 ) -> Markup {
     let (status_text, status_class) = status_label(r.status);
+    let shipping_detail = ShippingDetailPath { id: r.shipping_request_id };
+    let order_detail = OrderDetailPath { id: r.order_id };
 
     html! {
         div {
-            div class="page-header" {
-                h1 class="page-title" { "退货详情" }
+            // ── Back Link ──
+            a class="back-link" href=(ReturnListPath::PATH) {
+                (icon::chevron_left_icon("w-4 h-4"))
+                "返回退货列表"
+            }
+
+            // ── Detail Header ──
+            div class="detail-header" {
+                div {
+                    div class="detail-title-row" {
+                        h1 class="detail-no font-mono" { (r.doc_number) }
+                        span class=(format!("status-pill {status_class}")) { (status_text) }
+                    }
+                    div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)" {
+                        "来源发货："
+                        a href=(shipping_detail.to_string()) style="color:var(--info);font-weight:500" { (shipping_number) }
+                        "　来源订单："
+                        a href=(order_detail.to_string()) style="color:var(--info);font-weight:500" { (order_number) }
+                    }
+                }
                 div class="page-actions" {
                     a class="btn btn-default" href=(ReturnListPath::PATH) { "返回列表" }
                     @if r.status == ReturnStatus::Draft {
@@ -336,52 +363,42 @@ fn return_detail_page(
                 }
             }
 
-            div class="data-card" style="margin-bottom:var(--space-6)" {
-                (workflow_steps(r.status))
-            }
+            // ── Workflow Steps ──
+            (workflow_steps(r.status))
 
-            div class="data-card" style="margin-bottom:var(--space-6)" {
-                div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-4)" {
-                    span class="mono" style="font-size:var(--text-xl);font-weight:600" { (r.doc_number) }
-                    span class=(format!("status-pill {status_class}")) { (status_text) }
-                }
+            // ── Return Info ──
+            div class="info-card" {
+                div class="info-card-title" { "退货信息" }
                 div class="info-grid" {
                     div class="info-item" {
-                        span class="info-label" { "客户" }
+                        span class="info-label" { "客户名称" }
                         span class="info-value" { (customer_name) }
-                    }
-                    div class="info-item" {
-                        span class="info-label" { "来源订单" }
-                        span class="info-value mono" { (order_number) }
-                    }
-                    div class="info-item" {
-                        span class="info-label" { "来源发货" }
-                        span class="info-value mono" { (shipping_number) }
-                    }
-                    div class="info-item" {
-                        span class="info-label" { "退货日期" }
-                        span class="info-value" { (r.return_date.format("%Y-%m-%d")) }
                     }
                     div class="info-item" {
                         span class="info-label" { "退货原因" }
                         span class="info-value" { (r.return_reason.as_str()) }
                     }
-                    @if !r.remark.is_empty() {
-                        div class="info-item" {
-                            span class="info-label" { "备注" }
-                            span class="info-value" { (r.remark.as_str()) }
-                        }
+                    div class="info-item" {
+                        span class="info-label" { "操作员" }
+                        span class="info-value" { (operator_name) }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "创建时间" }
+                        span class="info-value" { (r.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                 }
             }
 
+            // ── Items Table ──
             div class="data-card" {
-                div class="form-section-title" { "退货明细" }
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
-                                th { "产品" }
+                                th { "行号" }
+                                th { "产品编码" }
+                                th { "产品名称" }
+                                th { "单位" }
                                 th class="num-right" { "单价" }
                                 th class="num-right" { "退货数量" }
                                 th class="num-right" { "退货金额" }
@@ -389,12 +406,12 @@ fn return_detail_page(
                             }
                         }
                         tbody {
-                            @for item in items {
-                                (item_row(item, product_names))
+                            @for (i, item) in items.iter().enumerate() {
+                                (item_row(i, item, product_details))
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="5" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                         "暂无明细"
                                     }
                                 }
@@ -411,16 +428,34 @@ fn return_detail_page(
                     }
                 }
             }
+
+            // ── Remarks ──
+            @if !r.remark.is_empty() {
+                div class="info-card" style="margin-top:var(--space-6)" {
+                    div class="info-card-title" { "备注" }
+                    p class="text-muted" { (r.remark.as_str()) }
+                }
+            }
         }
     }
 }
 
-fn item_row(item: &SalesReturnItem, names: &HashMap<i64, String>) -> Markup {
-    let product_name = names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+fn item_row(
+    index: usize,
+    item: &SalesReturnItem,
+    details: &HashMap<i64, ProductDetail>,
+) -> Markup {
+    let detail = details.get(&item.product_id);
+    let product_code = detail.map(|d| d.code.as_str()).unwrap_or("—");
+    let product_name = detail.map(|d| d.name.as_str()).unwrap_or("—");
+    let unit = detail.map(|d| d.unit.as_str()).unwrap_or("—");
 
     html! {
         tr {
+            td class="mono" { (index + 1) }
+            td class="mono" { (product_code) }
             td { (product_name) }
+            td { (unit) }
             td class="num-right mono" { (format!("{:.2}", item.unit_price)) }
             td class="num-right" { (item.returned_qty) }
             td class="num-right mono" { (format!("{:.2}", item.amount)) }

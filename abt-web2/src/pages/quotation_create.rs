@@ -262,15 +262,8 @@ pub async fn create_quotation(
         remark: form.remark,
     };
 
-    let mut tx: sqlx::Transaction<'_, sqlx::Postgres> =
-        sqlx::Connection::begin(&mut *conn)
-            .await
-            .map_err(|e| AppError::Internal(e.to_string()))?;
     let ctx = ServiceContext::new(claims.sub);
-    let id = svc.create(&ctx, &mut *tx, create_req).await?;
-    tx.commit()
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let id = svc.create(&ctx, &mut *conn, create_req).await?;
 
     let redirect = QuotationDetailPath { id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))

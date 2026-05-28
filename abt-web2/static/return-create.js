@@ -1,46 +1,38 @@
 function returnForm() {
     return {
+        customerId: '0',
         selectedOrderId: '',
-        selectedCustomerId: '',
-        selectedOrderDoc: '',
+        selectedOrderNumber: '',
         shippingRequestId: '0',
         returnReason: '',
+        orderModalOpen: false,
         items: [],
 
-        selectOrder(order) {
-            this.selectedOrderId = order.order_id;
-            this.selectedCustomerId = order.customer_id;
-            this.selectedOrderDoc = order.doc_number;
-            // Load order items
-            var self = this;
-            fetch('/admin/returns/order-items?order_id=' + order.order_id)
-                .then(function (r) { return r.text(); })
-                .then(function (html) {
-                    // Parse returned data to populate items
-                    // The response contains item data as JSON in the template
-                    try {
-                        var data = JSON.parse(html);
-                        self.items = data.items.map(function (item) {
-                            return {
-                                order_item_id: item[0],
-                                product_id: item[2],
-                                product_name: item[7] || '',
-                                description: item[3],
-                                order_qty: item[4],
-                                unit: item[5],
-                                unit_price: item[6],
-                                returned_qty: String(item[4]),
-                                disposition: '1'
-                            };
-                        });
-                        if (data.shipping_id && data.shipping_id > 0) {
-                            self.shippingRequestId = String(data.shipping_id);
-                        }
-                    } catch (e) {
-                        // Fallback: try to extract from HTML
-                        self.items = [];
-                    }
-                });
+        selectOrder(orderData) {
+            this.selectedOrderId = orderData.id;
+            this.selectedOrderNumber = orderData.doc_number;
+            this.shippingRequestId = String(orderData.shipping_id || '0');
+            this.items = orderData.items.map(function (item) {
+                return {
+                    order_item_id: item.order_item_id,
+                    product_id: item.product_id,
+                    product_code: item.product_code,
+                    product_name: item.product_name,
+                    unit: item.unit || '',
+                    order_qty: item.order_qty,
+                    unit_price: item.unit_price,
+                    returned_qty: String(item.order_qty),
+                    disposition: '1'
+                };
+            });
+            this.orderModalOpen = false;
+        },
+
+        clearOrder() {
+            this.selectedOrderId = '';
+            this.selectedOrderNumber = '';
+            this.shippingRequestId = '0';
+            this.items = [];
         },
 
         removeItem(idx) {
@@ -62,9 +54,10 @@ function returnForm() {
 
 document.addEventListener('DOMContentLoaded', function () {
     var form = document.getElementById('return-form');
-    if (form) {
-        form.addEventListener('htmx:responseError', function (e) {
-            htmx.trigger(document.body, 'show-toast', {message: e.detail.xhr.responseText || '提交失败', type: 'error'});
-        });
-    }
+    if (!form) return;
+
+    form.addEventListener('htmx:responseError', function (e) {
+        var msg = e.detail.xhr.responseText || '提交失败';
+        htmx.trigger(document.body, 'show-toast', { message: msg, type: 'error' });
+    });
 });

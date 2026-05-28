@@ -10,6 +10,7 @@ use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::*;
 use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::sales::shipping_request::model::*;
@@ -65,7 +66,7 @@ fn order_status_text(s: SalesOrderStatus) -> &'static str {
 
 // ── Data Structs ──
 
-#[derive(Debug, sqlx::FromRow)]
+#[derive(Debug)]
 struct OrderItemRow {
     order_id: i64,
     order_item_id: i64,
@@ -125,14 +126,12 @@ pub async fn get_shipping_create(
     let ctx = make_ctx(claims.sub);
     let customers = customer_svc
         .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .await?;
 
     let ctx2 = make_ctx(claims.sub);
     let warehouses = warehouse_svc
         .list(&ctx2, &mut *conn, WarehouseFilter::default(), 1, 100)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .await?;
 
     let content = shipping_create_page(&customers.items, &warehouses.items);
     let page_html = admin_page(
@@ -151,7 +150,7 @@ pub async fn post_shipping_create(
 ) -> Result<impl IntoResponse, AppError> {
     let claims = get_claims(&session).await;
     let svc = state.shipping_service();
-    let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     if form.customer_id == 0 {
         return Err(AppError::BadRequest("请选择客户".into()));
@@ -186,10 +185,9 @@ pub async fn post_shipping_create(
         items,
     };
 
-    let mut tx = sqlx::Connection::begin(&mut *conn)
-        .await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let mut tx = conn;
     let ctx = ServiceContext::new(claims.sub);
-    let id = svc.create_from_order(&ctx, &mut *tx, req).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let id = svc.create_from_order(&ctx, &mut *tx, req).await?;
 
     let carrier = form.carrier.filter(|s| !s.is_empty());
     let remark = form.remark.filter(|s| !s.is_empty());
@@ -198,10 +196,8 @@ pub async fn post_shipping_create(
             carrier,
             remark,
             ..Default::default()
-        }).await.map_err(|e| AppError::Internal(e.to_string()))?;
+        }).await?;
     }
-
-    tx.commit().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let redirect = ShippingDetailPath { id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -244,8 +240,7 @@ pub async fn get_customer_contacts(
     let ctx3 = make_ctx(claims.sub);
     let customers = customer_svc
         .list(&ctx3, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .await?;
 
     Ok(Html(customer_info_card(&customers.items, params.customer_id, contact_name, contact_phone, &shipping_address).into_string()))
 }
@@ -271,28 +266,53 @@ pub async fn get_order_search(
         ..Default::default()
     };
     let result = order_svc.list(&ctx, &mut *conn, filter, PageParams::new(1, 10))
-        .await.map_err(|e| AppError::Internal(e.to_string()))?;
+        .await?;
 
     if result.items.is_empty() {
         return Ok(Html(order_search_empty().into_string()));
     }
 
-    let order_ids: Vec<i64> = result.items.iter().map(|o| o.id).collect();
+    // Collect all order items and product ids across orders
+    let order_svc_inner = state.sales_order_service();
+    let product_svc = state.product_service();
 
-    let item_rows: Vec<OrderItemRow> = sqlx::query_as(
-        "SELECT oi.order_id, oi.id AS order_item_id, oi.product_id, \
-         oi.quantity AS ordered_qty, oi.shipped_qty, \
-         p.product_code, p.pdt_name AS product_name, \
-         p.meta->>'specification' AS specification, p.unit \
-         FROM sales_order_items oi \
-         JOIN products p ON p.product_id = oi.product_id \
-         WHERE oi.order_id = ANY($1) \
-         ORDER BY oi.order_id, oi.line_no",
-    )
-    .bind(&order_ids)
-    .fetch_all(&mut *conn)
-    .await
-    .unwrap_or_default();
+    let mut all_items: Vec<(i64, abt_core::sales::sales_order::model::SalesOrderItem)> = Vec::new();
+    let mut all_product_ids: Vec<i64> = Vec::new();
+    for order in &result.items {
+        if let Ok(items) = order_svc_inner.list_items(&ctx, &mut *conn, order.id).await {
+            for item in &items {
+                all_product_ids.push(item.product_id);
+            }
+            for item in items {
+                all_items.push((order.id, item));
+            }
+        }
+    }
+
+    // Fetch product details for all product_ids
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = if all_product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        product_svc.get_by_ids(&ctx, &mut *conn, all_product_ids)
+            .await
+            .map(|ps| ps.into_iter().map(|p| (p.product_id, p)).collect())
+            .unwrap_or_default()
+    };
+
+    let item_rows: Vec<OrderItemRow> = all_items.into_iter().map(|(order_id, item)| {
+        let product = product_map.get(&item.product_id);
+        OrderItemRow {
+            order_id,
+            order_item_id: item.id,
+            product_id: item.product_id,
+            product_code: product.map(|p| p.product_code.clone()).unwrap_or_default(),
+            product_name: product.map(|p| p.pdt_name.clone()).unwrap_or_default(),
+            specification: product.map(|p| Some(p.meta.specification.clone())).unwrap_or(None),
+            unit: product.map(|p| Some(p.unit.clone())).unwrap_or(None),
+            ordered_qty: item.quantity,
+            shipped_qty: item.shipped_qty,
+        }
+    }).collect();
 
     let mut items_map: HashMap<i64, Vec<&OrderItemRow>> = HashMap::new();
     for item in &item_rows {

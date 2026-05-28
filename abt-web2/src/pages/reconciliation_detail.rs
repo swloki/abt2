@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use axum::extract::State;
 use axum::http::HeaderMap;
@@ -8,11 +8,21 @@ use maud::{html, Markup};
 use tower_sessions::Session;
 
 use abt_core::sales::reconciliation::model::*;
+use abt_core::sales::reconciliation::ReconciliationService;
+use abt_core::sales::sales_order::SalesOrderService;
+use abt_core::sales::shipping_request::ShippingRequestService;
+use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::product::ProductService;
+use abt_core::shared::identity::UserService;
+use abt_core::shared::types::ServiceContext;
 
 use crate::auth::session::CURRENT_USER_KEY;
+use crate::components::icon;
 use crate::errors::AppError;
 use crate::layout::page::admin_page;
 use crate::routes::reconciliation::*;
+use crate::routes::order::OrderDetailPath;
+use crate::routes::shipping::ShippingDetailPath;
 use crate::state::AppState;
 
 // ── Helpers ──
@@ -47,69 +57,10 @@ fn status_label(s: ReconciliationStatus) -> (&'static str, &'static str) {
     }
 }
 
-async fn fetch_reconciliation(conn: &mut sqlx::postgres::PgConnection, id: i64) -> Option<Reconciliation> {
-    sqlx::query_as::<sqlx::Postgres, Reconciliation>(
-        "SELECT id, doc_number, customer_id, period, status, total_amount, confirmed_amount, difference, remark, operator_id, created_at, updated_at, deleted_at FROM reconciliations WHERE id = $1 AND deleted_at IS NULL",
-    )
-    .bind(id)
-    .fetch_optional(conn)
-    .await
-    .ok()
-    .flatten()
-}
-
-async fn fetch_rec_items(conn: &mut sqlx::postgres::PgConnection, rec_id: i64) -> Vec<ReconciliationItem> {
-    sqlx::query_as::<sqlx::Postgres, ReconciliationItem>(
-        "SELECT id, reconciliation_id, shipping_request_id, sales_order_id, product_id, quantity, unit_price, amount, confirmed, remark FROM reconciliation_items WHERE reconciliation_id = $1 ORDER BY id",
-    )
-    .bind(rec_id)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default()
-}
-
-async fn resolve_customer_name(conn: &mut sqlx::postgres::PgConnection, customer_id: i64) -> String {
-    sqlx::query_scalar::<sqlx::Postgres, String>("SELECT name FROM customers WHERE id = $1")
-        .bind(customer_id)
-        .fetch_one(conn)
-        .await
-        .unwrap_or_else(|_| "未知客户".into())
-}
-
-async fn resolve_product_names_rec(
-    conn: &mut sqlx::postgres::PgConnection,
-    items: &[ReconciliationItem],
-) -> HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
-    }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT product_id, pdt_name FROM products WHERE product_id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
-}
-
-async fn resolve_order_numbers(
-    conn: &mut sqlx::postgres::PgConnection,
-    items: &[ReconciliationItem],
-) -> HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.sales_order_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
-    }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, doc_number FROM sales_orders WHERE id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
+struct ProductDetail {
+    code: String,
+    name: String,
+    unit: Option<String>,
 }
 
 // ── Handlers ──
@@ -122,17 +73,86 @@ pub async fn get_reconciliation_detail(
 ) -> Result<Html<String>, AppError> {
     let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    let rec = fetch_reconciliation(&mut conn, path.id)
+    let reconciliation_svc = state.reconciliation_service();
+    let customer_svc = state.customer_service();
+    let order_svc = state.sales_order_service();
+    let shipping_svc = state.shipping_service();
+    let product_svc = state.product_service();
+    let user_svc = state.user_service();
+
+    let rec = reconciliation_svc.find_by_id(&ctx, &mut *conn, path.id).await?;
+
+    let items = reconciliation_svc.list_items(&ctx, &mut *conn, path.id).await?;
+
+    let customer_name = customer_svc
+        .get(&ctx, &mut *conn, rec.customer_id)
         .await
-        .ok_or_else(|| AppError::Internal("对账单不存在".into()))?;
+        .map(|c| c.name)
+        .unwrap_or_else(|_| "未知客户".into());
 
-    let items = fetch_rec_items(&mut conn, path.id).await;
-    let customer_name = resolve_customer_name(&mut conn, rec.customer_id).await;
-    let product_names = resolve_product_names_rec(&mut conn, &items).await;
-    let order_numbers = resolve_order_numbers(&mut conn, &items).await;
+    let operator_name = user_svc
+        .get_user(&ctx, &mut *conn, rec.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
 
-    let content = reconciliation_detail_page(&rec, &items, &customer_name, &product_names, &order_numbers);
+    // Resolve product details via service
+    let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+    let product_details: HashMap<i64, ProductDetail> = if product_ids.is_empty() {
+        HashMap::new()
+    } else {
+        product_svc
+            .get_by_ids(&ctx, &mut *conn, product_ids)
+            .await
+            .map(|products| {
+                products
+                    .into_iter()
+                    .map(|p| {
+                        (
+                            p.product_id,
+                            ProductDetail {
+                                code: p.product_code,
+                                name: p.pdt_name,
+                                unit: Some(p.unit),
+                            },
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+
+    // Resolve order numbers via service (deduplicated)
+    let order_numbers: HashMap<i64, String> = {
+        let mut map = HashMap::new();
+        let mut seen = HashSet::new();
+        for item in &items {
+            if seen.insert(item.sales_order_id) {
+                if let Ok(order) = order_svc.find_by_id(&ctx, &mut *conn, item.sales_order_id).await {
+                    map.insert(item.sales_order_id, order.doc_number);
+                }
+            }
+        }
+        map
+    };
+
+    // Resolve shipping numbers via service (deduplicated)
+    let shipping_numbers: HashMap<i64, String> = {
+        let mut map = HashMap::new();
+        let mut seen = HashSet::new();
+        for item in &items {
+            if seen.insert(item.shipping_request_id) {
+                if let Ok(shipping) = shipping_svc.find_by_id(&ctx, &mut *conn, item.shipping_request_id).await {
+                    map.insert(item.shipping_request_id, shipping.doc_number);
+                }
+            }
+        }
+        map
+    };
+
+    let content = reconciliation_detail_page(&rec, &items, &customer_name, &operator_name, &product_details, &order_numbers, &shipping_numbers);
     let page_html = admin_page(
         &headers, "对账详情", &claims, "sales",
         &format!("{}/{}", ReconciliationListPath::PATH, path.id),
@@ -147,14 +167,12 @@ pub async fn send_reconciliation(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, AppError> {
-    let _claims = get_claims(&session).await;
+    let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    sqlx::query("UPDATE reconciliations SET status = 2, updated_at = NOW() WHERE id = $1 AND status = 1 AND deleted_at IS NULL")
-        .bind(path.id)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let reconciliation_svc = state.reconciliation_service();
+    reconciliation_svc.send(&ctx, &mut *conn, path.id).await?;
 
     let redirect = ReconciliationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -165,14 +183,12 @@ pub async fn confirm_reconciliation(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, AppError> {
-    let _claims = get_claims(&session).await;
+    let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    sqlx::query("UPDATE reconciliations SET status = 3, updated_at = NOW() WHERE id = $1 AND status = 2 AND deleted_at IS NULL")
-        .bind(path.id)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let reconciliation_svc = state.reconciliation_service();
+    reconciliation_svc.confirm(&ctx, &mut *conn, path.id).await?;
 
     let redirect = ReconciliationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -183,14 +199,12 @@ pub async fn dispute_reconciliation(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, AppError> {
-    let _claims = get_claims(&session).await;
+    let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    sqlx::query("UPDATE reconciliations SET status = 4, updated_at = NOW() WHERE id = $1 AND status IN (2, 3) AND deleted_at IS NULL")
-        .bind(path.id)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let reconciliation_svc = state.reconciliation_service();
+    reconciliation_svc.dispute(&ctx, &mut *conn, path.id).await?;
 
     let redirect = ReconciliationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -201,14 +215,12 @@ pub async fn settle_reconciliation(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, AppError> {
-    let _claims = get_claims(&session).await;
+    let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = ServiceContext::new(claims.sub);
 
-    sqlx::query("UPDATE reconciliations SET status = 5, updated_at = NOW() WHERE id = $1 AND status = 3 AND deleted_at IS NULL")
-        .bind(path.id)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let reconciliation_svc = state.reconciliation_service();
+    reconciliation_svc.settle(&ctx, &mut *conn, path.id).await?;
 
     let redirect = ReconciliationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -262,15 +274,33 @@ fn reconciliation_detail_page(
     rec: &Reconciliation,
     items: &[ReconciliationItem],
     customer_name: &str,
-    product_names: &HashMap<i64, String>,
+    operator_name: &str,
+    product_details: &HashMap<i64, ProductDetail>,
     order_numbers: &HashMap<i64, String>,
+    shipping_numbers: &HashMap<i64, String>,
 ) -> Markup {
     let (status_text, status_class) = status_label(rec.status);
 
     html! {
         div {
-            div class="page-header" {
-                h1 class="page-title" { "对账详情" }
+            // ── Back Link ──
+            a class="back-link" href=(ReconciliationListPath::PATH) {
+                (icon::chevron_left_icon("w-4 h-4"))
+                "返回对账单列表"
+            }
+
+            // ── Detail Header ──
+            div class="detail-header" {
+                div {
+                    div class="detail-title-row" {
+                        h1 class="detail-no font-mono" { (rec.doc_number) }
+                        span class=(format!("status-pill {status_class}")) { (status_text) }
+                    }
+                    div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)" {
+                        "对账期间：" (rec.period.as_str())
+                        "　客户：" (customer_name)
+                    }
+                }
                 div class="page-actions" {
                     a class="btn btn-default" href=(ReconciliationListPath::PATH) { "返回列表" }
                     @if rec.status == ReconciliationStatus::Draft {
@@ -294,9 +324,8 @@ fn reconciliation_detail_page(
                 }
             }
 
-            div class="data-card" style="margin-bottom:var(--space-6)" {
-                (workflow_steps(rec.status))
-            }
+            // ── Workflow Steps ──
+            (workflow_steps(rec.status))
 
             // ── Summary Cards ──
             div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4);margin-bottom:var(--space-6)" {
@@ -321,25 +350,24 @@ fn reconciliation_detail_page(
             }
 
             // ── Info ──
-            div class="data-card" style="margin-bottom:var(--space-6)" {
-                div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-4)" {
-                    span class="mono" style="font-size:var(--text-xl);font-weight:600" { (rec.doc_number) }
-                    span class=(format!("status-pill {status_class}")) { (status_text) }
-                }
+            div class="info-card" {
+                div class="info-card-title" { "对账信息" }
                 div class="info-grid" {
                     div class="info-item" {
-                        span class="info-label" { "客户" }
+                        span class="info-label" { "客户名称" }
                         span class="info-value" { (customer_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "对账期间" }
                         span class="info-value" { (rec.period.as_str()) }
                     }
-                    @if !rec.remark.is_empty() {
-                        div class="info-item" {
-                            span class="info-label" { "备注" }
-                            span class="info-value" { (rec.remark.as_str()) }
-                        }
+                    div class="info-item" {
+                        span class="info-label" { "操作员" }
+                        span class="info-value" { (operator_name) }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "创建时间" }
+                        span class="info-value" { (rec.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                 }
             }
@@ -351,8 +379,11 @@ fn reconciliation_detail_page(
                     table class="data-table" {
                         thead {
                             tr {
-                                th { "产品" }
-                                th { "来源订单" }
+                                th { "来源单号" }
+                                th { "关联订单" }
+                                th { "产品编码" }
+                                th { "产品名称" }
+                                th { "单位" }
                                 th class="num-right" { "数量" }
                                 th class="num-right" { "单价" }
                                 th class="num-right" { "金额" }
@@ -361,11 +392,11 @@ fn reconciliation_detail_page(
                         }
                         tbody {
                             @for item in items {
-                                (item_row(item, product_names, order_numbers))
+                                (item_row(item, product_details, order_numbers, shipping_numbers))
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="6" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                         "暂无明细"
                                     }
                                 }
@@ -374,22 +405,44 @@ fn reconciliation_detail_page(
                     }
                 }
             }
+
+            // ── Remarks ──
+            @if !rec.remark.is_empty() {
+                div class="info-card" style="margin-top:var(--space-6)" {
+                    div class="info-card-title" { "备注" }
+                    p class="text-muted" { (rec.remark.as_str()) }
+                }
+            }
         }
     }
 }
 
 fn item_row(
     item: &ReconciliationItem,
-    product_names: &HashMap<i64, String>,
+    product_details: &HashMap<i64, ProductDetail>,
     order_numbers: &HashMap<i64, String>,
+    shipping_numbers: &HashMap<i64, String>,
 ) -> Markup {
-    let product_name = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+    let detail = product_details.get(&item.product_id);
+    let product_code = detail.map(|d| d.code.as_str()).unwrap_or("—");
+    let product_name = detail.map(|d| d.name.as_str()).unwrap_or("—");
+    let unit = detail.and_then(|d| d.unit.as_deref()).unwrap_or("—");
     let order_num = order_numbers.get(&item.sales_order_id).map(|s| s.as_str()).unwrap_or("—");
+    let shipping_num = shipping_numbers.get(&item.shipping_request_id).map(|s| s.as_str()).unwrap_or("—");
+    let shipping_detail = ShippingDetailPath { id: item.shipping_request_id };
+    let order_detail = OrderDetailPath { id: item.sales_order_id };
 
     html! {
         tr {
+            td {
+                a href=(shipping_detail.to_string()) style="color:var(--info)" { (shipping_num) }
+            }
+            td {
+                a href=(order_detail.to_string()) style="color:var(--info)" { (order_num) }
+            }
+            td class="mono" { (product_code) }
             td { (product_name) }
-            td class="mono" { (order_num) }
+            td { (unit) }
             td class="num-right" { (item.quantity) }
             td class="num-right mono" { (format!("{:.2}", item.unit_price)) }
             td class="num-right mono" { (format!("{:.2}", item.amount)) }

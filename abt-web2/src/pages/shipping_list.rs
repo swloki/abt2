@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use axum::extract::{Query, State};
 use axum::http::HeaderMap;
@@ -10,9 +10,10 @@ use tower_sessions::Session;
 
 use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::customer::CustomerService;
+use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::sales::shipping_request::model::*;
 use abt_core::sales::shipping_request::ShippingRequestService;
-use abt_core::shared::types::{PageParams, ServiceContext};
+use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
 use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::confirm_dialog::confirm_dialog;
@@ -102,63 +103,77 @@ fn status_label(s: ShippingStatus) -> (&'static str, &'static str) {
     }
 }
 
-async fn count_by_status(
-    conn: &mut sqlx::postgres::PgConnection,
+/// Compute status counts by calling ShippingRequestService::list for each status with page_size=1.
+async fn count_by_status<S: ShippingRequestService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
     customer_id: Option<i64>,
 ) -> HashMap<i16, u64> {
-    let rows: Vec<(i16, i64)> = if customer_id.is_some() {
-        sqlx::query_as(
-            "SELECT status, COUNT(*) as cnt FROM shipping_requests WHERE deleted_at IS NULL AND customer_id = $1 GROUP BY status",
-        )
-        .bind(customer_id)
-        .fetch_all(&mut *conn)
-        .await
-        .unwrap_or_default()
-    } else {
-        sqlx::query_as(
-            "SELECT status, COUNT(*) as cnt FROM shipping_requests WHERE deleted_at IS NULL GROUP BY status",
-        )
-        .fetch_all(&mut *conn)
-        .await
-        .unwrap_or_default()
-    };
-    rows.into_iter().map(|(s, c)| (s, c as u64)).collect()
+    let statuses = [
+        (ShippingStatus::Draft, 1i16),
+        (ShippingStatus::Confirmed, 2),
+        (ShippingStatus::Picking, 3),
+        (ShippingStatus::Shipped, 4),
+        (ShippingStatus::Cancelled, 5),
+    ];
+
+    let mut counts = HashMap::new();
+    for (status, code) in statuses {
+        let filter = ShippingQuery {
+            order_id: None,
+            status: Some(status),
+            keyword: None,
+            customer_id,
+        };
+        let page = PageParams::new(1, 1);
+        if let Ok(result) = svc.list(ctx, db, filter, page).await {
+            counts.insert(code, result.total);
+        }
+    }
+
+    let total: u64 = counts.values().sum();
+    counts.insert(0, total);
+
+    counts
 }
 
-async fn resolve_customer_names_shipping(
-    conn: &mut sqlx::postgres::PgConnection,
+/// Resolve customer names by calling CustomerService::get for each unique customer_id.
+async fn resolve_customer_names_shipping<S: CustomerService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
     items: &[ShippingRequest],
 ) -> HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.customer_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
+    let mut map = HashMap::new();
+    let mut seen = HashSet::new();
+    for item in items {
+        if seen.insert(item.customer_id) {
+            if let Ok(customer) = svc.get(ctx, db, item.customer_id).await {
+                map.insert(item.customer_id, customer.name);
+            }
+        }
     }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, name FROM customers WHERE id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
+    map
 }
 
-async fn resolve_order_numbers(
-    conn: &mut sqlx::postgres::PgConnection,
+/// Resolve order doc_numbers by calling SalesOrderService::find_by_id for each unique id.
+async fn resolve_order_numbers<S: SalesOrderService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
     items: &[ShippingRequest],
 ) -> HashMap<i64, String> {
-    let ids: Vec<i64> = items.iter().map(|i| i.order_id).collect();
-    if ids.is_empty() {
-        return HashMap::new();
+    let mut map = HashMap::new();
+    let mut seen = HashSet::new();
+    for item in items {
+        if seen.insert(item.order_id) {
+            if let Ok(order) = svc.find_by_id(ctx, db, item.order_id).await {
+                map.insert(item.order_id, order.doc_number);
+            }
+        }
     }
-    let rows: Vec<(i64, String)> = sqlx::query_as(
-        "SELECT id, doc_number FROM sales_orders WHERE id = ANY($1)",
-    )
-    .bind(&ids)
-    .fetch_all(conn)
-    .await
-    .unwrap_or_default();
-    rows.into_iter().collect()
+    map
 }
 
 // ── Handlers ──
@@ -173,6 +188,7 @@ pub async fn get_shipping_list(
     let claims = get_claims(&session).await;
     let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
+    let order_svc = state.sales_order_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
@@ -183,17 +199,15 @@ pub async fn get_shipping_list(
         customer_id: params.customer_id,
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = shipping_svc.list(&ctx, &mut *conn, filter, page).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let result = shipping_svc.list(&ctx, &mut *conn, filter, page).await?;
 
-    let status_counts = count_by_status(&mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names_shipping(&mut conn, &result.items).await;
-    let order_numbers = resolve_order_numbers(&mut conn, &result.items).await;
+    let status_counts = count_by_status(&shipping_svc, &ctx, &mut conn, params.customer_id).await;
+    let customer_names = resolve_customer_names_shipping(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut conn, &result.items).await;
 
-    let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .await?;
 
     let content = shipping_list_page(&claims, &result, &customer_names, &order_numbers, &customers.items, &params, &status_counts);
     let page_html = admin_page(
@@ -211,6 +225,7 @@ pub async fn get_shipping_table(
     let claims = get_claims(&session).await;
     let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
+    let order_svc = state.sales_order_service();
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
 
     let ctx = make_ctx(claims.sub);
@@ -221,17 +236,15 @@ pub async fn get_shipping_table(
         customer_id: params.customer_id,
     };
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = shipping_svc.list(&ctx, &mut *conn, filter, page).await.map_err(|e| AppError::Internal(e.to_string()))?;
+    let result = shipping_svc.list(&ctx, &mut *conn, filter, page).await?;
 
-    let status_counts = count_by_status(&mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names_shipping(&mut conn, &result.items).await;
-    let order_numbers = resolve_order_numbers(&mut conn, &result.items).await;
+    let status_counts = count_by_status(&shipping_svc, &ctx, &mut conn, params.customer_id).await;
+    let customer_names = resolve_customer_names_shipping(&customer_svc, &ctx, &mut conn, &result.items).await;
+    let order_numbers = resolve_order_numbers(&order_svc, &ctx, &mut conn, &result.items).await;
 
-    let ctx2 = make_ctx(claims.sub);
     let customers = customer_svc
-        .list(&ctx2, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+        .list(&ctx, &mut *conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
+        .await?;
 
     Ok(Html(shipping_table_fragment(&result, &customer_names, &order_numbers, &customers.items, &params, &status_counts).into_string()))
 }
@@ -241,13 +254,13 @@ pub async fn delete_shipping(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, AppError> {
-    let _claims = get_claims(&session).await;
+    let claims = get_claims(&session).await;
     let mut conn = state.pool.acquire().await.map_err(|e| AppError::Internal(e.to_string()))?;
-    sqlx::query("UPDATE shipping_requests SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND status = 1 AND deleted_at IS NULL")
-        .bind(path.id)
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| AppError::Internal(e.to_string()))?;
+    let ctx = make_ctx(claims.sub);
+
+    let shipping_svc = state.shipping_service();
+    shipping_svc.delete(&ctx, &mut *conn, path.id).await?;
+
     let redirect = ShippingListPath::PATH.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -403,8 +416,8 @@ fn shipping_row(
             td onclick=(&onclick) { (s.carrier.as_str()) }
             td class="mono" onclick=(&onclick) { (s.tracking_number.as_str()) }
             td onclick=(&onclick) { (created) }
-            td onclick="event.stopPropagation()" {
-                div class="row-actions" x-data=(format!("{{ deleteOpen: false }}")) {
+            td onclick="event.stopPropagation()" x-data=(format!("{{ deleteOpen: false }}")) {
+                div class="row-actions" {
                     @if is_draft {
                         a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))

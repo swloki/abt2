@@ -48,7 +48,7 @@ impl BomLaborProcessRepo {
         sets.push("updated_at = NOW()".to_string());
         sets.push(format!("operator_id = ${param_idx}"));
         let sql = format!("UPDATE bom_labor_processes SET {} WHERE id = $1 AND deleted_at IS NULL", sets.join(", "));
-        let mut q = sqlx::query(&sql).bind(id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(id);
 
         if let Some(v) = req.labor_process_dict_id { q = q.bind(v); }
         if let Some(ref v) = req.process_code { q = q.bind(v); }
@@ -105,7 +105,7 @@ impl BomLaborProcessRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM bom_labor_processes WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = product_code_param { count_q = count_q.bind(v); }
         if let Some(ref v) = keyword_param { count_q = count_q.bind(v); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
@@ -118,7 +118,7 @@ impl BomLaborProcessRepo {
         let data_sql = format!(
             "SELECT id, product_code, labor_process_dict_id, process_code, name, unit_price, quantity, sort_order, remark, operator_id, created_at, updated_at, deleted_at FROM bom_labor_processes WHERE {where_clause} ORDER BY sort_order, id LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, BomLaborProcess>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, BomLaborProcess>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = product_code_param { data_q = data_q.bind(v); }
         if let Some(ref v) = keyword_param { data_q = data_q.bind(v); }
         data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);

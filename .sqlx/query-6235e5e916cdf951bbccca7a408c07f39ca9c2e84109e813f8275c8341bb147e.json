@@ -1,0 +1,218 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO production_receipts\n                (doc_number, work_order_id, batch_id, product_id,\n                 received_qty, warehouse_id, zone_id, bin_id,\n                 receipt_date, status, backflush_triggered, remark, operator_id)\n            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false, '', $11)\n            RETURNING id, doc_number, work_order_id, batch_id, product_id,\n                      received_qty, warehouse_id, zone_id, bin_id,\n                      receipt_date, status as \"status: i16\", backflush_triggered, remark, operator_id,\n                      created_at, updated_at\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "doc_number",
+        "type_info": "Varchar",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "doc_number"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "work_order_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "work_order_id"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "batch_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "batch_id"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "product_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "product_id"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "received_qty",
+        "type_info": "Numeric",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "received_qty"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "warehouse_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "warehouse_id"
+          }
+        }
+      },
+      {
+        "ordinal": 7,
+        "name": "zone_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "zone_id"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "bin_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "bin_id"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "receipt_date",
+        "type_info": "Date",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "receipt_date"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "status: i16",
+        "type_info": "Int2",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "backflush_triggered",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "backflush_triggered"
+          }
+        }
+      },
+      {
+        "ordinal": 12,
+        "name": "remark",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "remark"
+          }
+        }
+      },
+      {
+        "ordinal": 13,
+        "name": "operator_id",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "operator_id"
+          }
+        }
+      },
+      {
+        "ordinal": 14,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 15,
+        "name": "updated_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "production_receipts",
+            "name": "updated_at"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Numeric",
+        "Int8",
+        "Int8",
+        "Int8",
+        "Date",
+        "Int2",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "6235e5e916cdf951bbccca7a408c07f39ca9c2e84109e813f8275c8341bb147e"
+}

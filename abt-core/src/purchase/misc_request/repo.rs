@@ -92,7 +92,7 @@ impl MiscRequestRepo {
 
         // Count
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM miscellaneous_requests {where_clause}");
-        let mut count_query = sqlx::query(&count_sql)
+        let mut count_query = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.department_id)
             .bind(q.status)
             .bind(q.request_date_start)
@@ -113,7 +113,7 @@ impl MiscRequestRepo {
              ORDER BY created_at DESC
              LIMIT $5 OFFSET $6"
         );
-        let mut data_query = sqlx::query_as::<_, MiscellaneousRequest>(&data_sql)
+        let mut data_query = sqlx::query_as::<_, MiscellaneousRequest>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.department_id)
             .bind(q.status)
             .bind(q.request_date_start)

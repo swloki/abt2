@@ -9,36 +9,42 @@ use super::model::{
 };
 use super::repo::{OutsourcingMaterialRepo, OutsourcingOrderRepo};
 use super::service::OutsourcingOrderService;
-use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
 use crate::mes::work_order::model::CreateWorkOrderReq;
+use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
 use crate::om::enums::{OutsourcingStatus, OutsourcingType};
-use crate::om::outsourcing_tracking::{new_outsourcing_tracking_service, service::OutsourcingTrackingService};
 use crate::om::outsourcing_tracking::model::RecordNodeReq;
+use crate::om::outsourcing_tracking::{
+    new_outsourcing_tracking_service, service::OutsourcingTrackingService,
+};
 use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
-use crate::qms::inspection_result::{new_inspection_result_service, service::InspectionResultService};
 use crate::qms::inspection_result::model::{CreateInspectionResultReq, InspectionResultFilter};
+use crate::qms::inspection_result::{
+    new_inspection_result_service, service::InspectionResultService,
+};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService};
-use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::cost_entry::model::EntryRequest;
-use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
+use crate::shared::cost_entry::{new_cost_entry_service, service::CostEntryService};
 use crate::shared::document_link::model::LinkRequest;
-use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
+use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
+use crate::shared::document_sequence::{
+    new_document_sequence_service, service::DocumentSequenceService,
+};
 use crate::shared::enums::audit::AuditAction;
 use crate::shared::enums::cost::{CostEntityType, CostType};
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::enums::link_type::LinkType;
-use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::event_bus::model::EventPublishRequest;
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::idempotency::{new_idempotency_service, service::IdempotencyService};
 use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
 use crate::shared::types::PgExecutor;
+use crate::shared::types::Result;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
-use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
-use crate::wms::transfer::{new_transfer_service, service::TransferService};
 use crate::wms::transfer::model::{CreateTransferItemReq, CreateTransferReq};
+use crate::wms::transfer::{new_transfer_service, service::TransferService};
 
 const ENTITY_TYPE: &str = "OutsourcingOrder";
 
@@ -52,10 +58,7 @@ impl OutsourcingOrderServiceImpl {
     }
 }
 
-async fn get_order(
-    db: PgExecutor<'_>,
-    id: i64,
-) -> Result<OutsourcingOrder> {
+async fn get_order(db: PgExecutor<'_>, id: i64) -> Result<OutsourcingOrder> {
     OutsourcingOrderRepo::get_by_id(db, id)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?
@@ -73,7 +76,8 @@ fn check_version(order: &OutsourcingOrder, expected: i32) -> Result<()> {
 impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
     async fn create(
         &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
         req: CreateOutsourcingOrderReq,
         idempotency_key: Option<String>,
     ) -> Result<i64> {
@@ -100,7 +104,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             for mat in &req.materials {
                 if !seen_products.insert(mat.product_id) {
                     return Err(DomainError::validation(format!(
-                        "发料明细中产品 ID {} 重复", mat.product_id
+                        "发料明细中产品 ID {} 重复",
+                        mat.product_id
                     )));
                 }
             }
@@ -110,14 +115,7 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         }
 
         new_audit_log_service(self.pool.clone())
-            .record(
-                ctx, db,
-                ENTITY_TYPE,
-                id,
-                AuditAction::Create,
-                None,
-                None,
-            )
+            .record(ctx, db, ENTITY_TYPE, id, AuditAction::Create, None, None)
             .await?;
 
         Ok(id)
@@ -125,7 +123,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn update(
         &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
         req: UpdateOutsourcingOrderReq,
     ) -> Result<()> {
         let order = get_order(db, req.id).await?;
@@ -173,7 +172,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn send(
         &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
         req: SendOutsourcingReq,
     ) -> Result<()> {
         let order = get_order(db, req.id).await?;
@@ -183,7 +183,9 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
         if materials.is_empty() {
-            return Err(DomainError::validation("委外单必须包含至少一项发料明细才能发料"));
+            return Err(DomainError::validation(
+                "委外单必须包含至少一项发料明细才能发料",
+            ));
         }
 
         new_state_machine_service(self.pool.clone())
@@ -218,7 +220,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         if !transfer_items.is_empty() {
             let tid = new_transfer_service(self.pool.clone())
                 .create(
-                    ctx, db,
+                    ctx,
+                    db,
                     CreateTransferReq {
                         from_warehouse_id: 0,
                         from_zone_id: None,
@@ -231,7 +234,9 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                     },
                 )
                 .await?;
-            new_transfer_service(self.pool.clone()).dispatch(ctx, db, tid).await?;
+            new_transfer_service(self.pool.clone())
+                .dispatch(ctx, db, tid)
+                .await?;
             transfer_ids.push(tid);
         }
 
@@ -248,9 +253,10 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         }
 
         // 追踪节点: SendMaterial
-        let tracking_id = new_outsourcing_tracking_service(self.pool.clone())
+        let tracking_id = new_outsourcing_tracking_service()
             .record_node(
-                ctx, db,
+                ctx,
+                db,
                 RecordNodeReq {
                     outsourcing_id: req.id,
                     node_type: crate::om::enums::TrackingNodeType::SendMaterial,
@@ -263,7 +269,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 单据关联: OutsourcingOrder → OutsourcingTracking
         new_document_link_service(self.pool.clone())
             .create_links(
-                ctx, db,
+                ctx,
+                db,
                 vec![LinkRequest {
                     source_type: DocumentType::OutsourcingOrder,
                     source_id: req.id,
@@ -277,7 +284,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 审计
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db,
+                ctx,
+                db,
                 ENTITY_TYPE,
                 req.id,
                 AuditAction::Transition,
@@ -290,7 +298,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         let material_ids: Vec<i64> = materials.iter().map(|m| m.id).collect();
         new_domain_event_bus(self.pool.clone())
             .publish(
-                ctx, db,
+                ctx,
+                db,
                 EventPublishRequest {
                     event_type: DomainEventType::OutsourcingSent,
                     aggregate_type: ENTITY_TYPE.to_string(),
@@ -332,7 +341,9 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             });
         }
         if !links.is_empty() {
-            new_document_link_service(self.pool.clone()).create_links(ctx, db, links).await?;
+            new_document_link_service(self.pool.clone())
+                .create_links(ctx, db, links)
+                .await?;
         }
 
         Ok(())
@@ -340,41 +351,56 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn receive(
         &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
         req: ReceiveOutsourcingReq,
     ) -> Result<()> {
         let order = get_order(db, req.id).await?;
         check_version(&order, req.expected_version)?;
 
         new_state_machine_service(self.pool.clone())
-            .transition(ctx, db, ENTITY_TYPE, req.id, "Received", req.remark.as_deref())
+            .transition(
+                ctx,
+                db,
+                ENTITY_TYPE,
+                req.id,
+                "Received",
+                req.remark.as_deref(),
+            )
             .await?;
 
         // QMS: 创建 IQC 检验结果
         let iqc_qty = req.iqc_passed_qty.unwrap_or(req.received_qty);
-        new_inspection_result_service(self.pool.clone()).create(
-            ctx, db,
-            CreateInspectionResultReq {
-                spec_id: 0,
-                source_type: InspectionSourceType::OutsourcingOrder,
-                source_id: req.id,
-                batch_no: String::new(),
-                sample_qty: req.received_qty,
-            },
-        )
-        .await?;
+        new_inspection_result_service(self.pool.clone())
+            .create(
+                ctx,
+                db,
+                CreateInspectionResultReq {
+                    spec_id: 0,
+                    source_type: InspectionSourceType::OutsourcingOrder,
+                    source_id: req.id,
+                    batch_no: String::new(),
+                    sample_qty: req.received_qty,
+                },
+            )
+            .await?;
 
         // QMS: 质量门禁检查 — 查询检验结果
-        let qms_results = new_inspection_result_service(self.pool.clone()).list_by_source(
-            ctx, db,
-            InspectionResultFilter {
-                source_type: Some(InspectionSourceType::OutsourcingOrder),
-                source_id: Some(req.id),
-                ..Default::default()
-            },
-            PageParams { page: 1, page_size: 100 },
-        )
-        .await?;
+        let qms_results = new_inspection_result_service(self.pool.clone())
+            .list_by_source(
+                ctx,
+                db,
+                InspectionResultFilter {
+                    source_type: Some(InspectionSourceType::OutsourcingOrder),
+                    source_id: Some(req.id),
+                    ..Default::default()
+                },
+                PageParams {
+                    page: 1,
+                    page_size: 100,
+                },
+            )
+            .await?;
 
         let iqc_passed = qms_results.items.is_empty()
             || qms_results.items.iter().all(|r| {
@@ -399,11 +425,13 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
         // WMS: 从虚拟库位调回 — 创建调拨单、发货、完成
         let transfer_date = chrono::Utc::now().date_naive();
-        let warehouse_id = req.warehouse_id
+        let warehouse_id = req
+            .warehouse_id
             .ok_or_else(|| DomainError::validation("收货仓库 ID 不能为空"))?;
         let transfer_id = new_transfer_service(self.pool.clone())
             .create(
-                ctx, db,
+                ctx,
+                db,
                 CreateTransferReq {
                     from_warehouse_id: order.virtual_warehouse_id,
                     from_zone_id: None,
@@ -420,13 +448,18 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                 },
             )
             .await?;
-        new_transfer_service(self.pool.clone()).dispatch(ctx, db, transfer_id).await?;
-        new_transfer_service(self.pool.clone()).complete(ctx, db, transfer_id).await?;
+        new_transfer_service(self.pool.clone())
+            .dispatch(ctx, db, transfer_id)
+            .await?;
+        new_transfer_service(self.pool.clone())
+            .complete(ctx, db, transfer_id)
+            .await?;
 
         // 追踪节点: IqcInspected → Warehoused
-        new_outsourcing_tracking_service(self.pool.clone())
+        new_outsourcing_tracking_service()
             .record_node(
-                ctx, db,
+                ctx,
+                db,
                 RecordNodeReq {
                     outsourcing_id: req.id,
                     node_type: crate::om::enums::TrackingNodeType::IqcInspected,
@@ -435,9 +468,10 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                 },
             )
             .await?;
-        let tracking_id = new_outsourcing_tracking_service(self.pool.clone())
+        let tracking_id = new_outsourcing_tracking_service()
             .record_node(
-                ctx, db,
+                ctx,
+                db,
                 RecordNodeReq {
                     outsourcing_id: req.id,
                     node_type: crate::om::enums::TrackingNodeType::Warehoused,
@@ -450,7 +484,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 单据关联: OutsourcingOrder → OutsourcingTracking + InventoryTransfer
         new_document_link_service(self.pool.clone())
             .create_links(
-                ctx, db,
+                ctx,
+                db,
                 vec![
                     LinkRequest {
                         source_type: DocumentType::OutsourcingOrder,
@@ -475,7 +510,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         let period = chrono::Utc::now().format("%Y-%m").to_string();
         new_cost_entry_service(self.pool.clone())
             .create_entries(
-                ctx, db,
+                ctx,
+                db,
                 vec![
                     EntryRequest {
                         entity_type: CostEntityType::OutsourcingOrder,
@@ -545,23 +581,35 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn convert_to_internal(
         &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
         req: ConvertToInternalReq,
     ) -> Result<i64> {
         let order = get_order(db, req.id).await?;
         check_version(&order, req.expected_version)?;
 
-        if !matches!(order.status, OutsourcingStatus::Draft | OutsourcingStatus::Sent) {
+        if !matches!(
+            order.status,
+            OutsourcingStatus::Draft | OutsourcingStatus::Sent
+        ) {
             return Err(DomainError::validation("仅 DRAFT 或 SENT 状态可转为自制"));
         }
-        if !matches!(order.outsourcing_type, OutsourcingType::Full | OutsourcingType::Process) {
-            return Err(DomainError::business_rule(
-                "仅 FULL/PROCESS 类型可转为自制",
-            ));
+        if !matches!(
+            order.outsourcing_type,
+            OutsourcingType::Full | OutsourcingType::Process
+        ) {
+            return Err(DomainError::business_rule("仅 FULL/PROCESS 类型可转为自制"));
         }
 
         new_state_machine_service(self.pool.clone())
-            .transition(ctx, db, ENTITY_TYPE, req.id, "ConvertedToInternal", req.remark.as_deref())
+            .transition(
+                ctx,
+                db,
+                ENTITY_TYPE,
+                req.id,
+                "ConvertedToInternal",
+                req.remark.as_deref(),
+            )
             .await?;
 
         let rows = OutsourcingOrderRepo::update_status_and_version(
@@ -581,26 +629,31 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // MES: 创建内部工单
         let scheduled_start = chrono::Local::now().date_naive();
         let scheduled_end = scheduled_start + chrono::Duration::days(7);
-        let new_wo_id = new_work_order_service(self.pool.clone()).create(
-            ctx, db,
-            CreateWorkOrderReq {
-                plan_item_id: None,
-                product_id: order.product_id,
-                bom_snapshot_id: None,
-                routing_id: None,
-                planned_qty: order.planned_qty,
-                scheduled_start,
-                scheduled_end,
-                work_center_id: None,
-                sales_order_id: None,
-                remark: Some(format!("从委外单 #{} 转自制", req.id)),
-            },
-        )
-        .await?;
+        let new_wo_id = new_work_order_service(self.pool.clone())
+            .create(
+                ctx,
+                db,
+                CreateWorkOrderReq {
+                    plan_item_id: None,
+                    product_id: order.product_id,
+                    bom_snapshot_id: None,
+                    routing_id: None,
+                    planned_qty: order.planned_qty,
+                    scheduled_start,
+                    scheduled_end,
+                    work_center_id: None,
+                    sales_order_id: None,
+                    remark: Some(format!("从委外单 #{} 转自制", req.id)),
+                },
+            )
+            .await?;
 
         // 获取原始工单的仓库信息
         let wo = if let Some(orig_wo_id) = order.work_order_id {
-            new_work_order_service(self.pool.clone()).find_by_id(ctx, db, orig_wo_id).await.ok()
+            new_work_order_service(self.pool.clone())
+                .find_by_id(ctx, db, orig_wo_id)
+                .await
+                .ok()
         } else {
             None
         };
@@ -624,7 +677,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             let transfer_date = chrono::Utc::now().date_naive();
             let tid = new_transfer_service(self.pool.clone())
                 .create(
-                    ctx, db,
+                    ctx,
+                    db,
                     CreateTransferReq {
                         from_warehouse_id: order.virtual_warehouse_id,
                         from_zone_id: None,
@@ -637,8 +691,12 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
                     },
                 )
                 .await?;
-            new_transfer_service(self.pool.clone()).dispatch(ctx, db, tid).await?;
-            new_transfer_service(self.pool.clone()).complete(ctx, db, tid).await?;
+            new_transfer_service(self.pool.clone())
+                .dispatch(ctx, db, tid)
+                .await?;
+            new_transfer_service(self.pool.clone())
+                .complete(ctx, db, tid)
+                .await?;
             convert_transfer_id = Some(tid);
         }
 
@@ -661,7 +719,9 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             link_type: LinkType::DerivedFrom,
         });
         if !convert_links.is_empty() {
-            new_document_link_service(self.pool.clone()).create_links(ctx, db, convert_links).await?;
+            new_document_link_service(self.pool.clone())
+                .create_links(ctx, db, convert_links)
+                .await?;
         }
 
         // 审计
@@ -680,11 +740,13 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         let remaining_materials: Vec<serde_json::Value> = materials
             .iter()
             .filter(|m| m.in_transit_qty() > Decimal::ZERO)
-            .map(|m| json!({
-                "material_id": m.id,
-                "product_id": m.product_id,
-                "remaining_qty": m.in_transit_qty().to_string(),
-            }))
+            .map(|m| {
+                json!({
+                    "material_id": m.id,
+                    "product_id": m.product_id,
+                    "remaining_qty": m.in_transit_qty().to_string(),
+                })
+            })
             .collect();
         new_domain_event_bus(self.pool.clone())
             .publish(
@@ -712,7 +774,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn cancel(
         &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
         req: CancelOutsourcingReq,
     ) -> Result<()> {
         let order = get_order(db, req.id).await?;
@@ -722,7 +785,14 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         check_version(&order, req.expected_version)?;
 
         new_state_machine_service(self.pool.clone())
-            .transition(ctx, db, ENTITY_TYPE, req.id, "Cancelled", req.remark.as_deref())
+            .transition(
+                ctx,
+                db,
+                ENTITY_TYPE,
+                req.id,
+                "Cancelled",
+                req.remark.as_deref(),
+            )
             .await?;
 
         let rows = OutsourcingOrderRepo::update_status_and_version(
@@ -742,7 +812,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
         // 审计
         new_audit_log_service(self.pool.clone())
             .record(
-                ctx, db,
+                ctx,
+                db,
                 ENTITY_TYPE,
                 req.id,
                 AuditAction::Transition,
@@ -771,7 +842,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn find_by_id(
         &self,
-        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
         id: i64,
     ) -> Result<OutsourcingOrder> {
         get_order(db, id).await
@@ -779,7 +851,8 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
 
     async fn list(
         &self,
-        ctx: &ServiceContext, db: PgExecutor<'_>,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
         filter: OutsourcingOrderQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<OutsourcingOrder>> {
@@ -788,6 +861,11 @@ impl OutsourcingOrderService for OutsourcingOrderServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+        Ok(PaginatedResult::new(
+            items,
+            total,
+            page.page,
+            page.page_size,
+        ))
     }
 }

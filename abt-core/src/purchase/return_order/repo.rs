@@ -79,7 +79,7 @@ impl PurchaseReturnRepo {
 
         // Count
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM purchase_returns {where_clause}");
-        let count_row = sqlx::query(&count_sql)
+        let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.order_id)
             .bind(q.supplier_id)
             .bind(q.status)
@@ -98,7 +98,7 @@ impl PurchaseReturnRepo {
              ORDER BY created_at DESC
              LIMIT $4 OFFSET $5"
         );
-        let rows = sqlx::query_as::<_, PurchaseReturn>(&data_sql)
+        let rows = sqlx::query_as::<_, PurchaseReturn>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.order_id)
             .bind(q.supplier_id)
             .bind(q.status)
@@ -158,7 +158,7 @@ impl PurchaseReturnRepo {
             "#,
             placeholders.join(", ")
         );
-        let mut query = sqlx::query_as::<_, PurchaseReturn>(&sql)
+        let mut query = sqlx::query_as::<_, PurchaseReturn>(sqlx::AssertSqlSafe(sql))
             .bind(supplier_id)
             .bind(PurchaseReturnStatus::Shipped);
         for &oid in order_ids {

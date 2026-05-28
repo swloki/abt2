@@ -47,7 +47,7 @@ impl ReconciliationRepo {
         id: i64,
     ) -> Result<Option<Reconciliation>> {
         let rec = sqlx::query_as::<sqlx::Postgres, Reconciliation>(
-            &format!("SELECT {REC_COLUMNS} FROM reconciliations WHERE id = $1 AND deleted_at IS NULL"),
+            sqlx::AssertSqlSafe(format!("SELECT {REC_COLUMNS} FROM reconciliations WHERE id = $1 AND deleted_at IS NULL")),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -170,7 +170,7 @@ impl ReconciliationRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM reconciliations WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(v) = customer_param { count_q = count_q.bind(v); }
         if let Some(ref v) = period_param { count_q = count_q.bind(v); }
         if let Some(v) = status_param { count_q = count_q.bind(v); }
@@ -185,7 +185,7 @@ impl ReconciliationRepo {
         let data_sql = format!(
             "SELECT {REC_COLUMNS} FROM reconciliations WHERE {where_clause} ORDER BY id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, Reconciliation>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, Reconciliation>(sqlx::AssertSqlSafe(data_sql));
         if let Some(v) = customer_param { data_q = data_q.bind(v); }
         if let Some(ref v) = period_param { data_q = data_q.bind(v); }
         if let Some(v) = status_param { data_q = data_q.bind(v); }
@@ -238,7 +238,7 @@ impl ReconciliationItemRepo {
         reconciliation_id: i64,
     ) -> Result<Vec<ReconciliationItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, ReconciliationItem>(
-            &format!("SELECT {ITEM_COLUMNS} FROM reconciliation_items WHERE reconciliation_id = $1 ORDER BY id"),
+            sqlx::AssertSqlSafe(format!("SELECT {ITEM_COLUMNS} FROM reconciliation_items WHERE reconciliation_id = $1 ORDER BY id")),
         )
         .bind(reconciliation_id)
         .fetch_all(executor)

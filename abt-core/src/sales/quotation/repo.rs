@@ -55,7 +55,7 @@ impl QuotationRepo {
         id: i64,
     ) -> Result<Option<Quotation>> {
         let quotation = sqlx::query_as::<sqlx::Postgres, Quotation>(
-            &format!("SELECT {QUOTATION_COLUMNS} FROM quotations WHERE id = $1 AND deleted_at IS NULL"),
+            sqlx::AssertSqlSafe(format!("SELECT {QUOTATION_COLUMNS} FROM quotations WHERE id = $1 AND deleted_at IS NULL")),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -69,7 +69,7 @@ impl QuotationRepo {
         doc_number: &str,
     ) -> Result<Option<Quotation>> {
         let quotation = sqlx::query_as::<sqlx::Postgres, Quotation>(
-            &format!("SELECT {QUOTATION_COLUMNS} FROM quotations WHERE doc_number = $1 AND deleted_at IS NULL"),
+            sqlx::AssertSqlSafe(format!("SELECT {QUOTATION_COLUMNS} FROM quotations WHERE doc_number = $1 AND deleted_at IS NULL")),
         )
         .bind(doc_number)
         .fetch_optional(executor)
@@ -125,7 +125,7 @@ impl QuotationRepo {
             "UPDATE quotations SET {} WHERE id = $1 AND deleted_at IS NULL",
             sets.join(", ")
         );
-        let mut q = sqlx::query(&sql).bind(id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(id);
 
         if let Some(v) = req.customer_id {
             q = q.bind(v);
@@ -272,7 +272,7 @@ impl QuotationRepo {
 
         // Count query
         let count_sql = format!("SELECT COUNT(*) FROM quotations WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(v) = customer_param {
             count_q = count_q.bind(v);
         }
@@ -301,7 +301,7 @@ impl QuotationRepo {
         let data_sql = format!(
             "SELECT {QUOTATION_COLUMNS} FROM quotations WHERE {where_clause} ORDER BY id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, Quotation>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, Quotation>(sqlx::AssertSqlSafe(data_sql));
         if let Some(v) = customer_param {
             data_q = data_q.bind(v);
         }
@@ -370,7 +370,7 @@ impl QuotationItemRepo {
         quotation_id: i64,
     ) -> Result<Vec<QuotationItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, QuotationItem>(
-            &format!("SELECT {ITEM_COLUMNS} FROM quotation_items WHERE quotation_id = $1 ORDER BY line_no"),
+            sqlx::AssertSqlSafe(format!("SELECT {ITEM_COLUMNS} FROM quotation_items WHERE quotation_id = $1 ORDER BY line_no")),
         )
         .bind(quotation_id)
         .fetch_all(executor)

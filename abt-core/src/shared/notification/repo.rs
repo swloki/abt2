@@ -94,7 +94,7 @@ impl NotificationRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM notifications WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql).bind(user_id);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql)).bind(user_id);
         if let Some(v) = type_param { count_q = count_q.bind(v); }
         if let Some(v) = read_param { count_q = count_q.bind(v); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
@@ -108,7 +108,7 @@ impl NotificationRepo {
         let data_sql = format!(
             "SELECT notification_id, user_id, notification_type, title, content, related_type, related_id, is_read, read_at, created_at FROM notifications WHERE {where_clause} ORDER BY notification_id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, Notification>(&data_sql).bind(user_id);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, Notification>(sqlx::AssertSqlSafe(data_sql)).bind(user_id);
         if let Some(v) = type_param { data_q = data_q.bind(v); }
         if let Some(v) = read_param { data_q = data_q.bind(v); }
         data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);

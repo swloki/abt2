@@ -117,8 +117,8 @@ impl WarehouseRepo {
              ORDER BY created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
-        let mut count_q = sqlx::query_scalar::<_, i64>(&count_sql);
-        let mut data_q = sqlx::query(&data_sql);
+        let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
+        let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
 
         if let Some(v) = filter.warehouse_type {
             count_q = count_q.bind(v);
@@ -209,7 +209,7 @@ impl WarehouseRepo {
             set_clauses.join(", ")
         );
 
-        let mut q = sqlx::query(&sql);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql));
 
         if let Some(ref v) = req.name {
             q = q.bind(v);
@@ -366,7 +366,7 @@ impl WarehouseRepo {
             set_clauses.join(", ")
         );
 
-        let mut q = sqlx::query(&sql);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql));
 
         if let Some(ref v) = req.name {
             q = q.bind(v);
@@ -467,8 +467,8 @@ impl WarehouseRepo {
              ORDER BY created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
-        let mut count_q = sqlx::query_scalar::<_, i64>(&count_sql);
-        let mut data_q = sqlx::query(&data_sql);
+        let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
+        let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
 
         // zone_id always bound at position 1
         count_q = count_q.bind(zone_id);
@@ -580,7 +580,7 @@ impl WarehouseRepo {
             set_clauses.join(", ")
         );
 
-        let mut q = sqlx::query(&sql);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql));
 
         if let Some(ref v) = req.name {
             q = q.bind(v);
@@ -702,8 +702,8 @@ impl WarehouseRepo {
              ORDER BY b.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
-        let mut count_q = sqlx::query_scalar::<_, i64>(&count_sql);
-        let mut data_q = sqlx::query(&data_sql);
+        let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
+        let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
 
         count_q = count_q.bind(warehouse_id);
         data_q = data_q.bind(warehouse_id);
@@ -832,8 +832,8 @@ impl WarehouseRepo {
              ORDER BY b.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
-        let mut count_q = sqlx::query_scalar::<_, i64>(&count_sql);
-        let mut data_q = sqlx::query(&data_sql);
+        let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
+        let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
 
         let keyword_pattern = keyword.as_ref().map(|kw| format!("%{kw}%"));
         if let Some(ref pattern) = keyword_pattern {

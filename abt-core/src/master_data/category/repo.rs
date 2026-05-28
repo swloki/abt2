@@ -116,7 +116,7 @@ impl CategoryRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM categories WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = name_param { count_q = count_q.bind(v); }
         if let Some(v) = parent_param { count_q = count_q.bind(v); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
@@ -128,7 +128,7 @@ impl CategoryRepo {
         let data_sql = format!(
             "SELECT category_id, category_name, parent_id, path, meta, created_at, updated_at FROM categories WHERE {where_clause} ORDER BY path LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, Category>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, Category>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = name_param { data_q = data_q.bind(v); }
         if let Some(v) = parent_param { data_q = data_q.bind(v); }
         data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);

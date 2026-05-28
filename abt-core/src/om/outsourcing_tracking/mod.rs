@@ -5,8 +5,6 @@ pub mod service;
 
 pub use service::OutsourcingTrackingService;
 
-use sqlx::PgPool;
-
-pub fn new_outsourcing_tracking_service(pool: PgPool) -> impl OutsourcingTrackingService {
+pub fn new_outsourcing_tracking_service() -> impl OutsourcingTrackingService {
     implt::OutsourcingTrackingServiceImpl::new()
 }

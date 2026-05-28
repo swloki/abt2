@@ -86,7 +86,7 @@ impl DomainEventRepo {
         executor: &mut sqlx::postgres::PgConnection,
         event_id: i64,
     ) -> Result<()> {
-        sqlx::query(&format!("NOTIFY domain_event, '{event_id}'"))
+        sqlx::query(sqlx::AssertSqlSafe(format!("NOTIFY domain_event, '{event_id}'")))
             .execute(executor)
             .await?;
         Ok(())
@@ -213,7 +213,7 @@ impl DomainEventRepo {
         ";
 
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM domain_events {sql_base}");
-        let count_row = sqlx::query(&count_sql)
+        let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.aggregate_type.as_deref())
             .bind(q.event_type.map(|t| t.as_i16()))
             .bind(q.status.map(|s| s.as_i16()))
@@ -230,7 +230,7 @@ impl DomainEventRepo {
              ORDER BY created_at DESC \
              LIMIT $5 OFFSET $6"
         );
-        let rows = sqlx::query(&data_sql)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(data_sql))
             .bind(q.aggregate_type.as_deref())
             .bind(q.event_type.map(|t| t.as_i16()))
             .bind(q.status.map(|s| s.as_i16()))

@@ -102,7 +102,7 @@ impl CustomerRepo {
             "UPDATE customers SET {} WHERE customer_id = $1 AND deleted_at IS NULL",
             sets.join(", ")
         );
-        let mut q = sqlx::query(&sql).bind(id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(id);
 
         if let Some(ref v) = req.customer_name {
             q = q.bind(v);
@@ -153,7 +153,7 @@ impl CustomerRepo {
         id: i64,
     ) -> Result<Option<Customer>> {
         let customer = sqlx::query_as::<sqlx::Postgres, Customer>(
-            &format!("SELECT {CUSTOMER_COLUMNS} FROM customers WHERE customer_id = $1 AND deleted_at IS NULL"),
+            sqlx::AssertSqlSafe(format!("SELECT {CUSTOMER_COLUMNS} FROM customers WHERE customer_id = $1 AND deleted_at IS NULL")),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -230,7 +230,7 @@ impl CustomerRepo {
 
         // Count query
         let count_sql = format!("SELECT COUNT(*) FROM customers WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = name_param {
             count_q = count_q.bind(v);
         }
@@ -256,7 +256,7 @@ impl CustomerRepo {
         let data_sql = format!(
             "SELECT {CUSTOMER_COLUMNS} FROM customers WHERE {where_clause} ORDER BY customer_id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, Customer>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, Customer>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = name_param {
             data_q = data_q.bind(v);
         }
@@ -388,7 +388,7 @@ impl CustomerContactRepo {
             "UPDATE customer_contacts SET {} WHERE contact_id = $1",
             sets.join(", ")
         );
-        let mut q = sqlx::query(&sql).bind(contact_id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(contact_id);
 
         if let Some(ref v) = req.contact_name {
             q = q.bind(v);
@@ -424,7 +424,7 @@ impl CustomerContactRepo {
         contact_id: i64,
     ) -> Result<Option<CustomerContact>> {
         let contact = sqlx::query_as::<sqlx::Postgres, CustomerContact>(
-            &format!("SELECT {CONTACT_COLUMNS} FROM customer_contacts WHERE contact_id = $1"),
+            sqlx::AssertSqlSafe(format!("SELECT {CONTACT_COLUMNS} FROM customer_contacts WHERE contact_id = $1")),
         )
         .bind(contact_id)
         .fetch_optional(executor)
@@ -438,7 +438,7 @@ impl CustomerContactRepo {
         customer_id: i64,
     ) -> Result<Vec<CustomerContact>> {
         let contacts = sqlx::query_as::<sqlx::Postgres, CustomerContact>(
-            &format!("SELECT {CONTACT_COLUMNS} FROM customer_contacts WHERE customer_id = $1 ORDER BY is_primary DESC, contact_id"),
+            sqlx::AssertSqlSafe(format!("SELECT {CONTACT_COLUMNS} FROM customer_contacts WHERE customer_id = $1 ORDER BY is_primary DESC, contact_id")),
         )
         .bind(customer_id)
         .fetch_all(executor)
@@ -532,7 +532,7 @@ impl CustomerAddressRepo {
             "UPDATE customer_addresses SET {} WHERE address_id = $1",
             sets.join(", ")
         );
-        let mut q = sqlx::query(&sql).bind(address_id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(address_id);
 
         if let Some(ref v) = req.address_type {
             q = q.bind(v);
@@ -577,7 +577,7 @@ impl CustomerAddressRepo {
         address_id: i64,
     ) -> Result<Option<CustomerAddress>> {
         let address = sqlx::query_as::<sqlx::Postgres, CustomerAddress>(
-            &format!("SELECT {ADDRESS_COLUMNS} FROM customer_addresses WHERE address_id = $1"),
+            sqlx::AssertSqlSafe(format!("SELECT {ADDRESS_COLUMNS} FROM customer_addresses WHERE address_id = $1")),
         )
         .bind(address_id)
         .fetch_optional(executor)
@@ -591,7 +591,7 @@ impl CustomerAddressRepo {
         customer_id: i64,
     ) -> Result<Vec<CustomerAddress>> {
         let addresses = sqlx::query_as::<sqlx::Postgres, CustomerAddress>(
-            &format!("SELECT {ADDRESS_COLUMNS} FROM customer_addresses WHERE customer_id = $1 ORDER BY is_default DESC, address_id"),
+            sqlx::AssertSqlSafe(format!("SELECT {ADDRESS_COLUMNS} FROM customer_addresses WHERE customer_id = $1 ORDER BY is_default DESC, address_id")),
         )
         .bind(customer_id)
         .fetch_all(executor)

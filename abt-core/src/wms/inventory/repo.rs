@@ -65,7 +65,7 @@ impl InventoryRepo {
              ORDER BY sl.updated_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
-        let mut count_q = sqlx::query_scalar::<_, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(v) = product_id { count_q = count_q.bind(v); }
         if let Some(ref v) = keyword {
             let pattern = format!("%{v}%");
@@ -74,7 +74,7 @@ impl InventoryRepo {
         if let Some(v) = warehouse_id { count_q = count_q.bind(v); }
         if let Some(v) = bin_id { count_q = count_q.bind(v); }
 
-        let mut data_q = sqlx::query(&data_sql);
+        let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
         if let Some(v) = product_id { data_q = data_q.bind(v); }
         if let Some(ref v) = keyword {
             let pattern = format!("%{v}%");
@@ -200,7 +200,7 @@ impl InventoryRepo {
              ORDER BY t.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
-        let mut count_q = sqlx::query_scalar::<_, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
 
         // Build count query
         if let Some(v) = filter.product_id { count_q = count_q.bind(v); }
@@ -217,7 +217,7 @@ impl InventoryRepo {
         if let Some(v) = filter.end_date { count_q = count_q.bind(v); }
 
         // Build data query
-        let mut data_q = sqlx::query(&data_sql);
+        let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
         if let Some(v) = filter.product_id { data_q = data_q.bind(v); }
         if let Some(ref v) = filter.product_name {
             data_q = data_q.bind(format!("%{v}%"));
@@ -320,7 +320,7 @@ impl InventoryRepo {
             "#
         );
 
-        let mut q = sqlx::query(&sql);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql));
         if let Some(v) = product_id { q = q.bind(v); }
         if let Some(v) = bin_id { q = q.bind(v); }
         if let Some(v) = warehouse_id { q = q.bind(v); }

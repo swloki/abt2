@@ -63,11 +63,11 @@ impl WriteOffRepo {
 
         // Data
         let items = sqlx::query_as::<sqlx::Postgres, WriteOff>(
-            &format!(
+            sqlx::AssertSqlSafe(format!(
                 "SELECT {WRITE_OFF_COLUMNS} FROM write_offs \
                  WHERE source_type = $1 AND source_id = $2 \
                  ORDER BY id DESC LIMIT $3 OFFSET $4"
-            ),
+            )),
         )
         .bind(source_type)
         .bind(source_id)

@@ -192,8 +192,8 @@ impl CycleCountRepo {
              ORDER BY created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
-        let mut count_q = sqlx::query_scalar::<_, i64>(&count_sql);
-        let mut data_q = sqlx::query(&data_sql);
+        let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
+        let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
 
         if let Some(v) = filter.status {
             count_q = count_q.bind(v);

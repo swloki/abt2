@@ -36,9 +36,9 @@ pub async fn insert(
     let sample_plan_json = serde_json::to_value(&m.sample_plan)?;
 
     let row = sqlx::query(
-        &format!(
+        sqlx::AssertSqlSafe(format!(
             "INSERT INTO inspection_specifications ({INSERT_COLUMNS}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id"
-        )
+        ))
     )
     .bind(&m.doc_number)
     .bind(m.product_id)
@@ -62,7 +62,7 @@ pub async fn find_by_id(
     id: i64,
 ) -> Result<Option<InspectionSpecification>> {
     let row = sqlx::query(
-        &format!("SELECT {COLUMNS} FROM inspection_specifications WHERE id = $1 AND deleted_at IS NULL")
+        sqlx::AssertSqlSafe(format!("SELECT {COLUMNS} FROM inspection_specifications WHERE id = $1 AND deleted_at IS NULL"))
     )
     .bind(id)
     .fetch_optional(&mut *db)
@@ -77,9 +77,9 @@ pub async fn find_active_by_product_and_type(
     inspection_type: i16,
 ) -> Result<Option<InspectionSpecification>> {
     let row = sqlx::query(
-        &format!(
+        sqlx::AssertSqlSafe(format!(
             "SELECT {COLUMNS} FROM inspection_specifications WHERE product_id = $1 AND inspection_type = $2 AND status = 2 AND deleted_at IS NULL"
-        )
+        ))
     )
     .bind(product_id)
     .bind(inspection_type)
@@ -142,7 +142,7 @@ pub async fn list(
     );
 
     let count_sql = format!("SELECT COUNT(*) AS cnt FROM inspection_specifications {where_clause}");
-    let count_row = sqlx::query(&count_sql)
+    let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))
         .bind(filter.inspection_type.map(|t: InspectionType| t.as_i16()))
         .bind(filter.status.map(|s: SpecStatus| s.as_i16()))
         .bind(filter.product_id)
@@ -156,7 +156,7 @@ pub async fn list(
          ORDER BY created_at DESC
          LIMIT $5 OFFSET $6"
     );
-    let rows = sqlx::query(&data_sql)
+    let rows = sqlx::query(sqlx::AssertSqlSafe(data_sql))
         .bind(filter.inspection_type.map(|t: InspectionType| t.as_i16()))
         .bind(filter.status.map(|s: SpecStatus| s.as_i16()))
         .bind(filter.product_id)

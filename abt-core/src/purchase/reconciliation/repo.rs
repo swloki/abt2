@@ -78,7 +78,7 @@ impl PurchaseReconciliationRepo {
 
         // Count
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM purchase_reconciliations {where_clause}");
-        let count_row = sqlx::query(&count_sql)
+        let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.supplier_id)
             .bind(&q.period)
             .bind(q.status)
@@ -97,7 +97,7 @@ impl PurchaseReconciliationRepo {
              ORDER BY created_at DESC
              LIMIT $4 OFFSET $5"
         );
-        let rows = sqlx::query_as::<_, PurchaseReconciliation>(&data_sql)
+        let rows = sqlx::query_as::<_, PurchaseReconciliation>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.supplier_id)
             .bind(&q.period)
             .bind(q.status)

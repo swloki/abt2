@@ -50,7 +50,7 @@ impl ShippingRequestRepo {
         id: i64,
     ) -> Result<Option<ShippingRequest>> {
         let sr = sqlx::query_as::<sqlx::Postgres, ShippingRequest>(
-            &format!("SELECT {SR_COLUMNS} FROM shipping_requests WHERE id = $1 AND deleted_at IS NULL"),
+            sqlx::AssertSqlSafe(format!("SELECT {SR_COLUMNS} FROM shipping_requests WHERE id = $1 AND deleted_at IS NULL")),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -114,7 +114,7 @@ impl ShippingRequestRepo {
             "UPDATE shipping_requests SET {} WHERE id = $1 AND deleted_at IS NULL",
             sets.join(", ")
         );
-        let mut q = sqlx::query(&sql).bind(id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(id);
 
         if let Some(v) = req.expected_ship_date {
             q = q.bind(v);
@@ -201,7 +201,7 @@ impl ShippingRequestRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM shipping_requests WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(v) = order_param { count_q = count_q.bind(v); }
         if let Some(v) = status_param { count_q = count_q.bind(v); }
         if let Some(ref v) = keyword_param { count_q = count_q.bind(v); }
@@ -216,7 +216,7 @@ impl ShippingRequestRepo {
         let data_sql = format!(
             "SELECT {SR_COLUMNS} FROM shipping_requests WHERE {where_clause} ORDER BY id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, ShippingRequest>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, ShippingRequest>(sqlx::AssertSqlSafe(data_sql));
         if let Some(v) = order_param { data_q = data_q.bind(v); }
         if let Some(v) = status_param { data_q = data_q.bind(v); }
         if let Some(ref v) = keyword_param { data_q = data_q.bind(v); }
@@ -268,7 +268,7 @@ impl ShippingRequestItemRepo {
         shipping_request_id: i64,
     ) -> Result<Vec<ShippingRequestItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, ShippingRequestItem>(
-            &format!("SELECT {ITEM_COLUMNS} FROM shipping_request_items WHERE shipping_request_id = $1 ORDER BY line_no"),
+            sqlx::AssertSqlSafe(format!("SELECT {ITEM_COLUMNS} FROM shipping_request_items WHERE shipping_request_id = $1 ORDER BY line_no")),
         )
         .bind(shipping_request_id)
         .fetch_all(executor)

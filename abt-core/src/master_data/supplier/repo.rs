@@ -65,7 +65,7 @@ impl SupplierRepo {
 
         sets.push("updated_at = NOW()".to_string());
         let sql = format!("UPDATE suppliers SET {} WHERE supplier_id = $1 AND deleted_at IS NULL", sets.join(", "));
-        let mut q = sqlx::query(&sql).bind(id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(id);
 
         if let Some(ref v) = req.supplier_name { q = q.bind(v); }
         if let Some(ref v) = req.short_name { q = q.bind(v); }
@@ -90,7 +90,7 @@ impl SupplierRepo {
 
     pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<Supplier>> {
         let supplier = sqlx::query_as::<sqlx::Postgres, Supplier>(
-            &format!("SELECT {SUPPLIER_COLUMNS} FROM suppliers WHERE supplier_id = $1 AND deleted_at IS NULL"),
+            sqlx::AssertSqlSafe(format!("SELECT {SUPPLIER_COLUMNS} FROM suppliers WHERE supplier_id = $1 AND deleted_at IS NULL")),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -129,7 +129,7 @@ impl SupplierRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM suppliers WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = name_param { count_q = count_q.bind(v); }
         if let Some(v) = status_param { count_q = count_q.bind(v); }
         if let Some(v) = category_param { count_q = count_q.bind(v); }
@@ -142,7 +142,7 @@ impl SupplierRepo {
         let data_sql = format!(
             "SELECT {SUPPLIER_COLUMNS} FROM suppliers WHERE {where_clause} ORDER BY supplier_id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, Supplier>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, Supplier>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = name_param { data_q = data_q.bind(v); }
         if let Some(v) = status_param { data_q = data_q.bind(v); }
         if let Some(v) = category_param { data_q = data_q.bind(v); }
@@ -221,7 +221,7 @@ impl SupplierContactRepo {
             "UPDATE supplier_contacts SET {} WHERE contact_id = $1 AND supplier_id = $2",
             sets.join(", "),
         );
-        let mut q = sqlx::query(&sql).bind(contact_id).bind(supplier_id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(contact_id).bind(supplier_id);
 
         if let Some(ref v) = req.contact_name { q = q.bind(v); }
         if let Some(ref v) = req.phone { q = q.bind(v); }
@@ -244,7 +244,7 @@ impl SupplierContactRepo {
 
     pub async fn find_by_id(&self, executor: PgExecutor<'_>, contact_id: i64) -> Result<Option<SupplierContact>> {
         let contact = sqlx::query_as::<sqlx::Postgres, SupplierContact>(
-            &format!("SELECT {CONTACT_COLUMNS} FROM supplier_contacts WHERE contact_id = $1"),
+            sqlx::AssertSqlSafe(format!("SELECT {CONTACT_COLUMNS} FROM supplier_contacts WHERE contact_id = $1")),
         )
         .bind(contact_id)
         .fetch_optional(executor)
@@ -254,7 +254,7 @@ impl SupplierContactRepo {
 
     pub async fn find_by_supplier_id(&self, executor: PgExecutor<'_>, supplier_id: i64) -> Result<Vec<SupplierContact>> {
         let contacts = sqlx::query_as::<sqlx::Postgres, SupplierContact>(
-            &format!("SELECT {CONTACT_COLUMNS} FROM supplier_contacts WHERE supplier_id = $1 ORDER BY is_primary DESC, contact_id ASC"),
+            sqlx::AssertSqlSafe(format!("SELECT {CONTACT_COLUMNS} FROM supplier_contacts WHERE supplier_id = $1 ORDER BY is_primary DESC, contact_id ASC")),
         )
         .bind(supplier_id)
         .fetch_all(executor)
@@ -303,7 +303,7 @@ impl SupplierBankAccountRepo {
     ) -> Result<Option<SupplierBankAccount>> {
         // Fetch before for diff
         let before = sqlx::query_as::<sqlx::Postgres, SupplierBankAccount>(
-            &format!("SELECT {BANK_ACCOUNT_COLUMNS} FROM supplier_bank_accounts WHERE account_id = $1 AND supplier_id = $2"),
+            sqlx::AssertSqlSafe(format!("SELECT {BANK_ACCOUNT_COLUMNS} FROM supplier_bank_accounts WHERE account_id = $1 AND supplier_id = $2")),
         )
         .bind(account_id)
         .bind(supplier_id)
@@ -326,7 +326,7 @@ impl SupplierBankAccountRepo {
             "UPDATE supplier_bank_accounts SET {} WHERE account_id = $1 AND supplier_id = $2",
             sets.join(", "),
         );
-        let mut q = sqlx::query(&sql).bind(account_id).bind(supplier_id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(account_id).bind(supplier_id);
 
         if let Some(ref v) = req.bank_name { q = q.bind(v); }
         if let Some(ref v) = req.account_name { q = q.bind(v); }
@@ -348,7 +348,7 @@ impl SupplierBankAccountRepo {
 
     pub async fn find_by_id(&self, executor: PgExecutor<'_>, account_id: i64) -> Result<Option<SupplierBankAccount>> {
         let account = sqlx::query_as::<sqlx::Postgres, SupplierBankAccount>(
-            &format!("SELECT {BANK_ACCOUNT_COLUMNS} FROM supplier_bank_accounts WHERE account_id = $1"),
+            sqlx::AssertSqlSafe(format!("SELECT {BANK_ACCOUNT_COLUMNS} FROM supplier_bank_accounts WHERE account_id = $1")),
         )
         .bind(account_id)
         .fetch_optional(executor)
@@ -358,7 +358,7 @@ impl SupplierBankAccountRepo {
 
     pub async fn find_by_supplier_id(&self, executor: PgExecutor<'_>, supplier_id: i64) -> Result<Vec<SupplierBankAccount>> {
         let accounts = sqlx::query_as::<sqlx::Postgres, SupplierBankAccount>(
-            &format!("SELECT {BANK_ACCOUNT_COLUMNS} FROM supplier_bank_accounts WHERE supplier_id = $1 ORDER BY is_default DESC, account_id ASC"),
+            sqlx::AssertSqlSafe(format!("SELECT {BANK_ACCOUNT_COLUMNS} FROM supplier_bank_accounts WHERE supplier_id = $1 ORDER BY is_default DESC, account_id ASC")),
         )
         .bind(supplier_id)
         .fetch_all(executor)

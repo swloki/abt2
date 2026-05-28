@@ -79,7 +79,7 @@ impl PaymentRequestRepo {
 
         // Count
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM payment_requests {where_clause}");
-        let count_row = sqlx::query(&count_sql)
+        let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.payment_date_start)
@@ -99,7 +99,7 @@ impl PaymentRequestRepo {
              ORDER BY created_at DESC
              LIMIT $5 OFFSET $6"
         );
-        let rows = sqlx::query_as::<_, PaymentRequest>(&data_sql)
+        let rows = sqlx::query_as::<_, PaymentRequest>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.payment_date_start)

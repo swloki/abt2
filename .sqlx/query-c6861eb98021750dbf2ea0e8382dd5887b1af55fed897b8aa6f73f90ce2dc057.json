@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            UPDATE idempotency_records\n            SET status = 'Processed', result = $1\n            WHERE idempotency_key = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Jsonb",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "c6861eb98021750dbf2ea0e8382dd5887b1af55fed897b8aa6f73f90ce2dc057"
+}

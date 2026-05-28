@@ -103,7 +103,7 @@ impl PurchaseQuotationRepo {
 
         // Count
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM purchase_quotations {where_clause}");
-        let mut count_query = sqlx::query(&count_sql)
+        let mut count_query = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.quotation_date_start)
@@ -124,7 +124,7 @@ impl PurchaseQuotationRepo {
              ORDER BY created_at DESC
              LIMIT $5 OFFSET $6"
         );
-        let mut data_query = sqlx::query_as::<_, PurchaseQuotation>(&data_sql)
+        let mut data_query = sqlx::query_as::<_, PurchaseQuotation>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.quotation_date_start)

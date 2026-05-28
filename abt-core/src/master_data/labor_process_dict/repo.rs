@@ -39,7 +39,7 @@ impl LaborProcessDictRepo {
         sets.push("updated_at = NOW()".to_string());
         sets.push(format!("operator_id = ${param_idx}"));
         let sql = format!("UPDATE labor_process_dicts SET {} WHERE id = $1 AND deleted_at IS NULL", sets.join(", "));
-        let mut q = sqlx::query(&sql).bind(id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(id);
 
         if let Some(ref v) = req.name { q = q.bind(v); }
         if let Some(ref v) = req.description { q = q.bind(v); }
@@ -94,7 +94,7 @@ impl LaborProcessDictRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM labor_process_dicts WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = keyword_param { count_q = count_q.bind(v); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
 
@@ -106,7 +106,7 @@ impl LaborProcessDictRepo {
         let data_sql = format!(
             "SELECT id, code, name, description, sort_order, operator_id, created_at, updated_at, deleted_at FROM labor_process_dicts WHERE {where_clause} ORDER BY sort_order, id LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, LaborProcessDict>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, LaborProcessDict>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = keyword_param { data_q = data_q.bind(v); }
         data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);
         let items = data_q.fetch_all(executor).await?;

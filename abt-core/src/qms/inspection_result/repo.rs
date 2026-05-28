@@ -44,9 +44,9 @@ pub async fn insert(
     let check_results_json = serde_json::to_value(&m.check_results)?;
 
     let row = sqlx::query(
-        &format!(
+        sqlx::AssertSqlSafe(format!(
             "INSERT INTO inspection_results ({INSERT_COLUMNS}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING id"
-        )
+        ))
     )
     .bind(&m.doc_number)
     .bind(m.spec_id)
@@ -77,7 +77,7 @@ pub async fn find_by_id(
     id: i64,
 ) -> Result<Option<InspectionResult>> {
     let row = sqlx::query(
-        &format!("SELECT {COLUMNS} FROM inspection_results WHERE id = $1 AND deleted_at IS NULL")
+        sqlx::AssertSqlSafe(format!("SELECT {COLUMNS} FROM inspection_results WHERE id = $1 AND deleted_at IS NULL"))
     )
     .bind(id)
     .fetch_optional(&mut *db)
@@ -93,9 +93,9 @@ pub async fn find_by_source(
     inspection_type: i16,
 ) -> Result<Option<InspectionResult>> {
     let row = sqlx::query(
-        &format!(
+        sqlx::AssertSqlSafe(format!(
             "SELECT {COLUMNS} FROM inspection_results WHERE source_type = $1 AND source_id = $2 AND inspection_type = $3 AND deleted_at IS NULL"
-        )
+        ))
     )
     .bind(source_type)
     .bind(source_id)
@@ -178,7 +178,7 @@ pub async fn list(
     );
 
     let count_sql = format!("SELECT COUNT(*) AS cnt FROM inspection_results {where_clause}");
-    let count_row = sqlx::query(&count_sql)
+    let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))
         .bind(filter.source_type.map(|t: InspectionSourceType| t.as_i16()))
         .bind(filter.source_id)
         .bind(filter.inspection_type.map(|t: InspectionType| t.as_i16()))
@@ -195,7 +195,7 @@ pub async fn list(
          ORDER BY created_at DESC
          LIMIT $8 OFFSET $9"
     );
-    let rows = sqlx::query(&data_sql)
+    let rows = sqlx::query(sqlx::AssertSqlSafe(data_sql))
         .bind(filter.source_type.map(|t: InspectionSourceType| t.as_i16()))
         .bind(filter.source_id)
         .bind(filter.inspection_type.map(|t: InspectionType| t.as_i16()))

@@ -48,7 +48,7 @@ impl UserService for UserServiceImpl {
             ));
         }
 
-        let salt = SaltString::generate(&mut argon2::password_hash::rand_core::OsRng);
+        let salt = SaltString::generate(&mut rand::rngs::OsRng);
         let argon2 = Argon2::default();
         let password_hash = argon2
             .hash_password(password.as_bytes(), &salt)
@@ -341,7 +341,7 @@ impl UserService for UserServiceImpl {
         }
 
         // Hash new password
-        let salt = SaltString::generate(&mut argon2::password_hash::rand_core::OsRng);
+        let salt = SaltString::generate(&mut rand::rngs::OsRng);
         let new_hash = Argon2::default()
             .hash_password(new_password.as_bytes(), &salt)
             .map_err(|e| DomainError::Internal(anyhow::anyhow!("argon2 hash error: {e}")))?

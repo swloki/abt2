@@ -1,14 +1,15 @@
 use crate::shared::types::PgExecutor;
-use rust_decimal::Decimal;
 use crate::shared::types::Result;
+use rust_decimal::Decimal;
 
-use super::model::*;
 use super::super::enums::JournalStatus;
+use super::model::*;
 use crate::shared::types::{DataScope, PageParams};
 
 const JOURNAL_COLUMNS: &str = "id, doc_number, journal_type, direction, amount, counterparty_type, counterparty_id, source_type, source_id, bank_account, transaction_date, period, status, remark, operator_id, version, created_at, updated_at, deleted_at";
 
-const LINE_COLUMNS: &str = "id, journal_id, account_code, debit_amount, credit_amount, cost_center, profit_center, remark";
+const LINE_COLUMNS: &str =
+    "id, journal_id, account_code, debit_amount, credit_amount, cost_center, profit_center, remark";
 
 // ---------------------------------------------------------------------------
 // CashJournalRepo
@@ -50,11 +51,9 @@ impl CashJournalRepo {
     }
 
     pub async fn get_by_id(executor: PgExecutor<'_>, id: i64) -> Result<Option<CashJournal>> {
-        let journal = sqlx::query_as::<sqlx::Postgres, CashJournal>(
-            &format!(
-                "SELECT {JOURNAL_COLUMNS} FROM cash_journals WHERE id = $1 AND deleted_at IS NULL"
-            ),
-        )
+        let journal = sqlx::query_as::<sqlx::Postgres, CashJournal>(sqlx::AssertSqlSafe(format!(
+            "SELECT {JOURNAL_COLUMNS} FROM cash_journals WHERE id = $1 AND deleted_at IS NULL"
+        )))
         .bind(id)
         .fetch_optional(executor)
         .await?;
@@ -64,9 +63,9 @@ impl CashJournalRepo {
     /// Lock row for update (used in confirm flow)
     pub async fn get_for_update(executor: PgExecutor<'_>, id: i64) -> Result<Option<CashJournal>> {
         let journal = sqlx::query_as::<sqlx::Postgres, CashJournal>(
-            &format!(
+            sqlx::AssertSqlSafe(format!(
                 "SELECT {JOURNAL_COLUMNS} FROM cash_journals WHERE id = $1 AND deleted_at IS NULL FOR UPDATE"
-            ),
+            )),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -179,7 +178,7 @@ impl CashJournalRepo {
 
         // Count query
         let count_sql = format!("SELECT COUNT(*) FROM cash_journals WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = period_param {
             count_q = count_q.bind(v);
         }
@@ -213,7 +212,8 @@ impl CashJournalRepo {
         let data_sql = format!(
             "SELECT {JOURNAL_COLUMNS} FROM cash_journals WHERE {where_clause} ORDER BY id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, CashJournal>(&data_sql);
+        let mut data_q =
+            sqlx::query_as::<sqlx::Postgres, CashJournal>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = period_param {
             data_q = data_q.bind(v);
         }
@@ -300,9 +300,9 @@ impl CashJournalLineRepo {
         executor: PgExecutor<'_>,
         journal_id: i64,
     ) -> Result<Vec<CashJournalLine>> {
-        let lines = sqlx::query_as::<sqlx::Postgres, CashJournalLine>(
-            &format!("SELECT {LINE_COLUMNS} FROM cash_journal_lines WHERE journal_id = $1"),
-        )
+        let lines = sqlx::query_as::<sqlx::Postgres, CashJournalLine>(sqlx::AssertSqlSafe(
+            format!("SELECT {LINE_COLUMNS} FROM cash_journal_lines WHERE journal_id = $1"),
+        ))
         .bind(journal_id)
         .fetch_all(executor)
         .await?;

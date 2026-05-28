@@ -133,7 +133,7 @@ impl OutsourcingTrackingRepo {
              JOIN outsourcing_orders o ON o.id = t.outsourcing_id
              {where_clause}"
         );
-        let count_row = sqlx::query(&count_sql)
+        let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.supplier_id)
             .bind(q.node_type)
             .bind(q.overdue_before)
@@ -152,7 +152,7 @@ impl OutsourcingTrackingRepo {
              ORDER BY t.planned_at
              LIMIT $4 OFFSET $5"
         );
-        let rows = sqlx::query_as::<_, OutsourcingTracking>(&data_sql)
+        let rows = sqlx::query_as::<_, OutsourcingTracking>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.supplier_id)
             .bind(q.node_type)
             .bind(q.overdue_before)

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM idempotency_records WHERE expires_at IS NOT NULL AND expires_at < $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "fda3bb01417e6d34c0d018d2d637a88cdf24279fffe3ab2b88a7741eba3a4baa"
+}

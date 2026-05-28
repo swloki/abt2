@@ -53,7 +53,7 @@ impl ProductRepo {
 
         sets.push("updated_at = NOW()".to_string());
         let sql = format!("UPDATE products SET {} WHERE product_id = $1 AND deleted_at IS NULL", sets.join(", "));
-        let mut q = sqlx::query(&sql).bind(id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(id);
 
         if let Some(ref v) = req.name { q = q.bind(v); }
         if let Some(ref v) = req.unit { q = q.bind(v); }
@@ -136,7 +136,7 @@ impl ProductRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM products WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = name_param { count_q = count_q.bind(v); }
         if let Some(ref v) = code_param { count_q = count_q.bind(v); }
         if let Some(v) = status_param { count_q = count_q.bind(v); }
@@ -150,7 +150,7 @@ impl ProductRepo {
         let data_sql = format!(
             "SELECT product_id, pdt_name, product_code, unit, status, external_code, owner_department_id, meta, created_at, updated_at, deleted_at FROM products WHERE {where_clause} ORDER BY product_id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, Product>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, Product>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = name_param { data_q = data_q.bind(v); }
         if let Some(ref v) = code_param { data_q = data_q.bind(v); }
         if let Some(v) = status_param { data_q = data_q.bind(v); }

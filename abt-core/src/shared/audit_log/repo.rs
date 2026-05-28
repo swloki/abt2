@@ -18,23 +18,23 @@ impl AuditLogRepo {
         operator_id: i64,
         context: Option<&JsonValue>,
     ) -> Result<i64> {
-        let row = sqlx::query(
+        let row = sqlx::query!(
             r#"
             INSERT INTO audit_logs (entity_type, entity_id, action, changes, operator_id, context)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id
             "#,
+            entity_type,
+            entity_id,
+            action.as_i16(),
+            changes,
+            operator_id,
+            context,
         )
-        .bind(entity_type)
-        .bind(entity_id)
-        .bind(action)
-        .bind(changes)
-        .bind(operator_id)
-        .bind(context)
         .fetch_one(executor)
         .await?;
 
-        row.try_get("id").map_err(Into::into)
+        Ok(row.id)
     }
 
     /// 动态条件分页查询 — 始终绑定 5 个过滤参数，用 SQL IS NULL OR 模式处理可选条件
@@ -54,7 +54,7 @@ impl AuditLogRepo {
 
         // Count
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM audit_logs {sql_base}");
-        let count_row = sqlx::query(&count_sql)
+        let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.entity_type.as_deref())
             .bind(q.operator_id)
             .bind(q.action.map(|a| a.as_i16()))
@@ -71,7 +71,7 @@ impl AuditLogRepo {
              ORDER BY created_at DESC \
              LIMIT $6 OFFSET $7"
         );
-        let rows = sqlx::query(&data_sql)
+        let rows = sqlx::query(sqlx::AssertSqlSafe(data_sql))
             .bind(q.entity_type.as_deref())
             .bind(q.operator_id)
             .bind(q.action.map(|a| a.as_i16()))

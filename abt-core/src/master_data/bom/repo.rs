@@ -100,7 +100,7 @@ impl BomRepo {
             sets.join(", ")
         );
 
-        let mut q = sqlx::query(&sql);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql));
         if let Some(ref v) = req.name { q = q.bind(v); }
         if let Some(v) = req.bom_category_id { q = q.bind(v); }
         q = q.bind(expected_version).bind(id);
@@ -133,7 +133,7 @@ impl BomRepo {
 
     pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<Bom>> {
         let row = sqlx::query_as::<sqlx::Postgres, BomRow>(
-            &format!("SELECT {BOM_DB_COLUMNS} FROM boms WHERE bom_id = $1 AND deleted_at IS NULL"),
+            sqlx::AssertSqlSafe(format!("SELECT {BOM_DB_COLUMNS} FROM boms WHERE bom_id = $1 AND deleted_at IS NULL")),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -178,7 +178,7 @@ impl BomRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM boms WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = name_param { count_q = count_q.bind(v); }
         if let Some(v) = status_param { count_q = count_q.bind(v); }
         if let Some(v) = cat_param { count_q = count_q.bind(v); }
@@ -191,7 +191,7 @@ impl BomRepo {
         let data_sql = format!(
             "SELECT {BOM_DB_COLUMNS} FROM boms WHERE {where_clause} ORDER BY bom_id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, BomRow>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, BomRow>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = name_param { data_q = data_q.bind(v); }
         if let Some(v) = status_param { data_q = data_q.bind(v); }
         if let Some(v) = cat_param { data_q = data_q.bind(v); }
@@ -337,7 +337,7 @@ impl BomNodeRepo {
             "UPDATE bom_nodes SET {} WHERE node_id = $1",
             sets.join(", ")
         );
-        let mut q = sqlx::query(&sql).bind(node_id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(node_id);
         if let Some(v) = req.quantity { q = q.bind(v); }
         if let Some(v) = req.loss_rate { q = q.bind(v); }
         if let Some(v) = req.order { q = q.bind(v); }
@@ -428,7 +428,7 @@ impl BomNodeRepo {
             "UPDATE bom_nodes SET {} WHERE bom_id = $2 AND product_id = $3 RETURNING node_id",
             sets.join(", ")
         );
-        let mut q = sqlx::query_scalar::<sqlx::Postgres, i64>(&sql_str)
+        let mut q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(sql_str))
             .bind(new_product_id)
             .bind(bom_id)
             .bind(old_product_id);
@@ -454,7 +454,7 @@ impl BomNodeRepo {
 
     pub async fn find_by_id(&self, executor: PgExecutor<'_>, node_id: i64) -> Result<Option<BomNode>> {
         let node = sqlx::query_as::<sqlx::Postgres, BomNode>(
-            &format!("SELECT {NODE_COLUMNS} FROM bom_nodes WHERE node_id = $1"),
+            sqlx::AssertSqlSafe(format!("SELECT {NODE_COLUMNS} FROM bom_nodes WHERE node_id = $1")),
         )
         .bind(node_id)
         .fetch_optional(executor)
@@ -464,7 +464,7 @@ impl BomNodeRepo {
 
     pub async fn find_by_bom_id(&self, executor: PgExecutor<'_>, bom_id: i64) -> Result<Vec<BomNode>> {
         let nodes = sqlx::query_as::<sqlx::Postgres, BomNode>(
-            &format!("SELECT {NODE_COLUMNS} FROM bom_nodes WHERE bom_id = $1 ORDER BY order_num, node_id"),
+            sqlx::AssertSqlSafe(format!("SELECT {NODE_COLUMNS} FROM bom_nodes WHERE bom_id = $1 ORDER BY order_num, node_id")),
         )
         .bind(bom_id)
         .fetch_all(executor)
@@ -474,11 +474,11 @@ impl BomNodeRepo {
 
     pub async fn find_leaf_nodes(&self, executor: PgExecutor<'_>, bom_id: i64) -> Result<Vec<BomNode>> {
         let nodes = sqlx::query_as::<sqlx::Postgres, BomNode>(
-            &format!(r#"SELECT {NODE_COLUMNS}
+            sqlx::AssertSqlSafe(format!(r#"SELECT {NODE_COLUMNS}
                FROM bom_nodes
                WHERE bom_id = $1
                  AND NOT EXISTS (SELECT 1 FROM bom_nodes c WHERE c.parent_id = bom_nodes.node_id)
-               ORDER BY order_num, node_id"#),
+               ORDER BY order_num, node_id"#)),
         )
         .bind(bom_id)
         .fetch_all(executor)
@@ -578,7 +578,7 @@ impl BomSnapshotRepo {
     ) -> Result<Vec<BomSnapshot>> {
         let limit_val = limit.unwrap_or(10);
         let snapshots = sqlx::query_as::<sqlx::Postgres, BomSnapshot>(
-            &format!("SELECT {SNAPSHOT_COLUMNS} FROM bom_snapshots WHERE bom_id = $1 ORDER BY version DESC LIMIT $2"),
+            sqlx::AssertSqlSafe(format!("SELECT {SNAPSHOT_COLUMNS} FROM bom_snapshots WHERE bom_id = $1 ORDER BY version DESC LIMIT $2")),
         )
         .bind(bom_id)
         .bind(limit_val as i64)
@@ -594,7 +594,7 @@ impl BomSnapshotRepo {
         version: i32,
     ) -> Result<Option<BomSnapshot>> {
         let snapshot = sqlx::query_as::<sqlx::Postgres, BomSnapshot>(
-            &format!("SELECT {SNAPSHOT_COLUMNS} FROM bom_snapshots WHERE bom_id = $1 AND version = $2"),
+            sqlx::AssertSqlSafe(format!("SELECT {SNAPSHOT_COLUMNS} FROM bom_snapshots WHERE bom_id = $1 AND version = $2")),
         )
         .bind(bom_id)
         .bind(version)
@@ -653,7 +653,7 @@ impl BomCategoryRepo {
 
     pub async fn find_by_id(&self, executor: PgExecutor<'_>, id: i64) -> Result<Option<BomCategory>> {
         let cat = sqlx::query_as::<sqlx::Postgres, BomCategory>(
-            &format!("SELECT {BOM_CATEGORY_COLUMNS} FROM bom_categories WHERE bom_category_id = $1"),
+            sqlx::AssertSqlSafe(format!("SELECT {BOM_CATEGORY_COLUMNS} FROM bom_categories WHERE bom_category_id = $1")),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -682,7 +682,7 @@ impl BomCategoryRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM bom_categories WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = name_param { count_q = count_q.bind(v); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
 
@@ -693,7 +693,7 @@ impl BomCategoryRepo {
         let data_sql = format!(
             "SELECT {BOM_CATEGORY_COLUMNS} FROM bom_categories WHERE {where_clause} ORDER BY bom_category_id LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, BomCategory>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, BomCategory>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref v) = name_param { data_q = data_q.bind(v); }
         data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);
         let items = data_q.fetch_all(executor).await?;

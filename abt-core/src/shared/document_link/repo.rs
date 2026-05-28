@@ -1,8 +1,7 @@
-use sqlx::{FromRow, Row};
 use crate::shared::types::Result;
 
 use super::model::{DocumentLink, LinkRequest};
-use crate::shared::enums::DocumentType;
+use crate::shared::enums::{DocumentType, LinkType};
 
 pub struct DocumentLinkRepo;
 
@@ -26,26 +25,37 @@ impl DocumentLinkRepo {
             );
             let depth = 1i32;
 
-            let row = sqlx::query(
+            let row = sqlx::query!(
                 r#"
                 INSERT INTO document_links
                     (source_type, source_id, target_type, target_id, link_type, path, depth, created_by)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                RETURNING id, source_type, source_id, target_type, target_id, link_type, path, depth, created_at, created_by
+                RETURNING id, source_type as "source_type: i16", source_id, target_type as "target_type: i16", target_id, link_type as "link_type: i16", path, depth, created_at, created_by
                 "#,
+                req.source_type.as_i16(),
+                req.source_id,
+                req.target_type.as_i16(),
+                req.target_id,
+                req.link_type.as_i16(),
+                &path,
+                depth,
+                created_by,
             )
-            .bind(req.source_type)
-            .bind(req.source_id)
-            .bind(req.target_type)
-            .bind(req.target_id)
-            .bind(req.link_type)
-            .bind(&path)
-            .bind(depth)
-            .bind(created_by)
             .fetch_one(&mut *executor)
             .await?;
 
-            results.push(DocumentLink::from_row(&row)?);
+            results.push(DocumentLink {
+                id: row.id,
+                source_type: DocumentType::from_i16(row.source_type).unwrap(),
+                source_id: row.source_id,
+                target_type: DocumentType::from_i16(row.target_type).unwrap(),
+                target_id: row.target_id,
+                link_type: LinkType::from_i16(row.link_type).unwrap(),
+                path: row.path,
+                depth: row.depth,
+                created_at: row.created_at,
+                created_by: row.created_by,
+            });
         }
 
         Ok(results)
@@ -60,38 +70,51 @@ impl DocumentLinkRepo {
         offset: i64,
     ) -> Result<(Vec<DocumentLink>, u64)> {
         // Count
-        let count_sql = r#"
-            SELECT COUNT(*) AS cnt FROM document_links
+        let total: i64 = sqlx::query_scalar!(
+            r#"
+            SELECT COUNT(*) FROM document_links
             WHERE (source_type = $1 AND source_id = $2)
                OR (target_type = $1 AND target_id = $2)
-        "#;
-        let count_row = sqlx::query(count_sql)
-            .bind(source_type)
-            .bind(source_id)
-            .fetch_one(&mut *executor)
-            .await?;
-        let total: i64 = count_row.try_get("cnt")?;
+            "#,
+            source_type.as_i16(),
+            source_id,
+        )
+        .fetch_one(&mut *executor)
+        .await?
+        .unwrap_or(0);
 
         // Data
-        let data_sql = r#"
-            SELECT id, source_type, source_id, target_type, target_id, link_type, path, depth, created_at, created_by
+        let rows = sqlx::query!(
+            r#"
+            SELECT id, source_type as "source_type: i16", source_id, target_type as "target_type: i16", target_id, link_type as "link_type: i16", path, depth, created_at, created_by
             FROM document_links
             WHERE (source_type = $1 AND source_id = $2)
                OR (target_type = $1 AND target_id = $2)
             ORDER BY created_at DESC
             LIMIT $3 OFFSET $4
-        "#;
-        let rows = sqlx::query(data_sql)
-            .bind(source_type)
-            .bind(source_id)
-            .bind(limit)
-            .bind(offset)
-            .fetch_all(&mut *executor)
-            .await?;
+            "#,
+            source_type.as_i16(),
+            source_id,
+            limit,
+            offset,
+        )
+        .fetch_all(&mut *executor)
+        .await?;
 
         let items: Vec<DocumentLink> = rows
-            .iter()
-            .filter_map(|row| DocumentLink::from_row(row).ok())
+            .into_iter()
+            .map(|r| DocumentLink {
+                id: r.id,
+                source_type: DocumentType::from_i16(r.source_type).unwrap(),
+                source_id: r.source_id,
+                target_type: DocumentType::from_i16(r.target_type).unwrap(),
+                target_id: r.target_id,
+                link_type: LinkType::from_i16(r.link_type).unwrap(),
+                path: r.path,
+                depth: r.depth,
+                created_at: r.created_at,
+                created_by: r.created_by,
+            })
             .collect();
 
         Ok((items, total as u64))

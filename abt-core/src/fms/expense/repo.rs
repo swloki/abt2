@@ -44,9 +44,9 @@ impl ExpenseReimbursementRepo {
 
     pub async fn get_by_id(executor: PgExecutor<'_>, id: i64) -> Result<Option<ExpenseReimbursement>> {
         let expense = sqlx::query_as::<sqlx::Postgres, ExpenseReimbursement>(
-            &format!(
+            sqlx::AssertSqlSafe(format!(
                 "SELECT {EXPENSE_COLUMNS} FROM expense_reimbursements WHERE id = $1 AND deleted_at IS NULL"
-            ),
+            )),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -161,7 +161,7 @@ impl ExpenseReimbursementRepo {
 
         // Count query
         let count_sql = format!("SELECT COUNT(*) FROM expense_reimbursements WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref statuses) = status_param {
             for s in statuses {
                 count_q = count_q.bind(*s);
@@ -192,7 +192,7 @@ impl ExpenseReimbursementRepo {
         let data_sql = format!(
             "SELECT {EXPENSE_COLUMNS} FROM expense_reimbursements WHERE {where_clause} ORDER BY id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, ExpenseReimbursement>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, ExpenseReimbursement>(sqlx::AssertSqlSafe(data_sql));
         if let Some(ref statuses) = status_param {
             for s in statuses {
                 data_q = data_q.bind(*s);
@@ -258,7 +258,7 @@ impl ExpenseReimbursementItemRepo {
         reimbursement_id: i64,
     ) -> Result<Vec<ExpenseReimbursementItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, ExpenseReimbursementItem>(
-            &format!("SELECT {ITEM_COLUMNS} FROM expense_reimbursement_items WHERE reimbursement_id = $1"),
+            sqlx::AssertSqlSafe(format!("SELECT {ITEM_COLUMNS} FROM expense_reimbursement_items WHERE reimbursement_id = $1")),
         )
         .bind(reimbursement_id)
         .fetch_all(executor)

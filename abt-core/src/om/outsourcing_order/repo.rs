@@ -122,7 +122,7 @@ impl OutsourcingOrderRepo {
             WHERE id = $1 AND version = $2 AND deleted_at IS NULL
             "#
         );
-        let mut query = sqlx::query(&sql).bind(id).bind(expected_version).bind(status);
+        let mut query = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(id).bind(expected_version).bind(status);
         for (_col, val) in extra_params {
             query = query.bind(*val);
         }
@@ -181,7 +181,7 @@ impl OutsourcingOrderRepo {
 
         // Count
         let count_sql = format!("SELECT COUNT(*) AS cnt FROM outsourcing_orders {where_clause}");
-        let mut count_query = sqlx::query(&count_sql)
+        let mut count_query = sqlx::query(sqlx::AssertSqlSafe(count_sql))
             .bind(q.status)
             .bind(q.supplier_id)
             .bind(q.outsourcing_type)
@@ -205,7 +205,7 @@ impl OutsourcingOrderRepo {
              ORDER BY created_at DESC
              LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
-        let mut data_query = sqlx::query_as::<_, OutsourcingOrder>(&data_sql)
+        let mut data_query = sqlx::query_as::<_, OutsourcingOrder>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.status)
             .bind(q.supplier_id)
             .bind(q.outsourcing_type)

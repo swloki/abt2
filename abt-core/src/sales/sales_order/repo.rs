@@ -58,7 +58,7 @@ impl SalesOrderRepo {
         id: i64,
     ) -> Result<Option<SalesOrder>> {
         let order = sqlx::query_as::<sqlx::Postgres, SalesOrder>(
-            &format!("SELECT {ORDER_COLUMNS} FROM sales_orders WHERE id = $1 AND deleted_at IS NULL"),
+            sqlx::AssertSqlSafe(format!("SELECT {ORDER_COLUMNS} FROM sales_orders WHERE id = $1 AND deleted_at IS NULL")),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -110,7 +110,7 @@ impl SalesOrderRepo {
             "UPDATE sales_orders SET {} WHERE id = $1 AND deleted_at IS NULL",
             sets.join(", ")
         );
-        let mut q = sqlx::query(&sql).bind(id);
+        let mut q = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(id);
 
         if let Some(v) = req.customer_id {
             q = q.bind(v);
@@ -242,7 +242,7 @@ impl SalesOrderRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM sales_orders WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(v) = customer_param { count_q = count_q.bind(v); }
         if let Some(v) = status_param { count_q = count_q.bind(v); }
         if let Some(v) = date_from_param { count_q = count_q.bind(v); }
@@ -258,7 +258,7 @@ impl SalesOrderRepo {
         let data_sql = format!(
             "SELECT {ORDER_COLUMNS} FROM sales_orders WHERE {where_clause} ORDER BY id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, SalesOrder>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, SalesOrder>(sqlx::AssertSqlSafe(data_sql));
         if let Some(v) = customer_param { data_q = data_q.bind(v); }
         if let Some(v) = status_param { data_q = data_q.bind(v); }
         if let Some(v) = date_from_param { data_q = data_q.bind(v); }
@@ -315,7 +315,7 @@ impl SalesOrderItemRepo {
         order_id: i64,
     ) -> Result<Vec<SalesOrderItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, SalesOrderItem>(
-            &format!("SELECT {ITEM_COLUMNS} FROM sales_order_items WHERE order_id = $1 ORDER BY line_no"),
+            sqlx::AssertSqlSafe(format!("SELECT {ITEM_COLUMNS} FROM sales_order_items WHERE order_id = $1 ORDER BY line_no")),
         )
         .bind(order_id)
         .fetch_all(executor)
@@ -373,21 +373,21 @@ impl SalesOrderItemRepo {
 // ---------------------------------------------------------------------------
 
 pub async fn savepoint(db: PgExecutor<'_>, name: &str) -> Result<()> {
-    sqlx::query(&format!("SAVEPOINT {name}"))
+    sqlx::query(sqlx::AssertSqlSafe(format!("SAVEPOINT {name}")))
         .execute(&mut *db)
         .await?;
     Ok(())
 }
 
 pub async fn release_savepoint(db: PgExecutor<'_>, name: &str) -> Result<()> {
-    sqlx::query(&format!("RELEASE SAVEPOINT {name}"))
+    sqlx::query(sqlx::AssertSqlSafe(format!("RELEASE SAVEPOINT {name}")))
         .execute(&mut *db)
         .await?;
     Ok(())
 }
 
 pub async fn rollback_savepoint(db: PgExecutor<'_>, name: &str) -> Result<()> {
-    sqlx::query(&format!("ROLLBACK TO SAVEPOINT {name}"))
+    sqlx::query(sqlx::AssertSqlSafe(format!("ROLLBACK TO SAVEPOINT {name}")))
         .execute(&mut *db)
         .await?;
     Ok(())

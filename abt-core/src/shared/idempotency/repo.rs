@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde_json::Value as JsonValue;
-use sqlx::Row;
 use crate::shared::types::Result;
 
 pub struct IdempotencyRepo;
@@ -21,16 +20,16 @@ impl IdempotencyRepo {
         let key = Self::make_key(event_id, handler_name);
 
         // 1. 尝试 INSERT
-        let result = sqlx::query(
+        let result = sqlx::query!(
             r#"
             INSERT INTO idempotency_records (idempotency_key, event_id, handler_name, status)
             VALUES ($1, $2, $3, 'Processing')
             ON CONFLICT (idempotency_key) DO NOTHING
             "#,
+            &key,
+            event_id,
+            handler_name,
         )
-        .bind(&key)
-        .bind(event_id)
-        .bind(handler_name)
         .execute(&mut *executor)
         .await?;
 
@@ -39,24 +38,23 @@ impl IdempotencyRepo {
         }
 
         // 2. INSERT 冲突 — 检查现有状态
-        let row = sqlx::query(
+        let row = sqlx::query!(
             "SELECT status FROM idempotency_records WHERE idempotency_key = $1",
+            &key,
         )
-        .bind(&key)
         .fetch_optional(&mut *executor)
         .await?;
 
         let Some(row) = row else { return Ok(false) };
 
-        let status: String = row.try_get("status")?;
-        match status.as_str() {
+        match row.status.as_str() {
             "Processed" => Ok(false),
             "Processing" => {
                 // Crash 残留 — 重置为 Processing 允许重试
-                sqlx::query(
+                sqlx::query!(
                     "UPDATE idempotency_records SET status = 'Processing' WHERE idempotency_key = $1",
+                    &key,
                 )
-                .bind(&key)
                 .execute(&mut *executor)
                 .await?;
                 Ok(true)
@@ -73,15 +71,15 @@ impl IdempotencyRepo {
         result: Option<&JsonValue>,
     ) -> Result<()> {
         let key = Self::make_key(event_id, handler_name);
-        sqlx::query(
+        sqlx::query!(
             r#"
             UPDATE idempotency_records
             SET status = 'Processed', result = $1
             WHERE idempotency_key = $2
             "#,
+            result,
+            &key,
         )
-        .bind(result)
-        .bind(&key)
         .execute(executor)
         .await?;
 
@@ -93,10 +91,10 @@ impl IdempotencyRepo {
         executor: &mut sqlx::postgres::PgConnection,
         before: DateTime<Utc>,
     ) -> Result<u64> {
-        let result = sqlx::query(
+        let result = sqlx::query!(
             "DELETE FROM idempotency_records WHERE expires_at IS NOT NULL AND expires_at < $1",
+            before,
         )
-        .bind(before)
         .execute(executor)
         .await?;
 

@@ -37,9 +37,9 @@ pub async fn insert(
     m: &Rma,
 ) -> Result<i64> {
     let row = sqlx::query(
-        &format!(
+        sqlx::AssertSqlSafe(format!(
             "INSERT INTO rmas ({INSERT_COLUMNS}) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id"
-        )
+        ))
     )
     .bind(&m.doc_number)
     .bind(m.customer_id)
@@ -68,7 +68,7 @@ pub async fn find_by_id(
     id: i64,
 ) -> Result<Option<Rma>> {
     let row = sqlx::query(
-        &format!("SELECT {COLUMNS} FROM rmas WHERE id = $1 AND deleted_at IS NULL")
+        sqlx::AssertSqlSafe(format!("SELECT {COLUMNS} FROM rmas WHERE id = $1 AND deleted_at IS NULL"))
     )
     .bind(id)
     .fetch_optional(&mut *db)
@@ -137,7 +137,7 @@ pub async fn list(
     );
 
     let count_sql = format!("SELECT COUNT(*) AS cnt FROM rmas {where_clause}");
-    let count_row = sqlx::query(&count_sql)
+    let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))
         .bind(filter.customer_id)
         .bind(filter.product_id)
         .bind(filter.severity.map(|s: Severity| s.as_i16()))
@@ -153,7 +153,7 @@ pub async fn list(
          ORDER BY created_at DESC
          LIMIT $7 OFFSET $8"
     );
-    let rows = sqlx::query(&data_sql)
+    let rows = sqlx::query(sqlx::AssertSqlSafe(data_sql))
         .bind(filter.customer_id)
         .bind(filter.product_id)
         .bind(filter.severity.map(|s: Severity| s.as_i16()))

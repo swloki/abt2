@@ -51,7 +51,7 @@ impl SalesReturnRepo {
         id: i64,
     ) -> Result<Option<SalesReturn>> {
         let sr = sqlx::query_as::<sqlx::Postgres, SalesReturn>(
-            &format!("SELECT {RETURN_COLUMNS} FROM sales_returns WHERE id = $1 AND deleted_at IS NULL"),
+            sqlx::AssertSqlSafe(format!("SELECT {RETURN_COLUMNS} FROM sales_returns WHERE id = $1 AND deleted_at IS NULL")),
         )
         .bind(id)
         .fetch_optional(executor)
@@ -148,7 +148,7 @@ impl SalesReturnRepo {
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM sales_returns WHERE {where_clause}");
-        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(&count_sql);
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(v) = order_param { count_q = count_q.bind(v); }
         if let Some(v) = shipping_param { count_q = count_q.bind(v); }
         if let Some(v) = customer_param { count_q = count_q.bind(v); }
@@ -164,7 +164,7 @@ impl SalesReturnRepo {
         let data_sql = format!(
             "SELECT {RETURN_COLUMNS} FROM sales_returns WHERE {where_clause} ORDER BY id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
-        let mut data_q = sqlx::query_as::<sqlx::Postgres, SalesReturn>(&data_sql);
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, SalesReturn>(sqlx::AssertSqlSafe(data_sql));
         if let Some(v) = order_param { data_q = data_q.bind(v); }
         if let Some(v) = shipping_param { data_q = data_q.bind(v); }
         if let Some(v) = customer_param { data_q = data_q.bind(v); }
@@ -217,7 +217,7 @@ impl SalesReturnItemRepo {
         return_id: i64,
     ) -> Result<Vec<SalesReturnItem>> {
         let items = sqlx::query_as::<sqlx::Postgres, SalesReturnItem>(
-            &format!("SELECT {ITEM_COLUMNS} FROM sales_return_items WHERE return_id = $1 ORDER BY id"),
+            sqlx::AssertSqlSafe(format!("SELECT {ITEM_COLUMNS} FROM sales_return_items WHERE return_id = $1 ORDER BY id")),
         )
         .bind(return_id)
         .fetch_all(executor)

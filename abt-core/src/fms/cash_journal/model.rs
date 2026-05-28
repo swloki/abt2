@@ -1,10 +1,10 @@
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 
-use crate::shared::enums::document_type::DocumentType;
 use super::super::enums::{
     CashDirection, CounterpartyRef, CounterpartyType, JournalStatus, JournalType,
 };
+use crate::shared::enums::document_type::DocumentType;
 
 // ---------------------------------------------------------------------------
 // Entities

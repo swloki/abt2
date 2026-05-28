@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use abt_core::master_data::customer::CustomerService;
 use abt_core::shared::types::{PgExecutor, ServiceContext};
@@ -24,12 +24,14 @@ pub async fn resolve_customer_names<S: CustomerService>(
     db: PgExecutor<'_>,
     ids: impl IntoIterator<Item = i64>,
 ) -> HashMap<i64, String> {
-    let mut map = HashMap::new();
-    let unique: HashSet<i64> = ids.into_iter().collect();
-    for id in unique {
-        if let Ok(customer) = svc.get(ctx, db, id).await {
-            map.insert(id, customer.name);
-        }
+    let unique: Vec<i64> = ids.into_iter().collect();
+    if unique.is_empty() {
+        return HashMap::new();
     }
-    map
+    match svc.get_by_ids(ctx, db, &unique).await {
+        Ok(customers) => customers.into_iter()
+            .map(|c| (c.id, c.name))
+            .collect(),
+        Err(_) => HashMap::new(),
+    }
 }

@@ -506,4 +506,13 @@ impl CustomerService for CustomerServiceImpl {
 
         Ok(())
     }
+
+    async fn get_by_ids(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        ids: &[i64],
+    ) -> Result<Vec<Customer>> {
+        self.repo.find_by_ids(db, ids).await
+    }
 }

@@ -316,6 +316,25 @@ impl CustomerRepo {
         .await?;
         Ok(())
     }
+
+    pub async fn find_by_ids(
+        &self,
+        executor: PgExecutor<'_>,
+        ids: &[i64],
+    ) -> Result<Vec<Customer>> {
+        if ids.is_empty() {
+            return Ok(vec![]);
+        }
+        let customers = sqlx::query_as::<sqlx::Postgres, Customer>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {CUSTOMER_COLUMNS} FROM customers WHERE customer_id = ANY($1) AND deleted_at IS NULL"
+            )),
+        )
+        .bind(ids)
+        .fetch_all(executor)
+        .await?;
+        Ok(customers)
+    }
 }
 
 // ---------------------------------------------------------------------------

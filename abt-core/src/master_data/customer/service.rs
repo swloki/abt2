@@ -114,4 +114,11 @@ pub trait CustomerService: Send + Sync {
         new_owner_id: i64,
         new_department_id: Option<i64>,
     ) -> Result<()>;
+
+    async fn get_by_ids(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        ids: &[i64],
+    ) -> Result<Vec<Customer>>;
 }

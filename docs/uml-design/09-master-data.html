@@ -512,6 +512,7 @@ classDiagram
     +validate_contact_ownership(ctx: &ServiceContext, db: PgExecutor, cid, contact_id) bool
     +claim(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     +transfer(ctx: &ServiceContext, db: PgExecutor, id, new_owner_id, new_department_id) Result~Unit~
+    +get_by_ids(ctx: &ServiceContext, db: PgExecutor, ids: &[i64]) Result~Vec~Customer~~
   }
 
   class SupplierService {

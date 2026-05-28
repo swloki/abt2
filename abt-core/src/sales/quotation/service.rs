@@ -30,6 +30,8 @@ pub trait QuotationService: Send + Sync {
 
     async fn reject(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
+    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
+
     async fn expire(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
     async fn batch_expire_overdue(&self, ctx: ServiceContext<'_>) -> Result<i32>;

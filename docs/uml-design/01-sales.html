@@ -282,6 +282,7 @@ classDiagram
         +accept(ctx: ServiceContext, id) Result~Unit~
         +reject(ctx: ServiceContext, id) Result~Unit~
         +expire(ctx: ServiceContext, id) Result~Unit~
+        +delete(ctx: ServiceContext, id) Result~Unit~
         +batch_expire_overdue(ctx: ServiceContext) Result~i32~
         +list_items(quotation_id) Result~Vec~QuotationItem~~
         +list(filter) PaginatedResult~Quotation~
@@ -294,6 +295,7 @@ classDiagram
         +start_progress(ctx: ServiceContext, id) Result~Unit~
         +complete(ctx: ServiceContext, id) Result~Unit~
         +cancel(ctx: ServiceContext, id) Result~Unit~
+        +delete(ctx: ServiceContext, id) Result~Unit~
         +list(filter) PaginatedResult~SalesOrder~
     }
 

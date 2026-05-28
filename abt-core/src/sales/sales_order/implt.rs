@@ -330,6 +330,55 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
+    async fn update(
+        &self,
+        mut ctx: ServiceContext<'_>,
+        id: i64,
+        req: UpdateSalesOrderReq,
+        items: Vec<CreateSalesOrderItemReq>,
+    ) -> Result<()> {
+        let existing = self
+            .repo
+            .find_by_id(ctx.executor, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
+
+        if existing.status != SalesOrderStatus::Draft {
+            return Err(DomainError::business_rule("仅草稿状态的订单可以编辑"));
+        }
+
+        self.repo.update(ctx.executor, id, &req).await?;
+
+        self.item_repo.delete_by_order_id(ctx.executor, id).await?;
+
+        let item_inputs = Self::build_item_inputs(&items);
+        self.item_repo
+            .create_batch(ctx.executor, id, &item_inputs)
+            .await?;
+
+        let (total_amount, total_cost) = Self::calculate_amounts(&items);
+        self.repo
+            .update_amounts(ctx.executor, id, total_amount, total_cost)
+            .await?;
+
+        self.audit
+            .record(ctx.reborrow(), "SalesOrder", id, AuditAction::Update, None, None)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn list_items(
+        &self,
+        ctx: ServiceContext<'_>,
+        order_id: i64,
+    ) -> Result<Vec<SalesOrderItem>> {
+        self.item_repo
+            .find_by_order_id(ctx.executor, order_id)
+            .await
+            .map_err(Into::into)
+    }
+
     async fn confirm(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo
@@ -606,6 +655,46 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
+    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+        let existing = self
+            .repo
+            .find_by_id(ctx.executor, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
+
+        if existing.status != SalesOrderStatus::Draft {
+            return Err(DomainError::business_rule("仅草稿状态的订单可以删除"));
+        }
+
+        self.repo.soft_delete(ctx.executor, id).await?;
+
+        self.audit
+            .record(
+                ctx.reborrow(),
+                "SalesOrder",
+                id,
+                AuditAction::Delete,
+                Some(serde_json::json!({ "doc_number": existing.doc_number })),
+                None,
+            )
+            .await?;
+
+        self.event_bus
+            .publish(
+                ctx.reborrow(),
+                EventPublishRequest {
+                    event_type: DomainEventType::SalesOrderDeleted,
+                    aggregate_type: "SalesOrder".to_string(),
+                    aggregate_id: id,
+                    payload: serde_json::json!({ "sales_order_id": id, "doc_number": existing.doc_number }),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
+        Ok(())
+    }
+
     async fn list(
         &self,
         ctx: ServiceContext<'_>,
@@ -622,6 +711,6 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 ctx.department_id,
             )
             .await
-            
+            .map_err(Into::into)
     }
 }

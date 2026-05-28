@@ -295,3 +295,80 @@ pub fn router() -> axum::Router {
 **使用 htmx 的场景**：交互涉及服务器状态流转、数据库读写、权限校验（表单提交、动态分页、条件搜索）。
 
 **禁止使用 htmx 的场景**：纯前端 UI 状态切换（Dropdown 菜单展开、Modal 弹窗显隐、选项卡纯样式切换）。此类交互由 **Alpine.js** (`x-data`) 在前端本地闭环，严禁通过 htmx 向后端发送请求，防止路由碎片化。
+
+---
+
+## 高级混合交互模式 (Advanced Hybrid Interactions)
+
+### Alpine.js 与 htmx 的数据桥接模式 (Hidden Input Binding)
+
+场景：当组件存在复杂的纯前端高频交互（如拖拽、自定义星级评分、滑块、动态行项目表单），直接用 htmx 请求后端会导致严重的路由碎片化与网络延迟。
+
+解法：使用 Alpine.js 担当组件状态机，高频交互在前端闭环；同时将状态通过 `x-model` 绑定到包含 `name` 属性的 hidden input 上。当 htmx 触发提交时，会自动将该前端状态发送给 Rust 后端。
+
+```rust
+pub fn star_rating_component(current_rating: u32) -> Markup {
+    html! {
+        // Alpine.js 掌管前端交互状态
+        div class="rating-component" x-data=(format!("{{ rating: {} }}", current_rating)) {
+
+            // 核心桥接：隐藏 input 将 Alpine 的值与 htmx 的表单提交绑定在一起
+            input type="hidden" name="rating" x-model="rating";
+
+            // 前端高频渲染，不请求后端
+            div class="stars" {
+                template x-for="i in 5" {
+                    span class="star"
+                         :class="i <= rating ? 'active' : ''"
+                         @click="rating = i" { "★" }
+                }
+            }
+
+            // htmx 负责最终的状态持久化，自动携带隐藏 input 里的 rating 值
+            button hx-post="/save-rating" hx-target="this" hx-swap="outerHTML" {
+                "保存评分到数据库"
+            }
+        }
+    }
+}
+```
+
+---
+
+## 表单开发模式 (Form Development Pattern)
+
+所有涉及复杂前端交互的表单（动态行项目、计算、条件显示等）必须遵循以下架构：
+
+### 架构分工
+
+| 层 | 职责 | 技术 |
+|---|---|---|
+| 状态定义 | `x-data="formFunction()"` 返回 reactive 对象 | Alpine.js |
+| 列表渲染 | `template x-for` + `x-model` 绑定每个字段 | Alpine.js |
+| 计算属性 | `get lineTotal` / `get itemsJson` 等 getter 驱动显示和序列化 | Alpine.js |
+| 复杂数据桥接 | `input type="hidden" name="items_json" x-model="itemsJson"` | Alpine.js + HTML |
+| 表单提交 | `hx-post` + `hx-swap="none"` | htmx |
+| 成功导航 | 服务端返回 `HX-Redirect` 响应头 | htmx |
+| 错误提示 | `htmx:responseError` 事件 → Notyf toast | htmx + JS |
+| 服务端接收 | `Form<Struct>` + `serde_json::from_str(&form.items_json)` 解析嵌套数据 | Axum |
+
+### 标准实现步骤
+
+1. **JS 文件**：导出 `formFunction()` 返回 reactive 对象，包含数据、方法、getter
+2. **Maud 模板**：`x-data="formFunction()"` 挂载，`template x-for` 渲染动态行，`x-model` 绑定输入
+3. **隐藏 input 桥接**：`input type="hidden" name="items_json" x-model="itemsJson"` 将嵌套数据暴露给 htmx
+4. **外部数据集成**：htmx 搜索结果通过 `data-product` JSON + `addItem(JSON.parse($el.dataset.product))` 推入 Alpine 状态
+5. **服务端**：`Form<QuotationCreateForm>` 接收，`items_json: String` 字段用 `serde_json::from_str()` 解析
+
+### 范例参考
+
+- JS：`static/quotation-create.js` — `quotationForm()` 函数
+- Rust：`src/pages/quotation_create.rs` — `quotation_create_page()` + `product_list_fragment()`
+
+### 强制规则
+
+- **禁止** `document.querySelector` / `getElementById` 手动收集表单数据
+- **禁止** `fetch()` 提交表单，用 htmx `hx-post` 原生处理
+- **禁止** `data-field` + DOM 读取模式
+- **禁止** 手动 `innerHTML` / `appendChild` 操作行项目，用 Alpine `x-for` 渲染
+- 所有前端交互状态（增删行、计算、UI 开关）由 Alpine.js 闭环，htmx 仅处理最终提交

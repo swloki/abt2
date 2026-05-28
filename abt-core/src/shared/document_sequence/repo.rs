@@ -7,7 +7,7 @@ pub struct DocumentSequenceRepo;
 
 impl DocumentSequenceRepo {
     /// 原子 upsert：首次插入 current_value=1，后续每次 +1。
-    /// UNIQUE 约束在 (prefix, seq_date)，天然按月分段。
+    /// UNIQUE 约束在 (prefix, seq_date)，按月分段（seq_date 取当月 1 号）。
     pub async fn next_sequential(
         executor: &mut sqlx::postgres::PgConnection,
         prefix: &str,
@@ -16,7 +16,7 @@ impl DocumentSequenceRepo {
         query_as::<_, DocumentSequence>(
             r#"
             INSERT INTO document_sequences (prefix, seq_date, current_value, padding_len, strategy)
-            VALUES ($1, CURRENT_DATE, 1, $2, 1)
+            VALUES ($1, DATE_TRUNC('month', CURRENT_DATE)::date, 1, $2, 1)
             ON CONFLICT (prefix, seq_date) DO UPDATE
             SET current_value = document_sequences.current_value + 1
             RETURNING id, prefix, current_value, seq_date, padding_len, strategy, created_at

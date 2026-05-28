@@ -151,6 +151,32 @@ impl SalesOrderRepo {
         Ok(())
     }
 
+    pub async fn update_amounts(
+        &self,
+        executor: PgExecutor<'_>,
+        id: i64,
+        total_amount: Decimal,
+        total_cost: Decimal,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE sales_orders SET total_amount = $2, total_cost = $3, updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .bind(total_amount)
+        .bind(total_cost)
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn soft_delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
+        sqlx::query("UPDATE sales_orders SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
+            .bind(id)
+            .execute(executor)
+            .await?;
+        Ok(())
+    }
+
     #[allow(unused_assignments)]
     pub async fn query(
         &self,
@@ -295,6 +321,18 @@ impl SalesOrderItemRepo {
         .fetch_all(executor)
         .await?;
         Ok(items)
+    }
+
+    pub async fn delete_by_order_id(
+        &self,
+        executor: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<()> {
+        sqlx::query("DELETE FROM sales_order_items WHERE order_id = $1")
+            .bind(order_id)
+            .execute(executor)
+            .await?;
+        Ok(())
     }
 
     pub async fn update_shipped_qty(

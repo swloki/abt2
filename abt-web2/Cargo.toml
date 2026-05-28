@@ -10,7 +10,7 @@ path = "src/main.rs"
 [dependencies]
 # Internal
 abt-core = { path = "../abt-core" }
-common = { path = "../common" }
+
 
 # Web framework
 axum = "0.8"

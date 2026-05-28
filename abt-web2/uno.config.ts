@@ -475,6 +475,157 @@ const componentStyles = `
 }
 @keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
 @keyframes modalSlideIn { from { opacity: 0; transform: translateY(12px) scale(0.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
+.modal-lg { width: 900px; max-width: 94vw; }
+
+/* ─── Back Link ─── */
+.back-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--muted); font-size: var(--text-sm); margin-bottom: var(--space-3);
+  transition: color var(--motion-fast);
+}
+.back-link:hover { color: var(--accent); }
+.back-link svg { width: 16px; height: 16px; }
+
+/* ─── Line Items (Create Page) ─── */
+.line-num { font-family: var(--font-mono); color: var(--muted); font-size: var(--text-xs); text-align: center; }
+.line-total { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--fg); white-space: nowrap; }
+.btn-remove-row {
+  width: 28px; height: 28px; border: none; background: transparent;
+  color: var(--muted); border-radius: var(--radius-sm); cursor: pointer;
+  display: grid; place-items: center; transition: all var(--motion-fast);
+}
+.btn-remove-row:hover { background: #fff1f0; color: var(--danger); }
+.btn-remove-row svg { width: 14px; height: 14px; }
+.add-row-bar {
+  padding: var(--space-3); border-top: 1px dashed var(--border);
+  display: flex; align-items: center; gap: var(--space-2);
+}
+.btn-add-row {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: 6px 14px; border: 1px dashed var(--border); border-radius: var(--radius-sm);
+  background: transparent; color: var(--accent); font-size: var(--text-sm);
+  cursor: pointer; transition: all var(--motion-fast);
+}
+.btn-add-row:hover { border-color: var(--accent); background: var(--accent-bg); }
+.btn-add-row svg { width: 14px; height: 14px; }
+
+/* ─── Totals Bar ─── */
+.totals-bar {
+  display: flex; justify-content: flex-end; padding: var(--space-4) var(--space-5);
+  background: var(--surface); border-top: 1px solid var(--border); gap: var(--space-8);
+}
+.totals-item { display: flex; align-items: baseline; gap: var(--space-3); }
+.totals-label { font-size: var(--text-sm); color: var(--muted); }
+.totals-value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--text-lg); font-weight: 700; color: var(--fg); }
+.totals-value.grand { color: var(--accent); font-size: var(--text-xl); }
+
+/* ─── Create Action Bar (sticky bottom) ─── */
+.create-action-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-4) var(--space-6); background: var(--bg);
+  border-top: 1px solid var(--border); position: sticky; bottom: 0;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+}
+
+/* ─── Detail Header ─── */
+.detail-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: var(--space-6);
+}
+.detail-title-row { display: flex; align-items: center; gap: var(--space-4); }
+.detail-no { font-size: var(--text-xl); font-weight: 700; color: var(--fg); letter-spacing: -0.01em; }
+
+/* ─── Workflow Steps ─── */
+.workflow-steps { display: flex; align-items: center; gap: 0; margin-bottom: var(--space-6); }
+.wf-step { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--muted); }
+.wf-step.completed { color: var(--success); }
+.wf-step.current { color: var(--accent); font-weight: 600; }
+.wf-dot {
+  width: 10px; height: 10px; border-radius: 50%; background: var(--border);
+  transition: all var(--motion-base);
+}
+.wf-step.completed .wf-dot { background: var(--success); }
+.wf-step.current .wf-dot { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-bg); }
+.wf-line {
+  width: 48px; height: 2px; background: var(--border);
+  margin: 0 var(--space-2); border-radius: 1px;
+}
+.wf-line.completed { background: var(--success); }
+
+/* ─── Info Card (Detail Page) ─── */
+.info-card {
+  background: var(--bg); border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+  padding: var(--space-6); margin-bottom: var(--space-6);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03); transition: box-shadow var(--motion-base);
+}
+.info-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+.info-card-title {
+  font-size: var(--text-base); font-weight: 600; color: var(--fg);
+  margin-bottom: var(--space-4); padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
+}
+
+/* ─── Info Grid (Detail Page) ─── */
+.info-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: var(--space-5); }
+.info-item { display: flex; flex-direction: column; gap: 4px; }
+.info-label { font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: 0.02em; }
+.info-value { font-size: var(--text-sm); color: var(--fg); font-weight: 500; }
+.info-value.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ─── Amount Summary (Detail Page) ─── */
+.amount-summary {
+  display: flex; justify-content: flex-end; gap: var(--space-8);
+  padding: var(--space-5) var(--space-6);
+  border-top: 1px solid var(--border-soft); background: var(--surface-raised);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+.amount-row { display: flex; align-items: baseline; gap: var(--space-3); }
+.amount-label { font-size: var(--text-sm); color: var(--muted); }
+.amount-value {
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--text-lg); font-weight: 700; color: var(--fg);
+}
+.amount-value.accent { color: var(--accent); }
+
+/* ─── Product Select List (Modal) ─── */
+.product-select-list { padding: var(--space-2) 0; }
+.product-select-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border-soft);
+  transition: background var(--motion-fast);
+}
+.product-select-item:last-child { border-bottom: none; }
+.product-select-item:hover { background: var(--accent-bg); }
+.product-select-info { flex: 1; min-width: 0; }
+.product-select-name { font-size: var(--text-sm); font-weight: 500; color: var(--fg); margin-bottom: 2px; }
+.product-select-meta { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.product-select-code { font-family: var(--font-mono); font-variant-numeric: tabular-nums; background: var(--surface); padding: 1px 6px; border-radius: var(--radius-sm); }
+.product-select-sep { color: var(--border); }
+
+/* ─── Product Search Bar (Modal) ─── */
+.product-search-bar {
+  display: flex; gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border-soft);
+}
+.product-search-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.product-search-label { font-size: 12px; font-weight: 500; color: var(--fg-2); }
+.product-search-input {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); font-size: var(--text-sm);
+  background: var(--bg); color: var(--fg); outline: none;
+  transition: border-color var(--motion-fast), box-shadow var(--motion-fast);
+}
+.product-search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent); }
+.product-search-input::placeholder { color: var(--muted); opacity: 0.6; }
+.product-search-clear {
+  padding: 7px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--fg-2); font-size: var(--text-sm);
+  cursor: pointer; transition: all var(--motion-fast); white-space: nowrap;
+  align-self: flex-end;
+}
+.product-search-clear:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
 
 /* ─── Confirm Dialog ─── */
 .dialog-overlay {
@@ -629,6 +780,7 @@ const componentStyles = `
   .modal { width: 95vw; }
   .detail-top { flex-direction: column; }
 }
+
 `;
 
 const loginStyles = `
@@ -806,7 +958,7 @@ export default defineConfig({
 
     // ─── Data Card / Table ───
     "data-card":
-      "bg-white rounded-md border border-border-soft shadow-sm hover-shadow-md transition-shadow duration-240",
+      "bg-white rounded-md border border-border-soft shadow-sm p-5 hover-shadow-md transition-shadow duration-240",
     "data-table": "w-full min-w-[860px] text-sm",
     "link-cell":
       "text-accent font-semibold font-mono tabular-nums hover-text-accent-hover transition-colors duration-150",

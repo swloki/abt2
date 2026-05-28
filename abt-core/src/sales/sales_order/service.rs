@@ -30,6 +30,20 @@ pub trait SalesOrderService: Send + Sync {
         req: UpdateSalesOrderReq,
     ) -> Result<()>;
 
+    async fn update(
+        &self,
+        ctx: ServiceContext<'_>,
+        id: i64,
+        req: UpdateSalesOrderReq,
+        items: Vec<CreateSalesOrderItemReq>,
+    ) -> Result<()>;
+
+    async fn list_items(
+        &self,
+        ctx: ServiceContext<'_>,
+        order_id: i64,
+    ) -> Result<Vec<SalesOrderItem>>;
+
     async fn confirm(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
     async fn start_progress(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
@@ -37,6 +51,8 @@ pub trait SalesOrderService: Send + Sync {
     async fn complete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
     async fn cancel(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
+
+    async fn delete(&self, ctx: ServiceContext<'_>, id: i64) -> Result<()>;
 
     async fn list(
         &self,

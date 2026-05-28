@@ -104,10 +104,18 @@ impl QuotationService for QuotationServiceImpl {
             return Err(DomainError::validation("valid_until must be after today"));
         }
 
-        if req.customer_id > 0 {
+        if req.customer_id > 0 && req.contact_id > 0 {
             self.customer_svc
                 .validate_contact_ownership(ctx.reborrow(), req.customer_id, req.contact_id)
                 .await?;
+        }
+
+        if req.items.is_empty() {
+            return Err(DomainError::validation("报价单必须包含至少一个产品"));
+        }
+
+        if req.items.iter().all(|i| i.unit_price == Decimal::ZERO) {
+            return Err(DomainError::validation("报价单中所有产品的单价不能都为 0"));
         }
 
         let doc_number = self
@@ -485,7 +493,47 @@ impl QuotationService for QuotationServiceImpl {
         self.item_repo
             .find_by_quotation_id(ctx.executor, quotation_id)
             .await
-            
+            .map_err(Into::into)
+    }
+
+    async fn delete(&self, mut ctx: ServiceContext<'_>, id: i64) -> Result<()> {
+        let existing = self
+            .repo
+            .find_by_id(ctx.executor, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("Quotation"))?;
+
+        if existing.status != QuotationStatus::Draft {
+            return Err(DomainError::business_rule("仅草稿状态的报价单可以删除"));
+        }
+
+        self.repo.soft_delete(ctx.executor, id).await?;
+
+        self.audit
+            .record(
+                ctx.reborrow(),
+                "Quotation",
+                id,
+                AuditAction::Delete,
+                Some(serde_json::json!({ "doc_number": existing.doc_number })),
+                None,
+            )
+            .await?;
+
+        self.event_bus
+            .publish(
+                ctx.reborrow(),
+                EventPublishRequest {
+                    event_type: DomainEventType::QuotationDeleted,
+                    aggregate_type: "Quotation".to_string(),
+                    aggregate_id: id,
+                    payload: serde_json::json!({ "quotation_id": id, "doc_number": existing.doc_number }),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
+        Ok(())
     }
 
     async fn list(
@@ -504,6 +552,6 @@ impl QuotationService for QuotationServiceImpl {
                 ctx.department_id,
             )
             .await
-            
+            .map_err(Into::into)
     }
 }

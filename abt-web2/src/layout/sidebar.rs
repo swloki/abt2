@@ -52,27 +52,27 @@ fn modules() -> Vec<NavModule> {
                 },
                 NavItem {
                     name: "报价单",
-                    path: "#",
+                    path: "/admin/quotations",
                     icon: NavIcon::File,
                 },
                 NavItem {
                     name: "销售订单",
-                    path: "#",
+                    path: "/admin/orders",
                     icon: NavIcon::Package,
                 },
                 NavItem {
                     name: "发货申请",
-                    path: "#",
+                    path: "/admin/shipping",
                     icon: NavIcon::Truck,
                 },
                 NavItem {
                     name: "销售退货",
-                    path: "#",
+                    path: "/admin/returns",
                     icon: NavIcon::Return,
                 },
                 NavItem {
                     name: "月对账单",
-                    path: "#",
+                    path: "/admin/reconciliations",
                     icon: NavIcon::Check,
                 },
             ],

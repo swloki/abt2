@@ -1,6 +1,6 @@
 use abt_core::shared::identity::model::Claims;
 use axum::http::HeaderMap;
-use maud::{DOCTYPE, html, Markup};
+use maud::{DOCTYPE, Markup, html};
 
 use super::header;
 use super::sidebar;
@@ -18,7 +18,9 @@ fn document(title: &str, body: Markup) -> Markup {
                 title { (title) " - ABT 管理系统" }
                 link rel="icon" type="image/svg+xml" href="/favicon.svg";
                 link rel="stylesheet" href="/app.css";
+                link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.css";
                 script src="/htmx.min.js" {}
+                script src="https://cdn.jsdelivr.net/npm/notyf@3/notyf.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer {}
             }
             body {
@@ -73,7 +75,14 @@ pub fn admin_page(
     } else {
         document(
             title,
-            admin_shell(claims, active_module, current_path, module_name, page_name, content),
+            admin_shell(
+                claims,
+                active_module,
+                current_path,
+                module_name,
+                page_name,
+                content,
+            ),
         )
     }
 }

@@ -169,6 +169,14 @@ impl QuotationRepo {
         Ok(())
     }
 
+    pub async fn soft_delete(&self, executor: PgExecutor<'_>, id: i64) -> Result<()> {
+        sqlx::query("UPDATE quotations SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
+            .bind(id)
+            .execute(executor)
+            .await?;
+        Ok(())
+    }
+
     pub async fn update_amounts(
         &self,
         executor: PgExecutor<'_>,

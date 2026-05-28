@@ -37,7 +37,7 @@ impl DocumentSequenceService for DocumentSequenceServiceImpl {
 
         // Sequential 策略：原子 upsert + 格式化
         let prefix = doc_type.prefix();
-        let padding_len: i32 = 5;
+        let padding_len: i32 = 6;
 
         let seq = DocumentSequenceRepo::next_sequential(&mut *ctx.executor, prefix, padding_len)
             .await

@@ -31,7 +31,7 @@ impl IntoResponse for AppError {
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
             AppError::Internal(msg) => {
                 tracing::error!("Internal error: {msg}");
-                (StatusCode::INTERNAL_SERVER_ERROR, "服务器错误".into())
+                (StatusCode::INTERNAL_SERVER_ERROR, format!("服务器错误: {msg}"))
             }
         };
 

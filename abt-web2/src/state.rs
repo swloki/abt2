@@ -40,4 +40,16 @@ impl AppState {
     pub fn customer_service(&self) -> impl abt_core::master_data::customer::CustomerService {
         abt_core::master_data::customer::new_customer_service(self.pool.clone())
     }
+
+    pub fn quotation_service(&self) -> impl abt_core::sales::quotation::QuotationService {
+        abt_core::sales::quotation::new_quotation_service(self.pool.clone())
+    }
+
+    pub fn product_service(&self) -> impl abt_core::master_data::product::ProductService {
+        abt_core::master_data::product::new_product_service(self.pool.clone())
+    }
+
+    pub fn sales_order_service(&self) -> impl abt_core::sales::sales_order::SalesOrderService {
+        abt_core::sales::sales_order::new_sales_order_service(self.pool.clone())
+    }
 }

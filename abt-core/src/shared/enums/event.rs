@@ -80,6 +80,9 @@ pub enum DomainEventType {
     ProductDeleted = 58,
     // H3Yun — Inventory sync
     H3YunInventorySync = 59,
+    // Sales — soft delete
+    SalesOrderDeleted = 60,
+    QuotationDeleted = 61,
 }
 
 impl DomainEventType {
@@ -122,6 +125,7 @@ impl DomainEventType {
             55 => Some(Self::LaborProcessDictDeleted),
             56 => Some(Self::ProductCreated), 57 => Some(Self::ProductUpdated),
             58 => Some(Self::ProductDeleted), 59 => Some(Self::H3YunInventorySync),
+            60 => Some(Self::SalesOrderDeleted), 61 => Some(Self::QuotationDeleted),
             _ => None,
         }
     }

@@ -25,6 +25,7 @@ use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::sales_return::*;
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Helpers ──
 
@@ -70,6 +71,7 @@ pub struct OrderSearchQuery {
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "create")]
 pub async fn get_return_create(
     _path: ReturnCreatePath,
     ctx: RequestContext,
@@ -108,6 +110,7 @@ pub async fn get_return_create(
 }
 
 /// HTMX: search orders -> returns HTML fragment with embedded JSON data
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_orders(
     ctx: RequestContext,
     Query(params): Query<OrderSearchQuery>,
@@ -216,6 +219,7 @@ pub async fn get_orders(
 }
 
 /// POST: create return from form submission
+#[require_permission("SALES_ORDER", "create")]
 pub async fn create_return(
     _path: ReturnCreatePath,
     ctx: RequestContext,

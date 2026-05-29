@@ -23,6 +23,7 @@ use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
 use crate::routes::shipping::*;
 use crate::utils::{empty_as_none, resolve_customer_names, RequestContext};
+use abt_macros::require_permission;
 
 // ── Query Params ──
 
@@ -118,6 +119,7 @@ async fn resolve_order_numbers<S: SalesOrderService>(
 
 // ── Handlers ──
 
+#[require_permission("SHIPPING", "read")]
 pub async fn get_shipping_list(
     _path: ShippingListPath,
     ctx: RequestContext,
@@ -154,6 +156,7 @@ pub async fn get_shipping_list(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("SHIPPING", "read")]
 pub async fn get_shipping_table(
     ctx: RequestContext,
     Query(params): Query<ShippingQueryParams>,
@@ -183,6 +186,7 @@ pub async fn get_shipping_table(
     Ok(Html(shipping_table_fragment(&result, &customer_names, &order_numbers, &customers.items, &params, &status_counts).into_string()))
 }
 
+#[require_permission("SHIPPING", "delete")]
 pub async fn delete_shipping(
     path: ShippingDeletePath,
     ctx: RequestContext,

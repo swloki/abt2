@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use crate::config::Config;
+use abt_core::shared::identity::RolePermissionCache;
 use abt_core::shared::types::{PgPool, PgPoolOptions};
 use tower_sessions_file_store::FileSessionStorage;
 
@@ -8,6 +11,7 @@ pub struct AppState {
     pub jwt_secret: String,
     pub jwt_expiration_hours: u64,
     pub session_store: FileSessionStorage,
+    pub permission_cache: Arc<RolePermissionCache>,
 }
 
 impl AppState {
@@ -27,11 +31,16 @@ impl AppState {
 
         tracing::info!("File session store initialized at: {}", config.session_dir);
 
+        let permission_cache = Arc::new(RolePermissionCache::new(pool.clone()));
+        permission_cache.load(&pool).await?;
+        tracing::info!("Permission cache loaded");
+
         Ok(Self {
             pool,
             jwt_secret: config.jwt_secret.clone(),
             jwt_expiration_hours: config.jwt_expiration_hours,
             session_store,
+            permission_cache,
         })
     }
 
@@ -98,5 +107,13 @@ impl AppState {
 
     pub fn user_service(&self) -> impl abt_core::shared::identity::UserService {
         abt_core::shared::identity::new_user_service(self.pool.clone())
+    }
+
+    pub fn permission_service(
+        &self,
+    ) -> impl abt_core::shared::identity::PermissionService {
+        abt_core::shared::identity::implt::PermissionServiceImpl::new(
+            self.permission_cache.clone(),
+        )
     }
 }

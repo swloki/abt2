@@ -25,6 +25,7 @@ use crate::routes::order::OrderDetailPath;
 use crate::routes::sales_return::*;
 use crate::routes::shipping::ShippingDetailPath;
 use crate::utils::{empty_as_none, resolve_customer_names, RequestContext};
+use abt_macros::require_permission;
 
 // ── Query Params ──
 
@@ -142,6 +143,7 @@ async fn resolve_order_numbers<S: SalesOrderService>(
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_return_list(
     _path: ReturnListPath,
     ctx: RequestContext,
@@ -182,6 +184,7 @@ pub async fn get_return_list(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_return_table(
     ctx: RequestContext,
     Query(params): Query<ReturnQueryParams>,
@@ -215,6 +218,7 @@ pub async fn get_return_table(
     Ok(Html(return_table_fragment(&result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params, &status_counts).into_string()))
 }
 
+#[require_permission("SALES_ORDER", "delete")]
 pub async fn delete_return(
     path: ReturnDeletePath,
     ctx: RequestContext,

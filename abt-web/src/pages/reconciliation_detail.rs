@@ -20,6 +20,7 @@ use crate::routes::reconciliation::*;
 use crate::routes::order::OrderDetailPath;
 use crate::routes::shipping::ShippingDetailPath;
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Helpers ──
 
@@ -41,6 +42,7 @@ struct ProductDetail {
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_reconciliation_detail(
     path: ReconciliationDetailPath,
     ctx: RequestContext,
@@ -146,6 +148,7 @@ pub async fn send_reconciliation(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn confirm_reconciliation(
     path: ConfirmReconciliationPath,
     ctx: RequestContext,

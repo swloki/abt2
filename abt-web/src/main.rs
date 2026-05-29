@@ -4,6 +4,7 @@ mod config;
 mod errors;
 mod layout;
 mod pages;
+mod permissions;
 mod routes;
 mod state;
 mod utils;

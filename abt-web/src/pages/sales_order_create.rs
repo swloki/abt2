@@ -20,6 +20,7 @@ use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Query Params ──
 
@@ -56,6 +57,7 @@ struct ItemWeb {
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "create")]
 pub async fn get_order_create(
     _path: OrderCreatePath,
     ctx: RequestContext,
@@ -77,6 +79,7 @@ pub async fn get_order_create(
 }
 
 /// HTMX: fetch customer contacts → return full customer-info panel
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_customer_contacts(
     ctx: RequestContext,
     Query(params): Query<CustomerContactsParams>,
@@ -99,6 +102,7 @@ pub async fn get_customer_contacts(
 }
 
 /// HTMX: search products
+#[require_permission("PRODUCT", "read")]
 pub async fn get_products(
     ctx: RequestContext,
     Query(params): Query<ProductSearchParams>,
@@ -118,6 +122,7 @@ pub async fn get_products(
 }
 
 /// POST: create order from form submission (HTMX)
+#[require_permission("SALES_ORDER", "create")]
 pub async fn create_order(
     _path: OrderCreatePath,
     ctx: RequestContext,

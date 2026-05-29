@@ -23,6 +23,7 @@ use crate::routes::quotation::{
     QuotationProductsPath,
 };
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Query Params ──
 
@@ -59,6 +60,7 @@ struct ItemWeb {
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "create")]
 pub async fn get_quotation_create(
     _path: QuotationCreatePath,
     ctx: RequestContext,
@@ -97,6 +99,7 @@ pub async fn get_quotation_create(
 }
 
 /// HTMX: fetch customer contacts → return full customer-info panel
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_customer_contacts(
     ctx: RequestContext,
     Query(params): Query<CustomerContactsParams>,
@@ -140,6 +143,7 @@ pub async fn get_customer_contacts(
 }
 
 /// HTMX: search products → return HTML fragment
+#[require_permission("PRODUCT", "read")]
 pub async fn get_products(
     ctx: RequestContext,
     Query(params): Query<ProductSearchParams>,
@@ -161,6 +165,7 @@ pub async fn get_products(
 }
 
 /// POST: create quotation from form submission (HTMX)
+#[require_permission("SALES_ORDER", "create")]
 pub async fn create_quotation(
     _path: QuotationCreatePath,
     ctx: RequestContext,

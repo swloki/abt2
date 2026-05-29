@@ -14,9 +14,11 @@ use crate::routes::customer::{
     DeleteContactPath,
 };
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Handlers ──
 
+#[require_permission("CUSTOMER", "read")]
 pub async fn get_customer_detail(
     path: CustomerDetailPath,
     ctx: RequestContext,
@@ -47,6 +49,7 @@ pub async fn get_customer_detail(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("CUSTOMER", "create")]
 pub async fn create_contact(
     path: CreateContactPath,
     ctx: RequestContext,
@@ -69,6 +72,7 @@ pub async fn create_contact(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("CUSTOMER", "delete")]
 pub async fn delete_contact(
     path: DeleteContactPath,
     ctx: RequestContext,
@@ -83,6 +87,7 @@ pub async fn delete_contact(
     Ok(([("HX-Redirect", detail.to_string())], Html(String::new())))
 }
 
+#[require_permission("CUSTOMER", "create")]
 pub async fn create_address(
     path: CreateAddressPath,
     ctx: RequestContext,
@@ -108,6 +113,7 @@ pub async fn create_address(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("CUSTOMER", "delete")]
 pub async fn delete_address(
     path: DeleteAddressPath,
     ctx: RequestContext,

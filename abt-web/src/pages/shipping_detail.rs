@@ -18,6 +18,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::shipping::*;
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Helpers ──
 
@@ -40,6 +41,7 @@ struct ProductDetail {
 
 // ── Handlers ──
 
+#[require_permission("SHIPPING", "read")]
 pub async fn get_shipping_detail(
     path: ShippingDetailPath,
     ctx: RequestContext,
@@ -102,6 +104,7 @@ pub async fn get_shipping_detail(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("SHIPPING", "update")]
 pub async fn confirm_shipping(
     path: ConfirmShippingPath,
     ctx: RequestContext,
@@ -115,6 +118,7 @@ pub async fn confirm_shipping(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SHIPPING", "update")]
 pub async fn pick_shipping(
     path: PickShippingPath,
     ctx: RequestContext,
@@ -128,6 +132,7 @@ pub async fn pick_shipping(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SHIPPING", "update")]
 pub async fn ship_shipping(
     path: ShipShippingPath,
     ctx: RequestContext,
@@ -141,6 +146,7 @@ pub async fn ship_shipping(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SHIPPING", "update")]
 pub async fn cancel_shipping(
     path: CancelShippingPath,
     ctx: RequestContext,

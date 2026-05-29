@@ -10,6 +10,7 @@ path = "src/main.rs"
 [dependencies]
 # Internal
 abt-core = { path = "../abt-core" }
+abt-macros = { path = "../abt-macros" }
 
 
 # Web framework

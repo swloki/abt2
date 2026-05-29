@@ -23,6 +23,7 @@ use crate::routes::order::OrderDetailPath;
 use crate::routes::sales_return::*;
 use crate::routes::shipping::ShippingDetailPath;
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Helpers ──
 
@@ -48,6 +49,7 @@ fn disposition_label(d: ReturnDisposition) -> &'static str {
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_return_detail(
     path: ReturnDetailPath,
     ctx: RequestContext,
@@ -107,6 +109,7 @@ pub async fn get_return_detail(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn confirm_return(
     path: ConfirmReturnPath,
     ctx: RequestContext,
@@ -121,6 +124,7 @@ pub async fn confirm_return(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn receive_return(
     path: ReceiveReturnPath,
     ctx: RequestContext,
@@ -135,6 +139,7 @@ pub async fn receive_return(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn inspect_return(
     path: InspectReturnPath,
     ctx: RequestContext,
@@ -149,6 +154,7 @@ pub async fn inspect_return(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn complete_return(
     path: CompleteReturnPath,
     ctx: RequestContext,
@@ -163,6 +169,7 @@ pub async fn complete_return(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn reject_return(
     path: RejectReturnPath,
     ctx: RequestContext,

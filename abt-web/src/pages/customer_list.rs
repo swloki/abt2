@@ -16,6 +16,7 @@ use crate::components::tabs::{status_tabs, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::customer::{CreateCustomerPath, CustomerDetailPath, CustomerListPath, CustomerTablePath, EditCustomerFormPath, UpdateCustomerPath, DeleteCustomerPath};
 use crate::utils::{empty_as_none, RequestContext};
+use abt_macros::require_permission;
 
 // ── Query Params ──
 
@@ -32,6 +33,7 @@ pub struct CustomerQueryParams {
 
 // ── Handlers ──
 
+#[require_permission("CUSTOMER", "read")]
 pub async fn get_customer_list(
     _path: CustomerListPath,
     ctx: RequestContext,
@@ -54,6 +56,7 @@ pub async fn get_customer_list(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("CUSTOMER", "read")]
 pub async fn get_customer_table(
     ctx: RequestContext,
     Query(params): Query<CustomerQueryParams>,
@@ -69,6 +72,7 @@ pub async fn get_customer_table(
     Ok(Html(customer_table_fragment(&result, &params).into_string()))
 }
 
+#[require_permission("CUSTOMER", "create")]
 pub async fn create_customer(
     _path: CreateCustomerPath,
     ctx: RequestContext,
@@ -106,6 +110,7 @@ pub async fn create_customer(
     ))
 }
 
+#[require_permission("CUSTOMER", "read")]
 pub async fn get_edit_customer_form(
     path: EditCustomerFormPath,
     ctx: RequestContext,
@@ -121,6 +126,7 @@ pub async fn get_edit_customer_form(
     Ok(Html(form_html.into_string()))
 }
 
+#[require_permission("CUSTOMER", "update")]
 pub async fn update_customer(
     path: UpdateCustomerPath,
     ctx: RequestContext,
@@ -148,6 +154,7 @@ pub async fn update_customer(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("CUSTOMER", "delete")]
 pub async fn delete_customer(
     path: DeleteCustomerPath,
     ctx: RequestContext,

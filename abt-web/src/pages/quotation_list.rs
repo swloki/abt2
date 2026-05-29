@@ -21,6 +21,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::quotation::*;
 use crate::utils::{empty_as_none, RequestContext};
+use abt_macros::require_permission;
 
 // ── Query Params ──
 
@@ -95,6 +96,7 @@ fn status_label(s: QuotationStatus) -> (&'static str, &'static str) {
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_quotation_list(
     _path: QuotationListPath,
     ctx: RequestContext,
@@ -130,6 +132,7 @@ pub async fn get_quotation_list(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_quotation_table(
     ctx: RequestContext,
     Query(params): Query<QuotationQueryParams>,
@@ -158,6 +161,7 @@ pub async fn get_quotation_table(
     Ok(Html(quotation_table_fragment(&result, &names, &customers.items, &params).into_string()))
 }
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_edit_quotation_form(
     path: EditQuotationFormPath,
     ctx: RequestContext,
@@ -182,6 +186,7 @@ pub struct UpdateQuotationForm {
     remark: Option<String>,
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn update_quotation(
     path: UpdateQuotationPath,
     ctx: RequestContext,
@@ -203,6 +208,7 @@ pub async fn update_quotation(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "delete")]
 pub async fn delete_quotation(
     path: DeleteQuotationPath,
     ctx: RequestContext,

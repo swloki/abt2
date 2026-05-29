@@ -114,11 +114,22 @@ impl RolePermissionCache {
         merged
     }
 
-    /// Check if any of the given roles has the permission
+    /// Check if any of the given roles has the permission.
+    /// Scans each role's HashSet directly — avoids allocating a merged set.
     pub async fn has_permission(&self, role_ids: &[i64], resource: &str, action: &str) -> bool {
-        let merged = self.get_merged_permissions(role_ids).await;
+        if let Err(e) = self.ensure_fresh().await {
+            tracing::warn!("permission cache refresh failed: {e}");
+        }
+        let state = self.state.read().await;
         let key = format!("{resource}:{action}");
-        merged.contains(&key)
+        for &role_id in role_ids {
+            if let Some(perms) = state.permissions.get(&role_id) {
+                if perms.contains(&key) {
+                    return true;
+                }
+            }
+        }
+        false
     }
 
     /// Reload cache from database

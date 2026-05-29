@@ -24,6 +24,7 @@ use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::shipping::*;
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Helpers ──
 
@@ -87,6 +88,7 @@ pub struct OrderSearchQuery {
 
 // ── Handlers ──
 
+#[require_permission("SHIPPING", "create")]
 pub async fn get_shipping_create(
     _path: ShippingCreatePath,
     ctx: RequestContext,
@@ -113,6 +115,7 @@ pub async fn get_shipping_create(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("SHIPPING", "create")]
 pub async fn post_shipping_create(
     _path: ShippingCreatePath,
     ctx: RequestContext,
@@ -171,6 +174,7 @@ pub async fn post_shipping_create(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SHIPPING", "read")]
 pub async fn get_customer_contacts(
     ctx: RequestContext,
     Query(params): Query<CustomerContactsQuery>,
@@ -209,6 +213,7 @@ pub async fn get_customer_contacts(
     Ok(Html(customer_info_card(&customers.items, params.customer_id, contact_name, contact_phone, &shipping_address).into_string()))
 }
 
+#[require_permission("SHIPPING", "read")]
 pub async fn get_order_search(
     ctx: RequestContext,
     Query(params): Query<OrderSearchQuery>,

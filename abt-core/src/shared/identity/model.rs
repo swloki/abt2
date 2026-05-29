@@ -84,6 +84,12 @@ pub struct Claims {
     pub iat: u64,
 }
 
+impl Claims {
+    pub fn is_super_admin(&self) -> bool {
+        self.system_role == "super_admin"
+            || self.role_codes.iter().any(|c| c == "super_admin")
+    }
+}
 // ---------------------------------------------------------------------------
 // AuthContext — gRPC request-level
 // ---------------------------------------------------------------------------
@@ -149,8 +155,13 @@ pub struct ResourceActionDef {
     pub action_name: &'static str,
 }
 
-/// 16 resources x 4 actions = 64 permission entries
+/// 18 resources x 4 actions = 72 permission entries
 pub static RESOURCE_ACTION_DEFS: &[ResourceActionDef] = &[
+    // CUSTOMER
+    ResourceActionDef { resource_code: "CUSTOMER", resource_name: "Customer", description: "Customer management", action: "create", action_name: "Create" },
+    ResourceActionDef { resource_code: "CUSTOMER", resource_name: "Customer", description: "Customer management", action: "read", action_name: "Read" },
+    ResourceActionDef { resource_code: "CUSTOMER", resource_name: "Customer", description: "Customer management", action: "update", action_name: "Update" },
+    ResourceActionDef { resource_code: "CUSTOMER", resource_name: "Customer", description: "Customer management", action: "delete", action_name: "Delete" },
     // PRODUCT
     ResourceActionDef { resource_code: "PRODUCT", resource_name: "Product", description: "Product management", action: "create", action_name: "Create" },
     ResourceActionDef { resource_code: "PRODUCT", resource_name: "Product", description: "Product management", action: "read", action_name: "Read" },
@@ -231,4 +242,9 @@ pub static RESOURCE_ACTION_DEFS: &[ResourceActionDef] = &[
     ResourceActionDef { resource_code: "DEPARTMENT", resource_name: "Department", description: "Department management", action: "read", action_name: "Read" },
     ResourceActionDef { resource_code: "DEPARTMENT", resource_name: "Department", description: "Department management", action: "update", action_name: "Update" },
     ResourceActionDef { resource_code: "DEPARTMENT", resource_name: "Department", description: "Department management", action: "delete", action_name: "Delete" },
-];
+    // SHIPPING
+    ResourceActionDef { resource_code: "SHIPPING", resource_name: "Shipping", description: "Shipping request management", action: "create", action_name: "Create" },
+    ResourceActionDef { resource_code: "SHIPPING", resource_name: "Shipping", description: "Shipping request management", action: "read", action_name: "Read" },
+    ResourceActionDef { resource_code: "SHIPPING", resource_name: "Shipping", description: "Shipping request management", action: "update", action_name: "Update" },
+    ResourceActionDef { resource_code: "SHIPPING", resource_name: "Shipping", description: "Shipping request management", action: "delete", action_name: "Delete" },
+ ];

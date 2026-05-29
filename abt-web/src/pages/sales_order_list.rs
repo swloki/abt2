@@ -23,6 +23,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
 use crate::utils::{empty_as_none, resolve_customer_names, RequestContext};
+use abt_macros::require_permission;
 
 // ── Query Params ──
 
@@ -119,6 +120,7 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_order_list(
     _path: OrderListPath,
     ctx: RequestContext,
@@ -149,6 +151,7 @@ pub async fn get_order_list(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_order_table(
     ctx: RequestContext,
     Query(params): Query<OrderQueryParams>,

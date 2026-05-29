@@ -22,6 +22,7 @@ use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::reconciliation::*;
 use crate::utils::{empty_as_none, resolve_customer_names, RequestContext};
+use abt_macros::require_permission;
 
 // ── Query Params ──
 
@@ -105,6 +106,7 @@ async fn count_by_status<S: ReconciliationService>(
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_reconciliation_list(
     _path: ReconciliationListPath,
     ctx: RequestContext,
@@ -140,6 +142,7 @@ pub async fn get_reconciliation_list(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_reconciliation_table(
     ctx: RequestContext,
     Query(params): Query<ReconciliationQueryParams>,
@@ -168,6 +171,7 @@ pub async fn get_reconciliation_table(
     Ok(Html(reconciliation_table_fragment(&result, &customer_names, &customers.items, &params, &status_counts).into_string()))
 }
 
+#[require_permission("SALES_ORDER", "delete")]
 pub async fn delete_reconciliation(
     path: ReconciliationDeletePath,
     ctx: RequestContext,
@@ -181,6 +185,7 @@ pub async fn delete_reconciliation(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "create")]
 pub async fn get_reconciliation_create_placeholder(
     _path: ReconciliationCreatePath,
     _ctx: RequestContext,

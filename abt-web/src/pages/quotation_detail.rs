@@ -14,6 +14,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::quotation::*;
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Helpers ──
 
@@ -30,6 +31,7 @@ fn status_label(s: QuotationStatus) -> (&'static str, &'static str) {
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_quotation_detail(
     path: QuotationDetailPath,
     ctx: RequestContext,
@@ -61,6 +63,7 @@ pub async fn get_quotation_detail(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn submit_quotation(
     path: SubmitQuotationPath,
     ctx: RequestContext,
@@ -74,6 +77,7 @@ pub async fn submit_quotation(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn accept_quotation(
     path: AcceptQuotationPath,
     ctx: RequestContext,
@@ -87,6 +91,7 @@ pub async fn accept_quotation(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn reject_quotation(
     path: RejectQuotationPath,
     ctx: RequestContext,

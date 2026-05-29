@@ -18,6 +18,7 @@ use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Form Request ──
 
@@ -46,6 +47,7 @@ struct ItemWeb {
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_order_edit(
     path: OrderEditFormPath,
     ctx: RequestContext,
@@ -84,6 +86,7 @@ pub async fn get_order_edit(
 }
 
 /// POST: update order
+#[require_permission("SALES_ORDER", "update")]
 pub async fn update_order(
     path: OrderEditFormPath,
     ctx: RequestContext,

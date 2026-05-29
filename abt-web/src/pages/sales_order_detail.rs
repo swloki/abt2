@@ -16,6 +16,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
 use crate::utils::RequestContext;
+use abt_macros::require_permission;
 
 // ── Helpers ──
 
@@ -38,6 +39,7 @@ struct ContactInfo {
 
 // ── Handlers ──
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_order_detail(
     path: OrderDetailPath,
     ctx: RequestContext,
@@ -95,6 +97,7 @@ pub async fn get_order_detail(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn confirm_order(
     path: ConfirmOrderPath,
     ctx: RequestContext,
@@ -108,6 +111,7 @@ pub async fn confirm_order(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn start_order(
     path: StartOrderPath,
     ctx: RequestContext,
@@ -121,6 +125,7 @@ pub async fn start_order(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn complete_order(
     path: CompleteOrderPath,
     ctx: RequestContext,
@@ -134,6 +139,7 @@ pub async fn complete_order(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("SALES_ORDER", "update")]
 pub async fn cancel_order(
     path: CancelOrderPath,
     ctx: RequestContext,

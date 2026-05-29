@@ -6,6 +6,7 @@ pub mod quotation_create;
 pub mod quotation_detail;
 pub mod quotation_list;
 pub mod reconciliation_detail;
+pub mod reconciliation_create;
 pub mod reconciliation_list;
 pub mod sales_order_create;
 pub mod sales_order_detail;

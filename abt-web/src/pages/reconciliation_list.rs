@@ -18,7 +18,6 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
 use crate::errors::Result;
-use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
 use crate::routes::reconciliation::*;
 use crate::utils::{empty_as_none, resolve_customer_names, RequestContext};
@@ -185,14 +184,6 @@ pub async fn delete_reconciliation(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
-#[require_permission("SALES_ORDER", "create")]
-pub async fn get_reconciliation_create_placeholder(
-    _path: ReconciliationCreatePath,
-    _ctx: RequestContext,
-) -> Result<Html<String>> {
-    Err(DomainError::business_rule("新建对账单功能开发中").into())
-}
-
 // ── Components ──
 
 fn reconciliation_list_page(
@@ -229,7 +220,7 @@ fn reconciliation_table_fragment(
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
 
-    let total_count: u64 = status_counts.values().sum();
+    let total_count: u64 = status_counts.get(&0).copied().unwrap_or(0);
     let draft_count = status_counts.get(&1).copied();
     let sent_count = status_counts.get(&2).copied();
     let confirmed_count = status_counts.get(&3).copied();

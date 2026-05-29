@@ -440,9 +440,25 @@ impl ReconciliationService for ReconciliationServiceImpl {
         Ok(())
     }
 
+
     async fn list_items(
         &self, _ctx: &ServiceContext, db: PgExecutor<'_>, reconciliation_id: i64,
     ) -> Result<Vec<ReconciliationItem>> {
         self.item_repo.find_by_reconciliation_id(db, reconciliation_id).await
+    }
+
+    async fn preview(
+        &self, _ctx: &ServiceContext, db: PgExecutor<'_>,
+        customer_id: i64, period: String,
+    ) -> Result<Vec<ReconciliationPreviewItem>> {
+        let aggregated = aggregate_shipping_items(db, customer_id, &period).await?;
+        Ok(aggregated.into_iter().map(|a| ReconciliationPreviewItem {
+            shipping_request_id: a.shipping_request_id,
+            sales_order_id: a.sales_order_id,
+            product_id: a.product_id,
+            quantity: a.quantity,
+            unit_price: a.unit_price,
+            amount: a.amount,
+        }).collect())
     }
 }

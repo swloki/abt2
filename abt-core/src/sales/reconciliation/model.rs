@@ -127,8 +127,18 @@ pub struct CreateReconciliationParams<'a> {
     pub operator_id: i64,
 }
 
-/// 明细行聚合输入（由 repo 查询填充）
+/// 明细行聚合输入（由 repo 层查询填充）
 pub struct ReconciliationItemInput {
+    pub shipping_request_id: i64,
+    pub sales_order_id: i64,
+    pub product_id: i64,
+    pub quantity: Decimal,
+    pub unit_price: Decimal,
+    pub amount: Decimal,
+}
+
+/// 对账预览项（从已发货数据聚合，用于创建前预览）
+pub struct ReconciliationPreviewItem {
     pub shipping_request_id: i64,
     pub sales_order_id: i64,
     pub product_id: i64,

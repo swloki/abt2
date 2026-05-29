@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use super::model::*;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, Result, ServiceContext};
@@ -38,6 +38,15 @@ pub trait ReconciliationService: Send + Sync {
         db: PgExecutor<'_>,
         reconciliation_id: i64,
     ) -> Result<Vec<ReconciliationItem>>;
+
+
+    async fn preview(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        customer_id: i64,
+        period: String,
+    ) -> Result<Vec<ReconciliationPreviewItem>>;
 
     async fn list(
         &self,

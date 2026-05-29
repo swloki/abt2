@@ -5,6 +5,7 @@ use serde::Deserialize;
 
 use crate::pages::reconciliation_list;
 use crate::pages::reconciliation_detail;
+use crate::pages::reconciliation_create;
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -20,6 +21,10 @@ pub struct ReconciliationTablePath;
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/reconciliations/new")]
 pub struct ReconciliationCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/reconciliations/preview")]
+pub struct ReconciliationPreviewPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/reconciliations/{id}")]
@@ -63,7 +68,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route(ReconciliationListPath::PATH, get(reconciliation_list::get_reconciliation_list))
         .route(ReconciliationTablePath::PATH, get(reconciliation_list::get_reconciliation_table))
-        .route(ReconciliationCreatePath::PATH, get(reconciliation_list::get_reconciliation_create_placeholder))
+        .route(ReconciliationCreatePath::PATH, get(reconciliation_create::get_reconciliation_create).post(reconciliation_create::post_reconciliation_create))
+        .route(ReconciliationPreviewPath::PATH, get(reconciliation_create::get_reconciliation_preview))
         .route(ReconciliationDetailPath::PATH, get(reconciliation_detail::get_reconciliation_detail))
         .route(ReconciliationDeletePath::PATH, post(reconciliation_list::delete_reconciliation))
         .route(SendReconciliationPath::PATH, post(reconciliation_detail::send_reconciliation))

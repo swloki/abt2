@@ -19,6 +19,9 @@ fn document(title: &str, body: Markup) -> Markup {
                 link rel="icon" type="image/svg+xml" href="/favicon.svg";
                 link rel="stylesheet" href="/app.css";
                 script src="/htmx.min.js" {}
+                script {
+                    "document.addEventListener('htmx:responseError', function(e) { if (e.detail.xhr.status === 403) { e.preventDefault(); window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: '权限不足，无法执行此操作', type: 'error' } })); } else if (e.detail.xhr.status === 401) { window.location.href = '/login'; } });"
+                }
                 script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer {}
             }
             body {

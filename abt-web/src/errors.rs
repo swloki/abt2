@@ -16,26 +16,27 @@ impl From<DomainError> for WebError {
 
 impl IntoResponse for WebError {
     fn into_response(self) -> Response {
-        let (status, message) = match &self.0 {
-            DomainError::NotFound(msg) => (StatusCode::NOT_FOUND, msg.clone()),
-            DomainError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg.clone()),
-            DomainError::PermissionDenied(msg) => (StatusCode::FORBIDDEN, msg.clone()),
+        let (status, title, message) = match &self.0 {
+            DomainError::NotFound(msg) => (StatusCode::NOT_FOUND, "页面未找到", msg.clone()),
+            DomainError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, "未授权", msg.clone()),
+            DomainError::PermissionDenied(msg) => (StatusCode::FORBIDDEN, "权限不足", msg.clone()),
             DomainError::Duplicate(msg)
             | DomainError::Validation(msg)
-            | DomainError::BusinessRule(msg) => (StatusCode::BAD_REQUEST, msg.clone()),
+            | DomainError::BusinessRule(msg) => (StatusCode::BAD_REQUEST, "请求错误", msg.clone()),
             DomainError::InvalidStateTransition { from, to } => {
-                (StatusCode::BAD_REQUEST, format!("状态转换无效: {from} -> {to}"))
+                (StatusCode::BAD_REQUEST, "请求错误", format!("状态转换无效: {from} -> {to}"))
             }
             DomainError::ConcurrentConflict => {
-                (StatusCode::CONFLICT, "并发冲突".into())
+                (StatusCode::CONFLICT, "并发冲突", "数据已被其他操作修改，请刷新后重试".into())
             }
             DomainError::Internal(e) => {
                 tracing::error!("Internal error: {e}");
-                (StatusCode::INTERNAL_SERVER_ERROR, format!("服务器错误: {e}"))
+                (StatusCode::INTERNAL_SERVER_ERROR, "服务器错误", "服务器内部错误，请稍后重试".into())
             }
         };
 
-        (status, message).into_response()
+        let html = error_page(title, &message);
+        (status, axum::response::Html(html.into_string())).into_response()
     }
 }
 

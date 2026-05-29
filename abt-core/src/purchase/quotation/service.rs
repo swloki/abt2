@@ -1,12 +1,12 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use super::model::{
-    CreatePurchaseQuotationRequest, PurchaseQuotation, PurchaseQuotationQuery, QuotationComparison,
+    CreatePurchaseQuotationRequest, PurchaseQuotation, PurchaseQuotationItem, PurchaseQuotationQuery, QuotationComparison,
 };
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
-use crate::shared::types::pagination::PaginatedResult;
+use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 #[async_trait]
 pub trait PurchaseQuotationService: Send + Sync {
@@ -25,6 +25,7 @@ pub trait PurchaseQuotationService: Send + Sync {
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
         query: PurchaseQuotationQuery,
+        page: PageParams,
     ) -> Result<PaginatedResult<PurchaseQuotation>>;
 
     async fn compare(
@@ -32,4 +33,10 @@ pub trait PurchaseQuotationService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         product_id: i64,
     ) -> Result<Vec<QuotationComparison>>;
+    async fn list_items(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        quotation_id: i64,
+    ) -> Result<Vec<PurchaseQuotationItem>>;
+    async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()>;
 }

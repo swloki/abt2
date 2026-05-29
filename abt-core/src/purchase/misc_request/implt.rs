@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
-use super::model::{CreateMiscRequestRequest, MiscellaneousRequest};
+use super::model::{CreateMiscRequestRequest, MiscRequestItem, MiscRequestQuery, MiscellaneousRequest};
 use super::repo::{MiscRequestItemRepo, MiscRequestRepo};
 use super::service::MiscellaneousRequestService;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
@@ -18,6 +18,7 @@ use crate::shared::state_machine::{new_state_machine_service, service::StateMach
 use crate::shared::types::PgExecutor;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use crate::shared::types::Result;
 
 const ENTITY_TYPE: &str = "MiscellaneousRequest";
@@ -148,6 +149,78 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
             .await?;
 
         // 5. 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
+            .await?;
+
+        Ok(())
+    }
+
+    async fn list(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        query: MiscRequestQuery,
+        page: PageParams,
+    ) -> Result<PaginatedResult<MiscellaneousRequest>> {
+        let scope = (ctx.data_scope, ctx.operator_id, ctx.department_id);
+        let (items, total) = MiscRequestRepo::query(&mut *db, &query, &page, scope)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    async fn list_items(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        request_id: i64,
+    ) -> Result<Vec<MiscRequestItem>> {
+        MiscRequestItemRepo::list_by_request_id(&mut *db, request_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn cancel(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        idempotency_key: Option<String>,
+    ) -> Result<()> {
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "MiscellaneousRequest:cancel").await? {
+                return Err(DomainError::duplicate("MiscellaneousRequest"));
+            }
+        }
+
+        // 1. 获取当前记录（用于乐观锁）
+        let request = MiscRequestRepo::get_by_id(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+
+        // 2. 状态转换 Draft -> Cancelled
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Cancelled", None)
+            .await?;
+
+        // 3. 更新实体表状态
+        let rows = MiscRequestRepo::update_status(
+            &mut *db,
+            id,
+            MiscRequestStatus::Cancelled,
+            &request.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        // 4. 审计日志
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
             .await?;

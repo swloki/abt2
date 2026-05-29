@@ -1,0 +1,64 @@
+use axum::routing::{get, post};
+use axum::Router;
+use axum_extra::routing::TypedPath;
+use serde::Deserialize;
+
+use crate::pages::purchase_order_list;
+use crate::pages::purchase_order_create;
+use crate::pages::purchase_order_detail;
+use crate::state::AppState;
+
+// ── Typed Paths ──
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders")]
+pub struct POListPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders/table")]
+pub struct POTablePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders/create")]
+pub struct POCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders/products")]
+pub struct POProductsPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders/{id}")]
+pub struct PODetailPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders/{id}/confirm")]
+pub struct POConfirmPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders/{id}/cancel")]
+pub struct POCancelPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders/{id}/delete")]
+pub struct PODeletePath {
+    pub id: i64,
+}
+
+// ── Router ──
+
+pub fn router() -> Router<AppState> {
+    Router::new()
+        .route(POListPath::PATH, get(purchase_order_list::get_po_list))
+        .route(POTablePath::PATH, get(purchase_order_list::get_po_table))
+        .route(POCreatePath::PATH, get(purchase_order_create::get_po_create).post(purchase_order_create::create_po))
+        .route(POProductsPath::PATH, get(purchase_order_create::get_po_products))
+        .route(PODetailPath::PATH, get(purchase_order_detail::get_po_detail))
+        .route(POConfirmPath::PATH, post(purchase_order_detail::confirm_po))
+        .route(POCancelPath::PATH, post(purchase_order_detail::cancel_po))
+}

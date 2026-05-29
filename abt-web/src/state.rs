@@ -116,4 +116,46 @@ impl AppState {
             self.permission_cache.clone(),
         )
     }
+
+    // ── Purchase (SRM) Services ──
+
+    pub fn supplier_service(&self) -> impl abt_core::master_data::supplier::SupplierService {
+        abt_core::master_data::supplier::new_supplier_service(self.pool.clone())
+    }
+
+    pub fn purchase_quotation_service(
+        &self,
+    ) -> impl abt_core::purchase::quotation::PurchaseQuotationService {
+        abt_core::purchase::quotation::new_purchase_quotation_service(self.pool.clone())
+    }
+
+    pub fn purchase_order_service(
+        &self,
+    ) -> impl abt_core::purchase::order::PurchaseOrderService {
+        abt_core::purchase::order::new_purchase_order_service(self.pool.clone())
+    }
+
+    pub fn purchase_return_service(
+        &self,
+    ) -> impl abt_core::purchase::return_order::PurchaseReturnService {
+        abt_core::purchase::return_order::new_purchase_return_service(self.pool.clone())
+    }
+
+    pub fn purchase_reconciliation_service(
+        &self,
+    ) -> impl abt_core::purchase::reconciliation::PurchaseReconciliationService {
+        abt_core::purchase::reconciliation::new_purchase_reconciliation_service(self.pool.clone())
+    }
+
+    pub fn payment_request_service(
+        &self,
+    ) -> impl abt_core::purchase::payment::PaymentRequestService {
+        abt_core::purchase::payment::new_payment_request_service(self.pool.clone())
+    }
+
+    pub fn misc_request_service(
+        &self,
+    ) -> impl abt_core::purchase::misc_request::MiscellaneousRequestService {
+        abt_core::purchase::misc_request::new_misc_request_service(self.pool.clone())
+    }
 }

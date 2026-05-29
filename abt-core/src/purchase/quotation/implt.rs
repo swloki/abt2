@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
-use super::model::{CreatePurchaseQuotationRequest, PurchaseQuotation, PurchaseQuotationQuery, QuotationComparison};
+use super::model::{CreatePurchaseQuotationRequest, PurchaseQuotation, PurchaseQuotationItem, PurchaseQuotationQuery, QuotationComparison};
 use super::repo::{PurchaseQuotationItemRepo, PurchaseQuotationRepo};
 use super::service::PurchaseQuotationService;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
@@ -154,14 +154,13 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
         query: PurchaseQuotationQuery,
+        page: PageParams,
     ) -> Result<PaginatedResult<PurchaseQuotation>> {
-        let params = PageParams::new(1, 20);
         let scope = (ctx.data_scope, ctx.operator_id, ctx.department_id);
-        let (items, total) = PurchaseQuotationRepo::query(&mut *db, &query, &params, scope)
+        let (items, total) = PurchaseQuotationRepo::query(&mut *db, &query, &page, scope)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
-
-        Ok(PaginatedResult::new(items, total, params.page, params.page_size))
+        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
 
     async fn compare(
@@ -172,5 +171,53 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         PurchaseQuotationRepo::compare_by_product(&mut *db, product_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
+    }
+    async fn list_items(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        quotation_id: i64,
+    ) -> Result<Vec<PurchaseQuotationItem>> {
+        PurchaseQuotationItemRepo::list_by_quotation_id(&mut *db, quotation_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+    async fn cancel(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+        idempotency_key: Option<String>,
+    ) -> Result<()> {
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "PurchaseQuotation:cancel").await? {
+                return Err(DomainError::duplicate("PurchaseQuotation"));
+            }
+        }
+        // 1. Fetch current record (for optimistic lock)
+        let quotation = PurchaseQuotationRepo::get_by_id(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+        // 2. State transition Draft -> Cancelled
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Cancelled", None)
+            .await?;
+        // 3. Update entity status
+        let rows = PurchaseQuotationRepo::update_status(
+            &mut *db,
+            id,
+            PurchaseQuotationStatus::Cancelled,
+            &quotation.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+        // 4. Audit log
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
+            .await?;
+        Ok(())
     }
 }

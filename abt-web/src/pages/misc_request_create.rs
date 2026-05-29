@@ -1,0 +1,232 @@
+use axum::http::HeaderMap;
+use axum::response::{Html, IntoResponse};
+use axum_extra::routing::TypedPath;
+use maud::{Markup, html};
+use serde::Deserialize;
+
+use abt_core::purchase::misc_request::MiscellaneousRequestService;
+use abt_core::purchase::misc_request::model::*;
+use abt_core::shared::types::DomainError;
+
+use crate::components::icon;
+use crate::errors::Result;
+use crate::layout::page::admin_page;
+use crate::routes::misc_request::*;
+use crate::utils::RequestContext;
+use abt_macros::require_permission;
+
+// ── Form request ──
+
+#[derive(Debug, Deserialize)]
+pub struct MiscCreateForm {
+    pub purpose: String,
+    pub request_date: String,
+    pub remark: Option<String>,
+    pub items_json: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ItemWeb {
+    item_name: String,
+    specification: Option<String>,
+    quantity: String,
+    unit: String,
+    estimated_price: Option<String>,
+    remark: Option<String>,
+}
+
+// ── Handlers ──
+
+#[require_permission("MISC_REQUEST", "create")]
+pub async fn get_misc_create(
+    _path: MiscCreatePath,
+    ctx: RequestContext,
+    headers: HeaderMap,
+) -> Result<Html<String>> {
+    let RequestContext { claims, .. } = ctx;
+
+    let content = misc_create_page();
+    let page_html = admin_page(
+        &headers,
+        "新建零星请购",
+        &claims,
+        "purchase",
+        MiscCreatePath::PATH,
+        "采购管理",
+        Some("新建零星请购"),
+        content,
+    );
+
+    Ok(Html(page_html.into_string()))
+}
+
+/// POST: create miscellaneous request from form submission
+#[require_permission("MISC_REQUEST", "create")]
+pub async fn create_misc(
+    _path: MiscCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<MiscCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+    let svc = state.misc_request_service();
+
+    let request_date = chrono::NaiveDate::parse_from_str(&form.request_date, "%Y-%m-%d")
+        .map_err(|e| DomainError::validation(format!("无效请购日期格式: {e}")))?;
+
+    let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效明细数据: {e}")))?;
+
+    let items: Vec<CreateMiscItemRequest> = web_items
+        .into_iter()
+        .enumerate()
+        .map(|(idx, item)| CreateMiscItemRequest {
+            line_no: (idx as i32) + 1,
+            item_name: item.item_name,
+            specification: item.specification,
+            quantity: item
+                .quantity
+                .parse()
+                .unwrap_or(rust_decimal::Decimal::ZERO),
+            unit: item.unit,
+            estimated_price: item.estimated_price.and_then(|s| s.parse().ok()),
+            remark: item.remark,
+        })
+        .collect();
+
+    let department_id = claims
+        .department_ids
+        .first()
+        .copied()
+        .unwrap_or(1);
+
+    let create_req = CreateMiscRequestRequest {
+        department_id,
+        request_date,
+        purpose: form.purpose,
+        remark: form.remark.unwrap_or_default(),
+        items,
+    };
+
+    let id = svc.create(&service_ctx, &mut conn, create_req, None).await?;
+
+    let redirect = MiscDetailPath { id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+// ── Components ──
+
+fn misc_create_page() -> Markup {
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+
+    html! {
+        div x-data="miscRequestForm()" {
+            // ── Page Header ──
+            div class="page-header" {
+                a class="back-link" href=(MiscListPath::PATH) {
+                    (icon::arrow_left_icon("w-4 h-4"))
+                    "返回零星请购列表"
+                }
+                h1 class="page-title" { "新建零星请购" }
+            }
+
+            form id="misc-form"
+                  hx-post=(MiscCreatePath::PATH)
+                  hx-swap="none" {
+                input type="hidden" name="items_json" x-model="itemsJson";
+
+            // ── Basic Info ──
+            div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="form-section-title" { "基本信息" }
+                div class="form-grid" {
+                    div class="form-field" {
+                        label { "请购用途" span style="color:var(--danger)" { "*" } }
+                        input type="text" name="purpose" required placeholder="输入请购用途" {}
+                    }
+                    div class="form-field" {
+                        label { "请购日期" }
+                        input type="date" name="request_date" value=(today) {}
+                    }
+                }
+            }
+
+            // ── Line Items ──
+            div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
+                div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
+                    span class="form-section-title" style="margin:0;padding:0;border:none" { "请购明细" }
+                    button type="button" class="btn btn-sm btn-primary"
+                        x-on:click="addItem()" {
+                        (icon::plus_icon("w-3.5 h-3.5"))
+                        "添加行"
+                    }
+                }
+                div style="overflow-x:auto" {
+                    table class="data-table" style="min-width:900px" {
+                        thead {
+                            tr {
+                                th style="width:36px;text-align:center" { "#" }
+                                th { "物品名称" }
+                                th { "规格型号" }
+                                th style="width:100px;text-align:right" { "数量" }
+                                th style="width:80px;text-align:center" { "单位" }
+                                th style="width:120px;text-align:right" { "预估单价" }
+                                th style="width:120px;text-align:right" { "预估金额" }
+                                th { "备注" }
+                                th style="width:36px" { }
+                            }
+                        }
+                        tbody {
+                            template x-for="(item, idx) in items" {
+                                tr {
+                                    td class="line-num" x-text="idx + 1" {}
+                                    td { input class="form-input" type="text" x-model="item.item_name" required placeholder="物品名称" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input" type="text" x-model="item.specification" placeholder="规格型号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input num-input" type="number" x-model="item.quantity" step="any" min="0" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input" type="text" x-model="item.unit" placeholder="单位" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input num-input" type="number" x-model="item.estimated_price" step="0.01" min="0" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td class="mono" style="text-align:right" x-text="(item.quantity * item.estimated_price || 0).toFixed(2)" {}
+                                    td { input class="form-input" type="text" x-model="item.remark" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { button type="button" class="btn-remove-row" x-on:click="removeItem(idx)" title="删除行" {
+                                        (icon::x_icon("w-3.5 h-3.5"))
+                                    } }
+                                }
+                            }
+                        }
+                    }
+                }
+                div class="add-row-bar" {
+                    button type="button" class="btn-add-row"
+                        x-on:click="addItem()" {
+                        (icon::plus_icon("w-3.5 h-3.5"))
+                        "添加行"
+                    }
+                }
+            }
+
+            // ── Remark ──
+            div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="form-section-title" { "备注" }
+                textarea name="remark" placeholder="输入请购相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+            }
+
+            // ── Action Bar ──
+            div class="create-action-bar" {
+                a class="btn btn-default" href=(MiscListPath::PATH) { "取消" }
+                div style="display:flex;gap:var(--space-3)" {
+                    button type="submit" class="btn btn-primary" {
+                        "提交请购"
+                    }
+                }
+            }
+            }
+
+            // ── Submit script ──
+            script src="/misc-request-create.js" {}
+        }
+    }
+}

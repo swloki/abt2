@@ -83,6 +83,10 @@ pub enum DomainEventType {
     // Sales — soft delete
     SalesOrderDeleted = 60,
     QuotationDeleted = 61,
+    // Purchase — order cancelled
+    PurchaseOrderCancelled = 62,
+    // Purchase — return cancelled
+    PurchaseReturnCancelled = 63,
 }
 
 impl DomainEventType {
@@ -126,6 +130,7 @@ impl DomainEventType {
             56 => Some(Self::ProductCreated), 57 => Some(Self::ProductUpdated),
             58 => Some(Self::ProductDeleted), 59 => Some(Self::H3YunInventorySync),
             60 => Some(Self::SalesOrderDeleted), 61 => Some(Self::QuotationDeleted),
+            62 => Some(Self::PurchaseOrderCancelled), 63 => Some(Self::PurchaseReturnCancelled),
             _ => None,
         }
     }

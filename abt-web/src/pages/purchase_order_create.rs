@@ -5,22 +5,18 @@ use axum_extra::routing::TypedPath;
 use maud::{Markup, html};
 use serde::Deserialize;
 
-use abt_core::master_data::customer::CustomerService;
-use abt_core::master_data::customer::model::CustomerQuery;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::ProductQuery;
-use abt_core::sales::quotation::QuotationService;
-use abt_core::sales::quotation::model::*;
+use abt_core::master_data::supplier::SupplierService;
+use abt_core::master_data::supplier::model::SupplierQuery;
+use abt_core::purchase::order::PurchaseOrderService;
+use abt_core::purchase::order::model::*;
 use abt_core::shared::types::PageParams;
 
-use crate::components::customer_info::{CustomerContactsParams, customer_info_panel};
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::quotation::{
-    QuotationCreatePath, QuotationCustomerContactsPath, QuotationDetailPath, QuotationListPath,
-    QuotationProductsPath,
-};
+use crate::routes::purchase_order::*;
 use crate::utils::RequestContext;
 use abt_core::shared::types::DomainError;
 use abt_macros::require_permission;
@@ -36,12 +32,12 @@ pub struct ProductSearchParams {
 // ── Form request ──
 
 #[derive(Debug, Deserialize)]
-pub struct QuotationCreateForm {
-    pub customer_id: i64,
-    pub contact_id: i64,
-    pub valid_until: String,
+pub struct POCreateForm {
+    pub supplier_id: i64,
+    pub order_date: String,
+    pub expected_delivery_date: Option<String>,
     pub payment_terms: Option<String>,
-    pub delivery_terms: Option<String>,
+    pub delivery_address: Option<String>,
     pub remark: Option<String>,
     pub items_json: String,
 }
@@ -51,18 +47,15 @@ struct ItemWeb {
     product_id: i64,
     description: Option<String>,
     quantity: String,
-    unit: Option<String>,
     unit_price: String,
-    unit_cost: Option<String>,
-    discount_rate: Option<String>,
-    delivery_date: Option<String>,
+    expected_delivery_date: Option<String>,
 }
 
 // ── Handlers ──
 
-#[require_permission("SALES_ORDER", "create")]
-pub async fn get_quotation_create(
-    _path: QuotationCreatePath,
+#[require_permission("PURCHASE_ORDER", "create")]
+pub async fn get_po_create(
+    _path: POCreatePath,
     ctx: RequestContext,
     headers: HeaderMap,
 ) -> Result<Html<String>> {
@@ -73,87 +66,39 @@ pub async fn get_quotation_create(
         claims,
         ..
     } = ctx;
-    let customer_svc = state.customer_service();
+    let supplier_svc = state.supplier_service();
 
-    let customers = customer_svc
+    let suppliers = supplier_svc
         .list(
             &service_ctx,
             &mut conn,
-            CustomerQuery {
+            SupplierQuery {
                 name: None,
                 status: None,
                 category: None,
-                owner_id: None,
             },
             PageParams::new(1, 200),
         )
         .await?;
 
-    let content = quotation_create_page(&customers.items);
+    let content = po_create_page(&suppliers.items);
     let page_html = admin_page(
         &headers,
-        "新建报价单",
+        "新建采购订单",
         &claims,
-        "sales",
-        QuotationCreatePath::PATH,
-        "销售管理",
-        Some("新建报价单"),
+        "purchase",
+        POCreatePath::PATH,
+        "采购管理",
+        Some("新建采购订单"),
         content,
     );
 
     Ok(Html(page_html.into_string()))
 }
 
-/// HTMX: fetch customer contacts → return full customer-info panel
-#[require_permission("SALES_ORDER", "read")]
-pub async fn get_customer_contacts(
-    ctx: RequestContext,
-    Query(params): Query<CustomerContactsParams>,
-) -> Result<Html<String>> {
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let customer_svc = state.customer_service();
-
-    let contacts = match params.customer_id {
-        Some(cid) if cid > 0 => customer_svc
-            .list_contacts(&service_ctx, &mut conn, cid)
-            .await
-            .unwrap_or_default(),
-        _ => vec![],
-    };
-
-    let result = customer_svc
-        .list(
-            &service_ctx,
-            &mut conn,
-            CustomerQuery {
-                name: None,
-                status: None,
-                category: None,
-                owner_id: None,
-            },
-            PageParams::new(1, 200),
-        )
-        .await?;
-
-    Ok(Html(
-        customer_info_panel(
-            &result.items,
-            &contacts,
-            params.customer_id,
-            QuotationCustomerContactsPath::PATH,
-        )
-        .into_string(),
-    ))
-}
-
 /// HTMX: search products → return HTML fragment
 #[require_permission("PRODUCT", "read")]
-pub async fn get_products(
+pub async fn get_po_products(
     ctx: RequestContext,
     Query(params): Query<ProductSearchParams>,
 ) -> Result<Html<String>> {
@@ -178,12 +123,12 @@ pub async fn get_products(
     Ok(Html(product_list_fragment(&result.items).into_string()))
 }
 
-/// POST: create quotation from form submission (HTMX)
-#[require_permission("SALES_ORDER", "create")]
-pub async fn create_quotation(
-    _path: QuotationCreatePath,
+/// POST: create purchase order from form submission (HTMX)
+#[require_permission("PURCHASE_ORDER", "create")]
+pub async fn create_po(
+    _path: POCreatePath,
     ctx: RequestContext,
-    axum::Form(form): axum::Form<QuotationCreateForm>,
+    axum::Form(form): axum::Form<POCreateForm>,
 ) -> Result<impl IntoResponse> {
     let RequestContext {
         mut conn,
@@ -191,92 +136,121 @@ pub async fn create_quotation(
         service_ctx,
         ..
     } = ctx;
-    let svc = state.quotation_service();
+    let svc = state.purchase_order_service();
 
-    let valid_until = chrono::NaiveDate::parse_from_str(&form.valid_until, "%Y-%m-%d")
-        .map_err(|e| DomainError::validation(format!("无效日期格式: {e}")))?;
+    let order_date = chrono::NaiveDate::parse_from_str(&form.order_date, "%Y-%m-%d")
+        .map_err(|e| DomainError::validation(format!("无效订单日期格式: {e}")))?;
+
+    let expected_delivery_date = form
+        .expected_delivery_date
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .map(|s| {
+            chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d")
+                .map_err(|e| DomainError::validation(format!("无效预期交货日期格式: {e}")))
+        })
+        .transpose()?;
 
     let web_items: Vec<ItemWeb> = serde_json::from_str(&form.items_json)
         .map_err(|e| DomainError::validation(format!("无效产品数据: {e}")))?;
 
-    let items: Vec<CreateQuotationItemReq> = web_items
+    let items: Vec<CreateOrderItemRequest> = web_items
         .into_iter()
-        .map(|item| CreateQuotationItemReq {
-            product_id: item.product_id,
-            description: item.description,
-            quantity: item.quantity.parse().unwrap_or(rust_decimal::Decimal::ONE),
-            unit: item.unit,
-            unit_price: item
-                .unit_price
-                .parse()
-                .unwrap_or(rust_decimal::Decimal::ZERO),
-            unit_cost: item.unit_cost.and_then(|s| s.parse().ok()),
-            discount_rate: item.discount_rate.and_then(|s| s.parse().ok()),
-            delivery_date: item
-                .delivery_date
-                .and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
+        .enumerate()
+        .map(|(idx, item)| {
+            let item_expected_delivery_date = item
+                .expected_delivery_date
+                .as_deref()
+                .filter(|s| !s.is_empty())
+                .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
+
+            CreateOrderItemRequest {
+                product_id: item.product_id,
+                line_no: (idx as i32) + 1,
+                description: item.description.unwrap_or_default(),
+                quantity: item
+                    .quantity
+                    .parse()
+                    .unwrap_or(rust_decimal::Decimal::ZERO),
+                unit_price: item
+                    .unit_price
+                    .parse()
+                    .unwrap_or(rust_decimal::Decimal::ZERO),
+                quotation_item_id: None,
+                expected_delivery_date: item_expected_delivery_date,
+            }
         })
         .collect();
 
-    let create_req = CreateQuotationReq {
-        customer_id: form.customer_id,
-        contact_id: form.contact_id,
-        valid_until,
-        items,
+    let create_req = CreatePurchaseOrderRequest {
+        supplier_id: form.supplier_id,
+        order_date,
+        expected_delivery_date,
         payment_terms: form.payment_terms,
-        delivery_terms: form.delivery_terms,
-        remark: form.remark,
+        delivery_address: form.delivery_address,
+        remark: form.remark.unwrap_or_default(),
+        items,
     };
 
-    let id = svc.create(&service_ctx, &mut conn, create_req).await?;
+    let id = svc.create(&service_ctx, &mut conn, create_req, None).await?;
 
-    let redirect = QuotationDetailPath { id }.to_string();
+    let redirect = PODetailPath { id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Customer]) -> Markup {
+fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
-    let default_valid = chrono::Local::now()
-        .checked_add_days(chrono::Days::new(30))
-        .map(|d| d.format("%Y-%m-%d").to_string())
-        .unwrap_or_default();
 
     html! {
-        div x-data="quotationForm()" {
+        div x-data="purchaseOrderForm()" {
             // ── Page Header ──
             div class="page-header" {
-                a class="back-link" href=(QuotationListPath::PATH) {
+                a class="back-link" href=(POListPath::PATH) {
                     (icon::arrow_left_icon("w-4 h-4"))
-                    "返回报价单列表"
+                    "返回采购订单列表"
                 }
-                h1 class="page-title" { "新建报价单" }
+                h1 class="page-title" { "新建采购订单" }
             }
 
-            form id="quotation-form"
-                  hx-post=(QuotationCreatePath::PATH)
+            form id="po-form"
+                  hx-post=(POCreatePath::PATH)
                   hx-swap="none" {
                 input type="hidden" name="items_json" x-model="itemsJson";
 
-            // ── Customer Info (HTMX self-contained) ──
-            (customer_info_panel(customers, &[], None, QuotationCustomerContactsPath::PATH))
-
-            // ── Quote Info ──
+            // ── Supplier Selection ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "报价信息" }
+                div class="form-section-title" { "供应商信息" }
                 div class="form-grid" {
                     div class="form-field" {
-                        label { "报价日期" }
-                        input type="date" name="quotation_date" value=(today) disabled {}
+                        label { "供应商" span style="color:var(--danger)" { "*" } }
+                        select name="supplier_id" required {
+                            option value="" disabled selected { "请选择供应商" }
+                            @for s in suppliers {
+                                option value=(s.id) { (s.name) }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── Order Info ──
+            div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="form-section-title" { "订单信息" }
+                div class="form-grid" {
+                    div class="form-field" {
+                        label { "订单日期" }
+                        input type="date" name="order_date" value=(today) disabled {}
                     }
                     div class="form-field" {
-                        label { "有效期至" span style="color:var(--danger)" { "*" } }
-                        input type="date" name="valid_until" id="f-valid-until" value=(default_valid) {}
+                        label { "预期交货日期" }
+                        input type="date" name="expected_delivery_date" {}
                     }
                     div class="form-field" {
-                        label { "付款条款" }
+                        label { "付款条件" }
                         select name="payment_terms" {
+                            option value="" { "请选择付款条件" }
                             option value="30天净额" { "30天净额" }
                             option value="60天净额" { "60天净额" }
                             option value="预付30%" { "预付30%" }
@@ -285,13 +259,8 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                         }
                     }
                     div class="form-field" {
-                        label { "交货条款" }
-                        select name="delivery_terms" {
-                            option value="FOB 深圳" { "FOB 深圳" }
-                            option value="FOB 广州" { "FOB 广州" }
-                            option value="CIF 目的港" { "CIF 目的港" }
-                            option value="EXW 工厂交货" { "EXW 工厂交货" }
-                        }
+                        label { "交货地址" }
+                        input type="text" name="delivery_address" placeholder="输入交货地址…" {}
                     }
                 }
             }
@@ -313,12 +282,11 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                                 th style="width:36px;text-align:center" { "#" }
                                 th { "产品编码" }
                                 th { "产品名称" }
-                                th { "规格描述" }
-                                th style="width:56px" { "单位" }
-                                th style="width:90px;text-align:right" { "数量" }
-                                th style="width:110px;text-align:right" { "单价 (¥)" }
-                                th style="width:76px;text-align:right" { "折扣%" }
-                                th style="width:110px;text-align:right" { "小计 (¥)" }
+                                th style="width:200px" { "描述" }
+                                th style="width:100px;text-align:right" { "数量" }
+                                th style="width:120px;text-align:right" { "单价" }
+                                th style="width:110px;text-align:right" { "小计" }
+                                th style="width:120px" { "预期交货日期" }
                                 th style="width:36px" { }
                             }
                         }
@@ -328,12 +296,11 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                                     td class="line-num" x-text="idx + 1" {}
                                     td class="mono" x-text="item.product_code" {}
                                     td x-text="item.product_name" {}
-                                    td { input class="form-input" type="text" x-model="item.description" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input" type="text" x-model="item.unit" readonly style="width:56px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
-                                    td { input class="form-input num-input" type="number" x-model="item.quantity" min="1" step="1" placeholder="0" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input num-input" type="number" x-model="item.unit_price" step="0.01" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input num-input" type="number" x-model="item.discount_rate" min="0" max="100" style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td class="line-total" x-text="subtotal(idx) > 0 ? '¥ ' + subtotal(idx).toFixed(2) : '—'" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" {}
+                                    td { input class="form-input" type="text" x-model="item.description" placeholder="—" style="width:190px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input num-input" type="number" x-model="item.quantity" step="1" min="0" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input num-input" type="number" x-model="item.unit_price" step="0.01" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td class="mono" style="text-align:right" x-text="subtotal(idx).toFixed(2)" {}
+                                    td { input class="form-input" type="date" x-model="item.expected_delivery_date" style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
                                     td { button type="button" class="btn-remove-row" x-on:click="removeItem(idx)" title="删除行" {
                                         (icon::x_icon("w-3.5 h-3.5"))
                                     } }
@@ -349,34 +316,20 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                         "添加产品行"
                     }
                 }
-                div class="totals-bar" {
-                    div class="totals-item" {
-                        span class="totals-label" { "合计金额" }
-                        span class="totals-value" x-text="'¥ ' + lineTotal.toFixed(2)" { "¥ 0.00" }
-                    }
-                    div class="totals-item" {
-                        span class="totals-label" { "折扣总额" }
-                        span class="totals-value" x-text="'- ¥ ' + discountTotal.toFixed(2)" { "- ¥ 0.00" }
-                    }
-                    div class="totals-item" {
-                        span class="totals-label" { "报价总额" }
-                        span class="totals-value grand" x-text="'¥ ' + grandTotal.toFixed(2)" { "¥ 0.00" }
-                    }
-                }
             }
 
             // ── Remark ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
                 div class="form-section-title" { "备注" }
-                textarea name="remark" placeholder="输入报价相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+                textarea name="remark" placeholder="输入订单相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
             }
 
             // ── Action Bar ──
             div class="create-action-bar" {
-                a class="btn btn-default" href=(QuotationListPath::PATH) { "取消" }
+                a class="btn btn-default" href=(POListPath::PATH) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
                     button type="submit" class="btn btn-primary" {
-                        "提交报价"
+                        "提交订单"
                     }
                 }
             }
@@ -397,7 +350,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品名称" }
                                 input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
-                                    hx-get=(QuotationProductsPath::PATH)
+                                    hx-get=(POProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
@@ -406,14 +359,14 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品编码" }
                                 input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
-                                    hx-get=(QuotationProductsPath::PATH)
+                                    hx-get=(POProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
                             }
                                 button type="button" class="product-search-clear"
-                                    hx-get=(QuotationProductsPath::PATH)
+                                    hx-get=(POProductsPath::PATH)
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
                                     onclick="document.querySelectorAll('.product-search-input').forEach(function(i){i.value=''})" {
@@ -421,7 +374,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                                 }
                             }
                             div id="product-search-results" style="max-height:320px;overflow-y:auto"
-                            hx-get=(QuotationProductsPath::PATH)
+                            hx-get=(POProductsPath::PATH)
                             hx-trigger="intersect once"
                             hx-swap="innerHTML" {
                             div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--muted)" {
@@ -433,7 +386,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
             }
 
             // ── Submit script ──
-            script src="/quotation-create.js" {}
+            script src="/purchase-order-create.js" {}
         }
     }
 }
@@ -453,8 +406,6 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                         "product_id": p.product_id,
                         "product_code": &p.product_code,
                         "product_name": &p.pdt_name,
-                        "specification": &p.meta.specification,
-                        "unit": &p.unit,
                     }).to_string();
                     div class="product-select-item" {
                         div class="product-select-info" {

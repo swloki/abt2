@@ -4,7 +4,7 @@ use serde_json::json;
 use sqlx::postgres::PgPool;
 
 use super::model::{
-    CreateOrderItemRequest, CreatePurchaseOrderRequest, PurchaseOrder, PurchaseOrderQuery,
+    CreateOrderItemRequest, CreatePurchaseOrderRequest, PurchaseOrder, PurchaseOrderItem, PurchaseOrderQuery,
 };
 use super::repo::{PurchaseOrderItemRepo, PurchaseOrderRepo};
 use super::service::PurchaseOrderService;
@@ -323,13 +323,75 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
         query: PurchaseOrderQuery,
+        page: PageParams,
     ) -> Result<PaginatedResult<PurchaseOrder>> {
-        let params = PageParams::new(1, 20);
         let scope = (ctx.data_scope, ctx.operator_id, ctx.department_id);
-        let (items, total) = PurchaseOrderRepo::query(&mut *db, &query, &params, scope)
+        let (items, total) = PurchaseOrderRepo::query(&mut *db, &query, &page, scope)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
-        Ok(PaginatedResult::new(items, total, params.page, params.page_size))
+        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    async fn list_items(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, order_id: i64) -> Result<Vec<PurchaseOrderItem>> {
+        PurchaseOrderItemRepo::list_by_order_id(&mut *db, order_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "PurchaseOrder:cancel").await? {
+                return Err(DomainError::duplicate("PurchaseOrder"));
+            }
+        }
+
+        let order = PurchaseOrderRepo::get_by_id(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+
+        if order.status != PurchaseOrderStatus::Draft {
+            return Err(DomainError::validation(format!(
+                "只有 Draft 状态的订单才能取消（当前: {:?}）",
+                order.status
+            )));
+        }
+
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Cancelled", None)
+            .await?;
+
+        let rows = PurchaseOrderRepo::update_status(
+            &mut *db,
+            id,
+            PurchaseOrderStatus::Cancelled,
+            &order.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx, db,
+                EventPublishRequest {
+                    event_type: DomainEventType::PurchaseOrderCancelled,
+                    aggregate_type: ENTITY_TYPE.to_string(),
+                    aggregate_id: id,
+                    payload: json!({ "doc_number": order.doc_number }),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
+            .await?;
+
+        Ok(())
     }
 }

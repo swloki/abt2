@@ -50,21 +50,11 @@ function shippingForm(warehouses) {
         get itemsJson() {
             return JSON.stringify(this.items.map(function (i) {
                 return {
-                    order_item_id: i.order_item_id,
-                    warehouse_id: i.warehouse_id || 0,
+                    order_item_id: parseInt(i.order_item_id),
+                    warehouse_id: parseInt(i.warehouse_id) || 0,
                     requested_qty: i.ship_qty || '0'
                 };
             }));
         }
     };
 }
-
-document.addEventListener('DOMContentLoaded', function () {
-    var form = document.getElementById('shipping-form');
-    if (!form) return;
-
-    form.addEventListener('htmx:responseError', function (e) {
-        var msg = e.detail.xhr.responseText || '提交失败';
-        htmx.trigger(document.body, 'show-toast', { message: msg, type: 'error' });
-    });
-});

@@ -1,6 +1,6 @@
 use abt_core::shared::identity::model::Claims;
 use axum::http::HeaderMap;
-use maud::{DOCTYPE, Markup, html};
+use maud::{DOCTYPE, Markup, html, PreEscaped};
 
 use super::header;
 use super::sidebar;
@@ -19,9 +19,7 @@ fn document(title: &str, body: Markup) -> Markup {
                 link rel="icon" type="image/svg+xml" href="/favicon.svg";
                 link rel="stylesheet" href="/app.css";
                 script src="/htmx.min.js" {}
-                script {
-                    "document.addEventListener('htmx:responseError', function(e) { if (e.detail.xhr.status === 403) { e.preventDefault(); window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: '权限不足，无法执行此操作', type: 'error' } })); } else if (e.detail.xhr.status === 401) { window.location.href = '/login'; } });"
-                }
+                script src="/app.js" {}
                 script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer {}
             }
             body {
@@ -96,8 +94,11 @@ pub fn standalone_page(title: &str, body: Markup) -> Markup {
 }
 
 fn toast_container() -> Markup {
-    let alpine_data = r#"{ toasts: [], init() { var self = this; window.addEventListener('show-toast', function(e) { var t = { id: Date.now(), message: e.detail.message, type: e.detail.type || 'success' }; self.toasts.push(t); setTimeout(function() { self.toasts = self.toasts.filter(function(x) { return x.id !== t.id; }) }, 3000); }) }, removeToast(id) { this.toasts = this.toasts.filter(function(x) { return x.id !== id; }) } }"#;
+    let alpine_data = r#"{ toasts: [], init() { var self = this; window.addEventListener('show-toast', function(e) { var t = { id: Date.now(), message: e.detail.message, type: e.detail.type || 'success' }; self.toasts.push(t); setTimeout(function() { self.toasts = self.toasts.filter(function(x) { return x.id !== t.id; }) }, 4000); }) }, removeToast(id) { this.toasts = this.toasts.filter(function(x) { return x.id !== id; }) } }"#;
     let bind_class = r#"'toast-' + toast.type"#;
+    let icon_success = r#"<span x-show="toast.type !== 'error' && toast.type !== 'warning'" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>"#;
+    let icon_error = r#"<span x-show="toast.type === 'error'" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>"#;
+    let icon_warning = r#"<span x-show="toast.type === 'warning'" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>"#;
     html! {
         div
             x-data=(alpine_data)
@@ -106,8 +107,13 @@ fn toast_container() -> Markup {
                 div
                     class="toast toast-show"
                     x-bind:class=(bind_class) {
-                    span x-text="toast.message" {}
-                    button class="toast-close" x-on:click="removeToast(toast.id)" { "×" }
+                    (PreEscaped(icon_success))
+                    (PreEscaped(icon_error))
+                    (PreEscaped(icon_warning))
+                    span class="toast-message" x-text="toast.message" {}
+                    button class="toast-close" x-on:click="removeToast(toast.id)" {
+                        "×"
+                    }
                 }
             }
         }

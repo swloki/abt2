@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
-use super::model::{CreatePaymentRequestRequest, PaymentRequest};
+use super::model::{CreatePaymentRequestRequest, PaymentRequest, PaymentRequestQuery};
 use super::repo::PaymentRequestRepo;
 use super::service::PaymentRequestService;
 use crate::purchase::enums::PaymentStatus;
@@ -18,6 +18,8 @@ use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::idempotency::{new_idempotency_service, service::{key_to_i64, IdempotencyService}};
 use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
 use crate::shared::types::PgExecutor;
+use crate::shared::types::PageParams;
+use crate::shared::types::pagination::PaginatedResult;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -127,6 +129,19 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
+    async fn list(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        query: PaymentRequestQuery,
+        page: PageParams,
+    ) -> Result<PaginatedResult<PaymentRequest>> {
+        let (items, total) = PaymentRequestRepo::query(&mut *db, &query, &page)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
     async fn approve(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
@@ -175,6 +190,63 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         // 5. 审计日志
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
+            .await?;
+
+        Ok(())
+    }
+
+    async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "PaymentRequest:cancel").await? {
+                return Err(DomainError::duplicate("PaymentRequest"));
+            }
+        }
+
+        // 1. 获取当前记录（用于乐观锁和状态校验）
+        let payment = PaymentRequestRepo::get_by_id(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+
+        if payment.status != PaymentStatus::Draft {
+            return Err(DomainError::validation(format!(
+                "只有草稿状态的付款申请才能取消，当前状态: {:?}",
+                payment.status
+            )));
+        }
+
+        // 2. 状态转换 Draft -> Cancelled
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Cancelled", None)
+            .await?;
+
+        // 3. 更新实体表状态
+        let rows = PaymentRequestRepo::update_status(
+            &mut *db,
+            id,
+            PaymentStatus::Cancelled,
+            &payment.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        // 4. 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: ENTITY_TYPE,
+                    entity_id: id,
+                    action: AuditAction::Transition,
+                    changes: Some(json!({ "from": "Draft", "to": "Cancelled" })),
+                    context: None,
+                },
+            )
             .await?;
 
         Ok(())

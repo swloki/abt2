@@ -338,7 +338,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                         }
                         div class="form-field" {
                             label { "退货原因" span style="color:var(--danger)" { "*" } }
-                            select x-model="returnReason" name="return_reason" {
+                            select x-model="returnReason" {
                                 option value="" { "请选择" }
                                 option value="质量问题" { "质量问题" }
                                 option value="数量不符" { "数量不符" }
@@ -347,8 +347,16 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                                 option value="其他" { "其他" }
                             }
                         }
+                        div class="form-field" x-show="returnReason === '其他'" x-transition {
+                            label { "具体原因" span style="color:var(--danger)" { "*" } }
+                            input type="text" x-model="returnReasonDetail"
+                                placeholder="请输入具体退货原因"
+                                maxlength="200" {}
+                        }
                     }
                 }
+                input type="hidden" name="return_reason"
+                    x-bind:value="returnReason === '其他' && returnReasonDetail ? '其他：' + returnReasonDetail : returnReason" {}
 
                 // ── Return Items ──
                 div x-show="selectedOrderId" class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {

@@ -5,6 +5,7 @@ function returnForm() {
         selectedOrderNumber: '',
         shippingRequestId: '0',
         returnReason: '',
+        returnReasonDetail: '',
         orderModalOpen: false,
         items: [],
 
@@ -51,13 +52,3 @@ function returnForm() {
         }
     };
 }
-
-document.addEventListener('DOMContentLoaded', function () {
-    var form = document.getElementById('return-form');
-    if (!form) return;
-
-    form.addEventListener('htmx:responseError', function (e) {
-        var msg = e.detail.xhr.responseText || '提交失败';
-        htmx.trigger(document.body, 'show-toast', { message: msg, type: 'error' });
-    });
-});

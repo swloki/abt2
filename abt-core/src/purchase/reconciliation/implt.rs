@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
-use super::model::PurchaseReconciliation;
+use super::model::{PurchaseReconciliation, PurchaseReconciliationQuery};
 use super::repo::{NewReconItem, PurchaseReconItemRepo, PurchaseReconciliationRepo};
 use super::service::PurchaseReconciliationService;
 use crate::purchase::enums::{PurchaseReconStatus, PurchaseReturnStatus};
@@ -19,6 +19,8 @@ use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::idempotency::{new_idempotency_service, service::{key_to_i64, IdempotencyService}};
 use crate::shared::state_machine::{new_state_machine_service, service::StateMachineService};
 use crate::shared::types::PgExecutor;
+use crate::shared::types::PageParams;
+use crate::shared::types::pagination::PaginatedResult;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -133,6 +135,29 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
+    async fn list(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        query: PurchaseReconciliationQuery,
+        page: PageParams,
+    ) -> Result<PaginatedResult<PurchaseReconciliation>> {
+        let (items, total) = PurchaseReconciliationRepo::query(&mut *db, &query, &page)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    async fn list_items(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        reconciliation_id: i64,
+    ) -> Result<Vec<super::model::PurchaseReconItem>> {
+        PurchaseReconItemRepo::list_by_reconciliation_id(&mut *db, reconciliation_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);

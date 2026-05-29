@@ -55,13 +55,3 @@ function orderForm(initialItems) {
         }
     };
 }
-
-document.addEventListener('DOMContentLoaded', function () {
-    var form = document.getElementById('order-form');
-
-    // 4xx 业务错误（BadRequest/NotFound/Forbidden）
-    form.addEventListener('htmx:responseError', function (e) {
-        var msg = e.detail.xhr.responseText || '提交失败';
-        htmx.trigger(document.body, 'show-toast', {message: msg, type: 'error'});
-    });
-});

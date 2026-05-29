@@ -25,7 +25,7 @@ ABT 是 BOM（物料清单）和库存管理系统，基于 Rust 构建。底层
 2. **模型先行** — 同步设计领域模型（请求/响应结构、实体、值对象），语义清晰、边界明确、职责单一
 3. **基于接口设计交互** — 禁止在接口未定义时设计前端交互或 UI
 4. **文档化** — 接口和模型以 `docs/uml-design/` 设计文档为骨架和共享语言
-
+5. **页面原型设计** — 前端页面原型（Open Design）存放于 `C:\Users\weichen\AppData\Roaming\Open Design\namespaces\release-stable-win\data\projects\63ce2980-2f4e-45a7-9b34-8050e32135c2`，实现 UI 时以此为交互参考
 ## Design Authority（设计文档权威性）
 
 `docs/uml-design/` 是系统的唯一设计文档，代码与设计文档必须**双向同步**，不允许脱节：

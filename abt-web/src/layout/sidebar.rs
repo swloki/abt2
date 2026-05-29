@@ -83,42 +83,37 @@ fn modules() -> Vec<NavModule> {
             items: vec![
                 NavItem {
                     name: "采购总览",
-                    path: "#",
-                    icon: NavIcon::Grid,
-                },
-                NavItem {
-                    name: "供应商管理",
-                    path: "#",
-                    icon: NavIcon::Building,
+                    path: "/admin/purchase",
+                    icon: NavIcon::Home,
                 },
                 NavItem {
                     name: "采购报价",
-                    path: "#",
-                    icon: NavIcon::Check,
+                    path: "/admin/purchase/quotations",
+                    icon: NavIcon::File,
                 },
                 NavItem {
                     name: "采购订单",
-                    path: "#",
+                    path: "/admin/purchase/orders",
                     icon: NavIcon::ClipboardDoc,
                 },
                 NavItem {
                     name: "采购退货",
-                    path: "#",
+                    path: "/admin/purchase/returns",
                     icon: NavIcon::Return,
                 },
                 NavItem {
                     name: "采购对账",
-                    path: "#",
+                    path: "/admin/purchase/reconciliations",
                     icon: NavIcon::Check,
                 },
                 NavItem {
                     name: "付款申请",
-                    path: "#",
+                    path: "/admin/purchase/payments",
                     icon: NavIcon::Payment,
                 },
                 NavItem {
                     name: "零星请购",
-                    path: "#",
+                    path: "/admin/purchase/misc-requests",
                     icon: NavIcon::Sliders,
                 },
             ],

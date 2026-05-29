@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 use serde_json::json;
 use sqlx::postgres::PgPool;
 
-use super::model::{CreatePurchaseReturnRequest, PurchaseReturn};
+use super::model::{CreatePurchaseReturnRequest, PurchaseReturn, PurchaseReturnItem, PurchaseReturnQuery};
 use super::repo::{PurchaseReturnItemRepo, PurchaseReturnRepo};
 use super::service::PurchaseReturnService;
 use crate::purchase::enums::{PurchaseOrderStatus, PurchaseReturnStatus};
@@ -22,6 +22,7 @@ use crate::shared::state_machine::{new_state_machine_service, service::StateMach
 use crate::shared::types::PgExecutor;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
+use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use crate::shared::types::Result;
 
 const ENTITY_TYPE: &str = "PurchaseReturn";
@@ -137,6 +138,25 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
             .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
     }
 
+    async fn list(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        query: PurchaseReturnQuery,
+        page: PageParams,
+    ) -> Result<PaginatedResult<PurchaseReturn>> {
+        let (items, total) = PurchaseReturnRepo::query(&mut *db, &query, &page)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    async fn list_items(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, return_id: i64) -> Result<Vec<PurchaseReturnItem>> {
+        PurchaseReturnItemRepo::list_by_return_id(&mut *db, return_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
         if let Some(ref key) = idempotency_key {
             let hash = key_to_i64(key);
@@ -174,6 +194,59 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
                 ctx, db,
                 EventPublishRequest {
                     event_type: DomainEventType::PurchaseReturnConfirmed,
+                    aggregate_type: ENTITY_TYPE.to_string(),
+                    aggregate_id: id,
+                    payload: json!({}),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
+        // 5. 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
+            .await?;
+
+        Ok(())
+    }
+
+    async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
+        if let Some(ref key) = idempotency_key {
+            let hash = key_to_i64(key);
+            if !new_idempotency_service(self.pool.clone()).check_and_mark(ctx, db, hash, "PurchaseReturn:cancel").await? {
+                return Err(DomainError::duplicate("PurchaseReturn"));
+            }
+        }
+        // 1. 获取当前记录（用于乐观锁）
+        let ret = PurchaseReturnRepo::get_by_id(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+
+        // 2. 状态转换 Draft -> Cancelled
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Cancelled", None)
+            .await?;
+
+        // 3. 更新实体表状态
+        let rows = PurchaseReturnRepo::update_status(
+            &mut *db,
+            id,
+            PurchaseReturnStatus::Cancelled,
+            &ret.updated_at,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        if rows == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        // 4. 发布领域事件
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx, db,
+                EventPublishRequest {
+                    event_type: DomainEventType::PurchaseReturnCancelled,
                     aggregate_type: ENTITY_TYPE.to_string(),
                     aggregate_id: id,
                     payload: json!({}),

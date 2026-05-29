@@ -867,13 +867,33 @@ const loginStyles = `
 /* ─── Toast ─── */
 .toast {
   position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-20px);
-  padding: 12px 28px; border-radius: var(--radius-md); font-size: var(--text-sm);
-  font-weight: 500; z-index: 9999; box-shadow: var(--shadow-lg); opacity: 0;
-  transition: all var(--motion-base) var(--ease-decelerate); pointer-events: none;
+  padding: 14px 20px; border-radius: var(--radius-lg); font-size: 14px;
+  font-weight: 500; z-index: 9999; box-shadow: 0 6px 24px rgba(0,0,0,0.12);
+  opacity: 0; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex; align-items: center; gap: 10px; max-width: 480px;
+  backdrop-filter: blur(8px);
 }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast-success { background: var(--success); color: #fff; }
-.toast-error { background: var(--danger); color: #fff; }
+.toast.toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast-icon { width: 20px; height: 20px; flex-shrink: 0; }
+.toast-message { flex: 1; line-height: 1.5; }
+.toast-close {
+  background: none; border: none; color: inherit; cursor: pointer;
+  font-size: 18px; line-height: 1; padding: 2px 4px; border-radius: 4px;
+  opacity: 0.6; transition: opacity 0.15s;
+}
+.toast-close:hover { opacity: 1; background: rgba(255,255,255,0.15); }
+.toast-error {
+  background: rgba(255,77,79,0.95); color: #fff;
+  border: 1px solid rgba(255,120,117,0.3);
+}
+.toast-success {
+  background: rgba(82,196,26,0.95); color: #fff;
+  border: 1px solid rgba(135,208,104,0.3);
+}
+.toast-warning {
+  background: rgba(250,173,20,0.95); color: #fff;
+  border: 1px solid rgba(255,212,100,0.3);
+}
 
 /* ─── Login Responsive ─── */
 @media (max-width: 920px) {

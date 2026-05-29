@@ -2,7 +2,14 @@ pub mod auth;
 
 pub mod customer;
 pub mod dashboard;
+pub mod misc_request;
 pub mod order;
+pub mod payment_request;
+pub mod purchase_dashboard;
+pub mod purchase_order;
+pub mod purchase_quotation;
+pub mod purchase_reconciliation;
+pub mod purchase_return;
 pub mod quotation;
 pub mod reconciliation;
 
@@ -27,6 +34,14 @@ pub fn router(state: AppState) -> Router {
                 .merge(shipping::router())
                 .merge(sales_return::router())
                 .merge(reconciliation::router())
+                // ── Purchase (SRM) ──
+                .merge(purchase_dashboard::router())
+                .merge(purchase_quotation::router())
+                .merge(purchase_order::router())
+                .merge(purchase_return::router())
+                .merge(purchase_reconciliation::router())
+                .merge(payment_request::router())
+                .merge(misc_request::router())
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth_middleware,

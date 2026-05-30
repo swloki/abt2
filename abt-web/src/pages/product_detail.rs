@@ -38,7 +38,7 @@ pub async fn get_product_detail(
         &headers,
         &format!("{} - 产品详情", product.pdt_name),
         &claims,
-        "md-product",
+        "md",
         &detail_path_str,
         "主数据管理",
         Some(&product.product_code),

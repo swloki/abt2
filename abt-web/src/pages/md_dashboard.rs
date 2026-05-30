@@ -75,7 +75,7 @@ pub async fn get_md_dashboard(
         &headers,
         "主数据管理",
         &claims,
-        "md-dashboard",
+        "md",
         MdDashboardPath::PATH,
         "主数据管理",
         None,

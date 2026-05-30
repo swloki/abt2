@@ -51,7 +51,7 @@ pub async fn get_bom_list(
 
     let content = bom_list_page(&result, &params);
     let page_html = admin_page(
-        &headers, "BOM管理", &claims, "md-bom", BomListPath::PATH,
+        &headers, "BOM管理", &claims, "md", BomListPath::PATH,
         "主数据管理", Some("BOM管理"), content,
     );
 

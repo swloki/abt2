@@ -57,7 +57,7 @@ pub async fn get_category_list(
         &headers,
         "分类目录",
         &claims,
-        "md-category",
+        "md",
         CategoryListPath::PATH,
         "主数据管理",
         Some("分类目录"),

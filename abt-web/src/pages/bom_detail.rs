@@ -47,7 +47,7 @@ pub async fn get_bom_detail(
         &headers,
         &format!("{} - BOM 详情", bom.bom_name),
         &claims,
-        "md-bom",
+        "md",
         &detail_path_str,
         "主数据管理",
         Some(&bom.bom_name),

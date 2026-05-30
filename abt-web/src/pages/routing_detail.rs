@@ -34,7 +34,7 @@ pub async fn get_routing_detail(
         &headers,
         &format!("{} - 工艺路线详情", detail.routing.name),
         &claims,
-        "md-routing",
+        "md",
         &detail_path_str,
         "主数据管理",
         Some(&detail.routing.name),

@@ -47,7 +47,7 @@ pub async fn get_product_list(
 
     let content = product_list_page(&result, &params);
     let page_html = admin_page(
-        &headers, "产品管理", &claims, "md-product", ProductListPath::PATH, "主数据管理", Some("产品管理"), content,
+        &headers, "产品管理", &claims, "md", ProductListPath::PATH, "主数据管理", Some("产品管理"), content,
     );
 
     Ok(Html(page_html.into_string()))

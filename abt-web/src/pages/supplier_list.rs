@@ -55,7 +55,7 @@ pub async fn get_supplier_list(
         &headers,
         "供应商管理",
         &claims,
-        "md-supplier",
+        "md",
         SupplierListPath::PATH,
         "主数据管理",
         Some("供应商管理"),

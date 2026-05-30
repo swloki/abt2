@@ -58,7 +58,7 @@ pub async fn get_routing_list(
         &headers,
         "工艺路线管理",
         &claims,
-        "md-routing",
+        "md",
         RoutingListPath::PATH,
         "主数据管理",
         Some("工艺路线管理"),

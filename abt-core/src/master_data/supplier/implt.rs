@@ -98,6 +98,31 @@ impl SupplierService for SupplierServiceImpl {
             .await?
             .ok_or_else(|| DomainError::not_found("Supplier"))
     }
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let existing = SupplierRepo.find_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("Supplier"))?;
+
+        SupplierRepo.delete(db, id).await?;
+
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx, db,
+                RecordAuditLogReq {
+                    entity_type: "Supplier",
+                    entity_id: id,
+                    action: AuditAction::Delete,
+                    changes: Some(serde_json::json!({
+                        "name": existing.name,
+                        "code": existing.code,
+                    })),
+                    context: None,
+                },
+            )
+            .await?;
+
+        Ok(())
+    }
 
     #[allow(clippy::collapsible_if)]
     async fn update(

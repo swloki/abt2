@@ -38,3 +38,18 @@ pub mod shipping_create;
 pub mod shipping_detail;
 pub mod shipping_list;
 pub mod sidebar;
+
+pub mod md_dashboard;
+pub mod product_list;
+pub mod product_create;
+pub mod product_detail;
+pub mod category_list;
+pub mod bom_list;
+pub mod bom_create;
+pub mod bom_detail;
+pub mod routing_list;
+pub mod routing_create;
+pub mod routing_detail;
+pub mod supplier_list;
+pub mod supplier_create;
+pub mod supplier_detail;

@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use super::model::*;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
@@ -28,6 +28,7 @@ pub trait SupplierService: Send + Sync {
         page: PageParams,
     ) -> Result<PaginatedResult<Supplier>>;
 
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
     // -- Contacts --
     async fn add_contact(
         &self,
@@ -35,7 +36,6 @@ pub trait SupplierService: Send + Sync {
         sid: i64,
         req: CreateContactReq,
     ) -> Result<i64>;
-
     async fn update_contact(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

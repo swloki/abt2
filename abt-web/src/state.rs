@@ -75,22 +75,17 @@ impl AppState {
         abt_core::wms::warehouse::new_warehouse_service(self.pool.clone())
     }
 
-    #[allow(dead_code)]
     pub fn bom_query_service(&self) -> impl abt_core::master_data::bom::BomQueryService {
         abt_core::master_data::bom::new_bom_query_service(self.pool.clone())
     }
-
-    #[allow(dead_code)]
     pub fn bom_command_service(&self) -> impl abt_core::master_data::bom::BomCommandService {
         abt_core::master_data::bom::new_bom_command_service(self.pool.clone())
     }
 
-    #[allow(dead_code)]
     pub fn bom_node_service(&self) -> impl abt_core::master_data::bom::BomNodeService {
         abt_core::master_data::bom::new_bom_node_service(self.pool.clone())
     }
 
-    #[allow(dead_code)]
     pub fn routing_service(&self) -> impl abt_core::master_data::routing::RoutingService {
         abt_core::master_data::routing::new_routing_service(self.pool.clone())
     }
@@ -158,4 +153,38 @@ impl AppState {
     ) -> impl abt_core::purchase::misc_request::MiscellaneousRequestService {
         abt_core::purchase::misc_request::new_misc_request_service(self.pool.clone())
     }
+
+
+    // ── Master Data Services ──
+
+    pub fn category_service(&self) -> impl abt_core::master_data::category::CategoryService {
+        abt_core::master_data::category::new_category_service(self.pool.clone())
+    }
+
+    #[allow(dead_code)]
+    pub fn product_price_service(
+        &self,
+    ) -> impl abt_core::master_data::price::ProductPriceService {
+        abt_core::master_data::price::new_product_price_service(self.pool.clone())
+    }
+
+    pub fn bom_category_service(&self) -> impl abt_core::master_data::bom::BomCategoryService {
+        abt_core::master_data::bom::new_bom_category_service(self.pool.clone())
+    }
+
+    pub fn labor_process_dict_service(
+        &self,
+    ) -> impl abt_core::master_data::labor_process_dict::LaborProcessDictService {
+        abt_core::master_data::labor_process_dict::new_labor_process_dict_service(
+            self.pool.clone(),
+        )
+    }
+
+    #[allow(dead_code)]
+    pub fn product_watcher_service(
+        &self,
+    ) -> impl abt_core::master_data::product_watcher::ProductWatcherService {
+        abt_core::master_data::product_watcher::new_product_watcher_service(self.pool.clone())
+    }
+
 }

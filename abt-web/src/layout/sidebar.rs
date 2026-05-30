@@ -20,8 +20,11 @@ enum NavIcon {
     Payment,
     Sliders,
     Archive,
+    Database,
+    Wrench,
+    Tag,
+    Link,
 }
-
 struct NavItem {
     name: &'static str,
     path: &'static str,
@@ -139,6 +142,42 @@ fn modules() -> Vec<NavModule> {
                 },
             ],
         },
+        NavModule {
+            id: "md",
+            name: "主数据",
+            items: vec![
+                NavItem {
+                    name: "主数据总览",
+                    path: "/admin/md",
+                    icon: NavIcon::Home,
+                },
+                NavItem {
+                    name: "产品管理",
+                    path: "/admin/md/products",
+                    icon: NavIcon::Package,
+                },
+                NavItem {
+                    name: "产品分类",
+                    path: "/admin/md/categories",
+                    icon: NavIcon::Tag,
+                },
+                NavItem {
+                    name: "物料清单",
+                    path: "/admin/md/boms",
+                    icon: NavIcon::ClipboardDoc,
+                },
+                NavItem {
+                    name: "工艺路线",
+                    path: "/admin/md/routings",
+                    icon: NavIcon::Wrench,
+                },
+                NavItem {
+                    name: "供应商管理",
+                    path: "/admin/md/suppliers",
+                    icon: NavIcon::Building,
+                },
+            ],
+        },
     ]
 }
 
@@ -159,6 +198,10 @@ fn render_item_icon(ni: NavIcon) -> Markup {
         NavIcon::Payment => icon::payment_icon(""),
         NavIcon::Sliders => icon::sliders_icon(""),
         NavIcon::Archive => icon::package_icon(""),
+        NavIcon::Database => icon::package_icon(""),
+        NavIcon::Wrench => icon::sliders_icon(""),
+        NavIcon::Tag => icon::file_text_icon(""),
+        NavIcon::Link => icon::link_icon(""),
     }
 }
 
@@ -167,6 +210,7 @@ fn render_module_icon(module_id: &str) -> Markup {
         "sales" => icon::trending_up_icon(""),
         "purchase" => icon::clipboard_module_icon(""),
         "inventory" => icon::package_icon(""),
+        "md" => icon::grid_icon(""),
         _ => html! {},
     }
 }

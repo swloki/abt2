@@ -1,4 +1,10 @@
 pub mod auth;
+pub mod product;
+pub mod category;
+pub mod bom;
+pub mod routing;
+pub mod supplier;
+pub mod md_dashboard;
 
 pub mod customer;
 pub mod dashboard;
@@ -34,6 +40,13 @@ pub fn router(state: AppState) -> Router {
                 .merge(shipping::router())
                 .merge(sales_return::router())
                 .merge(reconciliation::router())
+                // ── Master Data (MD) ──
+                .merge(md_dashboard::router())
+                .merge(product::router())
+                .merge(category::router())
+                .merge(bom::router())
+                .merge(routing::router())
+                .merge(supplier::router())
                 // ── Purchase (SRM) ──
                 .merge(purchase_dashboard::router())
                 .merge(purchase_quotation::router())

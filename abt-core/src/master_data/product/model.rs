@@ -66,6 +66,8 @@ pub struct ProductMeta {
     pub specification: String,
     pub acquire_channel: String,
     pub old_code: Option<String>,
+    #[serde(default)]
+    pub remark: Option<String>,
 }
 
 impl sqlx::Type<sqlx::Postgres> for ProductMeta {

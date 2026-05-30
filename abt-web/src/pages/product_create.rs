@@ -102,6 +102,7 @@ pub async fn post_product_create(
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "采购".to_string()),
             old_code: form.old_code.filter(|s| !s.is_empty()),
+            remark: form.remark.filter(|s| !s.is_empty()),
         },
     };
 

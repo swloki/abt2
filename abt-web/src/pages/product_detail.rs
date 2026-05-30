@@ -117,6 +117,7 @@ pub async fn update_product(
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| "采购".to_string()),
             old_code: form.old_code.filter(|s| !s.is_empty()),
+            remark: form.remark.filter(|s| !s.is_empty()),
         }),
     };
 
@@ -331,6 +332,7 @@ fn product_edit_page(product: &Product) -> Markup {
     let acquire_val = &product.meta.acquire_channel;
     let external_code_val = product.external_code.as_deref().unwrap_or("");
     let old_code_val = product.meta.old_code.as_deref().unwrap_or("");
+    let remark_val = product.meta.remark.as_deref().unwrap_or("");
 
     html! {
         div {
@@ -407,7 +409,9 @@ fn product_edit_page(product: &Product) -> Markup {
                         div class="form-field field-full" {
                             label { "备注" }
                             textarea name="remark" placeholder="请输入备注信息…"
-                                style="width:100%;min-height:80px;resize:vertical" {}
+                                style="width:100%;min-height:80px;resize:vertical" {
+                                (remark_val)
+                            }
                         }
                     }
                 }

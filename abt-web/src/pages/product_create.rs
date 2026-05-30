@@ -118,7 +118,7 @@ fn product_create_page(source: Option<&Product>) -> Markup {
     let title = if source.is_some() { "复制产品" } else { "新建产品" };
     let btn_label = if source.is_some() { "保存副本" } else { "保存产品" };
 
-    let name_val = source.map(|p| p.pdt_name.as_str()).unwrap_or("");
+    let name_val = source.map(|p| format!("{}-1", p.pdt_name)).unwrap_or_default();
     let spec_val = source.map(|p| p.meta.specification.as_str()).unwrap_or("");
     let unit_val = source.map(|p| p.unit.as_str()).unwrap_or("");
     let acquire_val = source.map(|p| p.meta.acquire_channel.as_str()).unwrap_or("采购");
@@ -219,6 +219,7 @@ fn product_create_page(source: Option<&Product>) -> Markup {
 
 // ── Copy Handler ──
 
-pub async fn copy_product(path: ProductCopyPath) -> crate::errors::Result<impl IntoResponse> {
+#[require_permission("PRODUCT", "create")]
+pub async fn copy_product(path: ProductCopyPath, _ctx: RequestContext) -> crate::errors::Result<impl IntoResponse> {
     Ok(axum::response::Redirect::to(&format!("/admin/md/products/new?copy_from={}", path.id)))
 }

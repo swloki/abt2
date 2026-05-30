@@ -287,6 +287,13 @@ classDiagram
     +list(ctx: &ServiceContext, db: PgExecutor, filter, page: PageParams) PaginatedResult~Product~
     +check_product_usage(ctx: &ServiceContext, db: PgExecutor, id, query: UsageQuery) PaginatedResult~UsageEntry~
   }
+  class ProductQuery {
+    +name: Option~String~
+    +code: Option~String~
+    +status: Option~ProductStatus~
+    +owner_department_id: Option~i64~
+    +category_id: Option~i64~
+  }
   class UsageQuery {
     +page: u32
     +page_size: u32
@@ -520,6 +527,7 @@ classDiagram
     +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
     +get(ctx: &ServiceContext, db: PgExecutor, id) Result~Supplier~
     +update(ctx: &ServiceContext, db: PgExecutor, id, req) Result~Unit~
+    +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     +list(ctx: &ServiceContext, db: PgExecutor, filter, page: PageParams) PaginatedResult~Supplier~
     +add_contact(ctx: &ServiceContext, db: PgExecutor, sid, req) Result~i64~
     +update_contact(ctx: &ServiceContext, db: PgExecutor, sid, contact_id, req) Result~Unit~
@@ -976,6 +984,7 @@ classDiagram
           &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 内部调用 DocumentSequenceService.next_number(ctx, db, "SUP")</span><br>
           &nbsp;&nbsp;get(ctx, db, id) → Supplier<br>
           &nbsp;&nbsp;update(ctx, db, id, req)<br>
+          &nbsp;&nbsp;delete(ctx, db, id)<br>
           &nbsp;&nbsp;list(ctx, db, filter, page) → PaginatedResult<br>
           &nbsp;&nbsp;add_contact(ctx, db, sid, req) → i64<br>
           &nbsp;&nbsp;update_contact(ctx, db, sid, contact_id, req)<br>
@@ -1061,7 +1070,15 @@ classDiagram
           &nbsp;&nbsp;source_id: i64 <span style="color:#888;">// bom_id</span><br>
           &nbsp;&nbsp;source_name: String <span style="color:#888;">// bom_name</span><br>
           }<br>
-          <span style="color:#888;">// 查询逻辑：bom_nodes JOIN boms WHERE product_id = $1 AND deleted_at IS NULL</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ProductQuery</span> {<br>
+          &nbsp;&nbsp;name: String? <span style="color:#888;">// ILIKE 模糊匹配</span><br>
+          &nbsp;&nbsp;code: String? <span style="color:#888;">// ILIKE 模糊匹配</span><br>
+          &nbsp;&nbsp;status: ProductStatus?<br>
+          &nbsp;&nbsp;owner_department_id: i64?<br>
+          &nbsp;&nbsp;category_id: i64? <span style="color:#888;">// 通过 product_categories EXISTS 过滤</span><br>
+          }<br>
+          <span style="color:#888;">// UsageQuery: bom_nodes JOIN boms WHERE product_id = $1 AND deleted_at IS NULL</span><br>
           <span style="color:#888;">// GROUP BY bom_id, bom_name，支持分页</span>
         </div>
       </div>

@@ -235,3 +235,6 @@ pub fn clock_icon(c: &str) -> Markup {
     svg(r#"<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>"#, c)
 }
 
+pub fn bolt_icon(c: &str) -> Markup {
+    svg(r#"<path d="M13 10V3L4 14h7v7l9-11h-7z"/>"#, c)
+}

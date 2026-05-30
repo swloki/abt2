@@ -145,10 +145,26 @@ pub struct UsageQuery {
     pub page_size: u32,
 }
 
-/// 产品使用条目
+/// 产品使用条目 — 记录产品在哪些 BOM 中被引用
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct UsageEntry {
     pub source_type: String,
     pub source_id: i64,
     pub source_name: String,
+    /// BOM 状态: 1=草稿, 2=已发布
+    pub bom_status: Option<i16>,
+    /// BOM 版本号
+    pub bom_version: Option<i32>,
+    /// 用量 (来自 bom_nodes.quantity)
+    pub quantity: Option<rust_decimal::Decimal>,
+    /// 用量单位 (来自 bom_nodes.unit)
+    pub node_unit: Option<String>,
+    /// 用途备注 (来自 bom_nodes.remark)
+    pub node_remark: Option<String>,
+    /// 父件产品名称 (BOM 根节点的产品名)
+    pub parent_product_name: Option<String>,
+    /// 父件产品编码 (BOM 根节点的产品编码)
+    pub parent_product_code: Option<String>,
+    /// BOM 更新时间
+    pub bom_updated_at: Option<chrono::DateTime<chrono::Utc>>,
 }

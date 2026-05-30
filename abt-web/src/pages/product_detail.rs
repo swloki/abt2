@@ -9,6 +9,7 @@ use abt_macros::require_permission;
 
 use crate::components::{confirm_dialog, detail::detail_row, icon};
 use crate::layout::page::admin_page;
+use crate::routes::bom::BomDetailPath;
 use crate::routes::product::{ProductDeletePath, ProductDetailPath, ProductListPath, ProductUpdatePath};
 use crate::utils::RequestContext;
 
@@ -158,26 +159,78 @@ fn product_detail_page(product: &Product, usage_entries: &[UsageEntry]) -> Marku
                 }
             }
 
-            // ── BOM Usage Table (full width) ──
+            // ── 使用情况（BOM 引用）──
             div class="detail-card" style="margin-top:var(--space-5)" {
-                div class="detail-card-title" { "BOM 引用" }
+                div class="detail-card-title" {
+                    span { "使用情况（BOM 引用）" }
+                    span style="font-size:var(--text-xs);color:var(--muted);font-weight:400" { "该产品被以下 BOM 引用" }
+                }
                 @if usage_entries.is_empty() {
                     div class="empty-state" { "该产品未被任何 BOM 引用" }
                 } @else {
-                    table class="data-table" {
+                    table class="usage-table" {
                         thead {
                             tr {
-                                th { "来源类型" }
-                                th { "来源 ID" }
-                                th { "来源名称" }
+                                th { "BOM 名称" }
+                                th { "BOM 编码" }
+                                th { "版本" }
+                                th { "用量" }
+                                th { "BOM 状态" }
+                                th { "更新日期" }
                             }
                         }
                         tbody {
                             @for entry in usage_entries {
+                                @let bom_detail_path = BomDetailPath { id: entry.source_id };
+                                @let (status_label, status_class) = match entry.bom_status {
+                                    Some(1) => ("草稿", "status-draft"),
+                                    Some(2) => ("已生效", "status-accepted"),
+                                    _ => ("未知", "status-draft"),
+                                };
                                 tr {
-                                    td { (entry.source_type) }
-                                    td class="mono" { (entry.source_id) }
-                                    td { (entry.source_name) }
+                                    td {
+                                        strong { (entry.source_name) }
+                                    }
+                                    td {
+                                        a href=(bom_detail_path.to_string()) style="color:var(--accent);text-decoration:none" {
+                                            @if let Some(code) = &entry.parent_product_code {
+                                                (code)
+                                            } @else {
+                                                "BOM-" (entry.source_id)
+                                            }
+                                        }
+                                    }
+                                    td class="mono" {
+                                        @if let Some(v) = entry.bom_version {
+                                            "V" (v)
+                                        } @else {
+                                            "—"
+                                        }
+                                    }
+                                    td {
+                                        @if let Some(qty) = entry.quantity {
+                                            (qty)
+                                            " "
+                                            @if let Some(unit) = &entry.node_unit {
+                                                (unit)
+                                            } @else {
+                                                "pcs"
+                                            }
+                                            "/套"
+                                        } @else {
+                                            "—"
+                                        }
+                                    }
+                                    td {
+                                        span class=(format!("status-pill {status_class}")) { (status_label) }
+                                    }
+                                    td class="mono" {
+                                        @if let Some(dt) = entry.bom_updated_at {
+                                            (dt.format("%Y-%m-%d"))
+                                        } @else {
+                                            "—"
+                                        }
+                                    }
                                 }
                             }
                         }

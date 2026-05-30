@@ -3,30 +3,27 @@
 // Usage: call positionDropdown(triggerEl, dropdownEl) when dropdown becomes visible.
 
 window.positionDropdown = function (trigger, dropdown) {
-    // Ensure layout has happened before measuring
-    requestAnimationFrame(function () {
-        var rect = trigger.getBoundingClientRect();
-        var menuRect = dropdown.getBoundingClientRect();
-        var viewH = window.innerHeight;
-        var viewW = window.innerWidth;
+    var rect = trigger.getBoundingClientRect();
+    var menuRect = dropdown.getBoundingClientRect();
+    var viewH = window.innerHeight;
+    var viewW = window.innerWidth;
 
-        // Default: below trigger, right-aligned
-        var top = rect.bottom + 4;
-        var left = rect.right - menuRect.width;
+    // Default: below trigger, right-aligned
+    var top = rect.bottom + 4;
+    var left = rect.right - menuRect.width;
 
-        // Flip above if not enough space below
-        if (top + menuRect.height > viewH - 8 && rect.top - menuRect.height - 4 > 8) {
-            top = rect.top - menuRect.height - 4;
-        }
-        // Clamp horizontal
-        if (left + menuRect.width > viewW - 8) left = viewW - menuRect.width - 8;
-        if (left < 8) left = 8;
+    // Flip above if not enough space below
+    if (top + menuRect.height > viewH - 8 && rect.top - menuRect.height - 4 > 8) {
+        top = rect.top - menuRect.height - 4;
+    }
+    // Clamp horizontal
+    if (left + menuRect.width > viewW - 8) left = viewW - menuRect.width - 8;
+    if (left < 8) left = 8;
 
-        dropdown.style.position = 'fixed';
-        dropdown.style.top = top + 'px';
-        dropdown.style.left = left + 'px';
-        dropdown.style.right = 'auto';
-    });
+    dropdown.style.position = 'fixed';
+    dropdown.style.top = top + 'px';
+    dropdown.style.left = left + 'px';
+    dropdown.style.right = 'auto';
 };
 
 

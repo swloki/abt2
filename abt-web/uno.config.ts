@@ -454,6 +454,19 @@ const componentStyles = `
 .data-table .link-cell:hover { color: var(--accent-hover); }
 .data-table .row-actions { opacity: 0; transition: opacity var(--motion-fast); display: flex; gap: var(--space-1); }
 .data-table tbody tr:hover .row-actions { opacity: 1; }
+.usage-table { width: 100%; border-collapse: collapse; }
+.usage-table th {
+  text-align: left; font-size: 11px; font-weight: 500; color: var(--muted);
+  padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--border-soft);
+}
+.usage-table td {
+  padding: var(--space-3); font-size: var(--text-sm); border-bottom: 1px solid var(--border-soft);
+}
+.usage-table tr:last-child td { border-bottom: none; }
+.usage-table .link-cell {
+  color: var(--accent); font-weight: 600; font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
 .row-action-btn {
   width: 28px; height: 28px; border: none; background: var(--surface);
   border-radius: var(--radius-sm); display: grid; place-items: center;
@@ -463,7 +476,7 @@ const componentStyles = `
 .row-action-btn svg { width: 14px; height: 14px; }
 /* ─── Row Action Dropdown ─── */
 .row-actions-menu {
-  z-index: 50;
+  position: fixed; top: -9999px; left: -9999px; z-index: 50;
   min-width: 140px; padding: 4px;
   background: var(--bg); border: 1px solid var(--border);
   border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
@@ -657,6 +670,75 @@ const componentStyles = `
 .change-tag.down { background: #f6ffed; color: #389e0d; }
 .product-link { color: var(--accent); cursor: pointer; font-weight: 500; text-decoration: none; }
 .product-link:hover { text-decoration: underline; }
+/* ─── BOM Drawer internal ─── */
+.bom-summary {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px;
+}
+.bom-summary-item {
+  padding: 14px 16px; background: var(--surface); border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+}
+.bom-summary-value {
+  font-size: 22px; font-weight: 700; font-family: var(--font-mono); color: var(--fg);
+}
+.bom-summary-value.accent { color: var(--accent); }
+.bom-summary-value.green { color: var(--success); }
+.bom-summary-label { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.bom-ref-card {
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  margin-bottom: 10px; transition: border-color .15s, box-shadow .15s;
+  overflow: hidden;
+}
+.bom-ref-card:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+.bom-ref-main {
+  display: flex; align-items: center; gap: 14px; padding: 14px 16px; cursor: pointer;
+}
+.bom-ref-icon {
+  width: 38px; height: 38px; border-radius: var(--radius-sm); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.bom-ref-icon.parent { background: linear-gradient(135deg, #f0f5ff, #e6f4ff); }
+.bom-ref-icon svg { color: var(--accent); }
+.bom-ref-info { flex: 1; min-width: 0; }
+.bom-ref-name {
+  font-size: 14px; font-weight: 600; color: var(--fg);
+  display: flex; align-items: center; gap: 8px;
+}
+.bom-ref-name a { color: var(--accent); text-decoration: none; font-weight: 600; }
+.bom-ref-name a:hover { text-decoration: underline; }
+.bom-ref-meta {
+  display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--muted); margin-top: 4px;
+}
+.bom-ref-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.bom-ref-qty { text-align: right; }
+.bom-ref-qty-value {
+  font-size: 16px; font-weight: 700; font-family: var(--font-mono); color: var(--fg);
+}
+.bom-ref-qty-label { font-size: 11px; color: var(--muted); }
+.bom-ref-detail {
+  border-top: 1px solid var(--border-soft); padding: 14px 16px;
+  background: var(--surface);
+}
+.bom-ref-detail-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px;
+}
+.bom-ref-detail-item {
+  display: flex; align-items: center; gap: 6px; font-size: 12px;
+}
+.bom-ref-detail-item .label { color: var(--muted); white-space: nowrap; }
+.bom-ref-detail-item .value { color: var(--fg); font-weight: 500; }
+.bom-ref-expand {
+  background: none; border: none; cursor: pointer; padding: 4px;
+  color: var(--muted); transition: transform .2s, color .15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.bom-ref-expand:hover { color: var(--fg); }
+.bom-empty {
+  text-align: center; padding: 48px 24px; color: var(--muted);
+}
+.bom-empty svg { margin-bottom: 12px; opacity: .4; }
+.bom-empty p { font-size: 14px; margin: 0; }
+.bom-empty .sub { font-size: 12px; margin-top: 4px; }
 /* ─── Detail Drawer (price history) ─── */
 .detail-overlay {
   position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,.45);

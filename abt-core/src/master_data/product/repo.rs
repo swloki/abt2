@@ -211,12 +211,35 @@ impl ProductRepo {
 
     pub async fn query_product_usage_in_boms(db: PgExecutor<'_>, product_id: i64, limit: i64, offset: i64) -> Result<Vec<UsageEntry>> {
         let items = sqlx::query_as::<sqlx::Postgres, UsageEntry>(
-            r#"SELECT 'bom' AS source_type, b.bom_id AS source_id, b.bom_name AS source_name
-               FROM bom_nodes bn JOIN boms b ON bn.bom_id = b.bom_id
-               WHERE bn.product_id = $1 AND b.deleted_at IS NULL
-               GROUP BY b.bom_id, b.bom_name
-               ORDER BY b.bom_id DESC
-               LIMIT $2 OFFSET $3"#,
+            r#"SELECT
+                'bom' AS source_type,
+                b.bom_id AS source_id,
+                b.bom_name AS source_name,
+                b.status AS bom_status,
+                b.version AS bom_version,
+                bn.quantity,
+                bn.unit AS node_unit,
+                bn.remark AS node_remark,
+                root_p.pdt_name AS parent_product_name,
+                root_p.product_code AS parent_product_code,
+                b.update_at AS bom_updated_at
+            FROM bom_nodes bn
+            JOIN boms b ON bn.bom_id = b.bom_id
+            LEFT JOIN LATERAL (
+                SELECT bn2.product_id
+                FROM bom_nodes bn2
+                WHERE bn2.bom_id = b.bom_id AND bn2.parent_id = 0
+                ORDER BY bn2.order_num
+                LIMIT 1
+            ) root ON TRUE
+            LEFT JOIN products root_p ON root.product_id = root_p.product_id
+            WHERE bn.product_id = $1 AND b.deleted_at IS NULL
+            GROUP BY b.bom_id, b.bom_name, b.status, b.version,
+                     bn.quantity, bn.unit, bn.remark,
+                     root_p.pdt_name, root_p.product_code,
+                     b.update_at
+            ORDER BY b.bom_id DESC
+            LIMIT $2 OFFSET $3"#,
         )
         .bind(product_id)
         .bind(limit)

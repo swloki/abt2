@@ -112,6 +112,7 @@ pub async fn get_product_usage(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.product_service();
 
+    let product = svc.get(&service_ctx, &mut conn, path.id).await?;
     let usage = svc.check_product_usage(
         &service_ctx,
         &mut conn,
@@ -119,7 +120,7 @@ pub async fn get_product_usage(
         UsageQuery { page: 1, page_size: 50 },
     ).await?;
 
-    Ok(Html(usage_table_fragment(path.id, &usage.items).into_string()))
+    Ok(Html(bom_drawer_content(&product, &usage.items, usage.total).into_string()))
 }
 
 #[require_permission("PRODUCT", "update")]
@@ -302,7 +303,7 @@ fn product_list_page(
 ) -> Markup {
 
     html! {
-        div x-data="{ createModalOpen: false, priceDrawerOpen: false }" x-init="window.addEventListener('closeDrawer', () => { priceDrawerOpen = false })" {
+        div x-data="{ createModalOpen: false, priceDrawerOpen: false, bomDrawerOpen: false }" x-init="window.addEventListener('closeDrawer', () => { priceDrawerOpen = false })" {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "产品管理" span style="font-size:var(--text-sm);font-weight:400;color:var(--muted);margin-left:var(--space-2)" { "(" (result.total) ")" } }
@@ -326,6 +327,25 @@ fn product_list_page(
                 html! {
                     div id="price-drawer-body" {
                         // Content loaded via HTMX
+                    }
+                },
+            ))
+
+            // ── BOM 引用 Drawer ──
+            (crate::components::drawer::drawer_with_footer(
+                "bomDrawerOpen",
+                "BOM 引用查询",
+                html! {
+                    div id="bom-drawer-body" {
+                        // Content loaded via HTMX
+                    }
+                },
+                html! {
+                    button type="button" class="btn btn-default"
+                        x-on:click="bomDrawerOpen = false" { "关闭" }
+                    a href="/admin/md/boms/new" class="btn btn-primary" style="text-decoration:none" {
+                        (icon::plus_icon("w-4 h-4"))
+                        "新建 BOM"
                     }
                 },
             ))
@@ -437,7 +457,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
             }
             td onclick=(format!("location.href='{}'", detail_path)) { (p.unit) }
             td onclick="event.stopPropagation()" {
-                div class="row-actions" x-data="{ menuOpen: false, deleteOpen: false }" x-effect="if(menuOpen) $nextTick(function(){ positionDropdown($refs.moreBtn, $refs.menu) })" {
+                div class="row-actions" x-data="{ menuOpen: false, deleteOpen: false }" x-effect="if(menuOpen){ var t=$refs.moreBtn, m=$refs.menu; setTimeout(function(){ positionDropdown(t, m) }, 50) }" {
                     // View detail
                     a class="row-action-btn" title="查看"
                         href=(detail_path) {
@@ -446,9 +466,9 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                     // BOM usage
                     button type="button" class="row-action-btn" title="BOM引用"
                         hx-get=(usage_path)
-                        hx-target="#modal-content"
+                        hx-target="#bom-drawer-body"
                         hx-swap="innerHTML"
-                        x-on:click="document.querySelector('#modal-content').dispatchEvent(new Event('open-modal'))" {
+                        x-on:click="bomDrawerOpen = true" {
                         (icon::link_icon("w-4 h-4"))
                     }
                     // More menu trigger
@@ -462,11 +482,11 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                     // Dropdown menu (positioned by JS)
                     div x-show="menuOpen" x-cloak x-ref="menu"
                         x-transition:enter="transition ease-out duration-100"
-                        x-transition:enter-start="opacity-0 scale-95"
-                        x-transition:enter-end="opacity-100 scale-100"
+                        x-transition:enter-start="opacity-0"
+                        x-transition:enter-end="opacity-100"
                         x-transition:leave="transition ease-in duration-75"
-                        x-transition:leave-start="opacity-100 scale-100"
-                        x-transition:leave-end="opacity-0 scale-95"
+                        x-transition:leave-start="opacity-100"
+                        x-transition:leave-end="opacity-0"
                         class="row-actions-menu" {
                         a href=(edit_path) {
                             (icon::edit_icon("w-4 h-4"))
@@ -529,48 +549,159 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
 
 // ── Fragment Components ──
 
-fn usage_table_fragment(product_id: i64, entries: &[UsageEntry]) -> Markup {
+fn bom_drawer_content(product: &Product, entries: &[UsageEntry], total: u64) -> Markup {
+    let spec = &product.meta.specification;
+    let active_count = entries.iter().filter(|e| e.bom_status == Some(2)).count();
+    let draft_count = total as usize - active_count;
+
     html! {
-        div class="modal-overlay is-open" x-data="{ open: true }"
-            x-bind:class="{ 'is-open': open }"
-            x-on:click="open = false" {
-            div class="modal" x-on:click="event.stopPropagation()" {
-                div class="modal-head" {
-                    h2 { "BOM 引用" }
-                    button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                        x-on:click="open = false" { "×" }
-                }
-                div class="modal-body" {
-                    @if entries.is_empty() {
-                        div class="empty-state" { "该产品未被任何 BOM 引用" }
+        // Product info card
+        div class="price-product-card" {
+            div class="price-product-icon" style="background:linear-gradient(135deg,#f5f0ff,#ede5ff)" {
+                (icon::bolt_icon("w-5 h-5"))
+            }
+            div style="flex:1;min-width:0" {
+                div class="price-product-name" { (product.pdt_name) }
+                div class="price-product-meta" {
+                    (product.product_code) "  \u{00b7}  "
+                    @if spec.is_empty() {
+                        (product.unit)
                     } @else {
-                        table class="data-table" style="width:100%" {
-                            thead {
-                                tr {
-                                    th { "来源类型" }
-                                    th { "来源编号" }
-                                    th { "来源名称" }
-                                }
-                            }
-                            tbody {
-                                @for entry in entries {
-                                    tr {
-                                        td { (entry.source_type) }
-                                        td {
-                                            a href=(format!("/admin/md/boms/{}", entry.source_id)) style="color:var(--primary)" {
-                                                (entry.source_id)
-                                            }
-                                        }
-                                        td { (entry.source_name) }
+                        (spec) " / " (product.unit)
+                    }
+                }
+            }
+        }
+
+        // Summary stats
+        div class="bom-summary" {
+            div class="bom-summary-item" {
+                div class="bom-summary-value accent" { (total) }
+                div class="bom-summary-label" { "引用 BOM 数" }
+            }
+            div class="bom-summary-item" {
+                div class="bom-summary-value green" { (active_count) }
+                div class="bom-summary-label" { "生效中" }
+            }
+            div class="bom-summary-item" {
+                div class="bom-summary-value" { (draft_count) }
+                div class="bom-summary-label" { "草稿" }
+            }
+        }
+
+        // BOM list
+        div class="price-section" {
+            div class="price-section-title" {
+                (icon::clipboard_list_icon("w-3.5 h-3.5"))
+                "BOM 清单"
+            }
+            @if entries.is_empty() {
+                div class="bom-empty" {
+                    (icon::clipboard_list_icon("w-12 h-12"))
+                    p { "暂无 BOM 引用" }
+                    p class="sub" { "该产品尚未被任何 BOM 引用" }
+                }
+            } @else {
+                @for entry in entries {
+                    (bom_ref_card(entry))
+                }
+            }
+        }
+    }
+}
+
+fn bom_ref_card(entry: &UsageEntry) -> Markup {
+    let bom_detail_path = format!("/admin/md/boms/{}", entry.source_id);
+    let status = entry.bom_status.unwrap_or(1);
+    let (status_label, status_class) = match status {
+        2 => ("生效中", "status-completed"),
+        _ => ("草稿", "status-draft"),
+    };
+    let version = entry.bom_version.map(|v| format!("V{}", v)).unwrap_or_else(|| "—".into());
+    let qty = entry.quantity.map(|q| format!("{:.0}", q)).unwrap_or_else(|| "—".into());
+    let unit = entry.node_unit.as_deref().unwrap_or("");
+    let parent_name = entry.parent_product_name.as_deref().unwrap_or("");
+    let has_detail = entry.bom_version.is_some() || entry.parent_product_name.is_some();
+
+    html! {
+        div class="bom-ref-card" x-data="{ expanded: false }" {
+            div class="bom-ref-main" x-on:click="expanded = !expanded" {
+                div class="bom-ref-icon parent" {
+                    (icon::bolt_icon("w-4.5 h-4.5"))
+                }
+                div class="bom-ref-info" {
+                    div class="bom-ref-name" {
+                        a href=(bom_detail_path) x-on:click="event.stopPropagation()" style="color:var(--accent);text-decoration:none;font-weight:600" {
+                            (entry.source_name)
+                        }
+                        span style="font-size:11px;font-weight:400;color:var(--muted);font-family:var(--font-mono)" {
+                            "BOM-" (entry.source_id)
+                        }
+                    }
+                    div class="bom-ref-meta" {
+                        span { "版本 " (version) }
+                        @if !parent_name.is_empty() && parent_name != "—" {
+                            span { "父件: " (parent_name) }
+                        }
+                        span class=(format!("status-pill {status_class}")) { (status_label) }
+                    }
+                }
+                div class="bom-ref-right" {
+                    div class="bom-ref-qty" {
+                        div class="bom-ref-qty-value" {
+                            (qty) " "
+                            span style="font-size:12px;font-weight:400;color:var(--muted)" { (unit) }
+                        }
+                    }
+                    button class="bom-ref-expand" x-on:click="event.stopPropagation(); expanded = !expanded" {
+                        svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" {
+                            path d="M19 9l-7 7-7-7" {}
+                        }
+                    }
+                }
+            }
+            @if has_detail {
+                div class="bom-ref-detail" x-show="expanded" x-cloak {
+                    div class="bom-ref-detail-grid" {
+                        div class="bom-ref-detail-item" {
+                            span class="label" { "BOM 编码:" }
+                            span class="value" style="font-family:var(--font-mono)" { "BOM-" (entry.source_id) }
+                        }
+                        div class="bom-ref-detail-item" {
+                            span class="label" { "版本:" }
+                            span class="value" { (version) }
+                        }
+                        @if let Some(pn) = &entry.parent_product_name {
+                            div class="bom-ref-detail-item" {
+                                span class="label" { "父件产品:" }
+                                span class="value" {
+                                    a href=(format!("/admin/md/products/{}", entry.parent_product_code.as_deref().unwrap_or(""))) style="color:var(--accent);text-decoration:none" {
+                                        (pn)
                                     }
                                 }
                             }
                         }
+                        @if let Some(pc) = &entry.parent_product_code {
+                            div class="bom-ref-detail-item" {
+                                span class="label" { "父件编码:" }
+                                span class="value" style="font-family:var(--font-mono)" { (pc) }
+                            }
+                        }
+                        div class="bom-ref-detail-item" {
+                            span class="label" { "用量:" }
+                            span class="value" style="font-family:var(--font-mono)" {
+                                (qty) " " (unit)
+                            }
+                        }
+                        @if let Some(remark) = &entry.node_remark {
+                            @if !remark.is_empty() {
+                                div class="bom-ref-detail-item" style="grid-column:1/-1" {
+                                    span class="label" { "备注:" }
+                                    span class="value" { (remark) }
+                                }
+                            }
+                        }
                     }
-                }
-                div class="modal-foot" {
-                    button type="button" class="btn btn-default"
-                        x-on:click="open = false" { "关闭" }
                 }
             }
         }

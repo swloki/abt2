@@ -33,3 +33,31 @@ pub fn drawer(open_var: &str, title: &str, submit_label: &str, form_id: &str, bo
         }
     }
 }
+
+/// Drawer variant with custom footer content.
+///
+/// `open_var` — Alpine reactive boolean controlling visibility.
+/// `title` — drawer title.
+/// `body` — content slot (rendered inside drawer-body).
+/// `footer` — custom footer content.
+pub fn drawer_with_footer(open_var: &str, title: &str, body: Markup, footer: Markup) -> Markup {
+    html! {
+        div class="drawer-overlay"
+            x-bind:class=(format!("{{ 'open': {} }}", open_var))
+            x-on:click=(format!("if(event.target===this) {} = false", open_var)) {
+            div class="drawer" x-on:click="event.stopPropagation()" {
+                div class="drawer-head" {
+                    h2 { (title) }
+                    button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
+                        x-on:click=(format!("{} = false", open_var)) { "×" }
+                }
+                div class="drawer-body" {
+                    (body)
+                }
+                div class="drawer-foot" {
+                    (footer)
+                }
+            }
+        }
+    }
+}

@@ -19,24 +19,26 @@ pub fn confirm_dialog(
     form: Markup,
 ) -> Markup {
     html! {
-        div class="dialog-overlay"
-            x-bind:class=(format!("{{ 'open': {} }}", open_var))
-            x-on:click=(format!("{} = false", open_var)) {
-            div class="dialog" x-on:click="event.stopPropagation()" {
-                div class="dialog-body" {
-                    div class="dialog-icon-wrap" {
-                        (icon::circle_alert_icon("w-7 h-7"))
+        template x-teleport="body" {
+            div class="dialog-overlay"
+                x-bind:class=(format!("{{ 'open': {} }}", open_var))
+                x-on:click=(format!("{} = false", open_var)) {
+                div class="dialog" x-on:click="event.stopPropagation()" {
+                    div class="dialog-body" {
+                        div class="dialog-icon-wrap" {
+                            (icon::circle_alert_icon("w-7 h-7"))
+                        }
+                        div class="dialog-title" { (title) }
+                        p class="dialog-desc" { (maud::PreEscaped(desc)) }
                     }
-                    div class="dialog-title" { (title) }
-                    p class="dialog-desc" { (maud::PreEscaped(desc)) }
+                    div class="dialog-foot" {
+                        button type="button" class="btn btn-default"
+                            x-on:click=(format!("{} = false", open_var)) { "取消" }
+                        button type="submit" class="btn btn-danger" form=(form_id) { (confirm_label) }
+                    }
                 }
-                div class="dialog-foot" {
-                    button type="button" class="btn btn-default"
-                        x-on:click=(format!("{} = false", open_var)) { "取消" }
-                    button type="submit" class="btn btn-danger" form=(form_id) { (confirm_label) }
-                }
+                (form)
             }
-            (form)
         }
     }
 }

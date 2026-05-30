@@ -18,7 +18,9 @@ pub fn modal(open_var: &str, title: &str, submit_label: &str, form_id: &str, bod
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         x-on:click=(format!("{} = false", open_var)) { "×" }
                 }
-                (body)
+                div class="modal-body" {
+                    (body)
+                }
                 div class="modal-foot" {
                     button type="button" class="btn btn-default"
                         x-on:click=(format!("{} = false", open_var)) { "取消" }

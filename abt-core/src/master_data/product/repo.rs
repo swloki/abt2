@@ -109,16 +109,21 @@ impl ProductRepo {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
-        let name_param = if let Some(ref name) = filter.name {
-            param_idx += 1;
-            conditions.push(format!("pdt_name ILIKE ${param_idx}"));
-            Some(format!("%{name}%"))
-        } else { None };
+        let name_params: Vec<String> = if let Some(ref name) = filter.name {
+            let tokens: Vec<&str> = name.split_whitespace().collect();
+            let mut params = Vec::new();
+            for token in tokens {
+                param_idx += 1;
+                conditions.push(format!("pdt_name ILIKE ${param_idx}"));
+                params.push(format!("%{token}%"));
+            }
+            params
+        } else { Vec::new() };
 
         let code_param = if let Some(ref code) = filter.code {
             param_idx += 1;
             conditions.push(format!("product_code ILIKE ${param_idx}"));
-            Some(format!("%{code}%"))
+            Some(code.clone())
         } else { None };
 
         let status_param = if let Some(status) = filter.status {
@@ -140,12 +145,11 @@ impl ProductRepo {
             ));
             Some(cat_id)
         } else { None };
-
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM products WHERE {where_clause}");
         let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
-        if let Some(ref v) = name_param { count_q = count_q.bind(v); }
+        for v in &name_params { count_q = count_q.bind(v); }
         if let Some(ref v) = code_param { count_q = count_q.bind(v); }
         if let Some(v) = status_param { count_q = count_q.bind(v); }
         if let Some(v) = dept_param { count_q = count_q.bind(v); }
@@ -160,7 +164,7 @@ impl ProductRepo {
             "SELECT product_id, pdt_name, product_code, unit, status, external_code, owner_department_id, meta, created_at, updated_at, deleted_at FROM products WHERE {where_clause} ORDER BY product_id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}",
         );
         let mut data_q = sqlx::query_as::<sqlx::Postgres, Product>(sqlx::AssertSqlSafe(data_sql));
-        if let Some(ref v) = name_param { data_q = data_q.bind(v); }
+        for v in &name_params { data_q = data_q.bind(v); }
         if let Some(ref v) = code_param { data_q = data_q.bind(v); }
         if let Some(v) = status_param { data_q = data_q.bind(v); }
         if let Some(v) = dept_param { data_q = data_q.bind(v); }

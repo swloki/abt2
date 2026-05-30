@@ -9,21 +9,20 @@ use serde::Deserialize;
 use abt_core::master_data::product::model::*;
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::category::CategoryService;
-use abt_core::master_data::category::model::{Category, CategoryQuery};
+use abt_core::master_data::category::model::CategoryTree;
 use abt_core::master_data::price::ProductPriceService;
 use abt_core::master_data::price::model::{PriceType, PriceQuery, PriceLogEntry};
 use abt_core::master_data::product_watcher::ProductWatcherService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
-use crate::components::modal;
+use crate::components::category_select::category_tree_select;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::product::{
-    ProductCreatePath, ProductDeletePath, ProductDetailPath, ProductListPath,
+    ProductCopyPath, ProductCreatePath, ProductDeletePath, ProductDetailPath, ProductListPath,
     ProductTablePath, ProductUsagePath, ProductPricePath, ProductPriceHistoryPath,
-    ProductWatchPath, ProductUnwatchPath,
+    ProductPriceDrawerPath, ProductWatchPath, ProductUnwatchPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
@@ -32,7 +31,10 @@ use abt_macros::require_permission;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ProductQueryParams {
-    pub keyword: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub code: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub name: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
@@ -61,7 +63,7 @@ pub async fn get_product_list(
     let svc = state.product_service();
     let cat_svc = state.category_service();
     let watcher_svc = state.product_watcher_service();
-    let categories = cat_svc.list(&service_ctx, &mut conn, CategoryQuery::default(), PageParams::new(1, 200)).await?;
+    let categories = cat_svc.get_tree(&service_ctx, &mut conn, None, None).await?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
@@ -72,7 +74,7 @@ pub async fn get_product_list(
     let watched = watcher_svc.list_watched_products(&service_ctx, &mut conn, 1, 1000).await?;
     let watched_ids: Vec<i64> = watched.items.iter().map(|w| w.product_id).collect();
 
-    let content = product_list_page(&result, &params, &categories.items, &watched_ids);
+    let content = product_list_page(&result, &params, &categories, &watched_ids);
     let page_html = admin_page(
         &headers, "产品管理", &claims, "md", ProductListPath::PATH, "主数据管理", Some("产品管理"), content,
     );
@@ -89,7 +91,7 @@ pub async fn get_product_table(
     let svc = state.product_service();
     let cat_svc = state.category_service();
     let watcher_svc = state.product_watcher_service();
-    let categories = cat_svc.list(&service_ctx, &mut conn, CategoryQuery::default(), PageParams::new(1, 200)).await?;
+    let categories = cat_svc.get_tree(&service_ctx, &mut conn, None, None).await?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
@@ -99,7 +101,7 @@ pub async fn get_product_table(
     let watched = watcher_svc.list_watched_products(&service_ctx, &mut conn, 1, 1000).await?;
     let watched_ids: Vec<i64> = watched.items.iter().map(|w| w.product_id).collect();
 
-    Ok(Html(product_table_fragment(&result, &params, &categories.items, &watched_ids).into_string()))
+    Ok(Html(product_table_fragment(&result, &params, &categories, &watched_ids).into_string()))
 }
 
 #[require_permission("PRODUCT", "read")]
@@ -146,8 +148,7 @@ pub async fn update_product_price(
         form.remark.unwrap_or_default(),
     ).await?;
 
-    let redirect = ProductDetailPath { id: path.id };
-    Ok(([("HX-Redirect", redirect.to_string())], Html(String::new())))
+    Ok(([("HX-Trigger", "{\"closeDrawer\":\"\"}")], Html(String::new())))
 }
 
 #[require_permission("PRODUCT", "read")]
@@ -161,6 +162,9 @@ pub async fn get_price_history(
     let query = PriceQuery {
         product_id: Some(path.id),
         price_type: None,
+        keyword: None,
+        date_from: None,
+        date_to: None,
     };
     let result = svc.list_price_history(
         &service_ctx,
@@ -170,6 +174,38 @@ pub async fn get_price_history(
     ).await?;
 
     Ok(Html(price_history_table(path.id, &result.items).into_string()))
+}
+
+#[require_permission("PRODUCT", "read")]
+pub async fn get_price_drawer(
+    path: ProductPriceDrawerPath,
+    ctx: RequestContext,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let product_svc = state.product_service();
+    let price_svc = state.product_price_service();
+
+    let product = product_svc.get(&service_ctx, &mut conn, path.id).await?;
+    let current_price = price_svc.get_current_price(&service_ctx, &mut conn, path.id, PriceType::Purchase).await?.unwrap_or_default();
+    let query = PriceQuery {
+        product_id: Some(path.id),
+        price_type: None,
+        keyword: None,
+        date_from: None,
+        date_to: None,
+    };
+    let history = price_svc.list_price_history(
+        &service_ctx,
+        &mut conn,
+        query,
+        PageParams::new(1, 3),
+    ).await?;
+    Ok(Html(price_drawer_content(
+        &product,
+        &current_price,
+        &history.items,
+        history.total,
+    ).into_string()))
 }
 
 #[require_permission("PRODUCT", "update")]
@@ -228,9 +264,11 @@ pub async fn delete_product(
 // ── Helpers ──
 
 fn build_filter(params: &ProductQueryParams) -> ProductQuery {
+    let name = params.name.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(String::from);
+    let code = params.code.as_deref().map(str::trim).filter(|s| !s.is_empty()).map(String::from);
     ProductQuery {
-        name: params.keyword.clone(),
-        code: params.keyword.clone(),
+        name,
+        code,
         status: params.status.and_then(ProductStatus::from_i16),
         owner_department_id: None,
         category_id: params.category_id,
@@ -239,8 +277,11 @@ fn build_filter(params: &ProductQueryParams) -> ProductQuery {
 
 fn build_query_string(params: &ProductQueryParams) -> String {
     let mut q = vec![];
-    if let Some(ref kw) = params.keyword {
-        q.push(format!("keyword={kw}"));
+    if let Some(ref v) = params.code {
+        q.push(format!("code={v}"));
+    }
+    if let Some(ref v) = params.name {
+        q.push(format!("name={v}"));
     }
     if let Some(s) = params.status {
         q.push(format!("status={s}"));
@@ -256,16 +297,15 @@ fn build_query_string(params: &ProductQueryParams) -> String {
 fn product_list_page(
     result: &abt_core::shared::types::PaginatedResult<Product>,
     params: &ProductQueryParams,
-    categories: &[Category],
+    categories: &[CategoryTree],
     watched_ids: &[i64],
 ) -> Markup {
-    let total_count = result.total;
 
     html! {
-        div x-data="{ createModalOpen: false }" {
+        div x-data="{ createModalOpen: false, priceDrawerOpen: false }" x-init="window.addEventListener('closeDrawer', () => { priceDrawerOpen = false })" {
             // ── Page Header ──
             div class="page-header" {
-                h1 class="page-title" { "产品管理" }
+                h1 class="page-title" { "产品管理" span style="font-size:var(--text-sm);font-weight:400;color:var(--muted);margin-left:var(--space-2)" { "(" (result.total) ")" } }
                 div class="page-actions" {
                     a href=(ProductCreatePath::PATH) class="btn btn-primary" {
                         (icon::plus_icon("w-4 h-4"))
@@ -274,48 +314,21 @@ fn product_list_page(
                 }
             }
 
-            // ── Stat Cards ──
-            div class="customer-stats" {
-                div class="stat-card" {
-                    div class="stat-icon blue" {
-                        (icon::box_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { (total_count) }
-                        div class="stat-label" { "产品总数" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon green" {
-                        (icon::check_circle_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "在用" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon orange" {
-                        (icon::circle_alert_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "停用" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon red" {
-                        (icon::x_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "作废" }
-                    }
-                }
-            }
-
-            // ── Tabs + Filter + Data Table (HTMX panel) ──
+            // ── Filter + Data Table (HTMX panel) ──
             (product_table_fragment(result, params, categories, watched_ids))
+
+            // ── Price Drawer (shared) ──
+            (crate::components::drawer::drawer(
+                "priceDrawerOpen",
+                "价格设置",
+                "保存价格",
+                "price-drawer-form",
+                html! {
+                    div id="price-drawer-body" {
+                        // Content loaded via HTMX
+                    }
+                },
+            ))
         }
     }
 }
@@ -323,56 +336,46 @@ fn product_list_page(
 fn product_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<Product>,
     params: &ProductQueryParams,
-    categories: &[Category],
+    categories: &[CategoryTree],
     watched_ids: &[i64],
 ) -> Markup {
     let query = build_query_string(params);
-    let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
-    let total_count = result.total;
-
-    let tabs = &[
-        TabItem { value: String::new(), label: "全部", count: Some(total_count) },
-        TabItem { value: "1".into(), label: "在用", count: None },
-        TabItem { value: "2".into(), label: "停用", count: None },
-        TabItem { value: "3".into(), label: "作废", count: None },
-    ];
 
     html! {
         div class="customer-list-panel" {
-            (status_tabs(ProductTablePath::PATH, "closest .customer-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
-
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form"
+                hx-get=(ProductTablePath::PATH)
+                hx-trigger="change,keyup changed delay:300ms from:.search-input"
+                hx-target=".data-card"
+                hx-select=".data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
-                        placeholder="搜索产品编码、产品名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(ProductTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .customer-list-panel"
-                        hx-swap="outerHTML";
+                    input class="search-input" type="text" name="code"
+                        style="width:180px"
+                        placeholder="产品编码"
+                        value=(params.code.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="status"
-                    hx-get=(ProductTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .customer-list-panel"
-                    hx-swap="outerHTML" {
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="name"
+                        placeholder="产品名称"
+                        value=(params.name.as_deref().unwrap_or(""));
+                }
+                select class="filter-select" name="status" {
                     option value="" { "全部状态" }
                     option value="1" selected[params.status == Some(1)] { "在用" }
                     option value="2" selected[params.status == Some(2)] { "停用" }
                     option value="3" selected[params.status == Some(3)] { "作废" }
                 }
-                select class="filter-select" name="category_id"
-                    hx-get=(ProductTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .customer-list-panel"
-                    hx-swap="outerHTML" {
-                    option value="" { "全部分类" }
-                    @for cat in categories {
-                        option value=(cat.category_id) selected[params.category_id == Some(cat.category_id)] { (cat.category_name) }
-                    }
-                }
+                (category_tree_select(
+                    categories,
+                    params.category_id,
+                    "category_id",
+                    "全部分类",
+                ))
             }
 
             // ── Data Table ──
@@ -385,9 +388,6 @@ fn product_table_fragment(
                                 th { "产品名称" }
                                 th { "规格型号" }
                                 th { "单位" }
-                                th { "获取途径" }
-                                th { "归属部门" }
-                                th { "状态" }
                                 th { "操作" }
                             }
                         }
@@ -397,7 +397,7 @@ fn product_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="5" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                         "暂无产品数据"
                                     }
                                 }
@@ -415,22 +415,14 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
     let detail_path = ProductDetailPath { id: p.product_id };
     let delete_path = ProductDeletePath { id: p.product_id };
     let usage_path = ProductUsagePath { id: p.product_id };
-    let price_path = ProductPricePath { id: p.product_id };
-    let price_history_path = ProductPriceHistoryPath { id: p.product_id };
+    let drawer_path = ProductPriceDrawerPath { id: p.product_id };
     let watch_path = ProductWatchPath { id: p.product_id };
     let unwatch_path = ProductUnwatchPath { id: p.product_id };
+    let copy_path = ProductCopyPath { id: p.product_id };
+    let edit_path = format!("/admin/md/products/{}", p.product_id);
     let delete_form_id = format!("delete-product-form-{}", p.product_id);
-    let price_form_id = format!("price-form-{}", p.product_id);
     let is_watched = watched_ids.contains(&p.product_id);
-
-    let (status_label, status_class) = match p.status {
-        ProductStatus::Active => ("在用", "status-accepted"),
-        ProductStatus::Inactive => ("停用", "status-draft"),
-        ProductStatus::Obsolete => ("作废", "status-rejected"),
-    };
-
     let spec = &p.meta.specification;
-    let channel = &p.meta.acquire_channel;
 
     html! {
         tr style="cursor:pointer" {
@@ -444,26 +436,14 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                 }
             }
             td onclick=(format!("location.href='{}'", detail_path)) { (p.unit) }
-            td onclick=(format!("location.href='{}'", detail_path)) {
-                @if channel.is_empty() {
-                    span style="color:var(--muted)" { "—" }
-                } @else {
-                    (channel)
-                }
-            }
-            td onclick=(format!("location.href='{}'", detail_path)) {
-                span style="color:var(--muted)" { "—" }
-            }
-            td onclick=(format!("location.href='{}'", detail_path)) {
-                span class=(format!("status-pill {status_class}")) { (status_label) }
-            }
             td onclick="event.stopPropagation()" {
-                div class="row-actions" x-data="{ deleteOpen: false, priceModalOpen: false }" {
+                div class="row-actions" x-data="{ menuOpen: false, deleteOpen: false }" x-effect="if(menuOpen) $nextTick(function(){ positionDropdown($refs.moreBtn, $refs.menu) })" {
+                    // View detail
                     a class="row-action-btn" title="查看"
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
                     }
-                    // BOM usage button — loads usage into modal
+                    // BOM usage
                     button type="button" class="row-action-btn" title="BOM引用"
                         hx-get=(usage_path)
                         hx-target="#modal-content"
@@ -471,67 +451,62 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                         x-on:click="document.querySelector('#modal-content').dispatchEvent(new Event('open-modal'))" {
                         (icon::link_icon("w-4 h-4"))
                     }
-                    // Price setting button
-                    button type="button" class="row-action-btn" title="价格设置"
-                        x-on:click="priceModalOpen = true" {
-                        (icon::trending_up_icon("w-4 h-4"))
+                    // More menu trigger
+                    button type="button" class="row-action-btn" title="更多"
+                        x-ref="moreBtn"
+                        x-on:click="menuOpen = !menuOpen" {
+                        (icon::dots_vertical_icon("w-4 h-4"))
                     }
-                    // Watch/unwatch toggle
-                    @if is_watched {
-                        button type="button" class="row-action-btn" title="取消关注"
-                            hx-post=(unwatch_path)
-                            hx-swap="none" {
-                            (icon::bell_icon("w-4 h-4"))
+                    // Backdrop to close menu on outside click
+                    div x-show="menuOpen" x-cloak style="position:fixed;inset:0;z-index:49" x-on:click="menuOpen = false" {}
+                    // Dropdown menu (positioned by JS)
+                    div x-show="menuOpen" x-cloak x-ref="menu"
+                        x-transition:enter="transition ease-out duration-100"
+                        x-transition:enter-start="opacity-0 scale-95"
+                        x-transition:enter-end="opacity-100 scale-100"
+                        x-transition:leave="transition ease-in duration-75"
+                        x-transition:leave-start="opacity-100 scale-100"
+                        x-transition:leave-end="opacity-0 scale-95"
+                        class="row-actions-menu" {
+                        a href=(edit_path) {
+                            (icon::edit_icon("w-4 h-4"))
+                            "编辑"
                         }
-                    } @else {
-                        button type="button" class="row-action-btn" title="关注"
-                            hx-post=(watch_path)
-                            hx-swap="none" {
-                            (icon::bell_icon("w-4 h-4"))
+                        a href=(copy_path.to_string()) {
+                            (icon::copy_icon("w-4 h-4"))
+                            "复制"
                         }
-                    }
-                    // Delete button
-                    button type="button" class="row-action-btn text-danger" title="删除"
-                        x-on:click="deleteOpen = true" {
-                        (icon::trash_icon("w-4 h-4"))
-                    }
-
-                    // Price modal
-                    (modal::modal(
-                        "priceModalOpen",
-                        "设置价格",
-                        "确认",
-                        &price_form_id,
-                        html! {
-                            form id=(price_form_id) hx-post=(price_path) hx-target="closest tr" {
-                                div class="form-group" {
-                                    label class="form-label" { "价格类型" }
-                                    select class="form-select" name="price_type" {
-                                        option value="1" selected { "采购价" }
-                                        option value="2" { "销售价" }
-                                        option value="3" { "标准成本" }
-                                    }
-                                }
-                                div class="form-group" {
-                                    label class="form-label" { "新价格" }
-                                    input class="form-input" type="text" name="new_price" required {}
-                                }
-                                div class="form-group" {
-                                    label class="form-label" { "备注" }
-                                    input class="form-input" type="text" name="remark" {}
-                                }
-                                div style="margin-top:var(--space-2);text-align:right" {
-                                    button type="button" class="link-btn" style="font-size:13px;color:var(--primary);background:none;border:none;cursor:pointer"
-                                        hx-get=(price_history_path)
-                                        hx-target="#modal-content"
-                                        hx-swap="innerHTML" {
-                                        "查看价格变更记录 →"
-                                    }
-                                }
+                        button type="button"
+                            hx-get=(drawer_path)
+                            hx-target="#price-drawer-body"
+                            hx-swap="innerHTML"
+                            x-on:click="menuOpen = false; priceDrawerOpen = true" {
+                            (icon::currency_icon("w-4 h-4"))
+                            "设置价格"
+                        }
+                        @if is_watched {
+                            button type="button"
+                                hx-post=(unwatch_path)
+                                hx-swap="none"
+                                x-on:click="menuOpen = false" {
+                                (icon::bell_icon("w-4 h-4"))
+                                "取消关注"
                             }
-                        },
-                    ))
-
+                        } @else {
+                            button type="button"
+                                hx-post=(watch_path)
+                                hx-swap="none"
+                                x-on:click="menuOpen = false" {
+                                (icon::bell_icon("w-4 h-4"))
+                                "关注"
+                            }
+                        }
+                        button type="button" class="danger"
+                            x-on:click="menuOpen = false; deleteOpen = true" {
+                            (icon::trash_icon("w-4 h-4"))
+                            "删除"
+                        }
+                    }
                     // Delete confirm dialog
                     (crate::components::confirm_dialog::confirm_dialog(
                         "deleteOpen",
@@ -565,9 +540,9 @@ fn usage_table_fragment(product_id: i64, entries: &[UsageEntry]) -> Markup {
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         x-on:click="open = false" { "×" }
                 }
-                div style="padding:var(--space-4)" {
+                div class="modal-body" {
                     @if entries.is_empty() {
-                        p style="color:var(--muted);text-align:center;padding:var(--space-4)" { "该产品未被任何 BOM 引用" }
+                        div class="empty-state" { "该产品未被任何 BOM 引用" }
                     } @else {
                         table class="data-table" style="width:100%" {
                             thead {
@@ -639,37 +614,12 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                         x-on:click="open = false" { "×" }
                 }
-                div style="padding:var(--space-4)" {
+                div class="modal-body" {
                     @if entries.is_empty() {
-                        p style="color:var(--muted);text-align:center;padding:var(--space-4)" { "暂无价格变更记录" }
+                        div class="empty-state" { "暂无价格变更记录" }
                     } @else {
-                        table class="data-table" style="width:100%" {
-                            thead {
-                                tr {
-                                    th { "价格类型" }
-                                    th { "原价格" }
-                                    th { "新价格" }
-                                    th { "备注" }
-                                    th { "时间" }
-                                }
-                            }
-                            tbody {
-                                @for entry in entries {
-                                    tr {
-                                        td { (price_type_label(entry.price_type)) }
-                                        td { (entry.old_price.map(|p| p.to_string()).unwrap_or_else(|| "—".into())) }
-                                        td { (entry.new_price) }
-                                        td {
-                                            @if entry.remark.is_empty() {
-                                                span style="color:var(--muted)" { "—" }
-                                            } @else {
-                                                (entry.remark)
-                                            }
-                                        }
-                                        td { (entry.created_at.format("%Y-%m-%d %H:%M")) }
-                                    }
-                                }
-                            }
+                        @for entry in entries {
+                            (price_history_diff_item(entry))
                         }
                     }
                 }
@@ -687,5 +637,113 @@ fn price_type_label(pt: PriceType) -> &'static str {
         PriceType::Purchase => "采购价",
         PriceType::Sales => "销售价",
         PriceType::StandardCost => "标准成本",
+    }
+}
+
+fn price_drawer_content(product: &Product, current_price: &Decimal, history: &[PriceLogEntry], total_count: u64) -> Markup {
+    let price_path = ProductPricePath { id: product.product_id };
+    let spec = &product.meta.specification;
+    let has_more = (total_count as usize) > history.len();
+    html! {
+        form id="price-drawer-form" hx-post=(price_path) hx-target="#price-drawer-body" hx-swap="innerHTML" {
+            input type="hidden" name="price_type" value="1";
+            // Product info card
+            div class="price-product-card" {
+                div class="price-product-icon" {
+                    (icon::box_icon("w-5 h-5"))
+                }
+                div style="flex:1;min-width:0" {
+                    div class="price-product-name" { (product.pdt_name) }
+                    div class="price-product-meta" {
+                        (product.product_code) "  \u{00b7}  "
+                        @if spec.is_empty() {
+                            (product.unit)
+                        } @else {
+                            (spec) " / " (product.unit)
+                        }
+                    }
+                }
+            }
+            // Price section
+            div class="price-section" {
+                div class="price-section-title" {
+                    (icon::currency_icon("w-3.5 h-3.5"))
+                    "产品单价"
+                }
+                div class="price-row" {
+                    div class="price-row-label" { "单价" }
+                    div class="prefix" { "¥" }
+                    input type="text" name="new_price"
+                        value=(format!("{:.4}", current_price))
+                        placeholder="0.0000";
+                }
+            }
+            // Remark section
+            div class="price-section" {
+                div class="price-section-title" {
+                    (icon::comment_icon("w-3.5 h-3.5"))
+                    "调价说明"
+                }
+                div class="form-field" {
+                    textarea name="remark" placeholder="调价原因（如：原材料上涨、供应商调价、季度促销等）" rows="2" style="resize:none;width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:13px;color:var(--fg);font-family:var(--font-body)" {}
+                }
+            }
+            // Price history
+            div class="price-section" {
+                div class="price-section-title" {
+                    (icon::clock_icon("w-3.5 h-3.5"))
+                    "变更历史"
+                }
+                @if history.is_empty() {
+                    div style="text-align:center;padding:var(--space-4);color:var(--muted);font-size:13px" { "暂无价格变更记录" }
+                } @else {
+                    @for entry in history {
+                        (price_history_diff_item(entry))
+                    }
+                    @if has_more {
+                        a class="price-history-more" href="/admin/md/price-history" {
+                            (icon::chevron_down_icon("w-3 h-3"))
+                            "查看全部 " (total_count) " 条变更记录"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn price_history_diff_item(entry: &PriceLogEntry) -> Markup {
+    let old_str = entry.old_price.map(|p| format!("{:.4}", p)).unwrap_or_else(|| "—".into());
+    let new_str = format!("{:.4}", entry.new_price);
+    let pct = match entry.old_price {
+        Some(old) if !old.is_zero() => {
+            let change = (entry.new_price - old) / old * rust_decimal::Decimal::from(100);
+            if change >= rust_decimal::Decimal::ZERO {
+                format!("+{:.1}%", change)
+            } else {
+                format!("{:.1}%", change)
+            }
+        }
+        _ => "—".into(),
+    };
+    let is_up = entry.old_price.map_or(false, |old| entry.new_price >= old);
+    let badge_class = if is_up { "change-badge up" } else { "change-badge down" };
+
+    html! {
+        div class="price-history-item" {
+            div class="price-diff" {
+                span class="old-price" { "¥ " (old_str) }
+                svg class="arrow-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" { path d="M17 8l4 4m0 0l-4 4m4-4H3" {} }
+                span class="new-price" { "¥ " (new_str) }
+                span class=(badge_class) { (pct) }
+            }
+            div class="meta" {
+                span { (price_type_label(entry.price_type)) }
+                span { (entry.created_at.format("%Y-%m-%d")) }
+                @if !entry.remark.is_empty() {
+                    span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" { (entry.remark) }
+                }
+            }
+        }
     }
 }

@@ -84,8 +84,10 @@ pub struct CreatePriceParams<'a> {
 }
 
 /// 价格查询过滤
-#[derive(Debug, Clone, Default)]
 pub struct PriceQuery {
     pub product_id: Option<i64>,
     pub price_type: Option<PriceType>,
+    pub keyword: Option<String>,
+    pub date_from: Option<chrono::DateTime<chrono::Utc>>,
+    pub date_to: Option<chrono::DateTime<chrono::Utc>>,
 }

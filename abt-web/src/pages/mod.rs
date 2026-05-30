@@ -53,3 +53,4 @@ pub mod routing_detail;
 pub mod supplier_list;
 pub mod supplier_create;
 pub mod supplier_detail;
+pub mod price_history_list;

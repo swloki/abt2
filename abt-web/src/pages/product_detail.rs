@@ -208,6 +208,13 @@ fn product_detail_page(product: &Product, usage_entries: &[UsageEntry]) -> Marku
                     (detail_row("归属部门", html! {
                         @if let Some(_dept_id) = product.owner_department_id { "—" } @else { "—" }
                     }))
+                    (detail_row("备注", html! {
+                        @if let Some(ref r) = product.meta.remark {
+                            span style="white-space:pre-wrap" { (r) }
+                        } @else {
+                            "—"
+                        }
+                    }))
                 }
 
                 // ── Right: 规格参数 ──

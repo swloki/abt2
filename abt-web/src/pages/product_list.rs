@@ -7,6 +7,8 @@ use serde::Deserialize;
 
 use abt_core::master_data::product::model::*;
 use abt_core::master_data::product::ProductService;
+use abt_core::master_data::category::CategoryService;
+use abt_core::master_data::category::model::{Category, CategoryQuery};
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -25,6 +27,8 @@ pub struct ProductQueryParams {
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
+    pub category_id: Option<i64>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
 }
 
@@ -39,13 +43,15 @@ pub async fn get_product_list(
 ) -> crate::errors::Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.product_service();
+    let cat_svc = state.category_service();
+    let categories = cat_svc.list(&service_ctx, &mut conn, CategoryQuery::default(), PageParams::new(1, 200)).await?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
 
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    let content = product_list_page(&result, &params);
+    let content = product_list_page(&result, &params, &categories.items);
     let page_html = admin_page(
         &headers, "产品管理", &claims, "md", ProductListPath::PATH, "主数据管理", Some("产品管理"), content,
     );
@@ -60,13 +66,15 @@ pub async fn get_product_table(
 ) -> crate::errors::Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.product_service();
+    let cat_svc = state.category_service();
+    let categories = cat_svc.list(&service_ctx, &mut conn, CategoryQuery::default(), PageParams::new(1, 200)).await?;
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
 
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    Ok(Html(product_table_fragment(&result, &params).into_string()))
+    Ok(Html(product_table_fragment(&result, &params, &categories.items).into_string()))
 }
 
 #[require_permission("PRODUCT", "delete")]
@@ -87,9 +95,10 @@ pub async fn delete_product(
 fn build_filter(params: &ProductQueryParams) -> ProductQuery {
     ProductQuery {
         name: params.keyword.clone(),
-        code: None,
+        code: params.keyword.clone(),
         status: params.status.and_then(ProductStatus::from_i16),
         owner_department_id: None,
+        category_id: params.category_id,
     }
 }
 
@@ -101,6 +110,9 @@ fn build_query_string(params: &ProductQueryParams) -> String {
     if let Some(s) = params.status {
         q.push(format!("status={s}"));
     }
+    if let Some(cid) = params.category_id {
+        q.push(format!("category_id={cid}"));
+    }
     q.join("&")
 }
 
@@ -109,6 +121,7 @@ fn build_query_string(params: &ProductQueryParams) -> String {
 fn product_list_page(
     result: &abt_core::shared::types::PaginatedResult<Product>,
     params: &ProductQueryParams,
+    categories: &[Category],
 ) -> Markup {
     let total_count = result.total;
 
@@ -166,7 +179,7 @@ fn product_list_page(
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (product_table_fragment(result, params))
+            (product_table_fragment(result, params, categories))
         }
     }
 }
@@ -174,6 +187,7 @@ fn product_list_page(
 fn product_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<Product>,
     params: &ProductQueryParams,
+    categories: &[Category],
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -211,6 +225,16 @@ fn product_table_fragment(
                     option value="1" selected[params.status == Some(1)] { "在用" }
                     option value="2" selected[params.status == Some(2)] { "停用" }
                     option value="3" selected[params.status == Some(3)] { "作废" }
+                }
+                select class="filter-select" name="category_id"
+                    hx-get=(ProductTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="closest .customer-list-panel"
+                    hx-swap="outerHTML" {
+                    option value="" { "全部分类" }
+                    @for cat in categories {
+                        option value=(cat.category_id) selected[params.category_id == Some(cat.category_id)] { (cat.category_name) }
+                    }
                 }
             }
 

@@ -135,6 +135,7 @@ pub struct ProductQuery {
     pub code: Option<String>,
     pub status: Option<ProductStatus>,
     pub owner_department_id: Option<i64>,
+    pub category_id: Option<i64>,
 }
 
 /// 产品使用情况查询

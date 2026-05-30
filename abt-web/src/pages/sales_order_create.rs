@@ -111,11 +111,12 @@ pub async fn get_products(
     let svc = state.product_service();
 
     let filter = ProductQuery {
-        name: params.name,
-        code: params.code,
-        status: None,
-        owner_department_id: None,
-    };
+            name: params.name,
+            code: params.code,
+            status: None,
+            owner_department_id: None,
+            category_id: None,
+        };
     let result = svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
 
     Ok(Html(product_list_fragment(&result.items).into_string()))

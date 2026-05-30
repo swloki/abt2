@@ -133,6 +133,14 @@ impl ProductRepo {
             Some(dept_id)
         } else { None };
 
+        let category_param = if let Some(cat_id) = filter.category_id {
+            param_idx += 1;
+            conditions.push(format!(
+                "EXISTS (SELECT 1 FROM product_categories pc WHERE pc.product_id = products.product_id AND pc.category_id = ${param_idx})"
+            ));
+            Some(cat_id)
+        } else { None };
+
         let where_clause = conditions.join(" AND ");
 
         let count_sql = format!("SELECT COUNT(*) FROM products WHERE {where_clause}");
@@ -141,6 +149,7 @@ impl ProductRepo {
         if let Some(ref v) = code_param { count_q = count_q.bind(v); }
         if let Some(v) = status_param { count_q = count_q.bind(v); }
         if let Some(v) = dept_param { count_q = count_q.bind(v); }
+        if let Some(v) = category_param { count_q = count_q.bind(v); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
 
         param_idx += 1;
@@ -155,6 +164,7 @@ impl ProductRepo {
         if let Some(ref v) = code_param { data_q = data_q.bind(v); }
         if let Some(v) = status_param { data_q = data_q.bind(v); }
         if let Some(v) = dept_param { data_q = data_q.bind(v); }
+        if let Some(v) = category_param { data_q = data_q.bind(v); }
         data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);
         let items = data_q.fetch_all(executor).await?;
 

@@ -20,8 +20,8 @@ use crate::components::category_select::category_tree_select;
 use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
 use crate::routes::product::{
-    ProductCopyPath, ProductCreatePath, ProductDeletePath, ProductDetailPath, ProductListPath,
-    ProductTablePath, ProductUsagePath, ProductPricePath, ProductPriceHistoryPath,
+    ProductCopyPath, ProductCreatePath, ProductDeletePath, ProductDetailPath, ProductEditPath,
+    ProductListPath, ProductTablePath, ProductUsagePath, ProductPricePath, ProductPriceHistoryPath,
     ProductPriceDrawerPath, ProductWatchPath, ProductUnwatchPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
@@ -439,7 +439,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
     let watch_path = ProductWatchPath { id: p.product_id };
     let unwatch_path = ProductUnwatchPath { id: p.product_id };
     let copy_path = ProductCopyPath { id: p.product_id };
-    let edit_path = format!("/admin/md/products/{}", p.product_id);
+    let edit_path = ProductEditPath { id: p.product_id };
     let delete_form_id = format!("delete-product-form-{}", p.product_id);
     let is_watched = watched_ids.contains(&p.product_id);
     let spec = &p.meta.specification;

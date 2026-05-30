@@ -1,3 +1,4 @@
+use axum::extract::Query;
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use maud::{Markup, html};
@@ -5,13 +6,14 @@ use serde::Deserialize;
 
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::*;
+use abt_core::shared::types::PaginatedResult;
 
 use abt_macros::require_permission;
 
 use crate::components::{confirm_dialog, detail::detail_row, icon};
 use crate::layout::page::admin_page;
 use crate::routes::bom::BomDetailPath;
-use crate::routes::product::{ProductDeletePath, ProductDetailPath, ProductEditPath, ProductListPath, ProductUpdatePath};
+use crate::routes::product::{ProductDeletePath, ProductDetailPath, ProductEditPath, ProductListPath, ProductUpdatePath, ProductUsageTablePath};
 use crate::utils::RequestContext;
 
 // ── Handlers ──
@@ -27,14 +29,7 @@ pub async fn get_product_detail(
 
     let product = svc.get(&service_ctx, &mut conn, path.id).await?;
 
-    let usage = svc.check_product_usage(
-        &service_ctx,
-        &mut conn,
-        path.id,
-        UsageQuery { page: 1, page_size: 50 },
-    ).await?;
-
-    let content = product_detail_page(&product, &usage.items);
+    let content = product_detail_page(&product);
     let detail_path_str = ProductDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         &headers,
@@ -48,6 +43,33 @@ pub async fn get_product_detail(
     );
 
     Ok(Html(page_html.into_string()))
+}
+
+// ── Usage Table Query ──
+
+#[derive(Debug, Deserialize)]
+pub struct UsageTableParams {
+    pub page: Option<u32>,
+}
+
+#[require_permission("PRODUCT", "read")]
+pub async fn get_product_usage_table(
+    path: ProductUsageTablePath,
+    ctx: RequestContext,
+    Query(params): Query<UsageTableParams>,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.product_service();
+
+    let page = params.page.unwrap_or(1);
+    let usage = svc.check_product_usage(
+        &service_ctx,
+        &mut conn,
+        path.id,
+        UsageQuery { page, page_size: 10 },
+    ).await?;
+
+    Ok(Html(usage_table_fragment(path.id, &usage).into_string()))
 }
 
 #[require_permission("PRODUCT", "update")]
@@ -129,7 +151,7 @@ pub async fn update_product(
 
 // ── Components ──
 
-fn product_detail_page(product: &Product, usage_entries: &[UsageEntry]) -> Markup {
+fn product_detail_page(product: &Product) -> Markup {
     let list_path = ProductListPath;
     let edit_path = ProductEditPath { id: product.product_id };
     let delete_path = ProductDeletePath { id: product.product_id };
@@ -234,84 +256,11 @@ fn product_detail_page(product: &Product, usage_entries: &[UsageEntry]) -> Marku
                 }
             }
 
-            // ── 使用情况（BOM 引用）──
-            div class="detail-card" style="margin-top:var(--space-5)" {
-                div class="detail-card-title" {
-                    span { "使用情况（BOM 引用）" }
-                    span style="font-size:var(--text-xs);color:var(--muted);font-weight:400" { "该产品被以下 BOM 引用" }
-                }
-                @if usage_entries.is_empty() {
-                    div class="empty-state" { "该产品未被任何 BOM 引用" }
-                } @else {
-                    table class="usage-table" {
-                        thead {
-                            tr {
-                                th { "BOM 名称" }
-                                th { "BOM 编码" }
-                                th { "版本" }
-                                th { "用量" }
-                                th { "BOM 状态" }
-                                th { "更新日期" }
-                            }
-                        }
-                        tbody {
-                            @for entry in usage_entries {
-                                @let bom_detail_path = BomDetailPath { id: entry.source_id };
-                                @let (status_label, status_class) = match entry.bom_status {
-                                    Some(1) => ("草稿", "status-draft"),
-                                    Some(2) => ("已生效", "status-accepted"),
-                                    _ => ("未知", "status-draft"),
-                                };
-                                tr {
-                                    td {
-                                        strong { (entry.source_name) }
-                                    }
-                                    td {
-                                        a href=(bom_detail_path.to_string()) style="color:var(--accent);text-decoration:none" {
-                                            @if let Some(code) = &entry.parent_product_code {
-                                                (code)
-                                            } @else {
-                                                "BOM-" (entry.source_id)
-                                            }
-                                        }
-                                    }
-                                    td class="mono" {
-                                        @if let Some(v) = entry.bom_version {
-                                            "V" (v)
-                                        } @else {
-                                            "—"
-                                        }
-                                    }
-                                    td {
-                                        @if let Some(qty) = entry.quantity {
-                                            (qty)
-                                            " "
-                                            @if let Some(unit) = &entry.node_unit {
-                                                (unit)
-                                            } @else {
-                                                "pcs"
-                                            }
-                                            "/套"
-                                        } @else {
-                                            "—"
-                                        }
-                                    }
-                                    td {
-                                        span class=(format!("status-pill {status_class}")) { (status_label) }
-                                    }
-                                    td class="mono" {
-                                        @if let Some(dt) = entry.bom_updated_at {
-                                            (dt.format("%Y-%m-%d"))
-                                        } @else {
-                                            "—"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            // ── 使用情况（BOM 引用）── HTMX lazy load + pagination
+            @let usage_table_path = ProductUsageTablePath { id: product.product_id };
+            div class="detail-card" style="margin-top:var(--space-5)"
+                hx-get=(usage_table_path.to_string())
+                hx-trigger="load" {}
 
             // ── Delete Confirm Dialog ──
             (confirm_dialog::confirm_dialog(
@@ -432,6 +381,159 @@ fn product_edit_page(product: &Product) -> Markup {
                 }
             }
         }
+    }
+}
+
+// ── Usage Table Fragment (HTMX) ──
+
+fn usage_table_fragment(product_id: i64, result: &PaginatedResult<UsageEntry>) -> Markup {
+    let usage_path = ProductUsageTablePath { id: product_id };
+    let base_path = usage_path.to_string();
+
+    html! {
+        div class="detail-card-title" {
+            span { "使用情况（BOM 引用）" }
+            span style="font-size:var(--text-xs);color:var(--muted);font-weight:400" { "该产品被以下 BOM 引用" }
+        }
+        @if result.items.is_empty() {
+            div class="empty-state" { "该产品未被任何 BOM 引用" }
+        } @else {
+            table class="usage-table" {
+                thead {
+                    tr {
+                        th { "BOM 名称" }
+                        th { "BOM 编码" }
+                        th { "版本" }
+                        th { "用量" }
+                        th { "BOM 状态" }
+                        th { "更新日期" }
+                    }
+                }
+                tbody {
+                    @for entry in &result.items {
+                        @let bom_detail_path = BomDetailPath { id: entry.source_id };
+                        @let (status_label, status_class) = match entry.bom_status {
+                            Some(1) => ("草稿", "status-draft"),
+                            Some(2) => ("已生效", "status-accepted"),
+                            _ => ("未知", "status-draft"),
+                        };
+                        tr {
+                            td {
+                                strong { (entry.source_name) }
+                            }
+                            td {
+                                a href=(bom_detail_path.to_string()) style="color:var(--accent);text-decoration:none" {
+                                    @if let Some(code) = &entry.parent_product_code {
+                                        (code)
+                                    } @else {
+                                        "BOM-" (entry.source_id)
+                                    }
+                                }
+                            }
+                            td class="mono" {
+                                @if let Some(v) = entry.bom_version {
+                                    "V" (v)
+                                } @else {
+                                    "—"
+                                }
+                            }
+                            td {
+                                @if let Some(qty) = entry.quantity {
+                                    (qty)
+                                    " "
+                                    @if let Some(unit) = &entry.node_unit {
+                                        (unit)
+                                    } @else {
+                                        "pcs"
+                                    }
+                                    "/套"
+                                } @else {
+                                    "—"
+                                }
+                            }
+                            td {
+                                span class=(format!("status-pill {status_class}")) { (status_label) }
+                            }
+                            td class="mono" {
+                                @if let Some(dt) = entry.bom_updated_at {
+                                    (dt.format("%Y-%m-%d"))
+                                } @else {
+                                    "—"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            (htmx_pagination(&base_path, result.total, result.page, result.total_pages))
+        }
+    }
+}
+
+/// HTMX-aware pagination — links use hx-get + hx-target to swap the usage card
+fn htmx_pagination(base_path: &str, total: u64, current_page: u32, total_pages: u32) -> Markup {
+    if total_pages <= 1 {
+        return html! {
+            div class="pagination" {
+                span { "共 " (total) " 条记录" }
+            }
+        };
+    }
+
+    html! {
+        div class="pagination" {
+            span { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
+            div class="pagination-pages" {
+                @if current_page > 1 {
+                    (page_btn(base_path, current_page - 1, "«"))
+                }
+                @for p in page_range(current_page, total_pages) {
+                    @if p == 0 {
+                        button class="page-btn" disabled { "…" }
+                    } @else if p == current_page {
+                        button class="page-btn active" disabled { (p) }
+                    } @else {
+                        (page_btn(base_path, p, &p.to_string()))
+                    }
+                }
+                @if current_page < total_pages {
+                    (page_btn(base_path, current_page + 1, "»"))
+                }
+            }
+        }
+    }
+}
+
+fn page_btn(base_path: &str, page: u32, label: &str) -> Markup {
+    let url = format!("{base_path}?page={page}");
+    html! {
+        a class="page-btn" href=(url)
+            hx-get=(url)
+            hx-target="closest .detail-card"
+            hx-swap="innerHTML" {
+            (label)
+        }
+    }
+}
+
+fn page_range(current: u32, total: u32) -> Vec<u32> {
+    if total <= 5 {
+        (1..=total).collect()
+    } else if current <= 3 {
+        let mut r: Vec<u32> = (1..=4).collect();
+        r.push(0);
+        r.push(total);
+        r
+    } else if current >= total - 2 {
+        let mut r = vec![1u32, 0];
+        r.extend((total - 3)..=total);
+        r
+    } else {
+        let mut r = vec![1u32, 0];
+        r.extend((current - 1)..=(current + 1));
+        r.push(0);
+        r.push(total);
+        r
     }
 }
 

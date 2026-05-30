@@ -51,6 +51,12 @@ pub struct ProductUsagePath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/products/{id}/usage-table")]
+pub struct ProductUsageTablePath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/products/{id}/price")]
 pub struct ProductPricePath {
     pub id: i64,
@@ -111,6 +117,7 @@ pub fn router() -> Router<AppState> {
         .route(ProductEditPath::PATH, get(product_detail::get_product_edit))
         .route(ProductDeletePath::PATH, post(product_list::delete_product))
         .route(ProductUsagePath::PATH, get(product_list::get_product_usage))
+        .route(ProductUsageTablePath::PATH, get(product_detail::get_product_usage_table))
         .route(ProductPricePath::PATH, post(product_list::update_product_price))
         .route(ProductPriceHistoryPath::PATH, get(product_list::get_price_history))
         .route(ProductPriceDrawerPath::PATH, get(product_list::get_price_drawer))

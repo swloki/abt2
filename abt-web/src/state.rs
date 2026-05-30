@@ -161,7 +161,6 @@ impl AppState {
         abt_core::master_data::category::new_category_service(self.pool.clone())
     }
 
-    #[allow(dead_code)]
     pub fn product_price_service(
         &self,
     ) -> impl abt_core::master_data::price::ProductPriceService {
@@ -179,8 +178,6 @@ impl AppState {
             self.pool.clone(),
         )
     }
-
-    #[allow(dead_code)]
     pub fn product_watcher_service(
         &self,
     ) -> impl abt_core::master_data::product_watcher::ProductWatcherService {

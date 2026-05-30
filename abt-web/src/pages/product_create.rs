@@ -4,15 +4,23 @@ use axum::response::{Html, IntoResponse};
 use maud::{Markup, html};
 use serde::Deserialize;
 
-use abt_core::master_data::product::model::{CreateProductReq, ProductMeta, ProductStatus};
+use abt_core::master_data::product::model::{CreateProductReq, Product, ProductMeta, ProductStatus};
 use abt_core::master_data::product::ProductService;
 use abt_macros::require_permission;
 
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::product::{ProductCreatePath, ProductDetailPath, ProductListPath};
+use crate::routes::product::{ProductCopyPath, ProductCreatePath, ProductDetailPath, ProductListPath};
 use crate::utils::RequestContext;
+
+// ── Query Params ──
+
+#[derive(Debug, Deserialize)]
+pub struct CreateQueryParams {
+    #[serde(default)]
+    pub copy_from: Option<i64>,
+}
 
 // ── Form Data ──
 
@@ -33,20 +41,29 @@ pub struct ProductCreateForm {
 #[require_permission("PRODUCT", "create")]
 pub async fn get_product_create(
     _path: ProductCreatePath,
+    axum::extract::Query(params): axum::extract::Query<CreateQueryParams>,
     ctx: RequestContext,
     headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, .. } = ctx;
+    let RequestContext { mut conn, state, service_ctx, claims } = ctx;
 
-    let content = product_create_page();
+    let copy_source = if let Some(id) = params.copy_from {
+        let svc = state.product_service();
+        Some(svc.get(&service_ctx, &mut *conn, id).await?)
+    } else {
+        None
+    };
+
+    let title = if copy_source.is_some() { "复制产品" } else { "新建产品" };
+    let content = product_create_page(copy_source.as_ref());
     let page_html = admin_page(
         &headers,
-        "新建产品",
+        title,
         &claims,
         "md",
         ProductCreatePath::PATH,
         "主数据管理",
-        Some("新建产品"),
+        Some(title),
         content,
     );
 
@@ -96,7 +113,17 @@ pub async fn post_product_create(
 
 // ── Components ──
 
-fn product_create_page() -> Markup {
+fn product_create_page(source: Option<&Product>) -> Markup {
+    let title = if source.is_some() { "复制产品" } else { "新建产品" };
+    let btn_label = if source.is_some() { "保存副本" } else { "保存产品" };
+
+    let name_val = source.map(|p| p.pdt_name.as_str()).unwrap_or("");
+    let spec_val = source.map(|p| p.meta.specification.as_str()).unwrap_or("");
+    let unit_val = source.map(|p| p.unit.as_str()).unwrap_or("");
+    let acquire_val = source.map(|p| p.meta.acquire_channel.as_str()).unwrap_or("采购");
+    let external_code_val = source.as_ref().and_then(|p| p.external_code.as_deref()).unwrap_or("");
+    let old_code_val = source.as_ref().and_then(|p| p.meta.old_code.as_deref()).unwrap_or("");
+
     html! {
         div {
             // ── Page Header ──
@@ -105,7 +132,7 @@ fn product_create_page() -> Markup {
                     (icon::arrow_left_icon("w-4 h-4"))
                     "返回产品列表"
                 }
-                h1 class="page-title" { "新建产品" }
+                h1 class="page-title" { (title) }
             }
 
             form id="product-form"
@@ -118,7 +145,7 @@ fn product_create_page() -> Markup {
                     div class="form-grid" {
                         div class="form-field" {
                             label { "产品名称 " span style="color:var(--danger)" { "*" } }
-                            input type="text" name="name" required placeholder="请输入产品名称" {}
+                            input type="text" name="name" required placeholder="请输入产品名称" value=(name_val) {}
                         }
                         div class="form-field" {
                             label { "产品编码" }
@@ -127,23 +154,23 @@ fn product_create_page() -> Markup {
                         }
                         div class="form-field" {
                             label { "规格型号 " span style="color:var(--danger)" { "*" } }
-                            input type="text" name="specification" required placeholder="请输入规格型号" {}
+                            input type="text" name="specification" required placeholder="请输入规格型号" value=(spec_val) {}
                         }
                         div class="form-field" {
                             label { "计量单位 " span style="color:var(--danger)" { "*" } }
-                            input type="text" name="unit" required placeholder="请输入计量单位" {}
+                            input type="text" name="unit" required placeholder="请输入计量单位" value=(unit_val) {}
                         }
                         div class="form-field" {
                             label { "获取途径" }
                             select name="acquire_channel" {
-                                option value="采购" selected { "采购" }
-                                option value="自制" { "自制" }
-                                option value="委外" { "委外" }
+                                option value="采购" selected[acquire_val == "采购"] { "采购" }
+                                option value="自制" selected[acquire_val == "自制"] { "自制" }
+                                option value="委外" selected[acquire_val == "委外"] { "委外" }
                             }
                         }
                         div class="form-field" {
                             label { "外部编码" }
-                            input type="text" name="external_code" placeholder="请输入外部编码" {}
+                            input type="text" name="external_code" placeholder="请输入外部编码" value=(external_code_val) {}
                         }
                     }
                 }
@@ -160,7 +187,7 @@ fn product_create_page() -> Markup {
                         }
                         div class="form-field" {
                             label { "旧编码" }
-                            input type="text" name="old_code" placeholder="请输入旧编码" {}
+                            input type="text" name="old_code" placeholder="请输入旧编码" value=(old_code_val) {}
                         }
                     }
                 }
@@ -181,10 +208,16 @@ fn product_create_page() -> Markup {
                 div class="create-action-bar" {
                     a class="btn btn-default" href=(ProductListPath::PATH) { "取消" }
                     button type="submit" class="btn btn-primary" {
-                        "保存产品"
+                        (btn_label)
                     }
                 }
             }
         }
     }
+}
+
+// ── Copy Handler ──
+
+pub async fn copy_product(path: ProductCopyPath) -> crate::errors::Result<impl IntoResponse> {
+    Ok(axum::response::Redirect::to(&format!("/admin/md/products/new?copy_from={}", path.id)))
 }

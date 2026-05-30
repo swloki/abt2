@@ -33,6 +33,12 @@ pub struct ProductUpdatePath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/products/{id}/edit")]
+pub struct ProductEditPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/products/{id}/delete")]
 pub struct ProductDeletePath {
     pub id: i64,
@@ -102,6 +108,7 @@ pub fn router() -> Router<AppState> {
         .route(ProductCreatePath::PATH, get(product_create::get_product_create).post(product_create::post_product_create))
         .route(ProductDetailPath::PATH, get(product_detail::get_product_detail))
         .route(ProductUpdatePath::PATH, post(product_detail::update_product))
+        .route(ProductEditPath::PATH, get(product_detail::get_product_edit))
         .route(ProductDeletePath::PATH, post(product_list::delete_product))
         .route(ProductUsagePath::PATH, get(product_list::get_product_usage))
         .route(ProductPricePath::PATH, post(product_list::update_product_price))

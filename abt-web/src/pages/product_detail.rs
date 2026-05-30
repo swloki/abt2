@@ -1,6 +1,7 @@
 use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use maud::{Markup, html};
+use serde::Deserialize;
 
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::*;
@@ -10,7 +11,7 @@ use abt_macros::require_permission;
 use crate::components::{confirm_dialog, detail::detail_row, icon};
 use crate::layout::page::admin_page;
 use crate::routes::bom::BomDetailPath;
-use crate::routes::product::{ProductDeletePath, ProductDetailPath, ProductListPath, ProductUpdatePath};
+use crate::routes::product::{ProductDeletePath, ProductDetailPath, ProductEditPath, ProductListPath, ProductUpdatePath};
 use crate::utils::RequestContext;
 
 // ── Handlers ──
@@ -50,20 +51,86 @@ pub async fn get_product_detail(
 }
 
 #[require_permission("PRODUCT", "update")]
+pub async fn get_product_edit(
+    path: ProductEditPath,
+    ctx: RequestContext,
+    headers: HeaderMap,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let svc = state.product_service();
+
+    let product = svc.get(&service_ctx, &mut conn, path.id).await?;
+    let title = format!("{} - 编辑产品", product.pdt_name);
+    let edit_path_str = ProductEditPath { id: path.id }.to_string();
+    let content = product_edit_page(&product);
+    let page_html = admin_page(
+        &headers,
+        &title,
+        &claims,
+        "md",
+        &edit_path_str,
+        "主数据管理",
+        Some(&title),
+        content,
+    );
+
+    Ok(Html(page_html.into_string()))
+}
+
+// ── Form Data ──
+
+#[derive(Debug, Deserialize)]
+pub struct ProductEditForm {
+    pub name: String,
+    pub unit: String,
+    pub specification: String,
+    pub acquire_channel: Option<String>,
+    pub external_code: Option<String>,
+    pub owner_department_id: Option<String>,
+    pub old_code: Option<String>,
+    pub remark: Option<String>,
+}
+
+#[require_permission("PRODUCT", "update")]
 pub async fn update_product(
     path: ProductUpdatePath,
-    _ctx: RequestContext,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ProductEditForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
-    Ok(axum::response::Redirect::to(
-        &ProductDetailPath { id: path.id }.to_string(),
-    ))
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.product_service();
+
+    let owner_department_id = form
+        .owner_department_id
+        .as_deref()
+        .and_then(|s| if s.is_empty() { None } else { s.parse::<i64>().ok() });
+
+    let req = UpdateProductReq {
+        name: Some(form.name),
+        unit: Some(form.unit),
+        external_code: form.external_code.filter(|s| !s.is_empty()),
+        owner_department_id,
+        meta: Some(ProductMeta {
+            specification: form.specification,
+            acquire_channel: form
+                .acquire_channel
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "采购".to_string()),
+            old_code: form.old_code.filter(|s| !s.is_empty()),
+        }),
+    };
+
+    svc.update(&service_ctx, &mut conn, path.id, req).await?;
+
+    let redirect = ProductDetailPath { id: path.id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
 fn product_detail_page(product: &Product, usage_entries: &[UsageEntry]) -> Markup {
     let list_path = ProductListPath;
-    let update_path = ProductUpdatePath { id: product.product_id };
+    let edit_path = ProductEditPath { id: product.product_id };
     let delete_path = ProductDeletePath { id: product.product_id };
 
     let (status_label, status_class) = status_display(product.status);
@@ -96,7 +163,7 @@ fn product_detail_page(product: &Product, usage_entries: &[UsageEntry]) -> Marku
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
                     }
-                    a class="btn btn-primary" href=(update_path) {
+                    a class="btn btn-primary" href=(edit_path) {
                         (icon::edit_icon("w-4 h-4"))
                         " 编辑"
                     }
@@ -251,6 +318,108 @@ fn product_detail_page(product: &Product, usage_entries: &[UsageEntry]) -> Marku
                         hx-target="closest div[x-data]" {}
                 },
             ))
+        }
+    }
+}
+
+// ── Edit Page ──
+
+fn product_edit_page(product: &Product) -> Markup {
+    let update_path = ProductUpdatePath { id: product.product_id };
+    let detail_path = ProductDetailPath { id: product.product_id };
+
+    let acquire_val = &product.meta.acquire_channel;
+    let external_code_val = product.external_code.as_deref().unwrap_or("");
+    let old_code_val = product.meta.old_code.as_deref().unwrap_or("");
+
+    html! {
+        div {
+            // ── Page Header ──
+            div class="page-header" {
+                a class="back-link" href=(detail_path) {
+                    (icon::arrow_left_icon("w-4 h-4"))
+                    "返回产品详情"
+                }
+                h1 class="page-title" { "编辑产品" }
+            }
+
+            form id="product-edit-form"
+                  hx-post=(update_path)
+                  hx-swap="none" {
+
+                // ── Section: 基本信息 ──
+                div class="data-card" style="margin-bottom:var(--space-4)" {
+                    div class="form-section-title" { "基本信息" }
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label { "产品名称 " span style="color:var(--danger)" { "*" } }
+                            input type="text" name="name" required placeholder="请输入产品名称" value=(product.pdt_name) {}
+                        }
+                        div class="form-field" {
+                            label { "产品编码" }
+                            input type="text" value=(product.product_code) readonly
+                                style="background:var(--surface);color:var(--muted)" {}
+                        }
+                        div class="form-field" {
+                            label { "规格型号 " span style="color:var(--danger)" { "*" } }
+                            input type="text" name="specification" required placeholder="请输入规格型号" value=(product.meta.specification) {}
+                        }
+                        div class="form-field" {
+                            label { "计量单位 " span style="color:var(--danger)" { "*" } }
+                            input type="text" name="unit" required placeholder="请输入计量单位" value=(product.unit) {}
+                        }
+                        div class="form-field" {
+                            label { "获取途径" }
+                            select name="acquire_channel" {
+                                option value="采购" selected[acquire_val == "采购"] { "采购" }
+                                option value="自制" selected[acquire_val == "自制"] { "自制" }
+                                option value="委外" selected[acquire_val == "委外"] { "委外" }
+                            }
+                        }
+                        div class="form-field" {
+                            label { "外部编码" }
+                            input type="text" name="external_code" placeholder="请输入外部编码" value=(external_code_val) {}
+                        }
+                    }
+                }
+
+                // ── Section: 分类与归属 ──
+                div class="data-card" style="margin-bottom:var(--space-4)" {
+                    div class="form-section-title" { "分类与归属" }
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label { "归属部门" }
+                            select name="owner_department_id" {
+                                option value="" { "-- 请选择 --" }
+                            }
+                        }
+                        div class="form-field" {
+                            label { "旧编码" }
+                            input type="text" name="old_code" placeholder="请输入旧编码" value=(old_code_val) {}
+                        }
+                    }
+                }
+
+                // ── Section: 其他信息 ──
+                div class="data-card" style="margin-bottom:var(--space-4)" {
+                    div class="form-section-title" { "其他信息" }
+                    div class="form-grid" {
+                        div class="form-field field-full" {
+                            label { "备注" }
+                            textarea name="remark" placeholder="请输入备注信息…"
+                                style="width:100%;min-height:80px;resize:vertical" {}
+                        }
+                    }
+                }
+
+                // ── Action Bar ──
+                div class="create-action-bar" {
+                    a class="btn btn-default" href=(detail_path) { "取消" }
+                    button type="submit" class="btn btn-primary" {
+                        "保存修改"
+                    }
+                }
+            }
         }
     }
 }

@@ -275,6 +275,8 @@ classDiagram
         +activate(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list(ctx, filter) PaginatedResult~PurchaseQuotation~
         +compare(ctx, product_id) Result~Vec~QuotationComparison~~
+        +list_items(ctx: &ServiceContext, db: PgExecutor, quotation_id) Result~Vec~PurchaseQuotationItem~~
+        +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     }
 
     class PurchaseOrderService {
@@ -283,6 +285,8 @@ classDiagram
         +create_from_quotation(ctx: &ServiceContext, db: PgExecutor, pqid) Result~i64~
         +get(ctx, id) Result~PurchaseOrder~
         +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +list_items(ctx: &ServiceContext, db: PgExecutor, order_id) Result~Vec~PurchaseOrderItem~~
+        +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list(ctx, filter) PaginatedResult~PurchaseOrder~
     }
 
@@ -291,6 +295,9 @@ classDiagram
         +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
         +get(ctx, id) Result~PurchaseReturn~
         +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +list_items(ctx: &ServiceContext, db: PgExecutor, return_id) Result~Vec~PurchaseReturnItem~~
+        +list(ctx, filter) PaginatedResult~PurchaseReturn~
     }
 
     class PurchaseReconciliationService {
@@ -298,6 +305,8 @@ classDiagram
         +create(ctx: &ServiceContext, db: PgExecutor, supplier_id, period) Result~i64~
         +get(ctx, id) Result~PurchaseReconciliation~
         +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +list_items(ctx: &ServiceContext, db: PgExecutor, reconciliation_id) Result~Vec~PurchaseReconItem~~
+        +list(ctx, filter) PaginatedResult~PurchaseReconciliation~
     }
 
     class PaymentRequestService {
@@ -306,6 +315,8 @@ classDiagram
         +get(ctx, id) Result~PaymentRequest~
         +approve(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +mark_paid_by_fms(ctx: &ServiceContext, db: PgExecutor, id, payment_doc_no: String) Result~Unit~
+        +list(ctx, filter) PaginatedResult~PaymentRequest~
+        +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
     }
 
     class MiscellaneousRequestService {
@@ -313,6 +324,9 @@ classDiagram
         +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
         +get(ctx, id) Result~MiscellaneousRequest~
         +approve(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +list_items(ctx: &ServiceContext, db: PgExecutor, request_id) Result~Vec~MiscRequestItem~~
+        +list(ctx, filter) PaginatedResult~MiscellaneousRequest~
     }
 
     PurchaseOrderService ..> PurchaseQuotationService : create_from_quotation

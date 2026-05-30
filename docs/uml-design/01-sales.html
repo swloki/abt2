@@ -291,6 +291,8 @@ classDiagram
         +create_from_quotation(ctx: &ServiceContext, db: PgExecutor, qid) Result~i64~
         +find_by_id(id) Result~SalesOrder~
         +update_header(ctx: &ServiceContext, db: PgExecutor, id, req) Result~Unit~
+        +update(ctx: &ServiceContext, db: PgExecutor, id, req, items) Result~Unit~
+        +list_items(ctx: &ServiceContext, db: PgExecutor, order_id) Result~Vec~SalesOrderItem~~
         +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +start_progress(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +complete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
@@ -308,6 +310,8 @@ classDiagram
         +pick(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +ship(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +list_items(ctx: &ServiceContext, db: PgExecutor, shipping_request_id) Result~Vec~ShippingRequestItem~~
         +list(filter) PaginatedResult~ShippingRequest~
     }
 
@@ -321,6 +325,8 @@ classDiagram
         +complete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +reject(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +list_items(ctx: &ServiceContext, db: PgExecutor, return_id) Result~Vec~SalesReturnItem~~
         +list(filter) PaginatedResult~SalesReturn~
     }
 
@@ -334,6 +340,9 @@ classDiagram
         +reopen(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +force_settle(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +settle(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +list_items(ctx: &ServiceContext, db: PgExecutor, reconciliation_id) Result~Vec~ReconciliationItem~~
+        +preview(ctx: &ServiceContext, db: PgExecutor, customer_id, period) Result~Vec~ReconciliationPreviewItem~~
         +list(filter) PaginatedResult~Reconciliation~
     }
 

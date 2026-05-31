@@ -8,9 +8,7 @@ use super::service::{
 use crate::master_data::price::model::PriceType;
 use crate::master_data::price::repo::PriceRepo;
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
-use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::audit::AuditAction;
-use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::model::EventPublishRequest;
 use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
@@ -113,8 +111,8 @@ impl BomCommandServiceImpl {
 #[async_trait::async_trait]
 impl BomCommandService for BomCommandServiceImpl {
     async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateBomReq) -> Result<i64> {
-        let code = new_document_sequence_service(self.pool.clone())
-            .next_number(ctx, db, DocumentType::Bom).await?;
+        req.bom_category_id
+            .ok_or_else(|| DomainError::validation("请选择BOM分类"))?;
 
         if !self.repo.check_name_unique(db, &req.name, None)
             .await?
@@ -122,7 +120,7 @@ impl BomCommandService for BomCommandServiceImpl {
             return Err(DomainError::duplicate(format!("BOM name: {}", req.name)));
         }
 
-        let id = self.repo.create(db, &code, &req, ctx.operator_id)
+        let id = self.repo.create(db, &req, ctx.operator_id)
             .await?;
 
         new_state_machine_service(self.pool.clone())

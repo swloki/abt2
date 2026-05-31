@@ -123,9 +123,9 @@ fn bom_create_page(categories: &[BomCategory]) -> Markup {
                             input type="text" name="bom_name" required placeholder="请输入BOM名称" {}
                         }
                         div class="form-field" {
-                            label { "BOM分类" }
-                            select name="bom_category_id" {
-                                option value="" { "-- 请选择 --" }
+                            label { "BOM分类 " span style="color:var(--danger)" { "*" } }
+                            select name="bom_category_id" required {
+                                option value="" disabled selected { "-- 请选择 --" }
                                 @for cat in categories {
                                     option value=(cat.bom_category_id) { (cat.bom_category_name) }
                                 }

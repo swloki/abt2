@@ -45,17 +45,15 @@ impl BomRepo {
     pub async fn create(
         &self,
         executor: PgExecutor<'_>,
-        bom_code: &str,
         req: &CreateBomReq,
         created_by: i64,
     ) -> Result<i64> {
         let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            r#"INSERT INTO boms (bom_name, bom_code, version, status, bom_category_id, remark, operator_id)
-               VALUES ($1, $2, 1, $3, $4, '', $5)
+            r#"INSERT INTO boms (bom_name, version, status, bom_category_id, created_by)
+               VALUES ($1, 1, $2, $3, $4)
                RETURNING bom_id"#,
         )
         .bind(&req.name)
-        .bind(bom_code)
         .bind(BomStatus::Draft.as_i16())
         .bind(req.bom_category_id)
         .bind(created_by)

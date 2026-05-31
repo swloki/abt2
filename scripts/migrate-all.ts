@@ -962,6 +962,50 @@ async function main() {
     console.log(`  workflow_history: ${hn}/${hist.length} 条\n`);
   }
 
+  // ── BOM 状态转换规则 + 状态日志回填 ──────────────────────────────
+  console.log("── BomStatus state transitions ──");
+  {
+    await v2Pool.query(`
+      INSERT INTO state_transition_defs (entity_type, from_state, to_state, trigger_event, sort_order) VALUES
+        ('BomStatus', '', 'Draft', NULL, 1),
+        ('BomStatus', 'Draft', 'Published', NULL, 2),
+        ('BomStatus', 'Published', 'Draft', NULL, 3)
+      ON CONFLICT DO NOTHING
+    `);
+
+    // backfill: '' -> Draft for all Draft BOMs
+    const { rowCount: draftCount } = await v2Pool.query(`
+      INSERT INTO entity_state_logs (entity_type, entity_id, from_state, to_state, transition_id, operator_id, remark)
+      SELECT 'BomStatus', b.bom_id, '', 'Draft', t.id, COALESCE(b.created_by, 0), 'backfill'
+      FROM boms b
+      JOIN state_transition_defs t ON t.entity_type = 'BomStatus' AND t.from_state = '' AND t.to_state = 'Draft'
+      WHERE b.status = 1 AND b.deleted_at IS NULL
+      ON CONFLICT DO NOTHING
+    `);
+
+    // backfill: '' -> Draft for all Published BOMs
+    await v2Pool.query(`
+      INSERT INTO entity_state_logs (entity_type, entity_id, from_state, to_state, transition_id, operator_id, remark)
+      SELECT 'BomStatus', b.bom_id, '', 'Draft', t.id, COALESCE(b.created_by, 0), 'backfill'
+      FROM boms b
+      JOIN state_transition_defs t ON t.entity_type = 'BomStatus' AND t.from_state = '' AND t.to_state = 'Draft'
+      WHERE b.status = 2 AND b.deleted_at IS NULL
+      ON CONFLICT DO NOTHING
+    `);
+
+    // backfill: Draft -> Published for all Published BOMs
+    const { rowCount: pubCount } = await v2Pool.query(`
+      INSERT INTO entity_state_logs (entity_type, entity_id, from_state, to_state, transition_id, operator_id, remark)
+      SELECT 'BomStatus', b.bom_id, 'Draft', 'Published', t.id, COALESCE(b.created_by, 0), 'backfill'
+      FROM boms b
+      JOIN state_transition_defs t ON t.entity_type = 'BomStatus' AND t.from_state = 'Draft' AND t.to_state = 'Published'
+      WHERE b.status = 2 AND b.deleted_at IS NULL
+      ON CONFLICT DO NOTHING
+    `);
+
+    console.log(`  transitions seeded, backfill: ${draftCount} Draft + ${pubCount} Published\n`);
+  }
+
   // ── 注意：以下表因 schema 差异过大，无法直接迁移 ──────────────
   // - document_sequences: abt(doc_type/prefix/reset_rule) vs abt_v2(prefix/seq_date/strategy)，结构完全不同
   // - quotations/sales_orders/shipping_requests/sales_returns: abt 用 customer_name(VARCHAR)，

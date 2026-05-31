@@ -487,18 +487,13 @@ fn bom_edit_page(
                 div class="bom-toolbar-right" {
                     @if !is_draft && is_owner {
                         button class="btn btn-sm btn-warning-ghost"
-                            hx-post=(publish_path.to_string())
-                            hx-target="body"
-                            hx-swap="outerHTML"
-                            hx-confirm="确定要取消发布此 BOM 吗？" {
+                            x-on:click="publishOpen = true" {
                             (icon::return_arrow_icon("w-4 h-4"))
                             " 取消发布"
                         }
                     } @else if is_draft {
                         button class="btn btn-sm btn-success"
-                            hx-post=(publish_path.to_string())
-                            hx-target="body"
-                            hx-swap="outerHTML"
+                            x-on:click="publishOpen = true"
                             disabled[node_count == 0]
                             title="请先添加物料" {
                             (icon::rocket_icon("w-4 h-4"))
@@ -688,6 +683,35 @@ fn bom_edit_page(
                         hx-swap="none" {}
                 },
             ))
+
+            // ── Publish / Unpublish Confirm Dialog ──
+            @if !is_draft && is_owner {
+                (crate::components::confirm_dialog::confirm_dialog(
+                    "publishOpen",
+                    "确认取消发布",
+                    "确定要取消发布此 BOM 吗？取消后可重新编辑。",
+                    "确认取消发布",
+                    "publish-bom-form",
+                    html! {
+                        form id="publish-bom-form" class="hidden"
+                            hx-post=(publish_path.to_string())
+                            hx-swap="none" {}
+                    },
+                ))
+            } @else if is_draft {
+                (crate::components::confirm_dialog::confirm_dialog(
+                    "publishOpen",
+                    "确认发布",
+                    "确定要发布此 BOM 吗？发布后将无法修改。",
+                    "确认发布",
+                    "publish-bom-form",
+                    html! {
+                        form id="publish-bom-form" class="hidden"
+                            hx-post=(publish_path.to_string())
+                            hx-swap="none" {}
+                    },
+                ))
+            }
 
             // ── Save As Modal ──
             div class="modal-overlay"

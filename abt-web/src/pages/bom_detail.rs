@@ -5,13 +5,13 @@ use axum::response::Html;
 use maud::{Markup, html};
 use rust_decimal::Decimal;
 
-use abt_core::master_data::bom::BomQueryService;
+use abt_core::master_data::bom::{BomCommandService, BomQueryService};
 use abt_core::master_data::bom::model::*;
 use abt_core::master_data::product::ProductService;
 
 use abt_macros::require_permission;
 
-use crate::components::{confirm_dialog, detail::detail_row, icon};
+use crate::components::{confirm_dialog, icon};
 use crate::layout::page::admin_page;
 use crate::routes::bom::{BomDeletePath, BomDetailPath, BomEditPath, BomListPath, BomPublishPath};
 use crate::utils::RequestContext;
@@ -60,10 +60,22 @@ pub async fn get_bom_detail(
 
 #[require_permission("BOM", "update")]
 pub async fn publish_bom(
-    _path: BomPublishPath,
-    _ctx: RequestContext,
-) -> crate::errors::Result<Html<String>> {
-    Ok(Html("<p>Publish BOM placeholder</p>".into()))
+    path: BomPublishPath,
+    ctx: RequestContext,
+) -> crate::errors::Result<impl axum::response::IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let query_svc = state.bom_query_service();
+    let bom = query_svc.get(&service_ctx, &mut conn, path.id).await?;
+
+    let cmd_svc = state.bom_command_service();
+    if bom.status == BomStatus::Published {
+        cmd_svc.unpublish(&service_ctx, &mut conn, path.id).await?;
+    } else {
+        cmd_svc.publish(&service_ctx, &mut conn, path.id).await?;
+    }
+
+    let redirect = BomDetailPath { id: path.id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
@@ -88,7 +100,7 @@ fn bom_detail_page(
     let is_draft = bom.status == BomStatus::Draft;
 
     html! {
-        div x-data="{ deleteOpen: false }" {
+        div x-data="{ deleteOpen: false, publishOpen: false }" {
             // ── Detail Top ──
             div class="detail-top" {
                 div class="customer-identity" {
@@ -123,9 +135,7 @@ fn bom_detail_page(
                     }
                     @if is_draft {
                         button class="btn btn-primary"
-                            hx-post=(publish_path.to_string())
-                            hx-target="body"
-                            hx-swap="outerHTML" {
+                            x-on:click="publishOpen = true" {
                             (icon::check_circle_icon("w-4 h-4"))
                             " 发布"
                         }
@@ -137,51 +147,8 @@ fn bom_detail_page(
                 }
             }
 
-            // ── Workflow Steps ──
-            div class="detail-card" style="margin-bottom:var(--space-5)" {
-                div class="workflow-steps" {
-                    (workflow_step("草稿", bom.status == BomStatus::Draft, bom.status == BomStatus::Draft))
-                    (workflow_connector(bom.status == BomStatus::Published))
-                    (workflow_step("已发布", bom.status == BomStatus::Published, bom.status == BomStatus::Published))
-                }
-            }
-
-            // ── 基本信息 ──
-            div class="detail-card" {
-                div class="detail-card-title" { "基本信息" }
-                div class="detail-grid" style="grid-template-columns:repeat(3,1fr)" {
-                    (detail_row("BOM名称", html! { (bom.bom_name) }))
-                    (detail_row("BOM编码", html! { span class="mono" { (bom.bom_id) } }))
-                    @if let Some(cat_id) = bom.bom_category_id {
-                        (detail_row("BOM分类", html! { "ID: " (cat_id) }))
-                    } @else {
-                        (detail_row("BOM分类", html! { "—" }))
-                    }
-                    (detail_row("状态", html! {
-                        span class=(format!("status-pill {status_class}")) { (status_label) }
-                    }))
-                    (detail_row("版本", html! { "v" (bom.version) }))
-                    @if let Some(dt) = bom.published_at {
-                        (detail_row("发布时间", html! { (dt.format("%Y-%m-%d %H:%M")) }))
-                    } @else {
-                        (detail_row("发布时间", html! { "—" }))
-                    }
-                    @if let Some(_uid) = bom.created_by {
-                        (detail_row("创建人", html! { "ID: " (_uid) }))
-                    } @else {
-                        (detail_row("创建人", html! { "—" }))
-                    }
-                    (detail_row("创建时间", html! { (bom.create_at.format("%Y-%m-%d %H:%M")) }))
-                    @if let Some(dt) = bom.update_at {
-                        (detail_row("更新时间", html! { (dt.format("%Y-%m-%d %H:%M")) }))
-                    } @else {
-                        (detail_row("更新时间", html! { "—" }))
-                    }
-                }
-            }
-
             // ── BOM结构 ──
-            div class="detail-card" style="margin-top:var(--space-5)" {
+            div class="detail-card" {
                 div class="detail-card-title" {
                     span { "BOM结构" }
                     span style="color:var(--text-tertiary);font-weight:400;font-size:12px" {
@@ -233,6 +200,22 @@ fn bom_detail_page(
                         hx-swap="outerHTML" {}
                 },
             ))
+
+            // ── Publish Confirm Dialog ──
+            @if is_draft {
+                (confirm_dialog::confirm_dialog(
+                    "publishOpen",
+                    "确认发布",
+                    "确定要发布此 BOM 吗？发布后将无法修改。",
+                    "确认发布",
+                    "publish-bom-form",
+                    html! {
+                        form id="publish-bom-form" class="hidden"
+                            hx-post=(publish_path.to_string())
+                            hx-swap="none" {}
+                    },
+                ))
+            }
         }
     }
 }
@@ -304,19 +287,3 @@ fn bom_node_row(
     }
 }
 
-fn workflow_step(label: &str, active: bool, completed: bool) -> Markup {
-    let state_class = if active { "workflow-step-active" } else if completed { "workflow-step-completed" } else { "workflow-step-pending" };
-    html! {
-        div class=(format!("workflow-step {state_class}")) {
-            div class="workflow-step-dot" {}
-            span { (label) }
-        }
-    }
-}
-
-fn workflow_connector(completed: bool) -> Markup {
-    let cls = if completed { "workflow-connector-done" } else { "workflow-connector" };
-    html! {
-        div class=(cls) {}
-    }
-}

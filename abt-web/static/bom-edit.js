@@ -24,6 +24,7 @@ function bomEdit() {
         saveAsOpen: false,
         saveAsName: '',
         deleteOpen: false,
+        publishOpen: false,
 
         selectAddProduct(product) {
             this.addProductId = product.product_id;

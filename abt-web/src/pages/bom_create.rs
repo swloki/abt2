@@ -239,28 +239,33 @@ fn bom_create_page(categories: &[BomCategory]) -> Markup {
                         }
                     }
                     div style="overflow-x:auto" {
-                        table class="data-table" style="min-width:900px" {
+                        table class="bom-table" style="min-width:900px" {
                             thead {
-                                tr {
-                                    th style="width:60px;text-align:center" { "排序" }
-                                    th { "物料编码" }
-                                    th { "物料名称" }
-                                    th { "规格型号" }
-                                    th style="width:100px" { "用量" }
-                                    th style="width:70px" { "单位" }
-                                    th style="width:90px" { "损耗率%" }
-                                    th style="width:100px" { "位置" }
-                                    th style="width:100px" { "工作中心" }
-                                    th { "备注" }
-                                    th style="width:50px" { }
-                                }
+                            tr {
+                                th style="width:40px;text-align:center" { "编号" }
+                                th style="width:40px" { "层级" }
+                                th { "产品编码" }
+                                th { "产品" }
+                                th style="width:100px" { "工作中心" }
+                                th style="width:80px" { "数量" }
+                                th style="width:60px" { "单位" }
+                                th style="width:80px" { "损耗率" }
+                                th style="width:100px" { "位置" }
+                                th { "备注" }
+                                th style="width:50px" { }
+                            }
                             }
                             tbody {
-                                tr x-show="rootNode.product_id > 0" {
+                                tr x-show="rootNode.product_id > 0" class="bom-row-level-0" {
                                     td class="line-num" { "1" }
+                                    td style="text-align:center" { "1" }
                                     td class="mono" x-text="rootNode.product_code" {}
                                     td x-text="rootNode.product_name" {}
-                                    td x-text="rootNode.specification" {}
+                                    td {
+                                        input class="form-input" type="text" name="root_work_center"
+                                            x-model="rootNode.work_center"
+                                            style="width:90px;padding:4px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {}
+                                    }
                                     td {
                                         input class="form-input" type="number" name="root_quantity"
                                             x-model="rootNode.quantity" min="0.01" step="0.01"
@@ -282,11 +287,6 @@ fn bom_create_page(categories: &[BomCategory]) -> Markup {
                                             style="width:90px;padding:4px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {}
                                     }
                                     td {
-                                        input class="form-input" type="text" name="root_work_center"
-                                            x-model="rootNode.work_center"
-                                            style="width:90px;padding:4px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {}
-                                    }
-                                    td {
                                         input class="form-input" type="text" name="root_node_remark"
                                             x-model="rootNode.remark"
                                             style="width:100%;padding:4px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {}
@@ -299,7 +299,7 @@ fn bom_create_page(categories: &[BomCategory]) -> Markup {
                                     }
                                 }
                                 tr x-show="rootNode.product_id === 0 || rootNode.product_id === null" {
-                                    td colspan="11" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="12" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                         "请选择根节点物料"
                                     }
                                 }

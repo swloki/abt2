@@ -1549,6 +1549,39 @@ p { margin: 0; }
 .text-danger { color: var(--danger); }
 .num-right { text-align: right; }
 
+/* ─── BOM Table (blue primary header matching legacy) ─── */
+.bom-table { width: 100%; min-width: 860px; font-size: var(--text-sm); border-collapse: collapse; }
+.bom-table th {
+  padding: 11px var(--space-4); text-align: left; font-weight: 600;
+  color: #fff; background: var(--accent); font-size: 12px; white-space: nowrap;
+  border-bottom: none; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.bom-table td { padding: 13px var(--space-4); border-bottom: 1px solid var(--border-soft); vertical-align: middle; white-space: nowrap; }
+.bom-table tbody tr { transition: all var(--motion-fast) var(--ease-standard); }
+.bom-table tbody tr:hover { background: var(--accent-bg); }
+.bom-table tbody tr:last-child td { border-bottom: none; }
+.bom-table .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ─── BOM Level Badges ─── */
+.bom-level-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 22px; height: 22px; border-radius: var(--radius-sm);
+  font-size: 11px; font-weight: 700; line-height: 1;
+}
+.bom-level-badge.level-1 { background: #f3e8ff; color: #7c3aed; }
+.bom-level-badge.level-2 { background: #fef3c7; color: #b45309; }
+.bom-level-badge.level-default { background: #f1f5f9; color: #64748b; }
+
+/* ─── BOM Row Level Styles (matching legacy getNodeRowStyle) ─── */
+.bom-row-level-0 { background-color: #7030a0; color: #fff; }
+.bom-row-level-1 { background-color: #ff0; }
+.bom-row-level-default { }
+
+/* ─── BOM Status Colors ─── */
+.status-bom-draft { background: #fffbeb; color: #b45309; }
+.status-bom-draft::before { background: #f59e0b; }
+.status-bom-published { background: #ecfdf5; color: #047857; }
+.status-bom-published::before { background: #10b981; }
 /* ─── Component Responsive ─── */
 @media (max-width: 1024px) {
   .detail-grid { grid-template-columns: 1fr 1fr; }

@@ -267,8 +267,8 @@ fn bom_row(bom: &Bom) -> Markup {
     let form_id = format!("delete-bom-form-{}", bom.bom_id);
 
     let (status_label, status_class) = match bom.status {
-        BomStatus::Draft => ("草稿", "status-draft"),
-        BomStatus::Published => ("已发布", "status-accepted"),
+        BomStatus::Draft => ("草稿", "status-bom-draft"),
+        BomStatus::Published => ("已发布", "status-bom-published"),
     };
 
     html! {

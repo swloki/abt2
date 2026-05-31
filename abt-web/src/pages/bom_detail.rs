@@ -85,6 +85,12 @@ fn bom_detail_page(
     let node_count = bom.bom_detail.nodes.len();
     let depth_map = build_depth_map(&bom.bom_detail.nodes);
 
+    // Build set of parent IDs to know which nodes have children
+    let parent_ids: std::collections::HashSet<i64> = bom.bom_detail.nodes.iter()
+        .filter(|n| n.parent_id != 0)
+        .map(|n| n.parent_id)
+        .collect();
+
     let (status_label, status_class) = bom_status_display(bom.status);
     let is_draft = bom.status == BomStatus::Draft;
 
@@ -188,37 +194,34 @@ fn bom_detail_page(
                 @if bom.bom_detail.nodes.is_empty() {
                     div class="empty-state" { "暂无BOM节点" }
                 } @else {
-                    table class="data-table" {
+                    table class="bom-table" {
                         thead {
                             tr {
-                                th style="width:50px" { "排序" }
-                                th style="width:120px" { "物料编码" }
-                                th { "物料名称" }
-                                th style="width:120px" { "规格型号" }
-                                th style="width:80px" { "用量" }
+                                th style="width:40px" { "编号" }
+                                th style="width:40px" { "层级" }
+                                th style="width:120px" { "产品编码" }
+                                th { "产品" }
+                                th style="width:100px" { "工作中心" }
+                                th style="width:80px" { "数量" }
                                 th style="width:60px" { "单位" }
                                 th style="width:80px" { "损耗率" }
                                 th style="width:100px" { "位置" }
-                                th style="width:100px" { "工作中心" }
                                 th { "备注" }
                             }
                         }
                         tbody {
-                            @for node in &bom.bom_detail.nodes {
+                            @for (idx, node) in bom.bom_detail.nodes.iter().enumerate() {
                                 @let depth = *depth_map.get(&node.id).unwrap_or(&0);
+                                @let level = depth + 1;
+                                @let has_children = parent_ids.contains(&node.id);
                                 @let product = product_map.get(&node.product_id);
-                                (bom_node_row(node, depth, product.map(|v| &**v)))
+                                (bom_node_row(idx, level, has_children, node, product.map(|v| &**v)))
                             }
                         }
                     }
                 }
             }
 
-            // ── 成本概要 (placeholder) ──
-            div class="detail-card" style="margin-top:var(--space-5)" {
-                div class="detail-card-title" { "成本概要" }
-                div class="empty-state" { "成本计算功能开发中" }
-            }
 
             // ── Delete Confirm Dialog ──
             (confirm_dialog::confirm_dialog(
@@ -242,8 +245,8 @@ fn bom_detail_page(
 
 fn bom_status_display(status: BomStatus) -> (&'static str, &'static str) {
     match status {
-        BomStatus::Draft => ("草稿", "status-draft"),
-        BomStatus::Published => ("已发布", "status-accepted"),
+        BomStatus::Draft => ("草稿", "status-bom-draft"),
+        BomStatus::Published => ("已发布", "status-bom-published"),
     }
 }
 
@@ -264,17 +267,14 @@ fn build_depth_map(nodes: &[BomNode]) -> HashMap<i64, usize> {
 }
 
 fn bom_node_row(
+    index: usize,
+    level: usize,
+    has_children: bool,
     node: &BomNode,
-    depth: usize,
     product: Option<&abt_core::master_data::product::model::Product>,
 ) -> Markup {
-    let indent_px = depth * 24;
     let code = node.product_code.as_deref().unwrap_or("—");
     let name = product.map(|p| p.pdt_name.as_str()).unwrap_or("—");
-    let spec = product
-        .map(|p| p.meta.specification.as_str())
-        .filter(|s| !s.is_empty())
-        .unwrap_or("—");
     let unit = node.unit.as_deref().unwrap_or("—");
     let position = node.position.as_deref().filter(|s| !s.is_empty()).unwrap_or("—");
     let work_center = node.work_center.as_deref().filter(|s| !s.is_empty()).unwrap_or("—");
@@ -285,24 +285,27 @@ fn bom_node_row(
         format!("{}%", node.loss_rate)
     };
 
+    // Row background class (matching old code getNodeRowStyle)
+    let row_class = if level == 1 {
+        "bom-row-level-0"
+    } else if has_children {
+        "bom-row-level-1"
+    } else {
+        "bom-row-level-default"
+    };
+
     html! {
-        tr {
-            td { (node.order) }
+        tr class=(row_class) {
+            td style="text-align:center" { (index + 1) }
+            td style="text-align:center" { (level) }
             td class="mono" { (code) }
-            td {
-                @if depth > 0 {
-                    span style=(format!("display:inline-block;width:{indent_px}px")) {}
-                    span style="color:var(--text-tertiary)" { "└ " }
-                }
-                (name)
-            }
-            td { (spec) }
-            td class="mono" { (node.quantity) }
-            td { (unit) }
-            td { (loss_rate) }
-            td { (position) }
+            td { (name) }
             td { (work_center) }
-            td style="color:var(--text-tertiary)" { (remark) }
+            td class="mono" style="text-align:right" { (node.quantity) }
+            td { (unit) }
+            td style="text-align:right" { (loss_rate) }
+            td { (position) }
+            td style="color:var(--muted)" { (remark) }
         }
     }
 }

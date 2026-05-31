@@ -101,6 +101,14 @@ classDiagram
     +category_id: i64
   }
 
+  class ProductSummary {
+    +product_id: i64
+    +product_code: String
+    +pdt_name: String
+    +status: ProductStatus
+    +spec: Option~String~
+  }
+
   class PriceType {
     &lt;&lt;enumeration&gt;&gt;
     Purchase
@@ -341,6 +349,7 @@ classDiagram
     +move_to(ctx: &ServiceContext, db: PgExecutor, category_id, new_parent_id) Result~Unit~
     +assign_products(ctx: &ServiceContext, db: PgExecutor, category_id, product_ids) Result~Unit~
     +remove_products(ctx: &ServiceContext, db: PgExecutor, category_id, product_ids) Result~Unit~
+    +list_products(ctx: &ServiceContext, db: PgExecutor, category_id, page: PageParams) PaginatedResult~ProductSummary~
   }
 
   %% BOM 拆分为 4 个 Service（CQRS 风格）
@@ -567,6 +576,7 @@ classDiagram
   CategoryService ..> Category
   CategoryService ..> CategoryTree
   CategoryService ..> ProductCategory
+  CategoryService ..> ProductSummary
   BomCommandService ..> CreateBomReq
   BomCommandService ..> UpdateBomReq
   BomCommandService ..> SubstituteReq
@@ -1122,6 +1132,9 @@ classDiagram
           &nbsp;&nbsp;&nbsp;&nbsp;product_ids)<br>
           &nbsp;&nbsp;remove_products(ctx, db, category_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;product_ids)<br>
+          &nbsp;&nbsp;list_products(ctx, db, category_id,<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;page) → PaginatedResult&lt;ProductSummary&gt;<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;<span style="color:#888;">// 按分类查询关联产品</span><br>
           }
         </div>
       </div>

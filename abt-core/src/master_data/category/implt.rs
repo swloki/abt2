@@ -93,13 +93,13 @@ impl CategoryService for CategoryServiceImpl {
         let all = self.repo.find_all(db)
             .await?;
 
-        let filtered: Vec<Category> = if let Some(root) = root_id {
-            all.into_iter().filter(|c| c.path.starts_with(&format!("/{root}/")) || c.category_id == root).collect()
+        if let Some(root) = root_id {
+            // Filter to root and its descendants, then build tree starting from root as parent
+            let subset: Vec<Category> = all.into_iter().filter(|c| c.path.starts_with(&format!("/{root}/")) || c.category_id == root).collect();
+            Ok(build_tree(&subset, root, depth_limit.unwrap_or(i32::MAX), 0))
         } else {
-            all
-        };
-
-        Ok(build_tree(&filtered, 0, depth_limit.unwrap_or(i32::MAX), 0))
+            Ok(build_tree(&all, 0, depth_limit.unwrap_or(i32::MAX), 0))
+        }
     }
 
     async fn move_to(&self, ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, new_parent_id: i64) -> Result<()> {
@@ -152,6 +152,13 @@ impl CategoryService for CategoryServiceImpl {
         self.repo.update_meta_count(db, category_id, count)
             .await?;
         Ok(())
+    }
+
+    async fn list_products(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, page: PageParams) -> Result<PaginatedResult<ProductSummary>> {
+        self.repo.find_products_by_category(db, category_id, &page).await
+    }
+    async fn count_products_batch(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, category_ids: &[i64]) -> Result<std::collections::HashMap<i64, i64>> {
+        self.repo.find_products_count_batch(db, category_ids).await
     }
 }
 

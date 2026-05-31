@@ -60,6 +60,16 @@ pub struct ProductCategory {
     pub category_id: i64,
 }
 
+/// 产品摘要（分类详情页关联产品列表用）
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct ProductSummary {
+    pub product_id: i64,
+    pub product_code: String,
+    pub pdt_name: String,
+    pub status: crate::master_data::product::ProductStatus,
+    pub spec: Option<String>,
+}
+
 /// 创建分类请求
 #[derive(Debug, Clone)]
 pub struct CreateCategoryReq {

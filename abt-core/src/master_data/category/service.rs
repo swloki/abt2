@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use super::model::*;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
@@ -14,4 +14,6 @@ pub trait CategoryService: Send + Sync {
     async fn move_to(&self, ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, new_parent_id: i64) -> Result<()>;
     async fn assign_products(&self, ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, product_ids: Vec<i64>) -> Result<()>;
     async fn remove_products(&self, ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, product_ids: Vec<i64>) -> Result<()>;
+    async fn list_products(&self, ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, page: PageParams) -> Result<PaginatedResult<ProductSummary>>;
+    async fn count_products_batch(&self, ctx: &ServiceContext, db: PgExecutor<'_>, category_ids: &[i64]) -> Result<std::collections::HashMap<i64, i64>>;
 }

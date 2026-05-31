@@ -213,4 +213,52 @@ impl CategoryRepo {
         }
         Ok(())
     }
+    /// Count products for multiple categories in a single query.
+    /// Returns a map of category_id -> product count.
+    pub async fn find_products_count_batch(
+        &self,
+        executor: PgExecutor<'_>,
+        category_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, i64>> {
+        if category_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let rows: Vec<(i64, i64)> = sqlx::query_as(
+            "SELECT pc.category_id, COUNT(*) FROM product_categories pc \
+             JOIN products p ON p.product_id = pc.product_id \
+             WHERE pc.category_id = ANY($1) AND p.deleted_at IS NULL \
+             GROUP BY pc.category_id",
+        )
+        .bind(category_ids)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows.into_iter().collect())
+    }
+
+    /// List products belonging to a category, joined through product_categories.
+    /// Returns paginated results with product fields needed for the category detail panel.
+    pub async fn find_products_by_category(
+        &self,
+        executor: PgExecutor<'_>,
+        category_id: i64,
+        page: &PageParams,
+    ) -> Result<PaginatedResult<ProductSummary>> {
+        let count: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM product_categories pc JOIN products p ON p.product_id = pc.product_id WHERE pc.category_id = $1 AND p.deleted_at IS NULL",
+        )
+        .bind(category_id)
+        .fetch_one(&mut *executor)
+        .await?;
+
+        let items: Vec<ProductSummary> = sqlx::query_as::<sqlx::Postgres, ProductSummary>(
+            "SELECT p.product_id, p.product_code, p.pdt_name, p.status, p.meta->>'spec' AS spec FROM product_categories pc JOIN products p ON p.product_id = pc.product_id WHERE pc.category_id = $1 AND p.deleted_at IS NULL ORDER BY p.product_code ASC LIMIT $2 OFFSET $3",
+        )
+        .bind(category_id)
+        .bind(page.page_size as i64)
+        .bind(page.offset() as i64)
+        .fetch_all(executor)
+        .await?;
+
+        Ok(PaginatedResult::new(items, count as u64, page.page, page.page_size))
+    }
 }

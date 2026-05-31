@@ -13,7 +13,7 @@ use abt_macros::require_permission;
 
 use crate::components::{confirm_dialog, detail::detail_row, icon};
 use crate::layout::page::admin_page;
-use crate::routes::bom::{BomDeletePath, BomDetailPath, BomListPath, BomPublishPath};
+use crate::routes::bom::{BomDeletePath, BomDetailPath, BomEditPath, BomListPath, BomPublishPath};
 use crate::utils::RequestContext;
 
 // ── Handlers ──
@@ -57,13 +57,6 @@ pub async fn get_bom_detail(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("BOM", "update")]
-pub async fn update_bom(
-    _path: crate::routes::bom::BomUpdatePath,
-    _ctx: RequestContext,
-) -> crate::errors::Result<Html<String>> {
-    Ok(Html("<p>Update BOM placeholder</p>".into()))
-}
 
 #[require_permission("BOM", "update")]
 pub async fn publish_bom(
@@ -123,6 +116,10 @@ fn bom_detail_page(
                     a class="btn btn-default" href=(list_path) {
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
+                    }
+                    a class="btn btn-primary" href=(BomEditPath { id: bom.bom_id }) {
+                        (icon::edit_icon("w-4 h-4"))
+                        " 编辑"
                     }
                     @if is_draft {
                         button class="btn btn-primary"

@@ -3,7 +3,7 @@ use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::pages::{bom_list, bom_create, bom_detail};
+use crate::pages::{bom_list, bom_create, bom_detail, bom_edit};
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -27,9 +27,22 @@ pub struct BomDetailPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/boms/{id}")]
-pub struct BomUpdatePath {
+#[typed_path("/admin/md/boms/{id}/edit")]
+pub struct BomEditPath {
     pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/nodes")]
+pub struct BomNodesPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/nodes/{node_id}")]
+pub struct BomNodePath {
+    pub id: i64,
+    pub node_id: i64,
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
@@ -45,6 +58,25 @@ pub struct BomPublishPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/category")]
+pub struct BomUpdateCategoryPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/save-as")]
+pub struct BomSaveAsPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/nodes/{node_id}/move")]
+pub struct BomNodeMovePath {
+    pub id: i64,
+    pub node_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/boms/products")]
 pub struct BomProductsPath;
 
@@ -55,9 +87,14 @@ pub fn router() -> Router<AppState> {
         .route(BomListPath::PATH, get(bom_list::get_bom_list))
         .route(BomTablePath::PATH, get(bom_list::get_bom_table))
         .route(BomCreatePath::PATH, get(bom_create::get_bom_create).post(bom_create::post_bom_create))
-        .route(BomProductsPath::PATH, get(bom_create::get_bom_products))
+        .route(BomProductsPath::PATH, get(bom_edit::get_bom_products))
         .route(BomDetailPath::PATH, get(bom_detail::get_bom_detail))
-        .route(BomUpdatePath::PATH, post(bom_detail::update_bom))
+        .route(BomEditPath::PATH, get(bom_edit::get_bom_edit))
+        .route(BomNodesPath::PATH, post(bom_edit::add_node))
+        .route(BomNodePath::PATH, post(bom_edit::update_node).delete(bom_edit::delete_node))
+        .route(BomNodeMovePath::PATH, post(bom_edit::move_node))
         .route(BomDeletePath::PATH, post(bom_list::delete_bom))
         .route(BomPublishPath::PATH, post(bom_detail::publish_bom))
+        .route(BomUpdateCategoryPath::PATH, post(bom_edit::update_category))
+        .route(BomSaveAsPath::PATH, post(bom_edit::save_as))
 }

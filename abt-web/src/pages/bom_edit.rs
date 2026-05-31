@@ -467,27 +467,11 @@ fn bom_edit_page(
                         }
                     }
 
-                    // View toggle: table | tree
-                    div class="bom-view-toggle" {
-                        button type="button" class="bom-view-btn"
-                            x-bind:class="{ 'active': viewMode === 'table' }"
-                            x-on:click="viewMode = 'table'" title="表格视图" {
-                            (table_icon("w-4 h-4"))
-                        }
-                        button type="button" class="bom-view-btn"
-                            x-bind:class="{ 'active': viewMode === 'tree' }"
-                            x-on:click="viewMode = 'tree'" title="树形视图" {
-                            (tree_icon("w-4 h-4"))
-                        }
-                    }
-
-                    // Level filter (table mode only)
-                    div x-show="viewMode === 'table'" x-cloak {
-                        select x-model="layerFilter" class="bom-level-filter" {
-                            option value="0" { "全部层级" }
-                            @for lv in 1..=max_level {
-                                option value=(lv) { "层级 " (lv) }
-                            }
+                    // Level filter
+                    select x-model="layerFilter" class="bom-level-filter" {
+                        option value="0" { "全部层级" }
+                        @for lv in 1..=max_level {
+                            option value=(lv) { "层级 " (lv) }
                         }
                     }
                 }
@@ -542,61 +526,40 @@ fn bom_edit_page(
                 span class=(format!("status-pill {status_class}")) { (status_label) }
             }
 
-            // ── Node Table (table view) ──
-            div x-show="viewMode === 'table'" {
-                div class="data-card" style="padding:0;overflow:hidden" {
-                    @if bom.bom_detail.nodes.is_empty() {
-                        div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
-                            "暂无组件数据，请点击上方按钮添加根节点"
-                        }
-                    } @else {
-                        div style="overflow-x:auto" {
-                            table class="bom-table" style="min-width:900px" {
-                                thead {
-                                    tr {
-                                        th style="width:32px" { "" }
-                                        th style="width:40px" { "编号" }
-                                        th style="width:40px" { "层级" }
-                                        th style="width:120px" { "产品编码" }
-                                        th { "产品" }
-                                        th style="width:100px" { "工作中心" }
-                                        th style="width:80px" { "数量" }
-                                        th style="width:60px" { "单位" }
-                                        th style="width:80px" { "损耗率" }
-                                        th style="width:100px" { "位置" }
-                                        th { "备注" }
-                                        th style="width:120px" { "操作" }
-                                    }
+            // ── Node Table ──
+            div class="data-card" style="padding:0;overflow:hidden" {
+                @if bom.bom_detail.nodes.is_empty() {
+                    div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                        "暂无组件数据，请点击上方按钮添加根节点"
+                    }
+                } @else {
+                    div style="overflow-x:auto" {
+                        table class="bom-table" style="min-width:900px" {
+                            thead {
+                                tr {
+                                    th style="width:40px" { "编号" }
+                                    th style="width:40px" { "层级" }
+                                    th style="width:120px" { "产品编码" }
+                                    th { "产品" }
+                                    th style="width:100px" { "工作中心" }
+                                    th style="width:80px" { "数量" }
+                                    th style="width:60px" { "单位" }
+                                    th style="width:80px" { "损耗率" }
+                                    th style="width:100px" { "位置" }
+                                    th { "备注" }
+                                    th style="width:120px" { "操作" }
                                 }
-                                tbody id="bom-sortable-tbody" {
-                                    @for (idx, node) in bom.bom_detail.nodes.iter().enumerate() {
-                                        @let depth = *depth_map.get(&node.id).unwrap_or(&0);
-                                        @let level = depth + 1;
-                                        @let has_children = parent_ids.contains(&node.id);
-                                        @let product = product_map.get(&node.product_id);
-                                        (bom_node_row(idx, level, has_children, node, product.map(|v| &**v)))
-                                    }
+                            }
+                            tbody id="bom-sortable-tbody" {
+                                @for (idx, node) in bom.bom_detail.nodes.iter().enumerate() {
+                                    @let depth = *depth_map.get(&node.id).unwrap_or(&0);
+                                    @let level = depth + 1;
+                                    @let has_children = parent_ids.contains(&node.id);
+                                    @let product = product_map.get(&node.product_id);
+                                    (bom_node_row(idx, level, has_children, node, product.map(|v| &**v)))
                                 }
                             }
                         }
-                    }
-                }
-            }
-
-            // ── Tree View ──
-            div x-show="viewMode === 'tree'" x-cloak {
-                div class="data-card" style="padding:var(--space-5)" {
-                    div style="display:flex;gap:var(--space-2);margin-bottom:var(--space-4)" {
-                        span style="font-size:var(--text-xs);color:var(--muted);line-height:32px" { "展开：" }
-                        button type="button" class="btn btn-sm btn-default" x-on:click="$el.closest('.data-card').querySelectorAll('.bom-tree-branch').forEach(function(el){ Alpine.$data(el).open = true })" { "全部" }
-                        button type="button" class="btn btn-sm btn-default" x-on:click="$el.closest('.data-card').querySelectorAll('.bom-tree-branch').forEach(function(el){ Alpine.$data(el).open = false })" { "折叠" }
-                    }
-                    @if bom.bom_detail.nodes.is_empty() {
-                        div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
-                            "暂无组件数据"
-                        }
-                    } @else {
-                        (bom_tree_view(&bom.bom_detail.nodes, &depth_map, &parent_ids, product_map))
                     }
                 }
             }
@@ -746,231 +709,7 @@ fn bom_edit_page(
             }
 
             // ── Alpine.js component ──
-            script {
-                (maud::PreEscaped(format!(r#"
-                function bomEdit() {{
-                    return {{
-                        viewMode: 'table',
-                        layerFilter: 0,
-
-                        addModalOpen: false,
-                        addParentId: 0,
-                        addProductId: 0,
-                        addProductCode: '',
-                        addProductName: '',
-                        addProductUnit: '',
-
-                        editModalOpen: false,
-                        editNodeId: 0,
-                        editNode: {{
-                            quantity: '',
-                            loss_rate: '',
-                            unit: '',
-                            work_center: '',
-                            position: '',
-                            remark: ''
-                        }},
-
-                        saveAsOpen: false,
-                        saveAsName: '',
-                        deleteOpen: false,
-
-                        selectAddProduct(product) {{
-                            this.addProductId = product.product_id;
-                            this.addProductCode = product.product_code;
-                            this.addProductName = product.product_name;
-                            this.addProductUnit = product.unit || '';
-                            this.submitAddNode();
-                        }},
-
-                        submitAddNode() {{
-                            if (!this.addProductId) return;
-                            var bomId = window.location.pathname.split('/')[4];
-                            var fields = {{
-                                product_id: this.addProductId,
-                                parent_id: this.addParentId,
-                                quantity: '1',
-                                unit: this.addProductUnit
-                            }};
-                            htmx.ajax('POST', '/admin/md/boms/' + bomId + '/nodes', {{
-                                values: fields,
-                                swap: 'none',
-                                headers: {{'HX-Request': 'true'}}
-                            }}).then(() => {{
-                                this.addModalOpen = false;
-                            }});
-                        }},
-
-                        openEdit(nodeId, quantity, lossRate, unit, workCenter, position, remark) {{
-                            this.editNodeId = nodeId;
-                            this.editNode = {{
-                                quantity: quantity,
-                                loss_rate: lossRate,
-                                unit: unit,
-                                work_center: workCenter,
-                                position: position,
-                                remark: remark
-                            }};
-                            var bomId = window.location.pathname.split('/')[4];
-                            var form = document.getElementById('bom-edit-node-form');
-                            form.action = '/admin/md/boms/' + bomId + '/nodes/' + nodeId;
-                            form.setAttribute('hx-post', form.action);
-                            this.editModalOpen = true;
-                        }},
-
-                        openDelete(nodeId) {{
-                            var bomId = window.location.pathname.split('/')[4];
-                            var form = document.getElementById('bom-node-delete-form');
-                            form.action = '/admin/md/boms/' + bomId + '/nodes/' + nodeId;
-                            form.setAttribute('hx-delete', form.action);
-                            this.deleteOpen = true;
-                        }},
-
-                        openAddChild(parentId) {{
-                            this.addParentId = parentId;
-                            this.addProductId = 0;
-                            this.addModalOpen = true;
-                        }},
-
-                        initSortable() {{
-                            var bomId = window.location.pathname.split('/')[4];
-                            var tbody = document.getElementById('bom-sortable-tbody');
-                            if (!tbody) return;
-
-                            var dragNodeId = null;
-                            var descendantIds = new Set();
-
-                            function getDescendants(nodeId) {{
-                                var ids = new Set([nodeId]);
-                                var changed = true;
-                                while (changed) {{
-                                    changed = false;
-                                    tbody.querySelectorAll('tr[data-node-id]').forEach(function(r) {{
-                                        var pid = Number(r.dataset.parentId);
-                                        var nid = Number(r.dataset.nodeId);
-                                        if (ids.has(pid) && !ids.has(nid)) {{
-                                            ids.add(nid);
-                                            changed = true;
-                                        }}
-                                    }});
-                                }}
-                                return ids;
-                            }}
-
-                            function clearIndicators() {{
-                                tbody.querySelectorAll('.bom-drop-top,.bom-drop-bottom,.bom-drop-child').forEach(function(r) {{
-                                    r.classList.remove('bom-drop-top', 'bom-drop-bottom', 'bom-drop-child');
-                                }});
-                            }}
-
-                            tbody.addEventListener('dragstart', function(e) {{
-                                var row = e.target.closest('tr[data-node-id]');
-                                if (!row) return;
-                                dragNodeId = Number(row.dataset.nodeId);
-                                descendantIds = getDescendants(dragNodeId);
-                                tbody.querySelectorAll('tr[data-node-id]').forEach(function(r) {{
-                                    if (descendantIds.has(Number(r.dataset.nodeId))) {{
-                                        r.classList.add('bom-dragging');
-                                    }}
-                                }});
-                                e.dataTransfer.effectAllowed = 'move';
-                                e.dataTransfer.setData('text/plain', String(dragNodeId));
-                            }});
-
-                            tbody.addEventListener('dragend', function() {{
-                                tbody.querySelectorAll('.bom-dragging').forEach(function(r) {{
-                                    r.classList.remove('bom-dragging');
-                                }});
-                                clearIndicators();
-                                dragNodeId = null;
-                                descendantIds = new Set();
-                            }});
-
-                            tbody.addEventListener('dragover', function(e) {{
-                                e.preventDefault();
-                                e.dataTransfer.dropEffect = 'move';
-                                clearIndicators();
-                                var row = e.target.closest('tr[data-node-id]');
-                                if (!row) return;
-                                var tid = Number(row.dataset.nodeId);
-                                if (descendantIds.has(tid)) return;
-                                var rect = row.getBoundingClientRect();
-                                var y = e.clientY - rect.top;
-                                if (y < rect.height * 0.25) {{
-                                    row.classList.add('bom-drop-top');
-                                }} else if (y > rect.height * 0.75) {{
-                                    row.classList.add('bom-drop-bottom');
-                                }} else {{
-                                    row.classList.add('bom-drop-child');
-                                }}
-                            }});
-
-                            tbody.addEventListener('dragleave', function(e) {{
-                                var row = e.target.closest('tr[data-node-id]');
-                                if (row) row.classList.remove('bom-drop-top','bom-drop-bottom','bom-drop-child');
-                            }});
-
-                            tbody.addEventListener('drop', function(e) {{
-                                e.preventDefault();
-                                clearIndicators();
-                                if (!dragNodeId) return;
-                                var row = e.target.closest('tr[data-node-id]');
-                                if (!row) return;
-                                var tid = Number(row.dataset.nodeId);
-                                if (descendantIds.has(tid)) return;
-
-                                var rect = row.getBoundingClientRect();
-                                var y = e.clientY - rect.top;
-                                var targetPid = Number(row.dataset.parentId);
-                                var newParentId, beforeSiblingId;
-
-                                if (y < rect.height * 0.25) {{
-                                    // Insert before target, same parent
-                                    newParentId = targetPid;
-                                    beforeSiblingId = tid;
-                                }} else if (y > rect.height * 0.75) {{
-                                    // Insert after target
-                                    // Check if target has children → become a child of target
-                                    var allRows = Array.from(tbody.querySelectorAll('tr[data-node-id]'));
-                                    var tIdx = allRows.indexOf(row);
-                                    var nextIsChild = tIdx + 1 < allRows.length && Number(allRows[tIdx + 1].dataset.parentId) === tid;
-                                    if (nextIsChild) {{
-                                        newParentId = tid;
-                                        beforeSiblingId = '';
-                                    }} else {{
-                                        // Same parent, find next sibling
-                                        newParentId = targetPid;
-                                        var nextSibling = '';
-                                        for (var i = tIdx + 1; i < allRows.length; i++) {{
-                                            if (Number(allRows[i].dataset.parentId) === targetPid) {{
-                                                nextSibling = Number(allRows[i].dataset.nodeId);
-                                                break;
-                                            }}
-                                        }}
-                                        beforeSiblingId = nextSibling || '';
-                                    }}
-                                }} else {{
-                                    // Middle → become child of target
-                                    newParentId = tid;
-                                    beforeSiblingId = '';
-                                }}
-
-                                htmx.ajax('POST', '/admin/md/boms/' + bomId + '/nodes/' + dragNodeId + '/move', {{
-                                    values: {{
-                                        new_parent_id: newParentId,
-                                        before_sibling_id: beforeSiblingId
-                                    }},
-                                    swap: 'none',
-                                    headers: {{'HX-Request': 'true'}}
-                                }}).then(function() {{
-                                    window.location.reload();
-                                }});
-                            }});
-                        }}
-                    }};
-                }}
-                "#)))
-            }
+            script src="/bom-edit.js" {}
         }
     }
 }
@@ -1022,9 +761,6 @@ fn bom_node_row(
     html! {
         tr class=(row_class) x-show=(show_expr) draggable="true"
             data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) {
-            td class="bom-drag-handle" title="拖动排序" {
-                (icon::dots_vertical_icon("w-3.5 h-3.5"))
-            }
             td style="text-align:center" { (index + 1) }
             td style="text-align:center" { (level) }
             td class="mono" { (code) }
@@ -1055,74 +791,6 @@ fn bom_node_row(
     }
 }
 
-/// Tree view with per-node expand/collapse via Alpine.js
-fn bom_tree_view(
-    nodes: &[BomNode],
-    _depth_map: &HashMap<i64, usize>,
-    parent_ids: &HashSet<i64>,
-    product_map: &HashMap<i64, &abt_core::master_data::product::model::Product>,
-) -> Markup {
-    // Build children map: parent_id -> Vec<&BomNode>
-    let mut children_map: HashMap<i64, Vec<&BomNode>> = HashMap::new();
-    let mut roots: Vec<&BomNode> = Vec::new();
-    for node in nodes {
-        if node.parent_id == 0 {
-            roots.push(node);
-        } else {
-            children_map.entry(node.parent_id).or_default().push(node);
-        }
-    }
-
-    fn render_node(
-        node: &BomNode,
-        children_map: &HashMap<i64, Vec<&BomNode>>,
-        parent_ids: &HashSet<i64>,
-        product_map: &HashMap<i64, &abt_core::master_data::product::model::Product>,
-    ) -> Markup {
-        let product = product_map.get(&node.product_id);
-        let name = product.map(|p| p.pdt_name.as_str()).unwrap_or("—");
-        let code = node.product_code.as_deref().unwrap_or("—");
-        let has_children = parent_ids.contains(&node.id);
-        let children: &[&BomNode] = children_map.get(&node.id).map(|v| v.as_slice()).unwrap_or_default();
-
-        html! {
-            div class="bom-tree-branch" x-data="{ open: true }" {
-                div class="bom-tree-row" {
-                    @if has_children {
-                        button type="button" class="bom-tree-toggle"
-                            x-on:click="open = !open"
-                            x-bind:class="{ 'is-collapsed': !open }" {
-                            (icon::chevron_right_icon("w-3.5 h-3.5"))
-                        }
-                    } @else {
-                        span class="bom-tree-dot" {}
-                    }
-                    span class="bom-tree-code" { (code) }
-                    span class="bom-tree-name" { (name) }
-                    span class="bom-tree-qty" { (node.quantity) }
-                    @if let Some(u) = node.unit.as_deref().filter(|s| !s.is_empty()) {
-                        span class="bom-tree-unit" { (u) }
-                    }
-                }
-                div x-show="open" x-transition {
-                    @for child in children {
-                        div class="bom-tree-indent" {
-                            (render_node(child, children_map, parent_ids, product_map))
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    html! {
-        div class="bom-tree" {
-            @for root in roots {
-                (render_node(root, &children_map, parent_ids, product_map))
-            }
-        }
-    }
-}
 
 // ── Helpers ──
 
@@ -1185,20 +853,4 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
             }
         }
     }
-}
-
-// ── Custom icons for view toggle ──
-
-fn table_icon(c: &str) -> Markup {
-    icon::svg(
-        r#"<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>"#,
-        c,
-    )
-}
-
-fn tree_icon(c: &str) -> Markup {
-    icon::svg(
-        r#"<path d="M12 3v6M12 9h6M12 9H6M12 15v6M12 15h4M12 15H8"/>"#,
-        c,
-    )
 }

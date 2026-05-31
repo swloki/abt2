@@ -47,6 +47,7 @@ pub mod category_list;
 pub mod bom_list;
 pub mod bom_create;
 pub mod bom_detail;
+pub mod bom_edit;
 pub mod routing_list;
 pub mod routing_create;
 pub mod routing_detail;

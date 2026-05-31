@@ -464,7 +464,20 @@ impl BomNodeRepo {
 
     pub async fn find_by_bom_id(&self, executor: PgExecutor<'_>, bom_id: i64) -> Result<Vec<BomNode>> {
         let nodes = sqlx::query_as::<sqlx::Postgres, BomNode>(
-            sqlx::AssertSqlSafe(format!("SELECT {NODE_COLUMNS} FROM bom_nodes WHERE bom_id = $1 ORDER BY order_num, node_id")),
+            sqlx::AssertSqlSafe(format!(r#"
+                WITH RECURSIVE tree AS (
+                    SELECT n.*, ARRAY[n.order_num, n.node_id] AS sort_path
+                    FROM bom_nodes n
+                    WHERE n.bom_id = $1 AND n.parent_id = 0
+                  UNION ALL
+                    SELECT c.*, p.sort_path || ARRAY[c.order_num, c.node_id]
+                    FROM bom_nodes c
+                    JOIN tree p ON c.parent_id = p.node_id
+                    WHERE c.bom_id = $1
+                )
+                SELECT {NODE_COLUMNS} FROM tree
+                ORDER BY sort_path
+            "#)),
         )
         .bind(bom_id)
         .fetch_all(executor)

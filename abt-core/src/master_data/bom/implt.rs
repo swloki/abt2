@@ -556,13 +556,6 @@ impl BomNodeService for BomNodeServiceImpl {
         new_parent_id: i64,
         before_sibling_id: Option<i64>,
     ) -> Result<()> {
-        let bom = self.repo.find_by_id(db, bom_id)
-            .await?
-            .ok_or_else(|| DomainError::not_found("BOM"))?;
-
-        if bom.status != BomStatus::Draft {
-            return Err(DomainError::business_rule("Can only move nodes in a draft BOM"));
-        }
 
         let existing = self.node_repo.find_by_id(db, node_id)
             .await?

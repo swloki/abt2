@@ -272,7 +272,7 @@ fn bom_row(bom: &Bom) -> Markup {
     };
 
     html! {
-        tr style="cursor:pointer" {
+        tr id=(format!("bom-row-{}", bom.bom_id)) style="cursor:pointer" {
             td onclick=(format!("location.href='{}'", detail_path)) {
                 strong { (bom.bom_name) }
             }
@@ -314,7 +314,7 @@ fn bom_row(bom: &Bom) -> Markup {
                         html! {
                             form id=(form_id) style="display:none"
                                 hx-post=(delete_path)
-                                hx-target="closest tr"
+                                hx-target=(format!("#bom-row-{}", bom.bom_id))
                                 hx-swap="outerHTML swap:0.5s" {}
                         },
                     ))

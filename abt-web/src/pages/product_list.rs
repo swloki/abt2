@@ -445,7 +445,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
     let spec = &p.meta.specification;
 
     html! {
-        tr style="cursor:pointer" {
+        tr id=(format!("product-row-{}", p.product_id)) style="cursor:pointer" {
             td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (p.product_code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (p.pdt_name) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
@@ -537,7 +537,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                         html! {
                             form id=(delete_form_id) style="display:none"
                                 hx-post=(delete_path)
-                                hx-target="closest tr"
+                                hx-target=(format!("#product-row-{}", p.product_id))
                                 hx-swap="outerHTML swap:0.5s" {}
                         },
                     ))

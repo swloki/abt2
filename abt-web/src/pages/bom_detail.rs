@@ -202,7 +202,6 @@ fn bom_detail_page(
                                 th style="width:80px" { "数量" }
                                 th style="width:60px" { "单位" }
                                 th style="width:80px" { "损耗率" }
-                                th style="width:100px" { "位置" }
                                 th { "备注" }
                             }
                         }
@@ -273,7 +272,6 @@ fn bom_node_row(
     let code = node.product_code.as_deref().unwrap_or("—");
     let name = product.map(|p| p.pdt_name.as_str()).unwrap_or("—");
     let unit = node.unit.as_deref().unwrap_or("—");
-    let position = node.position.as_deref().filter(|s| !s.is_empty()).unwrap_or("—");
     let work_center = node.work_center.as_deref().filter(|s| !s.is_empty()).unwrap_or("—");
     let remark = node.remark.as_deref().filter(|s| !s.is_empty()).unwrap_or("");
     let loss_rate = if node.loss_rate == Decimal::ZERO {
@@ -301,7 +299,6 @@ fn bom_node_row(
             td class="mono" style="text-align:right" { (node.quantity) }
             td { (unit) }
             td style="text-align:right" { (loss_rate) }
-            td { (position) }
             td style="color:var(--muted)" { (remark) }
         }
     }

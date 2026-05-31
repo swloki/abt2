@@ -46,6 +46,8 @@ pub async fn get_md_dashboard(
                 name: None,
                 status: None,
                 bom_category_id: None,
+                date_from: None,
+                date_to: None,
             },
             page.clone(),
         )

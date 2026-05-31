@@ -359,6 +359,14 @@ const componentStyles = `
 }
 .filter-select:hover { border-color: var(--accent); }
 .filter-select:focus { border-color: var(--accent); box-shadow: var(--shadow-focus); }
+.filter-date {
+  padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg); font-size: var(--text-sm);
+  color: var(--fg); outline: none; transition: all var(--motion-fast) var(--ease-standard);
+  cursor: pointer;
+}
+.filter-date:hover { border-color: var(--accent); }
+.filter-date:focus { border-color: var(--accent); box-shadow: var(--shadow-focus); }
 
 /* ─── Category Tree Select ─── */
 .tree-select { position: relative; display: inline-block; }
@@ -1094,6 +1102,17 @@ const componentStyles = `
 .bom-row-level-0 .row-action-btn svg { color: #fff; }
 .bom-row-level-0 .row-action-btn:hover { background: rgba(255,255,255,0.3); }
 .bom-table .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.bom-collapse-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border: none; border-radius: var(--radius-sm);
+  background: transparent; cursor: pointer; padding: 0; flex-shrink: 0;
+  transition: background var(--motion-fast);
+}
+.bom-collapse-btn:hover { background: rgba(0,0,0,0.06); }
+.bom-collapse-icon { width: 14px; height: 14px; transition: transform 0.15s ease; }
+.bom-collapse-btn.bom-collapsed .bom-collapse-icon { transform: rotate(-90deg); }
+.bom-row-level-0 .bom-collapse-btn:hover { background: rgba(255,255,255,0.2); }
+.bom-row-level-0 .bom-collapse-icon { color: #fff; }
 
 .bom-dragging { opacity: 0.4; }
 .bom-drop-indicator { position: fixed; height: 48px; background: #dbeafe; border: 2px dashed var(--accent); z-index: 100; pointer-events: none; transition: top 0.1s ease, left 0.05s ease, width 0.05s ease; }

@@ -26,7 +26,7 @@ fn status_tab(hx_get: &str, hx_target: &str, hx_include: &str, tab: &TabItem, ac
     let is_active = tab.value == active_value;
     let class = if is_active { "status-tab active" } else { "status-tab" };
     let vals = if tab.value.is_empty() {
-        "{}".to_string()
+        "{\"status\": \"\"}".to_string()
     } else {
         format!("{{\"status\": {}}}", tab.value)
     };

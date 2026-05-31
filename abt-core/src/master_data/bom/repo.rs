@@ -174,16 +174,37 @@ impl BomRepo {
         } else {
             None
         };
-
+        let date_from_param = if let Some(ref df) = filter.date_from {
+            if !df.is_empty() {
+                param_idx += 1;
+                conditions.push(format!("create_at >= ${param_idx}::date"));
+                Some(df.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let date_to_param = if let Some(ref dt) = filter.date_to {
+            if !dt.is_empty() {
+                param_idx += 1;
+                conditions.push(format!("create_at < (${param_idx}::date + interval '1 day')"));
+                Some(dt.clone())
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         let where_clause = conditions.join(" AND ");
-
         let count_sql = format!("SELECT COUNT(*) FROM boms WHERE {where_clause}");
         let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = name_param { count_q = count_q.bind(v); }
         if let Some(v) = status_param { count_q = count_q.bind(v); }
         if let Some(v) = cat_param { count_q = count_q.bind(v); }
+        if let Some(ref v) = date_from_param { count_q = count_q.bind(v); }
+        if let Some(ref v) = date_to_param { count_q = count_q.bind(v); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
-
         param_idx += 1;
         let limit_idx = param_idx;
         param_idx += 1;
@@ -195,6 +216,8 @@ impl BomRepo {
         if let Some(ref v) = name_param { data_q = data_q.bind(v); }
         if let Some(v) = status_param { data_q = data_q.bind(v); }
         if let Some(v) = cat_param { data_q = data_q.bind(v); }
+        if let Some(ref v) = date_from_param { data_q = data_q.bind(v); }
+        if let Some(ref v) = date_to_param { data_q = data_q.bind(v); }
         data_q = data_q.bind(page.page_size as i64).bind(page.offset() as i64);
         let rows = data_q.fetch_all(executor).await?;
         let items: Vec<Bom> = rows.into_iter().map(Into::into).collect();

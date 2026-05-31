@@ -1,6 +1,8 @@
 function bomEdit() {
     return {
         layerFilter: 0,
+        collapsedNodes: {},
+        allCollapsed: false,
         addModalOpen: false,
         addParentId: 0,
         addProductId: 0,
@@ -80,7 +82,42 @@ function bomEdit() {
             this.addModalOpen = true;
         },
 
+        toggleCollapse(nodeId) {
+            this.collapsedNodes[nodeId] = !this.collapsedNodes[nodeId];
+            this._saveCollapsed();
+        },
+
+        toggleAllCollapse() {
+            this.allCollapsed = !this.allCollapsed;
+            var tbody = document.getElementById('bom-sortable-tbody');
+            if (!tbody) return;
+            var parentRows = tbody.querySelectorAll('tr[data-node-id]');
+            var parentIds = [];
+            parentRows.forEach(function(r) {
+                var nid = Number(r.dataset.nodeId);
+                var pid = Number(r.dataset.parentId);
+                var child = tbody.querySelector('tr[data-parent-id="' + nid + '"]');
+                if (child) parentIds.push(nid);
+            });
+            var self = this;
+            parentIds.forEach(function(nid) {
+                self.collapsedNodes[nid] = self.allCollapsed;
+            });
+            this._saveCollapsed();
+        },
+
+        isNodeVisible(level, ancestors) {
+            var filter = parseInt(this.layerFilter);
+            if (filter !== 0 && filter !== level) return false;
+            if (!ancestors) return true;
+            var ids = ancestors.split(',');
+            for (var i = 0; i < ids.length; i++) {
+                if (this.collapsedNodes[ids[i]]) return false;
+            }
+            return true;
+        },
         initSortable() {
+            this._restoreCollapsed();
             var bomId = window.location.pathname.split('/')[4];
             var tbody = document.getElementById('bom-sortable-tbody');
             if (!tbody) return;
@@ -248,6 +285,24 @@ function bomEdit() {
                     }
                 }).catch(function() { alert('网络错误，请重试'); });
             });
+        },
+        _storageKey() {
+            return 'bom-collapsed-' + window.location.pathname.split('/')[4];
+        },
+        _saveCollapsed() {
+            try {
+                var data = {};
+                for (var k in this.collapsedNodes) {
+                    if (this.collapsedNodes[k]) data[k] = true;
+                }
+                sessionStorage.setItem(this._storageKey(), JSON.stringify(data));
+            } catch(e) {}
+        },
+        _restoreCollapsed() {
+            try {
+                var raw = sessionStorage.getItem(this._storageKey());
+                if (raw) this.collapsedNodes = JSON.parse(raw);
+            } catch(e) {}
         }
     };
 }

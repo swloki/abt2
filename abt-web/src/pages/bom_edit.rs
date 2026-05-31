@@ -433,6 +433,8 @@ fn bom_edit_page(
         .filter(|n| n.parent_id != 0)
         .map(|n| n.parent_id)
         .collect();
+    // Build ancestors map for collapse: each node → ordered list of ancestor node IDs
+    let ancestors_map = build_ancestors_map(&bom.bom_detail.nodes);
 
     // Max level for filter
     let max_level = depth_map.values().copied().max().map(|d| d + 1).unwrap_or(0);
@@ -473,6 +475,11 @@ fn bom_edit_page(
                         @for lv in 1..=max_level {
                             option value=(lv) { "层级 " (lv) }
                         }
+                    }
+
+                    button type="button" class="bom-level-filter"
+                        x-on:click="toggleAllCollapse()"
+                        x-text="allCollapsed ? '全部展开' : '全部折叠'" {
                     }
                 }
 
@@ -556,7 +563,8 @@ fn bom_edit_page(
                                     @let level = depth + 1;
                                     @let has_children = parent_ids.contains(&node.id);
                                     @let product = product_map.get(&node.product_id);
-                                    (bom_node_row(idx, level, has_children, node, product.map(|v| &**v)))
+                                    @let ancestors = ancestors_map.get(&node.id).map(|v| v.as_slice()).unwrap_or(&[]);
+                                    (bom_node_row(idx, level, has_children, node, product.map(|v| &**v), ancestors))
                                 }
                             }
                         }
@@ -709,7 +717,7 @@ fn bom_edit_page(
             }
 
             // ── Alpine.js component ──
-            script src="/bom-edit.js" {}
+            script src="/bom-edit.js?v=20260531" {}
         }
     }
 }
@@ -720,6 +728,7 @@ fn bom_node_row(
     has_children: bool,
     node: &BomNode,
     product: Option<&abt_core::master_data::product::model::Product>,
+    ancestors: &[i64],
 ) -> Markup {
     let code = node.product_code.as_deref().unwrap_or("—");
     let name = product.map(|p| p.pdt_name.as_str()).unwrap_or("—");
@@ -736,7 +745,6 @@ fn bom_node_row(
     } else {
         format!("{}%", node.loss_rate)
     };
-
     let row_class = if level == 1 {
         "bom-row-level-0"
     } else if has_children {
@@ -744,7 +752,6 @@ fn bom_node_row(
     } else {
         "bom-row-level-default"
     };
-
     let js_args = format!(
         "{}, '{}', '{}', '{}', '{}', '{}', '{}'",
         node.id,
@@ -755,16 +762,29 @@ fn bom_node_row(
         position.replace('\'', "\\'"),
         remark.replace('\'', "\\'")
     );
-
-    let show_expr = format!("layerFilter == 0 || layerFilter == {}", level);
-
+    let ancestors_str = ancestors.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
+    let show_expr = format!("isNodeVisible({}, '{}')", level, ancestors_str);
+    let indent_px = (level - 1) * 24;
     html! {
         tr class=(row_class) x-show=(show_expr) draggable="true"
             data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) {
-            td style="text-align:center" { (index + 1) }
+            td {
+                div style="display:flex;align-items:center;justify-content:center;gap:4px" {
+                    @if has_children {
+                        button type="button" class="bom-collapse-btn"
+                            x-on:click=(format!("toggleCollapse({})", node.id))
+                            x-bind:class=(format!("{{'bom-collapsed': collapsedNodes[{}]}}", node.id)) {
+                            (icon::chevron_down_icon("bom-collapse-icon"))
+                        }
+                    } @else {
+                        span style="display:inline-block;width:20px" {}
+                    }
+                    span { (index + 1) }
+                }
+            }
             td style="text-align:center" { (level) }
             td class="mono" { (code) }
-            td { (name) }
+            td style={"padding-left:" (indent_px) "px"} { (name) }
             td { (work_center) }
             td class="mono" style="text-align:right" { (node.quantity) }
             td { (unit) }
@@ -812,6 +832,22 @@ fn build_depth_map(nodes: &[BomNode]) -> HashMap<i64, usize> {
         depth_map.insert(node.id, depth);
     }
     depth_map
+}
+
+fn build_ancestors_map(nodes: &[BomNode]) -> HashMap<i64, Vec<i64>> {
+    let mut ancestors_map: HashMap<i64, Vec<i64>> = HashMap::with_capacity(nodes.len());
+    for node in nodes {
+        if node.parent_id == 0 {
+            ancestors_map.insert(node.id, Vec::new());
+        } else if let Some(parent_ancestors) = ancestors_map.get(&node.parent_id).cloned() {
+            let mut ancestors = parent_ancestors;
+            ancestors.push(node.parent_id);
+            ancestors_map.insert(node.id, ancestors);
+        } else {
+            ancestors_map.insert(node.id, vec![node.parent_id]);
+        }
+    }
+    ancestors_map
 }
 
 /// Product search results fragment

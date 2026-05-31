@@ -29,11 +29,13 @@ pub struct BomQueryParams {
     #[serde(default, deserialize_with = "empty_as_none")]
     pub category_id: Option<i64>,
     #[serde(default, deserialize_with = "empty_as_none")]
+    pub date_from: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub date_to: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
 }
-
 // ── Handlers ──
-
 #[require_permission("BOM", "read")]
 pub async fn get_bom_list(
     _path: BomListPath,
@@ -43,21 +45,16 @@ pub async fn get_bom_list(
 ) -> crate::errors::Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.bom_query_service();
-
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
     let content = bom_list_page(&result, &params);
     let page_html = admin_page(
         &headers, "BOM管理", &claims, "md", BomListPath::PATH,
         "主数据管理", Some("BOM管理"), content,
     );
-
     Ok(Html(page_html.into_string()))
 }
-
 #[require_permission("BOM", "read")]
 pub async fn get_bom_table(
     ctx: RequestContext,
@@ -65,15 +62,11 @@ pub async fn get_bom_table(
 ) -> crate::errors::Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.bom_query_service();
-
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
-
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
     Ok(Html(bom_table_fragment(&result, &params).into_string()))
 }
-
 #[require_permission("BOM", "delete")]
 pub async fn delete_bom(
     path: BomDeletePath,
@@ -81,22 +74,19 @@ pub async fn delete_bom(
 ) -> crate::errors::Result<impl IntoResponse> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.bom_command_service();
-
     svc.delete(&service_ctx, &mut conn, path.id).await?;
-
     Ok(([("HX-Redirect", BomListPath::PATH)], Html(String::new())))
 }
-
 // ── Helpers ──
-
 fn build_filter(params: &BomQueryParams) -> BomQuery {
     BomQuery {
         name: params.keyword.clone(),
         status: params.status.and_then(BomStatus::from_i16),
         bom_category_id: params.category_id,
+        date_from: params.date_from.clone(),
+        date_to: params.date_to.clone(),
     }
 }
-
 fn build_query_string(params: &BomQueryParams) -> String {
     let mut q = vec![];
     if let Some(ref kw) = params.keyword {
@@ -108,6 +98,12 @@ fn build_query_string(params: &BomQueryParams) -> String {
     if let Some(c) = params.category_id {
         q.push(format!("category_id={c}"));
     }
+    if let Some(ref df) = params.date_from {
+        q.push(format!("date_from={df}"));
+    }
+    if let Some(ref dt) = params.date_to {
+        q.push(format!("date_to={dt}"));
+    }
     q.join("&")
 }
 
@@ -117,8 +113,6 @@ fn bom_list_page(
     result: &abt_core::shared::types::PaginatedResult<Bom>,
     params: &BomQueryParams,
 ) -> Markup {
-    let total_count = result.total;
-
     html! {
         div x-data="{ createModalOpen: false }" {
             // ── Page Header ──
@@ -131,53 +125,11 @@ fn bom_list_page(
                     }
                 }
             }
-
-            // ── Stat Cards ──
-            div class="customer-stats" {
-                div class="stat-card" {
-                    div class="stat-icon blue" {
-                        (icon::clipboard_list_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { (total_count) }
-                        div class="stat-label" { "BOM总数" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon orange" {
-                        (icon::edit_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "草稿" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon green" {
-                        (icon::check_circle_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "已发布" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon purple" {
-                        (icon::trending_up_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "本月新建" }
-                    }
-                }
-            }
-
             // ── Tabs + Filter + Data Table (HTMX panel) ──
             (bom_table_fragment(result, params))
         }
     }
 }
-
 fn bom_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<Bom>,
     params: &BomQueryParams,
@@ -185,17 +137,17 @@ fn bom_table_fragment(
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
     let total_count = result.total;
-
     let tabs = &[
-        TabItem { value: String::new(), label: "全部", count: Some(total_count) },
-        TabItem { value: "1".into(), label: "草稿", count: None },
-        TabItem { value: "2".into(), label: "已发布", count: None },
+        TabItem { value: String::new(), label: "全部", count: if active_value.is_empty() { Some(total_count) } else { None } },
+        TabItem { value: "1".into(), label: "草稿", count: if active_value == "1" { Some(total_count) } else { None } },
+        TabItem { value: "2".into(), label: "已发布", count: if active_value == "2" { Some(total_count) } else { None } },
     ];
-
+    let hx_attrs = format!(
+        ".filter-bar input, .filter-bar select",
+    );
     html! {
         div class="customer-list-panel" {
-            (status_tabs(BomTablePath::PATH, "closest .customer-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
-
+            (status_tabs(BomTablePath::PATH, "closest .customer-list-panel", &hx_attrs, tabs, &active_value))
             // ── Filter Bar ──
             div class="filter-bar" {
                 div class="search-wrap" {
@@ -224,8 +176,22 @@ fn bom_table_fragment(
                     hx-swap="outerHTML" {
                     option value="" { "全部分类" }
                 }
+                input class="filter-date" type="date" name="date_from"
+                    value=(params.date_from.as_deref().unwrap_or(""))
+                    hx-get=(BomTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="closest .customer-list-panel"
+                    hx-swap="outerHTML"
+                    title="开始日期" {}
+                span style="color:var(--muted);font-size:var(--text-sm)" { "—" }
+                input class="filter-date" type="date" name="date_to"
+                    value=(params.date_to.as_deref().unwrap_or(""))
+                    hx-get=(BomTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="closest .customer-list-panel"
+                    hx-swap="outerHTML"
+                    title="结束日期" {}
             }
-
             // ── Data Table ──
             div class="data-card" {
                 div class="data-card-scroll" {

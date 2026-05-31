@@ -192,6 +192,8 @@ pub struct BomQuery {
     pub name: Option<String>,
     pub status: Option<BomStatus>,
     pub bom_category_id: Option<i64>,
+    pub date_from: Option<String>,
+    pub date_to: Option<String>,
 }
 
 #[derive(Debug, Clone)]

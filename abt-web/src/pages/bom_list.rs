@@ -4,9 +4,9 @@ use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
-
+use std::collections::HashMap;
 use abt_core::master_data::bom::model::*;
-use abt_core::master_data::bom::{BomCommandService, BomQueryService};
+use abt_core::master_data::bom::{BomCategoryService, BomCommandService, BomQueryService};
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -48,7 +48,8 @@ pub async fn get_bom_list(
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-    let content = bom_list_page(&result, &params);
+    let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
+    let content = bom_list_page(&result, &params, &cat_map, &cat_list);
     let page_html = admin_page(
         &headers, "BOM管理", &claims, "md", BomListPath::PATH,
         "主数据管理", Some("BOM管理"), content,
@@ -65,7 +66,8 @@ pub async fn get_bom_table(
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-    Ok(Html(bom_table_fragment(&result, &params).into_string()))
+    let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
+    Ok(Html(bom_table_fragment(&result, &params, &cat_map, &cat_list).into_string()))
 }
 #[require_permission("BOM", "delete")]
 pub async fn delete_bom(
@@ -76,6 +78,18 @@ pub async fn delete_bom(
     let svc = state.bom_command_service();
     svc.delete(&service_ctx, &mut conn, path.id).await?;
     Ok(([("HX-Redirect", BomListPath::PATH)], Html(String::new())))
+}
+
+use crate::state::AppState;
+use abt_core::shared::types::{PgExecutor, ServiceContext};
+
+async fn load_categories(state: &AppState, ctx: &ServiceContext, db: PgExecutor<'_>) -> (HashMap<i64, String>, Vec<BomCategory>) {
+    let cat_svc = state.bom_category_service();
+    let cats = cat_svc.list(ctx, db, BomCategoryQuery::default(), PageParams::new(1, 200)).await
+        .map(|r| r.items)
+        .unwrap_or_default();
+    let map: HashMap<i64, String> = cats.iter().map(|c| (c.bom_category_id, c.bom_category_name.clone())).collect();
+    (map, cats)
 }
 // ── Helpers ──
 fn build_filter(params: &BomQueryParams) -> BomQuery {
@@ -112,6 +126,8 @@ fn build_query_string(params: &BomQueryParams) -> String {
 fn bom_list_page(
     result: &abt_core::shared::types::PaginatedResult<Bom>,
     params: &BomQueryParams,
+    cat_map: &HashMap<i64, String>,
+    cat_list: &[BomCategory],
 ) -> Markup {
     html! {
         div x-data="{ createModalOpen: false }" {
@@ -126,13 +142,15 @@ fn bom_list_page(
                 }
             }
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (bom_table_fragment(result, params))
+            (bom_table_fragment(result, params, cat_map, cat_list))
         }
     }
 }
 fn bom_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<Bom>,
     params: &BomQueryParams,
+    cat_map: &HashMap<i64, String>,
+    cat_list: &[BomCategory],
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -175,6 +193,9 @@ fn bom_table_fragment(
                     hx-target="closest .customer-list-panel"
                     hx-swap="outerHTML" {
                     option value="" { "全部分类" }
+                    @for cat in cat_list {
+                        option value=(cat.bom_category_id) selected[params.category_id == Some(cat.bom_category_id)] { (cat.bom_category_name) }
+                    }
                 }
                 input class="filter-date" type="date" name="date_from"
                     value=(params.date_from.as_deref().unwrap_or(""))
@@ -209,7 +230,7 @@ fn bom_table_fragment(
                         }
                         tbody {
                             @for bom in &result.items {
-                                (bom_row(bom))
+                                (bom_row(bom, cat_map))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -227,7 +248,7 @@ fn bom_table_fragment(
     }
 }
 
-fn bom_row(bom: &Bom) -> Markup {
+fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>) -> Markup {
     let detail_path = BomDetailPath { id: bom.bom_id };
     let delete_path = BomDeletePath { id: bom.bom_id };
     let form_id = format!("delete-bom-form-{}", bom.bom_id);
@@ -243,7 +264,15 @@ fn bom_row(bom: &Bom) -> Markup {
                 strong { (bom.bom_name) }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
-                span style="color:var(--muted)" { "—" }
+                @if let Some(ref cat_id) = bom.bom_category_id {
+                    @if let Some(name) = cat_map.get(cat_id) {
+                        (name)
+                    } @else {
+                        span style="color:var(--muted)" { "—" }
+                    }
+                } @else {
+                    span style="color:var(--muted)" { "—" }
+                }
             }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
                 "v"(bom.version)

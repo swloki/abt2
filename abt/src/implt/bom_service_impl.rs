@@ -367,8 +367,9 @@ impl BomService for BomServiceImpl {
 
         let analysis = self.analyze_node_tree(bom_id).await?;
 
-        let root_node = analysis.nodes.first()
-            .ok_or_else(|| anyhow::anyhow!("BOM has no nodes"))?;
+        let root_node = analysis.nodes.iter()
+            .find(|n| n.parent_id == 0)
+            .ok_or_else(|| anyhow::anyhow!("BOM has no root node"))?;
         let product_code = if let Some(ref code) = root_node.product_code {
             code.clone()
         } else {

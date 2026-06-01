@@ -92,29 +92,39 @@ impl BomServiceImpl {
         })
     }
 
-    /// 解析 BOM 根节点的产品编码（与 get_product_code / get_bom_labor_cost 逻辑一致）
-    async fn resolve_root_product_code(&self, bom_id: i64) -> Result<Option<String>> {
+    /// 解析 BOM 根节点的产品编码
+    ///
+    /// 返回 (product_code, warning)：
+    /// - product_code 解析成功时 warning 为 None
+    /// - 解析失败时 product_code 为 None，warning 包含具体原因
+    async fn resolve_root_product_code(&self, bom_id: i64) -> Result<(Option<String>, Option<String>)> {
         let root = BomNodeRepo::find_root_by_bom_id(&self.pool, bom_id).await?;
         let Some(root) = root else {
-            return Ok(None);
+            return Ok((None, Some("BOM 没有根节点，无法查询人工成本".to_string())));
         };
 
+        // 1. 优先使用节点上已存储的 product_code
         if let Some(ref code) = root.product_code {
             if !code.is_empty() {
-                return Ok(Some(code.clone()));
+                return Ok((Some(code.clone()), None));
             }
         }
 
-        if root.product_id > 0 {
-            let products = ProductRepo::find_by_ids(&self.pool, &[root.product_id]).await?;
-            if let Some(product) = products.first() {
-                if !product.product_code.is_empty() {
-                    return Ok(Some(product.product_code.clone()));
-                }
-            }
+        // 2. 通过 product_id 从产品表查找 product_code
+        if root.product_id <= 0 {
+            return Ok((None, Some("根节点未关联产品，无法查询人工成本".to_string())));
         }
 
-        Ok(None)
+        let products = ProductRepo::find_by_ids(&self.pool, &[root.product_id]).await?;
+        let Some(product) = products.first() else {
+            return Ok((None, Some(format!("根节点关联的产品(id={})不存在，无法查询人工成本", root.product_id))));
+        };
+
+        if product.product_code.is_empty() {
+            return Ok((None, Some(format!("根节点关联的产品(id={})没有产品编码，无法查询人工成本", root.product_id))));
+        }
+
+        Ok((Some(product.product_code.clone()), None))
     }
 }
 
@@ -304,7 +314,8 @@ impl BomService for BomServiceImpl {
     }
 
     async fn get_product_code(&self, bom_id: i64) -> Result<Option<String>> {
-        self.resolve_root_product_code(bom_id).await
+        let (code, _) = self.resolve_root_product_code(bom_id).await?;
+        Ok(code)
     }
 
     async fn substitute_product(
@@ -382,11 +393,11 @@ impl BomService for BomServiceImpl {
 
         let analysis = self.analyze_node_tree(bom_id).await?;
 
-        let product_code = self.resolve_root_product_code(bom_id).await?;
+        let (product_code, root_warning) = self.resolve_root_product_code(bom_id).await?;
 
         let mut warnings: Vec<String> = Vec::new();
-        if product_code.is_none() {
-            warnings.push("根节点未关联产品，无法查询人工成本".to_string());
+        if let Some(w) = root_warning {
+            warnings.push(w);
         }
 
         let mut leaf_nodes: Vec<&BomNode> = analysis.nodes.iter()
@@ -441,15 +452,15 @@ impl BomService for BomServiceImpl {
         let bom = BomRepo::find_by_id_pool(&self.pool, bom_id).await?
             .ok_or_else(|| anyhow::anyhow!("BOM not found"))?;
 
-        let product_code = self.resolve_root_product_code(bom_id).await?;
+        let (product_code, root_warning) = self.resolve_root_product_code(bom_id).await?;
 
         let mut warnings = Vec::new();
+        if let Some(w) = root_warning {
+            warnings.push(w);
+        }
         let labor_processes = match &product_code {
             Some(code) => LaborProcessRepo::list_all_by_product_code(&self.pool, code).await?,
-            None => {
-                warnings.push("根节点未关联产品，无法查询人工成本".to_string());
-                Vec::new()
-            }
+            None => Vec::new(),
         };
 
         let labor_costs: Vec<LaborCostItem> = labor_processes.iter().map(LaborCostItem::from).collect();

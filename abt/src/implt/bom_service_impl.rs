@@ -178,6 +178,8 @@ impl BomService for BomServiceImpl {
         node: BomNode,
         executor: Executor<'_>,
     ) -> Result<i64> {
+        anyhow::ensure!(node.product_id > 0, "BOM 节点必须关联有效产品（product_id > 0）");
+
         let existing = BomNodeRepo::find_by_bom_id_for_update(&mut *executor, bom_id).await?;
         let order = existing.len() as i32;
 
@@ -191,7 +193,6 @@ impl BomService for BomServiceImpl {
         let new_id = BomNodeRepo::insert(executor, &new_node).await?;
         Ok(new_id)
     }
-
     async fn update_node(&self, _bom_id: i64, node: BomNode, executor: Executor<'_>) -> Result<()> {
         let fields = BomNodeFields {
             quantity: f64_to_decimal(node.quantity),

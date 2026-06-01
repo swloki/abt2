@@ -368,15 +368,22 @@ impl BomService for BomServiceImpl {
         let analysis = self.analyze_node_tree(bom_id).await?;
 
         let root_node = analysis.nodes.iter()
-            .find(|n| n.parent_id == 0)
-            .ok_or_else(|| anyhow::anyhow!("BOM has no root node"))?;
-        let product_code = if let Some(ref code) = root_node.product_code {
-            code.clone()
+            .find(|n| n.parent_id == 0);
+
+        let product_code = if let Some(ref root) = root_node {
+            if let Some(ref code) = root.product_code {
+                Some(code.clone())
+            } else {
+                analysis.product_code_map.get(&root.product_id).cloned()
+            }
         } else {
-            analysis.product_code_map.get(&root_node.product_id)
-                .cloned()
-                .ok_or_else(|| anyhow::anyhow!("Root product not found"))?
+            None
         };
+
+        let mut warnings: Vec<String> = Vec::new();
+        if product_code.is_none() {
+            warnings.push("根节点未关联产品，无法查询人工成本".to_string());
+        }
 
         let mut leaf_nodes: Vec<&BomNode> = analysis.nodes.iter()
             .filter(|n| !analysis.parent_ids.contains(&n.id) && !analysis.invalid_ids.contains(&n.id))
@@ -387,7 +394,12 @@ impl BomService for BomServiceImpl {
 
         let (prices_result, labor_result) = tokio::join!(
             ProductPriceRepo::get_prices_by_ids(&self.pool, &leaf_product_ids),
-            LaborProcessRepo::list_all_by_product_code(&self.pool, &product_code),
+            async {
+                match &product_code {
+                    Some(code) => LaborProcessRepo::list_all_by_product_code(&self.pool, code).await,
+                    None => Ok(Vec::new()),
+                }
+            },
         );
         let prices = prices_result?;
         let labor_processes = labor_result?;
@@ -403,17 +415,18 @@ impl BomService for BomServiceImpl {
             }
         }).collect();
 
-        let warnings: Vec<String> = material_costs.iter()
-            .filter(|m| m.unit_price.as_ref().is_none_or(|p| p.parse::<rust_decimal::Decimal>().unwrap_or(rust_decimal::Decimal::ZERO).is_zero()))
-            .map(|m| m.product_name.clone())
-            .collect();
+        warnings.extend(
+            material_costs.iter()
+                .filter(|m| m.unit_price.as_ref().is_none_or(|p| p.parse::<rust_decimal::Decimal>().unwrap_or(rust_decimal::Decimal::ZERO).is_zero()))
+                .map(|m| m.product_name.clone())
+        );
 
         let labor_costs: Vec<LaborCostItem> = labor_processes.iter().map(LaborCostItem::from).collect();
 
         Ok(BomCostReport {
             bom_id,
             bom_name: bom.bom_name,
-            product_code,
+            product_code: product_code.unwrap_or_default(),
             material_costs,
             labor_costs,
             warnings,
@@ -428,26 +441,31 @@ impl BomService for BomServiceImpl {
             .ok_or_else(|| anyhow::anyhow!("BOM has no nodes"))?;
 
         let product_code = if let Some(ref code) = root.product_code {
-            code.clone()
+            Some(code.clone())
         } else if root.product_id > 0 {
             let products = ProductRepo::find_by_ids(&self.pool, &[root.product_id]).await?;
-            products.first()
-                .map(|p| p.product_code.clone())
-                .ok_or_else(|| anyhow::anyhow!("Root product not found"))?
+            products.first().map(|p| p.product_code.clone())
         } else {
-            anyhow::bail!("Root product not found");
+            None
         };
 
-        let labor_processes = LaborProcessRepo::list_all_by_product_code(&self.pool, &product_code).await?;
+        let mut warnings = Vec::new();
+        let labor_processes = match &product_code {
+            Some(code) => LaborProcessRepo::list_all_by_product_code(&self.pool, code).await?,
+            None => {
+                warnings.push("根节点未关联产品，无法查询人工成本".to_string());
+                Vec::new()
+            }
+        };
 
         let labor_costs: Vec<LaborCostItem> = labor_processes.iter().map(LaborCostItem::from).collect();
 
         Ok(BomLaborCostReport {
             bom_id,
             bom_name: bom.bom_name,
-            product_code,
+            product_code: product_code.unwrap_or_default(),
             labor_costs,
-            warnings: Vec::new(),
+            warnings,
         })
     }
 }

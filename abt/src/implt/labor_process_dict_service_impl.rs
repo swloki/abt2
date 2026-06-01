@@ -38,12 +38,30 @@ impl LaborProcessDictService for LaborProcessDictServiceImpl {
     // ========================================================================
 
     async fn create(&self, req: CreateLaborProcessDictReq, executor: Executor<'_>) -> Result<i64> {
-        // 通过 SEQUENCE 生成编码，天然并发安全
-        let next_val: i64 = sqlx::query_scalar(
+        // 通过 nextval 生成编码，天然并发安全
+        let cur: i64 = sqlx::query_scalar(
             "SELECT nextval('labor_process_dict_code_seq')"
         )
         .fetch_one(&self.pool)
         .await?;
+        // 如果序列落后于表中已有最大 code，推进序列
+        let max_code: i64 = sqlx::query_scalar(
+            "SELECT COALESCE(MAX(code::bigint), 0) FROM labor_process_dict"
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        let next_val = if cur <= max_code {
+            sqlx::query(
+                "SELECT setval('labor_process_dict_code_seq', $1)"
+            )
+            .bind(max_code)
+            .execute(&self.pool)
+            .await?;
+            max_code + 1
+        } else {
+            cur
+        };
+
         let code = format!("{:05}", next_val);
 
         LaborProcessDictRepo::insert(

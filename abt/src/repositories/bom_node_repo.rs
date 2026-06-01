@@ -201,11 +201,11 @@ impl BomNodeRepo {
         Ok(bom_ids)
     }
 
-    /// 查找指定 BOM 的根节点（parent_id IS NULL）
+    /// 查找指定 BOM 的根节点（parent_id IS NULL 或 parent_id = 0）
     pub async fn find_root_by_bom_id(pool: &PgPool, bom_id: i64) -> Result<Option<BomNodeRow>> {
         let row = sqlx::query_as::<_, BomNodeRow>(
             r#"SELECT id, bom_id, product_id, product_code, quantity, parent_id, loss_rate, "order", unit, remark, position, work_center, properties
-               FROM bom_nodes WHERE bom_id = $1 AND parent_id IS NULL ORDER BY "order" LIMIT 1"#,
+               FROM bom_nodes WHERE bom_id = $1 AND (parent_id IS NULL OR parent_id = 0) ORDER BY "order" LIMIT 1"#,
         )
         .bind(bom_id)
         .fetch_optional(pool)

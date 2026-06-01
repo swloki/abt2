@@ -250,7 +250,7 @@ impl LaborProcessRepo {
                    p.pdt_name AS product_name,
                    b.create_at AS created_at
             FROM bom b
-            JOIN bom_nodes bn ON bn.bom_id = b.bom_id AND bn.parent_id IS NULL
+            JOIN bom_nodes bn ON bn.bom_id = b.bom_id AND (bn.parent_id IS NULL OR bn.parent_id = 0)
             JOIN products p ON bn.product_id = p.product_id
             WHERE NOT EXISTS (
                   SELECT 1 FROM bom_labor_process blp

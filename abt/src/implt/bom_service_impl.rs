@@ -91,6 +91,31 @@ impl BomServiceImpl {
             name_map,
         })
     }
+
+    /// 解析 BOM 根节点的产品编码（与 get_product_code / get_bom_labor_cost 逻辑一致）
+    async fn resolve_root_product_code(&self, bom_id: i64) -> Result<Option<String>> {
+        let root = BomNodeRepo::find_root_by_bom_id(&self.pool, bom_id).await?;
+        let Some(root) = root else {
+            return Ok(None);
+        };
+
+        if let Some(ref code) = root.product_code {
+            if !code.is_empty() {
+                return Ok(Some(code.clone()));
+            }
+        }
+
+        if root.product_id > 0 {
+            let products = ProductRepo::find_by_ids(&self.pool, &[root.product_id]).await?;
+            if let Some(product) = products.first() {
+                if !product.product_code.is_empty() {
+                    return Ok(Some(product.product_code.clone()));
+                }
+            }
+        }
+
+        Ok(None)
+    }
 }
 
 #[async_trait]
@@ -145,6 +170,12 @@ impl BomService for BomServiceImpl {
     ) -> Result<i64> {
         let existing = BomNodeRepo::find_by_bom_id_for_update(&mut *executor, bom_id).await?;
         let order = existing.len() as i32;
+
+        let mut node = node;
+        if node.product_code.is_none() && node.product_id > 0 {
+            let products = ProductRepo::find_by_ids(&self.pool, &[node.product_id]).await?;
+            node.product_code = products.first().map(|p| p.product_code.clone());
+        }
 
         let new_node = NewBomNode::from_node(bom_id, order, &node);
         let new_id = BomNodeRepo::insert(executor, &new_node).await?;
@@ -273,23 +304,7 @@ impl BomService for BomServiceImpl {
     }
 
     async fn get_product_code(&self, bom_id: i64) -> Result<Option<String>> {
-        let root = BomNodeRepo::find_root_by_bom_id(&self.pool, bom_id).await?;
-        let Some(root) = root else {
-            return Ok(None);
-        };
-
-        if let Some(ref code) = root.product_code {
-            return Ok(Some(code.clone()));
-        }
-
-        if root.product_id > 0 {
-            let products = ProductRepo::find_by_ids(&self.pool, &[root.product_id]).await?;
-            if let Some(product) = products.first() {
-                return Ok(Some(product.product_code.clone()));
-            }
-        }
-
-        Ok(None)
+        self.resolve_root_product_code(bom_id).await
     }
 
     async fn substitute_product(
@@ -367,18 +382,7 @@ impl BomService for BomServiceImpl {
 
         let analysis = self.analyze_node_tree(bom_id).await?;
 
-        let root_node = analysis.nodes.iter()
-            .find(|n| n.parent_id == 0);
-
-        let product_code = if let Some(ref root) = root_node {
-            if let Some(ref code) = root.product_code {
-                Some(code.clone())
-            } else {
-                analysis.product_code_map.get(&root.product_id).cloned()
-            }
-        } else {
-            None
-        };
+        let product_code = self.resolve_root_product_code(bom_id).await?;
 
         let mut warnings: Vec<String> = Vec::new();
         if product_code.is_none() {
@@ -437,17 +441,7 @@ impl BomService for BomServiceImpl {
         let bom = BomRepo::find_by_id_pool(&self.pool, bom_id).await?
             .ok_or_else(|| anyhow::anyhow!("BOM not found"))?;
 
-        let root = BomNodeRepo::find_root_by_bom_id(&self.pool, bom_id).await?
-            .ok_or_else(|| anyhow::anyhow!("BOM has no nodes"))?;
-
-        let product_code = if let Some(ref code) = root.product_code {
-            Some(code.clone())
-        } else if root.product_id > 0 {
-            let products = ProductRepo::find_by_ids(&self.pool, &[root.product_id]).await?;
-            products.first().map(|p| p.product_code.clone())
-        } else {
-            None
-        };
+        let product_code = self.resolve_root_product_code(bom_id).await?;
 
         let mut warnings = Vec::new();
         let labor_processes = match &product_code {

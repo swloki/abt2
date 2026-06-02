@@ -362,7 +362,7 @@ fn bom_node_row(
     node: &BomNode,
     product: Option<&abt_core::master_data::product::model::Product>,
 ) -> Markup {
-    let code = node.product_code.as_deref().unwrap_or("—");
+    let code = node.product_code.as_deref().or_else(|| product.map(|p| p.product_code.as_str())).unwrap_or("—");
     let name = product.map(|p| p.pdt_name.as_str()).unwrap_or("—");
     let unit = node.unit.as_deref().unwrap_or("—");
     let work_center = node.work_center.as_deref().filter(|s| !s.is_empty()).unwrap_or("—");

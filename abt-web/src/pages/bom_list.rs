@@ -6,7 +6,7 @@ use maud::{html, Markup};
 use serde::Deserialize;
 use std::collections::HashMap;
 use abt_core::master_data::bom::model::*;
-use abt_core::shared::identity::{PermissionService, UserService};
+use abt_core::shared::identity::UserService;
 use abt_core::master_data::bom::{BomCategoryService, BomCommandService, BomQueryService};
 use abt_core::shared::types::PageParams;
 
@@ -15,7 +15,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::bom::{
-    BomCreatePath, BomDeletePath, BomDetailPath, BomListPath, BomLaborCostDrawerPath, BomTablePath,
+    BomCostDrawerPath, BomCreatePath, BomDeletePath, BomDetailPath, BomListPath, BomLaborCostDrawerPath, BomTablePath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
@@ -44,16 +44,16 @@ pub async fn get_bom_list(
     headers: HeaderMap,
     Query(params): Query<BomQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_view_cost = ctx.has_permission("COST", "read").await;
+    let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
-    let perm_svc = state.permission_service();
-    let can_view_labor_cost = perm_svc.check_permission(claims.is_super_admin(), &claims.role_ids, "LABOR_COST", "read").await.unwrap_or(false);
     let svc = state.bom_query_service();
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
     let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
-    let content = bom_list_page(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost);
+    let content = bom_list_page(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost, can_view_cost);
     let page_html = admin_page(
         &headers, "BOM管理", &claims, "md", BomListPath::PATH,
         "主数据管理", Some("BOM管理"), content,
@@ -65,16 +65,16 @@ pub async fn get_bom_table(
     ctx: RequestContext,
     Query(params): Query<BomQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
-    let perm_svc = state.permission_service();
-    let can_view_labor_cost = perm_svc.check_permission(claims.is_super_admin(), &claims.role_ids, "LABOR_COST", "read").await.unwrap_or(false);
+    let can_view_cost = ctx.has_permission("COST", "read").await;
+    let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.bom_query_service();
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
     let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
-    Ok(Html(bom_table_fragment(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost).into_string()))
+    Ok(Html(bom_table_fragment(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost, can_view_cost).into_string()))
 }
 #[require_permission("BOM", "delete")]
 pub async fn delete_bom(
@@ -157,9 +157,10 @@ fn bom_list_page(
     cat_list: &[BomCategory],
     user_map: &HashMap<i64, String>,
     can_view_labor_cost: bool,
+    can_view_cost: bool,
 ) -> Markup {
     html! {
-        div x-data="{ createModalOpen: false, laborOpen: false }" {
+        div x-data="{ createModalOpen: false, costOpen: false, laborOpen: false }" {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "BOM管理" }
@@ -171,8 +172,31 @@ fn bom_list_page(
                 }
             }
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (bom_table_fragment(result, params, cat_map, cat_list, user_map, can_view_labor_cost))
+            (bom_table_fragment(result, params, cat_map, cat_list, user_map, can_view_labor_cost, can_view_cost))
 
+            @if can_view_cost {
+                // ── Cost Drawer ──
+                div class="drawer-overlay"
+                    x-bind:class="{ 'open': costOpen }"
+                    x-on:click="if(event.target===this) costOpen = false" {
+                    div class="drawer" style="max-width:1000px;width:100%" x-on:click="event.stopPropagation()" {
+                        div class="drawer-head" {
+                            h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
+                            button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
+                                x-on:click="costOpen = false" { "×" }
+                        }
+                        div class="drawer-body" {
+                            div id="cost-drawer-body" {
+                                div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
+                            }
+                        }
+                        div class="drawer-foot" {
+                            button type="button" class="btn btn-default"
+                                x-on:click="costOpen = false" { "关闭" }
+                        }
+                    }
+                }
+            }
             @if can_view_labor_cost {
                 // ── Labor Cost Drawer ──
                 div class="drawer-overlay"
@@ -206,6 +230,7 @@ fn bom_table_fragment(
     cat_list: &[BomCategory],
     user_map: &HashMap<i64, String>,
     can_view_labor_cost: bool,
+    can_view_cost: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -285,7 +310,7 @@ fn bom_table_fragment(
                         }
                         tbody {
                             @for bom in &result.items {
-                                (bom_row(bom, cat_map, user_map, can_view_labor_cost))
+                                (bom_row(bom, cat_map, user_map, can_view_labor_cost, can_view_cost))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -303,7 +328,7 @@ fn bom_table_fragment(
     }
 }
 
-fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, String>, can_view_labor_cost: bool) -> Markup {
+fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, String>, can_view_labor_cost: bool, can_view_cost: bool) -> Markup {
     let detail_path = BomDetailPath { id: bom.bom_id };
     let delete_path = BomDeletePath { id: bom.bom_id };
     let form_id = format!("delete-bom-form-{}", bom.bom_id);
@@ -358,6 +383,15 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                     a class="row-action-btn" title="查看"
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
+                    }
+                    @if can_view_cost {
+                        button type="button" class="row-action-btn" title="查看成本"
+                            hx-get=(BomCostDrawerPath { id: bom.bom_id }.to_string())
+                            hx-target="#cost-drawer-body"
+                            hx-swap="innerHTML"
+                            x-on:click="costOpen = true" {
+                            (icon::currency_icon("w-4 h-4"))
+                        }
                     }
                     @if can_view_labor_cost {
                         button type="button" class="row-action-btn" title="查看人工成本"

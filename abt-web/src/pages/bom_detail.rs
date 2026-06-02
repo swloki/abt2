@@ -8,7 +8,6 @@ use rust_decimal::Decimal;
 use abt_core::master_data::bom::{BomCommandService, BomCostService, BomQueryService};
 use abt_core::master_data::bom::model::*;
 use abt_core::master_data::product::ProductService;
-use abt_core::shared::identity::PermissionService;
 
 use abt_macros::require_permission;
 
@@ -25,12 +24,9 @@ pub async fn get_bom_detail(
     ctx: RequestContext,
     headers: HeaderMap,
 ) -> crate::errors::Result<Html<String>> {
+    let can_view_cost = ctx.has_permission("COST", "read").await;
+    let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
-    let perm_svc = state.permission_service();
-    let is_super = claims.is_super_admin();
-    let role_ids = &claims.role_ids;
-    let can_view_cost = perm_svc.check_permission(is_super, role_ids, "COST", "read").await.unwrap_or(false);
-    let can_view_labor_cost = perm_svc.check_permission(is_super, role_ids, "LABOR_COST", "read").await.unwrap_or(false);
 
     let bom_svc = state.bom_query_service();
     let product_svc = state.product_service();

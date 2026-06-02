@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use abt_core::master_data::customer::CustomerService;
-use abt_core::shared::identity::model::Claims;
+use abt_core::shared::identity::{model::Claims, PermissionService};
 use abt_core::shared::types::{PgExecutor, PgPoolConn, ServiceContext};
 use axum::extract::FromRequestParts;
 use axum::http::request::Parts;
@@ -89,5 +89,14 @@ impl FromRequestParts<AppState> for RequestContext {
             state: state.clone(),
             service_ctx,
         })
+    }
+}
+
+impl RequestContext {
+    pub async fn has_permission(&self, resource: &str, action: &str) -> bool {
+        self.state.permission_service()
+            .check_permission(self.claims.is_super_admin(), &self.claims.role_ids, resource, action)
+            .await
+            .unwrap_or(false)
     }
 }

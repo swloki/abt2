@@ -1458,8 +1458,6 @@ p { margin: 0; }
 .dialog-foot .btn { min-width: 100px; justify-content: center; }
 .btn-danger { background: var(--danger) !important; color: #fff !important; border-color: var(--danger) !important; }
 .btn-danger:hover { background: color-mix(in oklab, var(--danger), black 10%) !important; box-shadow: 0 4px 12px color-mix(in srgb, var(--danger) 25%, transparent); }
-.btn-danger-ghost { background: transparent !important; color: var(--danger) !important; border-color: var(--danger) !important; }
-.btn-danger-ghost:hover { background: #fff1f0 !important; border-color: var(--danger) !important; }
 @keyframes dialogSlideIn { from { opacity: 0; transform: translateY(-16px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
 /* ─── Form ─── */

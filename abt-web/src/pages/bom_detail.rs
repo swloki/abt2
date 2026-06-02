@@ -26,6 +26,8 @@ pub async fn get_bom_detail(
 ) -> crate::errors::Result<Html<String>> {
     let can_view_cost = ctx.has_permission("COST", "read").await;
     let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
+    let can_edit = ctx.has_permission("BOM", "update").await;
+    let can_delete = ctx.has_permission("BOM", "delete").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let bom_svc = state.bom_query_service();
@@ -43,7 +45,7 @@ pub async fn get_bom_detail(
     let product_map: HashMap<i64, &abt_core::master_data::product::model::Product> =
         products.iter().map(|p| (p.product_id, p)).collect();
 
-    let content = bom_detail_page(&bom, &product_map, can_view_cost, can_view_labor_cost);
+    let content = bom_detail_page(&bom, &product_map, can_view_cost, can_view_labor_cost, can_edit, can_delete);
     let detail_path_str = BomDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         &headers,
@@ -115,6 +117,8 @@ fn bom_detail_page(
     product_map: &HashMap<i64, &abt_core::master_data::product::model::Product>,
     can_view_cost: bool,
     can_view_labor_cost: bool,
+    can_edit: bool,
+    can_delete: bool,
 ) -> Markup {
     let list_path = BomListPath;
     let delete_path = BomDeletePath { id: bom.bom_id };
@@ -182,20 +186,24 @@ fn bom_detail_page(
                             " 查看人工成本"
                         }
                     }
-                    a class="btn btn-primary" href=(BomEditPath { id: bom.bom_id }) {
-                        (icon::edit_icon("w-4 h-4"))
-                        " 编辑"
+                    @if can_edit {
+                        a class="btn btn-primary" href=(BomEditPath { id: bom.bom_id }) {
+                            (icon::edit_icon("w-4 h-4"))
+                            " 编辑"
+                        }
                     }
-                    @if is_draft {
+                    @if can_edit && is_draft {
                         button class="btn btn-primary"
                             x-on:click="publishOpen = true" {
                             (icon::check_circle_icon("w-4 h-4"))
                             " 发布"
                         }
                     }
-                    button class="btn btn-danger-ghost" x-on:click="deleteOpen = true" {
-                        (icon::trash_icon("w-4 h-4"))
-                        " 删除"
+                    @if can_delete {
+                        button class="btn btn-danger-ghost" x-on:click="deleteOpen = true" {
+                            (icon::trash_icon("w-4 h-4"))
+                            " 删除"
+                        }
                     }
                 }
             }

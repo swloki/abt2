@@ -46,6 +46,8 @@ pub async fn get_bom_list(
 ) -> crate::errors::Result<Html<String>> {
     let can_view_cost = ctx.has_permission("COST", "read").await;
     let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
+    let can_create = ctx.has_permission("BOM", "create").await;
+    let can_delete = ctx.has_permission("BOM", "delete").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.bom_query_service();
     let filter = build_filter(&params);
@@ -53,7 +55,7 @@ pub async fn get_bom_list(
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
     let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
-    let content = bom_list_page(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost, can_view_cost);
+    let content = bom_list_page(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost, can_view_cost, can_create, can_delete);
     let page_html = admin_page(
         &headers, "BOM管理", &claims, "md", BomListPath::PATH,
         "主数据管理", Some("BOM管理"), content,
@@ -67,6 +69,7 @@ pub async fn get_bom_table(
 ) -> crate::errors::Result<Html<String>> {
     let can_view_cost = ctx.has_permission("COST", "read").await;
     let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
+    let can_delete = ctx.has_permission("BOM", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.bom_query_service();
     let filter = build_filter(&params);
@@ -74,7 +77,7 @@ pub async fn get_bom_table(
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
     let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
-    Ok(Html(bom_table_fragment(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost, can_view_cost).into_string()))
+    Ok(Html(bom_table_fragment(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost, can_view_cost, can_delete).into_string()))
 }
 #[require_permission("BOM", "delete")]
 pub async fn delete_bom(
@@ -158,6 +161,8 @@ fn bom_list_page(
     user_map: &HashMap<i64, String>,
     can_view_labor_cost: bool,
     can_view_cost: bool,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div x-data="{ createModalOpen: false, costOpen: false, laborOpen: false }" {
@@ -165,14 +170,16 @@ fn bom_list_page(
             div class="page-header" {
                 h1 class="page-title" { "BOM管理" }
                 div class="page-actions" {
-                    a href=(BomCreatePath::PATH) class="btn btn-primary" {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建BOM"
+                    @if can_create {
+                        a href=(BomCreatePath::PATH) class="btn btn-primary" {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建BOM"
+                        }
                     }
                 }
             }
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (bom_table_fragment(result, params, cat_map, cat_list, user_map, can_view_labor_cost, can_view_cost))
+            (bom_table_fragment(result, params, cat_map, cat_list, user_map, can_view_labor_cost, can_view_cost, can_delete))
 
             @if can_view_cost {
                 // ── Cost Drawer ──
@@ -230,6 +237,7 @@ fn bom_table_fragment(
     user_map: &HashMap<i64, String>,
     can_view_labor_cost: bool,
     can_view_cost: bool,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -309,7 +317,7 @@ fn bom_table_fragment(
                         }
                         tbody {
                             @for bom in &result.items {
-                                (bom_row(bom, cat_map, user_map, can_view_labor_cost, can_view_cost))
+                                (bom_row(bom, cat_map, user_map, can_view_labor_cost, can_view_cost, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -327,7 +335,7 @@ fn bom_table_fragment(
     }
 }
 
-fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, String>, can_view_labor_cost: bool, can_view_cost: bool) -> Markup {
+fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, String>, can_view_labor_cost: bool, can_view_cost: bool, can_delete: bool) -> Markup {
     let detail_path = BomDetailPath { id: bom.bom_id };
     let delete_path = BomDeletePath { id: bom.bom_id };
     let form_id = format!("delete-bom-form-{}", bom.bom_id);
@@ -400,23 +408,25 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                             (icon::bolt_icon("w-4 h-4"))
                         }
                     }
-                    button type="button" class="row-action-btn text-danger" title="删除"
-                        x-on:click="deleteOpen = true" {
-                        (icon::trash_icon("w-4 h-4"))
+                    @if can_delete {
+                        button type="button" class="row-action-btn text-danger" title="删除"
+                            x-on:click="deleteOpen = true" {
+                            (icon::trash_icon("w-4 h-4"))
+                        }
+                        (crate::components::confirm_dialog::confirm_dialog(
+                            "deleteOpen",
+                            "确认删除",
+                            &format!("删除后无法恢复，确定要删除BOM <strong>{}</strong> 吗？", bom.bom_name),
+                            "确认删除",
+                            &form_id,
+                            html! {
+                                form id=(form_id) style="display:none"
+                                    hx-post=(delete_path)
+                                    hx-target=(format!("#bom-row-{}", bom.bom_id))
+                                    hx-swap="outerHTML swap:0.5s" {}
+                            },
+                        ))
                     }
-                    (crate::components::confirm_dialog::confirm_dialog(
-                        "deleteOpen",
-                        "确认删除",
-                        &format!("删除后无法恢复，确定要删除BOM <strong>{}</strong> 吗？", bom.bom_name),
-                        "确认删除",
-                        &form_id,
-                        html! {
-                            form id=(form_id) style="display:none"
-                                hx-post=(delete_path)
-                                hx-target=(format!("#bom-row-{}", bom.bom_id))
-                                hx-swap="outerHTML swap:0.5s" {}
-                        },
-                    ))
                 }
             }
         }

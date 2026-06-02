@@ -697,7 +697,7 @@ fn labor_cost_drawer_content(bom_name: &str, report: &BomLaborCostReport) -> Mar
     }
 }
 
-fn filter_invalid_nodes(nodes: &mut Vec<abt_core::master_data::bom::model::BomNode>, product_map: &HashMap<i64, &abt_core::master_data::product::model::Product>) {
+pub fn filter_invalid_nodes(nodes: &mut Vec<abt_core::master_data::bom::model::BomNode>, product_map: &HashMap<i64, &abt_core::master_data::product::model::Product>) {
     let invalid_ids: std::collections::HashSet<i64> = nodes.iter()
         .filter(|n| !product_map.contains_key(&n.product_id))
         .map(|n| n.id)

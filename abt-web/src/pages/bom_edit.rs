@@ -99,7 +99,7 @@ pub async fn get_bom_edit(
     let product_svc = state.product_service();
     let category_svc = state.bom_category_service();
 
-    let bom = bom_svc.get(&service_ctx, &mut conn, path.id).await?;
+    let mut bom = bom_svc.get(&service_ctx, &mut conn, path.id).await?;
 
     // Resolve product names for all nodes
     let product_ids: Vec<i64> = bom.bom_detail.nodes.iter().map(|n| n.product_id).collect();
@@ -114,6 +114,9 @@ pub async fn get_bom_edit(
     let product_map: HashMap<i64, &abt_core::master_data::product::model::Product> =
         products.iter().map(|p| (p.product_id, p)).collect();
 
+
+    // Filter out nodes whose products no longer exist (and their descendants)
+    crate::pages::bom_detail::filter_invalid_nodes(&mut bom.bom_detail.nodes, &product_map);
     // Load BOM categories
     let categories = category_svc
         .list(

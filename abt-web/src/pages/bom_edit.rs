@@ -551,7 +551,7 @@ fn bom_edit_page(
                                     th style="width:60px" { "单位" }
                                     th style="width:80px" { "损耗率" }
                                     th style="width:100px" { "位置" }
-                                    th { "备注" }
+                                    th style="width:60px" { "备注" }
                                     th style="width:120px" { "操作" }
                                 }
                             }

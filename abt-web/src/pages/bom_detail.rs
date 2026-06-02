@@ -233,7 +233,7 @@ fn bom_detail_page(
                                 th style="width:80px" { "数量" }
                                 th style="width:60px" { "单位" }
                                 th style="width:80px" { "损耗率" }
-                                th { "备注" }
+                                th style="width:60px" { "备注" }
                             }
                         }
                         tbody {

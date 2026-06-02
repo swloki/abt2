@@ -791,7 +791,7 @@ fn bom_node_row(
     );
     let ancestors_str = ancestors.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
     let show_expr = format!("isNodeVisible({}, '{}')", level, ancestors_str);
-    let indent_px = (level - 1) * 24;
+    let _indent_px = (level - 1) * 24;
     html! {
         tr class=(row_class) x-show=(show_expr) draggable="true"
             data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) {
@@ -811,7 +811,7 @@ fn bom_node_row(
             }
             td style="text-align:center" { (level) }
             td class="mono" { (code) }
-            td class="bom-col-name" style={"padding-left:" (indent_px) "px"} { (name) }
+            td class="bom-col-name" { (name) }
             td { (work_center) }
             td class="mono" style="text-align:right" { (node.quantity) }
             td { (unit) }

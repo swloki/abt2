@@ -1087,13 +1087,13 @@ const componentStyles = `
 .num-right { text-align: right; }
 
 /* ─── BOM Table (blue primary header matching legacy) ─── */
-.bom-table { width: 100%; min-width: 860px; font-size: var(--text-sm); border-collapse: collapse; }
+.bom-table { width: 100%; min-width: 860px; font-size: 13px; border-collapse: collapse; }
 .bom-table th {
-  padding: 11px var(--space-4); text-align: left; font-weight: 600;
-  color: #fff; background: var(--accent); font-size: 12px; white-space: nowrap;
+  padding: 8px 12px; text-align: left; font-weight: 600;
+  color: #fff; background: var(--accent); font-size: 11px; white-space: nowrap;
   border-bottom: none; text-transform: uppercase; letter-spacing: 0.04em;
 }
-.bom-table td { padding: 13px var(--space-4); border-bottom: 1px solid var(--border-soft); vertical-align: middle; white-space: nowrap; }
+.bom-table td { padding: 9px 12px; border-bottom: 1px solid var(--border-soft); vertical-align: middle; white-space: nowrap; }
 .bom-table tbody tr { transition: all var(--motion-fast) var(--ease-standard); }
 .bom-table tbody tr.bom-row-level-default:hover { background: var(--accent-bg); }
 .bom-table tbody tr:last-child td { border-bottom: none; }

@@ -37,20 +37,7 @@ pub async fn post_login(
     session: Session,
     axum::Form(form): axum::Form<LoginForm>,
 ) -> impl IntoResponse {
-    let claims = if form.username == "admin" && form.password == "123456" {
-        abt_core::shared::identity::model::Claims {
-            sub: 1,
-            username: "admin".into(),
-            display_name: "管理员".into(),
-            system_role: "super_admin".into(),
-            role_ids: vec![1],
-            role_codes: vec!["super_admin".into()],
-            department_ids: vec![1],
-            iss: "abt-erp".into(),
-            exp: 0,
-            iat: 0,
-        }
-    } else {
+    let claims = {
         use abt_core::shared::identity::AuthService;
         let auth = state.auth_service();
         match auth.login(&form.username, &form.password).await {

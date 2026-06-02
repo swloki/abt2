@@ -385,6 +385,7 @@ classDiagram
   class BomCostService {
     &lt;&lt;interface&gt;&gt;
     +get_cost_report(ctx: &ServiceContext, db: PgExecutor, bom_id, as_of_date) BomCostReport
+    +get_labor_cost_report(ctx: &ServiceContext, db: PgExecutor, bom_id) BomLaborCostReport
   }
 
   class BomCategoryService {
@@ -1312,6 +1313,7 @@ classDiagram
           <span style="color:#c678dd;">trait</span> <span style="color:#e5c07b;">BomCostService</span> {<br>
           &nbsp;&nbsp;get_cost_report(ctx, db, bom_id,<br>
           &nbsp;&nbsp;&nbsp;&nbsp;as_of_date?) → BomCostReport<br>
+          &nbsp;&nbsp;get_labor_cost_report(ctx, db, bom_id) → BomLaborCostReport<br>
           }
         </div>
       </div>
@@ -1437,7 +1439,7 @@ classDiagram
         <span style="color:#e5c07b;">BomNodeService</span><br>
         &nbsp;&nbsp;<span style="color:#56b6c2;">InCallerTx</span> — add_node, update_node, delete_node, move_node<br>
         <span style="color:#e5c07b;">BomCostService</span><br>
-        &nbsp;&nbsp;<span style="color:#56b6c2;">None</span> — get_cost_report<br>
+        &nbsp;&nbsp;<span style="color:#56b6c2;">None</span> — get_cost_report, get_labor_cost_report<br>
         <span style="color:#e5c07b;">BomQueryService</span><br>
         &nbsp;&nbsp;<span style="color:#56b6c2;">None</span> — get, list, get_leaf_nodes, get_snapshots, exists_name
       </div>

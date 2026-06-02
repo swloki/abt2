@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
 use super::model::*;
@@ -104,6 +104,12 @@ pub trait BomCostService: Send + Sync {
         bom_id: i64,
         as_of_date: Option<DateTime<Utc>>,
     ) -> Result<BomCostReport>;
+
+    async fn get_labor_cost_report(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        bom_id: i64,
+    ) -> Result<BomLaborCostReport>;
 }
 
 #[async_trait]

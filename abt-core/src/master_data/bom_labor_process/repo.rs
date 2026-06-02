@@ -180,4 +180,18 @@ impl BomLaborProcessRepo {
         .await?;
         Ok(rows)
     }
+
+    /// 按 product_code 查询所有未删除的劳动工序（不分页）
+    pub async fn find_all_by_product_code(&self, executor: PgExecutor<'_>, product_code: &str) -> Result<Vec<BomLaborProcess>> {
+        let rows = sqlx::query_as::<sqlx::Postgres, BomLaborProcess>(
+            r#"SELECT id, product_code, labor_process_dict_id, process_code, name, unit_price, quantity, sort_order, remark, operator_id, created_at, updated_at, deleted_at
+               FROM bom_labor_processes
+               WHERE product_code = $1 AND deleted_at IS NULL
+               ORDER BY sort_order, id"#,
+        )
+        .bind(product_code)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
+    }
 }

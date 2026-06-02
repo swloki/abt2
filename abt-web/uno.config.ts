@@ -1171,6 +1171,101 @@ const componentStyles = `
 }
 .btn-success:hover { background: #059669; border-color: #059669; }
 
+
+/* ─── Cost Drawer ─── */
+.cost-warning-banner {
+  border: 1px solid #fbbf24; background: #fffbeb;
+  border-radius: 6px; margin-bottom: 16px;
+}
+.cost-warning-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 12px 16px;
+  border: none; background: none; cursor: pointer; text-align: left;
+}
+.cost-warning-toggle:hover { background: #fef3c7; }
+.cost-warning-toggle .warning-left {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 500; color: #92400e;
+}
+.cost-warning-list {
+  border-top: 1px solid #fbbf24; padding: 12px 16px;
+}
+.cost-warning-list li {
+  font-size: 13px; color: #92400e; padding: 2px 0;
+}
+.cost-product-code {
+  background: #f8fafc; border-radius: 6px;
+  padding: 10px 16px; margin-bottom: 16px;
+}
+.cost-product-code p { font-size: 13px; color: #64748b; margin: 0; }
+.cost-product-code span { font-family: var(--font-mono); font-weight: 600; color: #0f172a; }
+.cost-summary-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 12px; margin-bottom: 24px;
+}
+.cost-summary-card {
+  border: 1px solid #e5e7eb; background: #fff;
+  border-radius: 6px; padding: 16px;
+}
+.cost-summary-card .card-label { font-size: 11px; font-weight: 500; color: #6b7280; margin-bottom: 4px; }
+.cost-summary-card .card-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cost-summary-card .card-sub { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+.cost-summary-card.primary .card-value { color: #2563eb; }
+.cost-summary-card.danger { border-color: #fecaca; background: #fef2f2; }
+.cost-summary-card.danger .card-label { color: #ef4444; }
+.cost-summary-card.danger .card-value { color: #dc2626; }
+.cost-summary-card.danger .card-sub { color: #f87171; }
+.cost-summary-card.total-ok { border-color: #bfdbfe; background: #eff6ff; }
+.cost-summary-card.total-ok .card-label { color: #3b82f6; }
+.cost-summary-card.total-ok .card-value { color: #2563eb; }
+.cost-summary-card.total-warn { border-color: #fde68a; background: #fefce8; }
+.cost-summary-card.total-warn .card-label { color: #d97706; }
+.cost-summary-card.total-warn .card-value { color: #d97706; }
+.cost-summary-card.total-warn .card-sub { color: #fbbf24; }
+.cost-section-title { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 12px; }
+.cost-drawer-table {
+  width: 100%; border-collapse: collapse;
+  border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden;
+}
+.cost-drawer-table th {
+  padding: 10px 14px; text-align: left; font-weight: 500;
+  color: #6b7280; background: #f8fafc; font-size: 12px;
+  border-bottom: 1px solid #e5e7eb; white-space: nowrap;
+}
+.cost-drawer-table th.text-right { text-align: right; }
+.cost-drawer-table td {
+  padding: 10px 14px; border-bottom: 1px solid #f1f5f9;
+  font-size: 13px; white-space: nowrap;
+}
+.cost-drawer-table tbody tr:last-child td { border-bottom: none; }
+.cost-drawer-table tbody tr:hover { background: #f8fafc; }
+.cost-drawer-table tbody tr.row-danger { background: #fef2f2; }
+.cost-drawer-table tbody tr.row-danger td { color: #b91c1c; }
+.cost-drawer-table .text-right { text-align: right; }
+.cost-drawer-table .font-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.cost-drawer-table .missing-price { color: #ef4444; font-weight: 500; }
+.cost-drawer-table .cell-name {
+  max-width: 256px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cost-drawer-footer {
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 10px 16px; border-radius: 6px; margin-top: 12px; gap: 8px;
+}
+.cost-drawer-footer.bg-blue { background: #eff6ff; }
+.cost-drawer-footer.bg-red { background: #fef2f2; border: 1px solid #fecaca; }
+.cost-drawer-footer.bg-gray { background: #f1f5f9; }
+.cost-drawer-footer .footer-label { font-size: 13px; font-weight: 500; color: #374151; }
+.cost-drawer-footer .footer-value { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cost-drawer-footer .footer-value.blue { color: #2563eb; }
+.cost-drawer-footer .footer-value.red { color: #dc2626; }
+.cost-drawer-footer .footer-value.dark { color: #111827; }
+.labor-summary-card {
+  border: 1px solid #e5e7eb; background: #fff;
+  border-radius: 6px; padding: 16px; margin-bottom: 24px;
+}
+.labor-summary-card .card-label { font-size: 11px; font-weight: 500; color: #6b7280; margin-bottom: 4px; }
+.labor-summary-card .card-value { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; color: #2563eb; }
+.labor-summary-card .card-sub { font-size: 11px; color: #9ca3af; margin-top: 4px; }
 /* ─── Component Responsive ─── */
 @media (max-width: 1024px) {
   .detail-grid { grid-template-columns: 1fr 1fr; }
@@ -1361,7 +1456,7 @@ export default defineConfig({
       10: "var(--space-10)",
       12: "var(--space-12)",
     },
-    borderRadius: {
+    radius: {
       sm: "var(--radius-sm)",
       DEFAULT: "var(--radius-md)",
       lg: "var(--radius-lg)",

@@ -9,7 +9,7 @@ use crate::shared::types::{PageParams, PaginatedResult};
 // Bom 实体不使用 sqlx::FromRow（bom_detail 从 bom_nodes 加载），
 // 通过 BomRow 中间结构做 DB → Domain 映射
 
-const BOM_DB_COLUMNS: &str = "bom_id, bom_name, version, status, bom_category_id, create_at AS created_at, update_at AS updated_at";
+const BOM_DB_COLUMNS: &str = "bom_id, bom_name, version, status, bom_category_id, create_at AS created_at, update_at AS updated_at, published_at, created_by";
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 struct BomRow {
@@ -20,6 +20,8 @@ struct BomRow {
     bom_category_id: Option<i64>,
     created_at: DateTime<Utc>,
     updated_at: Option<DateTime<Utc>>,
+    published_at: Option<DateTime<Utc>>,
+    created_by: Option<i64>,
 }
 
 impl From<BomRow> for Bom {
@@ -33,8 +35,8 @@ impl From<BomRow> for Bom {
             bom_category_id: row.bom_category_id,
             status: row.status,
             version: row.version,
-            published_at: None,
-            created_by: None,
+            published_at: row.published_at,
+            created_by: row.created_by,
         }
     }
 }
@@ -112,10 +114,12 @@ impl BomRepo {
         executor: PgExecutor<'_>,
         id: i64,
         status: BomStatus,
+        published_at: Option<DateTime<Utc>>,
     ) -> Result<()> {
-        sqlx::query("UPDATE boms SET status = $1, update_at = NOW() WHERE bom_id = $2 AND deleted_at IS NULL")
+        sqlx::query("UPDATE boms SET status = $1, update_at = NOW(), published_at = $3 WHERE bom_id = $2 AND deleted_at IS NULL")
             .bind(status.as_i16())
             .bind(id)
+            .bind(published_at)
             .execute(executor)
             .await?;
         Ok(())
@@ -518,6 +522,16 @@ impl BomNodeRepo {
         .fetch_all(executor)
         .await?;
         Ok(nodes)
+    }
+
+    pub async fn find_root_node(&self, executor: PgExecutor<'_>, bom_id: i64) -> Result<Option<BomNode>> {
+        let node = sqlx::query_as::<sqlx::Postgres, BomNode>(
+            sqlx::AssertSqlSafe(format!("SELECT {NODE_COLUMNS} FROM bom_nodes WHERE bom_id = $1 AND parent_id = 0 LIMIT 1")),
+        )
+        .bind(bom_id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(node)
     }
 
     pub async fn find_max_order(

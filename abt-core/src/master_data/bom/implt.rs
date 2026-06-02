@@ -215,7 +215,7 @@ impl BomCommandService for BomCommandServiceImpl {
             .transition(ctx, db, "BomStatus", id, "Published", None)
             .await?;
 
-        self.repo.update_status(db, id, BomStatus::Published)
+        self.repo.update_status(db, id, BomStatus::Published, Some(chrono::Utc::now()))
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -249,7 +249,7 @@ impl BomCommandService for BomCommandServiceImpl {
             .transition(ctx, db, "BomStatus", id, "Draft", None)
             .await?;
 
-        self.repo.update_status(db, id, BomStatus::Draft)
+        self.repo.update_status(db, id, BomStatus::Draft, None)
             .await?;
 
         new_domain_event_bus(self.pool.clone())
@@ -633,6 +633,7 @@ impl BomNodeService for BomNodeServiceImpl {
 // ── BomCostServiceImpl ───────────────────────────────────────────────────────
 
 pub struct BomCostServiceImpl {
+    pool: PgPool,
     repo: BomRepo,
     node_repo: BomNodeRepo,
     price_repo: PriceRepo,
@@ -640,8 +641,7 @@ pub struct BomCostServiceImpl {
 
 impl BomCostServiceImpl {
     pub fn new(pool: PgPool) -> Self {
-        let _ = pool;
-        Self { repo: BomRepo, node_repo: BomNodeRepo, price_repo: PriceRepo }
+        Self { pool, repo: BomRepo, node_repo: BomNodeRepo, price_repo: PriceRepo }
     }
 }
 
@@ -653,6 +653,9 @@ impl BomCostService for BomCostServiceImpl {
         bom_id: i64,
         as_of_date: Option<chrono::DateTime<chrono::Utc>>,
     ) -> Result<BomCostReport> {
+        use crate::master_data::product::{new_product_service, service::ProductService};
+        use crate::master_data::bom_labor_process::repo::BomLaborProcessRepo;
+
         let bom = self.repo.find_by_id(db, bom_id)
             .await?
             .ok_or_else(|| DomainError::not_found("BOM"))?;
@@ -660,6 +663,35 @@ impl BomCostService for BomCostServiceImpl {
         let leaf_nodes = self.node_repo.find_leaf_nodes(db, bom_id)
             .await?;
 
+        // Resolve product names
+        let product_ids: Vec<i64> = leaf_nodes.iter().map(|n| n.product_id).collect();
+        let product_svc = new_product_service(self.pool.clone());
+        let products = if product_ids.is_empty() {
+            Vec::new()
+        } else {
+            product_svc.get_by_ids(_ctx, db, product_ids).await.unwrap_or_default()
+        };
+        let product_map: std::collections::HashMap<i64, String> = products.iter()
+            .map(|p| (p.product_id, p.pdt_name.clone()))
+            .collect();
+
+        // Root product_code for labor cost lookup — may be NULL on the node, resolve from product table
+        let root_node = self.node_repo.find_root_node(db, bom_id).await?;
+        let root_product_code = match root_node.as_ref().and_then(|n| n.product_code.clone()) {
+            Some(code) if !code.is_empty() => code,
+            _ => {
+                // Fallback: resolve product_code from the root node's product_id
+                if let Some(ref rn) = root_node {
+                    product_svc.get(_ctx, db, rn.product_id).await
+                        .map(|p| p.product_code)
+                        .unwrap_or_default()
+                } else {
+                    String::new()
+                }
+            }
+        };
+
+        // Material costs
         let mut material_costs = Vec::new();
         let mut warnings = Vec::new();
 
@@ -676,8 +708,9 @@ impl BomCostService for BomCostServiceImpl {
                 Some(entry) => Some(entry.new_price),
                 None => {
                     warnings.push(format!(
-                        "No StandardCost price found for product_id {}",
-                        node.product_id
+                        "产品 {} ({}) 缺失单价",
+                        product_map.get(&node.product_id).map(|s| s.as_str()).unwrap_or("-"),
+                        node.product_code.as_deref().unwrap_or("-")
                     ));
                     None
                 }
@@ -686,21 +719,80 @@ impl BomCostService for BomCostServiceImpl {
             material_costs.push(MaterialCostItem {
                 node_id: node.id,
                 product_id: node.product_id,
-                product_name: format!("product_{}", node.product_id),
+                product_name: product_map.get(&node.product_id).cloned().unwrap_or_else(|| format!("product_{}", node.product_id)),
                 product_code: node.product_code.clone().unwrap_or_default(),
                 quantity: node.quantity,
                 unit_price,
             });
         }
 
+        // Labor costs
+        let labor_repo = BomLaborProcessRepo;
+        let labor_rows: Vec<crate::master_data::bom_labor_process::BomLaborProcess> = if root_product_code.is_empty() {
+            Vec::new()
+        } else {
+            labor_repo.find_all_by_product_code(db, &root_product_code).await.unwrap_or_default()
+        };
+        let labor_costs: Vec<LaborCostItem> = labor_rows.iter().map(|r| LaborCostItem {
+            id: r.id,
+            name: r.name.clone(),
+            unit_price: r.unit_price,
+            quantity: r.quantity,
+            sort_order: r.sort_order,
+            remark: r.remark.clone().unwrap_or_default(),
+        }).collect();
+
         Ok(BomCostReport {
             bom_id,
             bom_name: bom.bom_name,
-            product_code: String::new(),
+            product_code: root_product_code,
             as_of_date,
             material_costs,
-            labor_costs: Vec::new(),
+            labor_costs,
             warnings,
+        })
+    }
+
+    async fn get_labor_cost_report(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        bom_id: i64,
+    ) -> Result<BomLaborCostReport> {
+        use crate::master_data::bom_labor_process::repo::BomLaborProcessRepo;
+        use crate::master_data::product::{new_product_service, service::ProductService};
+
+        let root_node = self.node_repo.find_root_node(db, bom_id).await?
+            .ok_or_else(|| DomainError::not_found("BOM root node"))?;
+
+        // product_code on the node may be NULL — resolve from product table
+        let product_code = match root_node.product_code.clone() {
+            Some(code) if !code.is_empty() => code,
+            _ => {
+                let product_svc = new_product_service(self.pool.clone());
+                let product = product_svc.get(_ctx, db, root_node.product_id).await?;
+                product.product_code
+            }
+        };
+
+        let labor_repo = BomLaborProcessRepo;
+        let rows: Vec<crate::master_data::bom_labor_process::BomLaborProcess> = labor_repo.find_all_by_product_code(db, &product_code).await?;
+
+        let items: Vec<LaborCostItem> = rows.iter().map(|r| LaborCostItem {
+            id: r.id,
+            name: r.name.clone(),
+            unit_price: r.unit_price,
+            quantity: r.quantity,
+            sort_order: r.sort_order,
+            remark: r.remark.clone().unwrap_or_default(),
+        }).collect();
+
+        let total_cost = items.iter()
+            .fold(rust_decimal::Decimal::ZERO, |acc, item| acc + item.unit_price * item.quantity);
+
+        Ok(BomLaborCostReport {
+            bom_id,
+            items,
+            total_cost,
         })
     }
 }

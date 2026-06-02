@@ -6,6 +6,7 @@ use maud::{html, Markup};
 use serde::Deserialize;
 use std::collections::HashMap;
 use abt_core::master_data::bom::model::*;
+use abt_core::shared::identity::UserService;
 use abt_core::master_data::bom::{BomCategoryService, BomCommandService, BomQueryService};
 use abt_core::shared::types::PageParams;
 
@@ -14,7 +15,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::bom::{
-    BomCreatePath, BomDeletePath, BomDetailPath, BomListPath, BomTablePath,
+    BomCreatePath, BomDeletePath, BomDetailPath, BomListPath, BomLaborCostDrawerPath, BomTablePath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
@@ -49,7 +50,8 @@ pub async fn get_bom_list(
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
-    let content = bom_list_page(&result, &params, &cat_map, &cat_list);
+    let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
+    let content = bom_list_page(&result, &params, &cat_map, &cat_list, &user_map);
     let page_html = admin_page(
         &headers, "BOM管理", &claims, "md", BomListPath::PATH,
         "主数据管理", Some("BOM管理"), content,
@@ -67,7 +69,8 @@ pub async fn get_bom_table(
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
-    Ok(Html(bom_table_fragment(&result, &params, &cat_map, &cat_list).into_string()))
+    let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
+    Ok(Html(bom_table_fragment(&result, &params, &cat_map, &cat_list, &user_map).into_string()))
 }
 #[require_permission("BOM", "delete")]
 pub async fn delete_bom(
@@ -90,6 +93,26 @@ async fn load_categories(state: &AppState, ctx: &ServiceContext, db: PgExecutor<
         .unwrap_or_default();
     let map: HashMap<i64, String> = cats.iter().map(|c| (c.bom_category_id, c.bom_category_name.clone())).collect();
     (map, cats)
+}
+
+async fn resolve_creator_names<S: UserService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    boms: &[Bom],
+) -> HashMap<i64, String> {
+    let ids: Vec<i64> = boms.iter().filter_map(|b| b.created_by).collect();
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    svc.get_users_by_ids(ctx, db, ids)
+        .await
+        .map(|users| {
+            users.into_iter()
+                .map(|u| (u.user.user_id, u.user.display_name.unwrap_or(u.user.username)))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 // ── Helpers ──
 fn build_filter(params: &BomQueryParams) -> BomQuery {
@@ -128,9 +151,10 @@ fn bom_list_page(
     params: &BomQueryParams,
     cat_map: &HashMap<i64, String>,
     cat_list: &[BomCategory],
+    user_map: &HashMap<i64, String>,
 ) -> Markup {
     html! {
-        div x-data="{ createModalOpen: false }" {
+        div x-data="{ createModalOpen: false, laborOpen: false }" {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "BOM管理" }
@@ -142,7 +166,29 @@ fn bom_list_page(
                 }
             }
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (bom_table_fragment(result, params, cat_map, cat_list))
+            (bom_table_fragment(result, params, cat_map, cat_list, user_map))
+
+            // ── Labor Cost Drawer ──
+            div class="drawer-overlay"
+                x-bind:class="{ 'open': laborOpen }"
+                x-on:click="if(event.target===this) laborOpen = false" {
+                div class="drawer" style="max-width:800px;width:100%" x-on:click="event.stopPropagation()" {
+                    div class="drawer-head" {
+                        h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
+                        button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
+                            x-on:click="laborOpen = false" { "×" }
+                    }
+                    div class="drawer-body" {
+                        div id="labor-drawer-body" {
+                            div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
+                        }
+                    }
+                    div class="drawer-foot" {
+                        button type="button" class="btn btn-default"
+                            x-on:click="laborOpen = false" { "关闭" }
+                    }
+                }
+            }
         }
     }
 }
@@ -151,6 +197,7 @@ fn bom_table_fragment(
     params: &BomQueryParams,
     cat_map: &HashMap<i64, String>,
     cat_list: &[BomCategory],
+    user_map: &HashMap<i64, String>,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -221,16 +268,16 @@ fn bom_table_fragment(
                             tr {
                                 th { "BOM名称" }
                                 th { "BOM分类" }
-                                th { "版本" }
+                                th style="width:60px" { "版本" }
                                 th { "状态" }
-                                th { "发布时间" }
-                                th { "创建时间" }
+                                th { "创建者" }
+                                th { "更新时间" }
                                 th { "操作" }
                             }
                         }
                         tbody {
                             @for bom in &result.items {
-                                (bom_row(bom, cat_map))
+                                (bom_row(bom, cat_map, user_map))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -248,7 +295,7 @@ fn bom_table_fragment(
     }
 }
 
-fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>) -> Markup {
+fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, String>) -> Markup {
     let detail_path = BomDetailPath { id: bom.bom_id };
     let delete_path = BomDeletePath { id: bom.bom_id };
     let form_id = format!("delete-bom-form-{}", bom.bom_id);
@@ -274,27 +321,42 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>) -> Markup {
                     span style="color:var(--muted)" { "—" }
                 }
             }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
+            td class="mono" style="width:60px" onclick=(format!("location.href='{}'", detail_path)) {
                 "v"(bom.version)
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class=(format!("status-pill {status_class}")) { (status_label) }
             }
-            td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
-                @if let Some(pa) = bom.published_at {
-                    (pa.format("%Y-%m-%d").to_string())
+            td onclick=(format!("location.href='{}'", detail_path)) {
+                @if let Some(creator_id) = bom.created_by {
+                    @if let Some(name) = user_map.get(&creator_id) {
+                        (name)
+                    } @else {
+                        span style="color:var(--muted)" { "—" }
+                    }
                 } @else {
                     span style="color:var(--muted)" { "—" }
                 }
             }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
-                (bom.create_at.format("%Y-%m-%d").to_string())
+                @if let Some(ua) = bom.update_at {
+                    (ua.format("%Y-%m-%d").to_string())
+                } @else {
+                    span style="color:var(--muted)" { "—" }
+                }
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" x-data="{ deleteOpen: false }" {
                     a class="row-action-btn" title="查看"
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
+                    }
+                    button type="button" class="row-action-btn" title="查看人工成本"
+                        hx-get=(BomLaborCostDrawerPath { id: bom.bom_id }.to_string())
+                        hx-target="#labor-drawer-body"
+                        hx-swap="innerHTML"
+                        x-on:click="laborOpen = true" {
+                        (icon::bolt_icon("w-4 h-4"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"
                         x-on:click="deleteOpen = true" {

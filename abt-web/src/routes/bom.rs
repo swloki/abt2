@@ -80,6 +80,18 @@ pub struct BomNodeMovePath {
 #[typed_path("/admin/md/boms/products")]
 pub struct BomProductsPath;
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/cost-drawer")]
+pub struct BomCostDrawerPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/labor-cost-drawer")]
+pub struct BomLaborCostDrawerPath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -97,4 +109,6 @@ pub fn router() -> Router<AppState> {
         .route(BomPublishPath::PATH, post(bom_detail::publish_bom))
         .route(BomUpdateCategoryPath::PATH, post(bom_edit::update_category))
         .route(BomSaveAsPath::PATH, post(bom_edit::save_as))
+        .route(BomCostDrawerPath::PATH, get(bom_detail::get_cost_drawer))
+        .route(BomLaborCostDrawerPath::PATH, get(bom_detail::get_labor_cost_drawer))
 }

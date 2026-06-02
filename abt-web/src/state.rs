@@ -184,4 +184,14 @@ impl AppState {
         abt_core::master_data::product_watcher::new_product_watcher_service(self.pool.clone())
     }
 
+
+    pub fn bom_cost_service(&self) -> impl abt_core::master_data::bom::BomCostService {
+        abt_core::master_data::bom::new_bom_cost_service(self.pool.clone())
+    }
+
+    pub fn bom_labor_process_service(
+        &self,
+    ) -> impl abt_core::master_data::bom_labor_process::BomLaborProcessService {
+        abt_core::master_data::bom_labor_process::new_bom_labor_process_service(self.pool.clone())
+    }
 }

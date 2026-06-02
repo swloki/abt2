@@ -162,7 +162,7 @@ fn modules() -> Vec<NavModule> {
                     icon: NavIcon::Tag,
                 },
                 NavItem {
-                    name: "物料清单",
+                    name: "BOM管理",
                     path: "/admin/md/boms",
                     icon: NavIcon::ClipboardDoc,
                 },

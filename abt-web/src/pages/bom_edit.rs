@@ -542,6 +542,7 @@ fn bom_edit_page(
                         table class="bom-table" style="table-layout:fixed;min-width:900px" {
                             thead {
                                 tr {
+                                    th style="width:32px" { }
                                     th style="width:40px" { "编号" }
                                     th style="width:40px" { "层级" }
                                     th style="width:120px" { "产品编码" }
@@ -716,6 +717,7 @@ fn bom_edit_page(
                 ))
             }
 
+
             // ── Save As Modal ──
             div class="modal-overlay"
                 x-bind:class="{ 'is-open': saveAsOpen }"
@@ -795,20 +797,16 @@ fn bom_node_row(
     html! {
         tr class=(row_class) x-show=(show_expr) draggable="true"
             data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) {
-            td {
-                div style="display:flex;align-items:center;justify-content:center;gap:4px" {
-                    @if has_children {
-                        button type="button" class="bom-collapse-btn"
-                            x-on:click=(format!("toggleCollapse({})", node.id))
-                            x-bind:class=(format!("{{'bom-collapsed': collapsedNodes[{}]}}", node.id)) {
-                            (icon::chevron_down_icon("bom-collapse-icon"))
-                        }
-                    } @else {
-                        span style="display:inline-block;width:20px" {}
+            td style="text-align:center" {
+                @if has_children {
+                    button type="button" class="bom-collapse-btn"
+                        x-on:click=(format!("toggleCollapse({})", node.id))
+                        x-bind:class=(format!("{{'bom-collapsed': collapsedNodes[{}]}}", node.id)) {
+                        (icon::chevron_down_icon("bom-collapse-icon"))
                     }
-                    span { (index + 1) }
                 }
             }
+            td style="text-align:center" { (index + 1) }
             td style="text-align:center" { (level) }
             td class="mono" { (code) }
             td class="bom-col-name" { (name) }

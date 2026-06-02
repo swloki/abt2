@@ -4,8 +4,9 @@
 
 - **使用中文沟通**
 - **不要用 `cargo run` 启动服务**，服务已在运行中。验证代码正确性主要用 `cargo clippy`
+- **代码搜索**：必须使用内置 `search` 工具（底层 rg），禁止在 bash 中调用 `grep`/`rg`
+- **代码导航**：优先使用 `lsp`（definition / references / hover / type_definition），禁止用文本搜索代替 LSP 查找定义和引用
 - **编写 `abt-web/` 组件前，必须先读 `abt-web/CLAUDE.md`**（组件化三原则、抗碎片化实践等约束）
-
 ## Project Overview
 
 ABT 是 BOM（物料清单）和库存管理系统，基于 Rust 构建。底层数据库为 PostgreSQL。

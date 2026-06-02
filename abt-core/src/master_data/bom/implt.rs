@@ -147,7 +147,7 @@ impl BomCommandService for BomCommandServiceImpl {
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if existing.status != BomStatus::Draft {
-            return Err(DomainError::business_rule("Cannot update a published BOM"));
+            return Err(DomainError::business_rule("已发布的 BOM 无法修改"));
         }
 
         if let Some(ref new_name) = req.name {
@@ -176,7 +176,7 @@ impl BomCommandService for BomCommandServiceImpl {
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if existing.status == BomStatus::Published {
-            return Err(DomainError::business_rule("Cannot delete a published BOM"));
+            return Err(DomainError::business_rule("已发布的 BOM 无法删除"));
         }
 
         self.repo.delete(db, id)
@@ -193,13 +193,13 @@ impl BomCommandService for BomCommandServiceImpl {
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if existing.status == BomStatus::Published {
-            return Err(DomainError::business_rule("BOM is already published"));
+            return Err(DomainError::business_rule("BOM 已处于发布状态"));
         }
 
         let node_count = self.node_repo.count_by_bom_id(db, id)
             .await?;
         if node_count == 0 {
-            return Err(DomainError::business_rule("Cannot publish a BOM with no nodes"));
+            return Err(DomainError::business_rule("BOM 没有节点，无法发布"));
         }
 
         // build BomDetail from nodes
@@ -242,7 +242,7 @@ impl BomCommandService for BomCommandServiceImpl {
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if existing.status != BomStatus::Published {
-            return Err(DomainError::business_rule("BOM is not published"));
+            return Err(DomainError::business_rule("BOM 未发布"));
         }
 
         new_state_machine_service(self.pool.clone())
@@ -412,7 +412,7 @@ impl BomNodeService for BomNodeServiceImpl {
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if bom.status != BomStatus::Draft {
-            return Err(DomainError::business_rule("Can only add nodes to a draft BOM"));
+            return Err(DomainError::business_rule("仅草稿状态的 BOM 可以添加节点"));
         }
 
         // validate parent node belongs to same BOM (0 = root)
@@ -421,7 +421,7 @@ impl BomNodeService for BomNodeServiceImpl {
                 .await?
                 .ok_or_else(|| DomainError::not_found("BomNode"))?;
             if parent.bom_id != bom_id {
-                return Err(DomainError::business_rule("Parent node does not belong to this BOM"));
+            return Err(DomainError::business_rule("父节点不属于当前 BOM"));
             }
         }
 
@@ -462,7 +462,7 @@ impl BomNodeService for BomNodeServiceImpl {
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if bom.status != BomStatus::Draft {
-            return Err(DomainError::business_rule("Can only update nodes in a draft BOM"));
+            return Err(DomainError::business_rule("仅草稿状态的 BOM 可以修改节点"));
         }
 
         if bom.version != expected_version {
@@ -474,7 +474,7 @@ impl BomNodeService for BomNodeServiceImpl {
             .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
         if existing.bom_id != bom_id {
-            return Err(DomainError::business_rule("Node does not belong to this BOM"));
+            return Err(DomainError::business_rule("节点不属于当前 BOM"));
         }
 
         self.node_repo.update(db, node_id, &req)
@@ -508,7 +508,7 @@ impl BomNodeService for BomNodeServiceImpl {
             .ok_or_else(|| DomainError::not_found("BOM"))?;
 
         if bom.status != BomStatus::Draft {
-            return Err(DomainError::business_rule("Can only delete nodes in a draft BOM"));
+            return Err(DomainError::business_rule("仅草稿状态的 BOM 可以删除节点"));
         }
 
         let existing = self.node_repo.find_by_id(db, node_id)
@@ -516,13 +516,13 @@ impl BomNodeService for BomNodeServiceImpl {
             .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
         if existing.bom_id != bom_id {
-            return Err(DomainError::business_rule("Node does not belong to this BOM"));
+            return Err(DomainError::business_rule("节点不属于当前 BOM"));
         }
 
         let child_count = self.node_repo.count_children(db, node_id)
             .await?;
         if child_count > 0 {
-            return Err(DomainError::business_rule("Cannot delete a node that has children"));
+            return Err(DomainError::business_rule("存在子节点，无法删除"));
         }
 
         self.node_repo.delete(db, node_id)
@@ -560,7 +560,7 @@ impl BomNodeService for BomNodeServiceImpl {
             .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
         if existing.bom_id != bom_id {
-            return Err(DomainError::business_rule("Node does not belong to this BOM"));
+            return Err(DomainError::business_rule("节点不属于当前 BOM"));
         }
 
         // validate new parent (0 = root)
@@ -570,12 +570,12 @@ impl BomNodeService for BomNodeServiceImpl {
                 .ok_or_else(|| DomainError::not_found("BomNode"))?;
 
             if new_parent.bom_id != bom_id {
-                return Err(DomainError::business_rule("Target parent does not belong to this BOM"));
+            return Err(DomainError::business_rule("目标父节点不属于当前 BOM"));
             }
         }
 
         if new_parent_id == node_id {
-            return Err(DomainError::business_rule("Cannot move a node under itself"));
+            return Err(DomainError::business_rule("不能将节点移动到自身下"));
         }
 
         // determine order_num
@@ -697,10 +697,10 @@ impl BomCostService for BomCostServiceImpl {
 
         for node in &leaf_nodes {
             let price_result = if let Some(date) = as_of_date {
-                self.price_repo.find_price_at(db, node.product_id, PriceType::StandardCost, date)
+                self.price_repo.find_price_at(db, node.product_id, PriceType::Purchase, date)
                     .await?
             } else {
-                self.price_repo.find_latest_price(db, node.product_id, PriceType::StandardCost)
+                self.price_repo.find_latest_price(db, node.product_id, PriceType::Purchase)
                     .await?
             };
 
@@ -843,7 +843,7 @@ impl BomCategoryService for BomCategoryServiceImpl {
             .await?;
         if bom_count > 0 {
             return Err(DomainError::business_rule(
-                "Cannot delete category that is used by BOMs",
+                "该分类下存在关联 BOM，无法删除",
             ));
         }
 

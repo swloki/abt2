@@ -59,6 +59,23 @@ document.addEventListener('htmx:afterRequest', function (e) {
     window.showToast(msg, 'error');
 });
 
+// ── HTMX custom confirm dialog (replaces native confirm()) ──
+
+document.addEventListener('htmx:confirm', function (e) {
+    if (!e.detail.question) return;
+    e.preventDefault();
+    var el = document.getElementById('global-confirm-dialog');
+    if (!el || !el._x_dataStack) {
+        // fallback to native confirm if Alpine not ready
+        if (confirm(e.detail.question)) e.detail.issueRequest(true);
+        return;
+    }
+    var data = el._x_dataStack[0];
+    data.confirmMessage = e.detail.question;
+    data.confirmOpen = true;
+    data._issueRequest = e.detail.issueRequest.bind(e.detail);
+});
+
 // ── Category Tree Select Component ──
 
 window.categoryTreeSelect = function () {

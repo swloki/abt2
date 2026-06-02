@@ -26,6 +26,7 @@ fn document(title: &str, body: Markup) -> Markup {
             body {
                 (body)
                 (toast_container())
+                (global_confirm_dialog())
             }
         }
     }
@@ -114,6 +115,31 @@ fn toast_container() -> Markup {
                     span class="toast-message" x-text="toast.message" {}
                     button class="toast-close" x-on:click="removeToast(toast.id)" {
                         "×"
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn global_confirm_dialog() -> Markup {
+    let alpine_data = r#"{ confirmOpen: false, confirmMessage: '', _issueRequest: null, doConfirm() { this.confirmOpen = false; if (this._issueRequest) this._issueRequest(true); this._issueRequest = null; }, doCancel() { this.confirmOpen = false; this._issueRequest = null; } }"#;
+    let icon = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>"#;
+    html! {
+        div id="global-confirm-dialog" x-data=(alpine_data) {
+            div class="dialog-overlay"
+                x-bind:class="{ 'open': confirmOpen }"
+                x-on:click="doCancel()" {
+                div class="dialog" x-on:click="event.stopPropagation()" {
+                    div class="dialog-body" {
+                        div class="dialog-icon-wrap" {
+                            (PreEscaped(icon))
+                        }
+                        p class="dialog-desc" x-text="confirmMessage" {}
+                    }
+                    div class="dialog-foot" {
+                        button type="button" class="btn btn-default" x-on:click="doCancel()" { "取消" }
+                        button type="button" class="btn btn-danger" x-on:click="doConfirm()" { "确认" }
                     }
                 }
             }

@@ -587,7 +587,7 @@ const componentStyles = `
   display: flex; align-items: center; justify-content: space-between;
   padding: 20px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0;
 }
-.drawer-head h2 { font-size: var(--text-lg); font-weight: 600; color: var(--fg); margin: 0; }
+.drawer-head h2 { font-size: var(--text-lg); font-weight: 600; color: var(--fg); margin: 0; display: flex; align-items: center; gap: 8px; }
 .drawer-body { flex: 1; overflow-y: auto; padding: 24px; }
 .drawer-foot {
   flex-shrink: 0; padding: 16px 24px; border-top: 1px solid var(--border);

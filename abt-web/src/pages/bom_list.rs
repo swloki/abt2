@@ -6,7 +6,7 @@ use maud::{html, Markup};
 use serde::Deserialize;
 use std::collections::HashMap;
 use abt_core::master_data::bom::model::*;
-use abt_core::shared::identity::UserService;
+use abt_core::shared::identity::{PermissionService, UserService};
 use abt_core::master_data::bom::{BomCategoryService, BomCommandService, BomQueryService};
 use abt_core::shared::types::PageParams;
 
@@ -45,13 +45,15 @@ pub async fn get_bom_list(
     Query(params): Query<BomQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let perm_svc = state.permission_service();
+    let can_view_labor_cost = perm_svc.check_permission(claims.is_super_admin(), &claims.role_ids, "LABOR_COST", "read").await.unwrap_or(false);
     let svc = state.bom_query_service();
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
     let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
-    let content = bom_list_page(&result, &params, &cat_map, &cat_list, &user_map);
+    let content = bom_list_page(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost);
     let page_html = admin_page(
         &headers, "BOM管理", &claims, "md", BomListPath::PATH,
         "主数据管理", Some("BOM管理"), content,
@@ -63,14 +65,16 @@ pub async fn get_bom_table(
     ctx: RequestContext,
     Query(params): Query<BomQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let perm_svc = state.permission_service();
+    let can_view_labor_cost = perm_svc.check_permission(claims.is_super_admin(), &claims.role_ids, "LABOR_COST", "read").await.unwrap_or(false);
     let svc = state.bom_query_service();
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
     let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
-    Ok(Html(bom_table_fragment(&result, &params, &cat_map, &cat_list, &user_map).into_string()))
+    Ok(Html(bom_table_fragment(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost).into_string()))
 }
 #[require_permission("BOM", "delete")]
 pub async fn delete_bom(
@@ -152,6 +156,7 @@ fn bom_list_page(
     cat_map: &HashMap<i64, String>,
     cat_list: &[BomCategory],
     user_map: &HashMap<i64, String>,
+    can_view_labor_cost: bool,
 ) -> Markup {
     html! {
         div x-data="{ createModalOpen: false, laborOpen: false }" {
@@ -166,26 +171,28 @@ fn bom_list_page(
                 }
             }
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (bom_table_fragment(result, params, cat_map, cat_list, user_map))
+            (bom_table_fragment(result, params, cat_map, cat_list, user_map, can_view_labor_cost))
 
-            // ── Labor Cost Drawer ──
-            div class="drawer-overlay"
-                x-bind:class="{ 'open': laborOpen }"
-                x-on:click="if(event.target===this) laborOpen = false" {
-                div class="drawer" style="max-width:800px;width:100%" x-on:click="event.stopPropagation()" {
-                    div class="drawer-head" {
-                        h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
-                        button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                            x-on:click="laborOpen = false" { "×" }
-                    }
-                    div class="drawer-body" {
-                        div id="labor-drawer-body" {
-                            div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
+            @if can_view_labor_cost {
+                // ── Labor Cost Drawer ──
+                div class="drawer-overlay"
+                    x-bind:class="{ 'open': laborOpen }"
+                    x-on:click="if(event.target===this) laborOpen = false" {
+                    div class="drawer" style="max-width:800px;width:100%" x-on:click="event.stopPropagation()" {
+                        div class="drawer-head" {
+                            h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
+                            button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
+                                x-on:click="laborOpen = false" { "×" }
                         }
-                    }
-                    div class="drawer-foot" {
-                        button type="button" class="btn btn-default"
-                            x-on:click="laborOpen = false" { "关闭" }
+                        div class="drawer-body" {
+                            div id="labor-drawer-body" {
+                                div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
+                            }
+                        }
+                        div class="drawer-foot" {
+                            button type="button" class="btn btn-default"
+                                x-on:click="laborOpen = false" { "关闭" }
+                        }
                     }
                 }
             }
@@ -198,6 +205,7 @@ fn bom_table_fragment(
     cat_map: &HashMap<i64, String>,
     cat_list: &[BomCategory],
     user_map: &HashMap<i64, String>,
+    can_view_labor_cost: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -277,7 +285,7 @@ fn bom_table_fragment(
                         }
                         tbody {
                             @for bom in &result.items {
-                                (bom_row(bom, cat_map, user_map))
+                                (bom_row(bom, cat_map, user_map, can_view_labor_cost))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -295,7 +303,7 @@ fn bom_table_fragment(
     }
 }
 
-fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, String>) -> Markup {
+fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, String>, can_view_labor_cost: bool) -> Markup {
     let detail_path = BomDetailPath { id: bom.bom_id };
     let delete_path = BomDeletePath { id: bom.bom_id };
     let form_id = format!("delete-bom-form-{}", bom.bom_id);
@@ -351,12 +359,14 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
                     }
-                    button type="button" class="row-action-btn" title="查看人工成本"
-                        hx-get=(BomLaborCostDrawerPath { id: bom.bom_id }.to_string())
-                        hx-target="#labor-drawer-body"
-                        hx-swap="innerHTML"
-                        x-on:click="laborOpen = true" {
-                        (icon::bolt_icon("w-4 h-4"))
+                    @if can_view_labor_cost {
+                        button type="button" class="row-action-btn" title="查看人工成本"
+                            hx-get=(BomLaborCostDrawerPath { id: bom.bom_id }.to_string())
+                            hx-target="#labor-drawer-body"
+                            hx-swap="innerHTML"
+                            x-on:click="laborOpen = true" {
+                            (icon::bolt_icon("w-4 h-4"))
+                        }
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"
                         x-on:click="deleteOpen = true" {

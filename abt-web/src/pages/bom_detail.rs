@@ -8,6 +8,7 @@ use rust_decimal::Decimal;
 use abt_core::master_data::bom::{BomCommandService, BomCostService, BomQueryService};
 use abt_core::master_data::bom::model::*;
 use abt_core::master_data::product::ProductService;
+use abt_core::shared::identity::PermissionService;
 
 use abt_macros::require_permission;
 
@@ -25,6 +26,11 @@ pub async fn get_bom_detail(
     headers: HeaderMap,
 ) -> crate::errors::Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let perm_svc = state.permission_service();
+    let is_super = claims.is_super_admin();
+    let role_ids = &claims.role_ids;
+    let can_view_cost = perm_svc.check_permission(is_super, role_ids, "COST", "read").await.unwrap_or(false);
+    let can_view_labor_cost = perm_svc.check_permission(is_super, role_ids, "LABOR_COST", "read").await.unwrap_or(false);
 
     let bom_svc = state.bom_query_service();
     let product_svc = state.product_service();
@@ -41,7 +47,7 @@ pub async fn get_bom_detail(
     let product_map: HashMap<i64, &abt_core::master_data::product::model::Product> =
         products.iter().map(|p| (p.product_id, p)).collect();
 
-    let content = bom_detail_page(&bom, &product_map);
+    let content = bom_detail_page(&bom, &product_map, can_view_cost, can_view_labor_cost);
     let detail_path_str = BomDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         &headers,
@@ -78,7 +84,7 @@ pub async fn publish_bom(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
-#[require_permission("BOM", "read")]
+#[require_permission("COST", "read")]
 pub async fn get_cost_drawer(
     path: BomCostDrawerPath,
     ctx: RequestContext,
@@ -91,7 +97,7 @@ pub async fn get_cost_drawer(
     Ok(Html(cost_drawer_content(&report).into_string()))
 }
 
-#[require_permission("BOM", "read")]
+#[require_permission("LABOR_COST", "read")]
 pub async fn get_labor_cost_drawer(
     path: BomLaborCostDrawerPath,
     ctx: RequestContext,
@@ -111,6 +117,8 @@ pub async fn get_labor_cost_drawer(
 fn bom_detail_page(
     bom: &Bom,
     product_map: &HashMap<i64, &abt_core::master_data::product::model::Product>,
+    can_view_cost: bool,
+    can_view_labor_cost: bool,
 ) -> Markup {
     let list_path = BomListPath;
     let delete_path = BomDeletePath { id: bom.bom_id };
@@ -159,21 +167,25 @@ fn bom_detail_page(
                         (icon::arrow_left_icon("w-4 h-4"))
                         " 返回列表"
                     }
-                    button class="btn btn-default"
-                        hx-get=(cost_drawer_path.to_string())
-                        hx-target="#cost-drawer-body"
-                        hx-swap="innerHTML"
-                        x-on:click="costOpen = true" {
-                        (icon::currency_icon("w-4 h-4"))
-                        " 查看成本"
+                    @if can_view_cost {
+                        button class="btn btn-default"
+                            hx-get=(cost_drawer_path.to_string())
+                            hx-target="#cost-drawer-body"
+                            hx-swap="innerHTML"
+                            x-on:click="costOpen = true" {
+                            (icon::currency_icon("w-4 h-4"))
+                            " 查看成本"
+                        }
                     }
-                    button class="btn btn-default"
-                        hx-get=(labor_drawer_path.to_string())
-                        hx-target="#labor-drawer-body"
-                        hx-swap="innerHTML"
-                        x-on:click="laborOpen = true" {
-                        (icon::bolt_icon("w-4 h-4"))
-                        " 查看人工成本"
+                    @if can_view_labor_cost {
+                        button class="btn btn-default"
+                            hx-get=(labor_drawer_path.to_string())
+                            hx-target="#labor-drawer-body"
+                            hx-swap="innerHTML"
+                            x-on:click="laborOpen = true" {
+                            (icon::bolt_icon("w-4 h-4"))
+                            " 查看人工成本"
+                        }
                     }
                     a class="btn btn-primary" href=(BomEditPath { id: bom.bom_id }) {
                         (icon::edit_icon("w-4 h-4"))
@@ -263,46 +275,49 @@ fn bom_detail_page(
                 ))
             }
 
-            // ── Cost Drawer (wider: 1000px) ──
-            div class="drawer-overlay"
-                x-bind:class="{ 'open': costOpen }"
-                x-on:click="if(event.target===this) costOpen = false" {
-                div class="drawer" style="max-width:1000px;width:100%" x-on:click="event.stopPropagation()" {
-                    div class="drawer-head" {
-                        h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
-                        button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                            x-on:click="costOpen = false" { "×" }
-                    }
-                    div class="drawer-body" {
-                        div id="cost-drawer-body" {
-                            div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
+            @if can_view_cost {
+                // ── Cost Drawer (wider: 1000px) ──
+                div class="drawer-overlay"
+                    x-bind:class="{ 'open': costOpen }"
+                    x-on:click="if(event.target===this) costOpen = false" {
+                    div class="drawer" style="max-width:1000px;width:100%" x-on:click="event.stopPropagation()" {
+                        div class="drawer-head" {
+                            h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
+                            button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
+                                x-on:click="costOpen = false" { "×" }
                         }
-                    }
-                    div class="drawer-foot" {
-                        button type="button" class="btn btn-default"
-                            x-on:click="costOpen = false" { "关闭" }
+                        div class="drawer-body" {
+                            div id="cost-drawer-body" {
+                                div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
+                            }
+                        }
+                        div class="drawer-foot" {
+                            button type="button" class="btn btn-default"
+                                x-on:click="costOpen = false" { "关闭" }
+                        }
                     }
                 }
             }
-
-            // ── Labor Cost Drawer (wider: 800px) ──
-            div class="drawer-overlay"
-                x-bind:class="{ 'open': laborOpen }"
-                x-on:click="if(event.target===this) laborOpen = false" {
-                div class="drawer" style="max-width:800px;width:100%" x-on:click="event.stopPropagation()" {
-                    div class="drawer-head" {
-                        h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
-                        button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                            x-on:click="laborOpen = false" { "×" }
-                    }
-                    div class="drawer-body" {
-                        div id="labor-drawer-body" {
-                            div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
+            @if can_view_labor_cost {
+                // ── Labor Cost Drawer (wider: 800px) ──
+                div class="drawer-overlay"
+                    x-bind:class="{ 'open': laborOpen }"
+                    x-on:click="if(event.target===this) laborOpen = false" {
+                    div class="drawer" style="max-width:800px;width:100%" x-on:click="event.stopPropagation()" {
+                        div class="drawer-head" {
+                            h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
+                            button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
+                                x-on:click="laborOpen = false" { "×" }
                         }
-                    }
-                    div class="drawer-foot" {
-                        button type="button" class="btn btn-default"
-                            x-on:click="laborOpen = false" { "关闭" }
+                        div class="drawer-body" {
+                            div id="labor-drawer-body" {
+                                div style="text-align:center;padding:40px;color:var(--muted)" { "加载中..." }
+                            }
+                        }
+                        div class="drawer-foot" {
+                            button type="button" class="btn btn-default"
+                                x-on:click="laborOpen = false" { "关闭" }
+                        }
                     }
                 }
             }

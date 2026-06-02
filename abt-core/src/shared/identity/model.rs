@@ -226,7 +226,11 @@ pub static RESOURCE_ACTION_DEFS: &[ResourceActionDef] = &[
     ResourceActionDef { resource_code: "COST", resource_name: "Cost", description: "Cost management", action: "create", action_name: "Create" },
     ResourceActionDef { resource_code: "COST", resource_name: "Cost", description: "Cost management", action: "read", action_name: "Read" },
     ResourceActionDef { resource_code: "COST", resource_name: "Cost", description: "Cost management", action: "update", action_name: "Update" },
-    ResourceActionDef { resource_code: "COST", resource_name: "Cost", description: "Cost management", action: "delete", action_name: "Delete" },
+    // LABOR_COST
+    ResourceActionDef { resource_code: "LABOR_COST", resource_name: "Labor Cost", description: "Labor cost management", action: "create", action_name: "Create" },
+    ResourceActionDef { resource_code: "LABOR_COST", resource_name: "Labor Cost", description: "Labor cost management", action: "read", action_name: "Read" },
+    ResourceActionDef { resource_code: "LABOR_COST", resource_name: "Labor Cost", description: "Labor cost management", action: "update", action_name: "Update" },
+    ResourceActionDef { resource_code: "LABOR_COST", resource_name: "Labor Cost", description: "Labor cost management", action: "delete", action_name: "Delete" },
     // USER
     ResourceActionDef { resource_code: "USER", resource_name: "User", description: "User management", action: "create", action_name: "Create" },
     ResourceActionDef { resource_code: "USER", resource_name: "User", description: "User management", action: "read", action_name: "Read" },

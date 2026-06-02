@@ -33,7 +33,7 @@ pub async fn get_bom_detail(
     let bom_svc = state.bom_query_service();
     let product_svc = state.product_service();
 
-    let bom = bom_svc.get(&service_ctx, &mut conn, path.id).await?;
+    let mut bom = bom_svc.get(&service_ctx, &mut conn, path.id).await?;
 
     // Resolve product names & specs for all nodes
     let product_ids: Vec<i64> = bom.bom_detail.nodes.iter().map(|n| n.product_id).collect();
@@ -44,6 +44,9 @@ pub async fn get_bom_detail(
     };
     let product_map: HashMap<i64, &abt_core::master_data::product::model::Product> =
         products.iter().map(|p| (p.product_id, p)).collect();
+
+    // Filter out nodes whose products no longer exist (and their descendants)
+    filter_invalid_nodes(&mut bom.bom_detail.nodes, &product_map);
 
     let content = bom_detail_page(&bom, &product_map, can_view_cost, can_view_labor_cost, can_edit, can_delete);
     let detail_path_str = BomDetailPath { id: path.id }.to_string();
@@ -692,4 +695,29 @@ fn labor_cost_drawer_content(bom_name: &str, report: &BomLaborCostReport) -> Mar
             }
         }
     }
+}
+
+fn filter_invalid_nodes(nodes: &mut Vec<abt_core::master_data::bom::model::BomNode>, product_map: &HashMap<i64, &abt_core::master_data::product::model::Product>) {
+    let invalid_ids: std::collections::HashSet<i64> = nodes.iter()
+        .filter(|n| !product_map.contains_key(&n.product_id))
+        .map(|n| n.id)
+        .collect();
+    if invalid_ids.is_empty() { return; }
+    // Also remove descendants of invalid nodes
+    fn collect_descendants(parent_ids: &std::collections::HashSet<i64>, nodes: &[abt_core::master_data::bom::model::BomNode]) -> std::collections::HashSet<i64> {
+        let mut descendants: std::collections::HashSet<i64> = parent_ids.clone();
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for n in nodes {
+                if !descendants.contains(&n.id) && descendants.contains(&n.parent_id) {
+                    descendants.insert(n.id);
+                    changed = true;
+                }
+            }
+        }
+        descendants
+    }
+    let remove_ids = collect_descendants(&invalid_ids, nodes);
+    nodes.retain(|n| !remove_ids.contains(&n.id));
 }

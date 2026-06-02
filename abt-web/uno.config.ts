@@ -1029,7 +1029,7 @@ const componentStyles = `
 .customer-meta span { display: flex; align-items: center; gap: 4px; }
 
 .detail-grid { display: grid; grid-template-columns: 1fr 1fr 340px; gap: var(--space-5); }
-.detail-card { background: #fff; border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: 0; }
+.detail-card { background: #fff; border: 1px solid var(--border-soft); border-radius: var(--radius-md); padding: var(--space-5) var(--space-6); }
 .detail-card-title {
   font-size: var(--text-sm); font-weight: 600; margin-bottom: var(--space-4);
   padding-bottom: var(--space-2); border-bottom: 1px solid var(--border-soft);

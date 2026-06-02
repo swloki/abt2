@@ -222,13 +222,13 @@ fn bom_detail_page(
                 @if bom.bom_detail.nodes.is_empty() {
                     div class="empty-state" { "暂无BOM节点" }
                 } @else {
-                    table class="bom-table" {
+                    table class="bom-table" style="table-layout:fixed" {
                         thead {
                             tr {
                                 th style="width:40px" { "编号" }
                                 th style="width:40px" { "层级" }
                                 th style="width:120px" { "产品编码" }
-                                th { "产品" }
+                                th class="bom-col-name" { "产品" }
                                 th style="width:100px" { "工作中心" }
                                 th style="width:80px" { "数量" }
                                 th style="width:60px" { "单位" }
@@ -387,7 +387,7 @@ fn bom_node_row(
             td style="text-align:center" { (index + 1) }
             td style="text-align:center" { (level) }
             td class="mono" { (code) }
-            td { (name) }
+            td class="bom-col-name" { (name) }
             td { (work_center) }
             td class="mono" style="text-align:right" { (node.quantity) }
             td { (unit) }

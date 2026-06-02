@@ -1102,6 +1102,7 @@ const componentStyles = `
 .bom-row-level-0 .row-action-btn svg { color: #fff; }
 .bom-row-level-0 .row-action-btn:hover { background: rgba(255,255,255,0.3); }
 .bom-table .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.bom-table .bom-col-name { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bom-collapse-btn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; border: none; border-radius: var(--radius-sm);

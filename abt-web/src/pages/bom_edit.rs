@@ -549,9 +549,9 @@ fn bom_edit_page(
                                     th style="width:100px" { "工作中心" }
                                     th style="width:80px" { "数量" }
                                     th style="width:60px" { "单位" }
-                                    th style="width:80px" { "损耗率" }
+                                    th style="width:50px" { "损耗率" }
                                     th style="width:100px" { "位置" }
-                                    th style="width:60px" { "备注" }
+                                    th style="width:90px" { "备注" }
                                     th style="width:120px" { "操作" }
                                 }
                             }

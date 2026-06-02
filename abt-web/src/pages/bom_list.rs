@@ -196,8 +196,7 @@ fn bom_list_page(
                         }
                     }
                 }
-            }
-            @if can_view_labor_cost {
+            } @else if can_view_labor_cost {
                 // ── Labor Cost Drawer ──
                 div class="drawer-overlay"
                     x-bind:class="{ 'open': laborOpen }"
@@ -392,8 +391,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                             x-on:click="costOpen = true" {
                             (icon::currency_icon("w-4 h-4"))
                         }
-                    }
-                    @if can_view_labor_cost {
+                    } @else if can_view_labor_cost {
                         button type="button" class="row-action-btn" title="查看人工成本"
                             hx-get=(BomLaborCostDrawerPath { id: bom.bom_id }.to_string())
                             hx-target="#labor-drawer-body"

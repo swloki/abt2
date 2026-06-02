@@ -172,8 +172,7 @@ fn bom_detail_page(
                             (icon::currency_icon("w-4 h-4"))
                             " 查看成本"
                         }
-                    }
-                    @if can_view_labor_cost {
+                    } @else if can_view_labor_cost {
                         button class="btn btn-default"
                             hx-get=(labor_drawer_path.to_string())
                             hx-target="#labor-drawer-body"
@@ -293,8 +292,7 @@ fn bom_detail_page(
                         }
                     }
                 }
-            }
-            @if can_view_labor_cost {
+            } @else if can_view_labor_cost {
                 // ── Labor Cost Drawer (wider: 800px) ──
                 div class="drawer-overlay"
                     x-bind:class="{ 'open': laborOpen }"

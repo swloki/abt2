@@ -30,6 +30,8 @@ pub struct BomQueryParams {
     #[serde(default, deserialize_with = "empty_as_none")]
     pub category_id: Option<i64>,
     #[serde(default, deserialize_with = "empty_as_none")]
+    pub category_name: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub date_from: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub date_to: Option<String>,
@@ -42,13 +44,14 @@ pub async fn get_bom_list(
     _path: BomListPath,
     ctx: RequestContext,
     headers: HeaderMap,
-    Query(params): Query<BomQueryParams>,
+    Query(mut params): Query<BomQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
     let can_view_cost = ctx.has_permission("COST", "read").await;
     let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
     let can_create = ctx.has_permission("BOM", "create").await;
     let can_delete = ctx.has_permission("BOM", "delete").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    resolve_category_name(&state, &service_ctx, &mut conn, &mut params).await;
     let svc = state.bom_query_service();
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
@@ -65,12 +68,13 @@ pub async fn get_bom_list(
 #[require_permission("BOM", "read")]
 pub async fn get_bom_table(
     ctx: RequestContext,
-    Query(params): Query<BomQueryParams>,
+    Query(mut params): Query<BomQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
     let can_view_cost = ctx.has_permission("COST", "read").await;
     let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
     let can_delete = ctx.has_permission("BOM", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    resolve_category_name(&state, &service_ctx, &mut conn, &mut params).await;
     let svc = state.bom_query_service();
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
@@ -93,6 +97,17 @@ pub async fn delete_bom(
 use crate::state::AppState;
 use abt_core::shared::types::{PgExecutor, ServiceContext};
 
+async fn resolve_category_name(state: &AppState, ctx: &ServiceContext, db: PgExecutor<'_>, params: &mut BomQueryParams) {
+    if params.category_id.is_none() && params.category_name.is_some() {
+        let cats = state.bom_category_service();
+        let query = BomCategoryQuery { name: params.category_name.clone() };
+        if let Ok(result) = cats.list(ctx, db, query, PageParams::new(1, 1)).await {
+            if let Some(cat) = result.items.first() {
+                params.category_id = Some(cat.bom_category_id);
+            }
+        }
+    }
+}
 async fn load_categories(state: &AppState, ctx: &ServiceContext, db: PgExecutor<'_>) -> (HashMap<i64, String>, Vec<BomCategory>) {
     let cat_svc = state.bom_category_service();
     let cats = cat_svc.list(ctx, db, BomCategoryQuery::default(), PageParams::new(1, 200)).await

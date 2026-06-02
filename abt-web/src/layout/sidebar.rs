@@ -167,6 +167,16 @@ fn modules() -> Vec<NavModule> {
                     icon: NavIcon::ClipboardDoc,
                 },
                 NavItem {
+                    name: "电源BOM",
+                    path: "/admin/md/boms?category_name=电源",
+                    icon: NavIcon::ClipboardDoc,
+                },
+                NavItem {
+                    name: "模组BOM",
+                    path: "/admin/md/boms?category_name=模组",
+                    icon: NavIcon::ClipboardDoc,
+                },
+                NavItem {
                     name: "工艺路线",
                     path: "/admin/md/routings",
                     icon: NavIcon::Wrench,

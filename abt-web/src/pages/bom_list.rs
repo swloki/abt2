@@ -298,13 +298,13 @@ fn bom_table_fragment(
                     table class="data-table" {
                         thead {
                             tr {
-                                th { "BOM名称" }
-                                th { "BOM分类" }
+                                th style="width:40%" { "BOM名称" }
+                                th style="width:100px" { "BOM分类" }
                                 th style="width:60px" { "版本" }
-                                th { "状态" }
-                                th { "创建者" }
-                                th { "更新时间" }
-                                th { "操作" }
+                                th style="width:80px" { "状态" }
+                                th style="width:80px" { "创建者" }
+                                th style="width:100px" { "更新时间" }
+                                th style="width:100px" { "操作" }
                             }
                         }
                         tbody {

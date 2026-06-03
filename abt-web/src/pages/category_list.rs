@@ -963,8 +963,8 @@ fn detail_panel(
                     div class="dialog-foot" {
                         button type="button" class="btn btn-default"
                             _="on click remove .open from #delete-category-dialog" { "取消" }
-                        button type="submit" class="btn btn-danger"
-                            form="delete-category-form" { "确认删除" }
+                        button type="button" class="btn btn-danger"
+                            _="on click remove .open from #delete-category-dialog then htmx.trigger(document.getElementById('delete-category-form'), 'submit')" { "确认删除" }
                     }
                 }
                 form id="delete-category-form" style="display:none"

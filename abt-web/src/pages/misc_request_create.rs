@@ -31,7 +31,7 @@ struct ItemWeb {
     quantity: String,
     unit: String,
     estimated_price: Option<String>,
-    remark: Option<String>,
+    item_remark: Option<String>,
 }
 
 // ── Handlers ──
@@ -59,7 +59,14 @@ pub async fn get_misc_create(
     Ok(Html(page_html.into_string()))
 }
 
-/// POST: create miscellaneous request from form submission
+/// HTMX: return an empty item row fragment
+#[require_permission("MISC_REQUEST", "create")]
+pub async fn get_misc_item_row(
+    _ctx: RequestContext,
+) -> Result<Html<String>> {
+    Ok(Html(empty_row_fragment().into_string()))
+}
+
 #[require_permission("MISC_REQUEST", "create")]
 pub async fn create_misc(
     _path: MiscCreatePath,
@@ -94,7 +101,7 @@ pub async fn create_misc(
                 .unwrap_or(rust_decimal::Decimal::ZERO),
             unit: item.unit,
             estimated_price: item.estimated_price.and_then(|s| s.parse().ok()),
-            remark: item.remark,
+            remark: item.item_remark,
         })
         .collect();
 
@@ -136,8 +143,15 @@ fn misc_create_page() -> Markup {
 
             form id="misc-form"
                   hx-post=(MiscCreatePath::PATH)
-                  hx-swap="none" {
-                input type="hidden" name="items_json";
+                  hx-swap="none"
+                  _="on submit
+                     set items to []
+                     repeat for row in <tr/> in <#misc-item-tbody/>
+                       get row as Values
+                       append it to items
+                     end
+                     set #items-json's value to items as JSONString" {
+                input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Basic Info ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
@@ -159,7 +173,9 @@ fn misc_create_page() -> Markup {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="form-section-title" style="margin:0;padding:0;border:none" { "请购明细" }
                     button type="button" class="btn btn-sm btn-primary"
-                        onclick="addItem()" {
+                        hx-get=(MiscItemRowPath::PATH)
+                        hx-target="#misc-item-tbody"
+                        hx-swap="beforeend" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加行"
                     }
@@ -179,27 +195,14 @@ fn misc_create_page() -> Markup {
                                 th style="width:36px" { }
                             }
                         }
-                        tbody {
-                            // TODO: Replace static placeholder row with vanilla JS dynamic row rendering
-                            tr {
-                                td class="line-num" { "1" }
-                                td { input class="form-input" type="text" required placeholder="物品名称" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input" type="text" placeholder="规格型号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input num-input" type="number" step="any" min="0" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input" type="text" placeholder="单位" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input num-input" type="number" step="0.01" min="0" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td class="mono" style="text-align:right" { "0.00" }
-                                td { input class="form-input" type="text" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { button type="button" class="btn-remove-row" title="删除行" {
-                                    (icon::x_icon("w-3.5 h-3.5"))
-                                } }
-                            }
-                        }
+                        tbody id="misc-item-tbody" { }
                     }
                 }
                 div class="add-row-bar" {
                     button type="button" class="btn-add-row"
-                        onclick="addItem()" {
+                        hx-get=(MiscItemRowPath::PATH)
+                        hx-target="#misc-item-tbody"
+                        hx-swap="beforeend" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加行"
                     }
@@ -223,6 +226,25 @@ fn misc_create_page() -> Markup {
             }
             }
 
+        }
+    }
+}
+
+fn empty_row_fragment() -> Markup {
+    html! {
+        tr {
+            td class="line-num" { }
+            td { input class="form-input" type="text" name="item_name" required placeholder="物品名称" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input" type="text" name="specification" placeholder="规格型号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input num-input" type="number" step="any" min="0" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input" type="text" name="unit" placeholder="单位" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input num-input" type="number" step="0.01" min="0" name="estimated_price" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td class="mono" style="text-align:right" { "0.00" }
+            td { input class="form-input" type="text" name="item_remark" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { button type="button" class="btn-remove-row" title="删除行"
+                _="on click remove the closest <tr/>" {
+                (icon::x_icon("w-3.5 h-3.5"))
+            } }
         }
     }
 }

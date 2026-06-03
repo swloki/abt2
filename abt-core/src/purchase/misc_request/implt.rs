@@ -84,6 +84,12 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
             .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
 
+        // 6. 初始状态日志
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
+            .await
+            .ok();
+
         Ok(id)
     }
 

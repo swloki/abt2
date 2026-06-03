@@ -27,6 +27,10 @@ pub struct POCreatePath;
 pub struct POProductsPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/orders/create/item-row")]
+pub struct POItemRowPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/orders/{id}")]
 pub struct PODetailPath {
     pub id: i64,
@@ -58,6 +62,7 @@ pub fn router() -> Router<AppState> {
         .route(POTablePath::PATH, get(purchase_order_list::get_po_table))
         .route(POCreatePath::PATH, get(purchase_order_create::get_po_create).post(purchase_order_create::create_po))
         .route(POProductsPath::PATH, get(purchase_order_create::get_po_products))
+        .route(POItemRowPath::PATH, get(purchase_order_create::get_po_item_row))
         .route(PODetailPath::PATH, get(purchase_order_detail::get_po_detail))
         .route(POConfirmPath::PATH, post(purchase_order_detail::confirm_po))
         .route(POCancelPath::PATH, post(purchase_order_detail::cancel_po))

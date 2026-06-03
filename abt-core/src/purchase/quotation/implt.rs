@@ -72,12 +72,16 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
         }
+        // 4. Record initial state
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
+            .await
+            .ok();
 
-        // 4. 审计日志
+        // 5. Audit log
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Create, changes: None, context: None })
             .await?;
-
         Ok(id)
     }
 
@@ -217,6 +221,17 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         // 4. Audit log
         new_audit_log_service(self.pool.clone())
             .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Transition, changes: None, context: None })
+            .await?;
+        Ok(())
+    }
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
+        let quotation = self.get(ctx, db, id).await?;
+        if quotation.status == PurchaseQuotationStatus::Active {
+            return Err(DomainError::business_rule("已生效的报价不能删除"));
+        }
+        PurchaseQuotationRepo::soft_delete(db, id).await?;
+        new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq { entity_type: ENTITY_TYPE, entity_id: id, action: AuditAction::Delete, changes: None, context: None })
             .await?;
         Ok(())
     }

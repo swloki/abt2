@@ -16,7 +16,7 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::purchase_quotation::{
-    PQCreatePath, PQDetailPath, PQListPath, PQProductsPath,
+    PQCreatePath, PQDetailPath, PQItemRowPath, PQListPath, PQProductsPath,
 };
 use crate::utils::RequestContext;
 use abt_core::shared::types::DomainError;
@@ -44,7 +44,7 @@ pub struct PQCreateForm {
 
 #[derive(Debug, Deserialize)]
 struct ItemWeb {
-    product_id: i64,
+    product_id: String,
     unit_price: String,
     min_order_qty: Option<String>,
     lead_time_days: Option<String>,
@@ -125,6 +125,30 @@ pub async fn get_pq_products(
     Ok(Html(product_list_fragment(&result.items).into_string()))
 }
 
+/// HTMX: return a single item row fragment for a given product_id
+#[require_permission("PURCHASE_QUOTATION", "create")]
+pub async fn get_pq_item_row(
+    ctx: RequestContext,
+    Query(params): Query<ItemRowParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let svc = state.product_service();
+    let product = svc
+        .get(&service_ctx, &mut conn, params.product_id)
+        .await?;
+    Ok(Html(item_row_fragment(&product).into_string()))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ItemRowParams {
+    product_id: i64,
+}
+
 /// POST: create purchase quotation from form submission (HTMX)
 #[require_permission("PURCHASE_QUOTATION", "create")]
 pub async fn create_pq(
@@ -154,7 +178,7 @@ pub async fn create_pq(
         .into_iter()
         .enumerate()
         .map(|(idx, item)| CreateQuotationItemRequest {
-            product_id: item.product_id,
+            product_id: item.product_id.parse().unwrap_or(0),
             line_no: (idx as i32) + 1,
             unit_price: item
                 .unit_price
@@ -204,9 +228,15 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
 
             form id="pq-form"
                   hx-post=(PQCreatePath::PATH)
-                  hx-swap="none" {
-                input type="hidden" name="items_json";
-
+                  hx-swap="none"
+                  _="on submit
+                     set items to []
+                     repeat for row in <tr/> in <#pq-item-tbody/>
+                       get row as Values
+                       append it to items
+                     end
+                     set #items-json's value to items as JSONString" {
+                input type="hidden" id="items-json" name="items_json" value="[]";
             // ── Supplier Selection ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
                 div class="form-section-title" { "供应商信息" }
@@ -229,7 +259,7 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                 div class="form-grid" {
                     div class="form-field" {
                         label { "报价日期" }
-                        input type="date" name="quotation_date" value=(today) disabled {}
+                        input type="date" name="quotation_date" value=(today) readonly {}
                     }
                     div class="form-field" {
                         label { "生效日期" span style="color:var(--danger)" { "*" } }
@@ -267,22 +297,7 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                                 th style="width:36px" { }
                             }
                         }
-                        tbody {
-                            // TODO: Replace static placeholder row with vanilla JS dynamic row rendering
-                            tr {
-                                td class="line-num" { "1" }
-                                td class="mono" { }
-                                td { }
-                                td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input" type="text" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td style="text-align:center" { input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)" {} }
-                                td { button type="button" class="btn-remove-row" title="删除行" {
-                                    (icon::x_icon("w-3.5 h-3.5"))
-                                } }
-                            }
-                        }
+                        tbody id="pq-item-tbody" { }
                     }
                 }
                 div class="add-row-bar" {
@@ -314,7 +329,7 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
                 _="on click remove .is-open from #product-modal" {
-                div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal modal-lg" _="on click call event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -344,7 +359,7 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                                     hx-get=(PQProductsPath::PATH)
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
-                                    onclick="document.querySelectorAll('.product-search-input').forEach(function(i){i.value=''})" {
+                                    _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
                                     "清除"
                                 }
                             }
@@ -375,11 +390,6 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
         } @else {
             div class="product-select-list" {
                 @for p in products {
-                    @let product_json = serde_json::json!({
-                        "product_id": p.product_id,
-                        "product_code": &p.product_code,
-                        "product_name": &p.pdt_name,
-                    }).to_string();
                     div class="product-select-item" {
                         div class="product-select-info" {
                             div class="product-select-name" { (p.pdt_name) }
@@ -392,13 +402,35 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             }
                         }
                         button type="button" class="btn btn-sm btn-primary"
-                            data-product=(product_json)
-                            onclick="addItem(JSON.parse(this.dataset.product))" {
+                            hx-get=(format!("{}?product_id={}", PQItemRowPath::PATH, p.product_id))
+                            hx-target="#pq-item-tbody"
+                            hx-swap="beforeend"
+                            _="on htmx:afterRequest remove .is-open from #product-modal" {
                             "选择"
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
+    html! {
+        tr {
+            td class="line-num" { }
+            td class="mono" { (product.product_code) }
+            td { (product.pdt_name) }
+            td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" name="unit_price" {} }
+            td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" name="min_order_qty" {} }
+            td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" name="lead_time_days" {} }
+            td { input class="form-input" type="text" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" name="currency" value="CNY" {} }
+            td style="text-align:center" { input type="checkbox" name="is_preferred" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)" {} }
+            td { button type="button" class="btn-remove-row" title="删除行"
+                _="on click remove the closest <tr/>" {
+                (icon::x_icon("w-3.5 h-3.5"))
+            } }
+            input type="hidden" name="product_id" value=(product.product_id) {}
         }
     }
 }

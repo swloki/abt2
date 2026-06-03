@@ -451,7 +451,8 @@ const componentStyles = `
   border-bottom: 1px solid var(--border-soft); text-transform: uppercase; letter-spacing: 0.04em;
 }
 .data-table td { padding: 13px var(--space-4); border-bottom: 1px solid var(--border-soft); vertical-align: middle; white-space: nowrap; }
-.data-table tbody tr { transition: all var(--motion-fast) var(--ease-standard); cursor: pointer; }
+.data-table tbody { counter-reset: line-item; }
+.data-table tbody tr { counter-increment: line-item; transition: all var(--motion-fast) var(--ease-standard); cursor: pointer; }
 .data-table tbody tr:hover { background: var(--accent-bg); }
 .data-table tbody tr:last-child td { border-bottom: none; }
 .data-table .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
@@ -810,6 +811,7 @@ const componentStyles = `
 
 /* ─── Line Items (Create Page) ─── */
 .line-num { font-family: var(--font-mono); color: var(--muted); font-size: var(--text-xs); text-align: center; }
+.line-num::before { content: counter(line-item); }
 .line-total { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: 600; color: var(--fg); white-space: nowrap; }
 .btn-remove-row {
   width: 28px; height: 28px; border: none; background: transparent;
@@ -1167,6 +1169,10 @@ const componentStyles = `
   background: transparent; color: #b45309; border: 1px solid #fbbf24;
 }
 .btn-warning-ghost:hover { background: #fef3c7; }
+.btn-danger-ghost {
+  background: transparent; color: #dc2626; border: 1px solid #fca5a5;
+}
+.btn-danger-ghost:hover { background: #fef2f2; }
 .btn-success {
   background: #10b981; color: #fff; border-color: #10b981;
 }
@@ -1539,6 +1545,8 @@ export default defineConfig({
     "btn-sm": "px-3 py-[5px] text-xs",
     "btn-danger":
       "btn !bg-danger !text-white !border-danger hover-shadow-[0_4px_12px_rgba(255,77,79,0.25)]",
+    "btn-danger-ghost":
+      "btn bg-transparent text-[#dc2626] border-[1px] border-[#fca5a5] hover-bg-[#fef2f2]",
 
     // ─── Data Card / Table ───
     "data-card":

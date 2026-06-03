@@ -16,16 +16,6 @@
     var addProductName = '';
     var addProductUnit = '';
 
-    var editModalOpen = false;
-    var editNodeId = 0;
-    var editNode = {
-        quantity: '',
-        loss_rate: '',
-        unit: '',
-        work_center: '',
-        position: '',
-        remark: ''
-    };
 
     var saveAsOpen = false;
     var saveAsName = '';
@@ -102,49 +92,7 @@
         });
     }
 
-    // ── Edit Node ──
 
-    function openEdit(nodeId, quantity, lossRate, unit, workCenter, position, remark) {
-        editNodeId = nodeId;
-        editNode = {
-            quantity: quantity,
-            loss_rate: lossRate,
-            unit: unit,
-            work_center: workCenter,
-            position: position,
-            remark: remark
-        };
-        var form = document.getElementById('bom-edit-node-form');
-        var action = '/admin/md/boms/' + bomId() + '/nodes/' + nodeId;
-        form.action = action;
-        form.setAttribute('hx-post', action);
-
-        // Fill form fields
-        form.querySelector('[name="quantity"]').value = quantity;
-        form.querySelector('[name="loss_rate"]').value = lossRate;
-        form.querySelector('[name="unit"]').value = unit;
-        form.querySelector('[name="work_center"]').value = workCenter;
-        form.querySelector('[name="position"]').value = position;
-        form.querySelector('[name="remark"]').value = remark;
-
-        openModal('bom-edit-modal');
-    }
-
-    window.bomOpenEdit = openEdit;
-
-    // ── Delete Node ──
-
-    function openDelete(nodeId) {
-        var form = document.getElementById('bom-node-delete-form');
-        var action = '/admin/md/boms/' + bomId() + '/nodes/' + nodeId;
-        form.action = action;
-        form.setAttribute('hx-delete', action);
-        // Show confirm dialog
-        var overlay = document.getElementById('bom-delete-dialog');
-        if (overlay) overlay.classList.add('open');
-    }
-
-    window.bomOpenDelete = openDelete;
 
     // ── Add Child ──
 
@@ -417,6 +365,13 @@
         });
     }
 
+    function bindEditButtons() {
+        document.querySelectorAll('button[title="编辑"]').forEach(function (btn) {
+            btn.addEventListener('htmx:afterRequest', function () {
+                document.getElementById('bom-edit-modal').classList.add('is-open');
+            });
+        });
+    }
     // ── Init ──
 
     function init() {
@@ -454,6 +409,30 @@
                 if (overlay) overlay.classList.add('open');
             });
         }
+
+        // Edit button: open modal after HTMX loads content
+        bindEditButtons();
+        // Reload .data-card on nodeUpdated (edit/delete node)
+        document.body.addEventListener('nodeUpdated', function () {
+            var card = document.querySelector('.data-card');
+            if (card) {
+                htmx.ajax('GET', window.location.pathname, {
+                    target: card,
+                    swap: 'outerHTML',
+                    select: '.data-card'
+                }).then(function () {
+                    bindEditButtons();
+                    applyVisibility();
+                });
+            }
+            // Also close edit modal if open
+            var modal = document.getElementById('bom-edit-modal');
+            if (modal) {
+                modal.classList.remove('is-open');
+                modal.innerHTML = '';
+            }
+        });
+
     }
 
     if (document.readyState === 'loading') {

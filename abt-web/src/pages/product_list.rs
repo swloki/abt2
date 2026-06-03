@@ -455,7 +455,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
             }
             td onclick=(format!("location.href='{}'", detail_path)) { (p.unit) }
             td onclick="event.stopPropagation()" {
-                div class="row-actions" _="on click halt the event" {
+                div class="row-actions" _="on click call event.stopPropagation()" {
                     // View detail
                     a class="row-action-btn" title="查看"
                         href=(detail_path) {
@@ -477,10 +477,10 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                     }
                     // Backdrop to close menu on outside click
                     div style="position:fixed;inset:0;z-index:49;display:none"
-                        _="on click remove .is-open from closest .row-actions .row-actions-menu then hide me" {}
+                        _="on click remove .is-open from the closest .row-actions-menu then hide me" {}
                     // Dropdown menu
                     div class="row-actions-menu"
-                        _="on click halt the event" {
+                        _="on click call event.stopPropagation()" {
                         a href=(edit_path) {
                             (icon::edit_icon("w-4 h-4"))
                             "编辑"
@@ -614,7 +614,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                 }
                 div class="bom-ref-info" {
                     div class="bom-ref-name" {
-                        a href=(bom_detail_path) _="on click halt the event" style="color:var(--accent);text-decoration:none;font-weight:600" {
+                        a href=(bom_detail_path) _="on click call event.stopPropagation()" style="color:var(--accent);text-decoration:none;font-weight:600" {
                             (entry.source_name)
                         }
                         span style="font-size:11px;font-weight:400;color:var(--muted);font-family:var(--font-mono)" {
@@ -636,7 +636,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                             span style="font-size:12px;font-weight:400;color:var(--muted)" { (unit) }
                         }
                     }
-                    button class="bom-ref-expand" _="on click halt the event then toggle .is-expanded on closest .bom-ref-card then toggle *display on closest .bom-ref-card .bom-ref-detail" {
+                    button class="bom-ref-expand" _="on click call event.stopPropagation() then toggle .is-expanded on closest .bom-ref-card then toggle *display on closest .bom-ref-card .bom-ref-detail" {
                         svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" {
                             path d="M19 9l-7 7-7-7" {}
                         }
@@ -695,7 +695,7 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
     html! {
         div class="dialog-overlay open"
             _="on click remove .open" {
-            div class="dialog" _="on click halt the event" {
+            div class="dialog" _="on click call event.stopPropagation()" {
                 div class="dialog-body" {
                     div class="dialog-icon-wrap" {
                         (icon::circle_alert_icon("w-7 h-7"))
@@ -720,7 +720,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
     html! {
         div class="modal-overlay is-open"
             _="on click remove .is-open" {
-            div class="modal" _="on click halt the event" {
+            div class="modal" _="on click call event.stopPropagation()" {
                 div class="modal-head" {
                     h2 { "价格变更记录" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"

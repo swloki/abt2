@@ -17,8 +17,8 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::quotation::{
-    QuotationCreatePath, QuotationCustomerContactsPath, QuotationDetailPath, QuotationListPath,
-    QuotationProductsPath,
+    QuotationCreatePath, QuotationCustomerContactsPath, QuotationDetailPath, QuotationItemRowPath,
+    QuotationListPath, QuotationProductsPath,
 };
 use crate::utils::RequestContext;
 use abt_core::shared::types::DomainError;
@@ -47,7 +47,7 @@ pub struct QuotationCreateForm {
 
 #[derive(Debug, Deserialize)]
 struct ItemWeb {
-    product_id: i64,
+    product_id: String,
     description: Option<String>,
     quantity: String,
     unit: Option<String>,
@@ -178,6 +178,30 @@ pub async fn get_products(
     Ok(Html(product_list_fragment(&result.items).into_string()))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ItemRowParams {
+    product_id: i64,
+}
+
+/// HTMX: return a single item row fragment for a given product_id
+#[require_permission("SALES_ORDER", "create")]
+pub async fn get_quotation_item_row(
+    ctx: RequestContext,
+    Query(params): Query<ItemRowParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let svc = state.product_service();
+    let product = svc
+        .get(&service_ctx, &mut conn, params.product_id)
+        .await?;
+    Ok(Html(item_row_fragment(&product).into_string()))
+}
+
 /// POST: create quotation from form submission (HTMX)
 #[require_permission("SALES_ORDER", "create")]
 pub async fn create_quotation(
@@ -202,7 +226,7 @@ pub async fn create_quotation(
     let items: Vec<CreateQuotationItemReq> = web_items
         .into_iter()
         .map(|item| CreateQuotationItemReq {
-            product_id: item.product_id,
+            product_id: item.product_id.parse().unwrap_or(0),
             description: item.description,
             quantity: item.quantity.parse().unwrap_or(rust_decimal::Decimal::ONE),
             unit: item.unit,
@@ -253,11 +277,17 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                 }
                 h1 class="page-title" { "新建报价单" }
             }
-
             form id="quotation-form"
                   hx-post=(QuotationCreatePath::PATH)
-                  hx-swap="none" {
-                input type="hidden" name="items_json";
+                  hx-swap="none"
+                  _="on submit
+                     set items to []
+                     repeat for row in <tr/> in <#quotation-item-tbody/>
+                       get row as Values
+                       append it to items
+                     end
+                     set #items-json's value to items as JSONString" {
+                input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Customer Info (HTMX self-contained) ──
             (customer_info_panel(customers, &[], None, QuotationCustomerContactsPath::PATH))
@@ -268,7 +298,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                 div class="form-grid" {
                     div class="form-field" {
                         label { "报价日期" }
-                        input type="date" name="quotation_date" value=(today) disabled {}
+                        input type="date" name="quotation_date" value=(today) readonly {}
                     }
                     div class="form-field" {
                         label { "有效期至" span style="color:var(--danger)" { "*" } }
@@ -322,23 +352,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                                 th style="width:36px" { }
                             }
                         }
-                        tbody {
-                            // TODO: Replace static placeholder row with vanilla JS dynamic row rendering
-                            tr {
-                                td class="line-num" { "1" }
-                                td class="mono" { }
-                                td { }
-                                td { input class="form-input" type="text" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input" type="text" readonly style="width:56px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
-                                td { input class="form-input num-input" type="number" min="1" step="1" placeholder="0" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input num-input" type="number" min="0" max="100" style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
-                                td { button type="button" class="btn-remove-row" title="删除行" {
-                                    (icon::x_icon("w-3.5 h-3.5"))
-                                } }
-                            }
-                        }
+                        tbody id="quotation-item-tbody" { }
                     }
                 }
                 div class="add-row-bar" {
@@ -384,7 +398,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
                 _="on click remove .is-open from #product-modal" {
-                div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal modal-lg" _="on click call event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -414,7 +428,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                                     hx-get=(QuotationProductsPath::PATH)
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
-                                    onclick="document.querySelectorAll('.product-search-input').forEach(function(i){i.value=''})" {
+                                    _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
                                     "清除"
                                 }
                             }
@@ -445,13 +459,6 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
         } @else {
             div class="product-select-list" {
                 @for p in products {
-                    @let product_json = serde_json::json!({
-                        "product_id": p.product_id,
-                        "product_code": &p.product_code,
-                        "product_name": &p.pdt_name,
-                        "specification": &p.meta.specification,
-                        "unit": &p.unit,
-                    }).to_string();
                     div class="product-select-item" {
                         div class="product-select-info" {
                             div class="product-select-name" { (p.pdt_name) }
@@ -464,13 +471,36 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             }
                         }
                         button type="button" class="btn btn-sm btn-primary"
-                            data-product=(product_json)
-                            onclick="addItem(JSON.parse(this.dataset.product))" {
+                            hx-get=(format!("{}?product_id={}", QuotationItemRowPath::PATH, p.product_id))
+                            hx-target="#quotation-item-tbody"
+                            hx-swap="beforeend"
+                            _="on htmx:afterRequest remove .is-open from #product-modal" {
                             "选择"
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
+    html! {
+        tr {
+            td class="line-num" { }
+            td class="mono" { (product.product_code) }
+            td { (product.pdt_name) }
+            td { input class="form-input" type="text" name="description" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input" type="text" name="unit" readonly value=(product.unit) style="width:56px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
+            td { input class="form-input num-input" type="number" min="1" step="1" name="quantity" placeholder="0" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input num-input" type="number" step="0.01" name="unit_price" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input num-input" type="number" min="0" max="100" name="discount_rate" style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
+            td { button type="button" class="btn-remove-row" title="删除行"
+                _="on click remove the closest <tr/>" {
+                (icon::x_icon("w-3.5 h-3.5"))
+            } }
+            input type="hidden" name="product_id" value=(product.product_id) {}
         }
     }
 }

@@ -253,7 +253,7 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
             // ── Detail Drawer Overlay ──
             div class="detail-overlay" id="detail-drawer"
                 _="on click if event.target is me remove .open" {
-                div class="detail-drawer" _="on click halt the event" {
+                div class="detail-drawer" _="on click call event.stopPropagation()" {
                     div class="detail-head" {
                         h2 { "变更详情" }
                         button class="detail-close" _="on click remove .open from #detail-drawer" {
@@ -352,7 +352,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
                     hx-get=(detail_path.to_string())
                     hx-target="#detail-body"
                     hx-swap="innerHTML"
-                    _="on click halt the event then add .open to #detail-drawer" { "详情" }
+                    _="on click call event.stopPropagation() then add .open to #detail-drawer" { "详情" }
             }
         }
     }

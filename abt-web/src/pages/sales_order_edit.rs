@@ -34,14 +34,14 @@ pub struct OrderEditForm {
 
 #[derive(Debug, Deserialize)]
 struct ItemWeb {
-    product_id: i64,
+    product_id: String,
     description: Option<String>,
     quantity: String,
     unit: Option<String>,
     unit_price: String,
     unit_cost: Option<String>,
     discount_rate: Option<String>,
-    delivery_date: Option<String>,
+    item_delivery_date: Option<String>,
 }
 
 // ── Handlers ──
@@ -110,14 +110,14 @@ pub async fn update_order(
 
     let items: Vec<CreateSalesOrderItemReq> = web_items.into_iter().map(|item| {
         CreateSalesOrderItemReq {
-            product_id: item.product_id,
+            product_id: item.product_id.parse().unwrap_or(0),
             description: item.description,
             quantity: item.quantity.parse().unwrap_or(rust_decimal::Decimal::ONE),
             unit: item.unit,
             unit_price: item.unit_price.parse().unwrap_or(rust_decimal::Decimal::ZERO),
             unit_cost: item.unit_cost.and_then(|s| s.parse().ok()),
             discount_rate: item.discount_rate.and_then(|s| s.parse().ok()),
-            delivery_date: item.delivery_date.and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
+            delivery_date: item.item_delivery_date.and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
         }
     }).collect();
 
@@ -154,24 +154,6 @@ fn order_edit_page(
     contacts: &[CustomerContact],
     product_codes: &std::collections::HashMap<i64, (String, String)>,
 ) -> Markup {
-    // Build initial items JSON for JS init
-    let initial_items: Vec<serde_json::Value> = items.iter().map(|item| {
-        let (code, name) = product_codes.get(&item.product_id)
-            .cloned()
-            .unwrap_or_default();
-        serde_json::json!({
-            "product_id": item.product_id,
-            "product_code": code,
-            "product_name": name,
-            "unit": item.unit,
-            "description": item.description,
-            "quantity": item.quantity.to_string(),
-            "unit_price": item.unit_price.to_string(),
-            "discount_rate": item.discount_rate.to_string(),
-            "delivery_date": item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default(),
-        })
-    }).collect();
-    let initial_items_json = serde_json::to_string(&initial_items).unwrap_or_default();
 
     let detail_path = OrderDetailPath { id: order.id };
     let update_path = OrderEditFormPath { id: order.id };
@@ -183,7 +165,7 @@ fn order_edit_page(
     let rm = &order.remark;
 
     html! {
-        div id="order-app" data-items=(initial_items_json) {
+        div id="order-app" {
             // ── Page Header ──
             div class="page-header" {
                 a class="back-link" href=(detail_path.to_string()) {
@@ -195,8 +177,15 @@ fn order_edit_page(
 
             form id="order-form"
                   hx-post=(update_path.to_string())
-                  hx-swap="none" {
-                input type="hidden" name="items_json";
+                  hx-swap="none"
+                  _="on submit
+                     set items to []
+                     repeat for row in <tr/> in <#order-item-tbody/>
+                       get row as Values
+                       append it to items
+                     end
+                     set #items-json's value to items as JSONString" {
+                input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Customer Info ──
             (customer_info_panel(customers, contacts, Some(order.customer_id), OrderCustomerContactsPath::PATH))
@@ -262,22 +251,26 @@ fn order_edit_page(
                                 th style="width:36px" { }
                             }
                         }
-                        tbody {
-                            // TODO: Replace static placeholder row with vanilla JS dynamic row rendering
-                            tr {
-                                td class="line-num" { "1" }
-                                td class="mono" { }
-                                td { }
-                                td { input class="form-input" type="text" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input" type="text" readonly style="width:56px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
-                                td { input class="form-input num-input" type="number" min="1" step="1" placeholder="0" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input num-input" type="number" min="0" max="100" style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
-                                td { input type="date" style="width:110px;padding:5px 6px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { button type="button" class="btn-remove-row" title="删除行" {
-                                    (icon::x_icon("w-3.5 h-3.5"))
-                                } }
+                        tbody id="order-item-tbody" {
+                            @for item in items {
+                                @let (code, name) = product_codes.get(&item.product_id).cloned().unwrap_or_default();
+                                tr {
+                                    td class="line-num" { }
+                                    td class="mono" { (code) }
+                                    td { (name) }
+                                    td { input class="form-input" type="text" name="description" value=(&item.description) style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input" type="text" name="unit" readonly value=(&item.unit) style="width:56px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
+                                    td { input class="form-input num-input" type="number" min="1" step="1" name="quantity" value=(item.quantity.to_string()) placeholder="0" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input num-input" type="number" step="0.01" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input num-input" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
+                                    td { input class="form-input" type="date" name="item_delivery_date" value=(item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default()) style="width:110px;padding:5px 6px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { button type="button" class="btn-remove-row" title="删除行"
+                                        _="on click remove the closest <tr/>" {
+                                        (icon::x_icon("w-3.5 h-3.5"))
+                                    } }
+                                    input type="hidden" name="product_id" value=(item.product_id) {}
+                                }
                             }
                         }
                     }
@@ -325,7 +318,7 @@ fn order_edit_page(
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
                 _="on click remove .is-open from #product-modal" {
-                div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal modal-lg" _="on click call event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -355,7 +348,7 @@ fn order_edit_page(
                                 hx-get=(OrderProductsPath::PATH)
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
-                                onclick="document.querySelectorAll('.product-search-input').forEach(function(i){i.value=''})" {
+                                _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
                                 "清除"
                             }
                         }

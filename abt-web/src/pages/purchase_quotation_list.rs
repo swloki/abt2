@@ -301,8 +301,9 @@ fn pq_row(
     let supplier_name = supplier_names.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("—");
     let created = q.created_at.format("%Y-%m-%d").to_string();
     let onclick = format!("location.href='{}'", detail_path);
-    let is_draft = q.status == PurchaseQuotationStatus::Draft;
-    html! {
+        let is_draft = q.status == PurchaseQuotationStatus::Draft;
+        let can_delete = q.status != PurchaseQuotationStatus::Active;
+        html! {
         tr style="cursor:pointer" {
             td class="link-cell mono" onclick=(&onclick) { (q.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
@@ -314,10 +315,20 @@ fn pq_row(
             td onclick=(&onclick) { (q.remark.as_str()) }
             td onclick=(&onclick) { (created) }
             td onclick="event.stopPropagation()" {
-                @if is_draft {
+                @if is_draft || can_delete {
                     div class="row-actions" {
-                        a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
-                            (icon::edit_icon("w-4 h-4"))
+                        @if is_draft {
+                            a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
+                                (icon::edit_icon("w-4 h-4"))
+                            }
+                        }
+                        @if can_delete {
+                            button class="row-action-btn row-action-danger"
+                                title="删除"
+                                hx-post=(PQDeletePath { id: q.id }.to_string())
+                                hx-confirm="确认删除此报价？" {
+                                (icon::trash_icon("w-4 h-4"))
+                            }
                         }
                     }
                 }

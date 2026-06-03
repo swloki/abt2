@@ -21,7 +21,7 @@ pub fn confirm_dialog(
     html! {
         div id=(dialog_id) class="dialog-overlay"
             _={ "on click remove .open from #" (dialog_id) } {
-            div class="dialog" _="on click halt the event" {
+            div class="dialog" _="on click call event.stopPropagation()" {
                 div class="dialog-body" {
                     div class="dialog-icon-wrap" {
                         (icon::circle_alert_icon("w-7 h-7"))

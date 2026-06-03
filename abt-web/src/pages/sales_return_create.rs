@@ -406,7 +406,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
             // ── Order Picker Modal ──
             div class="modal-overlay" id="order-modal"
                 _="on click remove .is-open from #order-modal" {
-                div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal modal-lg" _="on click call event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择来源订单" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"

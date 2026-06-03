@@ -39,4 +39,5 @@ pub trait PurchaseQuotationService: Send + Sync {
         quotation_id: i64,
     ) -> Result<Vec<PurchaseQuotationItem>>;
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()>;
+    async fn delete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 }

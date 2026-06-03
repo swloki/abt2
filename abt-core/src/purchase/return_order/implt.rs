@@ -128,6 +128,12 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
                 )
             .await?;
 
+        // 8. 初始状态日志
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
+            .await
+            .ok();
+
         Ok(id)
     }
 

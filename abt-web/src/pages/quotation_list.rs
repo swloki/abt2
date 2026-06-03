@@ -248,7 +248,7 @@ fn quotation_list_page(
             // ── Edit Modal ──
             div id="quotation-edit-modal" class="modal-overlay"
                 _="on click remove .is-open from #quotation-edit-modal" {
-                div class="modal" _="on click halt the event" {
+                div class="modal" _="on click call event.stopPropagation()" {
                     div id="quotation-edit-modal-content" {
                         "加载中..."
                     }

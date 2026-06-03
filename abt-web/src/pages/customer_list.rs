@@ -363,7 +363,7 @@ fn customer_list_page(
 
             div class="modal-overlay" id="customer-create-modal"
                 _="on click remove .is-open" {
-                div class="modal" _="on click halt the event" {
+                div class="modal" _="on click call event.stopPropagation()" {
                     (customer_form(&None, "create-customer-form", CreateCustomerPath::PATH))
                 }
             }

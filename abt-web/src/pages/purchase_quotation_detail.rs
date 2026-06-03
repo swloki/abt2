@@ -108,6 +108,19 @@ pub async fn cancel_pq(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+#[require_permission("PURCHASE_QUOTATION", "delete")]
+pub async fn delete_pq(
+    path: PQDeletePath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.purchase_quotation_service();
+
+    svc.delete(&service_ctx, &mut conn, path.id).await?;
+
+    Ok(([("HX-Redirect", PQListPath.to_string())], Html(String::new())))
+}
+
 // ── Workflow Steps ──
 
 fn workflow_steps(current: PurchaseQuotationStatus) -> Markup {
@@ -198,6 +211,14 @@ fn pq_detail_page(
                             hx-post=(PQCancelPath { id: pq.id }.to_string())
                             hx-confirm="确认取消此报价？取消后不可恢复。" {
                             "取消"
+                        }
+                    }
+                    @if pq.status != PurchaseQuotationStatus::Active {
+                        button class="btn btn-danger-ghost"
+                            hx-post=(PQDeletePath { id: pq.id }.to_string())
+                            hx-confirm="确认删除此报价？删除后不可恢复。" {
+                            (icon::trash_icon("w-4 h-4"))
+                            "删除"
                         }
                     }
                 }

@@ -28,6 +28,10 @@ pub struct OrderCreatePath;
 pub struct OrderProductsPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/orders/item-row")]
+pub struct OrderItemRowPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/orders/customer-contacts")]
 pub struct OrderCustomerContactsPath;
 
@@ -88,6 +92,7 @@ pub fn router() -> Router<AppState> {
         .route(OrderTablePath::PATH, get(sales_order_list::get_order_table))
         .route(OrderCreatePath::PATH, get(sales_order_create::get_order_create).post(sales_order_create::create_order))
         .route(OrderProductsPath::PATH, get(sales_order_create::get_products))
+        .route(OrderItemRowPath::PATH, get(sales_order_create::get_order_item_row))
         .route(OrderCustomerContactsPath::PATH, get(sales_order_create::get_customer_contacts))
         .route(OrderDetailPath::PATH, get(sales_order_detail::get_order_detail))
         .route(OrderEditFormPath::PATH, get(sales_order_edit::get_order_edit).post(sales_order_edit::update_order))

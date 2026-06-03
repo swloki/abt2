@@ -258,7 +258,7 @@ fn bom_detail_page(
                 // ── Cost Drawer (wider: 1000px) ──
                 div id="cost-drawer" class="drawer-overlay"
                     _="on click remove .open from #cost-drawer" {
-                    div class="drawer" style="max-width:1000px;width:100%" _="on click halt the event" {
+                    div class="drawer" style="max-width:1000px;width:100%" _="on click call event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
@@ -279,7 +279,7 @@ fn bom_detail_page(
                 // ── Labor Cost Drawer (wider: 800px) ──
                 div id="labor-drawer" class="drawer-overlay"
                     _="on click remove .open from #labor-drawer" {
-                    div class="drawer" style="max-width:800px;width:100%" _="on click halt the event" {
+                    div class="drawer" style="max-width:800px;width:100%" _="on click call event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"

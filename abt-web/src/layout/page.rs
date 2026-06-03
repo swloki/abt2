@@ -20,7 +20,7 @@ fn document(title: &str, body: Markup) -> Markup {
                 script src="/htmx.min.js" {}
                 script src="/app.js?v=20260603" {}
                 script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" {}
-                script src="https://unpkg.com/hyperscript.org@0.9.14" {}
+                script src="https://unpkg.com/hyperscript.org@0.9.91" {}
             }
             body {
                 (body)
@@ -107,7 +107,7 @@ fn global_confirm_dialog() -> Markup {
         div id="global-confirm-dialog" {
             div class="dialog-overlay"
                 _="on click remove .open" {
-                div class="dialog" _="on click halt the event" {
+                div class="dialog" _="on click call event.stopPropagation()" {
                     div class="dialog-body" {
                         div class="dialog-icon-wrap" {
                             (PreEscaped(icon))

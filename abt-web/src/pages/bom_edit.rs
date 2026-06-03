@@ -14,6 +14,7 @@ use abt_core::master_data::bom::{
 use abt_core::master_data::product::model::ProductQuery;
 use abt_core::master_data::product::ProductService;
 use abt_core::shared::types::PageParams;
+use abt_core::shared::types::DomainError;
 
 use abt_macros::require_permission;
 
@@ -66,6 +67,8 @@ pub struct UpdateNodeForm {
     pub work_center: Option<String>,
     #[serde(default)]
     pub remark: Option<String>,
+    #[serde(default)]
+    pub expected_version: i32,
 }
 
 #[derive(Debug, Deserialize)]
@@ -276,12 +279,11 @@ pub async fn update_node(
                 work_center: form.work_center.filter(|s| !s.is_empty()),
                 properties: None,
             },
-            0,
+            form.expected_version,
         )
         .await?;
 
-    let redirect = BomEditPath { id: path.id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    Ok(([("HX-Trigger", "nodeUpdated")], Html(String::new())))
 }
 
 /// DELETE: delete a node
@@ -302,8 +304,7 @@ pub async fn delete_node(
         .delete_node(&service_ctx, &mut conn, path.id, path.node_id)
         .await?;
 
-    let redirect = BomEditPath { id: path.id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    Ok(([("HX-Trigger", "nodeUpdated")], Html(String::new())))
 }
 
 /// POST: move a node (drag-and-drop reorder)
@@ -408,6 +409,75 @@ pub async fn save_as(
 
     let redirect = BomEditPath { id: new_id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+/// HTMX: return edit form HTML fragment for a node
+#[require_permission("BOM", "update")]
+pub async fn get_node_edit_form(
+    ctx: RequestContext,
+    Query(params): Query<NodeEditParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let bom_svc = state.bom_query_service();
+    let bom = bom_svc.get(&service_ctx, &mut conn, params.bom_id).await?;
+    let node = bom.bom_detail.nodes.iter().find(|n| n.id == params.node_id)
+        .ok_or_else(|| DomainError::not_found("节点不存在"))?;
+    Ok(Html(node_edit_form_fragment(params.bom_id, params.node_id, bom.version, node).into_string()))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct NodeEditParams {
+    pub bom_id: i64,
+    pub node_id: i64,
+}
+
+fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &BomNode) -> Markup {
+    let action = BomNodePath { id: bom_id, node_id }.to_string();
+    html! {
+        div class="modal" _="on click call event.stopPropagation()" {
+            div class="modal-head" {
+                h2 { "编辑节点" }
+                button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                    _="on click remove .is-open from #bom-edit-modal then put '' into #bom-edit-modal" { "×" }
+            }
+            div class="modal-body" {
+                form hx-post=(action) hx-swap="none" {
+                    input type="hidden" name="expected_version" value=(bom_version) {}
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label { "数量 " span style="color:var(--danger)" { "*" } }
+                            input type="number" name="quantity" step="0.01" min="0.01" required value=(node.quantity) {}
+                        }
+                        div class="form-field" {
+                            label { "损耗率%" }
+                            input type="number" name="loss_rate" step="0.1" min="0" value=(node.loss_rate) {}
+                        }
+                        div class="form-field" {
+                            label { "单位" }
+                            input type="text" name="unit" value=(node.unit.as_deref().unwrap_or("")) {}
+                        }
+                        div class="form-field" {
+                            label { "工作中心" }
+                            input type="text" name="work_center" value=(node.work_center.as_deref().unwrap_or("")) {}
+                        }
+                        div class="form-field" {
+                            label { "位置" }
+                            input type="text" name="position" value=(node.position.as_deref().unwrap_or("")) {}
+                        }
+                        div class="form-field field-full" {
+                            label { "备注" }
+                            input type="text" name="remark" value=(node.remark.as_deref().unwrap_or("")) {}
+                        }
+                    }
+                    div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
+                        button type="button" class="btn btn-default"
+                            _="on click remove .is-open from #bom-edit-modal then put '' into #bom-edit-modal" { "取消" }
+                        button type="submit" class="btn btn-primary" { "保存" }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // ── Components ──
@@ -569,7 +639,7 @@ fn bom_edit_page(
             // ── Add Node Modal ──
             div id="bom-add-modal" class="modal-overlay"
                 _="on click remove .is-open from #bom-add-modal" {
-                div class="modal modal-lg" _="on click halt the event" {
+                div class="modal modal-lg" _="on click call event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "添加物料" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -599,7 +669,7 @@ fn bom_edit_page(
                                 hx-get=(BomProductsPath::PATH)
                                 hx-target="#bom-edit-product-results"
                                 hx-swap="innerHTML"
-                                onclick="document.querySelectorAll('.product-search-input').forEach(function(i){i.value=''})" {
+                                _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
                                 "清除"
                             }
                         }
@@ -618,7 +688,7 @@ fn bom_edit_page(
             // ── Edit Node Modal ──
             div id="bom-edit-modal" class="modal-overlay"
                 _="on click remove .is-open from #bom-edit-modal" {
-                div class="modal" _="on click halt the event" {
+                div class="modal" _="on click call event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "编辑节点" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -708,7 +778,7 @@ fn bom_edit_page(
             // ── Save As Modal ──
             div id="bom-save-as-modal" class="modal-overlay"
                 _="on click remove .is-open from #bom-save-as-modal" {
-                div class="modal" _="on click halt the event" {
+                div class="modal" _="on click call event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "另存为" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"

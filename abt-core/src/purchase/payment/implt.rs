@@ -119,6 +119,11 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
                 )
             .await?;
 
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, ENTITY_TYPE, id, "Draft", None)
+            .await
+            .ok();
+
         Ok(id)
     }
 

@@ -43,11 +43,11 @@ pub struct POCreateForm {
 
 #[derive(Debug, Deserialize)]
 struct ItemWeb {
-    product_id: i64,
+    product_id: String,
     description: Option<String>,
     quantity: String,
     unit_price: String,
-    expected_delivery_date: Option<String>,
+    item_delivery_date: Option<String>,
 }
 
 // ── Handlers ──
@@ -123,6 +123,30 @@ pub async fn get_po_products(
     Ok(Html(product_list_fragment(&result.items).into_string()))
 }
 
+#[derive(Debug, Deserialize)]
+pub struct ItemRowParams {
+    product_id: i64,
+}
+
+/// HTMX: return a single item row fragment for a given product_id
+#[require_permission("PURCHASE_ORDER", "create")]
+pub async fn get_po_item_row(
+    ctx: RequestContext,
+    Query(params): Query<ItemRowParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let svc = state.product_service();
+    let product = svc
+        .get(&service_ctx, &mut conn, params.product_id)
+        .await?;
+    Ok(Html(item_row_fragment(&product).into_string()))
+}
+
 /// POST: create purchase order from form submission (HTMX)
 #[require_permission("PURCHASE_ORDER", "create")]
 pub async fn create_po(
@@ -159,13 +183,13 @@ pub async fn create_po(
         .enumerate()
         .map(|(idx, item)| {
             let item_expected_delivery_date = item
-                .expected_delivery_date
+                .item_delivery_date
                 .as_deref()
                 .filter(|s| !s.is_empty())
                 .and_then(|s| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").ok());
 
             CreateOrderItemRequest {
-                product_id: item.product_id,
+                product_id: item.product_id.parse().unwrap_or(0),
                 line_no: (idx as i32) + 1,
                 description: item.description.unwrap_or_default(),
                 quantity: item
@@ -216,8 +240,15 @@ fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
 
             form id="po-form"
                   hx-post=(POCreatePath::PATH)
-                  hx-swap="none" {
-                input type="hidden" name="items_json";
+                  hx-swap="none"
+                  _="on submit
+                     set items to []
+                     repeat for row in <tr/> in <#po-item-tbody/>
+                       get row as Values
+                       append it to items
+                     end
+                     set #items-json's value to items as JSONString" {
+                input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Supplier Selection ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
@@ -241,7 +272,7 @@ fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                 div class="form-grid" {
                     div class="form-field" {
                         label { "订单日期" }
-                        input type="date" name="order_date" value=(today) disabled {}
+                        input type="date" name="order_date" value=(today) readonly {}
                     }
                     div class="form-field" {
                         label { "预期交货日期" }
@@ -290,22 +321,7 @@ fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                                 th style="width:36px" { }
                             }
                         }
-                        tbody {
-                            // TODO: Replace static placeholder row with vanilla JS dynamic row rendering
-                            tr {
-                                td class="line-num" { "1" }
-                                td class="mono" { }
-                                td { }
-                                td { input class="form-input" type="text" placeholder="—" style="width:190px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input num-input" type="number" step="1" min="0" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td class="mono" style="text-align:right" { "0.00" }
-                                td { input class="form-input" type="date" style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                td { button type="button" class="btn-remove-row" title="删除行" {
-                                    (icon::x_icon("w-3.5 h-3.5"))
-                                } }
-                            }
-                        }
+                        tbody id="po-item-tbody" { }
                     }
                 }
                 div class="add-row-bar" {
@@ -337,7 +353,7 @@ fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
                 _="on click remove .is-open from #product-modal" {
-                div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal modal-lg" _="on click call event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
@@ -367,7 +383,7 @@ fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                                     hx-get=(POProductsPath::PATH)
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
-                                    onclick="document.querySelectorAll('.product-search-input').forEach(function(i){i.value=''})" {
+                                    _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
                                     "清除"
                                 }
                             }
@@ -398,11 +414,6 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
         } @else {
             div class="product-select-list" {
                 @for p in products {
-                    @let product_json = serde_json::json!({
-                        "product_id": p.product_id,
-                        "product_code": &p.product_code,
-                        "product_name": &p.pdt_name,
-                    }).to_string();
                     div class="product-select-item" {
                         div class="product-select-info" {
                             div class="product-select-name" { (p.pdt_name) }
@@ -415,13 +426,35 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             }
                         }
                         button type="button" class="btn btn-sm btn-primary"
-                            data-product=(product_json)
-                            onclick="addItem(JSON.parse(this.dataset.product))" {
+                            hx-get=(format!("{}?product_id={}", POItemRowPath::PATH, p.product_id))
+                            hx-target="#po-item-tbody"
+                            hx-swap="beforeend"
+                            _="on htmx:afterRequest remove .is-open from #product-modal" {
                             "选择"
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
+    html! {
+        tr {
+            td class="line-num" { }
+            td class="mono" { (product.product_code) }
+            td { (product.pdt_name) }
+            td { input class="form-input" type="text" name="description" placeholder="—" style="width:190px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input num-input" type="number" step="1" min="0" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input num-input" type="number" step="0.01" name="unit_price" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td class="mono" style="text-align:right" { "0.00" }
+            td { input class="form-input" type="date" name="item_delivery_date" style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { button type="button" class="btn-remove-row" title="删除行"
+                _="on click remove the closest <tr/>" {
+                (icon::x_icon("w-3.5 h-3.5"))
+            } }
+            input type="hidden" name="product_id" value=(product.product_id) {}
         }
     }
 }

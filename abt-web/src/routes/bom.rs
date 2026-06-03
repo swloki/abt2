@@ -103,7 +103,7 @@ pub fn router() -> Router<AppState> {
         .route(BomDetailPath::PATH, get(bom_detail::get_bom_detail))
         .route(BomEditPath::PATH, get(bom_edit::get_bom_edit))
         .route(BomNodesPath::PATH, post(bom_edit::add_node))
-        .route(BomNodePath::PATH, post(bom_edit::update_node).delete(bom_edit::delete_node))
+        .route(BomNodePath::PATH, get(bom_edit::get_node_edit_form).post(bom_edit::update_node).delete(bom_edit::delete_node))
         .route(BomNodeMovePath::PATH, post(bom_edit::move_node))
         .route(BomDeletePath::PATH, post(bom_list::delete_bom))
         .route(BomPublishPath::PATH, post(bom_detail::publish_bom))

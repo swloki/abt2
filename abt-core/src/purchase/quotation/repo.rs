@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use sqlx::Row;
-use crate::shared::types::Result;
+use crate::shared::types::{PgExecutor, Result};
 
 use super::model::{
     CreateQuotationItemRequest, CreatePurchaseQuotationRequest, PurchaseQuotation,
@@ -198,6 +198,15 @@ impl PurchaseQuotationRepo {
             .collect();
 
         Ok(items)
+    }
+
+    /// 软删除报价单
+    pub async fn soft_delete(executor: PgExecutor<'_>, id: i64) -> Result<()> {
+        sqlx::query("UPDATE purchase_quotations SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL")
+            .bind(id)
+            .execute(executor)
+            .await?;
+        Ok(())
     }
 }
 

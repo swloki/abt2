@@ -23,6 +23,10 @@ pub struct MiscTablePath;
 pub struct MiscCreatePath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/misc-requests/create/item-row")]
+pub struct MiscItemRowPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/misc-requests/{id}")]
 pub struct MiscDetailPath {
     pub id: i64,
@@ -47,6 +51,7 @@ pub fn router() -> Router<AppState> {
         .route(MiscListPath::PATH, get(misc_request_list::get_misc_list))
         .route(MiscTablePath::PATH, get(misc_request_list::get_misc_table))
         .route(MiscCreatePath::PATH, get(misc_request_create::get_misc_create).post(misc_request_create::create_misc))
+        .route(MiscItemRowPath::PATH, get(misc_request_create::get_misc_item_row))
         .route(MiscDetailPath::PATH, get(misc_request_detail::get_misc_detail))
         .route(MiscApprovePath::PATH, post(misc_request_detail::approve_misc))
         .route(MiscCancelPath::PATH, post(misc_request_detail::cancel_misc))

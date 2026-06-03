@@ -743,13 +743,11 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
     let pad = format!("padding-left: {}px", depth * 24 + 16);
     let is_active = selected_id == Some(id);
     let should_expand = is_active || expand_ids.contains(&id);
-    let node_classes = if should_expand { "tree-node expanded" } else { "tree-node" };
-    let row_classes = if is_active { "tree-node-row active" } else { "tree-node-row" };
 
     html! {
         @if has_children {
-            div class=(node_classes) data-name=(name_lower) {
-                div class=(row_classes)
+            div.tree-node.expanded[should_expand] data-name=(name_lower) {
+                div.tree-node-row.active[is_active]
                     style=(pad)
                     _="on click remove .active from .active in (closest .tree-scroll) then add .active to me"
                     hx-get=(detail_url)
@@ -772,8 +770,8 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
                 }
             }
         } @else {
-            div class=(node_classes) data-name=(name_lower) {
-                div class=(row_classes)
+            div.tree-node data-name=(name_lower) {
+                div.tree-node-row.active[is_active]
                     style=(pad)
                     _="on click remove .active from .active in (closest .tree-scroll) then add .active to me"
                     hx-get=(detail_url)

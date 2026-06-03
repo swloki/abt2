@@ -1189,13 +1189,17 @@ const componentStyles = `
   font-size: 13px; font-weight: 500; color: #92400e;
 }
 .cost-warning-list {
-  max-height: 0; overflow: hidden;
-  border-top: 1px solid transparent; padding: 0 16px;
-  transition: max-height 0.3s ease, padding 0.3s ease, border-color 0.3s ease;
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
 }
 .cost-warning-list.show {
-  max-height: 500px; padding: 12px 16px;
-  border-top-color: #fbbf24;
+  grid-template-rows: 1fr;
+}
+.cost-warning-list.show > ul {
+  border-top: 1px solid #fbbf24; padding: 12px 16px;
+}
+.cost-warning-list > ul {
+  overflow: hidden;
 }
 .cost-warning-list li {
   font-size: 13px; color: #92400e; padding: 2px 0;

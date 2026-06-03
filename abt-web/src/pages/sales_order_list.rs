@@ -14,7 +14,6 @@ use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
 use abt_core::shared::types::ServiceContext;
 
-use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
@@ -336,7 +335,6 @@ fn order_row(
     let created = o.created_at.format("%Y-%m-%d").to_string();
     let onclick = format!("location.href='{}'", detail_path);
     let is_draft = o.status == SalesOrderStatus::Draft;
-    let form_id = format!("delete-order-form-{}", o.id);
 
     html! {
         tr style="cursor:pointer" {
@@ -354,27 +352,17 @@ fn order_row(
             td onclick=(&onclick) { (created) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {
-                    div class="row-actions" x-data="{ deleteOpen: false }" {
+                    div class="row-actions" {
                         a class="row-action-btn" href=(edit_form_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         button type="button" class="row-action-btn text-danger" title="删除"
-                            x-on:click="deleteOpen = true" {
+                            hx-confirm="确认删除该订单吗？"
+                            hx-post=(delete_path)
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s" {
                             (icon::trash_icon("w-4 h-4"))
                         }
-                        (confirm_dialog(
-                            "deleteOpen",
-                            "确认删除",
-                            "删除后无法恢复，确定要删除该订单吗？",
-                            "确认删除",
-                            &form_id,
-                            html! {
-                                form id=(form_id) style="display:none"
-                                    hx-post=(delete_path)
-                                    hx-target="closest tr"
-                                    hx-swap="outerHTML swap:0.5s" {}
-                            },
-                        ))
                     }
                 }
             }

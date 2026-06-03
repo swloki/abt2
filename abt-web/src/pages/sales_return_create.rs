@@ -277,7 +277,7 @@ pub async fn create_return(
 
 fn return_create_page(customers: &[abt_core::master_data::customer::model::Customer]) -> Markup {
     html! {
-        div x-data="returnForm()" {
+        div id="return-app" {
             div class="page-header" {
                 a class="back-link" href=(ReturnListPath::PATH) {
                     (icon::chevron_left_icon("w-4 h-4"))
@@ -289,10 +289,10 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
             form id="return-form"
                   hx-post=(ReturnCreatePath::PATH)
                   hx-swap="none" {
-                input type="hidden" name="items_json" x-model="itemsJson";
-                input type="hidden" name="customer_id" x-model="customerId";
-                input type="hidden" name="order_id" x-model="selectedOrderId";
-                input type="hidden" name="shipping_request_id" x-model="shippingRequestId";
+                input type="hidden" name="items_json";
+                input type="hidden" name="customer_id";
+                input type="hidden" name="order_id";
+                input type="hidden" name="shipping_request_id";
 
                 // ── Customer ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
@@ -300,7 +300,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                     div class="form-grid" {
                         div class="form-field" {
                             label { "客户名称" span style="color:var(--danger)" { "*" } }
-                            select x-model="customerId" {
+                            select id="return-customer-select" {
                                 option value="0" { "请选择客户" }
                                 @for c in customers {
                                     option value=(c.id) { (c.name) }
@@ -318,26 +318,26 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                             label { "选择订单" span style="color:var(--danger)" { "*" } }
                             div style="display:flex;gap:var(--space-2)" {
                                 input type="text" readonly
-                                    x-model="selectedOrderNumber"
-                                    placeholder="点击选择来源订单"
-                                    x-bind:disabled="!customerId"
-                                    x-on:click="customerId && (orderModalOpen = true)"
+                                input type="text" readonly
+                                    id="return-order-number"
+                                    placeholder="选择客户后可选择订单"
                                     style="flex:1;cursor:pointer" {}
                                 button type="button" class="btn btn-sm btn-default"
-                                    x-show="selectedOrderNumber"
-                                    x-on:click="clearOrder()" title="清除" {
+                                // TODO: Rewrite conditional display with vanilla JS
+                                button type="button" class="btn btn-sm btn-default" style="display:none"
+                                    id="return-clear-order-btn" title="清除" {
                                     (icon::x_icon("w-3.5 h-3.5"))
                                 }
                                 button type="button" class="btn btn-sm btn-primary"
-                                    x-bind:disabled="!customerId"
-                                    x-on:click="orderModalOpen = true" {
+                                button type="button" class="btn btn-sm btn-primary"
+                                    _="on click add .is-open to #order-modal" {
                                     "选择订单"
                                 }
                             }
                         }
                         div class="form-field" {
                             label { "退货原因" span style="color:var(--danger)" { "*" } }
-                            select x-model="returnReason" {
+                            select id="return-reason-select" {
                                 option value="" { "请选择" }
                                 option value="质量问题" { "质量问题" }
                                 option value="数量不符" { "数量不符" }
@@ -346,19 +346,21 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                                 option value="其他" { "其他" }
                             }
                         }
-                        div class="form-field" x-show="returnReason === '其他'" x-transition {
+                        // TODO: Rewrite conditional display with vanilla JS
+                        div class="form-field" style="display:none" {
                             label { "具体原因" span style="color:var(--danger)" { "*" } }
-                            input type="text" x-model="returnReasonDetail"
+                            input type="text" id="return-reason-detail"
                                 placeholder="请输入具体退货原因"
                                 maxlength="200" {}
                         }
                     }
                 }
-                input type="hidden" name="return_reason"
-                    x-bind:value="returnReason === '其他' && returnReasonDetail ? '其他：' + returnReasonDetail : returnReason" {}
+                // TODO: Rewrite computed return_reason hidden input with vanilla JS
+                input type="hidden" name="return_reason";
 
                 // ── Return Items ──
-                div x-show="selectedOrderId" class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
+                // TODO: Rewrite conditional display with vanilla JS
+                div class="data-card" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                     div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                         span class="form-section-title" style="margin:0;padding:0;border:none" { "退货明细" }
                     }
@@ -377,32 +379,9 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                                 }
                             }
                             tbody {
-                                template x-for="(item, idx) in items" {
-                                    tr {
-                                        td class="mono" x-text="item.product_code" {}
-                                        td x-text="item.product_name" {}
-                                        td x-text="item.unit" {}
-                                        td class="num-right" x-text="item.order_qty" {}
-                                        td class="num-right mono" x-text="'¥ ' + parseFloat(item.unit_price).toFixed(2)" {}
-                                        td {
-                                            input type="number" x-model="item.returned_qty" min="1"
-                                                style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {}
-                                        }
-                                        td {
-                                            select x-model="item.disposition"
-                                                style="width:120px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {
-                                                option value="1" { "退回库存" }
-                                                option value="2" { "报废" }
-                                                option value="3" { "返工" }
-                                            }
-                                        }
-                                        td {
-                                            button type="button" class="btn-remove-row" x-on:click="removeItem(idx)" title="删除" {
-                                                (icon::x_icon("w-3.5 h-3.5"))
-                                            }
-                                        }
-                                    }
-                                }
+                        tbody {
+                            // TODO: Rewrite x-for loop with vanilla JS rendering
+                        }
                             }
                         }
                     }
@@ -425,18 +404,17 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
             }
 
             // ── Order Picker Modal ──
-            div class="modal-overlay"
-                x-bind:class="{ 'is-open': orderModalOpen }"
-                x-on:click="orderModalOpen = false" {
-                div class="modal modal-lg" x-on:click="event.stopPropagation()" {
+            div class="modal-overlay" id="order-modal"
+                _="on click remove .is-open from #order-modal" {
+                div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择来源订单" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            x-on:click="orderModalOpen = false" { "x" }
+                            _="on click remove .is-open from #order-modal" { "x" }
                     }
                     div class="modal-body" style="padding:0" {
                         div class="product-search-bar" {
-                            input type="hidden" name="customer_id" x-model="customerId" {}
+                            input type="hidden" name="customer_id" {}
                             div class="product-search-field" {
                                 label class="product-search-label" { "搜索订单" }
                                 input class="product-search-input" type="text" name="keyword" placeholder="输入订单号…"

@@ -440,9 +440,8 @@ fn bom_edit_page(
 
     // Max level for filter
     let max_level = depth_map.values().copied().max().map(|d| d + 1).unwrap_or(0);
-    let save_as_click = format!("saveAsName = '{}_副本'; saveAsOpen = true", bom.bom_name.replace('\'', "\\'"));
     html! {
-        div x-data="bomEdit()" x-init="initSortable()" {
+        div id="bom-edit-app" {
             // ── Toolbar ──
             div class="bom-toolbar" {
                 // Left side: back, category, view toggle, level filter
@@ -472,30 +471,28 @@ fn bom_edit_page(
                     }
 
                     // Level filter
-                    select x-model="layerFilter" class="bom-level-filter" {
+                    select id="bom-level-filter" class="bom-level-filter" {
                         option value="0" { "全部层级" }
                         @for lv in 1..=max_level {
                             option value=(lv) { "层级 " (lv) }
                         }
                     }
 
-                    button type="button" class="bom-level-filter"
-                        x-on:click="toggleAllCollapse()"
-                        x-text="allCollapsed ? '全部展开' : '全部折叠'" {
+                    button type="button" class="bom-level-filter" id="bom-collapse-all-btn"
+                        _="on click call bomToggleAllCollapse()" {
+                        "全部折叠"
                     }
                 }
 
                 // Right side: publish/unpublish, add/save-as, labor cost
                 div class="bom-toolbar-right" {
                     @if !is_draft && is_owner {
-                        button class="btn btn-sm btn-warning-ghost"
-                            x-on:click="publishOpen = true" {
+                        button class="btn btn-sm btn-warning-ghost" id="bom-publish-btn" {
                             (icon::return_arrow_icon("w-4 h-4"))
                             " 取消发布"
                         }
                     } @else if is_draft {
-                        button class="btn btn-sm btn-success"
-                            x-on:click="publishOpen = true"
+                        button class="btn btn-sm btn-success" id="bom-publish-btn"
                             disabled[node_count == 0]
                             title="请先添加物料" {
                             (icon::rocket_icon("w-4 h-4"))
@@ -504,14 +501,13 @@ fn bom_edit_page(
                     }
 
                     @if node_count == 0 {
-                        button type="button" class="btn btn-sm btn-primary"
-                            x-on:click="addModalOpen = true; addParentId = 0" {
+                        button type="button" class="btn btn-sm btn-primary" id="bom-add-root-btn" {
                             (icon::plus_icon("w-4 h-4"))
                             " 添加根节点"
                         }
                     } @else {
-                        button type="button" class="btn btn-sm btn-success"
-                            x-on:click=(save_as_click) {
+                        button type="button" class="btn btn-sm btn-success" id="bom-save-as-btn"
+                            data-name=(bom.bom_name) {
                             (icon::copy_icon("w-4 h-4"))
                             " 另存为"
                         }
@@ -571,14 +567,13 @@ fn bom_edit_page(
             }
 
             // ── Add Node Modal ──
-            div class="modal-overlay"
-                x-bind:class="{ 'is-open': addModalOpen }"
-                x-on:click="addModalOpen = false" {
-                div class="modal modal-lg" x-on:click="event.stopPropagation()" {
+            div id="bom-add-modal" class="modal-overlay"
+                _="on click remove .is-open from #bom-add-modal" {
+                div class="modal modal-lg" _="on click halt the event" {
                     div class="modal-head" {
                         h2 { "添加物料" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            x-on:click="addModalOpen = false" { "×" }
+                            _="on click remove .is-open from #bom-add-modal" { "×" }
                     }
                     div class="modal-body" style="padding:0" {
                         div class="product-search-bar" {
@@ -621,51 +616,44 @@ fn bom_edit_page(
             }
 
             // ── Edit Node Modal ──
-            div class="modal-overlay"
-                x-bind:class="{ 'is-open': editModalOpen }"
-                x-on:click="editModalOpen = false" {
-                div class="modal" x-on:click="event.stopPropagation()" {
+            div id="bom-edit-modal" class="modal-overlay"
+                _="on click remove .is-open from #bom-edit-modal" {
+                div class="modal" _="on click halt the event" {
                     div class="modal-head" {
                         h2 { "编辑节点" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            x-on:click="editModalOpen = false" { "×" }
+                            _="on click remove .is-open from #bom-edit-modal" { "×" }
                     }
                     div class="modal-body" {
                         form id="bom-edit-node-form" hx-post="" hx-swap="none" {
                             div class="form-grid" {
                                 div class="form-field" {
                                     label { "数量 " span style="color:var(--danger)" { "*" } }
-                                    input type="number" name="quantity" step="0.01" min="0.01" required
-                                        x-model="editNode.quantity" {}
+                                    input type="number" name="quantity" step="0.01" min="0.01" required {}
                                 }
                                 div class="form-field" {
                                     label { "损耗率%" }
-                                    input type="number" name="loss_rate" step="0.1" min="0"
-                                        x-model="editNode.loss_rate" {}
+                                    input type="number" name="loss_rate" step="0.1" min="0" {}
                                 }
                                 div class="form-field" {
                                     label { "单位" }
-                                    input type="text" name="unit"
-                                        x-model="editNode.unit" {}
+                                    input type="text" name="unit" {}
                                 }
                                 div class="form-field" {
                                     label { "工作中心" }
-                                    input type="text" name="work_center"
-                                        x-model="editNode.work_center" {}
+                                    input type="text" name="work_center" {}
                                 }
                                 div class="form-field" {
                                     label { "位置" }
-                                    input type="text" name="position"
-                                        x-model="editNode.position" {}
+                                    input type="text" name="position" {}
                                 }
                                 div class="form-field field-full" {
                                     label { "备注" }
-                                    input type="text" name="remark"
-                                        x-model="editNode.remark" {}
+                                    input type="text" name="remark" {}
                                 }
                             }
                             div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
-                                button type="button" class="btn btn-default" x-on:click="editModalOpen = false" { "取消" }
+                                button type="button" class="btn btn-default" _="on click remove .is-open from #bom-edit-modal" { "取消" }
                                 button type="submit" class="btn btn-primary" { "保存" }
                             }
                         }
@@ -675,7 +663,7 @@ fn bom_edit_page(
 
             // ── Delete Confirm ──
             (crate::components::confirm_dialog::confirm_dialog(
-                "deleteOpen",
+                "bom-delete-dialog",
                 "确认删除",
                 "确定要删除该节点及其所有子节点吗？此操作不可撤销。",
                 "确认删除",
@@ -690,7 +678,7 @@ fn bom_edit_page(
             // ── Publish / Unpublish Confirm Dialog ──
             @if !is_draft && is_owner {
                 (crate::components::confirm_dialog::confirm_dialog(
-                    "publishOpen",
+                    "bom-publish-dialog",
                     "确认取消发布",
                     "确定要取消发布此 BOM 吗？取消后可重新编辑。",
                     "确认取消发布",
@@ -703,7 +691,7 @@ fn bom_edit_page(
                 ))
             } @else if is_draft {
                 (crate::components::confirm_dialog::confirm_dialog(
-                    "publishOpen",
+                    "bom-publish-dialog",
                     "确认发布",
                     "确定要发布此 BOM 吗？发布后将无法修改。",
                     "确认发布",
@@ -718,14 +706,13 @@ fn bom_edit_page(
 
 
             // ── Save As Modal ──
-            div class="modal-overlay"
-                x-bind:class="{ 'is-open': saveAsOpen }"
-                x-on:click="saveAsOpen = false" {
-                div class="modal" x-on:click="event.stopPropagation()" {
+            div id="bom-save-as-modal" class="modal-overlay"
+                _="on click remove .is-open from #bom-save-as-modal" {
+                div class="modal" _="on click halt the event" {
                     div class="modal-head" {
                         h2 { "另存为" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            x-on:click="saveAsOpen = false" { "×" }
+                            _="on click remove .is-open from #bom-save-as-modal" { "×" }
                     }
                     div class="modal-body" {
                         form hx-post=(BomSaveAsPath { id: bom.bom_id }.to_string())
@@ -733,10 +720,10 @@ fn bom_edit_page(
                             div class="form-field" {
                                 label { "新 BOM 名称 " span style="color:var(--danger)" { "*" } }
                                 input type="text" name="new_name" required
-                                    x-model="saveAsName" placeholder="输入新的 BOM 名称" {}
+                                    placeholder="输入新的 BOM 名称" {}
                             }
                             div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
-                                button type="button" class="btn btn-default" x-on:click="saveAsOpen = false" { "取消" }
+                                button type="button" class="btn btn-default" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
                                 button type="submit" class="btn btn-success" { "确认另存为" }
                             }
                         }
@@ -744,8 +731,8 @@ fn bom_edit_page(
                 }
             }
 
-            // ── Alpine.js component ──
-            script src="/bom-edit.js?v=20260531" {}
+            // ── BOM edit page JS ──
+            script src="/bom-edit.js?v=20260603" {}
         }
     }
 }
@@ -791,16 +778,14 @@ fn bom_node_row(
         remark.replace('\'', "\\'")
     );
     let ancestors_str = ancestors.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
-    let show_expr = format!("isNodeVisible({}, '{}')", level, ancestors_str);
     let _indent_px = (level - 1) * 24;
     html! {
-        tr class=(row_class) x-show=(show_expr) draggable="true"
-            data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) {
+        tr class=(row_class) draggable="true"
+            data-node-id=(node.id) data-parent-id=(node.parent_id) data-level=(level) data-ancestors=(ancestors_str) {
             td style="text-align:center" {
                 @if has_children {
                     button type="button" class="bom-collapse-btn"
-                        x-on:click=(format!("toggleCollapse({})", node.id))
-                        x-bind:class=(format!("{{'bom-collapsed': collapsedNodes[{}]}}", node.id)) {
+                        _=(format!("on click call bomToggleCollapse({})", node.id)) {
                         (icon::chevron_down_icon("bom-collapse-icon"))
                     }
                 }
@@ -818,15 +803,15 @@ fn bom_node_row(
             td {
                 div style="display:flex;gap:var(--space-1)" {
                     button type="button" class="row-action-btn" title="添加子节点"
-                        x-on:click=(format!("openAddChild({})", node.id)) {
+                        _=(format!("on click call bomOpenAddChild({})", node.id)) {
                         (icon::plus_icon("w-3.5 h-3.5"))
                     }
                     button type="button" class="row-action-btn" title="编辑"
-                        x-on:click=(format!("openEdit({})", js_args)) {
+                        _=(format!("on click call bomOpenEdit({})", js_args)) {
                         (icon::edit_icon("w-3.5 h-3.5"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"
-                        x-on:click=(format!("openDelete({})", node.id)) {
+                        _=(format!("on click call bomOpenDelete({})", node.id)) {
                         (icon::trash_icon("w-3.5 h-3.5"))
                     }
                 }
@@ -905,7 +890,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                         }
                         button type="button" class="btn btn-sm btn-primary"
                             data-product=(product_json)
-                            x-on:click="selectAddProduct(JSON.parse($el.dataset.product))" {
+                            onclick="bomSelectProduct(JSON.parse(this.dataset.product))" {
                             "选择"
                         }
                     }

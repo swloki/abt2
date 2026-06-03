@@ -111,7 +111,7 @@ fn supplier_list_page(
     params: &SupplierQueryParams,
 ) -> Markup {
     html! {
-        div x-data="{ createModalOpen: false }" {
+        div {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "供应商管理" }
@@ -228,7 +228,6 @@ fn supplier_table_fragment(
 fn supplier_row(s: &Supplier) -> Markup {
     let detail_path = SupplierDetailPath { id: s.id };
     let delete_path = SupplierDeletePath { id: s.id };
-    let form_id = format!("delete-supplier-form-{}", s.id);
 
     let category_label = match s.category {
         SupplierCategory::RawMaterial => "原材料",
@@ -270,28 +269,18 @@ fn supplier_row(s: &Supplier) -> Markup {
                 span class=(format!("status-pill {status_class}")) { (status_label) }
             }
             td onclick="event.stopPropagation()" {
-                div class="row-actions" x-data="{ deleteOpen: false }" {
+                div class="row-actions" {
                     a class="row-action-btn" title="编辑"
                         href=(SupplierDetailPath { id: s.id }.to_string()) {
                         (icon::edit_icon("w-4 h-4"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"
-                        x-on:click="deleteOpen = true" {
+                        hx-post=(delete_path)
+                        hx-confirm=(format!("删除后无法恢复，确定要删除供应商 <strong>{}</strong> 吗？", s.name))
+                        hx-target="closest tr"
+                        hx-swap="outerHTML swap:0.5s" {
                         (icon::trash_icon("w-4 h-4"))
                     }
-                    (crate::components::confirm_dialog::confirm_dialog(
-                        "deleteOpen",
-                        "确认删除",
-                        &format!("删除后无法恢复，确定要删除供应商 <strong>{}</strong> 吗？", s.name),
-                        "确认删除",
-                        &form_id,
-                        html! {
-                            form id=(form_id) style="display:none"
-                                hx-post=(delete_path)
-                                hx-target="closest tr"
-                                hx-swap="outerHTML swap:0.5s" {}
-                        },
-                    ))
                 }
             }
         }

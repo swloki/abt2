@@ -302,7 +302,7 @@ fn product_list_page(
 ) -> Markup {
 
     html! {
-        div x-data="{ createModalOpen: false, priceDrawerOpen: false, bomDrawerOpen: false }" x-init="window.addEventListener('closeDrawer', () => { priceDrawerOpen = false })" {
+        div _="on closeDrawer remove .open from #price-drawer" {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "产品管理" span style="font-size:var(--text-sm);font-weight:400;color:var(--muted);margin-left:var(--space-2)" { "(" (result.total) ")" } }
@@ -319,7 +319,7 @@ fn product_list_page(
 
             // ── Price Drawer (shared) ──
             (crate::components::drawer::drawer(
-                "priceDrawerOpen",
+                "price-drawer",
                 "价格设置",
                 "保存价格",
                 "price-drawer-form",
@@ -332,7 +332,7 @@ fn product_list_page(
 
             // ── BOM 引用 Drawer ──
             (crate::components::drawer::drawer_with_footer(
-                "bomDrawerOpen",
+                "bom-drawer",
                 "BOM 引用查询",
                 html! {
                     div id="bom-drawer-body" {
@@ -341,7 +341,7 @@ fn product_list_page(
                 },
                 html! {
                     button type="button" class="btn btn-default"
-                        x-on:click="bomDrawerOpen = false" { "关闭" }
+                        _="on click remove .open from #bom-drawer" { "关闭" }
                     a href="/admin/md/boms/new" class="btn btn-primary" style="text-decoration:none" {
                         (icon::plus_icon("w-4 h-4"))
                         "新建 BOM"
@@ -439,7 +439,6 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
     let unwatch_path = ProductUnwatchPath { id: p.product_id };
     let copy_path = ProductCopyPath { id: p.product_id };
     let edit_path = ProductEditPath { id: p.product_id };
-    let delete_form_id = format!("delete-product-form-{}", p.product_id);
     let is_watched = watched_ids.contains(&p.product_id);
     let spec = &p.meta.specification;
 
@@ -456,7 +455,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
             }
             td onclick=(format!("location.href='{}'", detail_path)) { (p.unit) }
             td onclick="event.stopPropagation()" {
-                div class="row-actions" x-data="{ menuOpen: false, deleteOpen: false }" x-effect="if(menuOpen){ var t=$refs.moreBtn, m=$refs.menu; setTimeout(function(){ positionDropdown(t, m) }, 50) }" {
+                div class="row-actions" _="on click halt the event" {
                     // View detail
                     a class="row-action-btn" title="查看"
                         href=(detail_path) {
@@ -467,26 +466,21 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                         hx-get=(usage_path)
                         hx-target="#bom-drawer-body"
                         hx-swap="innerHTML"
-                        x-on:click="bomDrawerOpen = true" {
+                        _="on click add .open to #bom-drawer" {
                         (icon::link_icon("w-4 h-4"))
                     }
                     // More menu trigger
                     button type="button" class="row-action-btn" title="更多"
-                        x-ref="moreBtn"
-                        x-on:click="menuOpen = !menuOpen" {
+                        id=(format!("more-btn-{}", p.product_id))
+                        _="on click toggle .is-open on next .row-actions-menu then if next .row-actions-menu matches .is-open call positionDropdown(me, next .row-actions-menu)" {
                         (icon::dots_vertical_icon("w-4 h-4"))
                     }
                     // Backdrop to close menu on outside click
-                    div x-show="menuOpen" x-cloak style="position:fixed;inset:0;z-index:49" x-on:click="menuOpen = false" {}
-                    // Dropdown menu (positioned by JS)
-                    div x-show="menuOpen" x-cloak x-ref="menu"
-                        x-transition:enter="transition ease-out duration-100"
-                        x-transition:enter-start="opacity-0"
-                        x-transition:enter-end="opacity-100"
-                        x-transition:leave="transition ease-in duration-75"
-                        x-transition:leave-start="opacity-100"
-                        x-transition:leave-end="opacity-0"
-                        class="row-actions-menu" {
+                    div style="position:fixed;inset:0;z-index:49;display:none"
+                        _="on click remove .is-open from closest .row-actions .row-actions-menu then hide me" {}
+                    // Dropdown menu
+                    div class="row-actions-menu"
+                        _="on click halt the event" {
                         a href=(edit_path) {
                             (icon::edit_icon("w-4 h-4"))
                             "编辑"
@@ -499,7 +493,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                             hx-get=(drawer_path)
                             hx-target="#price-drawer-body"
                             hx-swap="innerHTML"
-                            x-on:click="menuOpen = false; priceDrawerOpen = true" {
+                            _="on click remove .is-open from closest .row-actions-menu then add .open to #price-drawer" {
                             (icon::currency_icon("w-4 h-4"))
                             "设置价格"
                         }
@@ -507,7 +501,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                             button type="button"
                                 hx-post=(unwatch_path)
                                 hx-swap="none"
-                                x-on:click="menuOpen = false" {
+                                _="on click remove .is-open from closest .row-actions-menu" {
                                 (icon::bell_icon("w-4 h-4"))
                                 "取消关注"
                             }
@@ -515,31 +509,21 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                             button type="button"
                                 hx-post=(watch_path)
                                 hx-swap="none"
-                                x-on:click="menuOpen = false" {
+                                _="on click remove .is-open from closest .row-actions-menu" {
                                 (icon::bell_icon("w-4 h-4"))
                                 "关注"
                             }
                         }
                         button type="button" class="danger"
-                            x-on:click="menuOpen = false; deleteOpen = true" {
+                            hx-post=(delete_path)
+                            hx-confirm=(format!("删除后无法恢复，确定要删除产品「{}」吗？", p.pdt_name))
+                            hx-target=(format!("#product-row-{}", p.product_id))
+                            hx-swap="outerHTML swap:0.5s"
+                            _="on click remove .is-open from closest .row-actions-menu" {
                             (icon::trash_icon("w-4 h-4"))
                             "删除"
                         }
                     }
-                    // Delete confirm dialog
-                    (crate::components::confirm_dialog::confirm_dialog(
-                        "deleteOpen",
-                        "确认删除",
-                        &format!("删除后无法恢复，确定要删除产品 <strong>{}</strong> 吗？", p.pdt_name),
-                        "确认删除",
-                        &delete_form_id,
-                        html! {
-                            form id=(delete_form_id) style="display:none"
-                                hx-post=(delete_path)
-                                hx-target=(format!("#product-row-{}", p.product_id))
-                                hx-swap="outerHTML swap:0.5s" {}
-                        },
-                    ))
                 }
             }
         }
@@ -623,14 +607,14 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
     let has_detail = entry.bom_version.is_some() || entry.parent_product_name.is_some();
 
     html! {
-        div class="bom-ref-card" x-data="{ expanded: false }" {
-            div class="bom-ref-main" x-on:click="expanded = !expanded" {
+        div class="bom-ref-card" {
+            div class="bom-ref-main" _="on click toggle .is-expanded on closest .bom-ref-card then toggle *display on next .bom-ref-detail" {
                 div class="bom-ref-icon parent" {
                     (icon::bolt_icon("w-4.5 h-4.5"))
                 }
                 div class="bom-ref-info" {
                     div class="bom-ref-name" {
-                        a href=(bom_detail_path) x-on:click="event.stopPropagation()" style="color:var(--accent);text-decoration:none;font-weight:600" {
+                        a href=(bom_detail_path) _="on click halt the event" style="color:var(--accent);text-decoration:none;font-weight:600" {
                             (entry.source_name)
                         }
                         span style="font-size:11px;font-weight:400;color:var(--muted);font-family:var(--font-mono)" {
@@ -652,7 +636,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                             span style="font-size:12px;font-weight:400;color:var(--muted)" { (unit) }
                         }
                     }
-                    button class="bom-ref-expand" x-on:click="event.stopPropagation(); expanded = !expanded" {
+                    button class="bom-ref-expand" _="on click halt the event then toggle .is-expanded on closest .bom-ref-card then toggle *display on closest .bom-ref-card .bom-ref-detail" {
                         svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" {
                             path d="M19 9l-7 7-7-7" {}
                         }
@@ -660,7 +644,7 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                 }
             }
             @if has_detail {
-                div class="bom-ref-detail" x-show="expanded" x-cloak {
+                div class="bom-ref-detail" style="display:none" {
                     div class="bom-ref-detail-grid" {
                         div class="bom-ref-detail-item" {
                             span class="label" { "BOM 编码:" }
@@ -709,10 +693,9 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
 
 fn usage_error_dialog(name: &str, total: u64) -> Markup {
     html! {
-        div class="dialog-overlay open" x-data="{ open: true }"
-            x-bind:class="{ 'open': open }"
-            x-on:click="open = false" {
-            div class="dialog" x-on:click="event.stopPropagation()" {
+        div class="dialog-overlay open"
+            _="on click remove .open" {
+            div class="dialog" _="on click halt the event" {
                 div class="dialog-body" {
                     div class="dialog-icon-wrap" {
                         (icon::circle_alert_icon("w-7 h-7"))
@@ -726,7 +709,7 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
                 }
                 div class="dialog-foot" {
                     button type="button" class="btn btn-primary"
-                        x-on:click="open = false" { "知道了" }
+                        _="on click remove .open from closest .dialog-overlay" { "知道了" }
                 }
             }
         }
@@ -735,14 +718,13 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
 
 fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
     html! {
-        div class="modal-overlay is-open" x-data="{ open: true }"
-            x-bind:class="{ 'is-open': open }"
-            x-on:click="open = false" {
-            div class="modal" x-on:click="event.stopPropagation()" {
+        div class="modal-overlay is-open"
+            _="on click remove .is-open" {
+            div class="modal" _="on click halt the event" {
                 div class="modal-head" {
                     h2 { "价格变更记录" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                        x-on:click="open = false" { "×" }
+                        _="on click remove .is-open from closest .modal-overlay" { "×" }
                 }
                 div class="modal-body" {
                     @if entries.is_empty() {
@@ -755,7 +737,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
                 }
                 div class="modal-foot" {
                     button type="button" class="btn btn-default"
-                        x-on:click="open = false" { "关闭" }
+                        _="on click remove .is-open from closest .modal-overlay" { "关闭" }
                 }
             }
         }

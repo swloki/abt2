@@ -172,7 +172,7 @@ fn supplier_detail_page(
     };
 
     html! {
-        div x-data="{ contactModalOpen: false, bankAccountModalOpen: false }" {
+        div _="on contactChanged remove .is-open from #contact-create-modal; on bankAccountChanged remove .is-open from #bank-account-create-modal" {
         // ── Detail Top ──
         div class="detail-top" {
             div class="customer-identity" {
@@ -281,7 +281,7 @@ fn supplier_detail_page(
 
         // ── Modals ──
         (crate::components::modal::modal(
-            "contactModalOpen",
+            "contact-create-modal",
             "添加联系人",
             "保存",
             "create-contact-form",
@@ -318,7 +318,7 @@ fn supplier_detail_page(
         ))
 
         (crate::components::modal::modal(
-            "bankAccountModalOpen",
+            "bank-account-create-modal",
             "添加银行账户",
             "保存",
             "create-bank-account-form",
@@ -364,7 +364,7 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath)
             div class="detail-card-title" {
                 span { "联系人" }
                 button class="btn btn-sm btn-primary"
-                    x-on:click="contactModalOpen = true" {
+                    _="on click add .is-open to #contact-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加联系人"
                 }
@@ -405,7 +405,7 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
             div class="detail-card-title" {
                 span { "银行账户" }
                 button class="btn btn-sm btn-primary"
-                    x-on:click="bankAccountModalOpen = true" {
+                    _="on click add .is-open to #bank-account-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加账户"
                 }

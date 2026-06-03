@@ -192,7 +192,7 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
         .unwrap_or_default();
 
     html! {
-        div x-data="purchaseQuotationForm()" {
+        div id="pq-app" {
             // ── Page Header ──
             div class="page-header" {
                 a class="back-link" href=(PQListPath::PATH) {
@@ -205,7 +205,7 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
             form id="pq-form"
                   hx-post=(PQCreatePath::PATH)
                   hx-swap="none" {
-                input type="hidden" name="items_json" x-model="itemsJson";
+                input type="hidden" name="items_json";
 
             // ── Supplier Selection ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
@@ -247,7 +247,7 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="form-section-title" style="margin:0;padding:0;border:none" { "产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
-                        x-on:click="productModalOpen = true" {
+                        _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品"
                     }
@@ -269,16 +269,17 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                         }
                         tbody {
                             template x-for="(item, idx) in items" {
+                                // TODO: Rewrite x-for loop with vanilla JS rendering
                                 tr {
-                                    td class="line-num" x-text="idx + 1" {}
-                                    td class="mono" x-text="item.product_code" {}
-                                    td x-text="item.product_name" {}
-                                    td { input class="form-input num-input" type="number" x-model="item.unit_price" step="0.01" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input num-input" type="number" x-model="item.min_order_qty" step="1" min="0" placeholder="—" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input num-input" type="number" x-model="item.lead_time_days" step="1" min="0" placeholder="—" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input" type="text" x-model="item.currency" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td style="text-align:center" { input type="checkbox" x-model="item.is_preferred" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)" {} }
-                                    td { button type="button" class="btn-remove-row" x-on:click="removeItem(idx)" title="删除行" {
+                                    td class="line-num" { "1" }
+                                    td class="mono" { }
+                                    td { }
+                                    td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="form-input" type="text" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td style="text-align:center" { input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)" {} }
+                                    td { button type="button" class="btn-remove-row" title="删除行" {
                                         (icon::x_icon("w-3.5 h-3.5"))
                                     } }
                                 }
@@ -288,7 +289,7 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                 }
                 div class="add-row-bar" {
                     button type="button" class="btn-add-row"
-                        x-on:click="productModalOpen = true" {
+                        _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
                     }
@@ -313,14 +314,13 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
             }
 
             // ── Product Selection Modal ──
-            div class="modal-overlay"
-                x-bind:class="{ 'is-open': productModalOpen }"
-                x-on:click="productModalOpen = false" {
-                div class="modal modal-lg" x-on:click="event.stopPropagation()" {
+            div class="modal-overlay" id="product-modal"
+                _="on click remove .is-open from #product-modal" {
+                div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            x-on:click="productModalOpen = false" { "×" }
+                            _="on click remove .is-open from #product-modal" { "×" }
                     }
                     div class="modal-body" style="padding:0" {
                         div class="product-search-bar" {

@@ -1,32 +1,30 @@
 use maud::{Markup, html};
 
-/// Generic drawer component (Alpine.js open/close + HTMX body).
+/// Generic drawer component (Hyperscript open/close + HTMX body).
 ///
 /// Mirrors the `modal` component API: built-in footer with cancel/submit buttons.
 /// The submit button targets a `<form>` inside body via HTML5 `form` attribute.
 ///
-/// `open_var`    — Alpine reactive boolean controlling visibility.
+/// `drawer_id`   — HTML id of the overlay div; callers toggle `.open` on it via Hyperscript.
 /// `title`       — drawer title.
 /// `submit_label` — text for the primary submit button.
 /// `form_id`     — `id` of the `<form>` inside body, so the submit button can reference it.
 /// `body`        — content slot (rendered inside drawer-body).
-pub fn drawer(open_var: &str, title: &str, submit_label: &str, form_id: &str, body: Markup) -> Markup {
+pub fn drawer(drawer_id: &str, title: &str, submit_label: &str, form_id: &str, body: Markup) -> Markup {
     html! {
-        div class="drawer-overlay"
-            x-bind:class=(format!("{{ 'open': {} }}", open_var))
-            x-on:click=(format!("if(event.target===this) {} = false", open_var)) {
-            div class="drawer" x-on:click="event.stopPropagation()" {
+        div id=(drawer_id) class="drawer-overlay" _="on click if event.target is me remove .open" {
+            div class="drawer" _="on click halt the event" {
                 div class="drawer-head" {
                     h2 { (title) }
                     button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                        x-on:click=(format!("{} = false", open_var)) { "×" }
+                        _="on click remove .open from closest .drawer-overlay" { "×" }
                 }
                 div class="drawer-body" {
                     (body)
                 }
                 div class="drawer-foot" {
                     button type="button" class="btn btn-default"
-                        x-on:click=(format!("{} = false", open_var)) { "取消" }
+                        _="on click remove .open from closest .drawer-overlay" { "取消" }
                     button type="submit" class="btn btn-primary" form=(form_id) { (submit_label) }
                 }
             }
@@ -36,20 +34,18 @@ pub fn drawer(open_var: &str, title: &str, submit_label: &str, form_id: &str, bo
 
 /// Drawer variant with custom footer content.
 ///
-/// `open_var` — Alpine reactive boolean controlling visibility.
+/// `drawer_id` — HTML id of the overlay div; callers toggle `.open` on it via Hyperscript.
 /// `title` — drawer title.
 /// `body` — content slot (rendered inside drawer-body).
 /// `footer` — custom footer content.
-pub fn drawer_with_footer(open_var: &str, title: &str, body: Markup, footer: Markup) -> Markup {
+pub fn drawer_with_footer(drawer_id: &str, title: &str, body: Markup, footer: Markup) -> Markup {
     html! {
-        div class="drawer-overlay"
-            x-bind:class=(format!("{{ 'open': {} }}", open_var))
-            x-on:click=(format!("if(event.target===this) {} = false", open_var)) {
-            div class="drawer" x-on:click="event.stopPropagation()" {
+        div id=(drawer_id) class="drawer-overlay" _="on click if event.target is me remove .open" {
+            div class="drawer" _="on click halt the event" {
                 div class="drawer-head" {
                     h2 { (title) }
                     button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                        x-on:click=(format!("{} = false", open_var)) { "×" }
+                        _="on click remove .open from closest .drawer-overlay" { "×" }
                 }
                 div class="drawer-body" {
                     (body)

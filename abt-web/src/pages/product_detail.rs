@@ -159,7 +159,7 @@ fn product_detail_page(product: &Product) -> Markup {
     let (status_label, status_class) = status_display(product.status);
 
     html! {
-        div x-data="{ deleteOpen: false }" {
+        div {
             // ── Detail Top ──
             div class="detail-top" {
                 div class="customer-identity" {
@@ -262,19 +262,11 @@ fn product_detail_page(product: &Product) -> Markup {
                 hx-get=(usage_table_path.to_string())
                 hx-trigger="load" {}
 
-            // ── Delete Confirm Dialog ──
-            (confirm_dialog::confirm_dialog(
-                "deleteOpen",
-                "确认删除",
-                &format!("确定要删除产品 <strong>{}</strong> 吗？此操作不可撤销。", product.pdt_name),
-                "确认删除",
-                "delete-product-form",
-                html! {
-                    form id="delete-product-form" class="hidden"
-                        hx-post=(delete_path.to_string())
-                        hx-target="closest div[x-data]" {}
-                },
-            ))
+            // ── Delete button (hx-confirm) ──
+            form id="delete-product-form" class="hidden"
+                hx-post=(delete_path.to_string())
+                hx-confirm=(format!("确定要删除产品「{}」吗？此操作不可撤销。", product.pdt_name))
+                hx-target="closest div" {}
         }
     }
 }

@@ -13,7 +13,6 @@ use abt_core::sales::shipping_request::model::*;
 use abt_core::sales::shipping_request::ShippingRequestService;
 use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
-use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
@@ -332,7 +331,6 @@ fn shipping_row(
     let created = s.created_at.format("%Y-%m-%d %H:%M").to_string();
     let onclick = format!("location.href='{}'", detail_path);
     let is_draft = s.status == ShippingStatus::Draft;
-    let form_id = format!("delete-shipping-form-{}", s.id);
     let delete_path = ShippingDeletePath { id: s.id };
     let order_detail = OrderDetailPath { id: s.order_id };
 
@@ -350,14 +348,17 @@ fn shipping_row(
             td onclick=(&onclick) { (s.carrier.as_str()) }
             td class="mono" onclick=(&onclick) { (s.tracking_number.as_str()) }
             td onclick=(&onclick) { (created) }
-            td onclick="event.stopPropagation()" x-data=(format!("{{ deleteOpen: false }}")) {
+            td onclick="event.stopPropagation()" {
                 div class="row-actions" {
                     @if is_draft {
                         a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         button type="button" class="row-action-btn text-danger" title="删除"
-                            x-on:click="deleteOpen = true" {
+                            hx-confirm=(format!("确认删除发货申请 {}？", s.doc_number))
+                            hx-post=(delete_path.to_string())
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s" {
                             (icon::trash_icon("w-4 h-4"))
                         }
                     } @else {
@@ -365,21 +366,6 @@ fn shipping_row(
                             (icon::eye_icon("w-4 h-4"))
                         }
                     }
-                }
-                @if is_draft {
-                    (confirm_dialog(
-                        "deleteOpen",
-                        "确认删除",
-                        &format!("确定要删除发货申请 <strong>{}</strong> 吗？", s.doc_number),
-                        "确认删除",
-                        &form_id,
-                        html! {
-                            form id=(form_id) style="display:none"
-                                hx-post=(delete_path.to_string())
-                                hx-target="closest tr"
-                                hx-swap="outerHTML swap:0.5s" {}
-                        },
-                    ))
                 }
             }
         }

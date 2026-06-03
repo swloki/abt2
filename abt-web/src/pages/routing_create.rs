@@ -137,7 +137,7 @@ fn routing_create_page(
     let process_map_json = serde_json::to_string(&process_map).unwrap_or_else(|_| "{}".into());
 
     html! {
-        div x-data="routingForm()" {
+            div id="routing-app" {
             // ── Page Header ──
             div class="page-header" {
                 a class="back-link" href=(RoutingListPath::PATH) {
@@ -150,7 +150,7 @@ fn routing_create_page(
             form id="routing-form"
                   hx-post=(RoutingCreatePath::PATH)
                   hx-swap="none" {
-                input type="hidden" name="steps_json" x-model="stepsJson";
+                input type="hidden" name="steps_json";
 
                 // ── Section: 基本信息 ──
                 div class="data-card" style="margin-bottom:var(--space-4)" {
@@ -177,8 +177,7 @@ fn routing_create_page(
                 div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                     div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                         span class="form-section-title" style="margin:0;padding:0;border:none" { "工序步骤" }
-                        button type="button" class="btn btn-sm btn-primary"
-                            x-on:click="addStep()" {
+                        button type="button" class="btn btn-sm btn-primary" {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "添加工序"
                         }
@@ -195,13 +194,12 @@ fn routing_create_page(
                                     th style="width:50px" { }
                                 }
                             }
-                            tbody x-html="renderSteps()" {
+                            tbody {
                             }
                         }
                     }
                     div class="add-row-bar" {
-                        button type="button" class="btn-add-row"
-                            x-on:click="addStep()" {
+                        button type="button" class="btn-add-row" {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "添加工序"
                         }
@@ -216,7 +214,7 @@ fn routing_create_page(
             }
         }
 
-        // ── Alpine.js component ──
+        // TODO: Rewrite routingForm() Alpine component to vanilla JS / Hyperscript.
         script {
             (PreEscaped(format!(r#"
 function routingForm() {{

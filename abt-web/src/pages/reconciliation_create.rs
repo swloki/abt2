@@ -177,7 +177,7 @@ fn reconciliation_create_page(
     let periods = generate_periods();
 
     html! {
-        div x-data="reconciliationForm()" {
+        div id="rec-app" {
             // ── Page Header ──
             div class="page-header" {
                 a class="back-link" href=(ReconciliationListPath::PATH) {
@@ -196,8 +196,8 @@ fn reconciliation_create_page(
                     div class="form-grid" {
                         div class="form-field" {
                             label { "客户名称" span style="color:var(--danger)" { "*" } }
-                            select name="customer_id" x-model="customerId"
-                                x-on:change="triggerPreview()" {
+                            select name="customer_id" id="rec-customer-select"
+                                onchange="triggerPreview()" {
                                 option value="" { "请选择客户" }
                                 @for c in customers {
                                     option value=(c.id) { (c.name) }
@@ -206,8 +206,8 @@ fn reconciliation_create_page(
                         }
                         div class="form-field" {
                             label { "对账期间" span style="color:var(--danger)" { "*" } }
-                            select name="period" x-model="period"
-                                x-on:change="triggerPreview()" {
+                            select name="period" id="rec-period-select"
+                                onchange="triggerPreview()" {
                                 option value="" { "请选择对账期间" }
                                 @for (value, label) in &periods {
                                     option value=(value) { (label) }
@@ -222,7 +222,7 @@ fn reconciliation_create_page(
                     class="data-card"
                     style="padding:0;overflow:hidden;margin-bottom:var(--space-4)"
                     hx-get=(ReconciliationPreviewPath::PATH)
-                    hx-trigger="previewChanged from:div[x-data]"
+                    hx-trigger="previewChanged from:#rec-app"
                     hx-include="#rec-create-form select"
                     hx-target="this"
                     hx-swap="outerHTML" {
@@ -283,7 +283,7 @@ fn reconciliation_create_page(
                     a class="btn btn-default" href=(ReconciliationListPath::PATH) { "取消" }
                     div style="display:flex;gap:var(--space-3)" {
                         button type="submit" class="btn btn-primary"
-                            x-bind:disabled="!customerId || !period" {
+                        button type="submit" class="btn btn-primary" {
                             "创建对账单"
                         }
                     }

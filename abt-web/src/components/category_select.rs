@@ -4,9 +4,9 @@ use serde::Serialize;
 
 /// A reusable searchable, indented tree-select component for categories.
 ///
-/// Embeds category data as JSON in a `data-ct` attribute. The Alpine.js
-/// component in `app.js` reads it via `this.$el.dataset.ct` and handles
-/// all rendering and filtering client-side with `x-for`.
+/// Embeds category data as JSON in a `data-ct` attribute.
+/// The vanilla JS component reads it via `this.$el.dataset.ct` and handles
+/// all rendering and filtering client-side.
 ///
 /// The hidden `<input>` fires a `change` event on selection — works with
 /// HTMX form-based triggers (`hx-trigger="change"` on the parent form).
@@ -24,43 +24,46 @@ pub fn category_tree_select(
     let json = serde_json::to_string(&payload).unwrap_or_default();
 
     html! {
-        div class="tree-select" x-data="categoryTreeSelect()" data-ct=(json) {
+        // TODO: Rewrite categoryTreeSelect to vanilla JS (was Alpine.js x-data component)
+        // Currently non-functional — the tree-select component needs a vanilla JS rewrite.
+        // The data is embedded in data-ct; the rendering/search/selection logic needs to be
+        // reimplemented without Alpine.js.
+        div class="tree-select" data-ct=(json) {
 
             input type="hidden" name=(input_name)
                 value=(selected_id.map(|id| id.to_string()).unwrap_or_default());
 
             button type="button" class="tree-select-trigger"
-                x-on:click="toggle()" {
-                span class="tree-select-value" x-text="selectedName" { }
+                id="tree-select-trigger" {
+                span class="tree-select-value" {
+                    (selected_id.and_then(|id| {
+                        categories.iter().find(|c| c.category_id == id)
+                            .map(|c| c.category_name.as_str())
+                    }).unwrap_or(all_label))
+                }
                 span class="tree-select-arrow" {}
             }
 
-            div class="tree-select-backdrop" x-show="open" x-cloak
-                x-on:click="close()" {}
+            div class="tree-select-backdrop" style="display:none" {}
 
-            div class="tree-select-dropdown" x-show="open && items.length > 0" x-cloak
-                x-transition {
-
+            div class="tree-select-dropdown" style="display:none" {
                 div class="tree-select-search" {
-                    input type="text" x-model="search"
+                    input type="text"
                         placeholder="搜索分类…"
                         class="tree-select-search-input" {}
                 }
-
                 div class="tree-select-list" {
                     button type="button" class="tree-select-option"
-                        x-show="!search"
-                        x-on:click="select('')" {
-                        span x-text="allLabel" { }
+                        style="padding-left:var(--space-3)" {
+                        span { (all_label) }
                     }
 
-                    template x-for="item in filteredItems" {
+                    @for cat in flatten_tree(categories, 0) {
                         button type="button"
                             class="tree-select-option"
-                            x-bind:class="{ 'is-selected': item.id == selectedId }"
-                            x-on:click="select(item.id)"
-                            x-bind:style="'padding-left: calc(' + item.depth + ' * 20px + var(--space-3))'" {
-                            span x-text="item.name" { }
+                            data-id=(cat.id)
+                            style=(format!("padding-left: calc({} * 20px + var(--space-3))", cat.depth)) {
+                            span { (cat.name) }
                         }
                     }
                 }

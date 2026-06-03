@@ -20,7 +20,7 @@ fn document(title: &str, body: Markup) -> Markup {
                 script src="/htmx.min.js" {}
                 script src="/app.js?v=20260603" {}
                 script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer {}
+                script src="https://unpkg.com/hyperscript.org@0.9.14" {}
             }
             body {
                 (body)
@@ -41,9 +41,10 @@ fn admin_shell(
     content: Markup,
 ) -> Markup {
     html! {
-        div x-data=(format!("{{ collapsed: localStorage.getItem('sidebar-collapsed') === 'true', mobileOpen: false, activeModule: '{}' }}", active_module))
-            x-effect="localStorage.setItem('sidebar-collapsed', collapsed)" {
-            div class="app-shell" x-bind:class="{ 'sidebar-collapsed': collapsed }" {
+        div id="app-wrapper"
+            _="on load if localStorage.getItem('sidebar-collapsed') === 'true' then add .sidebar-collapsed to .app-shell"
+        {
+            div class="app-shell" {
                 (sidebar::sidebar(claims, active_module, current_path))
                 div class="main-content" {
                     (header::header(claims, module_name, page_name))
@@ -52,7 +53,8 @@ fn admin_shell(
                     }
                 }
             }
-            div class="mobile-sidebar-overlay" x-bind:class="{ 'open': mobileOpen }" x-on:click="mobileOpen = false" {}
+            div class="mobile-sidebar-overlay"
+                _="on click remove .open" {}
             (sidebar::mobile_nav(active_module, current_path))
         }
     }
@@ -94,50 +96,27 @@ pub fn standalone_page(title: &str, body: Markup) -> Markup {
 }
 
 fn toast_container() -> Markup {
-    let alpine_data = r#"{ toasts: [], init() { var self = this; window.addEventListener('show-toast', function(e) { var t = { id: Date.now(), message: e.detail.message, type: e.detail.type || 'success' }; self.toasts.push(t); setTimeout(function() { self.toasts = self.toasts.filter(function(x) { return x.id !== t.id; }) }, 4000); }) }, removeToast(id) { this.toasts = this.toasts.filter(function(x) { return x.id !== id; }) } }"#;
-    let bind_class = r#"'toast-' + toast.type"#;
-    let icon_success = r#"<span x-show="toast.type !== 'error' && toast.type !== 'warning'" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>"#;
-    let icon_error = r#"<span x-show="toast.type === 'error'" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>"#;
-    let icon_warning = r#"<span x-show="toast.type === 'warning'" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>"#;
     html! {
-        div
-            x-data=(alpine_data)
-            class="toast-container" {
-            template x-for="toast in toasts" {
-                div
-                    class="toast toast-show"
-                    x-bind:class=(bind_class) {
-                    (PreEscaped(icon_success))
-                    (PreEscaped(icon_error))
-                    (PreEscaped(icon_warning))
-                    span class="toast-message" x-text="toast.message" {}
-                    button class="toast-close" x-on:click="removeToast(toast.id)" {
-                        "×"
-                    }
-                }
-            }
-        }
+        div class="toast-container" {}
     }
 }
 
 fn global_confirm_dialog() -> Markup {
-    let alpine_data = r#"{ confirmOpen: false, confirmMessage: '', _issueRequest: null, doConfirm() { this.confirmOpen = false; if (this._issueRequest) this._issueRequest(true); this._issueRequest = null; }, doCancel() { this.confirmOpen = false; this._issueRequest = null; } }"#;
     let icon = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>"#;
     html! {
-        div id="global-confirm-dialog" x-data=(alpine_data) {
+        div id="global-confirm-dialog" {
             div class="dialog-overlay"
-                x-bind:class="{ 'open': confirmOpen }"
-                x-on:click="doCancel()" {
-                div class="dialog" x-on:click="event.stopPropagation()" {
+                _="on click remove .open" {
+                div class="dialog" _="on click halt the event" {
                     div class="dialog-body" {
                         div class="dialog-icon-wrap" {
                             (PreEscaped(icon))
                         }
-                        p class="dialog-desc" x-text="confirmMessage" {}
+                        p class="dialog-desc" id="global-confirm-message" {}
                     }
                     div class="dialog-foot" {
-                        button type="button" class="btn btn-default" x-on:click="doCancel()" { "取消" }
-                        button type="button" class="btn btn-danger" x-on:click="doConfirm()" { "确认" }
+                        button type="button" class="btn btn-default" _="on click remove .open from closest .dialog-overlay" { "取消" }
+                        button type="button" class="btn btn-danger" _="on click call window._confirmIssueRequest() then remove .open from closest .dialog-overlay" { "确认" }
                     }
                 }
             }

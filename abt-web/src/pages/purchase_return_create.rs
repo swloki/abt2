@@ -213,7 +213,7 @@ fn pr_create_page(
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
     html! {
-        div x-data="purchaseReturnForm()" {
+        div id="pr-app" {
             // ── Page Header ──
             div class="page-header" {
                 a class="back-link" href=(PRListPath::PATH) {
@@ -226,8 +226,8 @@ fn pr_create_page(
             form id="pr-form"
                   hx-post=(PRCreatePath::PATH)
                   hx-swap="none" {
-                input type="hidden" name="items_json" x-model="itemsJson";
-                input type="hidden" name="order_id" x-model="selectedOrderId";
+                input type="hidden" name="items_json";
+                input type="hidden" name="order_id";
 
             // ── Order Selection ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
@@ -235,8 +235,8 @@ fn pr_create_page(
                 div class="form-grid" {
                     div class="form-field" {
                         label { "采购订单" span style="color:var(--danger)" { "*" } }
-                        select x-model="selectedOrderId"
-                            x-on:change="loadOrderItems()" {
+                        select id="pr-order-select"
+                            onchange="loadOrderItems()" {
                             option value="" { "请选择采购订单" }
                             @for o in orders {
                                 @let status_text = order_status_text(o.status);
@@ -257,7 +257,7 @@ fn pr_create_page(
                     }
                     div class="form-field" {
                         label { "退货原因" span style="color:var(--danger)" { "*" } }
-                        select name="return_reason" required x-model="returnReason" {
+                        select name="return_reason" required id="pr-return-reason" {
                             option value="" { "请选择" }
                             option value="质量问题" { "质量问题" }
                             option value="数量不符" { "数量不符" }
@@ -266,19 +266,21 @@ fn pr_create_page(
                             option value="其他" { "其他" }
                         }
                     }
-                    div class="form-field" x-show="returnReason === '其他'" x-transition {
+                    // TODO: Rewrite conditional display with vanilla JS
+                    div class="form-field" style="display:none" {
                         label { "具体原因" span style="color:var(--danger)" { "*" } }
-                        input type="text" x-model="returnReasonDetail"
+                        input type="text" id="pr-return-reason-detail"
                             placeholder="请输入具体退货原因"
                             maxlength="200" {}
                     }
                 }
             }
-            input type="hidden" name="return_reason"
-                x-bind:value="returnReason === '其他' && returnReasonDetail ? '其他：' + returnReasonDetail : returnReason" {}
+            // TODO: Rewrite computed return_reason hidden input with vanilla JS
+            input type="hidden" name="return_reason";
 
             // ── Line Items ──
-            div x-show="items.length > 0" class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
+            // TODO: Rewrite conditional display with vanilla JS
+            div class="data-card" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="form-section-title" style="margin:0;padding:0;border:none" { "退货明细" }
                 }
@@ -296,24 +298,7 @@ fn pr_create_page(
                             }
                         }
                         tbody {
-                            template x-for="(item, idx) in items" {
-                                tr {
-                                    td class="line-num" x-text="idx + 1" {}
-                                    td class="mono" x-text="item.product_code" {}
-                                    td x-text="item.product_name" {}
-                                    td class="num-right" x-text="item.order_qty" {}
-                                    td class="num-right mono" x-text="'¥ ' + parseFloat(item.unit_price).toFixed(2)" {}
-                                    td {
-                                        input type="number" x-model="item.returned_qty" min="1"
-                                            style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {}
-                                    }
-                                    td {
-                                        button type="button" class="btn-remove-row" x-on:click="removeItem(idx)" title="删除行" {
-                                            (icon::x_icon("w-3.5 h-3.5"))
-                                        }
-                                    }
-                                }
-                            }
+                            // TODO: Rewrite x-for loop with vanilla JS rendering
                         }
                     }
                 }

@@ -230,7 +230,7 @@ fn quotation_list_page(
     params: &QuotationQueryParams,
 ) -> Markup {
     html! {
-        div x-data="{ editModalOpen: false }" {
+        div {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "报价单" }
@@ -246,10 +246,9 @@ fn quotation_list_page(
             (quotation_table_fragment(result, names, customers, params))
 
             // ── Edit Modal ──
-            div class="modal-overlay"
-                x-bind:class="{ 'is-open': editModalOpen }"
-                x-on:click="editModalOpen = false" {
-                div class="modal" x-on:click="event.stopPropagation()" {
+            div id="quotation-edit-modal" class="modal-overlay"
+                _="on click remove .is-open from #quotation-edit-modal" {
+                div class="modal" _="on click halt the event" {
                     div id="quotation-edit-modal-content" {
                         "加载中..."
                     }
@@ -361,7 +360,6 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>) -> Markup {
     let (status_text, status_class) = status_label(q.status);
     let edit_form_path = EditQuotationFormPath { id: q.id };
     let delete_path = DeleteQuotationPath { id: q.id };
-    let form_id = format!("delete-quotation-form-{}", q.id);
     let is_draft = q.status == QuotationStatus::Draft;
     let customer_name = names.get(&q.customer_id).map(|s| s.as_str()).unwrap_or("—");
 
@@ -379,31 +377,21 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>) -> Markup {
             td onclick=(format!("location.href='{}'", detail_path)) { (q.valid_until.format("%Y-%m-%d")) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {
-                    div class="row-actions" x-data="{ deleteOpen: false }" {
+                    div class="row-actions" {
                         button class="row-action-btn" title="编辑"
                             hx-get=(edit_form_path)
                             hx-target="#quotation-edit-modal-content"
                             hx-swap="innerHTML"
-                            x-on:click="editModalOpen = true" {
+                            _="on click add .is-open to #quotation-edit-modal" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         button type="button" class="row-action-btn text-danger" title="删除"
-                            x-on:click="deleteOpen = true" {
+                            hx-confirm="确认删除该报价单吗？"
+                            hx-post=(delete_path)
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s" {
                             (icon::trash_icon("w-4 h-4"))
                         }
-                        (crate::components::confirm_dialog::confirm_dialog(
-                            "deleteOpen",
-                            "确认删除",
-                            "删除后无法恢复，确定要删除该报价单吗？",
-                            "确认删除",
-                            &form_id,
-                            html! {
-                                form id=(form_id) style="display:none"
-                                    hx-post=(delete_path)
-                                    hx-target="closest tr"
-                                    hx-swap="outerHTML swap:0.5s" {}
-                            },
-                        ))
                     }
                 }
             }
@@ -423,7 +411,7 @@ fn quotation_edit_form(quotation: &Quotation, action_url: &str) -> Markup {
             div class="modal-head" {
                 h2 { "编辑报价单" }
                 button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                    x-on:click="editModalOpen = false" { "×" }
+                    _="on click remove .is-open from #quotation-edit-modal" { "×" }
             }
             form class="modal-body" hx-post=(action_url) hx-target="this" {
                 div class="form-section-title" { "报价信息" }
@@ -455,7 +443,7 @@ fn quotation_edit_form(quotation: &Quotation, action_url: &str) -> Markup {
             }
             div class="modal-foot" {
                 button type="button" class="btn btn-default"
-                    x-on:click="editModalOpen = false" { "取消" }
+                    _="on click remove .is-open from #quotation-edit-modal" { "取消" }
                 button type="submit" class="btn btn-primary" { "保存修改" }
             }
         }

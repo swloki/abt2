@@ -185,7 +185,7 @@ fn process_dict_list_page(
     params: &ProcessDictQueryParams,
 ) -> Markup {
     html! {
-        div x-data="{ showCreateModal: false }" {
+        div {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "工序字典管理" }
@@ -297,23 +297,13 @@ fn process_dict_row(item: &LaborProcessDict) -> Markup {
                 }
             }
             td onclick="event.stopPropagation()" {
-                div class="row-actions" x-data="{ deleteOpen: false }" {
+                div class="row-actions" {
                     button type="button" class="row-action-btn text-danger" title="删除"
-                        x-on:click="deleteOpen = true" {
+                        hx-post=(delete_path)
+                        hx-confirm=(format!("删除后无法恢复，确定要删除工序「{}」（{}）吗？", item.name, item.code))
+                        hx-swap="none" {
                         (icon::trash_icon("w-4 h-4"))
                     }
-                    (crate::components::confirm_dialog::confirm_dialog(
-                        "deleteOpen",
-                        "确认删除",
-                        &format!("删除后无法恢复，确定要删除工序 <strong>{}</strong>（{}）吗？", item.name, item.code),
-                        "确认删除",
-                        &format!("delete-dict-form-{}", item.id),
-                        html! {
-                            form id=(format!("delete-dict-form-{}", item.id)) style="display:none"
-                                hx-post=(delete_path)
-                                hx-swap="none" {}
-                        },
-                    ))
                 }
             }
         }

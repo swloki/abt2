@@ -184,7 +184,7 @@ fn bom_list_page(
     can_delete: bool,
 ) -> Markup {
     html! {
-        div x-data="{ createModalOpen: false, costOpen: false, laborOpen: false }" {
+        div {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "BOM管理" }
@@ -202,14 +202,13 @@ fn bom_list_page(
 
             @if can_view_cost {
                 // ── Cost Drawer ──
-                div class="drawer-overlay"
-                    x-bind:class="{ 'open': costOpen }"
-                    x-on:click="if(event.target===this) costOpen = false" {
-                    div class="drawer" style="max-width:1000px;width:100%" x-on:click="event.stopPropagation()" {
+                div id="cost-drawer" class="drawer-overlay"
+                    _="on click remove .open from #cost-drawer" {
+                    div class="drawer" style="max-width:1000px;width:100%" _="on click halt the event" {
                         div class="drawer-head" {
                             h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                                x-on:click="costOpen = false" { "×" }
+                                _="on click remove .open from #cost-drawer" { "×" }
                         }
                         div class="drawer-body" {
                             div id="cost-drawer-body" {
@@ -218,20 +217,19 @@ fn bom_list_page(
                         }
                         div class="drawer-foot" {
                             button type="button" class="btn btn-default"
-                                x-on:click="costOpen = false" { "关闭" }
+                                _="on click remove .open from #cost-drawer" { "关闭" }
                         }
                     }
                 }
             } @else if can_view_labor_cost {
                 // ── Labor Cost Drawer ──
-                div class="drawer-overlay"
-                    x-bind:class="{ 'open': laborOpen }"
-                    x-on:click="if(event.target===this) laborOpen = false" {
-                    div class="drawer" style="max-width:800px;width:100%" x-on:click="event.stopPropagation()" {
+                div id="labor-drawer" class="drawer-overlay"
+                    _="on click remove .open from #labor-drawer" {
+                    div class="drawer" style="max-width:800px;width:100%" _="on click halt the event" {
                         div class="drawer-head" {
                             h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                                x-on:click="laborOpen = false" { "×" }
+                                _="on click remove .open from #labor-drawer" { "×" }
                         }
                         div class="drawer-body" {
                             div id="labor-drawer-body" {
@@ -240,7 +238,7 @@ fn bom_list_page(
                         }
                         div class="drawer-foot" {
                             button type="button" class="btn btn-default"
-                                x-on:click="laborOpen = false" { "关闭" }
+                                _="on click remove .open from #labor-drawer" { "关闭" }
                         }
                     }
                 }
@@ -358,7 +356,6 @@ fn bom_table_fragment(
 fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, String>, can_view_labor_cost: bool, can_view_cost: bool, can_delete: bool) -> Markup {
     let detail_path = BomDetailPath { id: bom.bom_id };
     let delete_path = BomDeletePath { id: bom.bom_id };
-    let form_id = format!("delete-bom-form-{}", bom.bom_id);
 
     let (status_label, status_class) = match bom.status {
         BomStatus::Draft => ("草稿", "status-bom-draft"),
@@ -406,7 +403,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                 }
             }
             td onclick="event.stopPropagation()" {
-                div class="row-actions" x-data="{ deleteOpen: false }" {
+                div class="row-actions" {
                     a class="row-action-btn" title="查看"
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
@@ -416,7 +413,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                             hx-get=(BomCostDrawerPath { id: bom.bom_id }.to_string())
                             hx-target="#cost-drawer-body"
                             hx-swap="innerHTML"
-                            x-on:click="costOpen = true" {
+                            _="on click add .open to #cost-drawer" {
                             (icon::currency_icon("w-4 h-4"))
                         }
                     } @else if can_view_labor_cost {
@@ -424,28 +421,18 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                             hx-get=(BomLaborCostDrawerPath { id: bom.bom_id }.to_string())
                             hx-target="#labor-drawer-body"
                             hx-swap="innerHTML"
-                            x-on:click="laborOpen = true" {
+                            _="on click add .open to #labor-drawer" {
                             (icon::bolt_icon("w-4 h-4"))
                         }
                     }
                     @if can_delete {
                         button type="button" class="row-action-btn text-danger" title="删除"
-                            x-on:click="deleteOpen = true" {
+                            hx-confirm=(format!("确认删除BOM {}？", bom.bom_name))
+                            hx-post=(delete_path)
+                            hx-target=(format!("#bom-row-{}", bom.bom_id))
+                            hx-swap="outerHTML swap:0.5s" {
                             (icon::trash_icon("w-4 h-4"))
                         }
-                        (crate::components::confirm_dialog::confirm_dialog(
-                            "deleteOpen",
-                            "确认删除",
-                            &format!("删除后无法恢复，确定要删除BOM <strong>{}</strong> 吗？", bom.bom_name),
-                            "确认删除",
-                            &form_id,
-                            html! {
-                                form id=(form_id) style="display:none"
-                                    hx-post=(delete_path)
-                                    hx-target=(format!("#bom-row-{}", bom.bom_id))
-                                    hx-swap="outerHTML swap:0.5s" {}
-                            },
-                        ))
                     }
                 }
             }

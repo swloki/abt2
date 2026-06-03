@@ -213,7 +213,7 @@ fn customer_form(customer: &Option<Customer>, form_id: &str, action_url: &str) -
             div class="modal-head" {
                 h2 { (title) }
                 button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                    x-on:click="createModalOpen = false" { "×" }
+                    _="on click remove .is-open from #customer-create-modal" { "×" }
             }
             form id=(form_id) class="modal-body"
                 hx-post=(action_url)
@@ -284,7 +284,7 @@ fn customer_form(customer: &Option<Customer>, form_id: &str, action_url: &str) -
             }
             div class="modal-foot" {
                 button type="button" class="btn btn-default"
-                    x-on:click="createModalOpen = false" { "取消" }
+                    _="on click remove .is-open from #customer-create-modal" { "取消" }
                 button type="submit" class="btn btn-primary" form=(form_id) { (submit_label) }
             }
         }
@@ -301,7 +301,7 @@ fn customer_list_page(
     let total_count = result.total;
 
     html! {
-        div x-data="{ createModalOpen: false }" {
+        div {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "客户管理" }
@@ -311,7 +311,7 @@ fn customer_list_page(
                         "导出"
                     }
                     button class="btn btn-primary"
-                        x-on:click="createModalOpen = true" {
+                        _="on click add .is-open to #customer-create-modal" {
                         (icon::plus_icon("w-4 h-4"))
                         "新建客户"
                     }
@@ -361,11 +361,9 @@ fn customer_list_page(
             // ── Tabs + Filter + Data Table (HTMX panel) ──
             (customer_table_fragment(result, params))
 
-            // ── Customer Modal (create / edit) ──
-            div class="modal-overlay"
-                x-bind:class="{ 'is-open': createModalOpen }"
-                x-on:click="createModalOpen = false" {
-                div class="modal" x-on:click="event.stopPropagation()" {
+            div class="modal-overlay" id="customer-create-modal"
+                _="on click remove .is-open" {
+                div class="modal" _="on click halt the event" {
                     (customer_form(&None, "create-customer-form", CreateCustomerPath::PATH))
                 }
             }
@@ -471,7 +469,6 @@ fn customer_row(c: &Customer) -> Markup {
     let detail_path = CustomerDetailPath { id: c.id };
     let edit_form_path = EditCustomerFormPath { id: c.id };
     let delete_path = DeleteCustomerPath { id: c.id };
-    let form_id = format!("delete-customer-form-{}", c.id);
     let category_label = match c.category {
         CustomerCategory::Distributor => ("经销商", "tag-normal"),
         CustomerCategory::DirectCustomer => ("直客", "tag-normal"),
@@ -505,31 +502,21 @@ fn customer_row(c: &Customer) -> Markup {
             td onclick=(format!("location.href='{}'", detail_path)) { span class=(format!("status-pill {status_class}")) { (status_label) } }
             td onclick=(format!("location.href='{}'", detail_path)) { (c.created_at.format("%Y-%m-%d")) }
             td onclick="event.stopPropagation()" {
-                div class="row-actions" x-data="{ deleteOpen: false }" {
+                div class="row-actions" {
                     button class="row-action-btn" title="编辑"
                         hx-get=(edit_form_path)
-                        hx-target="#customer-modal-content"
-                        hx-swap="outerHTML"
-                        x-on:click="createModalOpen = true" {
+                        hx-target="#customer-create-modal .modal-body"
+                        hx-swap="innerHTML"
+                        _="on click add .is-open to #customer-create-modal" {
                         (icon::edit_icon("w-4 h-4"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"
-                        x-on:click="deleteOpen = true" {
+                        hx-post=(delete_path)
+                        hx-confirm=(format!("删除后无法恢复，确定要删除客户 <strong>{}</strong> 吗？", c.name))
+                        hx-target="closest tr"
+                        hx-swap="outerHTML swap:0.5s" {
                         (icon::trash_icon("w-4 h-4"))
                     }
-                    (crate::components::confirm_dialog::confirm_dialog(
-                        "deleteOpen",
-                        "确认删除",
-                        &format!("删除后无法恢复，确定要删除客户 <strong>{}</strong> 吗？", c.name),
-                        "确认删除",
-                        &form_id,
-                        html! {
-                            form id=(form_id) style="display:none"
-                                hx-post=(delete_path)
-                                hx-target="closest tr"
-                                hx-swap="outerHTML swap:0.5s" {}
-                        },
-                    ))
                 }
             }
         }

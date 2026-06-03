@@ -188,7 +188,7 @@ fn customer_detail_page(
     };
 
     html! {
-        div x-data="{ contactModalOpen: false, addressModalOpen: false }" {
+        div {
         // ── Detail Top ──
         div class="detail-top" {
             div class="customer-identity" {
@@ -263,7 +263,7 @@ fn customer_detail_page(
                 div class="detail-card-title" {
                     span { "联系人" }
                     button class="btn btn-sm btn-primary"
-                        x-on:click="contactModalOpen = true" {
+                        _="on click add .is-open to #contact-create-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加"
                     }
@@ -301,7 +301,7 @@ fn customer_detail_page(
             div class="detail-card-title" {
                 span { "地址信息" }
                 button class="btn btn-sm btn-primary"
-                    x-on:click="addressModalOpen = true" {
+                    _="on click add .is-open to #address-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加"
                 }
@@ -319,7 +319,7 @@ fn customer_detail_page(
 
         // ── Modals ──
             (crate::components::modal::modal(
-                "contactModalOpen",
+                "contact-create-modal",
                 "添加联系人",
                 "保存",
                 "create-contact-form",
@@ -356,7 +356,7 @@ fn customer_detail_page(
             ))
 
             (crate::components::modal::modal(
-                "addressModalOpen",
+                "address-create-modal",
                 "添加地址",
                 "保存",
                 "create-address-form",
@@ -451,10 +451,9 @@ fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath) -> 
         cid: detail_path.id,
         contact_id: contact.id,
     };
-    let form_id = format!("delete-contact-form-{}", contact.id);
 
     html! {
-        div class="contact-card" x-data="{ deleteOpen: false }" {
+        div class="contact-card" {
             div class="contact-card-head" {
                 strong { (contact.name) }
                 @if contact.is_primary {
@@ -480,23 +479,12 @@ fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath) -> 
             }
             div class="contact-card-actions" {
                 button type="button" class="row-action-btn text-danger" title="删除"
-                    x-on:click="deleteOpen = true" {
+                    hx-post=(delete_path)
+                    hx-confirm=(format!("删除后无法恢复，确定要删除联系人 <strong>{}</strong> 吗？", contact.name))
+                    hx-swap="none" {
                     (icon::trash_icon("w-4 h-4"))
                 }
             }
-            (crate::components::confirm_dialog::confirm_dialog(
-                "deleteOpen",
-                "确认删除",
-                &format!("删除后无法恢复，确定要删除联系人 <strong>{}</strong> 吗？", contact.name),
-                "确认删除",
-                &form_id,
-                html! {
-                    form id=(form_id) style="display:none"
-                        hx-post=(delete_path)
-                        hx-target="closest .contact-card"
-                        hx-swap="outerHTML swap:0.5s" {}
-                },
-            ))
         }
     }
 }
@@ -506,7 +494,6 @@ fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath) -> Mar
         cid: detail_path.id,
         address_id: addr.id,
     };
-    let form_id = format!("delete-address-form-{}", addr.id);
     let type_label = match addr.address_type.as_str() {
         "shipping" => "收货",
         "billing" => "开票",
@@ -521,7 +508,7 @@ fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath) -> Mar
     );
 
     html! {
-        div class="address-card" x-data="{ deleteOpen: false }" {
+        div class="address-card" {
             div class="address-card-head" {
                 span class="tag-chip tag-normal" { (type_label) }
                 @if addr.is_default {
@@ -542,23 +529,12 @@ fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath) -> Mar
             }
             div class="address-card-actions" {
                 button type="button" class="row-action-btn text-danger" title="删除"
-                    x-on:click="deleteOpen = true" {
+                    hx-post=(delete_path)
+                    hx-confirm="删除后无法恢复，确定要删除该地址吗？"
+                    hx-swap="none" {
                     (icon::trash_icon("w-4 h-4"))
                 }
             }
-            (crate::components::confirm_dialog::confirm_dialog(
-                "deleteOpen",
-                "确认删除",
-                "删除后无法恢复，确定要删除该地址吗？",
-                "确认删除",
-                &form_id,
-                html! {
-                    form id=(form_id) style="display:none"
-                        hx-post=(delete_path)
-                        hx-target="closest .address-card"
-                        hx-swap="outerHTML swap:0.5s" {}
-                },
-            ))
         }
     }
 }

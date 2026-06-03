@@ -28,19 +28,36 @@ window.positionDropdown = function (trigger, dropdown) {
 
 
 window.showToast = function (message, type) {
-    var el = document.querySelector('.toast-container');
-    if (el && el._x_dataStack) {
-        // Alpine instance ready, push directly
-        var data = el._x_dataStack[0];
-        var t = { id: Date.now(), message: message, type: type || 'success' };
-        data.toasts.push(t);
-        setTimeout(function () {
-            data.toasts = data.toasts.filter(function (x) { return x.id !== t.id; });
-        }, 3000);
-    } else {
-        // Alpine not ready, dispatch event as fallback
-        window.dispatchEvent(new CustomEvent('show-toast', { detail: { message: message, type: type || 'success' } }));
-    }
+    var container = document.querySelector('.toast-container');
+    if (!container) return;
+    type = type || 'success';
+
+    var icons = {
+        success: '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>',
+        error: '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>',
+        warning: '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>'
+    };
+
+    var div = document.createElement('div');
+    div.className = 'toast toast-show toast-' + type;
+    div.innerHTML = icons[type] || icons.success;
+
+    var span = document.createElement('span');
+    span.className = 'toast-message';
+    span.textContent = message;
+    div.appendChild(span);
+
+    var btn = document.createElement('button');
+    btn.className = 'toast-close';
+    btn.textContent = '\u00d7';
+    btn.onclick = function () { if (div.parentNode) div.parentNode.removeChild(div); };
+    div.appendChild(btn);
+
+    container.appendChild(div);
+
+    setTimeout(function () {
+        if (div.parentNode) div.parentNode.removeChild(div);
+    }, 4000);
 };
 
 // ── HTMX global error handling ──
@@ -59,100 +76,29 @@ document.addEventListener('htmx:afterRequest', function (e) {
     window.showToast(msg, 'error');
 });
 
-// ── Close supplier modals on HX-Trigger events ──
 
-document.addEventListener('contactChanged', function () {
-    var el = document.querySelector('[x-data]');
-    if (el && el._x_dataStack) el._x_dataStack[0].contactModalOpen = false;
-});
+// ── HTMX: re-init for swapped content ──
+// (Alpine.js removed — cost-drawer.js handles its own init via htmx:afterSettle)
 
-document.addEventListener('bankAccountChanged', function () {
-    var el = document.querySelector('[x-data]');
-    if (el && el._x_dataStack) el._x_dataStack[0].bankAccountModalOpen = false;
-});
-
-// ── Alpine + HTMX: re-init Alpine for swapped content ──
-
-document.addEventListener('htmx:afterSettle', function (e) {
-    if (window.Alpine) Alpine.initTree(e.target);
-});
 
 // ── HTMX custom confirm dialog (replaces native confirm()) ──
 
 document.addEventListener('htmx:confirm', function (e) {
     if (!e.detail.question) return;
     e.preventDefault();
-    var el = document.getElementById('global-confirm-dialog');
-    if (!el || !el._x_dataStack) {
-        // fallback to native confirm if Alpine not ready
+    var dialog = document.getElementById('global-confirm-dialog');
+    if (!dialog) {
         if (confirm(e.detail.question)) e.detail.issueRequest(true);
         return;
     }
-    var data = el._x_dataStack[0];
-    data.confirmMessage = e.detail.question;
-    data.confirmOpen = true;
-    data._issueRequest = e.detail.issueRequest.bind(e.detail);
+    var overlay = dialog.querySelector('.dialog-overlay');
+    var msg = document.getElementById('global-confirm-message');
+    if (!overlay || !msg) {
+        if (confirm(e.detail.question)) e.detail.issueRequest(true);
+        return;
+    }
+    msg.textContent = e.detail.question;
+    window._confirmIssueRequest = e.detail.issueRequest.bind(e.detail);
+    overlay.classList.add('open');
 });
 
-// ── Category Tree Select Component ──
-
-window.categoryTreeSelect = function () {
-    return {
-        open: false,
-        search: '',
-        items: [],
-        selectedId: null,
-        selectedName: '',
-        allLabel: '全部分类',
-
-        init() {
-            var raw = this.$el.dataset.ct;
-            if (!raw) return;
-            var data = JSON.parse(raw);
-            this.items = data.items || [];
-            this.selectedId = data.selected_id || null;
-            this.allLabel = data.all_label || '全部分类';
-            if (this.selectedId) {
-                var self = this;
-                var found = this.items.find(function (i) { return i.id === self.selectedId; });
-                this.selectedName = found ? found.name : this.allLabel;
-            } else {
-                this.selectedName = this.allLabel;
-            }
-        },
-
-        get filteredItems() {
-            if (!this.search) return this.items;
-            var q = this.search.toLowerCase();
-            return this.items.filter(function (i) {
-                return i.name.toLowerCase().indexOf(q) !== -1;
-            });
-        },
-
-        toggle() {
-            this.open = !this.open;
-            if (!this.open) this.search = '';
-        },
-
-        close() {
-            this.open = false;
-            this.search = '';
-        },
-
-        select(value) {
-            var id = typeof value === 'number' ? String(value) : value;
-            var container = this.$el.closest('.tree-select');
-            var input = container.querySelector('input[type=hidden]');
-            input.value = id;
-            if (id) {
-                var found = this.items.find(function (i) { return String(i.id) === id; });
-                this.selectedName = found ? found.name : this.allLabel;
-            } else {
-                this.selectedName = this.allLabel;
-                this.selectedId = null;
-            }
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-            this.close();
-        }
-    };
-};

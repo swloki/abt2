@@ -117,7 +117,7 @@ fn routing_list_page(
     params: &RoutingQueryParams,
 ) -> Markup {
     html! {
-        div x-data="{ }" {
+        div {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "工艺路线管理" }
@@ -194,7 +194,6 @@ fn routing_table_fragment(
 fn routing_row(r: &Routing) -> Markup {
     let detail_path = RoutingDetailPath { id: r.id };
     let delete_path = RoutingDeletePath { id: r.id };
-    let form_id = format!("delete-routing-form-{}", r.id);
 
     html! {
         tr style="cursor:pointer" {
@@ -216,28 +215,18 @@ fn routing_row(r: &Routing) -> Markup {
                 }
             }
             td onclick="event.stopPropagation()" {
-                div class="row-actions" x-data="{ deleteOpen: false }" {
+                div class="row-actions" {
                     a class="row-action-btn" title="查看"
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"
-                        x-on:click="deleteOpen = true" {
+                        hx-confirm=(format!("确认删除工艺路线 {}？", r.name))
+                        hx-post=(delete_path)
+                        hx-target="closest tr"
+                        hx-swap="outerHTML swap:0.5s" {
                         (icon::trash_icon("w-4 h-4"))
                     }
-                    (crate::components::confirm_dialog::confirm_dialog(
-                        "deleteOpen",
-                        "确认删除",
-                        &format!("删除后无法恢复，确定要删除工艺路线 <strong>{}</strong> 吗？", r.name),
-                        "确认删除",
-                        &form_id,
-                        html! {
-                            form id=(form_id) style="display:none"
-                                hx-post=(delete_path)
-                                hx-target="closest tr"
-                                hx-swap="outerHTML swap:0.5s" {}
-                        },
-                    ))
                 }
             }
         }

@@ -137,8 +137,7 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
                  hx-target="#login-form-area"
                  hx-select="#login-form-area"
                  hx-swap="outerHTML"
-                 x-data=(r#"{"loading": false}"#)
-                 x-on:submit="loading = true" {
+                 _="on submit add .loading to me" {
 
                 div class="mb-5" {
                     div class="flex items-center justify-between mb-[7px]" {
@@ -158,13 +157,14 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
                         label for="password" class="text-[13px] font-semibold text-fg-2" { "密码" }
                         a href="javascript:void(0)" class="text-xs text-accent font-medium hover:text-accent-hover transition-colors duration-150" { "忘记密码？" }
                     }
-                    div class="relative" x-data=(r#"{"show": false}"#) {
+                    div class="relative" {
                         input type="password" name="password" id="password" required
                                class="field-input" style="padding-right: 44px"
-                               placeholder="请输入密码" autocomplete="current-password"
-                               x-bind:type="show ? 'text' : 'password'";
+                               placeholder="请输入密码" autocomplete="current-password";
                         (lock_icon("field-icon"))
-                        button type="button" class="pw-toggle" x-on:click="show = !show" aria-label="显示密码" {
+                        button type="button" class="pw-toggle"
+                            _="on click toggle .pw-visible from closest div then if (closest div matches .pw-visible) set #password.type to 'text' else set #password.type to 'password'"
+                            aria-label="显示密码" {
                             (eye_icon("w-[18px] h-[18px]"))
                         }
                     }
@@ -177,13 +177,11 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
                     }
                 }
 
-                button type="submit" class="btn-login" x-bind:disabled="loading" x-bind:class=(r#"{"loading": loading}"#) {
-                    span x-show="!loading" { "登 录" }
-                    span x-show="!loading" class="inline-block w-[18px] h-[18px]" {
+                button type="submit" class="btn-login" {
+                    span { "登 录" }
+                    span class="inline-block w-[18px] h-[18px]" {
                         (arrow_right_icon("w-[18px] h-[18px]"))
                     }
-                    span x-show="loading" class="spinner" { }
-                    span x-show="loading" { "登录中..." }
                 }
             }
         }

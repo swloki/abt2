@@ -13,7 +13,6 @@ use abt_core::purchase::payment::model::*;
 use abt_core::purchase::payment::PaymentRequestService;
 use abt_core::shared::types::PageParams;
 
-use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
@@ -299,8 +298,6 @@ fn pay_row(
     let created = r.created_at.format("%Y-%m-%d").to_string();
     let onclick = format!("location.href='{}'", detail_path);
     let is_draft = r.status == PaymentStatus::Draft;
-    let form_id = format!("cancel-pay-form-{}", r.id);
-
     html! {
         tr style="cursor:pointer" {
             td class="link-cell mono" onclick=(&onclick) { (r.doc_number) }
@@ -315,27 +312,17 @@ fn pay_row(
             td onclick=(&onclick) { (created) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {
-                    div class="row-actions" x-data="{ cancelOpen: false }" {
+                    div class="row-actions" {
                         a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         button type="button" class="row-action-btn text-danger" title="取消"
-                            x-on:click="cancelOpen = true" {
+                            hx-confirm="确认取消该付款申请吗？"
+                            hx-post=(cancel_path)
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s" {
                             (icon::trash_icon("w-4 h-4"))
                         }
-                        (confirm_dialog(
-                            "cancelOpen",
-                            "确认取消",
-                            "取消后无法恢复，确定要取消该付款申请吗？",
-                            "确认取消",
-                            &form_id,
-                            html! {
-                                form id=(form_id) style="display:none"
-                                    hx-post=(cancel_path)
-                                    hx-target="closest tr"
-                                    hx-swap="outerHTML swap:0.5s" {}
-                            },
-                        ))
                     }
                 }
             }

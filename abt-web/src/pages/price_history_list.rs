@@ -182,7 +182,7 @@ async fn fetch_enriched_rows(
 
 fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pages: u32, params: &PriceHistoryQueryParams) -> Markup {
     html! {
-        div x-data="{ detailOpen: false }" {
+        div {
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "价格变更记录" }
@@ -251,13 +251,12 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
             }
 
             // ── Detail Drawer Overlay ──
-            div class="detail-overlay"
-                x-bind:class="{'open': detailOpen}"
-                x-on:click="if($event.target===this){detailOpen=false;document.body.style.overflow=''}" {
-                div class="detail-drawer" x-on:click="event.stopPropagation()" {
+            div class="detail-overlay" id="detail-drawer"
+                _="on click if event.target is me remove .open" {
+                div class="detail-drawer" _="on click halt the event" {
                     div class="detail-head" {
                         h2 { "变更详情" }
-                        button class="detail-close" x-on:click="detailOpen=false;document.body.style.overflow=''" {
+                        button class="detail-close" _="on click remove .open from #detail-drawer" {
                             (icon::x_icon("w-4.5 h-4.5"))
                         }
                     }
@@ -327,7 +326,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
             hx-get=(detail_path.to_string())
             hx-target="#detail-body"
             hx-swap="innerHTML"
-            x-on:click="detailOpen=true;document.body.style.overflow='hidden'" {
+            _="on click add .open to #detail-drawer" {
             td style="color:var(--muted)" { (index + 1) }
             td class="mono" { (row.product_code) }
             td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=(row.product_name) {
@@ -353,7 +352,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
                     hx-get=(detail_path.to_string())
                     hx-target="#detail-body"
                     hx-swap="innerHTML"
-                    x-on:click="detailOpen=true;document.body.style.overflow='hidden'" { "详情" }
+                    _="on click halt the event then add .open to #detail-drawer" { "详情" }
             }
         }
     }

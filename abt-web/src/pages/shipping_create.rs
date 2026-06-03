@@ -301,7 +301,7 @@ fn shipping_create_page(
     ).unwrap_or_default();
 
     html! {
-        div x-data=(format!("shippingForm({warehouses_json})")) {
+        div id="shipping-app" data-warehouses=(warehouses_json) {
             // ── Page Header ──
             div class="page-header" {
                 a class="back-link" href=(ShippingListPath::PATH) {
@@ -314,8 +314,8 @@ fn shipping_create_page(
             form id="shipping-form"
                   hx-post=(ShippingCreatePath::PATH)
                   hx-swap="none" {
-                input type="hidden" name="items_json" x-model="itemsJson";
-                input type="hidden" name="order_id" x-model="selectedOrderId";
+                input type="hidden" name="items_json";
+                input type="hidden" name="order_id";
 
                 // ── Customer Info ──
                 (customer_info_card(customers, None, "", "", ""))
@@ -328,19 +328,18 @@ fn shipping_create_page(
                             label { "选择订单" span style="color:var(--danger)" { "*" } }
                             div style="display:flex;gap:var(--space-2)" {
                                 input type="text" readonly
-                                    x-model="selectedOrderNumber"
-                                    placeholder="点击选择来源订单"
-                                    x-bind:disabled="!customerId"
-                                    x-on:click="customerId && (orderModalOpen = true)"
+                                input type="text" readonly
+                                    id="shipping-order-number"
+                                    placeholder="选择客户后可选择订单"
                                     style="flex:1;cursor:pointer" {}
                                 button type="button" class="btn btn-sm btn-default"
-                                    x-show="selectedOrderNumber"
-                                    x-on:click="clearOrder()" title="清除" {
+                                // TODO: Rewrite conditional display with vanilla JS
+                                button type="button" class="btn btn-sm btn-default" style="display:none"
+                                    id="shipping-clear-order-btn" title="清除" {
                                     (icon::x_icon("w-3.5 h-3.5"))
                                 }
                                 button type="button" class="btn btn-sm btn-primary"
-                                    x-bind:disabled="!customerId"
-                                    x-on:click="orderModalOpen = true" {
+                                    _="on click add .is-open to #order-modal" {
                                     "选择订单"
                                 }
                             }
@@ -396,46 +395,20 @@ fn shipping_create_page(
                                 }
                             }
                             tbody {
-                                template x-for="(item, idx) in items" {
-                                    tr {
-                                        td class="line-num" x-text="idx + 1" {}
-                                        td class="mono" x-text="item.product_code" {}
-                                        td x-text="item.product_name" {}
-                                        td x-text="item.specification" {}
-                                        td x-text="item.unit" {}
-                                        td class="num-right" x-text="item.ordered_qty" {}
-                                        td class="num-right" x-text="item.shipped_qty" {}
-                                        td {
-                                            input type="number" x-model="item.ship_qty" min="0" step="1"
-                                                style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {}
-                                        }
-                                        td {
-                                            select x-model="item.warehouse_id"
-                                                style="width:130px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {
-                                                option value="" { "选择仓库" }
-                                                template x-for="w in warehouses" {
-                                                    option x-bind:value="w.id" x-text="w.name" {}
-                                                }
-                                            }
-                                        }
-                                        td {
-                                            button type="button" class="btn-remove-row" x-on:click="removeItem(idx)" title="删除行" {
-                                                (icon::x_icon("w-3.5 h-3.5"))
-                                            }
-                                        }
-                                    }
-                                }
+                        tbody {
+                            // TODO: Rewrite x-for loop with vanilla JS rendering
+                        }
                             }
                         }
                     }
                     div class="totals-bar" {
                         div class="totals-item" {
                             span class="totals-label" { "产品数" }
-                            span class="totals-value" x-text="totalItems + ' 项'" { "0 项" }
+                        span class="totals-value" { "0 项" }
                         }
                         div class="totals-item" {
                             span class="totals-label" { "发货总数" }
-                            span class="totals-value" x-text="totalQty.toFixed(0)" { "0" }
+                        span class="totals-value" { "0" }
                         }
                     }
                 }
@@ -459,18 +432,17 @@ fn shipping_create_page(
             }
 
             // ── Order Picker Modal ──
-            div class="modal-overlay"
-                x-bind:class="{ 'is-open': orderModalOpen }"
-                x-on:click="orderModalOpen = false" {
-                div class="modal modal-lg" x-on:click="event.stopPropagation()" {
+            div class="modal-overlay" id="order-modal"
+                _="on click remove .is-open from #order-modal" {
+                div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择来源订单" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            x-on:click="orderModalOpen = false" { "×" }
+                            _="on click remove .is-open from #order-modal" { "×" }
                     }
                     div class="modal-body" style="padding:0" {
                         div class="product-search-bar" {
-                            input type="hidden" name="customer_id" x-model="customerId" {}
+                            input type="hidden" name="customer_id" {}
                             div class="product-search-field" {
                                 label class="product-search-label" { "搜索订单" }
                                 input class="product-search-input" type="text" name="keyword" placeholder="输入订单号…"
@@ -515,7 +487,7 @@ fn customer_info_card(
             div class="form-grid" {
                 div class="form-field" {
                     label { "客户名称" span style="color:var(--danger)" { "*" } }
-                    select name="customer_id" x-model="customerId"
+                    select name="customer_id"
                         hx-get=(ShippingCustomerContactsPath::PATH)
                         hx-trigger="change"
                         hx-target="closest .data-card"

@@ -8,7 +8,7 @@ use abt_core::shared::types::PageParams;
 
 use abt_macros::require_permission;
 
-use crate::components::{confirm_dialog, detail::detail_row, icon};
+use crate::components::{detail::detail_row, icon};
 use crate::components::pagination::htmx_pagination;
 use crate::layout::page::admin_page;
 use crate::routes::routing::{RoutingDeletePath, RoutingDetailPath, RoutingListPath};
@@ -76,7 +76,7 @@ fn routing_detail_page(
     let step_count = steps.len();
 
     html! {
-        div x-data="{ deleteOpen: false }" {
+        div {
             // ── Detail Top ──
             div class="detail-top" {
                 div class="customer-identity" {
@@ -110,7 +110,11 @@ fn routing_detail_page(
                         (icon::copy_icon("w-4 h-4"))
                         " 复制"
                     }
-                    button class="btn btn-danger-ghost" x-on:click="deleteOpen = true" {
+                    button class="btn btn-danger-ghost"
+                        hx-confirm=(format!("确定要删除工艺路线 {} 吗？此操作不可撤销。", routing.name))
+                        hx-post=(delete_path.to_string())
+                        hx-target="body"
+                        hx-swap="outerHTML" {
                         (icon::trash_icon("w-4 h-4"))
                         " 删除"
                     }
@@ -192,21 +196,6 @@ fn routing_detail_page(
                 div class="detail-card-title" { "关联BOM" }
                 (bom_table_fragment(routing.id, boms))
             }
-
-            // ── Delete Confirm Dialog ──
-            (confirm_dialog::confirm_dialog(
-                "deleteOpen",
-                "确认删除",
-                &format!("确定要删除工艺路线 <strong>{}</strong> 吗？此操作不可撤销。", routing.name),
-                "确认删除",
-                "delete-routing-form",
-                html! {
-                    form id="delete-routing-form" class="hidden"
-                        hx-post=(delete_path.to_string())
-                        hx-target="body"
-                        hx-swap="outerHTML" {}
-                },
-            ))
         }
     }
 }

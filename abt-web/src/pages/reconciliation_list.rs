@@ -12,7 +12,6 @@ use abt_core::sales::reconciliation::model::*;
 use abt_core::sales::reconciliation::ReconciliationService;
 use abt_core::shared::types::{PageParams, ServiceContext};
 
-use crate::components::confirm_dialog::confirm_dialog;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
@@ -340,7 +339,6 @@ fn reconciliation_row(
     let customer_name = customer_names.get(&r.customer_id).map(|n| n.as_str()).unwrap_or("—");
     let onclick = format!("location.href='{}'", detail_path);
     let is_draft = r.status == ReconciliationStatus::Draft;
-    let form_id = format!("delete-rec-form-{}", r.id);
     let delete_path = ReconciliationDeletePath { id: r.id };
 
     html! {
@@ -360,14 +358,17 @@ fn reconciliation_row(
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
-            td onclick="event.stopPropagation()" x-data=(format!("{{ deleteOpen: false }}")) {
+            td onclick="event.stopPropagation()" {
                 div class="row-actions" {
                     @if is_draft {
                         a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         button type="button" class="row-action-btn text-danger" title="删除"
-                            x-on:click="deleteOpen = true" {
+                            hx-confirm=(format!("确认删除对账单 {}？", r.doc_number))
+                            hx-post=(delete_path.to_string())
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s" {
                             (icon::trash_icon("w-4 h-4"))
                         }
                     } @else {
@@ -375,21 +376,6 @@ fn reconciliation_row(
                             (icon::eye_icon("w-4 h-4"))
                         }
                     }
-                }
-                @if is_draft {
-                    (confirm_dialog(
-                        "deleteOpen",
-                        "确认删除",
-                        &format!("确定要删除对账单 <strong>{}</strong> 吗？", r.doc_number),
-                        "确认删除",
-                        &form_id,
-                        html! {
-                            form id=(form_id) style="display:none"
-                                hx-post=(delete_path.to_string())
-                                hx-target="closest tr"
-                                hx-swap="outerHTML swap:0.5s" {}
-                        },
-                    ))
                 }
             }
         }

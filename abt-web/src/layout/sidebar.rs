@@ -298,7 +298,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str) -> Mark
     let active_mod = &mods[find_module(active_module).unwrap_or(0)];
 
     html! {
-        nav id="sidebar" x-bind:class="{ 'sidebar-collapsed': collapsed }" {
+        nav id="sidebar" {
             // ── Icon Rail ──
             div class="sidebar-rail" {
                 div class="rail-brand" title="ABT ERP" {
@@ -307,15 +307,12 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str) -> Mark
                 div class="rail-modules" {
                     @for m in &mods {
                         @let is_initial_active = m.id == active_mod.id;
-                        @let bind_expr = format!("{{ 'active': activeModule === '{}' }}", m.id);
                         @let hx_url = format!("/sidebar/body/{}", m.id);
-                        @let click_expr = format!("activeModule = '{}'", m.id);
                         button class=(if is_initial_active { "rail-item active" } else { "rail-item" })
-                           x-bind:class=(bind_expr)
                            hx-get=(hx_url)
                            hx-target=".sidebar-body"
                            hx-swap="innerHTML"
-                           x-on:click=(click_expr)
+                           _="on click remove .active from .rail-item then add .active to me"
                            title=(m.name) {
                             span class="rail-icon" { (render_module_icon(m.id)) }
                             span class="rail-label" { (m.name.replace("管理", "")) }
@@ -324,10 +321,10 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str) -> Mark
                 }
                 div class="rail-bottom" {
                     button class="rail-item rail-collapse"
-                            x-on:click="collapsed = !collapsed"
-                            x-bind:title="collapsed ? '展开侧栏' : '收起侧栏'" {
+                            _="on click toggle .sidebar-collapsed on .app-shell then if .app-shell.classList.contains('sidebar-collapsed') then call localStorage.setItem('sidebar-collapsed','true') else call localStorage.removeItem('sidebar-collapsed')"
+                            title="收起侧栏" {
                         (icon::sidebar_toggle_icon(""))
-                        span class="rail-label" x-text="collapsed ? '展开' : '收起'" { "收起" }
+                        span class="rail-label" { "收起" }
                     }
                 }
             }

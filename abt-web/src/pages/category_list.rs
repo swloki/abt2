@@ -626,7 +626,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                     }
                     div class="tree-footer" {
                         button class="btn btn-primary" style="width: 100%; justify-content: center;"
-                            x-on:click="createModalOpen = true" {
+                            _="on click add .is-open to #create-modal" {
                             (icon::plus_icon("w-4 h-4"))
                             "新建分类"
                         }
@@ -655,7 +655,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
     }
 }
 
-// ── Alpine.js component ──
+// TODO: hyperscript migration - complex Alpine pattern (categorySplitView with x-init, x-model, filterTree)
 
 fn category_split_view_script() -> Markup {
     PreEscaped(
@@ -748,9 +748,8 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
                     x-on:click=(click_expr)
                     x-bind:class=(class_expr) {
                     span.tree-arrow
-                        x-data="{ expanded: false }"
                         onclick="event.stopPropagation()"
-                        x-on:click="expanded = !expanded; $el.classList.toggle('expanded', expanded); var ch = $el.closest('.tree-node').querySelector(':scope > .tree-children'); if(ch) ch.style.display = expanded ? '' : 'none'" {
+                        _="on click toggle .expanded on me then if (me matches .expanded) set (closest .tree-node .tree-children).style.display to '' else set (closest .tree-node .tree-children).style.display to 'none'" {
                         (icon::chevron_down_icon(""))
                     }
                     span class="tree-node-name" { (name) }
@@ -801,7 +800,7 @@ fn detail_panel(
     let current_page = products.page;
     let panel_url = format!("/admin/md/categories/{}/panel", category_id);
     html! {
-        div x-data="{ editModalOpen: false, deleteDialogOpen: false }" {
+        div {
             // ── Category Info Card ──
             div class="info-card" {
                 div class="cat-info-header" {
@@ -813,12 +812,12 @@ fn detail_panel(
                     }
                     div class="cat-info-actions" {
                         button class="btn btn-default btn-sm"
-                            x-on:click="editModalOpen = true" {
+                            _="on click add .is-open to #edit-category-modal" {
                             (icon::edit_icon("w-4 h-4"))
                             "编辑"
                         }
                         button class="btn btn-default btn-sm" style="color: var(--danger); border-color: var(--border);"
-                            x-on:click="deleteDialogOpen = true" {
+                            _="on click add .open to #delete-category-dialog" {
                             (icon::trash_icon("w-4 h-4"))
                             "删除"
                         }
@@ -920,7 +919,7 @@ fn detail_panel(
 
             // ── Edit Modal ──
             (modal::modal(
-                "editModalOpen",
+                "edit-category-modal",
                 "编辑分类",
                 "保存",
                 "edit-category-form",
@@ -937,10 +936,9 @@ fn detail_panel(
             ))
 
             // ── Delete Confirm Dialog (inline, no x-teleport) ──
-            div class="dialog-overlay"
-                x-bind:class="{'open': deleteDialogOpen}"
-                x-on:click="deleteDialogOpen = false" {
-                div class="dialog" x-on:click="event.stopPropagation()" {
+            div class="dialog-overlay" id="delete-category-dialog"
+                _="on click remove .open" {
+                div class="dialog" _="on click halt the event" {
                     div class="dialog-body" {
                         div class="dialog-icon-wrap" {
                             (icon::circle_alert_icon("w-7 h-7"))
@@ -954,7 +952,7 @@ fn detail_panel(
                     }
                     div class="dialog-foot" {
                         button type="button" class="btn btn-default"
-                            x-on:click="deleteDialogOpen = false" { "取消" }
+                            _="on click remove .open from #delete-category-dialog" { "取消" }
                         button type="submit" class="btn btn-danger"
                             form="delete-category-form" { "确认删除" }
                     }
@@ -970,8 +968,9 @@ fn detail_panel(
 // ── Create Category Modal ──
 
 fn create_category_modal(tree: &[CategoryTree]) -> Markup {
+    // TODO: hyperscript migration - modal tied to Alpine categorySplitView component
     modal::modal(
-        "createModalOpen",
+        "create-modal",
         "新建分类",
         "保存分类",
         "create-category-form",

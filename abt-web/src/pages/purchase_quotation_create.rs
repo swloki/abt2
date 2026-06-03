@@ -268,21 +268,19 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                             }
                         }
                         tbody {
-                            template x-for="(item, idx) in items" {
-                                // TODO: Rewrite x-for loop with vanilla JS rendering
-                                tr {
-                                    td class="line-num" { "1" }
-                                    td class="mono" { }
-                                    td { }
-                                    td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input" type="text" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td style="text-align:center" { input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)" {} }
-                                    td { button type="button" class="btn-remove-row" title="删除行" {
-                                        (icon::x_icon("w-3.5 h-3.5"))
-                                    } }
-                                }
+                            // TODO: Replace static placeholder row with vanilla JS dynamic row rendering
+                            tr {
+                                td class="line-num" { "1" }
+                                td class="mono" { }
+                                td { }
+                                td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                td { input class="form-input" type="text" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                td style="text-align:center" { input type="checkbox" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)" {} }
+                                td { button type="button" class="btn-remove-row" title="删除行" {
+                                    (icon::x_icon("w-3.5 h-3.5"))
+                                } }
                             }
                         }
                     }
@@ -397,7 +395,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                         }
                         button type="button" class="btn btn-sm btn-primary"
                             data-product=(product_json)
-                            x-on:click="addItem(JSON.parse($el.dataset.product))" {
+                            onclick="addItem(JSON.parse(this.dataset.product))" {
                             "选择"
                         }
                     }

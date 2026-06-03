@@ -591,9 +591,9 @@ fn split_view_style() -> Markup {
 // ── Page Component ──
 
 fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id: Option<i64>) -> Markup {
-    let selected_expr = first_id.map_or("null".to_string(), |id| id.to_string());
+
     html! {
-        div x-data=(format!("categorySplitView()")) x-init=(format!("selectedId = {}", selected_expr)) {
+        div {
             (split_view_style())
             script { (category_split_view_script()) }
 
@@ -617,8 +617,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                         div class="tree-search" {
                             (icon::search_icon("search-icon"))
                             input type="text" placeholder="搜索分类…"
-                                x-model="searchText"
-                                x-on:input="filterTree($event)";
+                                oninput="filterTree(this.value)";
                         }
                     }
                     div class="tree-scroll" id="category-tree" {
@@ -655,7 +654,10 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
     }
 }
 
-// TODO: hyperscript migration - complex Alpine pattern (categorySplitView with x-init, x-model, filterTree)
+// TODO: Rewrite categorySplitView() to vanilla JS — Alpine.js has been removed.
+// The selectCategory() and filterTree() functions are called from onclick/oninput handlers
+// but currently reference Alpine's reactive state (this.selectedId, this.searchText).
+// Extract these as standalone functions using module-level variables or data attributes.
 
 fn category_split_view_script() -> Markup {
     PreEscaped(
@@ -737,7 +739,6 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
     let name = &node.category_name;
     let name_lower = name.to_lowercase();
     let click_expr = format!("selectCategory({})", id);
-    let class_expr = format!("{{'active': selectedId === {}}}", id);
     let pad = format!("padding-left: {}px", depth * 24 + 16);
 
     html! {
@@ -745,8 +746,7 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
             div.tree-node data-name=(name_lower) {
                 div.tree-node-row
                     style=(pad)
-                    x-on:click=(click_expr)
-                    x-bind:class=(class_expr) {
+                    onclick=(click_expr) {
                     span.tree-arrow
                         onclick="event.stopPropagation()"
                         _="on click toggle .expanded on me then if (me matches .expanded) set (closest .tree-node .tree-children).style.display to '' else set (closest .tree-node .tree-children).style.display to 'none'" {
@@ -767,8 +767,7 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
             div.tree-node data-name=(name_lower) {
                 div.tree-node-row
                     style=(pad)
-                    x-on:click=(click_expr)
-                    x-bind:class=(class_expr) {
+                    onclick=(click_expr) {
                     span class="tree-arrow leaf" {
                         (icon::chevron_down_icon(""))
                     }

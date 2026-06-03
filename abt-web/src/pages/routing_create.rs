@@ -149,7 +149,8 @@ fn routing_create_page(
 
             form id="routing-form"
                   hx-post=(RoutingCreatePath::PATH)
-                  hx-swap="none" {
+                  hx-swap="none"
+                  onsubmit="syncFromDom(); document.querySelector('#routing-form input[name=steps_json]').value = getStepsJson()" {
                 input type="hidden" name="steps_json";
 
                 // ── Section: 基本信息 ──
@@ -177,7 +178,7 @@ fn routing_create_page(
                 div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                     div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                         span class="form-section-title" style="margin:0;padding:0;border:none" { "工序步骤" }
-                        button type="button" class="btn btn-sm btn-primary" {
+                        button type="button" class="btn btn-sm btn-primary" onclick="addStep()" {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "添加工序"
                         }
@@ -194,12 +195,12 @@ fn routing_create_page(
                                     th style="width:50px" { }
                                 }
                             }
-                            tbody {
+                            tbody id="routing-steps-body" {
                             }
                         }
                     }
                     div class="add-row-bar" {
-                        button type="button" class="btn-add-row" {
+                        button type="button" class="btn-add-row" onclick="addStep()" {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "添加工序"
                         }
@@ -214,58 +215,81 @@ fn routing_create_page(
             }
         }
 
-        // TODO: Rewrite routingForm() Alpine component to vanilla JS / Hyperscript.
+        // TODO: Rewrite routingForm() to a proper vanilla JS module with DOM-based state reading
         script {
             (PreEscaped(format!(r#"
-function routingForm() {{
-    const processMap = {process_map_json};
+const processMap = {process_map_json};
+let steps = [
+    {{ process_code: '', is_required: true, remark: '' }}
+];
 
-    return {{
-        steps: [
-            {{ process_code: '', is_required: true, remark: '' }}
-        ],
-        get stepsJson() {{
-            return JSON.stringify(
-                this.steps
-                    .filter(s => s.process_code)
-                    .map((s, i) => ({{
-                        process_code: s.process_code,
-                        step_order: i + 1,
-                        is_required: s.is_required,
-                        remark: s.remark || null,
-                    }}))
-            );
-        }},
-        addStep() {{
-            this.steps.push({{ process_code: '', is_required: true, remark: '' }});
-        }},
-        removeStep(idx) {{
-            if (this.steps.length <= 1) return;
-            this.steps.splice(idx, 1);
-        }},
-        getProcessName(code) {{
-            return processMap[code] || '—';
-        }},
-        renderSteps() {{
-            let html = '';
-            this.steps.forEach((step, idx) => {{
-                let opts = '<option value="">-- 请选择 --</option>';
-                for (let code in processMap) {{
-                    let sel = step.process_code === code ? ' selected' : '';
-                    opts += '<option value="' + code + '"' + sel + '>' + code + ' - ' + processMap[code] + '</option>';
-                }}
-                let chk = step.is_required ? ' checked' : '';
-                html += '<tr>' +
-                    '<td class="line-num">' + (idx + 1) + '</td>' +
-                    '<td><select x-model="steps[' + idx + '].process_code" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)">' + opts + '</select></td>' +
-                    '<td style="padding:5px 8px;font-size:13px">' + this.getProcessName(step.process_code) + '</td>' +
-                    '<td style="text-align:center"><input type="checkbox" x-model="steps[' + idx + '].is_required" style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary)"' + chk + '></td>' +
-                    '<td><input type="text" x-model="steps[' + idx + '].remark" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)"></td>' +
-                    '<td><button type="button" class="btn-remove-row" x-on:click="removeStep(' + idx + ')" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></td>' +
-                    '</tr>';
-            }});
-            return html;
-        }},
+function getStepsJson() {{
+    return JSON.stringify(
+        steps
+            .filter(s => s.process_code)
+            .map((s, i) => ({{
+                process_code: s.process_code,
+                step_order: i + 1,
+                is_required: s.is_required,
+                remark: s.remark || null,
+            }}))
+    );
+}}
+
+function addStep() {{
+    steps.push({{ process_code: '', is_required: true, remark: '' }});
+    syncFromDom();
+    renderSteps();
+}}
+
+function removeStep(idx) {{
+    if (steps.length <= 1) return;
+    syncFromDom();
+    steps.splice(idx, 1);
+    renderSteps();
+}}
+
+function getProcessName(code) {{
+    return processMap[code] || '—';
+}}
+
+function syncFromDom() {{
+    const rows = document.querySelectorAll('#routing-steps-body tr');
+    rows.forEach((row, idx) => {{
+        if (!steps[idx]) return;
+        const select = row.querySelector('select');
+        const checkbox = row.querySelector('input[type="checkbox"]');
+        const textInput = row.querySelector('input[type="text"]');
+        if (select) steps[idx].process_code = select.value;
+        if (checkbox) steps[idx].is_required = checkbox.checked;
+        if (textInput) steps[idx].remark = textInput.value;
+    }});
+}}
+
+function renderSteps() {{
+    let html = '';
+    steps.forEach((step, idx) => {{
+        let opts = '<option value="">-- 请选择 --</option>';
+        for (let code in processMap) {{
+            let sel = step.process_code === code ? ' selected' : '';
+            opts += '<option value="' + code + '"' + sel + '>' + code + ' - ' + processMap[code] + '</option>';
+        }}
+        let chk = step.is_required ? ' checked' : '';
+        html += '<tr>' +
+            '<td class="line-num">' + (idx + 1) + '</td>' +
+            '<td><select onchange="onStepChange(' + idx + ')" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)">' + opts + '</select></td>' +
+            '<td style="padding:5px 8px;font-size:13px">' + getProcessName(step.process_code) + '</td>' +
+            '<td style="text-align:center"><input type="checkbox" onchange="onStepChange(' + idx + ')" style="width:18px;height:18px;cursor:pointer;accent-color:var(--primary)"' + chk + '></td>' +
+            '<td><input type="text" onchange="onStepChange(' + idx + ')" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)"></td>' +
+            '<td><button type="button" class="btn-remove-row" onclick="removeStep(' + idx + ')" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></td>' +
+            '</tr>';
+    }});
+    document.getElementById('routing-steps-body').innerHTML = html;
+}}
+
+function onStepChange(idx) {{
+    syncFromDom();
+    renderSteps();
 }}
 "#)))
         }

@@ -154,7 +154,7 @@ fn order_edit_page(
     contacts: &[CustomerContact],
     product_codes: &std::collections::HashMap<i64, (String, String)>,
 ) -> Markup {
-    // Build initial items JSON for Alpine.js init
+    // Build initial items JSON for JS init
     let initial_items: Vec<serde_json::Value> = items.iter().map(|item| {
         let (code, name) = product_codes.get(&item.product_id)
             .cloned()
@@ -263,23 +263,21 @@ fn order_edit_page(
                             }
                         }
                         tbody {
-                            template x-for="(item, idx) in items" {
-                                // TODO: Rewrite x-for loop with vanilla JS rendering
-                                tr {
-                                    td class="line-num" { "1" }
-                                    td class="mono" { }
-                                    td { }
-                                    td { input class="form-input" type="text" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input" type="text" readonly style="width:56px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
-                                    td { input class="form-input num-input" type="number" min="1" step="1" placeholder="0" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input num-input" type="number" min="0" max="100" style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
-                                    td { input type="date" style="width:110px;padding:5px 6px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { button type="button" class="btn-remove-row" title="删除行" {
-                                        (icon::x_icon("w-3.5 h-3.5"))
-                                    } }
-                                }
+                            // TODO: Replace static placeholder row with vanilla JS dynamic row rendering
+                            tr {
+                                td class="line-num" { "1" }
+                                td class="mono" { }
+                                td { }
+                                td { input class="form-input" type="text" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                td { input class="form-input" type="text" readonly style="width:56px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
+                                td { input class="form-input num-input" type="number" min="1" step="1" placeholder="0" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                td { input class="form-input num-input" type="number" min="0" max="100" style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
+                                td { input type="date" style="width:110px;padding:5px 6px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                td { button type="button" class="btn-remove-row" title="删除行" {
+                                    (icon::x_icon("w-3.5 h-3.5"))
+                                } }
                             }
                         }
                     }

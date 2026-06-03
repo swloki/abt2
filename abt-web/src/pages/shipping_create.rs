@@ -558,7 +558,7 @@ fn order_search_results(
                     }
                     button type="button" class="btn btn-sm btn-primary"
                         data-order=(items_json)
-                        x-on:click="selectOrder(JSON.parse($el.dataset.order))" {
+                        onclick="selectOrder(JSON.parse(this.dataset.order))" {
                         "选择"
                     }
                 }

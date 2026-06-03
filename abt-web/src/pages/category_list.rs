@@ -677,6 +677,7 @@ fn category_split_view_script() -> Markup {
             var node = document.querySelector('.tree-node-row[onclick="selectCategory(' + id + ')"]');
             if (node) node.classList.add('active');
             htmx.ajax('GET', '/admin/md/categories/' + id + '/panel', '#detail-panel');
+            history.pushState(null, '', '/admin/md/categories?category_id=' + id);
         }
 
         function filterTree(q) {

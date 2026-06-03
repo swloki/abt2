@@ -672,7 +672,6 @@ fn category_split_view_script() -> Markup {
     PreEscaped(
         r#"
         function filterTree(q) {
-        function filterTree(q) {
             q = (q || '').trim().toLowerCase();
             var container = document.getElementById('category-tree');
             if (!container) return;

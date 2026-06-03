@@ -24,6 +24,7 @@ pub mod purchase_return_list;
 pub mod quotation_create;
 pub mod quotation_detail;
 pub mod quotation_list;
+pub mod quotation_edit;
 pub mod reconciliation_detail;
 pub mod reconciliation_create;
 pub mod reconciliation_list;

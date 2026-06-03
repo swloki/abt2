@@ -311,18 +311,33 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                         "添加产品行"
                     }
                 }
-                div class="totals-bar" {
+                div class="totals-bar" _="on recalc
+                   set subtotal to 0
+                   set disc to 0
+                   for row in <tr/> in #order-item-tbody
+                     get row as Values
+                     set q to (its quantity as Number or 0)
+                     set p to (its unit_price as Number or 0)
+                     set d to (its discount_rate as Number or 0)
+                     set lineTotal to q * p * (1 - (d / 100))
+                     put (lineTotal as Fixed:2) into .line-total in row
+                     increment subtotal by q * p
+                     increment disc by q * p * (d / 100)
+                   end
+                   put ('¥ ' + (subtotal as Fixed:2)) into #subtotal-value
+                   put ('- ¥ ' + (disc as Fixed:2)) into #discount-value
+                   put ('¥ ' + ((subtotal - disc) as Fixed:2)) into #grand-value" {
                     div class="totals-item" {
                         span class="totals-label" { "合计金额" }
-                        span class="totals-value" { "¥ 0.00" }
+                        span class="totals-value" id="subtotal-value" { "¥ 0.00" }
                     }
                     div class="totals-item" {
                         span class="totals-label" { "折扣总额" }
-                        span class="totals-value" { "- ¥ 0.00" }
+                        span class="totals-value" id="discount-value" { "- ¥ 0.00" }
                     }
                     div class="totals-item" {
                         span class="totals-label" { "订单总额" }
-                        span class="totals-value grand" { "¥ 0.00" }
+                        span class="totals-value grand" id="grand-value" { "¥ 0.00" }
                     }
                 }
             }
@@ -435,7 +450,14 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
 
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
     html! {
-        tr {
+        tr _="on input in .num-input
+           set row to closest <tr/>
+           get row as Values
+           set q to (its quantity as Number or 0)
+           set p to (its unit_price as Number or 0)
+           set d to (its discount_rate as Number or 0)
+           put ((q * p * (1 - (d / 100))) as Fixed:2) into .line-total in row
+           send recalc to .totals-bar" {
             td class="line-num" { }
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }

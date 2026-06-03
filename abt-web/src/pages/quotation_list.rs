@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
-use axum::Form;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
@@ -160,52 +159,6 @@ pub async fn get_quotation_table(
     Ok(Html(quotation_table_fragment(&result, &names, &customers.items, &params).into_string()))
 }
 
-#[require_permission("SALES_ORDER", "read")]
-pub async fn get_edit_quotation_form(
-    path: EditQuotationFormPath,
-    ctx: RequestContext,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.quotation_service();
-
-    let quotation = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
-
-    let update_path = UpdateQuotationPath { id: path.id };
-    let form_html = quotation_edit_form(&quotation, &update_path.to_string());
-
-    Ok(Html(form_html.into_string()))
-}
-
-// ── Form Data ──
-
-#[derive(Debug, Deserialize)]
-pub struct UpdateQuotationForm {
-    payment_terms: Option<String>,
-    delivery_terms: Option<String>,
-    remark: Option<String>,
-}
-
-#[require_permission("SALES_ORDER", "update")]
-pub async fn update_quotation(
-    path: UpdateQuotationPath,
-    ctx: RequestContext,
-    Form(form): Form<UpdateQuotationForm>,
-) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.quotation_service();
-
-    let req = UpdateQuotationReq {
-        payment_terms: form.payment_terms,
-        delivery_terms: form.delivery_terms,
-        remark: form.remark,
-        ..Default::default()
-    };
-
-    svc.update(&service_ctx, &mut conn, path.id, req).await?;
-
-    let redirect = QuotationDetailPath { id: path.id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
-}
 
 #[require_permission("SALES_ORDER", "delete")]
 pub async fn delete_quotation(
@@ -244,16 +197,6 @@ fn quotation_list_page(
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
             (quotation_table_fragment(result, names, customers, params))
-
-            // ── Edit Modal ──
-            div id="quotation-edit-modal" class="modal-overlay"
-                _="on click remove .is-open from #quotation-edit-modal" {
-                div class="modal" _="on click call event.stopPropagation()" {
-                    div id="quotation-edit-modal-content" {
-                        "加载中..."
-                    }
-                }
-            }
         }
     }
 }
@@ -378,11 +321,7 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>) -> Markup {
             td onclick="event.stopPropagation()" {
                 @if is_draft {
                     div class="row-actions" {
-                        button class="row-action-btn" title="编辑"
-                            hx-get=(edit_form_path)
-                            hx-target="#quotation-edit-modal-content"
-                            hx-swap="innerHTML"
-                            _="on click add .is-open to #quotation-edit-modal" {
+                        a class="row-action-btn" title="编辑" href=(edit_form_path) {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         button type="button" class="row-action-btn text-danger" title="删除"
@@ -399,53 +338,3 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>) -> Markup {
     }
 }
 
-// ── Edit Form ──
-
-fn quotation_edit_form(quotation: &Quotation, action_url: &str) -> Markup {
-    let payment_val = &quotation.payment_terms;
-    let delivery_val = &quotation.delivery_terms;
-    let remark_val = &quotation.remark;
-
-    html! {
-        div id="quotation-edit-modal-content" {
-            div class="modal-head" {
-                h2 { "编辑报价单" }
-                button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                    _="on click remove .is-open from #quotation-edit-modal" { "×" }
-            }
-            form class="modal-body" hx-post=(action_url) hx-target="this" {
-                div class="form-section-title" { "报价信息" }
-                div class="form-grid" {
-                    div class="form-field" {
-                        label { "付款条款" }
-                        select name="payment_terms" {
-                            option value="30天净额" selected[payment_val == "30天净额"] { "30天净额" }
-                            option value="60天净额" selected[payment_val == "60天净额"] { "60天净额" }
-                            option value="预付30%" selected[payment_val == "预付30%"] { "预付30%" }
-                            option value="货到付款" selected[payment_val == "货到付款"] { "货到付款" }
-                            option value="月结30天" selected[payment_val == "月结30天"] { "月结30天" }
-                        }
-                    }
-                    div class="form-field" {
-                        label { "交货条款" }
-                        select name="delivery_terms" {
-                            option value="FOB 深圳" selected[delivery_val == "FOB 深圳"] { "FOB 深圳" }
-                            option value="FOB 广州" selected[delivery_val == "FOB 广州"] { "FOB 广州" }
-                            option value="CIF 目的港" selected[delivery_val == "CIF 目的港"] { "CIF 目的港" }
-                            option value="EXW 工厂交货" selected[delivery_val == "EXW 工厂交货"] { "EXW 工厂交货" }
-                        }
-                    }
-                    div class="form-field field-full" {
-                        label { "备注" }
-                        textarea name="remark" placeholder="输入备注信息" { (remark_val) }
-                    }
-                }
-            }
-            div class="modal-foot" {
-                button type="button" class="btn btn-default"
-                    _="on click remove .is-open from #quotation-edit-modal" { "取消" }
-                button type="submit" class="btn btn-primary" { "保存修改" }
-            }
-        }
-    }
-}

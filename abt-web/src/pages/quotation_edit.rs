@@ -6,8 +6,8 @@ use serde::Deserialize;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::customer::model::{CustomerContact, CustomerQuery};
 use abt_core::master_data::product::ProductService;
-use abt_core::sales::sales_order::model::*;
-use abt_core::sales::sales_order::SalesOrderService;
+use abt_core::sales::quotation::model::*;
+use abt_core::sales::quotation::QuotationService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::customer_info::customer_info_panel;
@@ -15,19 +15,19 @@ use crate::components::icon;
 use crate::errors::Result;
 use abt_core::shared::types::DomainError;
 use crate::layout::page::admin_page;
-use crate::routes::order::*;
+use crate::routes::quotation::*;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
 // ── Form Request ──
 
 #[derive(Debug, Deserialize)]
-pub struct OrderEditForm {
+pub struct QuotationEditForm {
     pub customer_id: i64,
     pub contact_id: i64,
+    pub valid_until: String,
     pub payment_terms: Option<String>,
     pub delivery_terms: Option<String>,
-    pub delivery_address: Option<String>,
     pub remark: Option<String>,
     pub items_json: String,
 }
@@ -41,31 +41,29 @@ struct ItemWeb {
     unit_price: String,
     unit_cost: Option<String>,
     discount_rate: Option<String>,
-    item_delivery_date: Option<String>,
 }
 
 // ── Handlers ──
 
 #[require_permission("SALES_ORDER", "read")]
-pub async fn get_order_edit(
-    path: OrderEditFormPath,
+pub async fn get_quotation_edit(
+    path: EditQuotationFormPath,
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.sales_order_service();
+    let svc = state.quotation_service();
     let customer_svc = state.customer_service();
     let product_svc = state.product_service();
 
-    let order = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
-
+    let quotation = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
     let items = svc.list_items(&service_ctx, &mut conn, path.id).await?;
 
     let customers = customer_svc
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    let contacts = customer_svc.list_contacts(&service_ctx, &mut conn, order.customer_id).await.unwrap_or_default();
+    let contacts = customer_svc.list_contacts(&service_ctx, &mut conn, quotation.customer_id).await.unwrap_or_default();
 
     // Resolve product codes for items
     let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
@@ -76,23 +74,25 @@ pub async fn get_order_edit(
         std::collections::HashMap::new()
     };
 
-    let content = order_edit_page(&order, &items, &customers.items, &contacts, &product_codes);
+    let content = quotation_edit_page(&quotation, &items, &customers.items, &contacts, &product_codes);
     let page_html = admin_page(
-        is_htmx, "编辑订单", &claims, "sales", OrderEditFormPath::PATH, "销售管理", Some("编辑订单"), content,
+        is_htmx, "编辑报价单", &claims, "sales",
+        &format!("{}/{}", QuotationListPath::PATH, path.id),
+        "销售管理", Some("编辑报价单"), content,
     );
 
     Ok(Html(page_html.into_string()))
 }
 
-/// POST: update order
+/// POST: update quotation
 #[require_permission("SALES_ORDER", "update")]
-pub async fn update_order(
-    path: OrderEditFormPath,
+pub async fn update_quotation(
+    path: UpdateQuotationPath,
     ctx: RequestContext,
-    axum::Form(form): axum::Form<OrderEditForm>,
+    axum::Form(form): axum::Form<QuotationEditForm>,
 ) -> Result<impl IntoResponse> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.sales_order_service();
+    let svc = state.quotation_service();
 
     if form.customer_id == 0 {
         return Err(DomainError::validation("请选择客户").into());
@@ -108,8 +108,11 @@ pub async fn update_order(
         return Err(DomainError::validation("请至少添加一个产品").into());
     }
 
-    let items: Vec<CreateSalesOrderItemReq> = web_items.into_iter().map(|item| {
-        CreateSalesOrderItemReq {
+    let valid_until = chrono::NaiveDate::parse_from_str(&form.valid_until, "%Y-%m-%d")
+        .map_err(|_| DomainError::validation("无效的有效期日期"))?;
+
+    let items: Vec<CreateQuotationItemReq> = web_items.into_iter().map(|item| {
+        CreateQuotationItemReq {
             product_id: item.product_id.parse().unwrap_or(0),
             description: item.description,
             quantity: item.quantity.parse().unwrap_or(rust_decimal::Decimal::ONE),
@@ -117,9 +120,14 @@ pub async fn update_order(
             unit_price: item.unit_price.parse().unwrap_or(rust_decimal::Decimal::ZERO),
             unit_cost: item.unit_cost.and_then(|s| s.parse().ok()),
             discount_rate: item.discount_rate.and_then(|s| s.parse().ok()),
-            delivery_date: item.item_delivery_date.and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
+            delivery_date: None,
         }
-    }).collect();
+    }).collect::<Vec<_>>();
+
+    let has_zero_price = items.iter().any(|i| i.unit_price <= rust_decimal::Decimal::ZERO);
+    if has_zero_price {
+        return Err(DomainError::validation("产品单价不能为 0，请检查所有产品的单价").into());
+    }
 
     let total: rust_decimal::Decimal = items.iter().map(|i| {
         let subtotal = i.quantity * i.unit_price;
@@ -127,60 +135,59 @@ pub async fn update_order(
         subtotal * (rust_decimal::Decimal::ONE - discount)
     }).sum();
     if total <= rust_decimal::Decimal::ZERO {
-        return Err(DomainError::validation("订单总额不能为零，请填写产品单价").into());
+        return Err(DomainError::validation("报价总额不能为零，请检查产品数量和单价").into());
     }
 
-    let req = UpdateSalesOrderReq {
+    let req = UpdateQuotationReq {
         customer_id: Some(form.customer_id),
         contact_id: Some(form.contact_id),
+        sales_rep_id: None,
+        valid_until: Some(valid_until),
         payment_terms: form.payment_terms,
         delivery_terms: form.delivery_terms,
-        delivery_address: form.delivery_address,
         remark: form.remark,
+        items: Some(items),
     };
 
-    svc.update(&service_ctx, &mut conn, path.id, req, items).await?;
+    svc.update(&service_ctx, &mut conn, path.id, req).await?;
 
-    let redirect = OrderDetailPath { id: path.id }.to_string();
+    let redirect = QuotationDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-fn order_edit_page(
-    order: &SalesOrder,
-    items: &[SalesOrderItem],
+fn quotation_edit_page(
+    quotation: &Quotation,
+    items: &[QuotationItem],
     customers: &[abt_core::master_data::customer::model::Customer],
     contacts: &[CustomerContact],
     product_codes: &std::collections::HashMap<i64, (String, String)>,
 ) -> Markup {
+    let detail_path = QuotationDetailPath { id: quotation.id };
+    let update_path = UpdateQuotationPath { id: quotation.id };
 
-    let detail_path = OrderDetailPath { id: order.id };
-    let update_path = OrderEditFormPath { id: order.id };
-
-    // Pre-select payment/delivery terms
-    let pt = &order.payment_terms;
-    let dt = &order.delivery_terms;
-    let da = &order.delivery_address;
-    let rm = &order.remark;
+    let pt = &quotation.payment_terms;
+    let dt = &quotation.delivery_terms;
+    let rm = &quotation.remark;
 
     html! {
-        div id="order-app" {
+        div id="quotation-app" {
             // ── Page Header ──
             div class="page-header" {
                 a class="back-link" href=(detail_path.to_string()) {
-                    (icon::chevron_left_icon("w-4 h-4"))
-                    "返回订单详情"
+                    (icon::arrow_left_icon("w-4 h-4"))
+                    "返回报价单详情"
                 }
-                h1 class="page-title" { "编辑订单 " (order.doc_number) }
+                h1 class="page-title" { "编辑报价单 " (quotation.doc_number) }
             }
 
-            form id="order-form"
+            form id="quotation-form"
                   hx-post=(update_path.to_string())
                   hx-swap="none"
                   _="on submit
                      set items to []
-                     repeat for row in <tr/> in <#order-item-tbody/>
+                     repeat for row in <tr/> in <#quotation-item-tbody/>
                        get row as Values
                        append it to items
                      end
@@ -188,15 +195,19 @@ fn order_edit_page(
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Customer Info ──
-            (customer_info_panel(customers, contacts, Some(order.customer_id), OrderCustomerContactsPath::PATH))
+            (customer_info_panel(customers, contacts, Some(quotation.customer_id), QuotationCustomerContactsPath::PATH))
 
-            // ── Order Info ──
+            // ── Quote Info ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "订单信息" }
+                div class="form-section-title" { "报价信息" }
                 div class="form-grid" {
                     div class="form-field" {
-                        label { "订单日期" }
-                        input type="date" value=(order.order_date.format("%Y-%m-%d")) disabled {}
+                        label { "报价日期" }
+                        input type="date" value=(quotation.quotation_date.format("%Y-%m-%d")) readonly {}
+                    }
+                    div class="form-field" {
+                        label { "有效期至" span style="color:var(--danger)" { "*" } }
+                        input type="date" name="valid_until" id="f-valid-until" value=(quotation.valid_until.format("%Y-%m-%d")) {}
                     }
                     div class="form-field" {
                         label { "付款条款" }
@@ -217,10 +228,6 @@ fn order_edit_page(
                             option value="EXW 工厂交货" selected[*dt == "EXW 工厂交货"] { "EXW 工厂交货" }
                         }
                     }
-                    div class="form-field" {
-                        label { "交货地址" }
-                        input type="text" name="delivery_address" value=(da) {}
-                    }
                 }
             }
 
@@ -235,7 +242,7 @@ fn order_edit_page(
                     }
                 }
                 div style="overflow-x:auto" {
-                    table class="data-table" style="min-width:1000px" {
+                    table class="data-table" style="min-width:900px" {
                         thead {
                             tr {
                                 th style="width:36px;text-align:center" { "#" }
@@ -247,11 +254,10 @@ fn order_edit_page(
                                 th style="width:110px;text-align:right" { "单价 (¥)" }
                                 th style="width:76px;text-align:right" { "折扣%" }
                                 th style="width:110px;text-align:right" { "小计 (¥)" }
-                                th style="width:110px" { "交货日期" }
                                 th style="width:36px" { }
                             }
                         }
-                        tbody id="order-item-tbody" _="init send recalc to .totals-bar" {
+                        tbody id="quotation-item-tbody" _="init send recalc to .totals-bar" {
                             @for item in items {
                                 @let (code, name) = product_codes.get(&item.product_id).cloned().unwrap_or_default();
                                 tr _="on input in .num-input
@@ -271,7 +277,6 @@ fn order_edit_page(
                                     td { input class="form-input num-input" type="number" step="0.01" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
                                     td { input class="form-input num-input" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
                                     td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
-                                    td { input class="form-input" type="date" name="item_delivery_date" value=(item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default()) style="width:110px;padding:5px 6px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
                                     td { button type="button" class="btn-remove-row" title="删除行"
                                         _="on click remove the closest <tr/>" {
                                         (icon::x_icon("w-3.5 h-3.5"))
@@ -292,7 +297,7 @@ fn order_edit_page(
                 div class="totals-bar" _="on recalc
                    set subtotal to 0
                    set disc to 0
-                   for row in <tr/> in #order-item-tbody
+                   for row in <tr/> in #quotation-item-tbody
                      get row as Values
                      set q to (its quantity as Number or 0)
                      set p to (its unit_price as Number or 0)
@@ -314,7 +319,7 @@ fn order_edit_page(
                         span class="totals-value" id="discount-value" { "- ¥ 0.00" }
                     }
                     div class="totals-item" {
-                        span class="totals-label" { "订单总额" }
+                        span class="totals-label" { "报价总额" }
                         span class="totals-value grand" id="grand-value" { "¥ 0.00" }
                     }
                 }
@@ -323,7 +328,7 @@ fn order_edit_page(
             // ── Remark ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
                 div class="form-section-title" { "备注" }
-                textarea name="remark" placeholder="输入订单相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" { (rm) }
+                textarea name="remark" placeholder="输入报价相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" { (rm) }
             }
 
             // ── Action Bar ──
@@ -351,7 +356,7 @@ fn order_edit_page(
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品名称" }
                                 input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
-                                    hx-get=(OrderProductsPath::PATH)
+                                    hx-get=(QuotationProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
@@ -360,14 +365,14 @@ fn order_edit_page(
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品编码" }
                                 input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
-                                    hx-get=(OrderProductsPath::PATH)
+                                    hx-get=(QuotationProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
                             }
                             button type="button" class="product-search-clear"
-                                hx-get=(OrderProductsPath::PATH)
+                                hx-get=(QuotationProductsPath::PATH)
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
                                 _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
@@ -375,7 +380,7 @@ fn order_edit_page(
                             }
                         }
                         div id="product-search-results" style="max-height:320px;overflow-y:auto"
-                        hx-get=(OrderProductsPath::PATH)
+                        hx-get=(QuotationProductsPath::PATH)
                         hx-trigger="intersect once"
                         hx-swap="innerHTML" {
                             div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--muted)" {

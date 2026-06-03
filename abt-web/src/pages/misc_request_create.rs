@@ -232,14 +232,19 @@ fn misc_create_page() -> Markup {
 
 fn empty_row_fragment() -> Markup {
     html! {
-        tr {
+        tr _="on input in .num-input
+           set row to closest <tr/>
+           get row as Values
+           set q to (its quantity as Number or 0)
+           set p to (its estimated_price as Number or 0)
+           put ((q * p) as Fixed:2) into .line-subtotal in row" {
             td class="line-num" { }
             td { input class="form-input" type="text" name="item_name" required placeholder="物品名称" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="form-input" type="text" name="specification" placeholder="规格型号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="form-input num-input" type="number" step="any" min="0" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="form-input" type="text" name="unit" placeholder="单位" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="form-input num-input" type="number" step="0.01" min="0" name="estimated_price" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td class="mono" style="text-align:right" { "0.00" }
+            td class="line-subtotal mono" style="text-align:right" { "0.00" }
             td { input class="form-input" type="text" name="item_remark" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
                 _="on click remove the closest <tr/>" {

@@ -240,7 +240,21 @@ pub async fn create_quotation(
                 .delivery_date
                 .and_then(|s| chrono::NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok()),
         })
-        .collect();
+        .collect::<Vec<_>>();
+
+    let has_zero_price = items.iter().any(|i| i.unit_price <= rust_decimal::Decimal::ZERO);
+    if has_zero_price {
+        return Err(DomainError::validation("产品单价不能为 0，请检查所有产品的单价").into());
+    }
+
+    let total: rust_decimal::Decimal = items.iter().map(|i| {
+        let subtotal = i.quantity * i.unit_price;
+        let discount = i.discount_rate.unwrap_or(rust_decimal::Decimal::ZERO) / rust_decimal::Decimal::ONE_HUNDRED;
+        subtotal * (rust_decimal::Decimal::ONE - discount)
+    }).sum();
+    if total <= rust_decimal::Decimal::ZERO {
+        return Err(DomainError::validation("报价总额不能为零，请检查产品数量和单价").into());
+    }
 
     let create_req = CreateQuotationReq {
         customer_id: form.customer_id,
@@ -362,18 +376,33 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                         "添加产品行"
                     }
                 }
-                div class="totals-bar" {
+                div class="totals-bar" _="on recalc
+                   set subtotal to 0
+                   set disc to 0
+                   for row in <tr/> in #quotation-item-tbody
+                     get row as Values
+                     set q to (its quantity as Number or 0)
+                     set p to (its unit_price as Number or 0)
+                     set d to (its discount_rate as Number or 0)
+                     set lineTotal to q * p * (1 - (d / 100))
+                     put (lineTotal as Fixed:2) into .line-total in row
+                     increment subtotal by q * p
+                     increment disc by q * p * (d / 100)
+                   end
+                   put ('¥ ' + (subtotal as Fixed:2)) into #subtotal-value
+                   put ('- ¥ ' + (disc as Fixed:2)) into #discount-value
+                   put ('¥ ' + ((subtotal - disc) as Fixed:2)) into #grand-value" {
                     div class="totals-item" {
                         span class="totals-label" { "合计金额" }
-                        span class="totals-value" { "¥ 0.00" }
+                        span class="totals-value" id="subtotal-value" { "¥ 0.00" }
                     }
                     div class="totals-item" {
                         span class="totals-label" { "折扣总额" }
-                        span class="totals-value" { "- ¥ 0.00" }
+                        span class="totals-value" id="discount-value" { "- ¥ 0.00" }
                     }
                     div class="totals-item" {
                         span class="totals-label" { "报价总额" }
-                        span class="totals-value grand" { "¥ 0.00" }
+                        span class="totals-value grand" id="grand-value" { "¥ 0.00" }
                     }
                 }
             }
@@ -486,7 +515,14 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
 
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
     html! {
-        tr {
+        tr _="on input in .num-input
+           set row to closest <tr/>
+           get row as Values
+           set q to (its quantity as Number or 0)
+           set p to (its unit_price as Number or 0)
+           set d to (its discount_rate as Number or 0)
+           put ((q * p * (1 - (d / 100))) as Fixed:2) into .line-total in row
+           send recalc to .totals-bar" {
             td class="line-num" { }
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }

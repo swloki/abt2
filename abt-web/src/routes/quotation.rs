@@ -5,6 +5,7 @@ use serde::Deserialize;
 
 use crate::pages::quotation_create;
 use crate::pages::quotation_detail;
+use crate::pages::quotation_edit;
 use crate::pages::quotation_list;
 use crate::state::AppState;
 
@@ -84,8 +85,8 @@ pub fn router() -> Router<AppState> {
         .route(QuotationTablePath::PATH, get(quotation_list::get_quotation_table))
         .route(QuotationCreatePath::PATH, get(quotation_create::get_quotation_create).post(quotation_create::create_quotation))
         .route(QuotationDetailPath::PATH, get(quotation_detail::get_quotation_detail))
-        .route(EditQuotationFormPath::PATH, get(quotation_list::get_edit_quotation_form))
-        .route(UpdateQuotationPath::PATH, post(quotation_list::update_quotation))
+        .route(EditQuotationFormPath::PATH, get(quotation_edit::get_quotation_edit))
+        .route(UpdateQuotationPath::PATH, post(quotation_edit::update_quotation))
         .route(DeleteQuotationPath::PATH, post(quotation_list::delete_quotation))
         .route(SubmitQuotationPath::PATH, post(quotation_detail::submit_quotation))
         .route(AcceptQuotationPath::PATH, post(quotation_detail::accept_quotation))

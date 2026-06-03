@@ -9,7 +9,7 @@ use abt_core::shared::types::PageParams;
 use abt_macros::require_permission;
 
 use crate::components::{confirm_dialog, detail::detail_row, icon};
-use crate::components::pagination::pagination;
+use crate::components::pagination::htmx_pagination;
 use crate::layout::page::admin_page;
 use crate::routes::routing::{RoutingDeletePath, RoutingDetailPath, RoutingListPath};
 use crate::utils::RequestContext;
@@ -186,7 +186,8 @@ fn routing_detail_page(
             }
 
             // ── 关联BOM ──
-            div class="detail-card" style="margin-top:var(--space-5)" {
+            div class="detail-card routing-bom-card" style="margin-top:var(--space-5)"
+                hx-select=".routing-bom-card" hx-target=".routing-bom-card" hx-swap="outerHTML" {
                 div class="detail-card-title" { "关联BOM" }
                 (bom_table_fragment(routing.id, boms))
             }
@@ -208,7 +209,6 @@ fn routing_detail_page(
         }
     }
 }
-
 fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::PaginatedResult<BomRouting>) -> Markup {
     let base_path = RoutingDetailPath { id: routing_id }.to_string();
     html! {
@@ -239,7 +239,7 @@ fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::Paginated
                     }
                 }
             }
-            (pagination(&base_path, "", boms.total, boms.page, boms.total_pages))
+            (htmx_pagination(&base_path, boms.total, boms.page, boms.total_pages, ".routing-bom-card", "outerHTML"))
         }
     }
 }

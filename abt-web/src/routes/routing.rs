@@ -26,12 +26,6 @@ pub struct RoutingDetailPath {
     pub id: i64,
 }
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/routings/{id}/bom-table")]
-pub struct RoutingBomTablePath {
-    pub id: i64,
-}
-
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/routings/{id}")]
@@ -61,10 +55,6 @@ pub fn router() -> Router<AppState> {
         .route(
             RoutingDetailPath::PATH,
             get(routing_detail::get_routing_detail),
-        )
-        .route(
-            RoutingBomTablePath::PATH,
-            get(routing_detail::get_routing_bom_table),
         )
         .route(
             RoutingUpdatePath::PATH,

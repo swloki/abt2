@@ -1,5 +1,5 @@
 use axum::extract::Query;
-use axum::response::{Html, IntoResponse, Redirect};
+use axum::response::Html;
 use maud::{Markup, html};
 
 use abt_core::master_data::routing::RoutingService;
@@ -11,7 +11,7 @@ use abt_macros::require_permission;
 use crate::components::{confirm_dialog, detail::detail_row, icon};
 use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
-use crate::routes::routing::{RoutingBomTablePath, RoutingDeletePath, RoutingDetailPath, RoutingListPath};
+use crate::routes::routing::{RoutingDeletePath, RoutingDetailPath, RoutingListPath};
 use crate::utils::RequestContext;
 
 // ── Query Params ──
@@ -27,13 +27,14 @@ pub(crate) struct BomPageParams {
 pub async fn get_routing_detail(
     path: RoutingDetailPath,
     ctx: RequestContext,
+    Query(qp): Query<BomPageParams>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.routing_service();
 
     let detail = svc.get_detail(&service_ctx, &mut conn, path.id).await?;
-    let bom_page = PageParams::new(1, 10);
+    let bom_page = PageParams::new(qp.page.unwrap_or(1), 10);
     let boms = svc.paginate_boms_by_routing(&service_ctx, &mut conn, path.id, bom_page).await?;
     let content = routing_detail_page(&detail, &boms);
     let detail_path_str = RoutingDetailPath { id: path.id }.to_string();
@@ -59,25 +60,6 @@ pub async fn update_routing(
     Ok(Html("<p>Update routing placeholder</p>".into()))
 }
 
-/// HTMX endpoint: paginated BOM table fragment
-/// HTMX endpoint: paginated BOM table fragment.
-/// Direct browser access redirects to the full detail page.
-#[require_permission("ROUTING", "read")]
-pub async fn get_routing_bom_table(
-    path: RoutingBomTablePath,
-    ctx: RequestContext,
-    Query(qp): Query<BomPageParams>,
-) -> crate::errors::Result<axum::response::Response> {
-    if !ctx.is_htmx() {
-        let page = qp.page.unwrap_or(1);
-        return Ok(Redirect::to(&format!("{}?page={}", RoutingDetailPath { id: path.id }, page)).into_response());
-    }
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.routing_service();
-    let bom_page = PageParams::new(qp.page.unwrap_or(1), 10);
-    let boms = svc.paginate_boms_by_routing(&service_ctx, &mut conn, path.id, bom_page).await?;
-    Ok(Html(bom_table_fragment(path.id, &boms).into_string()).into_response())
-}
 
 // ── Components ──
 
@@ -228,40 +210,36 @@ fn routing_detail_page(
 }
 
 fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::PaginatedResult<BomRouting>) -> Markup {
-    let hx_url = RoutingBomTablePath { id: routing_id }.to_string();
+    let base_path = RoutingDetailPath { id: routing_id }.to_string();
     html! {
-        div id="routing-bom-table" {
-            @if boms.items.is_empty() {
-                div class="empty-state" { "暂无关联BOM" }
-            } @else {
-                table class="data-table" {
-                    thead {
-                        tr {
-                            th style="width:60px" { "ID" }
-                            th { "产品编码" }
-                            th style="width:160px" { "关联时间" }
-                        }
+        @if boms.items.is_empty() {
+            div class="empty-state" { "暂无关联BOM" }
+        } @else {
+            table class="data-table" {
+                thead {
+                    tr {
+                        th style="width:60px" { "ID" }
+                        th { "产品编码" }
+                        th style="width:160px" { "关联时间" }
                     }
-                    tbody {
-                        @for bom in &boms.items {
-                            tr {
-                                td class="mono" { (bom.id) }
-                                td class="mono" { (bom.product_code) }
-                                td {
-                                    @if let Some(dt) = bom.created_at {
-                                        (dt.format("%Y-%m-%d %H:%M"))
-                                    } @else {
-                                        "—"
-                                    }
+                }
+                tbody {
+                    @for bom in &boms.items {
+                        tr {
+                            td class="mono" { (bom.id) }
+                            td class="mono" { (bom.product_code) }
+                            td {
+                                @if let Some(dt) = bom.created_at {
+                                    (dt.format("%Y-%m-%d %H:%M"))
+                                } @else {
+                                    "—"
                                 }
                             }
                         }
                     }
                 }
-                div hx-boost="true" hx-target="#routing-bom-table" hx-swap="outerHTML" {
-                    (pagination(&hx_url, "", boms.total, boms.page, boms.total_pages))
-                }
             }
+            (pagination(&base_path, "", boms.total, boms.page, boms.total_pages))
         }
     }
 }

@@ -132,7 +132,7 @@ pub async fn get_category_tree(ctx: RequestContext) -> crate::errors::Result<Htm
         .get_tree(&service_ctx, &mut conn, None, None)
         .await?;
 
-    Ok(Html(tree_fragment(&tree).into_string()))
+    Ok(Html(tree_fragment(&tree, None).into_string()))
 }
 
 #[require_permission("CATEGORY", "read")]
@@ -633,7 +633,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                         }
                     }
                     div class="tree-scroll" id="category-tree" {
-                        (tree_fragment(tree))
+                        (tree_fragment(tree, first_id))
                     }
                     div class="tree-footer" {
                         button class="btn btn-primary" style="width: 100%; justify-content: center;"
@@ -710,15 +710,30 @@ fn category_split_view_script() -> Markup {
 
 // ── Tree Fragment ──
 
-fn tree_fragment(tree: &[CategoryTree]) -> Markup {
+fn tree_fragment(tree: &[CategoryTree], selected_id: Option<i64>) -> Markup {
+    let expand_ids: Vec<i64> = selected_id.map_or(Vec::new(), |sid| {
+        fn find_path(nodes: &[CategoryTree], target: i64, path: &mut Vec<i64>) -> bool {
+            for n in nodes {
+                path.push(n.category_id);
+                if n.category_id == target { return true; }
+                if find_path(&n.children, target, path) { return true; }
+                path.pop();
+            }
+            false
+        }
+        let mut p = Vec::new();
+        find_path(tree, sid, &mut p);
+        p
+    });
+
     html! {
         @for node in tree {
-            (tree_node(node, 0))
+            (tree_node(node, 0, selected_id, &expand_ids))
         }
     }
 }
 
-fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
+fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand_ids: &[i64]) -> Markup {
     let has_children = !node.children.is_empty();
     let count = node.meta.count;
     let id = node.category_id;
@@ -726,11 +741,15 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
     let name_lower = name.to_lowercase();
     let detail_url = format!("/admin/md/categories?category_id={}", id);
     let pad = format!("padding-left: {}px", depth * 24 + 16);
+    let is_active = selected_id == Some(id);
+    let should_expand = is_active || expand_ids.contains(&id);
+    let node_classes = if should_expand { "tree-node expanded" } else { "tree-node" };
+    let row_classes = if is_active { "tree-node-row active" } else { "tree-node-row" };
 
     html! {
         @if has_children {
-            div.tree-node data-name=(name_lower) {
-                div.tree-node-row
+            div class=(node_classes) data-name=(name_lower) {
+                div class=(row_classes)
                     style=(pad)
                     _="on click remove .active from .active in (closest .tree-scroll) then add .active to me"
                     hx-get=(detail_url)
@@ -748,13 +767,13 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
                 }
                 div class="tree-children" {
                     @for child in &node.children {
-                        (tree_node(child, depth + 1))
+                        (tree_node(child, depth + 1, selected_id, expand_ids))
                     }
                 }
             }
         } @else {
-            div.tree-node data-name=(name_lower) {
-                div.tree-node-row
+            div class=(node_classes) data-name=(name_lower) {
+                div class=(row_classes)
                     style=(pad)
                     _="on click remove .active from .active in (closest .tree-scroll) then add .active to me"
                     hx-get=(detail_url)

@@ -187,7 +187,8 @@ fn routing_detail_page(
 
             // ── 关联BOM ──
             div class="detail-card routing-bom-card" style="margin-top:var(--space-5)"
-                hx-select=".routing-bom-card" hx-target=".routing-bom-card" hx-swap="outerHTML" {
+                hx-select=".routing-bom-card" hx-target=".routing-bom-card" hx-swap="outerHTML"
+                hx-push-url="true" {
                 div class="detail-card-title" { "关联BOM" }
                 (bom_table_fragment(routing.id, boms))
             }

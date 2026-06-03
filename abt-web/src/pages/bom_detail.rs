@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use axum::http::HeaderMap;
 use axum::response::Html;
 use maud::{Markup, html};
+use serde_json;
 use rust_decimal::Decimal;
 
 use abt_core::master_data::bom::{BomCommandService, BomCostService, BomQueryService};
@@ -327,6 +328,7 @@ fn bom_detail_page(
                 }
             }
         }
+        script src="/cost-drawer.js?v=20260602" {}
     }
 }
 
@@ -410,121 +412,144 @@ fn format_amount(unit_price: Decimal, quantity: Decimal) -> String {
 }
 
 fn cost_drawer_content(report: &BomCostReport) -> Markup {
-    let has_warnings = !report.warnings.is_empty();
+    // Build JSON array of material items for Alpine.js to consume
+    let items_json = serde_json::to_string(&report.material_costs.iter().map(|item| {
+        serde_json::json!({
+            "nodeId": item.node_id,
+            "productId": item.product_id,
+            "productName": item.product_name,
+            "productCode": item.product_code,
+            "quantity": item.quantity.to_string(),
+            "unitPrice": item.unit_price.map(|p| p.to_string()),
+        })
+    }).collect::<Vec<_>>()).unwrap_or_default();
+    let labor_json = serde_json::to_string(&report.labor_costs.iter().map(|item| {
+        serde_json::json!({
+            "id": item.id,
+            "name": item.name,
+            "unitPrice": item.unit_price.to_string(),
+            "quantity": item.quantity.to_string(),
+            "remark": item.remark,
+        })
+    }).collect::<Vec<_>>()).unwrap_or_default();
+    let warnings_json = serde_json::to_string(&report.warnings).unwrap_or_default();
     let has_labor_cost_issue = !report.labor_costs.is_empty()
         && report.labor_costs.iter().all(|item| item.unit_price == Decimal::ZERO);
-    let has_cost_issue = has_warnings || has_labor_cost_issue;
-
-    let material_total: Decimal = report.material_costs.iter()
-        .filter_map(|item| item.unit_price.map(|p| p * item.quantity))
-        .sum();
-    let labor_total: Decimal = report.labor_costs.iter()
-        .map(|item| item.unit_price * item.quantity)
-        .sum();
-
     html! {
-        // Warning banner
-        @if has_warnings {
-            div class="cost-warning-banner" x-data="{ warnOpen: false }" {
-                button type="button" class="cost-warning-toggle"
-                    x-on:click="warnOpen = !warnOpen" {
-                    div class="warning-left" {
-                        (icon::circle_alert_icon("w-4 h-4"))
-                        span { "部分材料缺失单价（共 " (report.warnings.len()) " 项）" }
+        div x-data={"costDrawer(" (items_json) ", " (labor_json) ", " (warnings_json) ", " (report.bom_id) ")" } {
+            // Warning banner
+            template x-if="warnings.length > 0" {
+                div class="cost-warning-banner" {
+                    button type="button" class="cost-warning-toggle"
+                        x-on:click="warnOpen = !warnOpen" {
+                        div class="warning-left" {
+                            (icon::circle_alert_icon("w-4 h-4"))
+                            span { "部分材料缺失单价（共 " span x-text="warnings.length" { } " 项）" }
+                        }
+                        (icon::chevron_down_icon("w-4 h-4"))
                     }
-                    (icon::chevron_down_icon("w-4 h-4"))
-                }
-                div class="cost-warning-list" x-show="warnOpen" {
-                    ul style="list-style:none;margin:0;padding:0" {
-                        @for w in &report.warnings {
-                            li { "- " (w) }
+                    div class="cost-warning-list" x-show="warnOpen" {
+                        ul {
+                            template x-for="w in warnings" {
+                                li { "- " span x-text="w" { } }
+                            }
                         }
                     }
                 }
             }
-        }
-
-        // Product code
-        div class="cost-product-code" {
-            p { "产品编码：" span { (report.product_code) } }
-        }
-
-        // Summary cards
-        div class="cost-summary-grid" {
-            div class="cost-summary-card primary" {
-                div class="card-label" { "材料成本" }
-                div class="card-value" { (format_currency(material_total)) }
-                div class="card-sub" { (report.material_costs.len()) " 项材料" }
+            // Product code
+            div class="cost-product-code" {
+                p { "产品编码：" span { (report.product_code) } }
             }
-            div class={"cost-summary-card " (if has_labor_cost_issue { "danger" } else { "" })} {
-                div class="card-label" { "人工成本" }
-                div class="card-value" { (format_currency(labor_total)) }
-                div class="card-sub" {
-                    (report.labor_costs.len()) " 道工序"
-                    @if has_labor_cost_issue { "（单价为0）" }
+            // Summary cards
+            div class="cost-summary-grid" {
+                div class="cost-summary-card primary" {
+                    div class="card-label" { "材料成本" }
+                    div class="card-value" x-text="fmtCurrency(materialTotal)" { }
+                    div class="card-sub" { (report.material_costs.len()) " 项材料" }
                 }
-            }
-            div class={"cost-summary-card " (if has_cost_issue { "total-warn" } else { "total-ok" })} {
-                div class="card-label" { "总成本" }
-                @if has_cost_issue {
-                    div class="card-value" { "-" }
+                div class={"cost-summary-card " (if has_labor_cost_issue { "danger" } else { "" })} {
+                    div class="card-label" { "人工成本" }
+                    div class="card-value" x-text="fmtCurrency(laborTotal)" { }
                     div class="card-sub" {
-                        @if has_warnings && has_labor_cost_issue {
-                            "材料缺失单价，人工成本为0"
-                        } @else if has_warnings {
-                            "存在缺失单价"
-                        } @else {
-                            "人工成本为0"
-                        }
+                        (report.labor_costs.len()) " 道工序"
+                        @if has_labor_cost_issue { "（单价为0）" }
                     }
-                } @else {
-                    div class="card-value" { (format_currency(material_total + labor_total)) }
-                    div class="card-sub" { "已完成计算" }
+                }
+                div class="cost-summary-card" x-bind:class="totalCardClass" {
+                    div class="card-label" x-text="totalLabel" { }
+                    @if has_labor_cost_issue || !report.warnings.is_empty() {
+                        div class="card-value" x-text="hasAllMaterialPrices && !laborIssue ? fmtCurrency(materialTotal + laborTotal) : '-'" { }
+                    } @else {
+                        div class="card-value" x-text="hasAllMaterialPrices ? fmtCurrency(materialTotal + laborTotal) : '-'" { }
+                    }
+                    div class="card-sub" x-text="totalSub" { }
                 }
             }
-        }
-
-        // Material cost table
-        div style="margin-bottom:24px" {
-            div class="cost-section-title" { "【材料成本】" }
-            table class="cost-drawer-table" {
-                thead {
-                    tr {
-                        th style="min-width:160px" { "产品名称" }
-                        th { "产品编码" }
-                        th class="text-right" { "数量" }
-                        th class="text-right" { "单价" }
-                        th class="text-right" { "小计" }
-                    }
+            // Temp price notice
+            template x-if="tempCount > 0" {
+                div class="temp-price-notice" {
+                    (icon::circle_alert_icon("w-4 h-4"))
+                    span { "已使用 " strong x-text="tempCount" { } " 个临时价格（仅保存在本地，刷新后仍有效）" }
+                    button type="button" class="temp-price-clear" x-on:click="clearTempPrices()" { "清除全部" }
                 }
-                tbody {
-                    @for item in &report.material_costs {
-                        @let is_missing = item.unit_price.is_none();
-                        tr class=(if is_missing { "row-danger" } else { "" }) {
-                            td class="cell-name" style="font-weight:500"
-                                title=(item.product_name) {
-                                (item.product_name)
-                            }
-                            td class="font-mono" style="color:#6b7280" { (item.product_code) }
-                            td class="text-right font-mono" { (item.quantity) }
-                            td class="text-right" {
-                                @match item.unit_price {
-                                    Some(price) => {
-                                        span class="font-mono" { (format_currency(price)) }
+            }
+            // Material cost table
+            div class="cost-section" {
+                div class="cost-section-title" { "【材料成本】" }
+                table class="cost-drawer-table" {
+                    thead {
+                        tr {
+                            th class="col-name" { "产品名称" }
+                            th { "产品编码" }
+                            th class="text-right" { "数量" }
+                            th class="text-right" { "单价" }
+                            th class="text-right" { "小计" }
+                        }
+                    }
+                    tbody {
+                        template x-for="item in items" {
+                            tr x-bind:class="item.unitPrice || item.tempPrice ? '' : 'row-danger'" {
+                                td class="cell-name font-mono"
+                                    x-bind:title="item.productName"
+                                    x-text="item.productName" { }
+                                td class="font-mono cell-code" x-text="item.productCode" { }
+                                td class="text-right font-mono" x-text="item.quantity" { }
+                                td class="text-right" {
+                                    // Has real price
+                                    template x-if="item.unitPrice" {
+                                        span class="font-mono" x-text="'¥' + item.unitPrice" { }
                                     }
-                                    None => {
-                                        span class="missing-price" { "缺失" }
-                                    }
-                                }
-                            }
-                            td class="text-right" style="font-weight:500" {
-                                @match item.unit_price {
-                                    Some(price) => {
-                                        span class="font-mono" style="color:#2563eb" {
-                                            (format_amount(price, item.quantity))
+                                    // Missing price but has temp override
+                                    template x-if="!item.unitPrice && item.tempPrice" {
+                                        span class="temp-price-badge" {
+                                            span x-text="'¥' + item.tempPrice" { }
+                                            span class="temp-tag" { "临时" }
                                         }
                                     }
-                                    None => {
+                                    // Missing price, no override — show input
+                                    template x-if="!item.unitPrice && !item.tempPrice" {
+                                        span class="temp-price-input-wrap" {
+                                            span class="missing-price" { "缺失" }
+                                            input type="text"
+                                                class="temp-price-input"
+                                                placeholder="输入临时单价"
+                                                x-on:keydown="if($event.key==='Enter') setTempPrice(item, $event)"
+                                                x-on:blur="setTempPrice(item, $event)"
+                                                x-on:click="event.stopPropagation()" {}
+                                        }
+                                    }
+                                }
+                                td class="text-right cell-amount" {
+                                    template x-if="item.unitPrice" {
+                                        span class="font-mono amount-primary"
+                                            x-text="fmtAmount(item.unitPrice, item.quantity)" { }
+                                    }
+                                    template x-if="!item.unitPrice && item.tempPrice" {
+                                        span class="font-mono amount-warn"
+                                            x-text="fmtAmount(item.tempPrice, item.quantity)" { }
+                                    }
+                                    template x-if="!item.unitPrice && !item.tempPrice" {
                                         span class="missing-price" { "-" }
                                     }
                                 }
@@ -532,84 +557,78 @@ fn cost_drawer_content(report: &BomCostReport) -> Markup {
                         }
                     }
                 }
-            }
-            div class="cost-drawer-footer bg-blue" {
-                span class="footer-label" { "材料成本合计:" }
-                span class="footer-value blue" { (format_currency(material_total)) }
-            }
-        }
-
-        // Labor cost table
-        div style="margin-bottom:24px" {
-            div class="cost-section-title" { "【人工成本】" }
-            table class="cost-drawer-table" {
-                thead {
-                    tr {
-                        th { "工序名称" }
-                        th class="text-right" { "单价" }
-                        th class="text-right" { "数量" }
-                        th class="text-right" { "小计" }
-                    }
+                div class="cost-drawer-footer bg-blue" {
+                    span class="footer-label" { "材料成本合计:" }
+                    span class="footer-value blue" x-text="fmtCurrency(materialTotal)" { }
                 }
-                tbody {
-                    @if report.labor_costs.is_empty() {
+            }
+            // Labor cost table
+            div class="cost-section" {
+                div class="cost-section-title" { "【人工成本】" }
+                table class="cost-drawer-table" {
+                    thead {
                         tr {
-                            td colspan="4" style="text-align:center;padding:32px;color:#9ca3af" { "暂无人工成本数据" }
+                            th { "工序名称" }
+                            th class="text-right" { "单价" }
+                            th class="text-right" { "数量" }
+                            th class="text-right" { "小计" }
+                            th { "备注" }
                         }
-                    } @else {
-                        @for item in &report.labor_costs {
-                            @let is_zero = item.unit_price == Decimal::ZERO;
-                            tr class=(if is_zero { "row-danger" } else { "" }) {
-                                td style="font-weight:500" { (item.name) }
+                    }
+                    tbody {
+                        template x-if="laborItems.length === 0" {
+                            tr {
+                                td colspan="5" class="empty-row" { "暂无人工成本数据" }
+                            }
+                        }
+                        template x-for="item in laborItems" {
+                            tr x-bind:class="item.unitPrice === '0' ? 'row-danger' : ''" {
+                                td class="cell-bold" x-text="item.name" { }
                                 td class="text-right" {
-                                    @if is_zero {
-                                        span style="color:#ef4444;font-weight:500" { "¥0.000000" }
-                                    } @else {
-                                        span class="font-mono" { (format_currency(item.unit_price)) }
+                                    template x-if="item.unitPrice === '0'" {
+                                        span class="price-zero" { "¥0.000000" }
+                                    }
+                                    template x-if="item.unitPrice !== '0'" {
+                                        span class="font-mono" x-text="'¥' + item.unitPrice" { }
                                     }
                                 }
-                                td class="text-right font-mono" { (item.quantity) }
-                                td class="text-right" style="font-weight:500" {
-                                    @if is_zero {
-                                        span style="color:#ef4444" { (format_amount(item.unit_price, item.quantity)) }
-                                    } @else {
-                                        span class="font-mono" style="color:#2563eb" {
-                                            (format_amount(item.unit_price, item.quantity))
-                                        }
+                                td class="text-right font-mono" x-text="item.quantity" { }
+                                td class="text-right cell-amount" {
+                                    template x-if="item.unitPrice === '0'" {
+                                        span class="amount-danger" x-text="fmtAmount(item.unitPrice, item.quantity)" { }
                                     }
+                                    template x-if="item.unitPrice !== '0'" {
+                                        span class="font-mono amount-primary" x-text="fmtAmount(item.unitPrice, item.quantity)" { }
+                                    }
+                                }
+                                td class="cell-remark" {
+                                    template x-if="item.remark" {
+                                        span x-text="item.remark" { }
+                                    }
+                                    template x-if="!item.remark" { "—" }
                                 }
                             }
                         }
                     }
                 }
-            }
-            div class={"cost-drawer-footer " (if has_labor_cost_issue { "bg-red" } else { "bg-blue" })} {
-                span class={"footer-label" } { "人工成本合计:" }
-                span class={"footer-value " (if has_labor_cost_issue { "red" } else { "blue" })} {
-                    (format_currency(labor_total))
-                }
-                @if has_labor_cost_issue {
-                    span style="font-size:11px;color:#ef4444;margin-left:4px" { "（所有工序单价为0）" }
-                }
-            }
-        }
-
-        // Total footer
-        div class="cost-drawer-footer bg-gray" style="padding:14px 16px" {
-            @if has_cost_issue {
-                span style="font-size:13px;font-weight:500;color:#d97706" {
-                    @if has_warnings && has_labor_cost_issue {
-                        "请补全材料单价并设置人工成本"
-                    } @else if has_warnings {
-                        "请补全所有材料单价"
-                    } @else {
-                        "请设置人工成本单价"
+                div x-bind:class="'cost-drawer-footer ' + (laborIssue ? 'bg-red' : 'bg-blue')" {
+                    span class="footer-label" { "人工成本合计:" }
+                    span x-bind:class="'footer-value ' + (laborIssue ? 'red' : 'blue')"
+                        x-text="fmtCurrency(laborTotal)" { }
+                    template x-if="laborIssue" {
+                        span class="hint-labor" { "（所有工序单价为0）" }
                     }
                 }
-            } @else {
-                span class="footer-label" { "总成本:" }
-                span class="footer-value dark" style="font-size:18px" {
-                    (format_currency(material_total + labor_total))
+            }
+            // Total footer
+            div class="cost-drawer-footer bg-gray total-footer" {
+                template x-if="!hasAllMaterialPrices || laborIssue" {
+                    span class="hint-warn" x-text="totalHint" { }
+                }
+                template x-if="hasAllMaterialPrices && !laborIssue" {
+                    span class="footer-label" { "总成本:" }
+                    span class="footer-value dark value-lg"
+                        x-text="fmtCurrency(materialTotal + laborTotal)" { }
                 }
             }
         }

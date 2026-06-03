@@ -21,6 +21,7 @@ cargo clippy                  # Lint 检查
 - 新增组件样式优先使用 UnoCSS `shortcuts`（工具类组合）；复杂选择器、伪元素、媒体查询等无法用 shortcuts 表达的样式放入 `preflights`
 - HTML 模板只引用 `/app.css`，不引用其他 CSS 文件
 - 禁止在 `static/` 下新建 CSS 文件
+- **禁止在 Maud 模板中使用 `style` 属性内联样式。** 所有样式必须提取到 `uno.config.ts` 中作为 CSS 类，Maud 模板只使用 `class` 引用。这样做的好处：（1）样式可复用，避免重复定义；（2）统一管理，修改样式只需改一处；（3）减少 HTML 体积。唯一例外是 `<col>` 等 HTML 元素上必须用 style 的极少数场景。
 
 ### SSR + HTMX
 
@@ -385,3 +386,77 @@ pub fn star_rating_component(current_rating: u32) -> Markup {
 - **禁止** `data-field` + DOM 读取模式
 - **禁止** 手动 `innerHTML` / `appendChild` 操作行项目，用 Alpine `x-for` 渲染
 - 所有前端交互状态（增删行、计算、UI 开关）由 Alpine.js 闭环，htmx 仅处理最终提交
+
+---
+
+## Alpine.js 组件组织模式 (Alpine.js Component Organization)
+
+当页面的 Alpine.js 交互逻辑较复杂（含计算属性、localStorage、状态管理等），必须将组件函数抽取到独立的 JS 文件中，禁止在 Maud 模板里内联 `<script>` 写大段 JS。
+
+### 文件约定
+
+- 放在 `static/` 目录下，文件名与功能对应，如 `cost-drawer.js`、`bom-edit.js`、`return-create.js`
+- 导出全局函数（挂载到 `window`），Alpine.js 通过 `x-data="functionName()"` 调用
+- 在使用该组件的页面底部用 `<script src="/xxx.js?v=日期" />` 引入（放在 `html! {}` 块内，与其他页面内容同级）
+
+### 标准结构
+
+```javascript
+// static/cost-drawer.js
+function costDrawer(itemsJson, laborJson, warningsJson, bomId) {
+    return {
+        // 1. 响应式数据
+        items: itemsJson.map(function (item) {
+            return Object.assign({}, item, { tempPrice: null });
+        }),
+        bomId: bomId,
+
+        // 2. 生命周期
+        init() {
+            this._loadTempPrices();
+        },
+
+        // 3. 计算属性 (get)
+        get materialTotal() { ... },
+        get hasAllPrices() { ... },
+
+        // 4. 方法
+        setTempPrice(item, event) { ... },
+        clearTempPrices() { ... },
+
+        // 5. 私有方法（约定用 _ 前缀）
+        _storageKey() { return 'bom-cost-temp-prices:' + this.bomId; },
+        _loadTempPrices() { ... },
+        _saveTempPrices() { ... },
+    };
+}
+```
+
+### Rust 端集成
+
+```rust
+// 在页面 HTML 输出末尾引入 JS 文件
+html! {
+    div x-data="{ ... }" {
+        // 页面内容
+    }
+    script src="/cost-drawer.js?v=20260602" {}
+}
+```
+
+### Maud 与 Alpine.js 注意事项
+
+- **禁止** 在 Maud 属性名中使用 Alpine.js 点修饰符（如 `x-on:keydown.enter`），Maud 不支持属性名含 `.`。改用在 handler 内判断：`x-on:keydown="if($event.key==='Enter') handler()"`
+- **禁止** 使用 `:key="..."` 绑定（如 `template x-for="item in items" :key="item.id"`），Maud 不支持 `:` 开头的属性。直接写 `template x-for="item in items"` 即可
+- 空元素（`input`、`br`、`hr`）必须以 `{}` 结尾：`input type="text" x-model="search" {}`
+- 需要传参的 `x-data` 用 Maud 的 `()` 插值：`x-data=(format!("myComponent({})", json))`
+- 服务器数据通过 `x-data` 参数传入，用 `serde_json` 序列化为 JSON
+
+### 已有参考
+
+| JS 文件 | Alpine 函数 | 用途 |
+|---------|------------|------|
+| `static/cost-drawer.js` | `costDrawer()` | BOM 成本报告，临时价格覆盖 + localStorage |
+| `static/bom-edit.js` | `bomEdit()` | BOM 编辑页，拖拽排序 + 节点管理 |
+| `static/return-create.js` | `returnForm()` | 销售退货单，动态行项目 |
+| `static/app.js` | `categoryTreeSelect()` | 分类树选择器组件 |

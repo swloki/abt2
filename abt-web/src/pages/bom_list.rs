@@ -242,6 +242,7 @@ fn bom_list_page(
                 }
             }
         }
+        script src="/cost-drawer.js?v=20260602" {}
     }
 }
 fn bom_table_fragment(

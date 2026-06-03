@@ -1722,7 +1722,24 @@ p { margin: 0; }
 .cost-drawer-table .missing-price { color: #ef4444; font-weight: 500; }
 .cost-drawer-table .cell-name {
   max-width: 256px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-weight: 500;
 }
+.cost-drawer-table .cell-code { color: #6b7280; }
+.cost-drawer-table .cell-amount { font-weight: 500; }
+.cost-drawer-table .amount-primary { color: #2563eb; }
+.cost-drawer-table .amount-warn { color: #d97706; }
+.cost-drawer-table .amount-danger { color: #ef4444; }
+.cost-drawer-table .price-zero { color: #ef4444; font-weight: 500; }
+.cost-drawer-table .cell-bold { font-weight: 500; width: 100px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+.cost-drawer-table .cell-remark { color: #6b7280; white-space: normal; min-width: 140px; }
+.cost-drawer-table .empty-row { text-align: center; padding: 32px; color: #9ca3af; }
+.cost-drawer-table th.col-name { min-width: 160px; }
+.cost-section { margin-bottom: 24px; }
+.cost-warning-list ul { list-style: none; margin: 0; padding: 0; }
+.cost-drawer-footer.total-footer { padding: 14px 16px; }
+.cost-drawer-footer .value-lg { font-size: 18px; }
+.cost-drawer-footer .hint-warn { font-size: 13px; font-weight: 500; color: #d97706; }
+.cost-drawer-footer .hint-labor { font-size: 11px; color: #ef4444; margin-left: 4px; }
 .cost-drawer-footer {
   display: flex; align-items: center; justify-content: flex-end;
   padding: 10px 16px; border-radius: 6px; margin-top: 12px; gap: 8px;
@@ -1735,6 +1752,40 @@ p { margin: 0; }
 .cost-drawer-footer .footer-value.blue { color: #2563eb; }
 .cost-drawer-footer .footer-value.red { color: #dc2626; }
 .cost-drawer-footer .footer-value.dark { color: #111827; }
+/* ─── Temp Price Override ─── */
+.temp-price-notice {
+  display: flex; align-items: center; gap: 8px;
+  background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px;
+  padding: 8px 12px; margin-bottom: 16px;
+  font-size: 12px; color: #3b82f6;
+}
+.temp-price-notice svg { flex-shrink: 0; }
+.temp-price-notice strong { font-weight: 600; }
+.temp-price-clear {
+  margin-left: auto; border: none; background: none;
+  color: #3b82f6; font-size: 12px; cursor: pointer;
+  text-decoration: underline; font-weight: 500;
+  padding: 2px 4px;
+}
+.temp-price-clear:hover { color: #1d4ed8; }
+.temp-price-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.temp-price-badge .temp-tag {
+  font-size: 10px; font-weight: 500; color: #d97706;
+  background: #fef3c7; border-radius: 3px; padding: 1px 4px;
+  line-height: 1.2;
+}
+.temp-price-input-wrap {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.temp-price-input {
+  width: 100px; padding: 2px 6px; border: 1px solid #d1d5db;
+  border-radius: 4px; font-size: 12px; font-family: var(--font-mono);
+  background: #fff; outline: none; text-align: right;
+}
+.temp-price-input:focus { border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb; }
+.temp-price-input::placeholder { color: #9ca3af; font-size: 11px; }
 .labor-summary-card {
   border: 1px solid #e5e7eb; background: #fff;
   border-radius: 6px; padding: 16px; margin-bottom: 24px;

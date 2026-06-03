@@ -2,7 +2,6 @@ use std::collections::HashMap;
 
 use axum::response::Html;
 use maud::{Markup, html};
-use serde_json;
 use rust_decimal::Decimal;
 
 use abt_core::master_data::bom::{BomCommandService, BomCostService, BomQueryService};
@@ -402,17 +401,9 @@ fn cost_drawer_content(report: &BomCostReport) -> Markup {
         "已完成计算"
     };
 
-    // Build JSON for items that need temp price support (missing unit_price)
-    let missing_price_items_json = serde_json::to_string(&report.material_costs.iter()
-        .filter(|item| item.unit_price.is_none())
-        .map(|item| serde_json::json!({
-            "productId": item.product_id,
-            "productName": item.product_name,
-        }))
-        .collect::<Vec<_>>()).unwrap_or_default();
 
     html! {
-        div data-bom-id=(report.bom_id) data-missing-items=(missing_price_items_json) {
+        div data-bom-id=(report.bom_id) {
             // Warning banner
             @if !report.warnings.is_empty() {
                 div class="cost-warning-banner" {

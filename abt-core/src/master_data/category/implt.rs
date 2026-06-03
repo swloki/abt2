@@ -21,6 +21,11 @@ impl CategoryServiceImpl {
 #[async_trait::async_trait]
 impl CategoryService for CategoryServiceImpl {
     async fn create(&self, ctx: &ServiceContext, db: PgExecutor<'_>, req: CreateCategoryReq) -> Result<i64> {
+        // Check for duplicate name under the same parent
+        if self.repo.find_by_name_and_parent(db, &req.category_name, req.parent_id).await?.is_some() {
+            return Err(DomainError::validation("同级分类下已存在同名分类"));
+        }
+
         let meta = CategoryMeta::default();
 
         // Insert with placeholder, get id, then fix path
@@ -45,9 +50,18 @@ impl CategoryService for CategoryServiceImpl {
     }
 
     async fn update(&self, ctx: &ServiceContext, db: PgExecutor<'_>, category_id: i64, req: UpdateCategoryReq) -> Result<()> {
-        let _existing = self.repo.find_by_id(db, category_id)
+        let existing = self.repo.find_by_id(db, category_id)
             .await?
             .ok_or_else(|| DomainError::not_found("Category"))?;
+
+        // Check for duplicate name under the same parent (if name is being changed)
+        if let Some(ref name) = req.category_name {
+            if name != &existing.category_name {
+                if self.repo.find_by_name_and_parent(db, name, existing.parent_id).await?.is_some() {
+                    return Err(DomainError::validation("同级分类下已存在同名分类"));
+                }
+            }
+        }
 
         self.repo.update(db, category_id, &req)
             .await?;

@@ -27,6 +27,17 @@ impl CategoryRepo {
         Ok(id)
     }
 
+    pub async fn find_by_name_and_parent(&self, executor: PgExecutor<'_>, name: &str, parent_id: i64) -> Result<Option<Category>> {
+        let row = sqlx::query_as::<sqlx::Postgres, Category>(
+            "SELECT * FROM categories WHERE category_name = $1 AND parent_id = $2 AND deleted_at IS NULL",
+        )
+        .bind(name)
+        .bind(parent_id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(row)
+    }
+
     pub async fn update(&self, executor: PgExecutor<'_>, id: i64, req: &UpdateCategoryReq) -> Result<()> {
         if let Some(ref name) = req.category_name {
             sqlx::query("UPDATE categories SET category_name = $1, updated_at = NOW() WHERE category_id = $2")

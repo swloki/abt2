@@ -1,5 +1,5 @@
 use axum::extract::Query;
-use axum::response::Html;
+use axum::response::{Html, IntoResponse, Redirect};
 use maud::{Markup, html};
 
 use abt_core::master_data::routing::RoutingService;
@@ -60,17 +60,23 @@ pub async fn update_routing(
 }
 
 /// HTMX endpoint: paginated BOM table fragment
+/// HTMX endpoint: paginated BOM table fragment.
+/// Direct browser access redirects to the full detail page.
 #[require_permission("ROUTING", "read")]
 pub async fn get_routing_bom_table(
     path: RoutingBomTablePath,
     ctx: RequestContext,
     Query(qp): Query<BomPageParams>,
-) -> crate::errors::Result<Html<String>> {
+) -> crate::errors::Result<axum::response::Response> {
+    if !ctx.is_htmx() {
+        let page = qp.page.unwrap_or(1);
+        return Ok(Redirect::to(&format!("{}?page={}", RoutingDetailPath { id: path.id }, page)).into_response());
+    }
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.routing_service();
     let bom_page = PageParams::new(qp.page.unwrap_or(1), 10);
     let boms = svc.paginate_boms_by_routing(&service_ctx, &mut conn, path.id, bom_page).await?;
-    Ok(Html(bom_table_fragment(path.id, &boms).into_string()))
+    Ok(Html(bom_table_fragment(path.id, &boms).into_string()).into_response())
 }
 
 // ── Components ──

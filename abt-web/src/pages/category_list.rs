@@ -666,20 +666,12 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
     }
 }
 
-// Vanilla JS globals for tree interaction (selectCategory, filterTree).
+// Vanilla JS globals for tree interaction (filterTree).
 
 fn category_split_view_script() -> Markup {
     PreEscaped(
         r#"
-        function selectCategory(id) {
-            var rows = document.querySelectorAll('.tree-node-row.active');
-            for (var i = 0; i < rows.length; i++) rows[i].classList.remove('active');
-            var node = document.querySelector('.tree-node-row[onclick="selectCategory(' + id + ')"]');
-            if (node) node.classList.add('active');
-            htmx.ajax('GET', '/admin/md/categories/' + id + '/panel', '#detail-panel');
-            history.pushState(null, '', '/admin/md/categories?category_id=' + id);
-        }
-
+        function filterTree(q) {
         function filterTree(q) {
             q = (q || '').trim().toLowerCase();
             var container = document.getElementById('category-tree');
@@ -733,7 +725,7 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
     let id = node.category_id;
     let name = &node.category_name;
     let name_lower = name.to_lowercase();
-    let click_expr = format!("selectCategory({})", id);
+    let detail_url = format!("/admin/md/categories?category_id={}", id);
     let pad = format!("padding-left: {}px", depth * 24 + 16);
 
     html! {
@@ -741,7 +733,10 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
             div.tree-node data-name=(name_lower) {
                 div.tree-node-row
                     style=(pad)
-                    onclick=(click_expr) {
+                    _="on click remove .active from .tree-node-row.active then add .active to me"
+                    hx-get=(detail_url)
+                    hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
+                    hx-push-url="true" {
                     span.tree-arrow
                         onclick="event.stopPropagation()"
                         _="on click toggle .expanded on (closest .tree-node)" {
@@ -762,7 +757,10 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
             div.tree-node data-name=(name_lower) {
                 div.tree-node-row
                     style=(pad)
-                    onclick=(click_expr) {
+                    _="on click remove .active from .tree-node-row.active then add .active to me"
+                    hx-get=(detail_url)
+                    hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
+                    hx-push-url="true" {
                     span class="tree-arrow leaf" {
                         (icon::chevron_down_icon(""))
                     }

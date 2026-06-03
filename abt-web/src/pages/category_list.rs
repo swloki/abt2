@@ -663,69 +663,64 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
     }
 }
 
-// TODO: Rewrite categorySplitView() to vanilla JS — Alpine.js has been removed.
-// The selectCategory() and filterTree() functions are called from onclick/oninput handlers
-// but currently reference Alpine's reactive state (this.selectedId, this.searchText).
-// Extract these as standalone functions using module-level variables or data attributes.
+// Vanilla JS globals for tree interaction (selectCategory, filterTree).
 
 fn category_split_view_script() -> Markup {
     PreEscaped(
         r#"
-        function categorySplitView() {
-            return {
-                selectedId: null,
-                searchText: '',
-                createModalOpen: false,
-                selectCategory(id) {
-                    this.selectedId = id;
-                    htmx.ajax('GET', '/admin/md/categories/' + id + '/panel', '#detail-panel');
-                },
-                filterTree(ev) {
-                    var q = (ev ? ev.target.value : this.searchText).trim().toLowerCase();
-                    var container = document.getElementById('category-tree');
-                    if (!container) return;
-                    var allNodes = container.querySelectorAll('.tree-node');
-                    if (!q) {
-                        // Reset: show all nodes
-                        for (var i = 0; i < allNodes.length; i++) {
-                            allNodes[i].style.display = '';
-                            var ch = allNodes[i].querySelector(':scope > .tree-children');
-                            if (ch) ch.style.display = '';
-                            var arr = allNodes[i].querySelector(':scope > .tree-node-row > .tree-arrow');
-                            if (arr) arr.classList.add('expanded');
+        function selectCategory(id) {
+            var rows = document.querySelectorAll('.tree-node-row.active');
+            for (var i = 0; i < rows.length; i++) rows[i].classList.remove('active');
+            var node = document.querySelector('.tree-node-row[onclick="selectCategory(' + id + ')"]');
+            if (node) node.classList.add('active');
+            htmx.ajax('GET', '/admin/md/categories/' + id + '/panel', '#detail-panel');
+        }
+        function toggleTreeChildren(arrow) {
+            arrow.classList.toggle('expanded');
+            var children = arrow.closest('.tree-node').querySelector(':scope > .tree-children');
+            if (children) children.style.display = children.style.display === 'none' ? '' : 'none';
+        }
+
+        function filterTree(q) {
+            q = (q || '').trim().toLowerCase();
+            var container = document.getElementById('category-tree');
+            if (!container) return;
+            var allNodes = container.querySelectorAll('.tree-node');
+            if (!q) {
+                for (var i = 0; i < allNodes.length; i++) {
+                    allNodes[i].style.display = '';
+                    var ch = allNodes[i].querySelector(':scope > .tree-children');
+                    if (ch) ch.style.display = '';
+                    var arr = allNodes[i].querySelector(':scope > .tree-node-row > .tree-arrow');
+                    if (arr) arr.classList.add('expanded');
+                }
+                return;
+            }
+            for (var i = 0; i < allNodes.length; i++) {
+                var name = (allNodes[i].getAttribute('data-name') || '').toLowerCase();
+                allNodes[i]._matches = (name.indexOf(q) >= 0);
+            }
+            for (var i = 0; i < allNodes.length; i++) {
+                if (allNodes[i]._matches) {
+                    var ancestor = allNodes[i].parentElement;
+                    while (ancestor && ancestor !== container) {
+                        if (ancestor.classList && ancestor.classList.contains('tree-node')) {
+                            ancestor._matches = true;
                         }
-                        return;
+                        ancestor = ancestor.parentElement;
                     }
-                    // First pass: mark each node as matching or not
-                    for (var i = 0; i < allNodes.length; i++) {
-                        var name = (allNodes[i].getAttribute('data-name') || '').toLowerCase();
-                        allNodes[i]._matches = (name.indexOf(q) >= 0);
-                    }
-                    // Second pass: propagate child matches upward
-                    for (var i = 0; i < allNodes.length; i++) {
-                        if (allNodes[i]._matches) {
-                            var ancestor = allNodes[i].parentElement;
-                            while (ancestor && ancestor !== container) {
-                                if (ancestor.classList && ancestor.classList.contains('tree-node')) {
-                                    ancestor._matches = true;
-                                }
-                                ancestor = ancestor.parentElement;
-                            }
-                        }
-                    }
-                    // Third pass: apply visibility
-                    for (var i = 0; i < allNodes.length; i++) {
-                        allNodes[i].style.display = allNodes[i]._matches ? '' : 'none';
-                        if (allNodes[i]._matches) {
-                            var ch = allNodes[i].querySelector(':scope > .tree-children');
-                            if (ch) ch.style.display = '';
-                            var arr = allNodes[i].querySelector(':scope > .tree-node-row > .tree-arrow');
-                            if (arr) arr.classList.add('expanded');
-                        }
-                        delete allNodes[i]._matches;
-                    }
-                },
-            };
+                }
+            }
+            for (var i = 0; i < allNodes.length; i++) {
+                allNodes[i].style.display = allNodes[i]._matches ? '' : 'none';
+                if (allNodes[i]._matches) {
+                    var ch = allNodes[i].querySelector(':scope > .tree-children');
+                    if (ch) ch.style.display = '';
+                    var arr = allNodes[i].querySelector(':scope > .tree-node-row > .tree-arrow');
+                    if (arr) arr.classList.add('expanded');
+                }
+                delete allNodes[i]._matches;
+            }
         }
         "#.to_string(),
     )
@@ -757,8 +752,7 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
                     style=(pad)
                     onclick=(click_expr) {
                     span.tree-arrow
-                        onclick="event.stopPropagation()"
-                        _="on click toggle .expanded on me then if (me matches .expanded) set (closest .tree-node .tree-children).style.display to '' else set (closest .tree-node .tree-children).style.display to 'none'" {
+                        onclick="event.stopPropagation(); toggleTreeChildren(this)" {
                         (icon::chevron_down_icon(""))
                     }
                     span class="tree-node-name" { (name) }

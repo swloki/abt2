@@ -9,7 +9,7 @@ use abt_core::master_data::category::model::*;
 use abt_core::master_data::category::CategoryService;
 
 use crate::components::icon;
-use crate::components::pagination::htmx_pagination;
+use crate::components::pagination::htmx_pagination_inherited;
 use crate::components::modal;
 use crate::layout::page::admin_page;
 use crate::routes::category::{
@@ -39,6 +39,13 @@ pub(crate) struct PanelQuery {
     pub page: u32,
 }
 
+#[derive(Debug, Deserialize)]
+pub(crate) struct ListQuery {
+    pub category_id: Option<i64>,
+    #[serde(default = "default_page")]
+    pub page: u32,
+}
+
 fn default_page() -> u32 { 1 }
 
 // ── Handlers ──
@@ -47,6 +54,7 @@ fn default_page() -> u32 { 1 }
 pub async fn get_category_list(
     _path: CategoryListPath,
     ctx: RequestContext,
+    Query(query): Query<ListQuery>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let RequestContext {
@@ -61,19 +69,20 @@ pub async fn get_category_list(
         .get_tree(&service_ctx, &mut conn, None, None)
         .await?;
 
-    // Pre-render the first category's detail panel
-    let first_panel = if let Some(first) = tree.first() {
-        let first_id = first.category_id;
-        let category = svc.get(&service_ctx, &mut conn, first_id).await.ok();
+    // Determine which category to show: explicit query param, or first in tree
+    let selected_id = query.category_id.or_else(|| tree.first().map(|f| f.category_id));
+
+    let first_panel = if let Some(cat_id) = selected_id {
+        let category = svc.get(&service_ctx, &mut conn, cat_id).await.ok();
         if let Some(cat) = category {
             let parent_name = if cat.parent_id != 0 {
                 svc.get(&service_ctx, &mut conn, cat.parent_id).await.map(|p| p.category_name.clone()).unwrap_or_else(|_| "—".into())
             } else {
                 "—".to_string()
             };
-            let update_url = CategoryUpdatePath { id: first_id }.to_string();
-            let delete_url = CategoryDeletePath { id: first_id }.to_string();
-            let mut child_tree = svc.get_tree(&service_ctx, &mut conn, Some(first_id), None).await.unwrap_or_default();
+            let update_url = CategoryUpdatePath { id: cat_id }.to_string();
+            let delete_url = CategoryDeletePath { id: cat_id }.to_string();
+            let mut child_tree = svc.get_tree(&service_ctx, &mut conn, Some(cat_id), None).await.unwrap_or_default();
             if !child_tree.is_empty() {
                 let child_ids: Vec<i64> = child_tree.iter().map(|c| c.category_id).collect();
                 if let Ok(counts) = svc.count_products_batch(&service_ctx, &mut conn, &child_ids).await {
@@ -84,10 +93,10 @@ pub async fn get_category_list(
                     }
                 }
             }
-            let page = abt_core::shared::types::PageParams::new(1, 5);
-            let products = svc.list_products(&service_ctx, &mut conn, first_id, page).await
-                .unwrap_or_else(|_| abt_core::shared::types::PaginatedResult::empty(1, 5));
-            Some((detail_panel(&cat, &parent_name, &update_url, &delete_url, &child_tree, &products, first_id), first_id))
+            let page = abt_core::shared::types::PageParams::new(query.page, 5);
+            let products = svc.list_products(&service_ctx, &mut conn, cat_id, page).await
+                .unwrap_or_else(|_| abt_core::shared::types::PaginatedResult::empty(query.page, 5));
+            Some((detail_panel(&cat, &parent_name, &update_url, &delete_url, &child_tree, &products, cat_id), cat_id))
         } else {
             None
         }
@@ -797,7 +806,6 @@ fn detail_panel(
     let total_products = products.total;
     let total_pages = products.total_pages;
     let current_page = products.page;
-    let panel_url = format!("/admin/md/categories/{}/panel", category_id);
     html! {
         div {
             // ── Category Info Card ──
@@ -864,7 +872,9 @@ fn detail_panel(
             }
 
             // ── Associated Products ──
-            div class="detail-section" {
+            div class="detail-section" id="products-section"
+                hx-select="#products-section" hx-target="#products-section"
+                hx-swap="outerHTML" hx-push-url="true" {
                 div class="detail-section-header" {
                     div {
                         span class="detail-section-title" { "关联产品" }
@@ -906,7 +916,10 @@ fn detail_panel(
                             }
                         }
                         @if total_pages > 1 {
-                            (htmx_pagination(&panel_url, total_products, current_page, total_pages, "#detail-panel", "innerHTML"))
+                            (htmx_pagination_inherited(
+                                &format!("/admin/md/categories?category_id={}", category_id),
+                                total_products, current_page, total_pages,
+                            ))
                         }
                     }
                 } @else {

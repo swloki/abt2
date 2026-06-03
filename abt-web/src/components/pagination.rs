@@ -36,6 +36,7 @@ pub fn pagination(
 }
 
 /// HTMX-aware pagination: page links use hx-get with the given hx-target/hx-swap.
+/// Inherited variant: omits hx-target/hx-swap on links, relying on the ancestor container.
 pub fn htmx_pagination(
     base_path: &str,
     total: u64,
@@ -53,7 +54,7 @@ pub fn htmx_pagination(
             span { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
             div class="pagination-pages" {
                 @if current_page > 1 {
-                    (htmx_page_link(base_path, current_page - 1, "«", hx_target, hx_swap))
+                    (htmx_page_link(base_path, current_page - 1, "«", Some((hx_target, hx_swap))))
                 }
                 @for p in page_range(current_page, total_pages) {
                     @if p == 0 {
@@ -61,21 +62,63 @@ pub fn htmx_pagination(
                     } @else if p == current_page {
                         button class="page-btn active" disabled { (p) }
                     } @else {
-                        (htmx_page_link(base_path, p, &p.to_string(), hx_target, hx_swap))
+                        (htmx_page_link(base_path, p, &p.to_string(), Some((hx_target, hx_swap))))
                     }
                 }
                 @if current_page < total_pages {
-                    (htmx_page_link(base_path, current_page + 1, "»", hx_target, hx_swap))
+                    (htmx_page_link(base_path, current_page + 1, "»", Some((hx_target, hx_swap))))
                 }
             }
         }
     }
 }
 
-fn htmx_page_link(base_path: &str, page: u32, label: &str, hx_target: &str, hx_swap: &str) -> Markup {
-    let url = format!("{base_path}?page={page}");
+/// Lightweight HTMX pagination: links only have `hx-get`, inheriting hx-target/hx-swap/hx-push-url
+/// from an ancestor container that declares them.
+pub fn htmx_pagination_inherited(
+    base_path: &str,
+    total: u64,
+    current_page: u32,
+    total_pages: u32,
+) -> Markup {
+    if total_pages == 0 {
+        return html! {};
+    }
+
     html! {
-        a class="page-btn" href=(url) hx-get=(url) hx-target=(hx_target) hx-swap=(hx_swap) { (label) }
+        div class="pagination" {
+            span { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
+            div class="pagination-pages" {
+                @if current_page > 1 {
+                    (htmx_page_link(base_path, current_page - 1, "«", None))
+                }
+                @for p in page_range(current_page, total_pages) {
+                    @if p == 0 {
+                        button class="page-btn" disabled { "…" }
+                    } @else if p == current_page {
+                        button class="page-btn active" disabled { (p) }
+                    } @else {
+                        (htmx_page_link(base_path, p, &p.to_string(), None))
+                    }
+                }
+                @if current_page < total_pages {
+                    (htmx_page_link(base_path, current_page + 1, "»", None))
+                }
+            }
+        }
+    }
+}
+
+fn htmx_page_link(base_path: &str, page: u32, label: &str, target_swap: Option<(&str, &str)>) -> Markup {
+    let sep = if base_path.contains('?') { '&' } else { '?' };
+    let url = format!("{base_path}{sep}page={page}");
+    match target_swap {
+        Some((t, s)) => html! {
+            a class="page-btn" href=(url) hx-get=(url) hx-target=(t) hx-swap=(s) { (label) }
+        },
+        None => html! {
+            a class="page-btn" href=(url) hx-get=(url) { (label) }
+        },
     }
 }
 

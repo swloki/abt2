@@ -156,6 +156,7 @@ pub struct Supplier {
     pub lead_time_days: i32,
     pub payment_terms: Option<String>,
     pub remark: String,
+    pub currency: String,
     pub operator_id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -201,6 +202,7 @@ pub struct CreateSupplierReq {
     pub lead_time_days: Option<i32>,
     pub payment_terms: Option<String>,
     pub remark: Option<String>,
+    pub currency: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -213,6 +215,7 @@ pub struct UpdateSupplierReq {
     pub lead_time_days: Option<i32>,
     pub payment_terms: Option<String>,
     pub remark: Option<String>,
+    pub currency: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]

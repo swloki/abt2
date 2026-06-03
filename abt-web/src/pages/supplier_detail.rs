@@ -1,4 +1,5 @@
 use axum::Form;
+use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse};
 use maud::{Markup, html};
  use serde::Deserialize;
@@ -65,9 +66,7 @@ pub async fn create_supplier_contact(
     };
 
     svc.add_contact(&service_ctx, &mut conn, path.id, req).await?;
-
-    let redirect = SupplierDetailPath { id: path.id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    Ok((StatusCode::OK, [("HX-Trigger", "contactChanged")], Html(String::new())))
 }
 
 #[require_permission("SUPPLIER", "delete")]
@@ -80,9 +79,7 @@ pub async fn delete_supplier_contact(
 
     svc.delete_contact(&service_ctx, &mut conn, path.sid, path.contact_id)
         .await?;
-
-    let detail = SupplierDetailPath { id: path.sid };
-    Ok(([("HX-Redirect", detail.to_string())], Html(String::new())))
+    Ok((StatusCode::OK, [("HX-Trigger", "contactChanged")], Html(String::new())))
 }
 
 #[require_permission("SUPPLIER", "create")]
@@ -102,9 +99,7 @@ pub async fn create_supplier_bank_account(
     };
 
     svc.add_bank_account(&service_ctx, &mut conn, path.id, req).await?;
-
-    let redirect = SupplierDetailPath { id: path.id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    Ok((StatusCode::OK, [("HX-Trigger", "bankAccountChanged")], Html(String::new())))
 }
 
 #[require_permission("SUPPLIER", "delete")]
@@ -117,9 +112,7 @@ pub async fn delete_supplier_bank_account(
 
     svc.delete_bank_account(&service_ctx, &mut conn, path.sid, path.account_id)
         .await?;
-
-    let detail = SupplierDetailPath { id: path.sid };
-    Ok(([("HX-Redirect", detail.to_string())], Html(String::new())))
+    Ok((StatusCode::OK, [("HX-Trigger", "bankAccountChanged")], Html(String::new())))
 }
 
 #[require_permission("SUPPLIER", "update")]
@@ -258,6 +251,10 @@ fn supplier_detail_page(
                 span class="detail-value" { (supplier.payment_terms.as_deref().unwrap_or("—")) }
             }
             div class="detail-row" {
+                span class="detail-label" { "结算货币" }
+                span class="detail-value" { (&supplier.currency) }
+            }
+            div class="detail-row" {
                 span class="detail-label" { "创建时间" }
                 span class="detail-value" { (supplier.created_at.format("%Y-%m-%d")) }
             }
@@ -270,71 +267,10 @@ fn supplier_detail_page(
         }
 
         // ── 2-Column Grid: Contacts + Bank Accounts ──
-        div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5)" {
+        div style="display:grid;grid-template-columns:1fr;gap:var(--space-5)" {
             // ── Contacts Card ──
-            div class="detail-card" {
-                div class="detail-card-title" {
-                    span { "联系人" }
-                    button class="btn btn-sm btn-primary"
-                        x-on:click="contactModalOpen = true" {
-                        (icon::plus_icon("w-3.5 h-3.5"))
-                        "添加联系人"
-                    }
-                }
-                @if contacts.is_empty() {
-                    div class="empty-state" { "暂无联系人" }
-                } @else {
-                    table class="data-table compact" {
-                        thead {
-                            tr {
-                                th { "姓名" }
-                                th { "职位" }
-                                th { "电话" }
-                                th { "邮箱" }
-                                th style="width:60px" { "标记" }
-                                th style="width:40px" {}
-                            }
-                        }
-                        tbody {
-                            @for c in contacts {
-                                (contact_row(c, &detail_path))
-                            }
-                        }
-                    }
-                }
-            }
-
-            // ── Bank Accounts Card ──
-            div class="detail-card" {
-                div class="detail-card-title" {
-                    span { "银行账户" }
-                    button class="btn btn-sm btn-primary"
-                        x-on:click="bankAccountModalOpen = true" {
-                        (icon::plus_icon("w-3.5 h-3.5"))
-                        "添加账户"
-                    }
-                }
-                @if bank_accounts.is_empty() {
-                    div class="empty-state" { "暂无银行账户" }
-                } @else {
-                    table class="data-table compact" {
-                        thead {
-                            tr {
-                                th { "开户银行" }
-                                th { "账户名称" }
-                                th { "银行账号" }
-                                th style="width:60px" { "标记" }
-                                th style="width:40px" {}
-                            }
-                        }
-                        tbody {
-                            @for ba in bank_accounts {
-                                (bank_account_row(ba, &detail_path))
-                            }
-                        }
-                    }
-                }
-            }
+            (contacts_card(contacts, &detail_path))
+            (bank_accounts_card(bank_accounts, &detail_path))
         }
 
         // ── Purchase History Section (placeholder) ──
@@ -344,75 +280,156 @@ fn supplier_detail_page(
         }
 
         // ── Modals ──
-            (crate::components::modal::modal(
-                "contactModalOpen",
-                "添加联系人",
-                "保存",
-                "create-contact-form",
-                html! {
-                    form id="create-contact-form" class="modal-body"
-                        hx-post=(contact_create_path)
-                        hx-target="this" {
-                        div class="form-grid" {
-                            div class="form-field" {
-                                label { "姓名 *" }
-                                input type="text" name="contact_name" required placeholder="请输入联系人姓名";
-                            }
-                            div class="form-field" {
-                                label { "职位" }
-                                input type="text" name="position" placeholder="请输入职位";
-                            }
-                            div class="form-field" {
-                                label { "电话" }
-                                input type="text" name="phone" placeholder="请输入电话";
-                            }
-                            div class="form-field" {
-                                label { "邮箱" }
-                                input type="email" name="email" placeholder="请输入邮箱";
-                            }
-                            div class="form-field" {
-                                label class="checkbox-label" {
-                                    input type="checkbox" name="is_primary" value="true";
-                                    "主要联系人"
-                                }
+        (crate::components::modal::modal(
+            "contactModalOpen",
+            "添加联系人",
+            "保存",
+            "create-contact-form",
+            html! {
+                form id="create-contact-form" class="modal-body"
+                    hx-post=(contact_create_path)
+                    hx-swap="none" {
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label { "姓名 *" }
+                            input type="text" name="contact_name" required placeholder="请输入联系人姓名";
+                        }
+                        div class="form-field" {
+                            label { "职位" }
+                            input type="text" name="position" placeholder="请输入职位";
+                        }
+                        div class="form-field" {
+                            label { "电话" }
+                            input type="text" name="phone" placeholder="请输入电话";
+                        }
+                        div class="form-field" {
+                            label { "邮箱" }
+                            input type="email" name="email" placeholder="请输入邮箱";
+                        }
+                        div class="form-field" {
+                            label class="checkbox-label" {
+                                input type="checkbox" name="is_primary" value="true";
+                                "主要联系人"
                             }
                         }
                     }
-                },
-            ))
+                }
+            },
+        ))
 
-            (crate::components::modal::modal(
-                "bankAccountModalOpen",
-                "添加银行账户",
-                "保存",
-                "create-bank-account-form",
-                html! {
-                    form id="create-bank-account-form" class="modal-body"
-                        hx-post=(bank_account_create_path)
-                        hx-target="this" {
-                        div class="form-grid" {
-                            div class="form-field" {
-                                label { "开户银行 *" }
-                                input type="text" name="bank_name" required placeholder="请输入开户银行";
-                            }
-                            div class="form-field" {
-                                label { "账户名称 *" }
-                                input type="text" name="account_name" required placeholder="请输入账户名称";
-                            }
-                            div class="form-field field-full" {
-                                label { "银行账号 *" }
-                                input type="text" name="account_number" required placeholder="请输入银行账号";
-                            }
-                            div class="form-field" {
-                                label class="checkbox-label" {
-                                    input type="checkbox" name="is_default" value="true";
-                                    "默认账户"
-                                }
+        (crate::components::modal::modal(
+            "bankAccountModalOpen",
+            "添加银行账户",
+            "保存",
+            "create-bank-account-form",
+            html! {
+                form id="create-bank-account-form" class="modal-body"
+                    hx-post=(bank_account_create_path)
+                    hx-swap="none" {
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label { "开户银行 *" }
+                            input type="text" name="bank_name" required placeholder="请输入开户银行";
+                        }
+                        div class="form-field" {
+                            label { "账户名称 *" }
+                            input type="text" name="account_name" required placeholder="请输入账户名称";
+                        }
+                        div class="form-field field-full" {
+                            label { "银行账号 *" }
+                            input type="text" name="account_number" required placeholder="请输入银行账号";
+                        }
+                        div class="form-field" {
+                            label class="checkbox-label" {
+                                input type="checkbox" name="is_default" value="true";
+                                "默认账户"
                             }
                         }
                     }
-                },
-            ))
+                }
+            },
+        ))
+        }
+    }
+}
+
+fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath) -> Markup {
+    html! {
+        div class="detail-card" id="contacts-card"
+            hx-get=(detail_path.to_string())
+            hx-select="#contacts-card"
+            hx-target="this"
+            hx-swap="outerHTML"
+            hx-trigger="contactChanged from:body" {
+            div class="detail-card-title" {
+                span { "联系人" }
+                button class="btn btn-sm btn-primary"
+                    x-on:click="contactModalOpen = true" {
+                    (icon::plus_icon("w-3.5 h-3.5"))
+                    "添加联系人"
+                }
+            }
+            @if contacts.is_empty() {
+                div class="empty-state" { "暂无联系人" }
+            } @else {
+                table class="data-table compact" {
+                    thead {
+                        tr {
+                            th { "姓名" }
+                            th { "职位" }
+                            th { "电话" }
+                            th { "邮箱" }
+                            th style="width:60px" { "标记" }
+                            th style="width:40px" {}
+                        }
+                    }
+                    tbody {
+                        @for c in contacts {
+                            (contact_row(c, detail_path))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &SupplierDetailPath) -> Markup {
+    html! {
+        div class="detail-card" id="bank-accounts-card"
+            hx-get=(detail_path.to_string())
+            hx-select="#bank-accounts-card"
+            hx-target="this"
+            hx-swap="outerHTML"
+            hx-trigger="bankAccountChanged from:body" {
+            div class="detail-card-title" {
+                span { "银行账户" }
+                button class="btn btn-sm btn-primary"
+                    x-on:click="bankAccountModalOpen = true" {
+                    (icon::plus_icon("w-3.5 h-3.5"))
+                    "添加账户"
+                }
+            }
+            @if bank_accounts.is_empty() {
+                div class="empty-state" { "暂无银行账户" }
+            } @else {
+                table class="data-table compact" {
+                    thead {
+                        tr {
+                            th { "开户银行" }
+                            th { "账户名称" }
+                            th { "银行账号" }
+                            th style="width:60px" { "标记" }
+                            th style="width:40px" {}
+                        }
+                    }
+                    tbody {
+                        @for ba in bank_accounts {
+                            (bank_account_row(ba, detail_path))
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -422,10 +439,10 @@ fn contact_row(contact: &SupplierContact, detail_path: &SupplierDetailPath) -> M
         sid: detail_path.id,
         contact_id: contact.id,
     };
-    let form_id = format!("delete-contact-form-{}", contact.id);
+    let confirm_msg = format!("删除后无法恢复，确定要删除联系人 {} 吗？", contact.name);
 
     html! {
-        tr x-data="{ deleteOpen: false }" {
+        tr {
             td { (contact.name) }
             td { (contact.position.as_deref().unwrap_or("—")) }
             td { (contact.phone.as_deref().unwrap_or("—")) }
@@ -437,23 +454,12 @@ fn contact_row(contact: &SupplierContact, detail_path: &SupplierDetailPath) -> M
             }
             td {
                 button type="button" class="row-action-btn text-danger" title="删除"
-                    x-on:click="deleteOpen = true" {
+                    hx-post=(delete_path)
+                    hx-confirm=(confirm_msg)
+                    hx-swap="none" {
                     (icon::trash_icon("w-4 h-4"))
                 }
             }
-            (crate::components::confirm_dialog::confirm_dialog(
-                "deleteOpen",
-                "确认删除",
-                &format!("删除后无法恢复，确定要删除联系人 <strong>{}</strong> 吗？", contact.name),
-                "确认删除",
-                &form_id,
-                html! {
-                    form id=(form_id) style="display:none"
-                        hx-post=(delete_path)
-                        hx-target="closest tr"
-                        hx-swap="outerHTML swap:0.5s" {}
-                },
-            ))
         }
     }
 }
@@ -463,10 +469,10 @@ fn bank_account_row(account: &SupplierBankAccount, detail_path: &SupplierDetailP
         sid: detail_path.id,
         account_id: account.id,
     };
-    let form_id = format!("delete-bank-account-form-{}", account.id);
+    let confirm_msg = format!("删除后无法恢复，确定要删除银行账户 {} 吗？", account.bank_name);
 
     html! {
-        tr x-data="{ deleteOpen: false }" {
+        tr {
             td { (account.bank_name) }
             td { (account.account_name) }
             td class="mono" { (account.account_number) }
@@ -477,23 +483,12 @@ fn bank_account_row(account: &SupplierBankAccount, detail_path: &SupplierDetailP
             }
             td {
                 button type="button" class="row-action-btn text-danger" title="删除"
-                    x-on:click="deleteOpen = true" {
+                    hx-post=(delete_path)
+                    hx-confirm=(confirm_msg)
+                    hx-swap="none" {
                     (icon::trash_icon("w-4 h-4"))
                 }
             }
-            (crate::components::confirm_dialog::confirm_dialog(
-                "deleteOpen",
-                "确认删除",
-                &format!("删除后无法恢复，确定要删除银行账户 <strong>{}</strong> 吗？", account.bank_name),
-                "确认删除",
-                &form_id,
-                html! {
-                    form id=(form_id) style="display:none"
-                        hx-post=(delete_path)
-                        hx-target="closest tr"
-                        hx-swap="outerHTML swap:0.5s" {}
-                },
-            ))
         }
     }
 }

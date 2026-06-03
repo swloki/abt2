@@ -110,8 +110,6 @@ fn supplier_list_page(
     result: &abt_core::shared::types::PaginatedResult<Supplier>,
     params: &SupplierQueryParams,
 ) -> Markup {
-    let total_count = result.total;
-
     html! {
         div x-data="{ createModalOpen: false }" {
             // ── Page Header ──
@@ -125,45 +123,6 @@ fn supplier_list_page(
                 }
             }
 
-            // ── Stat Cards ──
-            div class="customer-stats" {
-                div class="stat-card" {
-                    div class="stat-icon blue" {
-                        (icon::building_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { (total_count) }
-                        div class="stat-label" { "供应商总数" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon green" {
-                        (icon::check_circle_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "合格" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon orange" {
-                        (icon::trending_up_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "试用期" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon red" {
-                        (icon::circle_alert_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "潜在" }
-                    }
-                }
-            }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
             (supplier_table_fragment(result, params))

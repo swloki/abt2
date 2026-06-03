@@ -60,7 +60,7 @@ abt-core/src/master_data/
 └── supplier/
     ├── mod.rs
     ├── model.rs               # Supplier, SupplierContact, SupplierBankAccount,
-    │                          # SupplierCategory, SupplierStatus, SupplierQuery
+    │                          # SupplierCategory, SupplierStatus, SupplierQuery, Currency
     ├── repo.rs                # SupplierRepo, SupplierContactRepo, SupplierBankAccountRepo
     ├── service.rs             # SupplierService trait
     └── implt/
@@ -307,6 +307,14 @@ pub trait SupplierService: Send + Sync {
 - `create`：`DocumentSequenceService.next_number(ctx, "SUP")` 生成编码 + `AuditLog.record(Create)` + `EventBus.publish(SupplierCreated)`
 - `create` 校验 `tax_number`：同 Customer，不阻断但返回 Warning
 - `add_bank_account` / `update_bank_account`：P0 高危操作 → 强制 `AuditLog.record`（含字段级 diff + 操作人 IP）+ `EventBus.publish(SupplierBankAccountChanged)`
+
+**Supplier Model — currency 字段：**
+- `currency: String` — ISO 4217 三字母编码，默认 "CNY"
+- 可选值：CNY, JPY, USD, AUD, EUR 等
+- `CreateSupplierReq` 包含 `currency: Option<String>`（None 时默认 CNY）
+- `UpdateSupplierReq` 包含 `currency: Option<String>`
+- `Supplier` 实体包含 `currency: String`
+- 数据库列：`currency VARCHAR(3) NOT NULL DEFAULT 'CNY'`
 
 ---
 

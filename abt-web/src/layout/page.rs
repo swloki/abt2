@@ -18,7 +18,7 @@ fn document(title: &str, body: Markup) -> Markup {
                 link rel="icon" type="image/svg+xml" href="/favicon.svg";
                 link rel="stylesheet" href="/app.css?v=20260531";
                 script src="/htmx.min.js" {}
-                script src="/app.js?v=20260531" {}
+                script src="/app.js?v=20260603" {}
                 script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer {}
             }

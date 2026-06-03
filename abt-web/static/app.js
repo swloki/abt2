@@ -59,6 +59,24 @@ document.addEventListener('htmx:afterRequest', function (e) {
     window.showToast(msg, 'error');
 });
 
+// ── Close supplier modals on HX-Trigger events ──
+
+document.addEventListener('contactChanged', function () {
+    var el = document.querySelector('[x-data]');
+    if (el && el._x_dataStack) el._x_dataStack[0].contactModalOpen = false;
+});
+
+document.addEventListener('bankAccountChanged', function () {
+    var el = document.querySelector('[x-data]');
+    if (el && el._x_dataStack) el._x_dataStack[0].bankAccountModalOpen = false;
+});
+
+// ── Alpine + HTMX: re-init Alpine for swapped content ──
+
+document.addEventListener('htmx:afterSettle', function (e) {
+    if (window.Alpine) Alpine.initTree(e.target);
+});
+
 // ── HTMX custom confirm dialog (replaces native confirm()) ──
 
 document.addEventListener('htmx:confirm', function (e) {

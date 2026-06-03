@@ -26,10 +26,11 @@ pub struct SupplierCreateForm {
     pub tax_number: Option<String>,
     pub lead_time_days: Option<i32>,
     pub payment_terms: Option<String>,
+    pub currency: Option<String>,
     // Contact
     pub contact_name: Option<String>,
-    pub contact_position: Option<String>,
     pub contact_phone: Option<String>,
+    pub contact_position: Option<String>,
     pub contact_email: Option<String>,
     // Bank account
     pub bank_name: Option<String>,
@@ -91,10 +92,9 @@ pub async fn post_supplier_create(
         lead_time_days: form.lead_time_days,
         payment_terms: form.payment_terms.filter(|s| !s.is_empty()),
         remark: form.remark.filter(|s| !s.is_empty()),
+        currency: form.currency.filter(|s| !s.is_empty()),
     };
-
     let supplier_id = svc.create(&service_ctx, &mut conn, create_req).await?;
-
     // Add contact if provided
     if let Some(contact_name) = form.contact_name.filter(|s| !s.is_empty()) {
         let contact_req = CreateContactReq {
@@ -193,6 +193,16 @@ fn supplier_create_page() -> Markup {
                                 option value="月结30天" { "月结30天" }
                                 option value="月结60天" { "月结60天" }
                                 option value="月结90天" { "月结90天" }
+                            }
+                        }
+                        div class="form-field" {
+                            label { "结算货币" }
+                            select name="currency" {
+                                option value="CNY" selected { "CNY - 人民币" }
+                                option value="USD" { "USD - 美元" }
+                                option value="JPY" { "JPY - 日元" }
+                                option value="AUD" { "AUD - 澳元" }
+                                option value="EUR" { "EUR - 欧元" }
                             }
                         }
                     }

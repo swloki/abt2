@@ -259,7 +259,7 @@ origin: "原型设计路径: C:/Users/weichen/AppData/Roaming/Open Design/namesp
 - `abt-web/src/pages/mod.rs`
 **Approach:**
 - 路径: `/md/suppliers/new`、`/md/suppliers/:id/edit`
-- 区块: 基本信息(名称*/简称/编码/类别*/税号/交货天数*/付款条件)、联系人(姓名*/职位/电话*/邮箱)、银行账户(开户银行*/账户名称*/银行账号*/默认账户)、其他(备注)
+- 区块: 基本信息(名称*/简称/编码/类别*/税号/交货天数*/付款条件/货币类型(默认CNY, 下拉选择 CNY/JPY/USD/AUD/EUR))、联系人(姓名*/职位/电话*/邮箱)、银行账户(开户银行*/账户名称*/银行账号*/默认账户)、其他(备注)
 - POST 提交: 先调 `SupplierService::create()`，然后 `add_contact()` 和 `add_bank_account()`
 - 底部操作栏: 取消 + 保存供应商
 **Patterns to follow:** U3（产品创建页模式）+ `purchase_order_create.rs`
@@ -274,7 +274,7 @@ origin: "原型设计路径: C:/Users/weichen/AppData/Roaming/Open Design/namesp
 **Approach:**
 - 路径: `/md/suppliers/:id`
 - 顶部: 供应商图标 + 名称 + 状态 pill + meta(编码/类别/创建时间) + 操作(编辑/修改状态/删除)
-- 基本信息卡片
+- 基本信息卡片: 名称/简称/编码/类别/税号/交货天数/付款条件/货币类型/状态/创建人/创建时间/更新时间
 - 联系人表格: 调用 `SupplierService::list_contacts()`，支持添加/编辑/删除
 - 银行账户表格: 调用 `SupplierService::list_bank_accounts()`，支持添加/编辑/删除
 - 采购历史: 展示关联采购单（首期可选，需 purchase 模块支持）

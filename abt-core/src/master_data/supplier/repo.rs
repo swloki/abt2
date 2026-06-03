@@ -4,7 +4,7 @@ use crate::shared::types::Result;
 use super::model::*;
 use crate::shared::types::{PageParams, PaginatedResult};
 
-const SUPPLIER_COLUMNS: &str = "supplier_id, supplier_code, supplier_name, short_name, category, status, tax_number, lead_time_days, payment_terms, remark, operator_id, created_at, updated_at, deleted_at";
+const SUPPLIER_COLUMNS: &str = "supplier_id, supplier_code, supplier_name, short_name, category, status, tax_number, lead_time_days, payment_terms, remark, currency, operator_id, created_at, updated_at, deleted_at";
 
 // ===========================================================================
 // SupplierRepo
@@ -21,8 +21,8 @@ impl SupplierRepo {
         operator_id: i64,
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            r#"INSERT INTO suppliers (supplier_code, supplier_name, short_name, category, status, tax_number, lead_time_days, payment_terms, remark, operator_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            r#"INSERT INTO suppliers (supplier_code, supplier_name, short_name, category, status, tax_number, lead_time_days, payment_terms, remark, currency, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                RETURNING supplier_id"#,
         )
         .bind(supplier_code)
@@ -34,12 +34,12 @@ impl SupplierRepo {
         .bind(req.lead_time_days.unwrap_or(0))
         .bind(&req.payment_terms)
         .bind(req.remark.as_deref().unwrap_or(""))
+        .bind(req.currency.as_deref().unwrap_or("CNY"))
         .bind(operator_id)
         .fetch_one(executor)
         .await?;
         Ok(row)
     }
-
     #[allow(unused_assignments)]
     pub async fn update(
         &self,
@@ -58,6 +58,7 @@ impl SupplierRepo {
         if req.lead_time_days.is_some() { sets.push(format!("lead_time_days = ${param_idx}")); param_idx += 1; }
         if req.payment_terms.is_some() { sets.push(format!("payment_terms = ${param_idx}")); param_idx += 1; }
         if req.remark.is_some() { sets.push(format!("remark = ${param_idx}")); param_idx += 1; }
+        if req.currency.is_some() { sets.push(format!("currency = ${param_idx}")); param_idx += 1; }
 
         if sets.is_empty() {
             return Ok(());
@@ -75,6 +76,7 @@ impl SupplierRepo {
         if let Some(v) = req.lead_time_days { q = q.bind(v); }
         if let Some(ref v) = req.payment_terms { q = q.bind(v); }
         if let Some(ref v) = req.remark { q = q.bind(v); }
+        if let Some(ref v) = req.currency { q = q.bind(v); }
 
         q.execute(executor).await?;
         Ok(())

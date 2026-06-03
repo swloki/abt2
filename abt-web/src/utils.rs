@@ -72,7 +72,7 @@ impl FromRequestParts<AppState> for RequestContext {
     type Rejection = WebError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
-        let headers = std::mem::take(&mut parts.headers);
+        let headers = parts.headers.clone();
 
         let session = parts.extensions.remove::<Session>()
             .expect("Session not found. Is SessionManagerLayer installed?");

@@ -235,8 +235,7 @@ pub async fn update_category(
 
     svc.update(&service_ctx, &mut conn, path.id, req).await?;
 
-    let redirect = format!("{}?category_id={}", CategoryListPath::PATH, path.id);
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    Ok(([("HX-Refresh", "true")], Html(String::new())))
 }
 
 #[require_permission("CATEGORY", "delete")]

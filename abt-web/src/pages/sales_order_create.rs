@@ -379,8 +379,6 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                 }
             }
 
-            // ── Submit script ──
-            script src="/order-create.js" {}
         }
     }
 }

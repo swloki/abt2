@@ -290,7 +290,6 @@ fn reconciliation_create_page(
                 }
             }
 
-            script src="/reconciliation-create.js" {}
         }
     }
 }

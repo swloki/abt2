@@ -360,8 +360,6 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                 }
             }
 
-            // ── Submit script ──
-            script src="/purchase-quotation-create.js" {}
         }
     }
 }

@@ -371,8 +371,6 @@ fn order_edit_page(
                 }
             }
 
-            // ── Submit script ──
-            script src="/order-create.js" {}
         }
     }
 }

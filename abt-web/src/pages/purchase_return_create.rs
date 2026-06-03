@@ -321,8 +321,6 @@ fn pr_create_page(
             }
             }
 
-            // ── Submit script ──
-            script src="/purchase-return-create.js" {}
         }
     }
 }

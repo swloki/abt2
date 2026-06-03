@@ -223,8 +223,6 @@ fn misc_create_page() -> Markup {
             }
             }
 
-            // ── Submit script ──
-            script src="/misc-request-create.js" {}
         }
     }
 }

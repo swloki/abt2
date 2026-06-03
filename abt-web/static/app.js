@@ -78,7 +78,6 @@ document.addEventListener('htmx:afterRequest', function (e) {
 
 
 // ── HTMX: re-init for swapped content ──
-// (Alpine.js removed — cost-drawer.js handles its own init via htmx:afterSettle)
 
 
 // ── HTMX custom confirm dialog (replaces native confirm()) ──
@@ -98,7 +97,7 @@ document.addEventListener('htmx:confirm', function (e) {
         return;
     }
     msg.textContent = e.detail.question;
-    window._confirmIssueRequest = e.detail.issueRequest.bind(e.detail);
+    window._confirmIssueRequest = e.detail.issueRequest.bind(e.detail, true);
     overlay.classList.add('open');
 });
 

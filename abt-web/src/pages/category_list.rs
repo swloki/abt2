@@ -922,14 +922,12 @@ fn detail_panel(
                 "编辑分类",
                 "保存",
                 "edit-category-form",
+                &update_url,
                 html! {
-                    form id="edit-category-form"
-                        hx-post=(update_url) {
-                        div class="form-field" {
-                            label { "分类名称" }
-                            input type="text" name="category_name"
-                                value=(category.category_name) required;
-                        }
+                    div class="form-field" {
+                        label { "分类名称" }
+                        input type="text" name="category_name"
+                            value=(category.category_name) required;
                     }
                 },
             ))
@@ -973,22 +971,20 @@ fn create_category_modal(tree: &[CategoryTree]) -> Markup {
         "新建分类",
         "保存分类",
         "create-category-form",
+        CategoryCreatePath::PATH,
         html! {
-            form id="create-category-form"
-                hx-post=(CategoryCreatePath::PATH) {
-                div class="form-grid" {
-                    div class="form-field" {
-                        label { "分类名称 " span style="color:var(--danger)" { "*" } }
-                        input type="text" name="category_name"
-                            placeholder="请输入分类名称" required;
-                    }
-                    div class="form-field" {
-                        label { "上级分类" }
-                        select name="parent_id" {
-                            option value="0" { "无 (顶级分类)" }
-                            @for node in tree {
-                                (tree_option(node, 0))
-                            }
+            div class="form-grid" {
+                div class="form-field" {
+                    label { "分类名称 " span style="color:var(--danger)" { "*" } }
+                    input type="text" name="category_name"
+                        placeholder="请输入分类名称" required;
+                }
+                div class="form-field" {
+                    label { "上级分类" }
+                    select name="parent_id" {
+                        option value="0" { "无 (顶级分类)" }
+                        @for node in tree {
+                            (tree_option(node, 0))
                         }
                     }
                 }

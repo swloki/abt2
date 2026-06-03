@@ -12,7 +12,7 @@ use crate::layout::page::admin_page;
 use crate::routes::supplier::{
     SupplierContactPath, SupplierDeleteContactPath, SupplierDeletePath,
     SupplierDeleteBankAccountPath, SupplierDetailPath, SupplierListPath, SupplierBankAccountPath,
-    SupplierUpdatePath,
+    SupplierEditPath,
 };
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -115,14 +115,6 @@ pub async fn delete_supplier_bank_account(
     Ok((StatusCode::OK, [("HX-Trigger", "bankAccountChanged")], Html(String::new())))
 }
 
-#[require_permission("SUPPLIER", "update")]
-pub async fn update_supplier(
-    _path: SupplierUpdatePath,
-    ctx: RequestContext,
-) -> crate::errors::Result<Html<String>> {
-    Ok(Html("<p>Update supplier placeholder</p>".into()))
-}
-
 // ── Form Data ──
 
 #[derive(Debug, Deserialize)]
@@ -153,7 +145,7 @@ fn supplier_detail_page(
     let list_path = SupplierListPath;
     let contact_create_path = SupplierContactPath { id: supplier.id };
     let bank_account_create_path = SupplierBankAccountPath { id: supplier.id };
-    let update_path = SupplierUpdatePath { id: supplier.id };
+    let edit_path = SupplierEditPath { id: supplier.id };
     let _delete_path = SupplierDeletePath { id: supplier.id };
 
     let category_label = match supplier.category {
@@ -172,7 +164,7 @@ fn supplier_detail_page(
     };
 
     html! {
-        div _="on contactChanged remove .is-open from #contact-create-modal; on bankAccountChanged remove .is-open from #bank-account-create-modal" {
+        div _={"on contactChanged from the body remove .is-open from #contact-create-modal\non bankAccountChanged from the body remove .is-open from #bank-account-create-modal"} {
         // ── Detail Top ──
         div class="detail-top" {
             div class="customer-identity" {
@@ -197,7 +189,7 @@ fn supplier_detail_page(
                     (icon::arrow_left_icon("w-4 h-4"))
                     " 返回列表"
                 }
-                a class="btn btn-primary" href=(update_path) {
+                a class="btn btn-primary" href=(edit_path) {
                     (icon::edit_icon("w-4 h-4"))
                     " 编辑"
                 }
@@ -285,32 +277,29 @@ fn supplier_detail_page(
             "添加联系人",
             "保存",
             "create-contact-form",
+            &contact_create_path.to_string(),
             html! {
-                form id="create-contact-form" class="modal-body"
-                    hx-post=(contact_create_path)
-                    hx-swap="none" {
-                    div class="form-grid" {
-                        div class="form-field" {
-                            label { "姓名 *" }
-                            input type="text" name="contact_name" required placeholder="请输入联系人姓名";
-                        }
-                        div class="form-field" {
-                            label { "职位" }
-                            input type="text" name="position" placeholder="请输入职位";
-                        }
-                        div class="form-field" {
-                            label { "电话" }
-                            input type="text" name="phone" placeholder="请输入电话";
-                        }
-                        div class="form-field" {
-                            label { "邮箱" }
-                            input type="email" name="email" placeholder="请输入邮箱";
-                        }
-                        div class="form-field" {
-                            label class="checkbox-label" {
-                                input type="checkbox" name="is_primary" value="true";
-                                "主要联系人"
-                            }
+                div class="form-grid" {
+                    div class="form-field" {
+                        label { "姓名 *" }
+                        input type="text" name="contact_name" required placeholder="请输入联系人姓名";
+                    }
+                    div class="form-field" {
+                        label { "职位" }
+                        input type="text" name="position" placeholder="请输入职位";
+                    }
+                    div class="form-field" {
+                        label { "电话" }
+                        input type="text" name="phone" placeholder="请输入电话";
+                    }
+                    div class="form-field" {
+                        label { "邮箱" }
+                        input type="email" name="email" placeholder="请输入邮箱";
+                    }
+                    div class="form-field" {
+                        label class="checkbox-label" {
+                            input type="checkbox" name="is_primary" value="true";
+                            "主要联系人"
                         }
                     }
                 }
@@ -322,28 +311,25 @@ fn supplier_detail_page(
             "添加银行账户",
             "保存",
             "create-bank-account-form",
+            &bank_account_create_path.to_string(),
             html! {
-                form id="create-bank-account-form" class="modal-body"
-                    hx-post=(bank_account_create_path)
-                    hx-swap="none" {
-                    div class="form-grid" {
-                        div class="form-field" {
-                            label { "开户银行 *" }
-                            input type="text" name="bank_name" required placeholder="请输入开户银行";
-                        }
-                        div class="form-field" {
-                            label { "账户名称 *" }
-                            input type="text" name="account_name" required placeholder="请输入账户名称";
-                        }
-                        div class="form-field field-full" {
-                            label { "银行账号 *" }
-                            input type="text" name="account_number" required placeholder="请输入银行账号";
-                        }
-                        div class="form-field" {
-                            label class="checkbox-label" {
-                                input type="checkbox" name="is_default" value="true";
-                                "默认账户"
-                            }
+                div class="form-grid" {
+                    div class="form-field" {
+                        label { "开户银行 *" }
+                        input type="text" name="bank_name" required placeholder="请输入开户银行";
+                    }
+                    div class="form-field" {
+                        label { "账户名称 *" }
+                        input type="text" name="account_name" required placeholder="请输入账户名称";
+                    }
+                    div class="form-field field-full" {
+                        label { "银行账号 *" }
+                        input type="text" name="account_number" required placeholder="请输入银行账号";
+                    }
+                    div class="form-field" {
+                        label class="checkbox-label" {
+                            input type="checkbox" name="is_default" value="true";
+                            "默认账户"
                         }
                     }
                 }

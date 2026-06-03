@@ -3,7 +3,7 @@ use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::pages::{supplier_list, supplier_create, supplier_detail};
+use crate::pages::{supplier_list, supplier_create, supplier_detail, supplier_edit};
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -27,8 +27,8 @@ pub struct SupplierDetailPath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/suppliers/{id}")]
-pub struct SupplierUpdatePath {
+#[typed_path("/admin/md/suppliers/{id}/edit")]
+pub struct SupplierEditPath {
     pub id: i64,
 }
 
@@ -85,8 +85,8 @@ pub fn router() -> Router<AppState> {
             get(supplier_detail::get_supplier_detail),
         )
         .route(
-            SupplierUpdatePath::PATH,
-            post(supplier_detail::update_supplier),
+            SupplierEditPath::PATH,
+            get(supplier_edit::get_supplier_edit).post(supplier_edit::post_supplier_edit),
         )
         .route(
             SupplierDeletePath::PATH,

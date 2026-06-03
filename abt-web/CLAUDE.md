@@ -1,6 +1,6 @@
 # abt-web
 
-Rust 全栈前端，Axum + Maud + HTMX + Alpine.js + UnoCSS，直接调用 `abt-core` Service trait。
+Rust 全栈前端，Axum + Maud + HTMX + hyperscript + UnoCSS，直接调用 `abt-core` Service trait。
 
 ## Commands
 
@@ -28,7 +28,7 @@ cargo clippy                  # Lint 检查
 - **Axum Handler** 直接调用 `abt-core` Service trait，无 gRPC 中间层
 - **Maud** 编译期 HTML 宏渲染完整页面或局部片段
 - **HTMX** 处理表单提交、分页、搜索等需要服务器状态的交互
-- **Alpine.js** 处理纯前端 UI 状态（dropdown、modal、tab 切换）
+- **hyperscript** 处理纯前端 UI 状态（dropdown、modal、tab 切换），通过 Maud 的 `_=` 属性绑定
 
 ### 数据访问层（强制）
 
@@ -55,7 +55,7 @@ src/
 │   ├── middleware.rs     # JWT 验证中间件
 │   └── session.rs       # Session 类型
 ├── layout/
-│   ├── base.rs          # HTML 壳（HTMX + Alpine + UnoCSS）
+│   ├── base.rs          # HTML 壳（HTMX + hyperscript + UnoCSS）
 │   ├── admin.rs         # Admin 布局（sidebar + header + content）
 │   ├── sidebar.rs       # 侧边栏
 │   └── header.rs        # 顶部栏
@@ -308,37 +308,30 @@ pub fn router() -> axum::Router {
 
 **使用 htmx 的场景**：交互涉及服务器状态流转、数据库读写、权限校验（表单提交、动态分页、条件搜索）。
 
-**禁止使用 htmx 的场景**：纯前端 UI 状态切换（Dropdown 菜单展开、Modal 弹窗显隐、选项卡纯样式切换）。此类交互由 **Alpine.js** (`x-data`) 在前端本地闭环，严禁通过 htmx 向后端发送请求，防止路由碎片化。
+**禁止使用 htmx 的场景**：纯前端 UI 状态切换（Dropdown 菜单展开、Modal 弹窗显隐、选项卡纯样式切换）。此类交互由 **hyperscript**（通过 Maud 的 `_=` 属性，如 `_="on click toggle .is-open on #modal"`）在前端本地闭环，严禁通过 htmx 向后端发送请求，防止路由碎片化。
 
 ---
 
 ## 高级混合交互模式 (Advanced Hybrid Interactions)
 
-### Alpine.js 与 htmx 的数据桥接模式 (Hidden Input Binding)
+### hyperscript 与 htmx 的数据桥接模式 (Hidden Input Binding)
 
-场景：当组件存在复杂的纯前端高频交互（如拖拽、自定义星级评分、滑块、动态行项目表单），直接用 htmx 请求后端会导致严重的路由碎片化与网络延迟。
+场景：当组件存在复杂的纯前端高频交互（如拖拽、动态行项目表单），直接用 htmx 请求后端会导致严重的路由碎片化与网络延迟。
 
-解法：使用 Alpine.js 担当组件状态机，高频交互在前端闭环；同时将状态通过 `x-model` 绑定到包含 `name` 属性的 hidden input 上。当 htmx 触发提交时，会自动将该前端状态发送给 Rust 后端。
+解法：复杂前端交互逻辑用独立 JS 文件（vanilla JS）管理状态，简单 UI 交互用 hyperscript 处理。状态通过 hidden input 桥接，htmx 提交时自动携带前端状态。
 
 ```rust
 pub fn star_rating_component(current_rating: u32) -> Markup {
     html! {
-        // Alpine.js 掌管前端交互状态
-        div class="rating-component" x-data=(format!("{{ rating: {} }}", current_rating)) {
+        div class="rating-component" {
+            input type="hidden" name="rating" value=(current_rating);
 
-            // 核心桥接：隐藏 input 将 Alpine 的值与 htmx 的表单提交绑定在一起
-            input type="hidden" name="rating" x-model="rating";
-
-            // 前端高频渲染，不请求后端
-            div class="stars" {
-                template x-for="i in 5" {
-                    span class="star"
-                         :class="i <= rating ? 'active' : ''"
-                         @click="rating = i" { "★" }
+            div class="stars" _="on click set @aria-pressed to 'true'" {
+                @for i in 1..=5 {
+                    span class="star" _=(format!("on click set #rating-value to {}", i)) { "★" }
                 }
             }
 
-            // htmx 负责最终的状态持久化，自动携带隐藏 input 里的 rating 值
             button hx-post="/save-rating" hx-target="this" hx-swap="outerHTML" {
                 "保存评分到数据库"
             }
@@ -357,10 +350,9 @@ pub fn star_rating_component(current_rating: u32) -> Markup {
 
 | 层 | 职责 | 技术 |
 |---|---|---|
-| 状态定义 | `x-data="formFunction()"` 返回 reactive 对象 | Alpine.js |
-| 列表渲染 | `template x-for` + `x-model` 绑定每个字段 | Alpine.js |
-| 计算属性 | `get lineTotal` / `get itemsJson` 等 getter 驱动显示和序列化 | Alpine.js |
-| 复杂数据桥接 | `input type="hidden" name="items_json" x-model="itemsJson"` | Alpine.js + HTML |
+| 简单 UI 交互 | modal 开关、class 切换 | hyperscript (`_=` 属性) |
+| 复杂前端状态 | 动态行项目、拖拽排序、计算 | vanilla JS（独立 JS 文件） |
+| 复杂数据桥接 | `input type="hidden" name="items_json"` 序列化嵌套数据 | JS + HTML |
 | 表单提交 | `hx-post` + `hx-swap="none"` | htmx |
 | 成功导航 | 服务端返回 `HX-Redirect` 响应头 | htmx |
 | 错误提示 | `htmx:responseError` 事件 → Notyf toast | htmx + JS |
@@ -368,68 +360,82 @@ pub fn star_rating_component(current_rating: u32) -> Markup {
 
 ### 标准实现步骤
 
-1. **JS 文件**：导出 `formFunction()` 返回 reactive 对象，包含数据、方法、getter
-2. **Maud 模板**：`x-data="formFunction()"` 挂载，`template x-for` 渲染动态行，`x-model` 绑定输入
-3. **隐藏 input 桥接**：`input type="hidden" name="items_json" x-model="itemsJson"` 将嵌套数据暴露给 htmx
-4. **外部数据集成**：htmx 搜索结果通过 `data-product` JSON + `addItem(JSON.parse($el.dataset.product))` 推入 Alpine 状态
+1. **JS 文件**：IIFE 封装的 vanilla JS 模块，管理状态和 DOM 交互
+2. **Maud 模板**：`data-*` 属性传递初始数据，hyperscript `_=` 处理简单交互
+3. **隐藏 input 桥接**：`input type="hidden" name="items_json"` 将嵌套数据暴露给 htmx
+4. **外部数据集成**：htmx 搜索结果通过 `data-product` JSON 推入 JS 状态
 5. **服务端**：`Form<QuotationCreateForm>` 接收，`items_json: String` 字段用 `serde_json::from_str()` 解析
 
 ### 范例参考
 
-- JS：`static/quotation-create.js` — `quotationForm()` 函数
+- JS：`static/quotation-create.js` — 报价单创建交互
 - Rust：`src/pages/quotation_create.rs` — `quotation_create_page()` + `product_list_fragment()`
 
 ### 强制规则
 
-- **禁止** `document.querySelector` / `getElementById` 手动收集表单数据
 - **禁止** `fetch()` 提交表单，用 htmx `hx-post` 原生处理
-- **禁止** `data-field` + DOM 读取模式
-- **禁止** 手动 `innerHTML` / `appendChild` 操作行项目，用 Alpine `x-for` 渲染
-- 所有前端交互状态（增删行、计算、UI 开关）由 Alpine.js 闭环，htmx 仅处理最终提交
+- 简单 UI 交互（modal 开关、class 切换）用 hyperscript `_=` 属性处理
+- 复杂交互逻辑抽取到独立 JS 文件，禁止在 Maud 模板里内联 `<script>` 写大段 JS
+- htmx 仅处理需要服务端状态的交互，纯前端交互由 hyperscript / vanilla JS 闭环
 
 ---
 
-## Alpine.js 组件组织模式 (Alpine.js Component Organization)
+## 前端交互组件组织模式 (Frontend Component Organization)
 
-当页面的 Alpine.js 交互逻辑较复杂（含计算属性、localStorage、状态管理等），必须将组件函数抽取到独立的 JS 文件中，禁止在 Maud 模板里内联 `<script>` 写大段 JS。
+当页面的交互逻辑较复杂（含拖拽、动态行项目、localStorage、状态管理等），必须将逻辑抽取到独立的 JS 文件中，禁止在 Maud 模板里内联 `<script>` 写大段 JS。简单交互（modal 开关、class 切换）直接用 hyperscript `_=` 属性。
 
-### 文件约定
+### hyperscript 用法（简单交互）
+
+hyperscript 通过 Maud 的 `_=` 属性绑定，用于纯前端 UI 操作：
+
+```rust
+// Modal 开关
+button _="on click add .is-open to #my-modal" { "打开" }
+button _="on click remove .is-open from #my-modal" { "关闭" }
+
+// 事件响应
+div _="on contactChanged from the body remove .is-open from #contact-modal" { ... }
+```
+
+### 独立 JS 文件（复杂交互）
 
 - 放在 `static/` 目录下，文件名与功能对应，如 `cost-drawer.js`、`bom-edit.js`、`return-create.js`
-- 导出全局函数（挂载到 `window`），Alpine.js 通过 `x-data="functionName()"` 调用
-- 在使用该组件的页面底部用 `<script src="/xxx.js?v=日期" />` 引入（放在 `html! {}` 块内，与其他页面内容同级）
+- 使用 IIFE 封装，监听 `htmx:afterSettle` 和 `DOMContentLoaded` 自动初始化
+- 在使用该组件的页面底部用 `<script src="/xxx.js?v=日期" />` 引入（放在 `html! {}` 块内）
 
 ### 标准结构
 
 ```javascript
 // static/cost-drawer.js
-function costDrawer(itemsJson, laborJson, warningsJson, bomId) {
-    return {
-        // 1. 响应式数据
-        items: itemsJson.map(function (item) {
-            return Object.assign({}, item, { tempPrice: null });
-        }),
-        bomId: bomId,
+(function () {
+    'use strict';
 
-        // 2. 生命周期
-        init() {
-            this._loadTempPrices();
-        },
+    function storageKey(bomId) {
+        return 'bom-cost-temp-prices:' + bomId;
+    }
 
-        // 3. 计算属性 (get)
-        get materialTotal() { ... },
-        get hasAllPrices() { ... },
+    function loadTempPrices(bomId) { ... }
+    function saveTempPrices(bomId, map) { ... }
 
-        // 4. 方法
-        setTempPrice(item, event) { ... },
-        clearTempPrices() { ... },
+    function initCostDrawer(container) {
+        // 初始化交互逻辑
+    }
 
-        // 5. 私有方法（约定用 _ 前缀）
-        _storageKey() { return 'bom-cost-temp-prices:' + this.bomId; },
-        _loadTempPrices() { ... },
-        _saveTempPrices() { ... },
-    };
-}
+    function tryInit(target) {
+        var el = target.querySelector('.cost-drawer');
+        if (el) initCostDrawer(el);
+    }
+
+    // 监听 HTMX 交换和 DOM 加载
+    document.addEventListener('htmx:afterSettle', function (e) {
+        tryInit(e.target);
+    });
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { tryInit(document); });
+    } else {
+        tryInit(document);
+    }
+})();
 ```
 
 ### Rust 端集成
@@ -437,26 +443,26 @@ function costDrawer(itemsJson, laborJson, warningsJson, bomId) {
 ```rust
 // 在页面 HTML 输出末尾引入 JS 文件
 html! {
-    div x-data="{ ... }" {
-        // 页面内容
+    div {
+        // 页面内容，简单交互用 hyperscript
+        button _="on click add .is-open to #modal" { "打开" }
     }
     script src="/cost-drawer.js?v=20260602" {}
 }
 ```
 
-### Maud 与 Alpine.js 注意事项
+### Maud 与 hyperscript 注意事项
 
-- **禁止** 在 Maud 属性名中使用 Alpine.js 点修饰符（如 `x-on:keydown.enter`），Maud 不支持属性名含 `.`。改用在 handler 内判断：`x-on:keydown="if($event.key==='Enter') handler()"`
-- **禁止** 使用 `:key="..."` 绑定（如 `template x-for="item in items" :key="item.id"`），Maud 不支持 `:` 开头的属性。直接写 `template x-for="item in items"` 即可
-- 空元素（`input`、`br`、`hr`）必须以 `{}` 结尾：`input type="text" x-model="search" {}`
-- 需要传参的 `x-data` 用 Maud 的 `()` 插值：`x-data=(format!("myComponent({})", json))`
-- 服务器数据通过 `x-data` 参数传入，用 `serde_json` 序列化为 JSON
+- hyperscript 通过 `_=` 属性绑定：`button _="on click toggle .active on me" {}`
+- 空元素（`input`、`br`、`hr`）必须以 `{}` 结尾
+- 需要动态 hyperscript 表达式时用 Maud 的 `()` 插值：`_=(format!("on click call window.myFunc({})", id))`
+- 服务器数据通过 `data-*` 属性传入，JS 端用 `dataset` 读取
 
 ### 已有参考
 
-| JS 文件 | Alpine 函数 | 用途 |
-|---------|------------|------|
-| `static/cost-drawer.js` | `costDrawer()` | BOM 成本报告，临时价格覆盖 + localStorage |
-| `static/bom-edit.js` | `bomEdit()` | BOM 编辑页，拖拽排序 + 节点管理 |
-| `static/return-create.js` | `returnForm()` | 销售退货单，动态行项目 |
-| `static/app.js` | `categoryTreeSelect()` | 分类树选择器组件 |
+| JS 文件 | 用途 |
+|---------|------|
+| `static/cost-drawer.js` | BOM 成本报告，临时价格覆盖 + localStorage |
+| `static/bom-edit.js` | BOM 编辑页，拖拽排序 + 节点管理 |
+| `static/return-create.js` | 销售退货单，动态行项目 |
+| `static/app.js` | 分类树选择器组件 |

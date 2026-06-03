@@ -430,8 +430,6 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                 }
             }
 
-            // ── Submit script ──
-            script src="/quotation-create.js" {}
         }
     }
 }

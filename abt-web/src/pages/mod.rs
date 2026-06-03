@@ -55,4 +55,5 @@ pub mod labor_process_dict_list;
 pub mod supplier_list;
 pub mod supplier_create;
 pub mod supplier_detail;
+pub mod supplier_edit;
 pub mod price_history_list;

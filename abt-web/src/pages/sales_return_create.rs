@@ -438,7 +438,6 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                 }
             }
 
-            script src="/return-create.js?v=2" {}
         }
     }
 }

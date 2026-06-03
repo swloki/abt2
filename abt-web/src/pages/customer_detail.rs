@@ -323,32 +323,29 @@ fn customer_detail_page(
                 "添加联系人",
                 "保存",
                 "create-contact-form",
+                &contact_create_path.to_string(),
                 html! {
-                    form id="create-contact-form" class="modal-body"
-                        hx-post=(contact_create_path)
-                        hx-target="this" {
-                        div class="form-grid" {
-                            div class="form-field" {
-                                label { "姓名 *" }
-                                input type="text" name="contact_name" required placeholder="请输入联系人姓名";
-                            }
-                            div class="form-field" {
-                                label { "职位" }
-                                input type="text" name="position" placeholder="请输入职位";
-                            }
-                            div class="form-field" {
-                                label { "电话" }
-                                input type="text" name="phone" placeholder="请输入电话";
-                            }
-                            div class="form-field" {
-                                label { "邮箱" }
-                                input type="email" name="email" placeholder="请输入邮箱";
-                            }
-                            div class="form-field" {
-                                label class="checkbox-label" {
-                                    input type="checkbox" name="is_primary" value="true";
-                                    "主要联系人"
-                                }
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label { "姓名 *" }
+                            input type="text" name="contact_name" required placeholder="请输入联系人姓名";
+                        }
+                        div class="form-field" {
+                            label { "职位" }
+                            input type="text" name="position" placeholder="请输入职位";
+                        }
+                        div class="form-field" {
+                            label { "电话" }
+                            input type="text" name="phone" placeholder="请输入电话";
+                        }
+                        div class="form-field" {
+                            label { "邮箱" }
+                            input type="email" name="email" placeholder="请输入邮箱";
+                        }
+                        div class="form-field" {
+                            label class="checkbox-label" {
+                                input type="checkbox" name="is_primary" value="true";
+                                "主要联系人"
                             }
                         }
                     }
@@ -360,48 +357,45 @@ fn customer_detail_page(
                 "添加地址",
                 "保存",
                 "create-address-form",
+                &address_create_path.to_string(),
                 html! {
-                    form id="create-address-form" class="modal-body"
-                        hx-post=(address_create_path)
-                        hx-target="this" {
-                        div class="form-grid" {
-                            div class="form-field" {
-                                label { "地址类型 *" }
-                                select name="address_type" {
-                                    option value="shipping" { "收货地址" }
-                                    option value="billing" { "开票地址" }
-                                    option value="other" { "其他" }
-                                }
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label { "地址类型 *" }
+                            select name="address_type" {
+                                option value="shipping" { "收货地址" }
+                                option value="billing" { "开票地址" }
+                                option value="other" { "其他" }
                             }
-                            div class="form-field" {
-                                label { "省份 *" }
-                                input type="text" name="province" required placeholder="请输入省份";
-                            }
-                            div class="form-field" {
-                                label { "城市 *" }
-                                input type="text" name="city" required placeholder="请输入城市";
-                            }
-                            div class="form-field" {
-                                label { "区县" }
-                                input type="text" name="district" placeholder="请输入区县";
-                            }
-                            div class="form-field field-full" {
-                                label { "详细地址 *" }
-                                input type="text" name="detail" required placeholder="请输入详细地址";
-                            }
-                            div class="form-field" {
-                                label { "收件人" }
-                                input type="text" name="contact_name" placeholder="请输入收件人";
-                            }
-                            div class="form-field" {
-                                label { "联系电话" }
-                                input type="text" name="contact_phone" placeholder="请输入联系电话";
-                            }
-                            div class="form-field" {
-                                label class="checkbox-label" {
-                                    input type="checkbox" name="is_default" value="true";
-                                    "默认地址"
-                                }
+                        }
+                        div class="form-field" {
+                            label { "省份 *" }
+                            input type="text" name="province" required placeholder="请输入省份";
+                        }
+                        div class="form-field" {
+                            label { "城市 *" }
+                            input type="text" name="city" required placeholder="请输入城市";
+                        }
+                        div class="form-field" {
+                            label { "区县" }
+                            input type="text" name="district" placeholder="请输入区县";
+                        }
+                        div class="form-field field-full" {
+                            label { "详细地址 *" }
+                            input type="text" name="detail" required placeholder="请输入详细地址";
+                        }
+                        div class="form-field" {
+                            label { "收件人" }
+                            input type="text" name="contact_name" placeholder="请输入收件人";
+                        }
+                        div class="form-field" {
+                            label { "联系电话" }
+                            input type="text" name="contact_phone" placeholder="请输入联系电话";
+                        }
+                        div class="form-field" {
+                            label class="checkbox-label" {
+                                input type="checkbox" name="is_default" value="true";
+                                "默认地址"
                             }
                         }
                     }

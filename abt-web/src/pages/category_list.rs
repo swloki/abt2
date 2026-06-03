@@ -732,7 +732,7 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
             div.tree-node data-name=(name_lower) {
                 div.tree-node-row
                     style=(pad)
-                    _="on click remove .active from .tree-node-row.active then add .active to me"
+                    _="on click tell .tree-node-row.active remove .active end then add .active to me"
                     hx-get=(detail_url)
                     hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
                     hx-push-url="true" {
@@ -756,7 +756,7 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
             div.tree-node data-name=(name_lower) {
                 div.tree-node-row
                     style=(pad)
-                    _="on click remove .active from .tree-node-row.active then add .active to me"
+                    _="on click tell .tree-node-row.active remove .active end then add .active to me"
                     hx-get=(detail_url)
                     hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
                     hx-push-url="true" {

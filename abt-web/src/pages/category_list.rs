@@ -390,8 +390,11 @@ fn split_view_style() -> Markup {
             color: var(--muted);
             transition: transform var(--motion-fast) var(--ease-standard);
         }
-        .tree-arrow.expanded svg {
+        .tree-node.expanded > .tree-node-row > .tree-arrow svg {
             transform: rotate(90deg);
+        }
+        .tree-node:not(.expanded) > .tree-children {
+            display: none;
         }
         .tree-arrow.leaf {
             visibility: hidden;
@@ -675,11 +678,6 @@ fn category_split_view_script() -> Markup {
             if (node) node.classList.add('active');
             htmx.ajax('GET', '/admin/md/categories/' + id + '/panel', '#detail-panel');
         }
-        function toggleTreeChildren(arrow) {
-            arrow.classList.toggle('expanded');
-            var children = arrow.closest('.tree-node').querySelector(':scope > .tree-children');
-            if (children) children.style.display = children.style.display === 'none' ? '' : 'none';
-        }
 
         function filterTree(q) {
             q = (q || '').trim().toLowerCase();
@@ -689,10 +687,7 @@ fn category_split_view_script() -> Markup {
             if (!q) {
                 for (var i = 0; i < allNodes.length; i++) {
                     allNodes[i].style.display = '';
-                    var ch = allNodes[i].querySelector(':scope > .tree-children');
-                    if (ch) ch.style.display = '';
-                    var arr = allNodes[i].querySelector(':scope > .tree-node-row > .tree-arrow');
-                    if (arr) arr.classList.add('expanded');
+                    allNodes[i].classList.add('expanded');
                 }
                 return;
             }
@@ -713,12 +708,7 @@ fn category_split_view_script() -> Markup {
             }
             for (var i = 0; i < allNodes.length; i++) {
                 allNodes[i].style.display = allNodes[i]._matches ? '' : 'none';
-                if (allNodes[i]._matches) {
-                    var ch = allNodes[i].querySelector(':scope > .tree-children');
-                    if (ch) ch.style.display = '';
-                    var arr = allNodes[i].querySelector(':scope > .tree-node-row > .tree-arrow');
-                    if (arr) arr.classList.add('expanded');
-                }
+                if (allNodes[i]._matches) allNodes[i].classList.add('expanded');
                 delete allNodes[i]._matches;
             }
         }
@@ -752,7 +742,8 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
                     style=(pad)
                     onclick=(click_expr) {
                     span.tree-arrow
-                        onclick="event.stopPropagation(); toggleTreeChildren(this)" {
+                        onclick="event.stopPropagation()"
+                        _="on click toggle .expanded on (closest .tree-node)" {
                         (icon::chevron_down_icon(""))
                     }
                     span class="tree-node-name" { (name) }
@@ -760,7 +751,7 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
                         span class="tree-node-count" { (count) }
                     }
                 }
-                div class="tree-children" style="display:none" {
+                div class="tree-children" {
                     @for child in &node.children {
                         (tree_node(child, depth + 1))
                     }

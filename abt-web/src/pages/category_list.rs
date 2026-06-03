@@ -732,7 +732,7 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
             div.tree-node data-name=(name_lower) {
                 div.tree-node-row
                     style=(pad)
-                    onclick="document.querySelectorAll('.tree-node-row.active').forEach(function(e){e.classList.remove('active')});this.classList.add('active')"
+                    _="on click add .active to me then tell <.tree-node-row.active:not(me)/> remove .active end"
                     hx-get=(detail_url)
                     hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
                     hx-push-url="true" {
@@ -756,7 +756,7 @@ fn tree_node(node: &CategoryTree, depth: usize) -> Markup {
             div.tree-node data-name=(name_lower) {
                 div.tree-node-row
                     style=(pad)
-                    onclick="document.querySelectorAll('.tree-node-row.active').forEach(function(e){e.classList.remove('active')});this.classList.add('active')"
+                    _="on click add .active to me then tell <.tree-node-row.active:not(me)/> remove .active end"
                     hx-get=(detail_url)
                     hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
                     hx-push-url="true" {

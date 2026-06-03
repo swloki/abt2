@@ -824,7 +824,9 @@ fn detail_panel(
                             "编辑"
                         }
                         button class="btn btn-default btn-sm" style="color: var(--danger); border-color: var(--border);"
-                            _="on click add .open to #delete-category-dialog" {
+                            hx-post=(delete_url)
+                            hx-confirm="确定要删除此分类吗？此操作不可撤销。"
+                            hx-swap="none" {
                             (icon::trash_icon("w-4 h-4"))
                             "删除"
                         }
@@ -945,31 +947,6 @@ fn detail_panel(
                 },
             ))
 
-            // ── Delete Confirm Dialog (inline, no x-teleport) ──
-            div class="dialog-overlay" id="delete-category-dialog"
-                _="on click remove .open" {
-                div class="dialog" _="on click halt the event" {
-                    div class="dialog-body" {
-                        div class="dialog-icon-wrap" {
-                            (icon::circle_alert_icon("w-7 h-7"))
-                        }
-                        div class="dialog-title" { "删除分类" }
-                        p class="dialog-desc" {
-                            "确定要删除分类 "
-                            strong { (category.category_name) }
-                            " 吗？此操作不可撤销。"
-                        }
-                    }
-                    div class="dialog-foot" {
-                        button type="button" class="btn btn-default"
-                            _="on click remove .open from #delete-category-dialog" { "取消" }
-                        button type="button" class="btn btn-danger"
-                            _="on click remove .open from #delete-category-dialog then htmx.trigger(document.getElementById('delete-category-form'), 'submit')" { "确认删除" }
-                    }
-                }
-                form id="delete-category-form" style="display:none"
-                    hx-post=(delete_url) {}
-            }
         }
     }
 }

@@ -3,8 +3,9 @@ use std::collections::HashMap;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::shared::identity::{model::Claims, PermissionService};
 use abt_core::shared::types::{PgExecutor, PgPoolConn, ServiceContext};
-use axum::extract::FromRequestParts;
+use axum::http::HeaderMap;
 use axum::http::request::Parts;
+use axum::extract::FromRequestParts;
 use serde::{Deserialize, de};
 use tower_sessions::Session;
 
@@ -64,12 +65,15 @@ pub struct RequestContext {
     pub conn: PgPoolConn,
     pub state: AppState,
     pub service_ctx: ServiceContext,
+    pub headers: HeaderMap,
 }
 
 impl FromRequestParts<AppState> for RequestContext {
     type Rejection = WebError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+        let headers = std::mem::take(&mut parts.headers);
+
         let session = parts.extensions.remove::<Session>()
             .expect("Session not found. Is SessionManagerLayer installed?");
 
@@ -88,6 +92,7 @@ impl FromRequestParts<AppState> for RequestContext {
             conn,
             state: state.clone(),
             service_ctx,
+            headers,
         })
     }
 }
@@ -98,5 +103,8 @@ impl RequestContext {
             .check_permission(self.claims.is_super_admin(), &self.claims.role_ids, resource, action)
             .await
             .unwrap_or(false)
+    }
+    pub fn is_htmx(&self) -> bool {
+        self.headers.get("HX-Request").is_some()
     }
 }

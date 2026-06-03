@@ -1,5 +1,4 @@
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum::Form;
 use axum_extra::routing::TypedPath;
@@ -37,9 +36,10 @@ pub struct CustomerQueryParams {
 pub async fn get_customer_list(
     _path: CustomerListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
+
     Query(params): Query<CustomerQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.customer_service();
 
@@ -50,7 +50,7 @@ pub async fn get_customer_list(
 
     let content = customer_list_page(&claims, &result, &params);
     let page_html = admin_page(
-        &headers, "客户管理", &claims, "sales", CustomerListPath::PATH, "销售管理", Some("客户管理"), content,
+        is_htmx, "客户管理", &claims, "sales", CustomerListPath::PATH, "销售管理", Some("客户管理"), content,
     );
 
     Ok(Html(page_html.into_string()))

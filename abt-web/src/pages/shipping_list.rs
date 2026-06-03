@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -123,10 +122,10 @@ async fn resolve_order_numbers<S: SalesOrderService>(
 pub async fn get_shipping_list(
     _path: ShippingListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(params): Query<ShippingQueryParams>,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
@@ -150,7 +149,7 @@ pub async fn get_shipping_list(
 
     let content = shipping_list_page(&claims, &result, &customer_names, &order_numbers, &customers.items, &params, &status_counts);
     let page_html = admin_page(
-        &headers, "发货申请", &claims, "sales", ShippingListPath::PATH, "销售管理", Some("发货申请"), content,
+        is_htmx, "发货申请", &claims, "sales", ShippingListPath::PATH, "销售管理", Some("发货申请"), content,
     );
 
     Ok(Html(page_html.into_string()))

@@ -51,6 +51,7 @@ pub mod bom_edit;
 pub mod routing_list;
 pub mod routing_create;
 pub mod routing_detail;
+pub mod labor_process_dict_list;
 pub mod supplier_list;
 pub mod supplier_create;
 pub mod supplier_detail;

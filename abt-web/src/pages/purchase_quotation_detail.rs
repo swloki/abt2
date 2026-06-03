@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -36,9 +35,9 @@ fn status_label(s: PurchaseQuotationStatus) -> (&'static str, &'static str) {
 pub async fn get_pq_detail(
     path: PQDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_quotation_service();
     let supplier_svc = state.supplier_service();
     let product_svc = state.product_service();
@@ -73,7 +72,7 @@ pub async fn get_pq_detail(
 
     let content = pq_detail_page(&pq, &items, &supplier_name, &operator_name, &product_names, &product_codes);
     let page_html = admin_page(
-        &headers, "报价详情", &claims, "purchase",
+        is_htmx, "报价详情", &claims, "purchase",
         &format!("{}/{}", PQListPath::PATH, path.id),
         "采购管理", Some("报价详情"), content,
     );

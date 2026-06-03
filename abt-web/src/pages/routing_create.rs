@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{Markup, html, PreEscaped};
@@ -43,8 +42,8 @@ struct StepWeb {
 pub async fn get_routing_create(
     _path: RoutingCreatePath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext {
         mut conn,
         state,
@@ -62,10 +61,9 @@ pub async fn get_routing_create(
             PageParams::new(1, 500),
         )
         .await?;
-
     let content = routing_create_page(&processes.items);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "新建工艺路线",
         &claims,
         "md",

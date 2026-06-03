@@ -8,8 +8,8 @@ use super::icon;
 /// `title` — dialog heading.
 /// `desc` — body text (may contain `<strong>` via `maud::PreEscaped`).
 /// `confirm_label` — text for the danger button (e.g. "确认删除").
-/// `form_id` — `id` of the hidden `<form>` the confirm button references via HTML5 `form` attr.
-/// `form` — the actual HTMX form markup (typically hidden, with `hx-post`, `hx-target`, etc.).
+/// `form_id` — `id` of the hidden `<form>` the confirm button triggers.
+/// `form` — the HTMX form markup (hidden, with `hx-post`, `hx-swap`, etc.).
 pub fn confirm_dialog(
     open_var: &str,
     title: &str,
@@ -34,7 +34,9 @@ pub fn confirm_dialog(
                     div class="dialog-foot" {
                         button type="button" class="btn btn-default"
                             x-on:click=(format!("{} = false", open_var)) { "取消" }
-                        button type="submit" class="btn btn-danger" form=(form_id) { (confirm_label) }
+                        button type="button" class="btn btn-danger"
+                            x-on:click=(format!("{} = false; htmx.trigger(document.getElementById('{}'), 'submit')", open_var, form_id))
+                            { (confirm_label) }
                     }
                 }
                 (form)

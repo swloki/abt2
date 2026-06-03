@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -65,9 +64,9 @@ fn generate_periods() -> Vec<(String, String)> {
 pub async fn get_reconciliation_create(
     _path: ReconciliationCreatePath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let customer_svc = state.customer_service();
     let customers = customer_svc
@@ -76,7 +75,7 @@ pub async fn get_reconciliation_create(
 
     let content = reconciliation_create_page(&customers.items);
     let page_html = admin_page(
-        &headers, "新建对账单", &claims, "sales",
+        is_htmx, "新建对账单", &claims, "sales",
         ReconciliationCreatePath::PATH, "销售管理", Some("新建对账单"), content,
     );
 

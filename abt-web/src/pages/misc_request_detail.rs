@@ -1,4 +1,3 @@
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -35,9 +34,9 @@ fn status_label(s: MiscRequestStatus) -> (&'static str, &'static str) {
 pub async fn get_misc_detail(
     path: MiscDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.misc_request_service();
     let user_svc = state.user_service();
 
@@ -56,7 +55,7 @@ pub async fn get_misc_detail(
 
     let content = misc_detail_page(&req, &items, &operator_name, total_amount);
     let page_html = admin_page(
-        &headers, "零星请购详情", &claims, "purchase",
+        is_htmx, "零星请购详情", &claims, "purchase",
         &format!("{}/{}", MiscListPath::PATH, path.id),
         "采购管理", Some("零星请购详情"), content,
     );

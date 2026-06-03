@@ -4,8 +4,8 @@ pub mod category;
 pub mod bom;
 pub mod routing;
 pub mod supplier;
+pub mod labor_process_dict;
 pub mod md_dashboard;
-
 pub mod customer;
 pub mod dashboard;
 pub mod misc_request;
@@ -47,6 +47,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(bom::router())
                 .merge(routing::router())
                 .merge(supplier::router())
+                .merge(labor_process_dict::router())
                 // ── Purchase (SRM) ──
                 .merge(purchase_dashboard::router())
                 .merge(purchase_quotation::router())

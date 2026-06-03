@@ -1,4 +1,3 @@
-use axum::http::HeaderMap;
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -30,8 +29,8 @@ use abt_macros::require_permission;
 pub async fn get_purchase_dashboard(
     _path: PurchaseDashboardPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext {
         mut conn,
         state,
@@ -267,7 +266,7 @@ pub async fn get_purchase_dashboard(
 
     let content = purchase_dashboard_content(&stats);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "采购总览",
         &claims,
         "purchase",

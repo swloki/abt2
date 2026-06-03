@@ -1,5 +1,4 @@
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -61,9 +60,9 @@ struct ItemWeb {
 pub async fn get_order_create(
     _path: OrderCreatePath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let customer_svc = state.customer_service();
 
     let customers = customer_svc
@@ -72,7 +71,7 @@ pub async fn get_order_create(
 
     let content = order_create_page(&customers.items);
     let page_html = admin_page(
-        &headers, "新建订单", &claims, "sales", OrderCreatePath::PATH, "销售管理", Some("新建订单"), content,
+        is_htmx, "新建订单", &claims, "sales", OrderCreatePath::PATH, "销售管理", Some("新建订单"), content,
     );
 
     Ok(Html(page_html.into_string()))

@@ -1,4 +1,3 @@
-use axum::http::HeaderMap;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use tower_sessions::Session;
@@ -13,7 +12,6 @@ use crate::routes::dashboard::DashboardPath;
 pub async fn get_dashboard(
     _path: DashboardPath,
     session: Session,
-    headers: HeaderMap,
 ) -> axum::response::Html<String> {
     let claims = session
         .get::<abt_core::shared::identity::model::Claims>(CURRENT_USER_KEY)
@@ -35,7 +33,7 @@ pub async fn get_dashboard(
 
     let content = dashboard_content(&claims);
     let page = admin_page(
-        &headers, "销售总览", &claims, "sales", DashboardPath::PATH, "销售管理", None, content,
+        false, "销售总览", &claims, "sales", DashboardPath::PATH, "销售管理", None, content,
     );
     axum::response::Html(page.into_string())
 }

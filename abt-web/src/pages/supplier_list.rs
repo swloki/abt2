@@ -1,5 +1,4 @@
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -39,9 +38,9 @@ pub struct SupplierQueryParams {
 pub async fn get_supplier_list(
     _path: SupplierListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(params): Query<SupplierQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.supplier_service();
 
@@ -50,9 +49,10 @@ pub async fn get_supplier_list(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
+
     let content = supplier_list_page(&result, &params);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "供应商管理",
         &claims,
         "md",

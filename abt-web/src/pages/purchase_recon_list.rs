@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -105,10 +104,10 @@ fn status_label(s: PurchaseReconStatus) -> (&'static str, &'static str) {
 pub async fn get_precon_list(
     _path: PreconListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(params): Query<PreconQueryParams>,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_reconciliation_service();
     let supplier_svc = state.supplier_service();
 
@@ -124,7 +123,7 @@ pub async fn get_precon_list(
 
     let content = precon_list_page(&result, &supplier_names, &suppliers.items, &params);
     let page_html = admin_page(
-        &headers, "采购对账", &claims, "purchase", PreconListPath::PATH, "采购管理", Some("采购对账"), content,
+        is_htmx, "采购对账", &claims, "purchase", PreconListPath::PATH, "采购管理", Some("采购对账"), content,
     );
 
     Ok(Html(page_html.into_string()))

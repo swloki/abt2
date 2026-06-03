@@ -1,5 +1,4 @@
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -34,9 +33,9 @@ pub struct RoutingQueryParams {
 pub async fn get_routing_list(
     _path: RoutingListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(params): Query<RoutingQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext {
         mut conn,
         state,
@@ -52,10 +51,9 @@ pub async fn get_routing_list(
     let page = PageParams::new(params.page.unwrap_or(1), 20);
 
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
     let content = routing_list_page(&result, &params);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "工艺路线管理",
         &claims,
         "md",
@@ -118,8 +116,6 @@ fn routing_list_page(
     result: &abt_core::shared::types::PaginatedResult<Routing>,
     params: &RoutingQueryParams,
 ) -> Markup {
-    let total_count = result.total;
-
     html! {
         div x-data="{ }" {
             // ── Page Header ──
@@ -129,46 +125,6 @@ fn routing_list_page(
                     a class="btn btn-primary" href=(RoutingCreatePath::PATH) {
                         (icon::plus_icon("w-4 h-4"))
                         "新建工艺路线"
-                    }
-                }
-            }
-
-            // ── Stat Cards ──
-            div class="customer-stats" {
-                div class="stat-card" {
-                    div class="stat-icon blue" {
-                        (icon::clipboard_list_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { (total_count) }
-                        div class="stat-label" { "工艺路线总数" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon green" {
-                        (icon::check_circle_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "含必检工序" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon orange" {
-                        (icon::box_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "关联BOM" }
-                    }
-                }
-                div class="stat-card" {
-                    div class="stat-icon red" {
-                        (icon::trending_up_icon("w-6 h-6"))
-                    }
-                    div {
-                        div class="stat-value" { "—" }
-                        div class="stat-label" { "本月新建" }
                     }
                 }
             }

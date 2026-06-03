@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -56,16 +55,17 @@ pub struct PriceHistoryRow {
 pub async fn get_price_history_list(
     _path: PriceHistoryListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(params): Query<PriceHistoryQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let (rows, total, page, total_pages) = fetch_enriched_rows(&state, &service_ctx, &mut conn, &params).await?;
 
+
     let content = price_history_page(&rows, total, page, total_pages, &params);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "价格变更记录",
         &claims,
         "md",

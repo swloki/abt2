@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -43,9 +42,9 @@ struct ContactInfo {
 pub async fn get_order_detail(
     path: OrderDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
     let product_svc = state.product_service();
@@ -89,7 +88,7 @@ pub async fn get_order_detail(
 
     let content = order_detail_page(&order, &items, &customer_name, &contact, &sales_rep, &product_names, &product_codes);
     let page_html = admin_page(
-        &headers, "订单详情", &claims, "sales",
+        is_htmx, "订单详情", &claims, "sales",
         &format!("{}/{}", OrderListPath::PATH, path.id),
         "销售管理", Some("订单详情"), content,
     );

@@ -1,0 +1,381 @@
+use axum::extract::Query;
+use axum::response::{Html, IntoResponse};
+use axum_extra::routing::TypedPath;
+use maud::{html, Markup};
+use serde::Deserialize;
+
+use abt_core::master_data::labor_process_dict::model::*;
+use abt_core::master_data::labor_process_dict::LaborProcessDictService;
+use abt_core::shared::types::{DomainError, PageParams};
+
+use crate::components::icon;
+use crate::components::pagination::pagination;
+use crate::layout::page::admin_page;
+use crate::routes::labor_process_dict::{
+    ProcessDictCreatePath, ProcessDictDeletePath, ProcessDictListPath, ProcessDictTablePath,
+};
+use crate::utils::{empty_as_none, RequestContext};
+use abt_macros::require_permission;
+
+// ── Query Params ──
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct ProcessDictQueryParams {
+    pub keyword: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub page: Option<u32>,
+}
+
+// ── Form ──
+
+#[derive(Debug, Deserialize)]
+pub struct ProcessDictCreateForm {
+    pub name: String,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub sort_order: Option<i32>,
+}
+
+// ── Handlers ──
+
+#[require_permission("LABOR_PROCESS_DICT", "read")]
+pub async fn get_process_dict_list(
+    _path: ProcessDictListPath,
+    ctx: RequestContext,
+    Query(params): Query<ProcessDictQueryParams>,
+) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+    let svc = state.labor_process_dict_service();
+
+    let filter = LaborProcessDictQuery {
+        keyword: params.keyword.clone(),
+    };
+    let page = PageParams::new(params.page.unwrap_or(1), 20);
+
+    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
+
+
+    let content = process_dict_list_page(&result, &params);
+    let page_html = admin_page(
+        is_htmx,
+        "工序字典管理",
+        &claims,
+        "md",
+        ProcessDictListPath::PATH,
+        "主数据管理",
+        Some("工序字典管理"),
+        content,
+    );
+
+    Ok(Html(page_html.into_string()))
+}
+
+#[require_permission("LABOR_PROCESS_DICT", "read")]
+pub async fn get_process_dict_table(
+    ctx: RequestContext,
+    Query(params): Query<ProcessDictQueryParams>,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let svc = state.labor_process_dict_service();
+
+    let filter = LaborProcessDictQuery {
+        keyword: params.keyword.clone(),
+    };
+    let page = PageParams::new(params.page.unwrap_or(1), 20);
+
+    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
+
+    Ok(Html(process_dict_table_fragment(&result, &params).into_string()))
+}
+
+#[require_permission("LABOR_PROCESS_DICT", "create")]
+pub async fn get_process_dict_create(
+    _path: ProcessDictCreatePath,
+    ctx: RequestContext,
+) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, .. } = ctx;
+
+
+    let content = process_dict_form_page(None);
+    let page_html = admin_page(
+        is_htmx,
+        "新建工序",
+        &claims,
+        "md",
+        ProcessDictCreatePath::PATH,
+        "主数据管理",
+        Some("新建工序"),
+        content,
+    );
+
+    Ok(Html(page_html.into_string()))
+}
+
+#[require_permission("LABOR_PROCESS_DICT", "create")]
+pub async fn post_process_dict_create(
+    _path: ProcessDictCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ProcessDictCreateForm>,
+) -> crate::errors::Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+
+    if form.name.trim().is_empty() {
+        return Err(DomainError::validation("工序名称不能为空").into());
+    }
+
+    let req = CreateLaborProcessDictReq {
+        name: form.name.trim().to_string(),
+        description: form.description.filter(|d| !d.trim().is_empty()),
+        sort_order: form.sort_order.unwrap_or(0),
+    };
+
+    let svc = state.labor_process_dict_service();
+    let _id = svc.create(&service_ctx, &mut conn, req).await?;
+
+    Ok((
+        [("HX-Redirect", ProcessDictListPath::PATH)],
+        Html(String::new()),
+    ))
+}
+
+#[require_permission("LABOR_PROCESS_DICT", "delete")]
+pub async fn delete_process_dict(
+    path: ProcessDictDeletePath,
+    ctx: RequestContext,
+) -> crate::errors::Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let svc = state.labor_process_dict_service();
+
+    svc.delete(&service_ctx, &mut conn, path.id).await?;
+
+    Ok((
+        [("HX-Trigger", "{\"processDictDeleted\":true}")],
+        Html(String::new()),
+    ))
+}
+
+// ── Components ──
+
+fn process_dict_list_page(
+    result: &abt_core::shared::types::PaginatedResult<LaborProcessDict>,
+    params: &ProcessDictQueryParams,
+) -> Markup {
+    html! {
+        div x-data="{ showCreateModal: false }" {
+            // ── Page Header ──
+            div class="page-header" {
+                h1 class="page-title" { "工序字典管理" }
+                div class="page-actions" {
+                    a class="btn btn-primary" href=(ProcessDictCreatePath::PATH) {
+                        (icon::plus_icon("w-4 h-4"))
+                        "新建工序"
+                    }
+                }
+            }
+
+            // ── Tabs + Filter + Data Table (HTMX panel) ──
+            (process_dict_table_fragment(result, params))
+        }
+    }
+}
+
+fn process_dict_table_fragment(
+    result: &abt_core::shared::types::PaginatedResult<LaborProcessDict>,
+    params: &ProcessDictQueryParams,
+) -> Markup {
+    let query = build_query_string(params);
+    let total_count = result.total;
+
+    html! {
+        div class="customer-list-panel" {
+            // ── Filter Bar ──
+            div class="filter-bar" {
+                div class="stat-chip" { "全部 " span class="chip-count" { (total_count) } }
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="keyword"
+                        placeholder="搜索工序编码或名称…"
+                        value=(params.keyword.as_deref().unwrap_or(""))
+                        hx-get=(ProcessDictTablePath::PATH)
+                        hx-trigger="keyup changed delay:300ms, processDictDeleted from:body"
+                        hx-target="#process-dict-table"
+                        hx-select="#process-dict-table"
+                        hx-swap="outerHTML";
+                }
+            }
+
+            // ── Data Table ──
+            div id="process-dict-table" class="data-card" {
+                div class="data-card-scroll" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th style="width:80px" { "编码" }
+                                th { "工序名称" }
+                                th { "描述" }
+                                th style="width:80px;text-align:center" { "排序" }
+                                th style="width:120px" { "创建时间" }
+                                th style="width:80px" { "操作" }
+                            }
+                        }
+                        tbody {
+                            @for item in &result.items {
+                                (process_dict_row(item))
+                            }
+                            @if result.items.is_empty() {
+                                tr {
+                                    td colspan="6" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                        "暂无工序字典数据"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                (pagination(ProcessDictListPath::PATH, &query, result.total, result.page, result.total_pages))
+            }
+        }
+    }
+}
+
+fn process_dict_row(item: &LaborProcessDict) -> Markup {
+    let delete_path = ProcessDictDeletePath { id: item.id };
+
+    html! {
+        tr {
+            td {
+                code style="font-size:12px;background:var(--surface);padding:2px 6px;border-radius:var(--radius-sm)" {
+                    (&item.code)
+                }
+            }
+            td {
+                strong { (&item.name) }
+            }
+            td {
+                @if let Some(ref desc) = item.description {
+                    @if !desc.is_empty() {
+                        (desc)
+                    } @else {
+                        span style="color:var(--muted)" { "—" }
+                    }
+                } @else {
+                    span style="color:var(--muted)" { "—" }
+                }
+            }
+            td style="text-align:center" {
+                (item.sort_order)
+            }
+            td {
+                @if let Some(ref created) = item.created_at {
+                    (created.format("%Y-%m-%d"))
+                } @else {
+                    "—"
+                }
+            }
+            td onclick="event.stopPropagation()" {
+                div class="row-actions" x-data="{ deleteOpen: false }" {
+                    button type="button" class="row-action-btn text-danger" title="删除"
+                        x-on:click="deleteOpen = true" {
+                        (icon::trash_icon("w-4 h-4"))
+                    }
+                    (crate::components::confirm_dialog::confirm_dialog(
+                        "deleteOpen",
+                        "确认删除",
+                        &format!("删除后无法恢复，确定要删除工序 <strong>{}</strong>（{}）吗？", item.name, item.code),
+                        "确认删除",
+                        &format!("delete-dict-form-{}", item.id),
+                        html! {
+                            form id=(format!("delete-dict-form-{}", item.id)) style="display:none"
+                                hx-post=(delete_path)
+                                hx-swap="none" {}
+                        },
+                    ))
+                }
+            }
+        }
+    }
+}
+
+fn process_dict_form_page(_existing: Option<&LaborProcessDict>) -> Markup {
+    html! {
+        div {
+            // ── Page Header ──
+            div class="page-header" {
+                a class="back-link" href=(ProcessDictListPath::PATH) {
+                    (icon::arrow_left_icon("w-4 h-4"))
+                    "返回工序字典"
+                }
+                h1 class="page-title" { "新建工序" }
+            }
+
+            form hx-post=(ProcessDictCreatePath::PATH)
+                  hx-swap="none" {
+                // ── Section: 基本信息 ──
+                div class="data-card" style="margin-bottom:var(--space-4)" {
+                    div class="form-section-title" { "基本信息" }
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label { "工序名称 " span style="color:var(--danger)" { "*" } }
+                            input type="text" name="name" required placeholder="请输入工序名称，如：车削、铣削" {}
+                        }
+                        div class="form-field" {
+                            label { "工序编码" }
+                            input type="text" value="自动生成" readonly
+                                style="background:var(--surface);color:var(--muted)" {}
+                        }
+                        div class="form-field" {
+                            label { "排序" }
+                            input type="number" name="sort_order" value="0" min="0"
+                                placeholder="数字越小排越前" {}
+                        }
+                        div class="form-field field-full" {
+                            label { "描述" }
+                            textarea name="description" placeholder="请输入描述信息…"
+                                style="width:100%;min-height:80px;resize:vertical" {}
+                        }
+                    }
+                }
+
+                // ── Action Bar ──
+                div class="create-action-bar" {
+                    a class="btn btn-default" href=(ProcessDictListPath::PATH) { "取消" }
+                    button type="submit" class="btn btn-primary" { "保存工序" }
+                }
+            }
+        }
+    }
+}
+
+// ── Helpers ──
+
+fn build_query_string(params: &ProcessDictQueryParams) -> String {
+    let mut q = vec![];
+    if let Some(ref kw) = params.keyword {
+        q.push(format!("keyword={kw}"));
+    }
+    q.join("&")
+}

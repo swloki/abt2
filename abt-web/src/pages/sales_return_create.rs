@@ -1,5 +1,4 @@
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum::Form;
 use axum_extra::routing::TypedPath;
@@ -75,9 +74,9 @@ pub struct OrderSearchQuery {
 pub async fn get_return_create(
     _path: ReturnCreatePath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let customer_svc = state.customer_service();
     let customers = customer_svc
@@ -96,7 +95,7 @@ pub async fn get_return_create(
 
     let content = return_create_page(&customers.items);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "新建退货单",
         &claims,
         "sales",
@@ -225,7 +224,7 @@ pub async fn create_return(
     ctx: RequestContext,
     Form(form): Form<ReturnCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { claims: _, mut conn, state, service_ctx } = ctx;
+    let RequestContext { claims: _, mut conn, state, service_ctx, .. } = ctx;
 
     if form.customer_id == 0 {
         return Err(DomainError::validation("请选择客户").into());

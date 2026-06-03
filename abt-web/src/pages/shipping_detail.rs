@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -45,9 +44,9 @@ struct ProductDetail {
 pub async fn get_shipping_detail(
     path: ShippingDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let shipping_svc = state.shipping_service();
     let customer_svc = state.customer_service();
@@ -96,7 +95,7 @@ pub async fn get_shipping_detail(
 
     let content = shipping_detail_page(&shipping, &items, &customer_name, &order_number, &operator_name, &product_details, &warehouse_names);
     let page_html = admin_page(
-        &headers, "发货详情", &claims, "sales",
+        is_htmx, "发货详情", &claims, "sales",
         &format!("{}/{}", ShippingListPath::PATH, path.id),
         "销售管理", Some("发货详情"), content,
     );

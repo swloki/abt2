@@ -1,4 +1,3 @@
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -42,9 +41,9 @@ fn payment_method_label(m: PaymentMethod) -> &'static str {
 pub async fn get_pay_detail(
     path: PayDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.payment_request_service();
     let supplier_svc = state.supplier_service();
     let recon_svc = state.purchase_reconciliation_service();
@@ -75,7 +74,7 @@ pub async fn get_pay_detail(
 
     let content = pay_detail_page(&pay, &supplier_name, recon_doc_number.as_deref(), &operator_name);
     let page_html = admin_page(
-        &headers, "付款详情", &claims, "purchase",
+        is_htmx, "付款详情", &claims, "purchase",
         &format!("{}/{}", PayListPath::PATH, path.id),
         "采购管理", Some("付款详情"), content,
     );

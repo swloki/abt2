@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -53,9 +52,9 @@ fn disposition_label(d: ReturnDisposition) -> &'static str {
 pub async fn get_return_detail(
     path: ReturnDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     // Fetch return header
     let ret = state.sales_return_service()
@@ -101,7 +100,7 @@ pub async fn get_return_detail(
 
     let content = return_detail_page(&ret, &items, &customer_name, &order_number, &shipping_number, &operator_name, &product_details);
     let page_html = admin_page(
-        &headers, "退货详情", &claims, "sales",
+        is_htmx, "退货详情", &claims, "sales",
         &format!("{}/{}", ReturnListPath::PATH, path.id),
         "销售管理", Some("退货详情"), content,
     );

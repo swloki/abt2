@@ -1,6 +1,5 @@
 use axum::extract::{Query, Form};
 use axum_extra::routing::TypedPath;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use maud::{html, Markup};
 use rust_decimal::Decimal;
@@ -56,9 +55,9 @@ pub struct PriceForm {
 pub async fn get_product_list(
     _path: ProductListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(params): Query<ProductQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.product_service();
     let cat_svc = state.category_service();
@@ -76,7 +75,7 @@ pub async fn get_product_list(
 
     let content = product_list_page(&result, &params, &categories, &watched_ids);
     let page_html = admin_page(
-        &headers, "产品管理", &claims, "md", ProductListPath::PATH, "主数据管理", Some("产品管理"), content,
+        is_htmx, "产品管理", &claims, "md", ProductListPath::PATH, "主数据管理", Some("产品管理"), content,
     );
 
     Ok(Html(page_html.into_string()))

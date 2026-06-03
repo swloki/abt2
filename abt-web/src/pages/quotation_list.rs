@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum::Form;
 use axum_extra::routing::TypedPath;
@@ -100,9 +99,9 @@ fn status_label(s: QuotationStatus) -> (&'static str, &'static str) {
 pub async fn get_quotation_list(
     _path: QuotationListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(params): Query<QuotationQueryParams>,
 ) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.quotation_service();
     let customer_svc = state.customer_service();
@@ -126,7 +125,7 @@ pub async fn get_quotation_list(
 
     let content = quotation_list_page(&claims, &result, &names, &customers.items, &params);
     let page_html = admin_page(
-        &headers, "报价单", &claims, "sales", QuotationListPath::PATH, "销售管理", Some("报价单"), content,
+        is_htmx, "报价单", &claims, "sales", QuotationListPath::PATH, "销售管理", Some("报价单"), content,
     );
 
     Ok(Html(page_html.into_string()))

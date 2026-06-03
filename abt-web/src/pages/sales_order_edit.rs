@@ -1,4 +1,3 @@
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -51,9 +50,9 @@ struct ItemWeb {
 pub async fn get_order_edit(
     path: OrderEditFormPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
     let product_svc = state.product_service();
@@ -79,7 +78,7 @@ pub async fn get_order_edit(
 
     let content = order_edit_page(&order, &items, &customers.items, &contacts, &product_codes);
     let page_html = admin_page(
-        &headers, "编辑订单", &claims, "sales", OrderEditFormPath::PATH, "销售管理", Some("编辑订单"), content,
+        is_htmx, "编辑订单", &claims, "sales", OrderEditFormPath::PATH, "销售管理", Some("编辑订单"), content,
     );
 
     Ok(Html(page_html.into_string()))

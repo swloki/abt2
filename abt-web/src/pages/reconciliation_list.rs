@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -109,10 +108,10 @@ async fn count_by_status<S: ReconciliationService>(
 pub async fn get_reconciliation_list(
     _path: ReconciliationListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(params): Query<ReconciliationQueryParams>,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let reconciliation_svc = state.reconciliation_service();
     let customer_svc = state.customer_service();
@@ -135,7 +134,7 @@ pub async fn get_reconciliation_list(
 
     let content = reconciliation_list_page(&claims, &result, &customer_names, &customers.items, &params, &status_counts);
     let page_html = admin_page(
-        &headers, "月对账单", &claims, "sales", ReconciliationListPath::PATH, "销售管理", Some("月对账单"), content,
+        is_htmx, "月对账单", &claims, "sales", ReconciliationListPath::PATH, "销售管理", Some("月对账单"), content,
     );
 
     Ok(Html(page_html.into_string()))

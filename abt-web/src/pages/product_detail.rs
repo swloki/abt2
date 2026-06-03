@@ -1,5 +1,4 @@
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use maud::{Markup, html};
 use serde::Deserialize;
@@ -11,6 +10,7 @@ use abt_core::shared::types::PaginatedResult;
 use abt_macros::require_permission;
 
 use crate::components::{confirm_dialog, detail::detail_row, icon};
+use crate::components::pagination::htmx_pagination;
 use crate::layout::page::admin_page;
 use crate::routes::bom::BomDetailPath;
 use crate::routes::product::{ProductDeletePath, ProductDetailPath, ProductEditPath, ProductListPath, ProductUpdatePath, ProductUsageTablePath};
@@ -22,8 +22,8 @@ use crate::utils::RequestContext;
 pub async fn get_product_detail(
     path: ProductDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.product_service();
 
@@ -32,7 +32,7 @@ pub async fn get_product_detail(
     let content = product_detail_page(&product);
     let detail_path_str = ProductDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         &format!("{} - 产品详情", product.pdt_name),
         &claims,
         "md",
@@ -76,8 +76,8 @@ pub async fn get_product_usage_table(
 pub async fn get_product_edit(
     path: ProductEditPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.product_service();
 
@@ -86,7 +86,7 @@ pub async fn get_product_edit(
     let edit_path_str = ProductEditPath { id: path.id }.to_string();
     let content = product_edit_page(&product);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         &title,
         &claims,
         "md",
@@ -465,77 +465,11 @@ fn usage_table_fragment(product_id: i64, result: &PaginatedResult<UsageEntry>) -
                     }
                 }
             }
-            (htmx_pagination(&base_path, result.total, result.page, result.total_pages))
+            (htmx_pagination(&base_path, result.total, result.page, result.total_pages, "closest .detail-card", "innerHTML"))
         }
     }
 }
 
-/// HTMX-aware pagination — links use hx-get + hx-target to swap the usage card
-fn htmx_pagination(base_path: &str, total: u64, current_page: u32, total_pages: u32) -> Markup {
-    if total_pages <= 1 {
-        return html! {
-            div class="pagination" {
-                span { "共 " (total) " 条记录" }
-            }
-        };
-    }
-
-    html! {
-        div class="pagination" {
-            span { "共 " (total) " 条记录，第 " (current_page) "/" (total_pages) " 页" }
-            div class="pagination-pages" {
-                @if current_page > 1 {
-                    (page_btn(base_path, current_page - 1, "«"))
-                }
-                @for p in page_range(current_page, total_pages) {
-                    @if p == 0 {
-                        button class="page-btn" disabled { "…" }
-                    } @else if p == current_page {
-                        button class="page-btn active" disabled { (p) }
-                    } @else {
-                        (page_btn(base_path, p, &p.to_string()))
-                    }
-                }
-                @if current_page < total_pages {
-                    (page_btn(base_path, current_page + 1, "»"))
-                }
-            }
-        }
-    }
-}
-
-fn page_btn(base_path: &str, page: u32, label: &str) -> Markup {
-    let url = format!("{base_path}?page={page}");
-    html! {
-        a class="page-btn" href=(url)
-            hx-get=(url)
-            hx-target="closest .detail-card"
-            hx-swap="innerHTML" {
-            (label)
-        }
-    }
-}
-
-fn page_range(current: u32, total: u32) -> Vec<u32> {
-    if total <= 5 {
-        (1..=total).collect()
-    } else if current <= 3 {
-        let mut r: Vec<u32> = (1..=4).collect();
-        r.push(0);
-        r.push(total);
-        r
-    } else if current >= total - 2 {
-        let mut r = vec![1u32, 0];
-        r.extend((total - 3)..=total);
-        r
-    } else {
-        let mut r = vec![1u32, 0];
-        r.extend((current - 1)..=(current + 1));
-        r.push(0);
-        r.push(total);
-        r
-    }
-}
 
 fn status_display(status: ProductStatus) -> (&'static str, &'static str) {
     match status {

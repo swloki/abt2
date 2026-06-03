@@ -1,5 +1,4 @@
 use axum::Form;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use maud::{Markup, html};
  use serde::Deserialize;
@@ -23,8 +22,8 @@ use abt_macros::require_permission;
 pub async fn get_supplier_detail(
     path: SupplierDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.supplier_service();
 
@@ -35,7 +34,7 @@ pub async fn get_supplier_detail(
     let content = supplier_detail_page(&supplier, &contacts, &bank_accounts);
     let detail_path_str = SupplierDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         &format!("{} - 供应商详情", supplier.name),
         &claims,
         "md",

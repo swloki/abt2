@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use axum::http::HeaderMap;
 use axum::response::Html;
 use maud::{Markup, html};
 use serde_json;
@@ -23,8 +22,8 @@ use crate::utils::RequestContext;
 pub async fn get_bom_detail(
     path: BomDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let can_view_cost = ctx.has_permission("COST", "read").await;
     let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
     let can_edit = ctx.has_permission("BOM", "update").await;
@@ -52,7 +51,7 @@ pub async fn get_bom_detail(
     let content = bom_detail_page(&bom, &product_map, can_view_cost, can_view_labor_cost, can_edit, can_delete);
     let detail_path_str = BomDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         &format!("{} - BOM 详情", bom.bom_name),
         &claims,
         "md",

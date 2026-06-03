@@ -1,6 +1,5 @@
 use std::collections::{HashMap, HashSet};
 
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -46,9 +45,9 @@ struct ProductDetail {
 pub async fn get_reconciliation_detail(
     path: ReconciliationDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let reconciliation_svc = state.reconciliation_service();
     let customer_svc = state.customer_service();
@@ -127,7 +126,7 @@ pub async fn get_reconciliation_detail(
 
     let content = reconciliation_detail_page(&rec, &items, &customer_name, &operator_name, &product_details, &order_numbers, &shipping_numbers);
     let page_html = admin_page(
-        &headers, "对账详情", &claims, "sales",
+        is_htmx, "对账详情", &claims, "sales",
         &format!("{}/{}", ReconciliationListPath::PATH, path.id),
         "销售管理", Some("对账详情"), content,
     );

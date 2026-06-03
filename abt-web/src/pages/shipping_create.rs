@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -92,9 +91,9 @@ pub struct OrderSearchQuery {
 pub async fn get_shipping_create(
     _path: ShippingCreatePath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let customer_svc = state.customer_service();
     let warehouse_svc = state.warehouse_service();
@@ -108,7 +107,7 @@ pub async fn get_shipping_create(
 
     let content = shipping_create_page(&customers.items, &warehouses.items);
     let page_html = admin_page(
-        &headers, "新建发货申请", &claims, "sales",
+        is_htmx, "新建发货申请", &claims, "sales",
         ShippingCreatePath::PATH, "销售管理", Some("新建发货申请"), content,
     );
 
@@ -121,7 +120,7 @@ pub async fn post_shipping_create(
     ctx: RequestContext,
     axum::Form(form): axum::Form<ShippingCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { claims: _, mut conn, state, service_ctx } = ctx;
+    let RequestContext { claims: _, mut conn, state, service_ctx, .. } = ctx;
 
     let svc = state.shipping_service();
 

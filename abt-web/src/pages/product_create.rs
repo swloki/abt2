@@ -1,5 +1,4 @@
 use axum_extra::routing::TypedPath;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use maud::{Markup, html};
 use serde::Deserialize;
@@ -43,9 +42,9 @@ pub async fn get_product_create(
     _path: ProductCreatePath,
     axum::extract::Query(params): axum::extract::Query<CreateQueryParams>,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, claims } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let copy_source = if let Some(id) = params.copy_from {
         let svc = state.product_service();
@@ -57,7 +56,7 @@ pub async fn get_product_create(
     let title = if copy_source.is_some() { "复制产品" } else { "新建产品" };
     let content = product_create_page(copy_source.as_ref());
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         title,
         &claims,
         "md",

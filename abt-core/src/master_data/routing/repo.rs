@@ -193,6 +193,26 @@ impl RoutingRepo {
         Ok(())
     }
 
+    pub async fn paginate_boms_by_routing(&self, executor: PgExecutor<'_>, routing_id: i64, page: &PageParams) -> Result<PaginatedResult<BomRouting>> {
+        let total: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM bom_routings WHERE routing_id = $1",
+        )
+        .bind(routing_id)
+        .fetch_one(&mut *executor)
+        .await?;
+
+        let items = sqlx::query_as::<sqlx::Postgres, BomRouting>(
+            "SELECT id, product_code, routing_id, operator_id, created_at, updated_at FROM bom_routings WHERE routing_id = $1 ORDER BY id DESC LIMIT $2 OFFSET $3",
+        )
+        .bind(routing_id)
+        .bind(page.page_size as i64)
+        .bind(page.offset() as i64)
+        .fetch_all(executor)
+        .await?;
+
+        Ok(PaginatedResult::new(items, total as u64, page.page, page.page_size))
+    }
+
     pub async fn list_boms_by_routing(&self, executor: PgExecutor<'_>, routing_id: i64) -> Result<Vec<BomRouting>> {
         let rows = sqlx::query_as::<sqlx::Postgres, BomRouting>(
             "SELECT id, product_code, routing_id, operator_id, created_at, updated_at FROM bom_routings WHERE routing_id = $1",

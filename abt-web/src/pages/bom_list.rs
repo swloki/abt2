@@ -1,5 +1,4 @@
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -43,9 +42,9 @@ pub struct BomQueryParams {
 pub async fn get_bom_list(
     _path: BomListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(mut params): Query<BomQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let can_view_cost = ctx.has_permission("COST", "read").await;
     let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
     let can_create = ctx.has_permission("BOM", "create").await;
@@ -59,9 +58,14 @@ pub async fn get_bom_list(
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
     let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
     let content = bom_list_page(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost, can_view_cost, can_create, can_delete);
+    let current_path = match &params.category_name {
+        Some(cn) if !cn.is_empty() => format!("{}?category_name={}", BomListPath::PATH, cn),
+        _ => BomListPath::PATH.to_string(),
+    };
+    let page_name = params.category_name.as_deref().unwrap_or("BOM管理");
     let page_html = admin_page(
-        &headers, "BOM管理", &claims, "md", BomListPath::PATH,
-        "主数据管理", Some("BOM管理"), content,
+        is_htmx, "BOM管理", &claims, "md", &current_path,
+        "主数据管理", Some(page_name), content,
     );
     Ok(Html(page_html.into_string()))
 }

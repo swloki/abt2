@@ -1,5 +1,4 @@
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{Markup, html};
@@ -59,8 +58,8 @@ struct ItemWeb {
 pub async fn get_pq_create(
     _path: PQCreatePath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext {
         mut conn,
         state,
@@ -85,7 +84,7 @@ pub async fn get_pq_create(
 
     let content = pq_create_page(&suppliers.items);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "新建采购报价",
         &claims,
         "purchase",

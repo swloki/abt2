@@ -1,4 +1,3 @@
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{Markup, html};
@@ -33,8 +32,8 @@ pub struct PreconCreateForm {
 pub async fn get_precon_create(
     _path: PreconCreatePath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext {
         mut conn,
         state,
@@ -59,7 +58,7 @@ pub async fn get_precon_create(
 
     let content = precon_create_page(&suppliers.items);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "新建采购对账单",
         &claims,
         "purchase",

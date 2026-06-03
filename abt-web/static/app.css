@@ -715,7 +715,7 @@ p { margin: 0; }
 .sidebar-user-role { font-size: 11px; color: rgba(255,255,255,0.4); }
 
 /* ─── Main Content ─── */
-.main-content { display: flex; flex-direction: column; min-height: 100vh; background: var(--surface); }
+.main-content { display: flex; flex-direction: column; min-height: 100vh; background: var(--surface); min-width: 0; overflow-x: hidden; }
 
 /* ─── Top Header ─── */
 .top-header {
@@ -748,7 +748,7 @@ p { margin: 0; }
 }
 
 /* ─── Page Content ─── */
-.page-content { flex: 1; padding: var(--space-8); }
+.page-content { flex: 1; padding: var(--space-8); min-width: 0; overflow-x: hidden; }
 
 /* ─── Stat Icons ─── */
 .stat-icon { width: 48px; height: 48px; border-radius: var(--radius-md); display: grid; place-items: center; flex-shrink: 0; }
@@ -2063,6 +2063,7 @@ p { margin: 0; }
 .text-center{text-align:center;}
 .text-right{text-align:right;}
 .outline{outline-style:var(--un-outline-style);outline-width:1px;}
+.b,
 .border{border-width:1px;}
 .rounded-md{border-radius:var(--radius-md);}
 .bg-\[color-mix\(in_srgb\,var\(--accent\)_10\%\,transparent\)\]{background-color:color-mix(in oklab, color-mix(in srgb,var(--accent) 10%,transparent) var(--un-bg-opacity), transparent) /* color-mix(in srgb,var(--accent) 10%,transparent) */;}

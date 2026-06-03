@@ -177,6 +177,11 @@ fn modules() -> Vec<NavModule> {
                     icon: NavIcon::ClipboardDoc,
                 },
                 NavItem {
+                    name: "工序字典",
+                    path: "/admin/md/process-dicts",
+                    icon: NavIcon::Database,
+                },
+                NavItem {
                     name: "工艺路线",
                     path: "/admin/md/routings",
                     icon: NavIcon::Wrench,
@@ -342,8 +347,46 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str) -> Mark
     }
 }
 
+/// Checks if a menu item should be highlighted for the given current path.
+/// Exact match first, then longest-prefix match (item path must be a path segment prefix).
+fn is_active(item_path: &str, current_path: &str) -> bool {
+    if item_path == current_path {
+        return true;
+    }
+    // current_path must start with item_path followed by '/' or '?'
+    // e.g. "/admin/md/boms" matches "/admin/md/boms/new" and "/admin/md/boms/123/edit"
+    current_path.starts_with(item_path)
+        && current_path.len() > item_path.len()
+        && matches!(current_path.as_bytes()[item_path.len()], b'/' | b'?')
+}
+
+/// Find the best matching nav item path: exact match preferred, then longest prefix.
+fn find_active_path<'a>(items: &'a [NavItem], current_path: &str) -> Option<&'a str> {
+    let mut best: Option<(&'a str, bool)> = None;
+    for item in items {
+        let exact = item.path == current_path;
+        let prefix = !exact && is_active(item.path, current_path);
+        if exact || prefix {
+            let better = match best {
+                None => true,
+                Some((prev, prev_exact)) => {
+                    // Exact match always beats prefix; longer match wins within same tier
+                    if exact && !prev_exact { true }
+                    else if exact == prev_exact { item.path.len() > prev.len() }
+                    else { false }
+                }
+            };
+            if better {
+                best = Some((item.path, exact));
+            }
+        }
+    }
+    best.map(|(p, _)| p)
+}
+
 /// Renders module header + nav items (for initial page load, with active item highlight).
 fn sidebar_body_fragment_inner(active_mod: &NavModule, current_path: &str) -> Markup {
+    let active_path = find_active_path(&active_mod.items, current_path);
     html! {
         div class="sidebar-module-header" {
             span class="module-header-icon" { (render_module_icon(active_mod.id)) }
@@ -351,7 +394,7 @@ fn sidebar_body_fragment_inner(active_mod: &NavModule, current_path: &str) -> Ma
         }
         div class="sidebar-nav" {
             @for item in &active_mod.items {
-                a href=(item.path) class=(item_class(item.path == current_path)) {
+                a href=(item.path) class=(item_class(active_path == Some(item.path))) {
                     (render_item_icon(item.icon))
                     span class="sidebar-item-text" { (item.name) }
                 }
@@ -365,13 +408,14 @@ fn sidebar_body_fragment_inner(active_mod: &NavModule, current_path: &str) -> Ma
 pub fn mobile_nav(active_module: &str, current_path: &str) -> Markup {
     let mods = modules();
     let active_mod = &mods[find_module(active_module).unwrap_or(0)];
+    let active_path = find_active_path(&active_mod.items, current_path);
 
     html! {
         nav class="mobile-nav" {
             div class="mobile-nav-scroll" {
                 div class="mobile-nav-inner" {
                     @for item in &active_mod.items {
-                        a href=(item.path) class=(mobile_class(item.path == current_path)) {
+                        a href=(item.path) class=(mobile_class(active_path == Some(item.path))) {
                             (render_item_icon(item.icon))
                             span { (item.name) }
                         }

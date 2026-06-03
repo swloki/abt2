@@ -1,4 +1,3 @@
-use axum::http::HeaderMap;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 
@@ -22,8 +21,8 @@ use crate::utils::RequestContext;
 pub async fn get_md_dashboard(
     _path: MdDashboardPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> crate::errors::Result<axum::response::Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let db = &mut conn;
     let svc_ctx = &service_ctx;
@@ -74,7 +73,7 @@ pub async fn get_md_dashboard(
 
     let content = md_dashboard_content(product_count, bom_count, supplier_count, routing_count);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "主数据管理",
         &claims,
         "md",

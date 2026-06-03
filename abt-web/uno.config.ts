@@ -239,7 +239,7 @@ const layoutStyles = `
 .sidebar-user-role { font-size: 11px; color: rgba(255,255,255,0.4); }
 
 /* ─── Main Content ─── */
-.main-content { display: flex; flex-direction: column; min-height: 100vh; background: var(--surface); }
+.main-content { display: flex; flex-direction: column; min-height: 100vh; background: var(--surface); min-width: 0; overflow-x: hidden; }
 
 /* ─── Top Header ─── */
 .top-header {
@@ -272,7 +272,7 @@ const layoutStyles = `
 }
 
 /* ─── Page Content ─── */
-.page-content { flex: 1; padding: var(--space-8); }
+.page-content { flex: 1; padding: var(--space-8); min-width: 0; overflow-x: hidden; }
 
 /* ─── Stat Icons ─── */
 .stat-icon { width: 48px; height: 48px; border-radius: var(--radius-md); display: grid; place-items: center; flex-shrink: 0; }

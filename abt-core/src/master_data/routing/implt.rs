@@ -276,4 +276,13 @@ impl RoutingService for RoutingServiceImpl {
     ) -> Result<Vec<BomRouting>> {
         self.repo.list_boms_by_routing(db, routing_id).await
     }
+    async fn paginate_boms_by_routing(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        routing_id: i64,
+        page: PageParams,
+    ) -> Result<PaginatedResult<BomRouting>> {
+        self.repo.paginate_boms_by_routing(db, routing_id, &page).await
+    }
 }

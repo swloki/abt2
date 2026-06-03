@@ -1,4 +1,3 @@
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{Markup, html};
@@ -47,13 +46,14 @@ pub struct SupplierCreateForm {
 pub async fn get_supplier_create(
     _path: SupplierCreatePath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { claims, .. } = ctx;
+
 
     let content = supplier_create_page();
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "新建供应商",
         &claims,
         "md",

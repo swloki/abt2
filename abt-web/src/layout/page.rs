@@ -1,5 +1,4 @@
 use abt_core::shared::identity::model::Claims;
-use axum::http::HeaderMap;
 use maud::{DOCTYPE, Markup, html, PreEscaped};
 
 use super::header;
@@ -62,8 +61,9 @@ fn admin_shell(
 /// Renders a full admin page or just the content fragment, depending on whether
 /// the request came from HTMX (checks `HX-Request` header).
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 pub fn admin_page(
-    headers: &HeaderMap,
+    is_htmx: bool,
     title: &str,
     claims: &Claims,
     active_module: &str,
@@ -72,7 +72,6 @@ pub fn admin_page(
     page_name: Option<&str>,
     content: Markup,
 ) -> Markup {
-    let is_htmx = headers.get("HX-Request").is_some();
     if is_htmx {
         content
     } else {
@@ -89,7 +88,6 @@ pub fn admin_page(
         )
     }
 }
-
 /// Renders a standalone page (e.g. login) — no admin shell.
 pub fn standalone_page(title: &str, body: Markup) -> Markup {
     document(title, body)

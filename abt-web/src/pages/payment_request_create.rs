@@ -1,4 +1,3 @@
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{Markup, html};
@@ -47,8 +46,8 @@ pub struct PayCreateForm {
 pub async fn get_pay_create(
     _path: PayCreatePath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext {
         mut conn,
         state,
@@ -84,7 +83,7 @@ pub async fn get_pay_create(
 
     let content = pay_create_page(&suppliers.items, &reconciliations.items);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "新建付款申请",
         &claims,
         "purchase",

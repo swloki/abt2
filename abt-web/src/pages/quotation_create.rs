@@ -1,5 +1,4 @@
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{Markup, html};
@@ -64,8 +63,8 @@ struct ItemWeb {
 pub async fn get_quotation_create(
     _path: QuotationCreatePath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext {
         mut conn,
         state,
@@ -91,7 +90,7 @@ pub async fn get_quotation_create(
 
     let content = quotation_create_page(&customers.items);
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "新建报价单",
         &claims,
         "sales",

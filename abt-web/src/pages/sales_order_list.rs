@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -124,10 +123,10 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
 pub async fn get_order_list(
     _path: OrderListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(params): Query<OrderQueryParams>,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
     let user_svc = state.user_service();
@@ -145,7 +144,7 @@ pub async fn get_order_list(
 
     let content = order_list_page(&result, &customer_names, &sales_rep_names, &customers.items, &params);
     let page_html = admin_page(
-        &headers, "销售订单", &claims, "sales", OrderListPath::PATH, "销售管理", Some("销售订单"), content,
+        is_htmx, "销售订单", &claims, "sales", OrderListPath::PATH, "销售管理", Some("销售订单"), content,
     );
 
     Ok(Html(page_html.into_string()))

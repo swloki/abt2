@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{Markup, html};
@@ -85,8 +84,8 @@ pub struct UpdateCategoryForm {
 pub async fn get_bom_edit(
     path: BomEditPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext {
         mut conn,
         state,
@@ -132,7 +131,7 @@ pub async fn get_bom_edit(
     let content = bom_edit_page(&bom, &product_map, &categories, claims.sub);
     let edit_path_str = BomEditPath { id: path.id }.to_string();
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         &format!("{} - 编辑 BOM", bom.bom_name),
         &claims,
         "md",

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -38,9 +37,9 @@ fn status_label(s: PurchaseReturnStatus) -> (&'static str, &'static str) {
 pub async fn get_pr_detail(
     path: PRDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_return_service();
     let supplier_svc = state.supplier_service();
     let order_svc = state.purchase_order_service();
@@ -82,7 +81,7 @@ pub async fn get_pr_detail(
 
     let content = pr_detail_page(&pr, &items, &supplier_name, &order_doc_number, &operator_name, &product_names, &product_codes);
     let page_html = admin_page(
-        &headers, "退货详情", &claims, "purchase",
+        is_htmx, "退货详情", &claims, "purchase",
         &format!("{}/{}", PRListPath::PATH, path.id),
         "采购管理", Some("退货详情"), content,
     );

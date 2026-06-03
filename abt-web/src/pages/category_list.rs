@@ -1,5 +1,4 @@
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::{Html, IntoResponse};
 use axum::Form;
 use axum_extra::routing::TypedPath;
@@ -10,6 +9,7 @@ use abt_core::master_data::category::model::*;
 use abt_core::master_data::category::CategoryService;
 
 use crate::components::icon;
+use crate::components::pagination::htmx_pagination;
 use crate::components::modal;
 use crate::layout::page::admin_page;
 use crate::routes::category::{
@@ -47,8 +47,8 @@ fn default_page() -> u32 { 1 }
 pub async fn get_category_list(
     _path: CategoryListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext {
         mut conn,
         state,
@@ -97,7 +97,7 @@ pub async fn get_category_list(
 
     let content = category_page(&tree, first_panel.as_ref().map(|(p, _)| p), first_panel.as_ref().map(|(_, id)| *id));
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         "产品分类",
         &claims,
         "md",
@@ -517,6 +517,10 @@ fn split_view_style() -> Markup {
             font-size: var(--text-sm);
             font-weight: 500;
             color: var(--fg);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
         }
         .subcat-card-count {
             font-size: 12px;
@@ -872,12 +876,11 @@ fn detail_panel(
                 @if has_products {
                     div class="data-card" style="border: 1px solid var(--border-soft); border-radius: var(--radius-md);" {
                         div class="data-card-scroll" {
-                            table class="data-table" {
+                            table class="data-table" style="min-width: 0;" {
                                 thead {
                                     tr {
                                         th { "产品编码" }
                                         th { "产品名称" }
-                                        th { "规格型号" }
                                         th { "状态" }
                                     }
                                 }
@@ -885,8 +888,7 @@ fn detail_panel(
                                     @for p in &products.items {
                                         tr {
                                             td class="link-cell mono" { (p.product_code) }
-                                            td { strong { (p.pdt_name) } }
-                                            td { (p.spec.as_deref().unwrap_or("—")) }
+                                            td style="max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title=(p.pdt_name) { strong { (p.pdt_name) } }
                                             td {
                                                 @match p.status {
                                                     ProductStatus::Active => {
@@ -906,7 +908,7 @@ fn detail_panel(
                             }
                         }
                         @if total_pages > 1 {
-                            (panel_pagination(&panel_url, total_products, current_page, total_pages))
+                            (htmx_pagination(&panel_url, total_products, current_page, total_pages, "#detail-panel", "innerHTML"))
                         }
                     }
                 } @else {
@@ -965,63 +967,6 @@ fn detail_panel(
 }
 
 
-/// HTMX-aware pagination for the detail panel.
-/// Each page link uses hx-get to reload the panel with ?page=N.
-fn panel_pagination(base_url: &str, total: u64, current: u32, total_pages: u32) -> Markup {
-    let range = page_range(current, total_pages);
-
-    html! {
-        div class="pagination" {
-            span { "共 " (total) " 条记录，第 " (current) "/" (total_pages) " 页" }
-            div class="pagination-pages" {
-                @if current > 1 {
-                    (page_hx_link(base_url, current - 1, "«"))
-                }
-                @for p in &range {
-                    @if *p == 0 {
-                        button class="page-btn" disabled { "…" }
-                    } @else if *p == current {
-                        button class="page-btn active" disabled { (p) }
-                    } @else {
-                        (page_hx_link(base_url, *p, &p.to_string()))
-                    }
-                }
-                @if current < total_pages {
-                    (page_hx_link(base_url, current + 1, "»"))
-                }
-            }
-        }
-    }
-}
-
-fn page_hx_link(base_url: &str, page: u32, label: &str) -> Markup {
-    let url = format!("{}?page={}", base_url, page);
-    html! {
-        a class="page-btn" href="#" hx-get=(url) hx-target="#detail-panel" hx-swap="innerHTML" { (label) }
-    }
-}
-
-/// Same page range algorithm as components::pagination.
-fn page_range(current: u32, total: u32) -> Vec<u32> {
-    if total <= 5 {
-        (1..=total).collect()
-    } else if current <= 3 {
-        let mut r: Vec<u32> = (1..=4).collect();
-        r.push(0);
-        r.push(total);
-        r
-    } else if current >= total - 2 {
-        let mut r = vec![1u32, 0];
-        r.extend((total - 3)..=total);
-        r
-    } else {
-        let mut r = vec![1u32, 0];
-        r.extend((current - 1)..=(current + 1));
-        r.push(0);
-        r.push(total);
-        r
-    }
-}
 // ── Create Category Modal ──
 
 fn create_category_modal(tree: &[CategoryTree]) -> Markup {

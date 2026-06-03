@@ -1,16 +1,25 @@
-use axum::http::HeaderMap;
+use axum::extract::Query;
 use axum::response::Html;
 use maud::{Markup, html};
 
 use abt_core::master_data::routing::RoutingService;
 use abt_core::master_data::routing::model::*;
+use abt_core::shared::types::PageParams;
 
 use abt_macros::require_permission;
 
 use crate::components::{confirm_dialog, detail::detail_row, icon};
+use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
-use crate::routes::routing::{RoutingDeletePath, RoutingDetailPath, RoutingListPath};
+use crate::routes::routing::{RoutingBomTablePath, RoutingDeletePath, RoutingDetailPath, RoutingListPath};
 use crate::utils::RequestContext;
+
+// ── Query Params ──
+
+#[derive(Debug, serde::Deserialize, Clone, Default)]
+pub(crate) struct BomPageParams {
+    pub page: Option<u32>,
+}
 
 // ── Handlers ──
 
@@ -18,20 +27,18 @@ use crate::utils::RequestContext;
 pub async fn get_routing_detail(
     path: RoutingDetailPath,
     ctx: RequestContext,
-    headers: HeaderMap,
 ) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.routing_service();
 
     let detail = svc.get_detail(&service_ctx, &mut conn, path.id).await?;
-
-    // Resolve associated BOMs
-    let boms = svc.list_boms_by_routing(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
-
+    let bom_page = PageParams::new(1, 10);
+    let boms = svc.paginate_boms_by_routing(&service_ctx, &mut conn, path.id, bom_page).await?;
     let content = routing_detail_page(&detail, &boms);
     let detail_path_str = RoutingDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
-        &headers,
+        is_htmx,
         &format!("{} - 工艺路线详情", detail.routing.name),
         &claims,
         "md",
@@ -52,11 +59,25 @@ pub async fn update_routing(
     Ok(Html("<p>Update routing placeholder</p>".into()))
 }
 
+/// HTMX endpoint: paginated BOM table fragment
+#[require_permission("ROUTING", "read")]
+pub async fn get_routing_bom_table(
+    path: RoutingBomTablePath,
+    ctx: RequestContext,
+    Query(qp): Query<BomPageParams>,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.routing_service();
+    let bom_page = PageParams::new(qp.page.unwrap_or(1), 10);
+    let boms = svc.paginate_boms_by_routing(&service_ctx, &mut conn, path.id, bom_page).await?;
+    Ok(Html(bom_table_fragment(path.id, &boms).into_string()))
+}
+
 // ── Components ──
 
 fn routing_detail_page(
     detail: &RoutingDetail,
-    boms: &[BomRouting],
+    boms: &abt_core::shared::types::PaginatedResult<BomRouting>,
 ) -> Markup {
     let routing = &detail.routing;
     let steps = &detail.steps;
@@ -65,7 +86,6 @@ fn routing_detail_page(
 
     let required_count = steps.iter().filter(|s| s.is_required).count();
     let step_count = steps.len();
-    let bom_count = boms.len();
 
     html! {
         div x-data="{ deleteOpen: false }" {
@@ -82,7 +102,7 @@ fn routing_detail_page(
                         div class="customer-meta" {
                             span { "工序: " (step_count) }
                             span { "必经: " (required_count) }
-                            span { "关联BOM: " (bom_count) }
+                            span { "关联BOM: " (boms.total) }
                             @if let Some(dt) = routing.created_at {
                                 span { "创建: " (dt.format("%Y-%m-%d")) }
                             }
@@ -180,34 +200,7 @@ fn routing_detail_page(
             // ── 关联BOM ──
             div class="detail-card" style="margin-top:var(--space-5)" {
                 div class="detail-card-title" { "关联BOM" }
-                @if boms.is_empty() {
-                    div class="empty-state" { "暂无关联BOM" }
-                } @else {
-                    table class="data-table" {
-                        thead {
-                            tr {
-                                th style="width:60px" { "ID" }
-                                th { "产品编码" }
-                                th style="width:160px" { "关联时间" }
-                            }
-                        }
-                        tbody {
-                            @for bom in boms {
-                                tr {
-                                    td class="mono" { (bom.id) }
-                                    td class="mono" { (bom.product_code) }
-                                    td {
-                                        @if let Some(dt) = bom.created_at {
-                                            (dt.format("%Y-%m-%d %H:%M"))
-                                        } @else {
-                                            "—"
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                (bom_table_fragment(routing.id, boms))
             }
 
             // ── Delete Confirm Dialog ──
@@ -228,4 +221,42 @@ fn routing_detail_page(
     }
 }
 
+fn bom_table_fragment(routing_id: i64, boms: &abt_core::shared::types::PaginatedResult<BomRouting>) -> Markup {
+    let hx_url = RoutingBomTablePath { id: routing_id }.to_string();
+    html! {
+        div id="routing-bom-table" {
+            @if boms.items.is_empty() {
+                div class="empty-state" { "暂无关联BOM" }
+            } @else {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th style="width:60px" { "ID" }
+                            th { "产品编码" }
+                            th style="width:160px" { "关联时间" }
+                        }
+                    }
+                    tbody {
+                        @for bom in &boms.items {
+                            tr {
+                                td class="mono" { (bom.id) }
+                                td class="mono" { (bom.product_code) }
+                                td {
+                                    @if let Some(dt) = bom.created_at {
+                                        (dt.format("%Y-%m-%d %H:%M"))
+                                    } @else {
+                                        "—"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                div hx-boost="true" hx-target="#routing-bom-table" hx-swap="outerHTML" {
+                    (pagination(&hx_url, "", boms.total, boms.page, boms.total_pages))
+                }
+            }
+        }
+    }
+}
 // ── Helpers ──

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use axum::extract::Query;
-use axum::http::HeaderMap;
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
@@ -127,10 +126,10 @@ fn payment_method_label(m: PaymentMethod) -> &'static str {
 pub async fn get_pay_list(
     _path: PayListPath,
     ctx: RequestContext,
-    headers: HeaderMap,
     Query(params): Query<PayQueryParams>,
 ) -> Result<Html<String>> {
-    let RequestContext { claims, mut conn, state, service_ctx } = ctx;
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.payment_request_service();
     let supplier_svc = state.supplier_service();
 
@@ -146,7 +145,7 @@ pub async fn get_pay_list(
 
     let content = pay_list_page(&result, &supplier_names, &suppliers.items, &params);
     let page_html = admin_page(
-        &headers, "付款申请", &claims, "purchase", PayListPath::PATH, "采购管理", Some("付款申请"), content,
+        is_htmx, "付款申请", &claims, "purchase", PayListPath::PATH, "采购管理", Some("付款申请"), content,
     );
 
     Ok(Html(page_html.into_string()))

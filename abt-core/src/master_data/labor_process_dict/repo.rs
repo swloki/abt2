@@ -81,7 +81,7 @@ impl LaborProcessDictRepo {
     #[allow(unused_assignments)]
     pub async fn query(&self, executor: PgExecutor<'_>, filter: &LaborProcessDictQuery, page: &PageParams) -> Result<PaginatedResult<LaborProcessDict>> {
         let mut conditions = vec!["deleted_at IS NULL".to_string()];
-        let mut param_idx = 0u32;
+        let mut param_idx = 1u32;
 
         let keyword_param = if let Some(ref kw) = filter.keyword {
             conditions.push(format!("(name ILIKE ${param_idx} OR code ILIKE ${param_idx})"));
@@ -97,8 +97,6 @@ impl LaborProcessDictRepo {
         let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(ref v) = keyword_param { count_q = count_q.bind(v); }
         let total = count_q.fetch_one(&mut *executor).await? as u64;
-
-        param_idx += 1;
         let limit_idx = param_idx;
         param_idx += 1;
         let offset_idx = param_idx;

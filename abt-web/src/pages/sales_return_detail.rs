@@ -2,18 +2,18 @@ use std::collections::HashMap;
 
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
-use maud::{html, Markup};
+use maud::{Markup, html};
 
+use crate::state::AppState;
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::SalesOrderService;
-use abt_core::sales::sales_return::model::*;
 use abt_core::sales::sales_return::SalesReturnService;
+use abt_core::sales::sales_return::model::*;
 use abt_core::sales::shipping_request::ShippingRequestService;
 use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PgExecutor;
 use abt_core::shared::types::ServiceContext;
-use crate::state::AppState;
 
 use crate::components::icon;
 use crate::errors::Result;
@@ -54,42 +54,54 @@ pub async fn get_return_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
-    let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext {
+        claims,
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
 
     // Fetch return header
-    let ret = state.sales_return_service()
+    let ret = state
+        .sales_return_service()
         .find_by_id(&service_ctx, &mut conn, path.id)
         .await?;
 
     // Fetch return items
-    let items = state.sales_return_service()
+    let items = state
+        .sales_return_service()
         .list_items(&service_ctx, &mut conn, path.id)
         .await
         .unwrap_or_default();
 
     // Resolve customer name
-    let customer_name = state.customer_service()
+    let customer_name = state
+        .customer_service()
         .get(&service_ctx, &mut conn, ret.customer_id)
         .await
         .map(|c| c.name)
         .unwrap_or_else(|_| "未知客户".into());
 
     // Resolve order number
-    let order_number = state.sales_order_service()
+    let order_number = state
+        .sales_order_service()
         .find_by_id(&service_ctx, &mut conn, ret.order_id)
         .await
         .map(|o| o.doc_number)
         .unwrap_or_else(|_| "—".into());
 
     // Resolve shipping number
-    let shipping_number = state.shipping_service()
+    let shipping_number = state
+        .shipping_service()
         .find_by_id(&service_ctx, &mut conn, ret.shipping_request_id)
         .await
         .map(|s| s.doc_number)
         .unwrap_or_else(|_| "—".into());
 
     // Resolve operator name
-    let operator_name = state.user_service()
+    let operator_name = state
+        .user_service()
         .get_user(&service_ctx, &mut conn, ret.operator_id)
         .await
         .map(|u| u.display_name.unwrap_or(u.username))
@@ -98,11 +110,24 @@ pub async fn get_return_detail(
     // Resolve product details
     let product_details = resolve_product_details(&state, &service_ctx, &mut conn, &items).await;
 
-    let content = return_detail_page(&ret, &items, &customer_name, &order_number, &shipping_number, &operator_name, &product_details);
+    let content = return_detail_page(
+        &ret,
+        &items,
+        &customer_name,
+        &order_number,
+        &shipping_number,
+        &operator_name,
+        &product_details,
+    );
     let page_html = admin_page(
-        is_htmx, "退货详情", &claims, "sales",
+        is_htmx,
+        "退货详情",
+        &claims,
+        "sales",
         &format!("{}/{}", ReturnListPath::PATH, path.id),
-        "销售管理", Some("退货详情"), content,
+        "销售管理",
+        Some("退货详情"),
+        content,
     );
 
     Ok(Html(page_html.into_string()))
@@ -113,9 +138,15 @@ pub async fn confirm_return(
     path: ConfirmReturnPath,
     ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
 
-    state.sales_return_service()
+    state
+        .sales_return_service()
         .approve(&service_ctx, &mut conn, path.id)
         .await?;
 
@@ -128,9 +159,15 @@ pub async fn receive_return(
     path: ReceiveReturnPath,
     ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
 
-    state.sales_return_service()
+    state
+        .sales_return_service()
         .receive(&service_ctx, &mut conn, path.id)
         .await?;
 
@@ -143,9 +180,15 @@ pub async fn inspect_return(
     path: InspectReturnPath,
     ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
 
-    state.sales_return_service()
+    state
+        .sales_return_service()
         .inspect(&service_ctx, &mut conn, path.id)
         .await?;
 
@@ -158,9 +201,15 @@ pub async fn complete_return(
     path: CompleteReturnPath,
     ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
 
-    state.sales_return_service()
+    state
+        .sales_return_service()
         .complete(&service_ctx, &mut conn, path.id)
         .await?;
 
@@ -173,9 +222,15 @@ pub async fn reject_return(
     path: RejectReturnPath,
     ctx: RequestContext,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
 
-    state.sales_return_service()
+    state
+        .sales_return_service()
         .reject(&service_ctx, &mut conn, path.id)
         .await?;
 
@@ -201,16 +256,23 @@ async fn resolve_product_details(
     if ids.is_empty() {
         return HashMap::new();
     }
-    let products = state.product_service()
+    let products = state
+        .product_service()
         .get_by_ids(ctx, db, ids)
         .await
         .unwrap_or_default();
-    products.into_iter()
-        .map(|p| (p.product_id, ProductDetail {
-            code: p.product_code,
-            name: p.pdt_name,
-            unit: p.unit,
-        }))
+    products
+        .into_iter()
+        .map(|p| {
+            (
+                p.product_id,
+                ProductDetail {
+                    code: p.product_code,
+                    name: p.pdt_name,
+                    unit: p.unit,
+                },
+            )
+        })
         .collect()
 }
 
@@ -233,7 +295,13 @@ fn workflow_steps(current: ReturnStatus) -> Markup {
         div class="workflow-steps" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
-                    div class=(if i <= current_idx && !terminal { "workflow-connector active" } else { "workflow-connector" }) {}
+                    div class=({
+                            if i <= current_idx && !terminal {
+                                "workflow-connector active"
+                            } else {
+                                "workflow-connector"
+                            }
+                        }) {}
                 }
                 @let step_class = if terminal {
                     "workflow-step"
@@ -277,7 +345,9 @@ fn return_detail_page(
     product_details: &HashMap<i64, ProductDetail>,
 ) -> Markup {
     let (status_text, status_class) = status_label(r.status);
-    let shipping_detail = ShippingDetailPath { id: r.shipping_request_id };
+    let shipping_detail = ShippingDetailPath {
+        id: r.shipping_request_id,
+    };
     let order_detail = OrderDetailPath { id: r.order_id };
 
     html! {
@@ -287,7 +357,6 @@ fn return_detail_page(
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回退货列表"
             }
-
             // ── Detail Header ──
             div class="detail-header" {
                 div {
@@ -297,42 +366,54 @@ fn return_detail_page(
                     }
                     div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)" {
                         "来源发货："
-                        a href=(shipping_detail.to_string()) style="color:var(--info);font-weight:500" { (shipping_number) }
+                        a   href=(shipping_detail.to_string())
+                            style="color:var(--info);font-weight:500"
+                        { (shipping_number) }
                         "　来源订单："
-                        a href=(order_detail.to_string()) style="color:var(--info);font-weight:500" { (order_number) }
+                        a href=(order_detail.to_string()) style="color:var(--info);font-weight:500" {
+                            (order_number)
+                        }
                     }
                 }
                 div class="page-actions" {
                     a class="btn btn-default" href=(ReturnListPath::PATH) { "返回列表" }
                     @if r.status == ReturnStatus::Draft {
-                        button class="btn btn-primary"
+                        button
+                            class="btn btn-primary"
                             hx-post=(ConfirmReturnPath { id: r.id }.to_string())
-                            hx-confirm="确认审核此退货单？" { "确认退货" }
+                            hx-confirm="确认审核此退货单？"
+                        { "确认退货" }
                     }
                     @if r.status == ReturnStatus::Confirmed {
-                        button class="btn btn-primary"
+                        button
+                            class="btn btn-primary"
                             hx-post=(ReceiveReturnPath { id: r.id }.to_string())
-                            hx-confirm="确认已收到退货？" { "确认收货" }
+                            hx-confirm="确认已收到退货？"
+                        { "确认收货" }
                     }
                     @if r.status == ReturnStatus::Received {
-                        button class="btn btn-primary"
+                        button
+                            class="btn btn-primary"
                             hx-post=(InspectReturnPath { id: r.id }.to_string())
-                            hx-confirm="确认开始质检？" { "开始质检" }
+                            hx-confirm="确认开始质检？"
+                        { "开始质检" }
                     }
                     @if r.status == ReturnStatus::Inspecting {
-                        button class="btn btn-success"
+                        button
+                            class="btn btn-success"
                             hx-post=(CompleteReturnPath { id: r.id }.to_string())
-                            hx-confirm="确认完成退货？" { "完成退货" }
-                        button class="btn btn-danger"
+                            hx-confirm="确认完成退货？"
+                        { "完成退货" }
+                        button
+                            class="btn btn-danger"
                             hx-post=(RejectReturnPath { id: r.id }.to_string())
-                            hx-confirm="确认驳回此退货？" { "驳回" }
+                            hx-confirm="确认驳回此退货？"
+                        { "驳回" }
                     }
                 }
             }
-
             // ── Workflow Steps ──
             (workflow_steps(r.status))
-
             // ── Return Info ──
             div class="info-card" {
                 div class="info-card-title" { "退货信息" }
@@ -355,7 +436,6 @@ fn return_detail_page(
                     }
                 }
             }
-
             // ── Items Table ──
             div class="data-card" {
                 div class="data-card-scroll" {
@@ -378,9 +458,9 @@ fn return_detail_page(
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无明细"
-                                    }
+                                    td  colspan="8"
+                                        style="text-align:center;padding:var(--space-8);color:var(--muted)"
+                                    { "暂无明细" }
                                 }
                             }
                         }
@@ -390,12 +470,12 @@ fn return_detail_page(
                     div class="amount-row" {
                         span { "退货总额" }
                         span class="mono" style="font-size:var(--text-lg);font-weight:600" {
-                            "¥ " (format!("{:.2}", r.total_amount))
+                            "¥ "
+                            (format!("{:.2}", r.total_amount))
                         }
                     }
                 }
             }
-
             // ── Remarks ──
             @if !r.remark.is_empty() {
                 div class="info-card" style="margin-top:var(--space-6)" {
@@ -407,11 +487,7 @@ fn return_detail_page(
     }
 }
 
-fn item_row(
-    index: usize,
-    item: &SalesReturnItem,
-    details: &HashMap<i64, ProductDetail>,
-) -> Markup {
+fn item_row(index: usize, item: &SalesReturnItem, details: &HashMap<i64, ProductDetail>) -> Markup {
     let detail = details.get(&item.product_id);
     let product_code = detail.map(|d| d.code.as_str()).unwrap_or("—");
     let product_name = detail.map(|d| d.name.as_str()).unwrap_or("—");

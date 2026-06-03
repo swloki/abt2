@@ -29,7 +29,7 @@ impl CategoryRepo {
 
     pub async fn find_by_name_and_parent(&self, executor: PgExecutor<'_>, name: &str, parent_id: i64) -> Result<Option<Category>> {
         let row = sqlx::query_as::<sqlx::Postgres, Category>(
-            "SELECT * FROM categories WHERE category_name = $1 AND parent_id = $2 AND deleted_at IS NULL",
+            "SELECT * FROM categories WHERE category_name = $1 AND parent_id = $2",
         )
         .bind(name)
         .bind(parent_id)

@@ -1189,7 +1189,10 @@ const componentStyles = `
   font-size: 13px; font-weight: 500; color: #92400e;
 }
 .cost-warning-list {
-  border-top: 1px solid #fbbf24; padding: 12px 16px;
+  display: none; border-top: 1px solid #fbbf24; padding: 12px 16px;
+}
+.cost-warning-list.show {
+  display: block;
 }
 .cost-warning-list li {
   font-size: 13px; color: #92400e; padding: 2px 0;

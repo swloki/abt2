@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use rust_decimal::Decimal;
 
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
@@ -60,19 +61,20 @@ pub async fn get_po_detail(
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| "—".into());
 
-    let (product_names, product_codes) = {
+    let (product_names, product_codes, product_units, product_specs) = {
         let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
         if product_ids.is_empty() {
-            (HashMap::new(), HashMap::new())
+            (HashMap::new(), HashMap::new(), HashMap::new(), HashMap::new())
         } else {
             let products = product_svc.get_by_ids(&service_ctx, &mut conn, product_ids).await.unwrap_or_default();
             let names: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect();
             let codes: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.product_code.clone())).collect();
-            (names, codes)
+            let units: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.unit.clone())).collect();
+            let specs: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.meta.specification.clone())).collect();
+            (names, codes, units, specs)
         }
     };
-
-    let content = po_detail_page(&order, &items, &supplier_name, &operator_name, &product_names, &product_codes);
+    let content = po_detail_page(&order, &items, &supplier_name, &operator_name, &product_names, &product_codes, &product_units, &product_specs);
     let page_html = admin_page(
         is_htmx, "订单详情", &claims, "purchase",
         &format!("{}/{}", POListPath::PATH, path.id),
@@ -164,6 +166,8 @@ fn po_detail_page(
     operator_name: &str,
     product_names: &HashMap<i64, String>,
     product_codes: &HashMap<i64, String>,
+    product_units: &HashMap<i64, String>,
+    product_specs: &HashMap<i64, String>,
 ) -> Markup {
     let (status_text, status_class) = status_label(order.status);
     let expected_delivery = order.expected_delivery_date
@@ -171,7 +175,9 @@ fn po_detail_page(
         .unwrap_or_else(|| "—".into());
     let payment_terms = order.payment_terms.as_deref().unwrap_or("—");
     let delivery_address = order.delivery_address.as_deref().unwrap_or("—");
-
+    let received_total: Decimal = items.iter()
+        .map(|i| i.received_qty * i.unit_price)
+        .sum();
     html! {
         div {
             // ── Back Link ──
@@ -179,7 +185,6 @@ fn po_detail_page(
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回采购订单列表"
             }
-
             // ── Detail Header ──
             div class="detail-header" {
                 div {
@@ -189,6 +194,14 @@ fn po_detail_page(
                     }
                 }
                 div class="page-actions" {
+                    button class="btn btn-default" {
+                        (icon::printer_icon("w-4 h-4"))
+                        "打印"
+                    }
+                    button class="btn btn-default" {
+                        (icon::link_icon("w-4 h-4"))
+                        "关联报价"
+                    }
                     @if order.status == PurchaseOrderStatus::Draft {
                         button class="btn btn-primary"
                             hx-post=(POConfirmPath { id: order.id }.to_string())
@@ -204,16 +217,14 @@ fn po_detail_page(
                     }
                 }
             }
-
             // ── Workflow Steps ──
             (workflow_steps(order.status))
-
             // ── Order Info ──
             div class="info-card" {
                 div class="info-card-title" { "订单信息" }
                 div class="info-grid" {
                     div class="info-item" {
-                        span class="info-label" { "供应商名称" }
+                        span class="info-label" { "供应商" }
                         span class="info-value" { (supplier_name) }
                     }
                     div class="info-item" {
@@ -221,7 +232,7 @@ fn po_detail_page(
                         span class="info-value mono" { (order.order_date.format("%Y-%m-%d")) }
                     }
                     div class="info-item" {
-                        span class="info-label" { "预计交货日期" }
+                        span class="info-label" { "预计到货" }
                         span class="info-value mono" { (expected_delivery) }
                     }
                     div class="info-item" {
@@ -233,12 +244,19 @@ fn po_detail_page(
                         span class="info-value" { (delivery_address) }
                     }
                     div class="info-item" {
-                        span class="info-label" { "操作人" }
+                        span class="info-label" { "币种" }
+                        span class="info-value" { "CNY" }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "采购员" }
                         span class="info-value" { (operator_name) }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "关联报价" }
+                        span class="info-value" { "—" }
                     }
                 }
             }
-
             // ── Items Table ──
             div class="data-card" {
                 div class="data-card-scroll" {
@@ -246,24 +264,26 @@ fn po_detail_page(
                         thead {
                             tr {
                                 th { "行号" }
-                                th { "产品编码" }
-                                th { "产品名称" }
-                                th { "描述" }
+                                th { "物料编码" }
+                                th { "物料名称" }
+                                th { "规格" }
+                                th { "单位" }
                                 th class="num-right" { "数量" }
                                 th class="num-right" { "单价" }
-                                th class="num-right" { "小计" }
+                                th class="num-right" { "金额" }
                                 th class="num-right" { "已收货" }
+                                th class="num-right" { "已检验" }
                                 th class="num-right" { "已退货" }
-                                th { "预计交货" }
+                                th { "预计到货" }
                             }
                         }
                         tbody {
                             @for item in items {
-                                (item_row(item, product_names, product_codes))
+                                (item_row(item, product_names, product_codes, product_units, product_specs))
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="12" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                         "暂无明细"
                                     }
                                 }
@@ -273,11 +293,16 @@ fn po_detail_page(
                 }
                 // ── Amount Summary ──
                 div class="amount-summary" {
-                    span class="amount-label" { "订单总额" }
-                    span class="amount-value" { (format!("{:.2}", order.total_amount)) }
+                    div class="amount-row" {
+                        span class="amount-label" { "订单总额" }
+                        span class="amount-value accent" { (format!("¥ {:.2}", order.total_amount)) }
+                    }
+                    div class="amount-row" {
+                        span class="amount-label" { "已收货金额" }
+                        span class="amount-value" { (format!("¥ {:.2}", received_total)) }
+                    }
                 }
             }
-
             // ── Remarks ──
             @if !order.remark.is_empty() {
                 div class="info-card" style="margin-top:var(--space-6)" {
@@ -293,23 +318,28 @@ fn item_row(
     item: &PurchaseOrderItem,
     names: &HashMap<i64, String>,
     codes: &HashMap<i64, String>,
+    units: &HashMap<i64, String>,
+    specs: &HashMap<i64, String>,
 ) -> Markup {
     let product_name = names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let product_code = codes.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+    let unit = units.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+    let spec = specs.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let expected_delivery = item.expected_delivery_date
         .map(|d| d.format("%Y-%m-%d").to_string())
         .unwrap_or_else(|| "—".into());
-
     html! {
         tr {
             td class="mono" { (item.line_no) }
             td class="mono" { (product_code) }
             td { (product_name) }
-            td { (item.description.as_str()) }
+            td { (spec) }
+            td { (unit) }
             td class="num-right" { (format!("{:.2}", item.quantity)) }
             td class="num-right" { (format!("{:.2}", item.unit_price)) }
             td class="num-right" { (format!("{:.2}", item.amount)) }
             td class="num-right" { (format!("{:.2}", item.received_qty)) }
+            td class="num-right" { (format!("{:.2}", item.inspected_qty)) }
             td class="num-right" { (format!("{:.2}", item.returned_qty)) }
             td { (expected_delivery) }
         }

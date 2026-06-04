@@ -29,6 +29,10 @@ pub struct PQProductsPath;
 pub struct PQItemRowPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/quotations/create/supplier-contacts")]
+pub struct PQSupplierContactsPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/quotations/{id}")]
 pub struct PQDetailPath {
     pub id: i64,
@@ -61,6 +65,7 @@ pub fn router() -> Router<AppState> {
         .route(PQCreatePath::PATH, get(purchase_quotation_create::get_pq_create).post(purchase_quotation_create::create_pq))
         .route(PQProductsPath::PATH, get(purchase_quotation_create::get_pq_products))
         .route(PQItemRowPath::PATH, get(purchase_quotation_create::get_pq_item_row))
+        .route(PQSupplierContactsPath::PATH, get(purchase_quotation_create::get_pq_supplier_contacts))
         .route(PQDetailPath::PATH, get(purchase_quotation_detail::get_pq_detail))
         .route(PQDeletePath::PATH, post(purchase_quotation_detail::delete_pq))
         .route(PQActivatePath::PATH, post(purchase_quotation_detail::activate_pq))

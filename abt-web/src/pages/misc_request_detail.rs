@@ -6,7 +6,7 @@ use rust_decimal::Decimal;
 use abt_core::purchase::enums::MiscRequestStatus;
 use abt_core::purchase::misc_request::model::*;
 use abt_core::purchase::misc_request::MiscellaneousRequestService;
-use abt_core::shared::identity::UserService;
+use abt_core::shared::identity::{DepartmentService, UserService};
 
 use crate::components::icon;
 use crate::errors::Result;
@@ -49,11 +49,18 @@ pub async fn get_misc_detail(
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| "—".into());
 
+    let dept_svc = state.department_service();
+    let department_name = dept_svc
+        .get_department(&service_ctx, &mut conn, req.department_id)
+        .await
+        .map(|d| d.department_name)
+        .unwrap_or_else(|_| "—".into());
+
     let total_amount: Decimal = items.iter().map(|i| {
         i.estimated_price.unwrap_or(Decimal::ZERO) * i.quantity
     }).sum();
 
-    let content = misc_detail_page(&req, &items, &operator_name, total_amount);
+    let content = misc_detail_page(&req, &items, &department_name, &operator_name, total_amount);
     let page_html = admin_page(
         is_htmx, "零星请购详情", &claims, "purchase",
         &format!("{}/{}", MiscListPath::PATH, path.id),
@@ -141,6 +148,7 @@ fn workflow_steps(current: MiscRequestStatus) -> Markup {
 fn misc_detail_page(
     req: &MiscellaneousRequest,
     items: &[MiscRequestItem],
+    department_name: &str,
     operator_name: &str,
     total_amount: Decimal,
 ) -> Markup {
@@ -191,16 +199,16 @@ fn misc_detail_page(
                         span class="info-value" { (req.purpose) }
                     }
                     div class="info-item" {
+                        span class="info-label" { "申请部门" }
+                        span class="info-value" { (department_name) }
+                    }
+                    div class="info-item" {
                         span class="info-label" { "申请日期" }
                         span class="info-value mono" { (req.request_date.format("%Y-%m-%d")) }
                     }
                     div class="info-item" {
-                        span class="info-label" { "操作人" }
+                        span class="info-label" { "申请人" }
                         span class="info-value" { (operator_name) }
-                    }
-                    div class="info-item" {
-                        span class="info-label" { "创建时间" }
-                        span class="info-value mono" { (req.created_at.format("%Y-%m-%d %H:%M")) }
                     }
                 }
             }

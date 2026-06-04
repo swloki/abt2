@@ -8,6 +8,7 @@ use serde::Deserialize;
 
 use abt_core::master_data::supplier::model::{SupplierQuery, SupplierStatus};
 use abt_core::master_data::supplier::SupplierService;
+use abt_core::shared::identity::UserService;
 use abt_core::purchase::enums::PurchaseOrderStatus;
 use abt_core::purchase::order::model::*;
 use abt_core::purchase::order::PurchaseOrderService;
@@ -104,6 +105,26 @@ async fn resolve_supplier_names<S: SupplierService>(
     }
 }
 
+async fn resolve_buyer_names<S: UserService>(
+    svc: &S,
+    ctx: &abt_core::shared::types::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    orders: &[PurchaseOrder],
+) -> HashMap<i64, String> {
+    let ids: Vec<i64> = orders.iter().map(|o| o.operator_id).collect();
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    svc.get_users_by_ids(ctx, db, ids)
+        .await
+        .map(|users| {
+            users.into_iter()
+                .map(|u| (u.user.user_id, u.user.display_name.unwrap_or(u.user.username)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 // ── Status Labels ──
 
 fn status_label(s: PurchaseOrderStatus) -> (&'static str, &'static str) {
@@ -129,18 +150,20 @@ pub async fn get_po_list(
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_order_service();
     let supplier_svc = state.supplier_service();
+    let user_svc = state.user_service();
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
     let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
+    let buyer_names = resolve_buyer_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
 
     let suppliers = supplier_svc
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = po_list_page(&result, &supplier_names, &suppliers.items, &params);
+    let content = po_list_page(&result, &supplier_names, &buyer_names, &suppliers.items, &params);
     let page_html = admin_page(
         is_htmx, "采购订单", &claims, "purchase", POListPath::PATH, "采购管理", Some("采购订单"), content,
     );
@@ -156,18 +179,20 @@ pub async fn get_po_table(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_order_service();
     let supplier_svc = state.supplier_service();
+    let user_svc = state.user_service();
 
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
     let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
+    let buyer_names = resolve_buyer_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
 
     let suppliers = supplier_svc
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
 
-    Ok(Html(po_table_fragment(&result, &supplier_names, &suppliers.items, &params).into_string()))
+    Ok(Html(po_table_fragment(&result, &supplier_names, &buyer_names, &suppliers.items, &params).into_string()))
 }
 
 // ── Components ──
@@ -175,6 +200,7 @@ pub async fn get_po_table(
 fn po_list_page(
     result: &abt_core::shared::types::PaginatedResult<PurchaseOrder>,
     supplier_names: &HashMap<i64, String>,
+    buyer_names: &HashMap<i64, String>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &POQueryParams,
 ) -> Markup {
@@ -192,7 +218,7 @@ fn po_list_page(
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (po_table_fragment(result, supplier_names, suppliers, params))
+            (po_table_fragment(result, supplier_names, buyer_names, suppliers, params))
         }
     }
 }
@@ -200,6 +226,7 @@ fn po_list_page(
 fn po_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<PurchaseOrder>,
     supplier_names: &HashMap<i64, String>,
+    buyer_names: &HashMap<i64, String>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &POQueryParams,
 ) -> Markup {
@@ -266,19 +293,19 @@ fn po_table_fragment(
                     table class="data-table" {
                         thead {
                             tr {
-                                th { "单据编号" }
+                                th { "订单编号" }
                                 th { "供应商名称" }
+                                th { "订单日期" }
+                                th { "预计到货" }
                                 th { "状态" }
                                 th class="num-right" { "总金额" }
-                                th { "订单日期" }
-                                th { "预计交货日期" }
-                                th { "创建时间" }
+                                th { "业务员" }
                                 th { "操作" }
                             }
                         }
                         tbody {
                             @for o in &result.items {
-                                (po_row(o, supplier_names))
+                                (po_row(o, supplier_names, buyer_names))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -299,12 +326,13 @@ fn po_table_fragment(
 fn po_row(
     o: &PurchaseOrder,
     supplier_names: &HashMap<i64, String>,
+    buyer_names: &HashMap<i64, String>,
 ) -> Markup {
     let detail_path = PODetailPath { id: o.id };
     let delete_path = PODeletePath { id: o.id };
     let (status_text, status_class) = status_label(o.status);
     let supplier_name = supplier_names.get(&o.supplier_id).map(|s| s.as_str()).unwrap_or("—");
-    let created = o.created_at.format("%Y-%m-%d").to_string();
+    let buyer_name = buyer_names.get(&o.operator_id).map(|s| s.as_str()).unwrap_or("—");
     let onclick = format!("location.href='{}'", detail_path);
     let is_draft = o.status == PurchaseOrderStatus::Draft;
 
@@ -312,13 +340,13 @@ fn po_row(
         tr style="cursor:pointer" {
             td class="link-cell mono" onclick=(&onclick) { (o.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
+            td class="mono" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
+            td class="mono" onclick=(&onclick) { (o.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td class="num-right" onclick=(&onclick) { (o.total_amount) }
-            td class="mono" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
-            td class="mono" onclick=(&onclick) { (o.expected_delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) }
-            td onclick=(&onclick) { (created) }
+            td onclick=(&onclick) { (buyer_name) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {
                     div class="row-actions" {

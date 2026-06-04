@@ -995,6 +995,15 @@ const componentStyles = `
 }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4) var(--space-6); margin-bottom: var(--space-6); }
 .form-grid .field-full { grid-column: 1 / -1; }
+.form-grid .span-2 { grid-column: 1 / -1; }
+.form-section { margin-bottom: var(--space-4); }
+.form-section .form-grid { margin-bottom: 0; }
+.supplier-info-bar {
+  display: flex; gap: var(--space-6); margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4); background: var(--surface); border-radius: var(--radius-sm);
+  font-size: var(--text-sm); color: var(--fg-2);
+}
+.supplier-info-bar .label { color: var(--muted); font-size: 12px; }
 .form-field label { display: block; font-size: 12px; font-weight: 500; color: var(--fg-2); margin-bottom: var(--space-1); }
 .form-field input,
 .form-field select,

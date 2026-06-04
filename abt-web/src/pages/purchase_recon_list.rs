@@ -88,13 +88,39 @@ async fn resolve_supplier_names<S: SupplierService>(
     }
 }
 
+async fn resolve_item_counts<S: PurchaseReconciliationService>(
+    svc: &S,
+    ctx: &abt_core::shared::types::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    items: &[PurchaseReconciliation],
+) -> HashMap<i64, usize> {
+    let mut counts = HashMap::new();
+    for r in items {
+        if let Ok(items) = svc.list_items(ctx, db, r.id).await {
+            counts.insert(r.id, items.len());
+        }
+    }
+    counts
+}
+
+fn generate_periods(count: usize) -> Vec<String> {
+    let now = chrono::Local::now();
+    let mut periods = Vec::with_capacity(count);
+    for i in 0..count {
+        if let Some(d) = now.checked_sub_months(chrono::Months::new(i as u32)) {
+            periods.push(d.format("%Y-%m").to_string());
+        }
+    }
+    periods
+}
+
 // ── Status Labels ──
 
 fn status_label(s: PurchaseReconStatus) -> (&'static str, &'static str) {
     match s {
         PurchaseReconStatus::Draft => ("草稿", "status-draft"),
         PurchaseReconStatus::Confirmed => ("已确认", "status-confirmed"),
-        PurchaseReconStatus::Settled => ("已结算", "status-completed"),
+        PurchaseReconStatus::Settled => ("已结算", "status-settled"),
     }
 }
 
@@ -110,22 +136,18 @@ pub async fn get_precon_list(
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_reconciliation_service();
     let supplier_svc = state.supplier_service();
-
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
     let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-
+    let item_counts = resolve_item_counts(&svc, &service_ctx, &mut conn, &result.items).await;
     let suppliers = supplier_svc
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
-
-    let content = precon_list_page(&result, &supplier_names, &suppliers.items, &params);
+    let content = precon_list_page(&result, &supplier_names, &item_counts, &suppliers.items, &params);
     let page_html = admin_page(
         is_htmx, "采购对账", &claims, "purchase", PreconListPath::PATH, "采购管理", Some("采购对账"), content,
     );
-
     Ok(Html(page_html.into_string()))
 }
 
@@ -137,18 +159,15 @@ pub async fn get_precon_table(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_reconciliation_service();
     let supplier_svc = state.supplier_service();
-
     let filter = build_filter(&params);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
     let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-
+    let item_counts = resolve_item_counts(&svc, &service_ctx, &mut conn, &result.items).await;
     let suppliers = supplier_svc
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
-
-    Ok(Html(precon_table_fragment(&result, &supplier_names, &suppliers.items, &params).into_string()))
+    Ok(Html(precon_table_fragment(&result, &supplier_names, &item_counts, &suppliers.items, &params).into_string()))
 }
 
 // ── Components ──
@@ -156,6 +175,7 @@ pub async fn get_precon_table(
 fn precon_list_page(
     result: &abt_core::shared::types::PaginatedResult<PurchaseReconciliation>,
     supplier_names: &HashMap<i64, String>,
+    item_counts: &HashMap<i64, usize>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PreconQueryParams,
 ) -> Markup {
@@ -171,9 +191,8 @@ fn precon_list_page(
                     }
                 }
             }
-
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (precon_table_fragment(result, supplier_names, suppliers, params))
+            (precon_table_fragment(result, supplier_names, item_counts, suppliers, params))
         }
     }
 }
@@ -181,26 +200,25 @@ fn precon_list_page(
 fn precon_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<PurchaseReconciliation>,
     supplier_names: &HashMap<i64, String>,
+    item_counts: &HashMap<i64, usize>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PreconQueryParams,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
     let total_count = result.total;
-
     let tabs = &[
         TabItem { value: String::new(), label: "全部", count: Some(total_count) },
         TabItem { value: "1".into(), label: "草稿", count: None },
         TabItem { value: "2".into(), label: "已确认", count: None },
         TabItem { value: "3".into(), label: "已结算", count: None },
     ];
-
     let selected_supplier = params.supplier_id.map(|id| id.to_string()).unwrap_or_default();
-
+    let selected_period = params.period.as_deref().unwrap_or("");
+    let periods = generate_periods(12);
     html! {
         div class="precon-list-panel" {
             (status_tabs(PreconTablePath::PATH, "closest .precon-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
-
             // ── Filter Bar ──
             div class="filter-bar" {
                 div class="search-wrap" {
@@ -224,28 +242,38 @@ fn precon_table_fragment(
                         option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
                     }
                 }
+                select class="filter-select" name="period"
+                    hx-get=(PreconTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="closest .precon-list-panel"
+                    hx-swap="outerHTML"
+                    hx-include=".filter-bar input, .filter-bar select" {
+                    option value="" { "全部期间" }
+                    @for p in &periods {
+                        option value=(p) selected[*selected_period == *p] { (p) }
+                    }
+                }
             }
-
             // ── Data Table ──
             div class="data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {
                             tr {
-                                th { "单据编号" }
+                                th { "对账单号" }
                                 th { "供应商名称" }
                                 th { "对账期间" }
                                 th { "状态" }
-                                th class="num-right" { "总金额" }
-                                th class="num-right" { "确认金额" }
-                                th class="num-right" { "差异" }
-                                th { "创建时间" }
+                                th class="num-right" { "订单笔数" }
+                                th class="num-right" { "应付金额" }
+                                th class="num-right" { "退货冲减" }
+                                th class="num-right" { "实付金额" }
                                 th { "操作" }
                             }
                         }
                         tbody {
                             @for r in &result.items {
-                                (precon_row(r, supplier_names))
+                                (precon_row(r, supplier_names, item_counts))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -266,13 +294,14 @@ fn precon_table_fragment(
 fn precon_row(
     r: &PurchaseReconciliation,
     supplier_names: &HashMap<i64, String>,
+    item_counts: &HashMap<i64, usize>,
 ) -> Markup {
     let detail_path = PreconDetailPath { id: r.id };
     let (status_text, status_class) = status_label(r.status);
     let supplier_name = supplier_names.get(&r.supplier_id).map(|s| s.as_str()).unwrap_or("—");
-    let created = r.created_at.format("%Y-%m-%d").to_string();
+    let count = item_counts.get(&r.id).unwrap_or(&0);
+    let return_amount = r.total_amount - r.confirmed_amount;
     let onclick = format!("location.href='{}'", detail_path);
-
     html! {
         tr style="cursor:pointer" {
             td class="link-cell mono" onclick=(&onclick) { (r.doc_number) }
@@ -281,10 +310,10 @@ fn precon_row(
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
+            td class="num-right" onclick=(&onclick) { (count) }
             td class="num-right" onclick=(&onclick) { (format_amount(r.total_amount)) }
+            td class="num-right" onclick=(&onclick) { (format_amount(return_amount)) }
             td class="num-right" onclick=(&onclick) { (format_amount(r.confirmed_amount)) }
-            td class="num-right" onclick=(&onclick) { (format_amount(r.difference)) }
-            td onclick=(&onclick) { (created) }
             td onclick="event.stopPropagation()" {
                 a class="row-action-btn" href=(detail_path.to_string()) title="查看详情" {
                     (icon::edit_icon("w-4 h-4"))

@@ -5,6 +5,7 @@ use maud::{html, Markup};
 use serde::Deserialize;
 
 use abt_core::master_data::product::ProductService;
+use abt_core::master_data::supplier::SupplierService;
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::purchase::enums::PurchaseOrderStatus;
 use abt_core::purchase::order::model::PurchaseOrderQuery;
@@ -63,35 +64,30 @@ pub async fn get_pr_create(
     } = ctx;
     let order_svc = state.purchase_order_service();
 
-    // Fetch Draft + Confirmed purchase orders
-    let mut draft_orders = order_svc
-        .list(
-            &service_ctx,
-            &mut conn,
-            PurchaseOrderQuery {
-                status: Some(PurchaseOrderStatus::Draft),
-                ..Default::default()
-            },
-            PageParams::new(1, 100),
-        )
-        .await?;
+    // Fetch orders eligible for return: Confirmed, PartiallyReceived, Received
+    let statuses = [
+        PurchaseOrderStatus::Confirmed,
+        PurchaseOrderStatus::PartiallyReceived,
+        PurchaseOrderStatus::Received,
+    ];
 
-    let confirmed_orders = order_svc
-        .list(
-            &service_ctx,
-            &mut conn,
-            PurchaseOrderQuery {
-                status: Some(PurchaseOrderStatus::Confirmed),
-                ..Default::default()
-            },
-            PageParams::new(1, 100),
-        )
-        .await?;
+    let mut all_orders = Vec::new();
+    for status in &statuses {
+        let result = order_svc
+            .list(
+                &service_ctx,
+                &mut conn,
+                PurchaseOrderQuery {
+                    status: Some(*status),
+                    ..Default::default()
+                },
+                PageParams::new(1, 100),
+            )
+            .await?;
+        all_orders.extend(result.items);
+    }
 
-    draft_orders.items.extend(confirmed_orders.items);
-    let orders = draft_orders.items;
-
-    let content = pr_create_page(&orders);
+    let content = pr_create_page(&all_orders);
     let page_html = admin_page(
         is_htmx,
         "新建采购退货",
@@ -106,7 +102,7 @@ pub async fn get_pr_create(
     Ok(Html(page_html.into_string()))
 }
 
-/// HTMX: fetch order items for a selected purchase order
+/// HTMX: fetch order items + supplier info for a selected purchase order
 #[require_permission("PURCHASE_RETURN", "create")]
 pub async fn get_pr_order_items(
     ctx: RequestContext,
@@ -120,9 +116,29 @@ pub async fn get_pr_order_items(
     } = ctx;
 
     let order_svc = state.purchase_order_service();
+    let order = order_svc
+        .get(&service_ctx, &mut conn, params.order_id)
+        .await?;
     let items = order_svc
         .list_items(&service_ctx, &mut conn, params.order_id)
         .await?;
+
+    // Fetch supplier info
+    let supplier_svc = state.supplier_service();
+    let supplier = supplier_svc
+        .get(&service_ctx, &mut conn, order.supplier_id)
+        .await?;
+    let contacts = supplier_svc
+        .list_contacts(&service_ctx, &mut conn, order.supplier_id)
+        .await?;
+
+    // Primary contact info
+    let primary = contacts.iter().find(|c| c.is_primary).or_else(|| contacts.first());
+    let contact_name = primary.map(|c| c.name.as_str()).unwrap_or("—");
+    let contact_phone = primary
+        .and_then(|c| c.phone.as_ref())
+        .map(|s| s.as_str())
+        .unwrap_or("—");
 
     // Collect product IDs and batch-fetch product info
     let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
@@ -137,7 +153,22 @@ pub async fn get_pr_order_items(
     let product_map: std::collections::HashMap<i64, &abt_core::master_data::product::model::Product> =
         products.iter().map(|p| (p.product_id, p)).collect();
 
-    Ok(Html(order_items_fragment(&items, &product_map).into_string()))
+    let supplier_info = SupplierInfo {
+        name: supplier.name,
+        contact: contact_name.to_string(),
+        phone: contact_phone.to_string(),
+    };
+
+    Ok(Html(
+        order_items_fragment(&items, &product_map, &supplier_info).into_string(),
+    ))
+}
+
+/// Supplier info carried from order selection
+struct SupplierInfo {
+    name: String,
+    contact: String,
+    phone: String,
 }
 
 /// POST: create purchase return from form submission (HTMX)
@@ -225,18 +256,30 @@ fn pr_create_page(
 
             form id="pr-form"
                   hx-post=(PRCreatePath::PATH)
-                  hx-swap="none" {
-                input type="hidden" name="items_json";
+                  hx-swap="none"
+                  _="on submit
+                     set items to []
+                     repeat for row in <tr/> in <#pr-item-tbody/>
+                       get row as Values
+                       append it to items
+                     end
+                     set #items-json's value to items as JSONString" {
+                input type="hidden" id="items-json" name="items_json" value="[]";
                 input type="hidden" name="order_id";
 
-            // ── Order Selection ──
+            // ── 关联单据 ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
                 div class="form-section-title" { "关联单据" }
                 div class="form-grid" {
                     div class="form-field" {
                         label { "采购订单" span style="color:var(--danger)" { "*" } }
                         select id="pr-order-select"
-                            onchange="loadOrderItems()" {
+                            hx-get=(PROrderItemsPath::PATH)
+                            hx-trigger="change"
+                            hx-target="#pr-order-data"
+                            hx-swap="innerHTML"
+                            hx-include="#pr-order-select"
+                            name="order_id" {
                             option value="" { "请选择采购订单" }
                             @for o in orders {
                                 @let status_text = order_status_text(o.status);
@@ -244,76 +287,117 @@ fn pr_create_page(
                             }
                         }
                     }
+                    div class="form-field" {
+                        label { "供应商" }
+                        input type="text" id="pr-supplier-name" readonly value="—" {}
+                    }
+                    div class="form-field" {
+                        label { "联系人" }
+                        input type="text" id="pr-contact" readonly value="—" {}
+                    }
+                    div class="form-field" {
+                        label { "联系电话" }
+                        input type="text" id="pr-phone" readonly value="—" {}
+                    }
                 }
             }
 
-            // ── Return Info ──
+            // ── 退货信息 ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
                 div class="form-section-title" { "退货信息" }
                 div class="form-grid" {
                     div class="form-field" {
-                        label { "退货日期" }
-                        input type="date" name="return_date" value=(today) {}
+                        label { "退货日期" span style="color:var(--danger)" { "*" } }
+                        input type="date" name="return_date" value=(today) required {}
                     }
                     div class="form-field" {
                         label { "退货原因" span style="color:var(--danger)" { "*" } }
-                        select name="return_reason" required id="pr-return-reason" {
+                        select name="return_reason" required {
                             option value="" { "请选择" }
-                            option value="质量问题" { "质量问题" }
-                            option value="数量不符" { "数量不符" }
-                            option value="规格错误" { "规格错误" }
-                            option value="供应商取消" { "供应商取消" }
+                            option value="质量不合格" { "质量不合格" }
+                            option value="规格不符" { "规格不符" }
+                            option value="数量短缺" { "数量短缺" }
+                            option value="损坏" { "损坏" }
+                            option value="交货延迟" { "交货延迟" }
                             option value="其他" { "其他" }
                         }
                     }
-                    // TODO: Rewrite conditional display with vanilla JS
-                    div class="form-field" style="display:none" {
-                        label { "具体原因" span style="color:var(--danger)" { "*" } }
-                        input type="text" id="pr-return-reason-detail"
-                            placeholder="请输入具体退货原因"
-                            maxlength="200" {}
+                    div class="form-field" {
+                        label { "处理方式" }
+                        select name="processing_method" {
+                            option value="" { "请选择" }
+                            option value="退货退款" { "退货退款" }
+                            option value="换货" { "换货" }
+                            option value="返工" { "返工" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "物流公司" }
+                        input type="text" name="logistics_company" placeholder="输入物流公司名称…" {}
+                    }
+                    div class="form-field" {
+                        label { "物流单号" }
+                        input type="text" name="tracking_number" placeholder="输入物流单号…" {}
+                    }
+                    div class="form-field" {
+                        label { "处理人" }
+                        select name="handler" {
+                            option value="" { "请选择" }
+                            option value="current_user" { "当前用户" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "收货仓库" }
+                        select name="receiving_warehouse" {
+                            option value="" { "请选择仓库" }
+                            option value="东莞原料仓" { "东莞原料仓" }
+                            option value="深圳成品仓" { "深圳成品仓" }
+                            option value="苏州配件仓" { "苏州配件仓" }
+                        }
+                    }
+                    div class="form-field span-2" {
+                        label { "备注" }
+                        textarea name="remark" placeholder="输入退货相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
                     }
                 }
             }
-            // TODO: Rewrite computed return_reason hidden input with vanilla JS
-            input type="hidden" name="return_reason";
 
-            // ── Line Items ──
-            // TODO: Rewrite conditional display with vanilla JS
-            div class="data-card" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
+            // ── 退货产品明细 ──
+            div id="pr-items-section" class="data-card" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                    span class="form-section-title" style="margin:0;padding:0;border:none" { "退货明细" }
+                    span class="form-section-title" style="margin:0;padding:0;border:none" { "退货产品明细" }
                 }
                 div style="overflow-x:auto" {
-                    table class="data-table" style="min-width:700px" {
+                    table class="data-table" style="min-width:1100px" {
                         thead {
                             tr {
-                                th style="width:36px;text-align:center" { "#" }
-                                th { "产品编码" }
-                                th { "产品名称" }
+                                th style="width:36px;text-align:center" { "行号" }
+                                th { "物料编码" }
+                                th { "物料名称" }
+                                th { "规格" }
+                                th { "单位" }
                                 th class="num-right" { "订单数量" }
-                                th class="num-right" { "单价" }
+                                th class="num-right" { "已收货" }
                                 th style="width:120px;text-align:right" { "退货数量" }
-                                th style="width:36px" { }
+                                th class="num-right" { "单价" }
+                                th class="num-right" { "退货金额" }
+                                th style="width:36px" { "操作" }
                             }
                         }
-                        tbody {
-                            // TODO: Rewrite x-for loop with vanilla JS rendering
-                        }
+                        tbody id="pr-item-tbody" { }
                     }
                 }
             }
 
-            // ── Remark ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "备注" }
-                textarea name="remark" placeholder="输入退货相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
-            }
+            // Hidden container for HTMX swap of order data
+            div id="pr-order-data" style="display:none" { }
 
-            // ── Action Bar ──
             div class="create-action-bar" {
                 a class="btn btn-default" href=(PRListPath::PATH) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
+                    button type="button" class="btn btn-default" id="pr-save-draft" {
+                        "保存草稿"
+                    }
                     button type="submit" class="btn btn-primary" {
                         "提交退货"
                     }
@@ -322,6 +406,7 @@ fn pr_create_page(
             }
 
         }
+        script src="/return-create.js?v=20260604" {}
     }
 }
 
@@ -329,23 +414,33 @@ fn pr_create_page(
 fn order_items_fragment(
     items: &[abt_core::purchase::order::model::PurchaseOrderItem],
     product_map: &std::collections::HashMap<i64, &abt_core::master_data::product::model::Product>,
+    supplier_info: &SupplierInfo,
 ) -> Markup {
     html! {
-        @for item in items {
-            @let product = product_map.get(&item.product_id);
-            @let product_code = product.map(|p| p.product_code.as_str()).unwrap_or("");
-            @let product_name = product.map(|p| p.pdt_name.as_str()).unwrap_or(item.description.as_str());
-            @let item_json = serde_json::json!({
-                "order_item_id": item.id,
-                "product_id": item.product_id,
-                "product_code": product_code,
-                "product_name": product_name,
-                "order_qty": item.quantity.to_string(),
-                "unit_price": item.unit_price.to_string(),
-                "returned_qty": item.quantity.to_string(),
-            }).to_string();
+        div data-supplier-name=(supplier_info.name)
+            data-contact=(supplier_info.contact)
+            data-phone=(supplier_info.phone) {
+            @for item in items {
+                @let product = product_map.get(&item.product_id);
+                @let product_code = product.map(|p| p.product_code.as_str()).unwrap_or("");
+                @let product_name = product.map(|p| p.pdt_name.as_str()).unwrap_or(item.description.as_str());
+                @let specification = product.map(|p| p.meta.specification.as_str()).unwrap_or("");
+                @let unit = product.map(|p| p.unit.as_str()).unwrap_or("");
+                @let item_json = serde_json::json!({
+                    "order_item_id": item.id,
+                    "product_id": item.product_id,
+                    "product_code": product_code,
+                    "product_name": product_name,
+                    "specification": specification,
+                    "unit": unit,
+                    "order_qty": item.quantity.to_string(),
+                    "received_qty": item.received_qty.to_string(),
+                    "unit_price": item.unit_price.to_string(),
+                    "returned_qty": item.quantity.to_string(),
+                }).to_string();
 
-            div data-item=(item_json) {}
+                div data-item=(item_json) {}
+            }
         }
     }
 }

@@ -67,19 +67,21 @@ pub async fn get_pr_detail(
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| "—".into());
 
-    let (product_names, product_codes) = {
+    let (product_names, product_codes, product_specs, product_units) = {
         let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
         if product_ids.is_empty() {
-            (HashMap::new(), HashMap::new())
+            (HashMap::new(), HashMap::new(), HashMap::new(), HashMap::new())
         } else {
             let products = product_svc.get_by_ids(&service_ctx, &mut conn, product_ids).await.unwrap_or_default();
             let names: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect();
             let codes: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.product_code.clone())).collect();
-            (names, codes)
+            let specs: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.meta.specification.clone())).collect();
+            let units: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.unit.clone())).collect();
+            (names, codes, specs, units)
         }
     };
 
-    let content = pr_detail_page(&pr, &items, &supplier_name, &order_doc_number, &operator_name, &product_names, &product_codes);
+    let content = pr_detail_page(&pr, &items, &supplier_name, &order_doc_number, &operator_name, &product_names, &product_codes, &product_specs, &product_units);
     let page_html = admin_page(
         is_htmx, "退货详情", &claims, "purchase",
         &format!("{}/{}", PRListPath::PATH, path.id),
@@ -171,6 +173,8 @@ fn pr_detail_page(
     operator_name: &str,
     product_names: &HashMap<i64, String>,
     product_codes: &HashMap<i64, String>,
+    product_specs: &HashMap<i64, String>,
+    product_units: &HashMap<i64, String>,
 ) -> Markup {
     let (status_text, status_class) = status_label(pr.status);
 
@@ -254,20 +258,22 @@ fn pr_detail_page(
                         thead {
                             tr {
                                 th { "行号" }
-                                th { "产品编码" }
-                                th { "产品名称" }
+                                th { "物料编码" }
+                                th { "物料名称" }
+                                th { "规格" }
+                                th { "单位" }
                                 th class="num-right" { "退货数量" }
                                 th class="num-right" { "单价" }
-                                th class="num-right" { "小计" }
+                                th class="num-right" { "退货金额" }
                             }
                         }
                         tbody {
                             @for (idx, item) in items.iter().enumerate() {
-                                (item_row(idx, item, product_names, product_codes))
+                                (item_row(idx, item, product_names, product_codes, product_specs, product_units))
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="6" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                         "暂无明细"
                                     }
                                 }
@@ -278,11 +284,10 @@ fn pr_detail_page(
             }
 
             // ── Amount Summary ──
-            div class="info-card" style="margin-top:var(--space-6)" {
-                div class="info-card-title" { "退货总额" }
-                div class="amount-summary" {
+            div class="amount-summary" {
+                div class="amount-row" {
                     span class="amount-label" { "退货总额" }
-                    span class="amount-value" { (format!("{:.2}", pr.total_amount)) }
+                    span class="amount-value accent" { (format!("¥ {:.2}", pr.total_amount)) }
                 }
             }
         }
@@ -294,15 +299,20 @@ fn item_row(
     item: &PurchaseReturnItem,
     names: &HashMap<i64, String>,
     codes: &HashMap<i64, String>,
+    specs: &HashMap<i64, String>,
+    units: &HashMap<i64, String>,
 ) -> Markup {
     let product_name = names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let product_code = codes.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
-
+    let product_spec = specs.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+    let product_unit = units.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     html! {
         tr {
             td class="mono" { (idx + 1) }
             td class="mono" { (product_code) }
             td { (product_name) }
+            td { (product_spec) }
+            td { (product_unit) }
             td class="num-right" { (item.returned_qty) }
             td class="num-right" { (format!("{:.2}", item.unit_price)) }
             td class="num-right" { (format!("{:.2}", item.amount)) }

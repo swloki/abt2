@@ -104,6 +104,58 @@ async fn resolve_supplier_names<S: SupplierService>(
     }
 }
 
+async fn resolve_supplier_contacts<S: SupplierService>(
+    svc: &S,
+    ctx: &abt_core::shared::types::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    quotations: &[PurchaseQuotation],
+) -> HashMap<i64, String> {
+    let unique_ids: Vec<i64> = quotations
+        .iter()
+        .map(|q| q.supplier_id)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    if unique_ids.is_empty() {
+        return HashMap::new();
+    }
+    let mut map = HashMap::new();
+    for sid in &unique_ids {
+        if let Ok(contacts) = svc.list_contacts(ctx, db, *sid).await {
+            if let Some(primary) = contacts.iter().find(|c| c.is_primary) {
+                map.insert(*sid, primary.name.clone());
+            } else if let Some(first) = contacts.first() {
+                map.insert(*sid, first.name.clone());
+            }
+        }
+    }
+    map
+}
+
+async fn resolve_supplier_currencies<S: SupplierService>(
+    svc: &S,
+    ctx: &abt_core::shared::types::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    quotations: &[PurchaseQuotation],
+) -> HashMap<i64, String> {
+    let ids: Vec<i64> = quotations.iter().map(|q| q.supplier_id).collect();
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    let all = svc
+        .list(ctx, db, SupplierQuery::default(), PageParams::new(1, 200))
+        .await;
+    match all {
+        Ok(result) => result
+            .items
+            .into_iter()
+            .filter(|s| ids.contains(&s.id))
+            .map(|s| (s.id, s.currency))
+            .collect(),
+        Err(_) => HashMap::new(),
+    }
+}
+
 // ── Status Labels ──
 
 fn status_label(s: PurchaseQuotationStatus) -> (&'static str, &'static str) {
@@ -133,12 +185,14 @@ pub async fn get_pq_list(
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
     let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
+    let supplier_contacts = resolve_supplier_contacts(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
+    let supplier_currencies = resolve_supplier_currencies(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
 
     let suppliers = supplier_svc
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = pq_list_page(&result, &supplier_names, &suppliers.items, &params);
+    let content = pq_list_page(&result, &supplier_names, &supplier_contacts, &supplier_currencies, &suppliers.items, &params);
     let page_html = admin_page(
         is_htmx, "采购报价", &claims, "purchase", PQListPath::PATH, "采购管理", Some("采购报价"), content,
     );
@@ -160,12 +214,14 @@ pub async fn get_pq_table(
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
     let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
+    let supplier_contacts = resolve_supplier_contacts(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
+    let supplier_currencies = resolve_supplier_currencies(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
 
     let suppliers = supplier_svc
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
 
-    Ok(Html(pq_table_fragment(&result, &supplier_names, &suppliers.items, &params).into_string()))
+    Ok(Html(pq_table_fragment(&result, &supplier_names, &supplier_contacts, &supplier_currencies, &suppliers.items, &params).into_string()))
 }
 
 // ── Components ──
@@ -173,6 +229,8 @@ pub async fn get_pq_table(
 fn pq_list_page(
     result: &abt_core::shared::types::PaginatedResult<PurchaseQuotation>,
     supplier_names: &HashMap<i64, String>,
+    supplier_contacts: &HashMap<i64, String>,
+    supplier_currencies: &HashMap<i64, String>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PQQueryParams,
 ) -> Markup {
@@ -190,7 +248,7 @@ fn pq_list_page(
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (pq_table_fragment(result, supplier_names, suppliers, params))
+            (pq_table_fragment(result, supplier_names, supplier_contacts, supplier_currencies, suppliers, params))
         }
     }
 }
@@ -198,6 +256,8 @@ fn pq_list_page(
 fn pq_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<PurchaseQuotation>,
     supplier_names: &HashMap<i64, String>,
+    supplier_contacts: &HashMap<i64, String>,
+    supplier_currencies: &HashMap<i64, String>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PQQueryParams,
 ) -> Markup {
@@ -262,19 +322,19 @@ fn pq_table_fragment(
                     table class="data-table" {
                         thead {
                             tr {
-                                th { "单据编号" }
+                                th { "报价单号" }
                                 th { "供应商名称" }
+                                th { "联系人" }
                                 th { "状态" }
                                 th { "报价日期" }
                                 th { "有效期至" }
-                                th { "备注" }
-                                th { "创建时间" }
+                                th { "币种" }
                                 th { "操作" }
                             }
                         }
                         tbody {
                             @for q in &result.items {
-                                (pq_row(q, supplier_names))
+                                (pq_row(q, supplier_names, supplier_contacts, supplier_currencies))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -295,11 +355,14 @@ fn pq_table_fragment(
 fn pq_row(
     q: &PurchaseQuotation,
     supplier_names: &HashMap<i64, String>,
+    supplier_contacts: &HashMap<i64, String>,
+    supplier_currencies: &HashMap<i64, String>,
 ) -> Markup {
     let detail_path = PQDetailPath { id: q.id };
     let (status_text, status_class) = status_label(q.status);
     let supplier_name = supplier_names.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("—");
-    let created = q.created_at.format("%Y-%m-%d").to_string();
+    let contact = supplier_contacts.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("—");
+    let currency = supplier_currencies.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("CNY");
     let onclick = format!("location.href='{}'", detail_path);
         let is_draft = q.status == PurchaseQuotationStatus::Draft;
         let can_delete = q.status != PurchaseQuotationStatus::Active;
@@ -307,13 +370,13 @@ fn pq_row(
         tr style="cursor:pointer" {
             td class="link-cell mono" onclick=(&onclick) { (q.doc_number) }
             td onclick=(&onclick) { (supplier_name) }
+            td onclick=(&onclick) { (contact) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td class="mono" onclick=(&onclick) { (q.quotation_date.format("%Y-%m-%d")) }
             td class="mono" onclick=(&onclick) { (q.valid_until.format("%Y-%m-%d")) }
-            td onclick=(&onclick) { (q.remark.as_str()) }
-            td onclick=(&onclick) { (created) }
+            td onclick=(&onclick) { (currency) }
             td onclick="event.stopPropagation()" {
                 @if is_draft || can_delete {
                     div class="row-actions" {

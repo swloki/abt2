@@ -21,6 +21,53 @@ cargo clippy                  # Lint 检查
 - 新增组件样式优先使用 UnoCSS `shortcuts`（工具类组合）；复杂选择器、伪元素、媒体查询等无法用 shortcuts 表达的样式放入 `preflights`
 - HTML 模板只引用 `/app.css`，不引用其他 CSS 文件
 - 禁止在 `static/` 下新建 CSS 文件
+
+### 组件样式类名速查 (uno.config.ts)
+
+| 类名 | 用途 | 说明 |
+|------|------|------|
+| `data-card` | 数据卡片容器 | 白色圆角卡片，带阴影 |
+| `data-table` | 数据表格 | 全宽表格，标准间距 |
+| `data-card-scroll` | 表格溢出滚动 | 包裹 data-table 的 div |
+| `form-section` | 表单分区 | 带 margin-bottom 的容器 |
+| `form-section-title` | 表单分区内标题 | 灰色下边框小标题 |
+| `form-grid` | 表单双列网格 | `grid-template-columns: 1fr 1fr` |
+| `form-field` | 表单字段组 | 包裹 label + input/select/textarea |
+| `form-field.span-2` | 跨两列字段 | `.span-2 { grid-column: 1 / -1 }` |
+| `form-field.field-full` | 跨两列字段（别名） | 同 span-2 |
+| `form-input` | 输入框工具类 | UnoCSS shortcut，标准边框/圆角/聚焦 |
+| `form-select` | 下拉选择工具类 | UnoCSS shortcut，`appearance-none` |
+| `filter-bar` | 筛选栏 | flex 布局，带 gap |
+| `filter-select` | 筛选下拉框 | 自定义箭头，聚焦高亮 |
+| `search-wrap` + `search-input` | 搜索输入框 | 左侧放大镜图标 |
+| `supplier-info-bar` | 供应商信息条 | 联系人/电话/地址/合作年限展示 |
+| `status-tabs` | 状态 Tab 栏 | 采购列表页 Tab 筛选 |
+| `status-pill` | 状态标签 | 详情页状态标记 |
+| `page-header` | 页面头部 | 标题 + 操作按钮区域 |
+| `page-title` | 页面标题 | 大号加粗 |
+| `back-link` | 返回链接 | 左箭头 + 文字 |
+| `create-action-bar` | 创建页底部操作栏 | sticky 底部，取消/提交按钮 |
+| `add-row-bar` | 添加行按钮栏 | 表格底部添加行按钮 |
+| `btn-add-row` | 添加行按钮 | 虚线边框样式 |
+| `btn-remove-row` | 删除行按钮 | 红色叉号 |
+| `modal-overlay` | 模态框遮罩 | 半透明黑色背景 |
+| `modal` / `modal-lg` | 模态框 | 白色居中弹窗 |
+| `modal-head` / `modal-body` / `modal-foot` | 模态框区域 | 头部/内容/底部 |
+| `product-search-*` | 产品搜索组件 | 搜索栏 + 结果列表 |
+| `product-select-*` | 产品选择列表 | 产品名称/编码/规格 |
+| `line-num` | 行号 | 序号列 |
+| `line-subtotal` | 行小计 | 自动计算的金额 |
+| `num-right` | 数字右对齐 | 表格数字列 |
+| `mono` | 等宽字体 | 编号/金额 |
+| `info-card` | 详情信息卡片 | 白色卡片，网格布局 |
+| `info-grid` | 详情信息网格 | 多列 grid |
+| `info-item` | 详情信息项 | label + value |
+| `amount-summary` | 金额汇总区 | 底部金额统计 |
+| `amount-row` | 金额汇总行 | label + value |
+| `workflow-steps` | 工作流步骤条 | 流程进度展示 |
+| `wf-step` | 工作流单步 | 步骤圆点 + 文字 |
+| `stat-card` | 统计卡片 | Dashboard 数字统计 |
+| `pagination` | 分页组件 | 页码导航 |
 - **禁止在 Maud 模板中使用 `style` 属性内联样式。** 所有样式必须提取到 `uno.config.ts` 中作为 CSS 类，Maud 模板只使用 `class` 引用。这样做的好处：（1）样式可复用，避免重复定义；（2）统一管理，修改样式只需改一处；（3）减少 HTML 体积。唯一例外是 `<col>` 等 HTML 元素上必须用 style 的极少数场景。
 
 ### SSR + HTMX

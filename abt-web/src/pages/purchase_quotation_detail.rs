@@ -46,31 +46,54 @@ pub async fn get_pq_detail(
     let pq = svc.get(&service_ctx, &mut conn, path.id).await?;
     let items = svc.list_items(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
 
-    let supplier_name = supplier_svc
+    let supplier = supplier_svc
         .get(&service_ctx, &mut conn, pq.supplier_id)
         .await
-        .map(|s| s.name)
-        .unwrap_or_else(|_| "未知供应商".into());
+        .ok();
+    let supplier_name = supplier.as_ref().map(|s| s.name.as_str()).unwrap_or("未知供应商");
 
-    let operator_name = user_svc
+    // Resolve primary contact for supplier
+    let (supplier_contact, supplier_phone) = match &supplier {
+        Some(_s) => {
+            let contacts = supplier_svc
+                .list_contacts(&service_ctx, &mut conn, pq.supplier_id)
+                .await
+                .unwrap_or_default();
+            let primary = contacts.iter().find(|c| c.is_primary).or_else(|| contacts.first());
+            match primary {
+                Some(c) => (c.name.clone(), c.phone.clone().unwrap_or_else(|| "—".into())),
+                None => ("—".into(), "—".into()),
+            }
+        }
+        None => ("—".into(), "—".into()),
+    };
+
+    let buyer_name = user_svc
         .get_user(&service_ctx, &mut conn, pq.operator_id)
         .await
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| "—".into());
 
-    let (product_names, product_codes) = {
+    let (product_names, product_codes, product_specs, product_units) = {
         let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
         if product_ids.is_empty() {
-            (HashMap::new(), HashMap::new())
+            (HashMap::new(), HashMap::new(), HashMap::new(), HashMap::new())
         } else {
             let products = product_svc.get_by_ids(&service_ctx, &mut conn, product_ids).await.unwrap_or_default();
             let names: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect();
             let codes: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.product_code.clone())).collect();
-            (names, codes)
+            let specs: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.meta.specification.clone())).collect();
+            let units: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.unit.clone())).collect();
+            (names, codes, specs, units)
         }
     };
 
-    let content = pq_detail_page(&pq, &items, &supplier_name, &operator_name, &product_names, &product_codes);
+    let content = pq_detail_page(
+        &pq, &items,
+        supplier_name, &supplier_contact, &supplier_phone,
+        &buyer_name,
+        &product_names, &product_codes, &product_specs, &product_units,
+    );
     let page_html = admin_page(
         is_htmx, "报价详情", &claims, "purchase",
         &format!("{}/{}", PQListPath::PATH, path.id),
@@ -177,11 +200,17 @@ fn pq_detail_page(
     pq: &PurchaseQuotation,
     items: &[PurchaseQuotationItem],
     supplier_name: &str,
-    operator_name: &str,
+    supplier_contact: &str,
+    supplier_phone: &str,
+    buyer_name: &str,
     product_names: &HashMap<i64, String>,
     product_codes: &HashMap<i64, String>,
+    product_specs: &HashMap<i64, String>,
+    product_units: &HashMap<i64, String>,
 ) -> Markup {
     let (status_text, status_class) = status_label(pq.status);
+    let currency = items.first().map(|i| i.currency.as_str()).unwrap_or("CNY");
+    let remark = if pq.remark.is_empty() { "—" } else { pq.remark.as_str() };
 
     html! {
         div {
@@ -200,6 +229,8 @@ fn pq_detail_page(
                     }
                 }
                 div class="page-actions" {
+                    button class="btn btn-default" { "打印" }
+                    button class="btn btn-primary" { "转采购订单" }
                     @if pq.status == PurchaseQuotationStatus::Draft {
                         button class="btn btn-primary"
                             hx-post=(PQActivatePath { id: pq.id }.to_string())
@@ -236,24 +267,34 @@ fn pq_detail_page(
                         span class="info-value" { (supplier_name) }
                     }
                     div class="info-item" {
+                        span class="info-label" { "联系人" }
+                        span class="info-value" { (supplier_contact) }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "联系电话" }
+                        span class="info-value" { (supplier_phone) }
+                    }
+                    div class="info-item" {
                         span class="info-label" { "报价日期" }
                         span class="info-value mono" { (pq.quotation_date.format("%Y-%m-%d")) }
                     }
                     div class="info-item" {
-                        span class="info-label" { "有效期从" }
-                        span class="info-value mono" { (pq.valid_from.format("%Y-%m-%d")) }
+                        span class="info-label" { "有效期" }
+                        span class="info-value mono" {
+                            (format!("{} ~ {}", pq.valid_from.format("%Y-%m-%d"), pq.valid_until.format("%Y-%m-%d")))
+                        }
                     }
                     div class="info-item" {
-                        span class="info-label" { "有效期至" }
-                        span class="info-value mono" { (pq.valid_until.format("%Y-%m-%d")) }
+                        span class="info-label" { "币种" }
+                        span class="info-value" { (currency) }
                     }
                     div class="info-item" {
-                        span class="info-label" { "操作人" }
-                        span class="info-value" { (operator_name) }
+                        span class="info-label" { "采购员" }
+                        span class="info-value" { (buyer_name) }
                     }
                     div class="info-item" {
-                        span class="info-label" { "创建时间" }
-                        span class="info-value mono" { (pq.created_at.format("%Y-%m-%d %H:%M")) }
+                        span class="info-label" { "备注" }
+                        span class="info-value" { (remark) }
                     }
                 }
             }
@@ -265,22 +306,23 @@ fn pq_detail_page(
                         thead {
                             tr {
                                 th { "行号" }
-                                th { "产品编码" }
-                                th { "产品名称" }
+                                th { "物料编码" }
+                                th { "物料名称" }
+                                th { "规格描述" }
+                                th { "单位" }
                                 th class="num-right" { "单价" }
                                 th class="num-right" { "最小起订量" }
-                                th class="num-right" { "交货周期(天)" }
-                                th { "币种" }
-                                th { "首选" }
+                                th { "交货周期" }
+                                th { "是否首选" }
                             }
                         }
                         tbody {
                             @for item in items {
-                                (item_row(item, product_names, product_codes))
+                                (item_row(item, product_names, product_codes, product_specs, product_units))
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                         "暂无明细"
                                     }
                                 }
@@ -290,11 +332,17 @@ fn pq_detail_page(
                 }
             }
 
-            // ── Remarks ──
-            @if !pq.remark.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
-                    div class="info-card-title" { "备注" }
-                    p class="text-muted" { (pq.remark.as_str()) }
+            // ── Amount Summary ──
+            div class="amount-summary" {
+                div class="amount-row" {
+                    span class="amount-label" { "报价项目" }
+                    span class="amount-value" { (format!("{} 项", items.len())) }
+                }
+                div class="amount-row" {
+                    span class="amount-label" { "首选供应商" }
+                    span class="amount-value accent" {
+                        (format!("{} 项", items.iter().filter(|i| i.is_preferred).count()))
+                    }
                 }
             }
         }
@@ -305,9 +353,13 @@ fn item_row(
     item: &PurchaseQuotationItem,
     names: &HashMap<i64, String>,
     codes: &HashMap<i64, String>,
+    specs: &HashMap<i64, String>,
+    units: &HashMap<i64, String>,
 ) -> Markup {
     let product_name = names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let product_code = codes.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+    let spec = specs.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+    let unit = units.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let min_qty = item.min_order_qty.map(|q| q.to_string()).unwrap_or_else(|| "—".into());
     let lead_time = item.lead_time_days.map(|d| d.to_string()).unwrap_or_else(|| "—".into());
     let preferred = if item.is_preferred { "✓" } else { "—" };
@@ -317,10 +369,11 @@ fn item_row(
             td class="mono" { (item.line_no) }
             td class="mono" { (product_code) }
             td { (product_name) }
+            td { (spec) }
+            td { (unit) }
             td class="num-right" { (format!("{:.2}", item.unit_price)) }
             td class="num-right" { (min_qty) }
-            td class="num-right" { (lead_time) }
-            td { (item.currency.as_str()) }
+            td { (lead_time) }
             td style="text-align:center" { (preferred) }
         }
     }

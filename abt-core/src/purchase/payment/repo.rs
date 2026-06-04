@@ -75,6 +75,8 @@ impl PaymentRequestRepo {
               AND ($2::smallint IS NULL OR status = $2)
               AND ($3::date IS NULL OR payment_date >= $3)
               AND ($4::date IS NULL OR payment_date <= $4)
+              AND ($5::text IS NULL OR doc_number ILIKE '%' || $5 || '%')
+              AND ($6::smallint IS NULL OR payment_method = $6)
         ";
 
         // Count
@@ -84,6 +86,8 @@ impl PaymentRequestRepo {
             .bind(q.status)
             .bind(q.payment_date_start)
             .bind(q.payment_date_end)
+            .bind(q.keyword.as_deref())
+            .bind(q.payment_method)
             .fetch_one(&mut *executor)
             .await?;
         let total: i64 = count_row.try_get("cnt")?;
@@ -97,13 +101,15 @@ impl PaymentRequestRepo {
                     invoice_amount, remark, operator_id, created_at, updated_at, deleted_at
              FROM payment_requests {where_clause}
              ORDER BY created_at DESC
-             LIMIT $5 OFFSET $6"
+             LIMIT $7 OFFSET $8"
         );
         let rows = sqlx::query_as::<_, PaymentRequest>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.supplier_id)
             .bind(q.status)
             .bind(q.payment_date_start)
             .bind(q.payment_date_end)
+            .bind(q.keyword.as_deref())
+            .bind(q.payment_method)
             .bind(limit)
             .bind(offset)
             .fetch_all(&mut *executor)

@@ -10,6 +10,7 @@ use abt_core::master_data::supplier::SupplierService;
 use abt_core::master_data::supplier::model::SupplierQuery;
 use abt_core::purchase::quotation::PurchaseQuotationService;
 use abt_core::purchase::quotation::model::*;
+use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -17,6 +18,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::purchase_quotation::{
     PQCreatePath, PQDetailPath, PQItemRowPath, PQListPath, PQProductsPath,
+    PQSupplierContactsPath,
 };
 use crate::utils::RequestContext;
 use abt_core::shared::types::DomainError;
@@ -38,8 +40,11 @@ pub struct PQCreateForm {
     pub quotation_date: String,
     pub valid_from: String,
     pub valid_until: String,
+    pub currency: Option<String>,
+    pub buyer_id: Option<i64>,
     pub remark: Option<String>,
     pub items_json: String,
+    pub action: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,6 +73,7 @@ pub async fn get_pq_create(
         ..
     } = ctx;
     let supplier_svc = state.supplier_service();
+    let user_svc = state.user_service();
 
     let suppliers = supplier_svc
         .list(
@@ -82,7 +88,13 @@ pub async fn get_pq_create(
         )
         .await?;
 
-    let content = pq_create_page(&suppliers.items);
+    let users = user_svc
+        .list_users(&service_ctx, &mut conn, 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+
+    let content = pq_create_page(&suppliers.items, &users);
     let page_html = admin_page(
         is_htmx,
         "新建采购报价",
@@ -149,6 +161,47 @@ pub struct ItemRowParams {
     product_id: i64,
 }
 
+/// HTMX: return supplier contact info fragment (contact, phone, address)
+#[require_permission("PURCHASE_QUOTATION", "create")]
+pub async fn get_pq_supplier_contacts(
+    ctx: RequestContext,
+    Query(params): Query<SupplierContactParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let supplier_svc = state.supplier_service();
+
+    let contacts = if params.supplier_id > 0 {
+        supplier_svc
+            .list_contacts(&service_ctx, &mut conn, params.supplier_id)
+            .await
+            .unwrap_or_default()
+    } else {
+        vec![]
+    };
+
+    // Find primary contact, or fall back to first
+    let primary = contacts.iter().find(|c| c.is_primary).or_else(|| contacts.first());
+
+    let contact_name = primary.map(|c| c.name.as_str()).unwrap_or("");
+    let contact_phone = primary
+        .and_then(|c| c.phone.as_deref())
+        .unwrap_or("");
+
+    Ok(Html(
+        supplier_contact_fields_fragment(contact_name, contact_phone).into_string(),
+    ))
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SupplierContactParams {
+    pub supplier_id: i64,
+}
+
 /// POST: create purchase quotation from form submission (HTMX)
 #[require_permission("PURCHASE_QUOTATION", "create")]
 pub async fn create_pq(
@@ -208,7 +261,10 @@ pub async fn create_pq(
 
 // ── Components ──
 
-fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]) -> Markup {
+fn pq_create_page(
+    suppliers: &[abt_core::master_data::supplier::model::Supplier],
+    users: &[abt_core::shared::identity::model::User],
+) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let default_valid = chrono::Local::now()
         .checked_add_days(chrono::Days::new(30))
@@ -237,18 +293,35 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                      end
                      set #items-json's value to items as JSONString" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
+                input type="hidden" id="form-action" name="action" value="submit";
+
             // ── Supplier Selection ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
                 div class="form-section-title" { "供应商信息" }
                 div class="form-grid" {
                     div class="form-field" {
                         label { "供应商" span style="color:var(--danger)" { "*" } }
-                        select name="supplier_id" required {
+                        select name="supplier_id" required
+                            hx-get=(PQSupplierContactsPath::PATH)
+                            hx-trigger="change"
+                            hx-target="#supplier-contact-fields"
+                            hx-swap="innerHTML"
+                            hx-vals="js:{supplier_id: this.value}" {
                             option value="" disabled selected { "请选择供应商" }
                             @for s in suppliers {
                                 option value=(s.id) { (s.name) }
                             }
                         }
+                    }
+                }
+                div class="form-grid" id="supplier-contact-fields" {
+                    div class="form-field" {
+                        label { "联系人" }
+                        input type="text" readonly placeholder="—" style="background:var(--bg-muted)" {}
+                    }
+                    div class="form-field" {
+                        label { "联系电话" }
+                        input type="text" readonly placeholder="—" style="background:var(--bg-muted)" {}
                     }
                 }
             }
@@ -269,13 +342,32 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                         label { "失效日期" span style="color:var(--danger)" { "*" } }
                         input type="date" name="valid_until" id="f-valid-until" value=(default_valid) {}
                     }
+                    div class="form-field" {
+                        label { "币种" }
+                        select name="currency" {
+                            option value="CNY" selected { "CNY (人民币)" }
+                            option value="USD" { "USD (美元)" }
+                            option value="EUR" { "EUR (欧元)" }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "采购员" }
+                        select name="buyer_id" {
+                            option value="" { "请选择采购员" }
+                            @for u in users {
+                                @if u.is_active {
+                                    option value=(u.user_id) { (u.display_name.as_deref().unwrap_or(&u.username)) }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
             // ── Line Items ──
             div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                    span class="form-section-title" style="margin:0;padding:0;border:none" { "产品明细" }
+                    span class="form-section-title" style="margin:0;padding:0;border:none" { "报价产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
                         _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
@@ -319,6 +411,10 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
             div class="create-action-bar" {
                 a class="btn btn-default" href=(PQListPath::PATH) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
+                    button type="button" class="btn btn-default"
+                        _="on click set #form-action's value to 'draft' then trigger submit on #pq-form" {
+                        "保存草稿"
+                    }
                     button type="submit" class="btn btn-primary" {
                         "提交报价"
                     }
@@ -375,6 +471,20 @@ fn pq_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                 }
             }
 
+        }
+    }
+}
+
+/// Fragment returned by HTMX for supplier contact fields
+fn supplier_contact_fields_fragment(contact_name: &str, contact_phone: &str) -> Markup {
+    html! {
+        div class="form-field" {
+            label { "联系人" }
+            input type="text" readonly value=(contact_name) placeholder="—" style="background:var(--bg-muted)" {}
+        }
+        div class="form-field" {
+            label { "联系电话" }
+            input type="text" readonly value=(contact_phone) placeholder="—" style="background:var(--bg-muted)" {}
         }
     }
 }

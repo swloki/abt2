@@ -154,6 +154,11 @@ impl AppState {
         abt_core::purchase::misc_request::new_misc_request_service(self.pool.clone())
     }
 
+    pub fn department_service(
+        &self,
+    ) -> impl abt_core::shared::identity::DepartmentService {
+        abt_core::shared::identity::implt::DepartmentServiceImpl::new(self.pool.clone())
+    }
 
     // ── Master Data Services ──
 

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use axum::extract::Query;
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
@@ -7,7 +9,9 @@ use serde::Deserialize;
 use abt_core::purchase::enums::MiscRequestStatus;
 use abt_core::purchase::misc_request::model::*;
 use abt_core::purchase::misc_request::MiscellaneousRequestService;
+use abt_core::shared::identity::{DepartmentService, UserService};
 use abt_core::shared::types::PageParams;
+use abt_core::shared::types::ServiceContext;
 
 
 use crate::components::icon;
@@ -28,16 +32,39 @@ pub struct MiscQueryParams {
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
+    pub department: Option<String>,
+    pub date_range: Option<String>,
 }
 
 // ── Helpers ──
 
-fn build_filter(params: &MiscQueryParams) -> MiscRequestQuery {
+fn parse_date_range(range: &str) -> (Option<chrono::NaiveDate>, Option<chrono::NaiveDate>) {
+    let today = chrono::Local::now().date_naive();
+    match range {
+        "7d" => (Some(today - chrono::Days::new(7)), None),
+        "30d" => (Some(today - chrono::Days::new(30)), None),
+        "3m" => (Some(today - chrono::Months::new(3)), None),
+        _ => (None, None),
+    }
+}
+
+fn build_filter(params: &MiscQueryParams, dept_id_map: &HashMap<String, i64>) -> MiscRequestQuery {
+    let (request_date_start, request_date_end) = params
+        .date_range
+        .as_deref()
+        .map(parse_date_range)
+        .unwrap_or((None, None));
+
+    let department_id = params
+        .department
+        .as_deref()
+        .and_then(|name| dept_id_map.get(name).copied());
+
     MiscRequestQuery {
-        department_id: None,
+        department_id,
         status: params.status.and_then(MiscRequestStatus::from_i16),
-        request_date_start: None,
-        request_date_end: None,
+        request_date_start,
+        request_date_end,
     }
 }
 
@@ -49,7 +76,66 @@ fn build_query_string(params: &MiscQueryParams) -> String {
     if let Some(s) = params.status {
         q.push(format!("status={s}"));
     }
+    if let Some(ref dept) = params.department {
+        q.push(format!("department={dept}"));
+    }
+    if let Some(ref dr) = params.date_range {
+        q.push(format!("date_range={dr}"));
+    }
     q.join("&")
+}
+
+async fn resolve_operator_names<S: UserService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    items: &[MiscellaneousRequest],
+) -> HashMap<i64, String> {
+    let ids: Vec<i64> = items.iter().map(|r| r.operator_id).collect();
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    svc.get_users_by_ids(ctx, db, ids)
+        .await
+        .map(|users| {
+            users
+                .into_iter()
+                .map(|u| (u.user.user_id, u.user.display_name.unwrap_or(u.user.username)))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+async fn resolve_department_names<S: DepartmentService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+) -> HashMap<i64, String> {
+    svc.list_departments(ctx, db)
+        .await
+        .map(|depts| {
+            depts
+                .into_iter()
+                .map(|d| (d.department_id, d.department_name))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+async fn load_dept_id_map<S: DepartmentService>(
+    svc: &S,
+    ctx: &ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+) -> HashMap<String, i64> {
+    svc.list_departments(ctx, db)
+        .await
+        .map(|depts| {
+            depts
+                .into_iter()
+                .map(|d| (d.department_name, d.department_id))
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 // ── Status Labels ──
@@ -76,12 +162,18 @@ pub async fn get_misc_list(
     let is_htmx = ctx.is_htmx();
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.misc_request_service();
+    let user_svc = state.user_service();
+    let dept_svc = state.department_service();
 
-    let filter = build_filter(&params);
+    let dept_id_map = load_dept_id_map(&dept_svc, &service_ctx, &mut conn).await;
+    let filter = build_filter(&params, &dept_id_map);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    let content = misc_list_page(&result, &params);
+    let operator_map = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
+    let dept_name_map = resolve_department_names(&dept_svc, &service_ctx, &mut conn).await;
+
+    let content = misc_list_page(&result, &params, &operator_map, &dept_name_map);
     let page_html = admin_page(
         is_htmx,
         "零星请购",
@@ -103,12 +195,18 @@ pub async fn get_misc_table(
 ) -> Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.misc_request_service();
+    let user_svc = state.user_service();
+    let dept_svc = state.department_service();
 
-    let filter = build_filter(&params);
+    let dept_id_map = load_dept_id_map(&dept_svc, &service_ctx, &mut conn).await;
+    let filter = build_filter(&params, &dept_id_map);
     let page = PageParams::new(params.page.unwrap_or(1), 20);
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    Ok(Html(misc_table_fragment(&result, &params).into_string()))
+    let operator_map = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
+    let dept_name_map = resolve_department_names(&dept_svc, &service_ctx, &mut conn).await;
+
+    Ok(Html(misc_table_fragment(&result, &params, &operator_map, &dept_name_map).into_string()))
 }
 
 // ── Components ──
@@ -116,6 +214,8 @@ pub async fn get_misc_table(
 fn misc_list_page(
     result: &abt_core::shared::types::PaginatedResult<MiscellaneousRequest>,
     params: &MiscQueryParams,
+    operator_map: &HashMap<i64, String>,
+    dept_name_map: &HashMap<i64, String>,
 ) -> Markup {
     html! {
         div {
@@ -131,7 +231,7 @@ fn misc_list_page(
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (misc_table_fragment(result, params))
+            (misc_table_fragment(result, params, operator_map, dept_name_map))
         }
     }
 }
@@ -139,6 +239,8 @@ fn misc_list_page(
 fn misc_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<MiscellaneousRequest>,
     params: &MiscQueryParams,
+    operator_map: &HashMap<i64, String>,
+    dept_name_map: &HashMap<i64, String>,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -153,6 +255,9 @@ fn misc_table_fragment(
         TabItem { value: "5".into(), label: "已关闭", count: None },
         TabItem { value: "6".into(), label: "已取消", count: None },
     ];
+
+    let dept_value = params.department.as_deref().unwrap_or("");
+    let date_range_value = params.date_range.as_deref().unwrap_or("");
 
     html! {
         div class="misc-list-panel" {
@@ -170,6 +275,33 @@ fn misc_table_fragment(
                         hx-target="closest .misc-list-panel"
                         hx-swap="outerHTML";
                 }
+                select class="filter-select" name="department"
+                    hx-get=(MiscTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="closest .misc-list-panel"
+                    hx-swap="outerHTML"
+                    hx-include=".filter-bar input, .filter-bar select" {
+                    option value="" selected[dept_value.is_empty()] { "全部部门" }
+                    option value="行政部" selected[dept_value == "行政部"] { "行政部" }
+                    option value="IT部" selected[dept_value == "IT部"] { "IT部" }
+                    option value="生产部" selected[dept_value == "生产部"] { "生产部" }
+                    option value="品质部" selected[dept_value == "品质部"] { "品质部" }
+                    option value="研发部" selected[dept_value == "研发部"] { "研发部" }
+                    option value="财务部" selected[dept_value == "财务部"] { "财务部" }
+                    option value="人事部" selected[dept_value == "人事部"] { "人事部" }
+                    option value="市场部" selected[dept_value == "市场部"] { "市场部" }
+                }
+                select class="filter-select" name="date_range"
+                    hx-get=(MiscTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="closest .misc-list-panel"
+                    hx-swap="outerHTML"
+                    hx-include=".filter-bar input, .filter-bar select" {
+                    option value="" selected[date_range_value.is_empty()] { "请购日期" }
+                    option value="7d" selected[date_range_value == "7d"] { "最近7天" }
+                    option value="30d" selected[date_range_value == "30d"] { "最近30天" }
+                    option value="3m" selected[date_range_value == "3m"] { "最近3个月" }
+                }
             }
 
             // ── Data Table ──
@@ -178,22 +310,23 @@ fn misc_table_fragment(
                     table class="data-table" {
                         thead {
                             tr {
-                                th { "单据编号" }
-                                th { "用途说明" }
+                                th { "请购单号" }
+                                th { "申请部门" }
+                                th { "请购日期" }
+                                th { "用途" }
                                 th { "状态" }
-                                th class="num-right" { "总金额" }
-                                th { "申请日期" }
-                                th { "创建时间" }
+                                th class="num-right" { "预估金额" }
+                                th { "申请人" }
                                 th { "操作" }
                             }
                         }
                         tbody {
                             @for r in &result.items {
-                                (misc_row(r))
+                                (misc_row(r, operator_map, dept_name_map))
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                         "暂无请购数据"
                                     }
                                 }
@@ -207,23 +340,29 @@ fn misc_table_fragment(
     }
 }
 
-fn misc_row(r: &MiscellaneousRequest) -> Markup {
+fn misc_row(
+    r: &MiscellaneousRequest,
+    operator_map: &HashMap<i64, String>,
+    dept_name_map: &HashMap<i64, String>,
+) -> Markup {
     let detail_path = MiscDetailPath { id: r.id };
     let (status_text, status_class) = status_label(r.status);
-    let created = r.created_at.format("%Y-%m-%d").to_string();
+    let operator_name = operator_map.get(&r.operator_id).map(|s| s.as_str()).unwrap_or("—");
+    let dept_name = dept_name_map.get(&r.department_id).map(|s| s.as_str()).unwrap_or("—");
     let onclick = format!("location.href='{}'", detail_path);
     let is_draft = r.status == MiscRequestStatus::Draft;
 
     html! {
         tr style="cursor:pointer" {
             td class="link-cell mono" onclick=(&onclick) { (r.doc_number) }
+            td onclick=(&onclick) { (dept_name) }
+            td class="mono" onclick=(&onclick) { (r.request_date.format("%Y-%m-%d")) }
             td onclick=(&onclick) { (r.purpose.as_str()) }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td class="num-right" onclick=(&onclick) { (r.total_amount.to_string()) }
-            td class="mono" onclick=(&onclick) { (r.request_date.format("%Y-%m-%d")) }
-            td onclick=(&onclick) { (created) }
+            td onclick=(&onclick) { (operator_name) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {
                     div class="row-actions" {

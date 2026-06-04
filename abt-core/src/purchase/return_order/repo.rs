@@ -75,6 +75,8 @@ impl PurchaseReturnRepo {
               AND ($1::bigint IS NULL OR order_id = $1)
               AND ($2::bigint IS NULL OR supplier_id = $2)
               AND ($3::smallint IS NULL OR status = $3)
+              AND ($4::date IS NULL OR return_date >= $4)
+              AND ($5::date IS NULL OR return_date <= $5)
         ";
 
         // Count
@@ -83,6 +85,8 @@ impl PurchaseReturnRepo {
             .bind(q.order_id)
             .bind(q.supplier_id)
             .bind(q.status)
+            .bind(q.return_date_start)
+            .bind(q.return_date_end)
             .fetch_one(&mut *executor)
             .await?;
         let total: i64 = count_row.try_get("cnt")?;
@@ -96,12 +100,14 @@ impl PurchaseReturnRepo {
                     created_at, updated_at, deleted_at
              FROM purchase_returns {where_clause}
              ORDER BY created_at DESC
-             LIMIT $4 OFFSET $5"
+             LIMIT $6 OFFSET $7"
         );
         let rows = sqlx::query_as::<_, PurchaseReturn>(sqlx::AssertSqlSafe(data_sql))
             .bind(q.order_id)
             .bind(q.supplier_id)
             .bind(q.status)
+            .bind(q.return_date_start)
+            .bind(q.return_date_end)
             .bind(limit)
             .bind(offset)
             .fetch_all(&mut *executor)

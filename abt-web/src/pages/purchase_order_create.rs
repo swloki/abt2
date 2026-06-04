@@ -8,8 +8,12 @@ use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::ProductQuery;
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::master_data::supplier::model::SupplierQuery;
+use abt_core::purchase::enums::PurchaseQuotationStatus;
 use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::purchase::order::model::*;
+use abt_core::purchase::quotation::PurchaseQuotationService;
+use abt_core::purchase::quotation::model::PurchaseQuotationQuery;
+use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -28,6 +32,11 @@ pub struct ProductSearchParams {
     pub code: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct SupplierDetailParams {
+    pub supplier_id: i64,
+}
+
 // ── Form request ──
 
 #[derive(Debug, Deserialize)]
@@ -36,7 +45,10 @@ pub struct POCreateForm {
     pub order_date: String,
     pub expected_delivery_date: Option<String>,
     pub payment_terms: Option<String>,
+    pub currency: Option<String>,
     pub delivery_address: Option<String>,
+    pub related_quotation_id: Option<String>,
+    pub buyer_id: Option<String>,
     pub remark: Option<String>,
     pub items_json: String,
 }
@@ -66,6 +78,8 @@ pub async fn get_po_create(
         ..
     } = ctx;
     let supplier_svc = state.supplier_service();
+    let user_svc = state.user_service();
+    let pq_svc = state.purchase_quotation_service();
 
     let suppliers = supplier_svc
         .list(
@@ -80,7 +94,25 @@ pub async fn get_po_create(
         )
         .await?;
 
-    let content = po_create_page(&suppliers.items);
+    let users = user_svc
+        .list_users(&service_ctx, &mut conn, 1, 200)
+        .await?;
+
+    let quotations = pq_svc
+        .list(
+            &service_ctx,
+            &mut conn,
+            PurchaseQuotationQuery {
+                supplier_id: None,
+                status: Some(PurchaseQuotationStatus::Active),
+                quotation_date_start: None,
+                quotation_date_end: None,
+            },
+            PageParams::new(1, 200),
+        )
+        .await?;
+
+    let content = po_create_page(&suppliers.items, &users.items, &quotations.items);
     let page_html = admin_page(
         is_htmx,
         "新建采购订单",
@@ -93,6 +125,47 @@ pub async fn get_po_create(
     );
 
     Ok(Html(page_html.into_string()))
+}
+
+/// HTMX: return supplier detail fragment (contact/phone/address/info bar)
+#[require_permission("SUPPLIER", "read")]
+pub async fn get_po_supplier_detail(
+    ctx: RequestContext,
+    Query(params): Query<SupplierDetailParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let svc = state.supplier_service();
+
+    let supplier = svc.get(&service_ctx, &mut conn, params.supplier_id).await?;
+    let contacts = svc
+        .list_contacts(&service_ctx, &mut conn, params.supplier_id)
+        .await
+        .unwrap_or_default();
+
+    let primary = contacts.iter().find(|c| c.is_primary);
+    let contact_name = primary
+        .map(|c| c.name.as_str())
+        .unwrap_or("—");
+    let contact_phone = primary
+        .and_then(|c| c.phone.as_deref())
+        .unwrap_or("—");
+
+    // Compute cooperation years from created_at
+    let coop_years = {
+        let created = supplier.created_at;
+        let now = chrono::Utc::now();
+        let diff = now.signed_duration_since(created);
+        diff.num_days() / 365
+    };
+
+    Ok(Html(
+        supplier_detail_fragment(contact_name, contact_phone, coop_years).into_string(),
+    ))
 }
 
 /// HTMX: search products → return HTML fragment
@@ -224,7 +297,11 @@ pub async fn create_po(
 
 // ── Components ──
 
-fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]) -> Markup {
+fn po_create_page(
+    suppliers: &[abt_core::master_data::supplier::model::Supplier],
+    users: &[abt_core::shared::identity::model::User],
+    quotations: &[abt_core::purchase::quotation::model::PurchaseQuotation],
+) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
     html! {
@@ -256,14 +333,33 @@ fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                 div class="form-grid" {
                     div class="form-field" {
                         label { "供应商" span style="color:var(--danger)" { "*" } }
-                        select name="supplier_id" required {
+                        select name="supplier_id" required
+                            hx-get=(POSupplierDetailPath::PATH)
+                            hx-trigger="change"
+                            hx-target="#supplier-detail"
+                            hx-swap="innerHTML"
+                            hx-include="this" {
                             option value="" disabled selected { "请选择供应商" }
                             @for s in suppliers {
                                 option value=(s.id) { (s.name) }
                             }
                         }
                     }
+                    div class="form-field" {
+                        label { "联系人" }
+                        input type="text" id="supplier-contact" readonly placeholder="自动填充" style="background:var(--bg-muted)" {}
+                    }
+                    div class="form-field" {
+                        label { "联系电话" }
+                        input type="text" id="supplier-phone" readonly placeholder="自动填充" style="background:var(--bg-muted)" {}
+                    }
+                    div class="form-field span-2" {
+                        label { "供应商地址" }
+                        input type="text" id="supplier-address" readonly placeholder="自动填充" style="background:var(--bg-muted)" {}
+                    }
                 }
+                // ── Supplier Info Bar ──
+                div id="supplier-detail" style="margin-top:var(--space-3)" { }
             }
 
             // ── Order Info ──
@@ -290,8 +386,40 @@ fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                         }
                     }
                     div class="form-field" {
+                        label { "币种" }
+                        select name="currency" {
+                            option value="CNY" selected { "CNY" }
+                            option value="USD" { "USD" }
+                            option value="EUR" { "EUR" }
+                        }
+                    }
+                    div class="form-field span-2" {
                         label { "交货地址" }
                         input type="text" name="delivery_address" placeholder="输入交货地址…" {}
+                    }
+                    div class="form-field" {
+                        label { "关联报价" }
+                        select name="related_quotation_id" {
+                            option value="" { "请选择采购报价" }
+                            @for q in quotations {
+                                option value=(q.id) { (q.doc_number) }
+                            }
+                        }
+                    }
+                    div class="form-field" {
+                        label { "采购员" }
+                        select name="buyer_id" {
+                            option value="" { "请选择采购员" }
+                            @for u in users {
+                                @if u.is_active {
+                                    option value=(u.user_id) { (u.display_name.as_deref().unwrap_or(&u.username)) }
+                                }
+                            }
+                        }
+                    }
+                    div class="form-field span-2" {
+                        label { "备注" }
+                        textarea name="remark" placeholder="输入订单相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
                     }
                 }
             }
@@ -299,7 +427,7 @@ fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
             // ── Line Items ──
             div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                    span class="form-section-title" style="margin:0;padding:0;border:none" { "产品明细" }
+                    span class="form-section-title" style="margin:0;padding:0;border:none" { "采购产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
                         _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
@@ -333,16 +461,11 @@ fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
                 }
             }
 
-            // ── Remark ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "备注" }
-                textarea name="remark" placeholder="输入订单相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
-            }
-
             // ── Action Bar ──
             div class="create-action-bar" {
                 a class="btn btn-default" href=(POListPath::PATH) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
+                    button type="button" class="btn btn-default" { "保存草稿" }
                     button type="submit" class="btn btn-primary" {
                         "提交订单"
                     }
@@ -403,6 +526,22 @@ fn po_create_page(suppliers: &[abt_core::master_data::supplier::model::Supplier]
     }
 }
 
+/// Supplier detail fragment returned by HTMX on supplier select change
+fn supplier_detail_fragment(contact_name: &str, contact_phone: &str, coop_years: i64) -> Markup {
+    html! {
+        div class="supplier-info-bar" style="display:flex;gap:var(--space-6);padding:var(--space-3) var(--space-4);background:var(--bg-muted);border-radius:var(--radius-sm);font-size:var(--text-sm);color:var(--text-secondary)" {
+            span { "联系人: " strong { (contact_name) } }
+            span { "电话: " strong { (contact_phone) } }
+            span { "地址: " strong { "—" } }
+            span { "合作年限: " strong { (coop_years) " 年" } }
+        }
+        script {
+            (format!("document.getElementById('supplier-contact').value = '{}';", contact_name.replace('\'', "\\'")))
+            (format!("document.getElementById('supplier-phone').value = '{}';", contact_phone.replace('\'', "\\'")))
+        }
+    }
+}
+
 /// Product search results fragment
 fn product_list_fragment(products: &[abt_core::master_data::product::model::Product]) -> Markup {
     html! {
@@ -446,7 +585,17 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
                get row as Values
                set q to (its quantity as Number or 0)
                set p to (its unit_price as Number or 0)
-               put ((q * p) as Fixed:2) into .line-subtotal in row" {
+               put ((q * p) as Fixed:2) into .line-subtotal in row
+               -- update summary
+               set grand to 0
+               repeat for r in <tr/> in <#po-item-tbody/>
+                 get r as Values
+                 set rq to (its quantity as Number or 0)
+                 set rp to (its unit_price as Number or 0)
+                 set grand to grand + (rq * rp)
+               end
+               put (grand as Fixed:2) into #grandTotal
+               set #totalItems's innerText to the number of <tr/> in <#po-item-tbody/>" {
             td class="line-num" { }
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }

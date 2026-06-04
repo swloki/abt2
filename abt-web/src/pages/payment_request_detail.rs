@@ -35,6 +35,50 @@ fn payment_method_label(m: PaymentMethod) -> &'static str {
     }
 }
 
+
+// ── Workflow Steps ──
+
+fn workflow_steps(current: PaymentStatus) -> Markup {
+    let steps: &[(&str, PaymentStatus)] = &[
+        ("草稿", PaymentStatus::Draft),
+        ("已审批", PaymentStatus::Approved),
+        ("已付款", PaymentStatus::Paid),
+    ];
+    let current_idx = steps.iter().position(|(_, s)| *s == current).unwrap_or(0);
+    let is_cancelled = current == PaymentStatus::Cancelled;
+
+    html! {
+        div class="workflow-steps" {
+            @for (i, (label, _)) in steps.iter().enumerate() {
+                @if i > 0 {
+                    @let line_class = if i <= current_idx && !is_cancelled { "wf-line completed" } else { "wf-line" };
+                    div class=(line_class) {}
+                }
+                @let step_class = if is_cancelled {
+                    "wf-step"
+                } else if i < current_idx {
+                    "wf-step completed"
+                } else if i == current_idx {
+                    "wf-step current"
+                } else {
+                    "wf-step"
+                };
+                div class=(step_class) {
+                    span class="wf-dot" {}
+                    (label)
+                }
+            }
+            @if is_cancelled {
+                div class="wf-line" {}
+                div class="wf-step" style="color:var(--danger)" {
+                    span class="wf-dot" {}
+                    "已取消"
+                }
+            }
+        }
+    }
+}
+
 // ── Handlers ──
 
 #[require_permission("PAYMENT_REQUEST", "read")]
@@ -153,6 +197,9 @@ fn pay_detail_page(
                 }
             }
 
+            // ── Workflow Steps ──
+            (workflow_steps(pay.status))
+
             // ── Payment Info ──
             div class="info-card" {
                 div class="info-card-title" { "付款信息" }
@@ -194,6 +241,17 @@ fn pay_detail_page(
                         }
                     }
                     div class="info-item" {
+                        span class="info-label" { "操作人" }
+                        span class="info-value" { (operator_name) }
+                    }
+                }
+            }
+
+            // ── Invoice Info ──
+            div class="info-card" style="margin-top:var(--space-6)" {
+                div class="info-card-title" { "发票信息" }
+                div class="info-grid" {
+                    div class="info-item" {
                         span class="info-label" { "发票号" }
                         span class="info-value mono" {
                             @if let Some(ref inv) = pay.invoice_number {
@@ -212,10 +270,6 @@ fn pay_detail_page(
                                 "—"
                             }
                         }
-                    }
-                    div class="info-item" {
-                        span class="info-label" { "操作人" }
-                        span class="info-value" { (operator_name) }
                     }
                 }
             }

@@ -77,6 +77,39 @@ pub async fn confirm_precon(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
+// ── Workflow Steps ──
+
+fn workflow_steps(current: PurchaseReconStatus) -> Markup {
+    let steps: &[(&str, PurchaseReconStatus)] = &[
+        ("草稿", PurchaseReconStatus::Draft),
+        ("已确认", PurchaseReconStatus::Confirmed),
+        ("已结算", PurchaseReconStatus::Settled),
+    ];
+    let current_idx = steps.iter().position(|(_, s)| *s == current).unwrap_or(0);
+
+    html! {
+        div class="workflow-steps" {
+            @for (i, (label, _)) in steps.iter().enumerate() {
+                @if i > 0 {
+                    @let line_class = if i <= current_idx { "wf-line completed" } else { "wf-line" };
+                    div class=(line_class) {}
+                }
+                @let step_class = if i < current_idx {
+                    "wf-step completed"
+                } else if i == current_idx {
+                    "wf-step current"
+                } else {
+                    "wf-step"
+                };
+                div class=(step_class) {
+                    span class="wf-dot" {}
+                    (label)
+                }
+            }
+        }
+    }
+}
+
 // ── Components ──
 
 fn precon_detail_page(
@@ -112,9 +145,18 @@ fn precon_detail_page(
                             "确认对账"
                         }
                     }
+                    @if recon.status == PurchaseReconStatus::Draft {
+                        button class="btn btn-danger-ghost"
+                            hx-post=(format!("/purchase/reconciliation/{}", recon.id))
+                            hx-confirm="确认删除此对账单？删除后不可恢复。" {
+                            (icon::trash_icon("w-4 h-4"))
+                            "删除"
+                        }
+                    }
                 }
             }
 
+            (workflow_steps(recon.status))
             // ── Reconciliation Info ──
             div class="info-card" {
                 div class="info-card-title" { "对账信息" }

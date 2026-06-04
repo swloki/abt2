@@ -3,6 +3,7 @@ use axum_extra::routing::TypedPath;
 use maud::{Markup, html};
 use serde::Deserialize;
 
+use abt_core::shared::identity::UserService;
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::master_data::supplier::model::SupplierQuery;
 use abt_core::purchase::enums::PaymentMethod;
@@ -40,6 +41,13 @@ pub struct PayCreateForm {
     pub remark: Option<String>,
 }
 
+// ── HTMX query params ──
+
+#[derive(Debug, Deserialize)]
+pub struct SupplierInfoParams {
+    pub supplier_id: Option<i64>,
+}
+
 // ── Handlers ──
 
 #[require_permission("PAYMENT_REQUEST", "create")]
@@ -58,6 +66,7 @@ pub async fn get_pay_create(
 
     let supplier_svc = state.supplier_service();
     let recon_svc = state.purchase_reconciliation_service();
+    let user_svc = state.user_service();
 
     let suppliers = supplier_svc
         .list(
@@ -81,7 +90,17 @@ pub async fn get_pay_create(
         )
         .await?;
 
-    let content = pay_create_page(&suppliers.items, &reconciliations.items);
+    let applicant_name = user_svc
+        .get_user(&service_ctx, &mut conn, claims.sub)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| claims.display_name.clone());
+
+    let content = pay_create_page(
+        &suppliers.items,
+        &reconciliations.items,
+        &applicant_name,
+    );
     let page_html = admin_page(
         is_htmx,
         "新建付款申请",
@@ -94,6 +113,54 @@ pub async fn get_pay_create(
     );
 
     Ok(Html(page_html.into_string()))
+}
+
+/// HTMX: return supplier info card (replaces entire supplier data-card) when supplier is selected.
+/// Uses outerHTML swap so the contact/phone fields are updated along with bank account info.
+#[require_permission("PAYMENT_REQUEST", "create")]
+pub async fn get_supplier_info(
+    ctx: RequestContext,
+    axum::extract::Query(params): axum::extract::Query<SupplierInfoParams>,
+) -> Result<Html<String>> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+
+    let supplier_svc = state.supplier_service();
+
+    // Re-fetch supplier list for the dropdown
+    let suppliers = supplier_svc
+        .list(
+            &service_ctx,
+            &mut conn,
+            SupplierQuery {
+                name: None,
+                status: None,
+                category: None,
+            },
+            PageParams::new(1, 200),
+        )
+        .await?;
+
+    let (contacts, bank_accounts) = if let Some(sid) = params.supplier_id {
+        let contacts = supplier_svc
+            .list_contacts(&service_ctx, &mut conn, sid)
+            .await
+            .unwrap_or_default();
+        let bank_accounts = supplier_svc
+            .list_bank_accounts(&service_ctx, &mut conn, sid)
+            .await
+            .unwrap_or_default();
+        (contacts, bank_accounts)
+    } else {
+        (vec![], vec![])
+    };
+
+    let fragment = supplier_section(&suppliers.items, params.supplier_id, &contacts, &bank_accounts);
+    Ok(Html(fragment.into_string()))
 }
 
 #[require_permission("PAYMENT_REQUEST", "create")]
@@ -148,6 +215,7 @@ pub async fn create_pay(
 fn pay_create_page(
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     reconciliations: &[abt_core::purchase::reconciliation::model::PurchaseReconciliation],
+    applicant_name: &str,
 ) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
@@ -164,21 +232,17 @@ fn pay_create_page(
 
             form id="pay-form"
                   hx-post=(PayCreatePath::PATH)
-                  hx-swap="none" {
+                  hx-swap="none"
+                  _="on input in #pay-amount
+                     set val to my value as Number or 0" {
 
-            // ── Supplier & Reconciliation ──
+            // ── 供应商信息 ──
+            (supplier_section(suppliers, None, &[], &[]))
+
+            // ── 付款信息 ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "供应商与对账信息" }
+                div class="form-section-title" { "付款信息" }
                 div class="form-grid" {
-                    div class="form-field" {
-                        label { "供应商" span style="color:var(--danger)" { "*" } }
-                        select name="supplier_id" required {
-                            option value="" disabled selected { "请选择供应商" }
-                            @for s in suppliers {
-                                option value=(s.id) { (s.name) }
-                            }
-                        }
-                    }
                     div class="form-field" {
                         label { "关联对账单" }
                         select name="reconciliation_id" {
@@ -188,20 +252,13 @@ fn pay_create_page(
                             }
                         }
                     }
-                }
-            }
-
-            // ── Payment Info ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "付款信息" }
-                div class="form-grid" {
                     div class="form-field" {
                         label { "付款日期" span style="color:var(--danger)" { "*" } }
-                        input type="date" name="payment_date" value=(today) {}
+                        input type="date" name="payment_date" value=(today) required {}
                     }
                     div class="form-field" {
                         label { "付款金额" span style="color:var(--danger)" { "*" } }
-                        input type="number" name="amount" step="0.01" min="0" placeholder="0.00" required {}
+                        input type="number" id="pay-amount" name="amount" step="0.01" min="0" placeholder="0.00" required {}
                     }
                     div class="form-field" {
                         label { "付款方式" span style="color:var(--danger)" { "*" } }
@@ -212,17 +269,6 @@ fn pay_create_page(
                         }
                     }
                     div class="form-field" {
-                        label { "银行账户" }
-                        input type="number" name="bank_account_id" placeholder="银行账户ID" {}
-                    }
-                }
-            }
-
-            // ── Invoice Info ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "发票信息" }
-                div class="form-grid" {
-                    div class="form-field" {
                         label { "发票号" }
                         input type="text" name="invoice_number" placeholder="输入发票号" {}
                     }
@@ -230,24 +276,138 @@ fn pay_create_page(
                         label { "发票金额" }
                         input type="number" name="invoice_amount" step="0.01" min="0" placeholder="0.00" {}
                     }
+                    div class="form-field" {
+                        label { "申请人" }
+                        input type="text" value=(applicant_name) readonly {}
+                    }
+                    div class="form-field span-2" {
+                        label { "备注" }
+                        textarea name="remark" placeholder="输入付款申请相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+                    }
                 }
             }
 
-            // ── Remark ──
+            // ── 三单匹配校验 ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "备注" }
-                textarea name="remark" placeholder="输入付款申请相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+                div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)" {
+                    div class="form-section-title" style="margin:0;padding:0;border:none" { "三单匹配校验" }
+                    span style="display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:var(--radius-sm);font-size:var(--text-xs);font-weight:600;background:#fef9c3;color:#a16207;border:1px solid #fde68a" {
+                        (icon::clock_icon("w-3.5 h-3.5"))
+                        "待验证"
+                    }
+                }
+                div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4)" {
+                    // 验收单
+                    div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border:1px solid var(--border-soft);border-radius:var(--radius-sm);background:var(--surface)" {
+                        (icon::check_circle_icon("w-5 h-5"))
+                        div {
+                            div style="font-size:var(--text-sm);font-weight:600;color:var(--fg)" { "验收单" }
+                            div style="font-size:var(--text-xs);color:var(--success)" { "已匹配" }
+                        }
+                    }
+                    // 发票
+                    div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border:1px solid var(--border-soft);border-radius:var(--radius-sm);background:var(--surface)" {
+                        (icon::clock_icon("w-5 h-5"))
+                        div {
+                            div style="font-size:var(--text-sm);font-weight:600;color:var(--fg)" { "发票" }
+                            div style="font-size:var(--text-xs);color:#d97706" { "待验证" }
+                        }
+                    }
+                    // 对账单
+                    div style="display:flex;align-items:center;gap:var(--space-3);padding:var(--space-3) var(--space-4);border:1px solid var(--border-soft);border-radius:var(--radius-sm);background:var(--surface)" {
+                        (icon::check_circle_icon("w-5 h-5"))
+                        div {
+                            div style="font-size:var(--text-sm);font-weight:600;color:var(--fg)" { "对账单" }
+                            div style="font-size:var(--text-xs);color:var(--success)" { "已匹配" }
+                        }
+                    }
+                }
             }
 
             // ── Action Bar ──
             div class="create-action-bar" {
                 a class="btn btn-default" href=(PayListPath::PATH) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
-                    button type="submit" class="btn btn-primary" {
-                        "提交付款申请"
-                    }
+                    button type="button" class="btn btn-default" { "保存草稿" }
+                    button type="submit" class="btn btn-primary" { "提交付款申请" }
                 }
             }
+            }
+        }
+    }
+}
+
+/// Renders the entire supplier info data-card.
+/// On HTMX supplier change, this replaces the card via outerHTML swap so all
+/// auto-filled fields (contact, phone, bank account) are updated atomically.
+fn supplier_section(
+    suppliers: &[abt_core::master_data::supplier::model::Supplier],
+    selected_supplier_id: Option<i64>,
+    contacts: &[abt_core::master_data::supplier::model::SupplierContact],
+    bank_accounts: &[abt_core::master_data::supplier::model::SupplierBankAccount],
+) -> Markup {
+    let primary_contact = contacts.iter().find(|c| c.is_primary).or_else(|| contacts.first());
+    let contact_name = primary_contact.map(|c| c.name.as_str()).unwrap_or("");
+    let contact_phone = primary_contact.and_then(|c| c.phone.as_deref()).unwrap_or("");
+    let default_account = bank_accounts.first();
+
+    html! {
+        div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="form-section-title" { "供应商信息" }
+            div class="form-grid" {
+                div class="form-field" {
+                    label { "供应商" span style="color:var(--danger)" { "*" } }
+                    select name="supplier_id" required
+                        hx-get=(PaySupplierInfoPath::PATH)
+                        hx-trigger="change"
+                        hx-target="closest .data-card"
+                        hx-swap="outerHTML"
+                        hx-include="this" {
+                        option value="" disabled[selected_supplier_id.is_none()] { "请选择供应商" }
+                        @for s in suppliers {
+                            @let sel = selected_supplier_id == Some(s.id);
+                            option value=(s.id) selected[sel] { (s.name) }
+                        }
+                    }
+                }
+                div class="form-field" {
+                    label { "联系人" }
+                    input type="text" value=(contact_name) placeholder="自动填充" readonly {}
+                }
+                div class="form-field" {
+                    label { "联系电话" }
+                    input type="text" value=(contact_phone) placeholder="自动填充" readonly {}
+                }
+            }
+            // 收款账户 info
+            div style="margin-top:var(--space-4)" {
+                div class="form-field" {
+                    label { "收款账户" }
+                    @if let Some(acct) = default_account {
+                        input type="text" value=(format!("{} — {} {}", acct.bank_name, acct.account_name, acct.account_number)) readonly {}
+                        input type="hidden" name="bank_account_id" value=(acct.id) {}
+                        div style="margin-top:var(--space-2);padding:var(--space-3);background:var(--surface);border:1px solid var(--border-soft);border-radius:var(--radius-sm);font-size:var(--text-xs);color:var(--muted);display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--space-4)" {
+                            div {
+                                span style="display:block;font-weight:500;color:var(--fg)" { "户名" }
+                                span { (acct.account_name) }
+                            }
+                            div {
+                                span style="display:block;font-weight:500;color:var(--fg)" { "开户行" }
+                                span { (acct.bank_name) }
+                            }
+                            div {
+                                span style="display:block;font-weight:500;color:var(--fg)" { "账号" }
+                                span style="font-family:var(--font-mono)" { (acct.account_number) }
+                            }
+                        }
+                    } @else if selected_supplier_id.is_some() {
+                        input type="text" value="" placeholder="该供应商暂无银行账户信息" readonly {}
+                        input type="hidden" name="bank_account_id" value="" {}
+                    } @else {
+                        input type="text" value="" placeholder="选择供应商后自动填充" readonly {}
+                        input type="hidden" name="bank_account_id" value="" {}
+                    }
+                }
             }
         }
     }

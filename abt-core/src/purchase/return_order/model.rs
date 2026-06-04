@@ -47,6 +47,8 @@ pub struct PurchaseReturnQuery {
     pub order_id: Option<i64>,
     pub supplier_id: Option<i64>,
     pub status: Option<PurchaseReturnStatus>,
+    pub return_date_start: Option<chrono::NaiveDate>,
+    pub return_date_end: Option<chrono::NaiveDate>,
 }
 
 // ---------------------------------------------------------------------------

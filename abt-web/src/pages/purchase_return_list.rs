@@ -32,16 +32,33 @@ pub struct PRQueryParams {
     #[serde(default, deserialize_with = "empty_as_none")]
     pub supplier_id: Option<i64>,
     #[serde(default, deserialize_with = "empty_as_none")]
+    pub date_range: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
 }
 
-// ── Helpers ──
+fn parse_date_range(range: &str) -> (Option<chrono::NaiveDate>, Option<chrono::NaiveDate>) {
+    let today = chrono::Local::now().date_naive();
+    match range {
+        "7d" => (Some(today - chrono::Days::new(7)), None),
+        "30d" => (Some(today - chrono::Days::new(30)), None),
+        "3m" => (Some(today - chrono::Months::new(3)), None),
+        _ => (None, None),
+    }
+}
 
 fn build_filter(params: &PRQueryParams) -> PurchaseReturnQuery {
+    let (return_date_start, return_date_end) = params
+        .date_range
+        .as_deref()
+        .map(parse_date_range)
+        .unwrap_or((None, None));
     PurchaseReturnQuery {
         order_id: None,
         supplier_id: params.supplier_id,
         status: params.status.and_then(PurchaseReturnStatus::from_i16),
+        return_date_start,
+        return_date_end,
     }
 }
 
@@ -55,6 +72,9 @@ fn build_query_string(params: &PRQueryParams) -> String {
     }
     if let Some(sid) = params.supplier_id {
         q.push(format!("supplier_id={sid}"));
+    }
+    if let Some(ref dr) = params.date_range {
+        q.push(format!("date_range={dr}"));
     }
     q.join("&")
 }
@@ -195,6 +215,7 @@ fn pr_table_fragment(
     ];
 
     let selected_supplier = params.supplier_id.map(|id| id.to_string()).unwrap_or_default();
+    let selected_range = params.date_range.as_deref().unwrap_or("");
 
     html! {
         div class="pr-list-panel" {
@@ -222,6 +243,17 @@ fn pr_table_fragment(
                     @for s in suppliers {
                         option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
                     }
+                }
+                select class="filter-select" name="date_range"
+                    hx-get=(PRTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="closest .pr-list-panel"
+                    hx-swap="outerHTML"
+                    hx-include=".filter-bar input, .filter-bar select" {
+                    option value="" selected[selected_range.is_empty()] { "退货日期" }
+                    option value="7d" selected[selected_range == "7d"] { "最近7天" }
+                    option value="30d" selected[selected_range == "30d"] { "最近30天" }
+                    option value="3m" selected[selected_range == "3m"] { "最近3个月" }
                 }
             }
 

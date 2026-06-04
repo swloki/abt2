@@ -38,12 +38,17 @@ pub struct PayCancelPath {
     pub id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/payments/supplier-info")]
+pub struct PaySupplierInfoPath;
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(PayListPath::PATH, get(payment_request_list::get_pay_list))
         .route(PayTablePath::PATH, get(payment_request_list::get_pay_table))
+        .route(PaySupplierInfoPath::PATH, get(payment_request_create::get_supplier_info))
         .route(PayCreatePath::PATH, get(payment_request_create::get_pay_create).post(payment_request_create::create_pay))
         .route(PayDetailPath::PATH, get(payment_request_detail::get_pay_detail))
         .route(PayApprovePath::PATH, post(payment_request_detail::approve_pay))

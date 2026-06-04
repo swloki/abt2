@@ -39,6 +39,8 @@ pub struct PaymentRequestQuery {
     pub status: Option<PaymentStatus>,
     pub payment_date_start: Option<NaiveDate>,
     pub payment_date_end: Option<NaiveDate>,
+    pub keyword: Option<String>,
+    pub payment_method: Option<PaymentMethod>,
 }
 
 // ---------------------------------------------------------------------------

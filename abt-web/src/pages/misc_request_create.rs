@@ -18,6 +18,7 @@ use abt_macros::require_permission;
 
 #[derive(Debug, Deserialize)]
 pub struct MiscCreateForm {
+    pub department: Option<String>,
     pub purpose: String,
     pub request_date: String,
     pub remark: Option<String>,
@@ -154,9 +155,23 @@ fn misc_create_page() -> Markup {
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Basic Info ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="form-section" {
                 div class="form-section-title" { "基本信息" }
                 div class="form-grid" {
+                    div class="form-field" {
+                        label { "请购部门" }
+                        select name="department" {
+                            option value="" { "请选择部门" }
+                            option value="行政部" { "行政部" }
+                            option value="IT部" { "IT部" }
+                            option value="生产部" { "生产部" }
+                            option value="品质部" { "品质部" }
+                            option value="研发部" { "研发部" }
+                            option value="财务部" { "财务部" }
+                            option value="人事部" { "人事部" }
+                            option value="市场部" { "市场部" }
+                        }
+                    }
                     div class="form-field" {
                         label { "请购用途" span style="color:var(--danger)" { "*" } }
                         input type="text" name="purpose" required placeholder="输入请购用途" {}
@@ -164,6 +179,10 @@ fn misc_create_page() -> Markup {
                     div class="form-field" {
                         label { "请购日期" }
                         input type="date" name="request_date" value=(today) {}
+                    }
+                    div class="form-field span-2" {
+                        label { "备注" }
+                        textarea name="remark" placeholder="输入请购相关备注信息…" {}
                     }
                 }
             }
@@ -209,19 +228,12 @@ fn misc_create_page() -> Markup {
                 }
             }
 
-            // ── Remark ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "备注" }
-                textarea name="remark" placeholder="输入请购相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
-            }
-
             // ── Action Bar ──
             div class="create-action-bar" {
                 a class="btn btn-default" href=(MiscListPath::PATH) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
-                    button type="submit" class="btn btn-primary" {
-                        "提交请购"
-                    }
+                    button type="button" class="btn btn-default" { "保存草稿" }
+                    button type="submit" class="btn btn-primary" { "提交请购" }
                 }
             }
             }

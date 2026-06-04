@@ -52,13 +52,13 @@
 --text-sm-fontSize: 0.875rem;
 --text-sm-lineHeight: 1.25rem;
 --colors-white: #fff;
+--radius-md: 0.375rem;
+--spacing-2: var(--space-2);
 --spacing-4: var(--space-4);
 --tracking-tight: -0.025em;
 --text-xl-fontSize: 1.25rem;
 --text-xl-lineHeight: 1.75rem;
---radius-md: 0.375rem;
 --spacing-5: var(--space-5);
---spacing-2: var(--space-2);
 --font-mono: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
 --colors-blue-DEFAULT: oklch(70.7% 0.165 254.624);
 --colors-red-DEFAULT: oklch(70.4% 0.191 22.216);
@@ -1467,6 +1467,15 @@ p { margin: 0; }
 }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4) var(--space-6); margin-bottom: var(--space-6); }
 .form-grid .field-full { grid-column: 1 / -1; }
+.form-grid .span-2 { grid-column: 1 / -1; }
+.form-section { margin-bottom: var(--space-4); }
+.form-section .form-grid { margin-bottom: 0; }
+.supplier-info-bar {
+  display: flex; gap: var(--space-6); margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4); background: var(--surface); border-radius: var(--radius-sm);
+  font-size: var(--text-sm); color: var(--fg-2);
+}
+.supplier-info-bar .label { color: var(--muted); font-size: 12px; }
 .form-field label { display: block; font-size: 12px; font-weight: 500; color: var(--fg-2); margin-bottom: var(--space-1); }
 .form-field input,
 .form-field select,
@@ -2060,6 +2069,7 @@ p { margin: 0; }
 .font-mono{font-family:var(--font-mono);}
 .font-semibold{--un-font-weight:var(--fontWeight-semibold);font-weight:var(--fontWeight-semibold);}
 .tab{-moz-tab-size:4;-o-tab-size:4;tab-size:4;}
+.my{margin-block:calc(var(--spacing) * 4);}
 .mb-\[3px\]{margin-bottom:3px;}
 .mb-\[7px\]{margin-bottom:7px;}
 .mb-1\.5{margin-bottom:calc(var(--spacing) * 1.5);}

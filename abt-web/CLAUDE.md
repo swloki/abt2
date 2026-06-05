@@ -74,8 +74,13 @@ cargo clippy                  # Lint 检查
 
 - **Axum Handler** 直接调用 `abt-core` Service trait，无 gRPC 中间层
 - **Maud** 编译期 HTML 宏渲染完整页面或局部片段
-- **HTMX** 处理表单提交、分页、搜索等需要服务器状态的交互
-- **Surreal.js** 处理纯前端 UI 状态（dropdown、modal、tab 切换），通过内联 `<script>me().on(...)</script>` 绑定
+- **HTMX 2.0.10** 处理表单提交、分页、搜索等需要服务器状态的交互
+- **Surreal.js** 处理纯前端 UI 状态，通过内联 `<script>me().on(...)</script>` 在 HTML 元素内部闭环
+- **HTMX 2.x 事件模型**（关键）：
+  - `htmx:afterRequest` → 触发在 **trigger 元素**（发起请求的元素）上
+  - `htmx:afterSettle` → 触发在 **target 元素**（swap 目标）上
+  - 用 surreal.js 绑定时注意区别：`me().on('htmx:afterRequest', ...)` 绑在 trigger 上能收到；`me().on('htmx:afterSettle', ...)` 需绑在 target 上
+- **`hx-select` 继承问题**：HTMX 2.x 会将 `hx-select` 继承给所有子元素。如果父元素有 `hx-select="#app-id"`（用于自身刷新），子元素的 HTMX 请求也会被过滤。解法：在父元素加 `hx-disinherit="hx-select"`，阻止继承
 
 ### 数据访问层（强制）
 
@@ -355,125 +360,161 @@ pub fn router() -> axum::Router {
 
 **使用 htmx 的场景**：交互涉及服务器状态流转、数据库读写、权限校验（表单提交、动态分页、条件搜索）。
 
-**禁止使用 htmx 的场景**：纯前端 UI 状态切换（Dropdown 菜单展开、Modal 弹窗显隐、选项卡纯样式切换）。此类交互由 **Surreal.js**（如 `me().classAdd('.is-open')` / `me().classRemove('.is-open')`）在前端本地闭环，严禁通过 htmx 向后端发送请求，防止路由碎片化。
+**禁止使用 htmx 的场景**：纯前端 UI 状态切换（Dropdown 菜单展开、Modal 弹窗显隐、选项卡纯样式切换）。此类交互由 **Surreal.js** 内联 `<script>` 在前端本地闭环，严禁通过 htmx 向后端发送请求。
 
 ---
 
 ## 高级混合交互模式 (Advanced Hybrid Interactions)
 
-### Surreal.js 与 htmx 的数据桥接模式 (Hidden Input Binding)
+### Surreal.js 内联模式（推荐）
 
-场景：当组件存在复杂的纯前端高频交互（如拖拽、动态行项目表单），直接用 htmx 请求后端会导致严重的路由碎片化与网络延迟。
+Surreal.js 的核心用法是在 HTML 元素内部放 `<script>` 标签，`me()` 自动返回**父元素**。这是所有简单 UI 交互的标准写法：
 
-解法：复杂前端交互逻辑用独立 JS 文件（vanilla JS）管理状态，简单 UI 交互用 Surreal.js 处理。状态通过 hidden input 桥接，htmx 提交时自动携带前端状态。
+```html
+<!-- 打开 modal -->
+button type="button" {
+    "<script>me().on('click',function(){me('#my-modal').classAdd('is-open')})</script>"
+    "打开"
+}
 
-```rust
-pub fn star_rating_component(current_rating: u32) -> Markup {
-    html! {
-        div class="rating-component" {
-            input type="hidden" name="rating" value=(current_rating);
+<!-- 关闭 modal（modal overlay 自身上） -->
+div id="my-modal" class="modal-overlay" {
+    "<script>me().on('click',function(e){if(e.target===me())me().classRemove('is-open')})</script>"
+}
 
-            div class="stars" _="on click set @aria-pressed to 'true'" {
-                @for i in 1..=5 {
-                    span class="star" _=(format!("on click set #rating-value to {}", i)) { "★" }
-                }
-            }
+<!-- 关闭按钮 -->
+button {
+    "<script>me().on('click',function(){me('.modal-overlay',me().parentElement).classRemove('is-open')})</script>"
+    "×"
+}
 
-            button hx-post="/save-rating" hx-target="this" hx-swap="outerHTML" {
-                "保存评分到数据库"
-            }
-        }
-    }
+<!-- Tab 切换 -->
+button class="tab-btn" {
+    "<script>me().on('click',function(){me('.tab-btn').classRemove('active');me().classAdd('active')})</script>"
+    "Tab 1"
 }
 ```
+
+**关键要点**：
+- `me()` 在 `<script>` 内指向其**父元素**
+- `me(selector)` 等同于 `document.querySelector(selector)`
+- `me(selector, start)` 从 start 元素开始搜索
+- `any(selector)` 返回匹配元素数组，可直接 `.forEach()`
+- `me().on(event, handler)` 等同于 `addEventListener`
+- `me(el).classAdd(cls)` / `classRemove(cls)` / `classToggle(cls)` 操作 class
+- `me(el).attribute(name, value?)` 读写属性
+- Maud 中必须用 `maud::PreEscaped("<script>...</script>")` 包裹，否则引号被 HTML 转义
+
+### HTMX + Surreal.js 联合模式
+
+场景：点击按钮 → HTMX 加载服务端内容 → 内容加载完成后执行前端操作（如打开 modal）。
+
+按钮用 `hx-get` 加载内容，内嵌 `<script>me().on('htmx:afterRequest', ...)</script>` 监听完成后打开 modal：
+
+```rust
+button type="button" title="编辑"
+    hx-get=(format!("/admin/md/boms/{}/nodes/{}", bom_id, node_id))
+    hx-target="#bom-edit-modal" hx-swap="innerHTML" {
+    (maud::PreEscaped("<script>me().on('htmx:afterRequest',function(){me('#bom-edit-modal').classAdd('is-open')})</script>"))
+    (icon::edit_icon("w-3.5 h-3.5"))
+}
+
+// modal 容器（空，内容由 hx-get 动态填充）：
+div id="bom-edit-modal" class="modal-overlay" {
+    (maud::PreEscaped("<script>me().on('click',function(e){if(e.target===me())me().classRemove('is-open')})</script>"))
+}
+```
+
+### HTMX 表单替代 JS 函数
+
+用 `<form hx-post>` 替代 `onclick="htmx.ajax(...)"` 等函数调用，完全不需要 JS：
+
+```rust
+form hx-post=(format!("/admin/md/boms/{}/nodes", bom_id))
+    hx-swap="none"
+    hx-include="[name='parent_id']" {
+    input type="hidden" name="product_id" value=(product.product_id) {}
+    input type="hidden" name="quantity" value="1" {}
+    input type="hidden" name="unit" value=(product.unit) {}
+    button type="submit" class="btn btn-sm btn-primary" { "选择" }
+}
+```
+
+- `hx-include="[name='parent_id']"` 自动包含页面上 `name="parent_id"` 的 hidden input
+- 服务端返回 `HX-Redirect`，页面自动跳转刷新
+
+### 通用行项目计算器（lineItemCalc）
+
+报价单、销售订单、采购单的行项目计算（数量×单价×折扣、合计）逻辑完全一致，统一用 `lineItemCalc(tbodyId)` 工厂函数。
+
+```js
+// app.js 中定义：
+window.lineItemCalc = function(tbodyId) {
+    function calcRow(row) { ... }
+    function recalcTotals() { ... }
+    function collectItems() { ... }
+    return { calcRow, recalcTotals, collectItems };
+};
+```
+
+```rust
+// 模板中使用：
+tr oninput="lineItemCalc('#quotation-item-tbody').calcRow(this)" { ... }
+form onsubmit="lineItemCalc('#order-item-tbody').collectItems()" { ... }
+```
+
+### 独立 JS 文件（仅用于无法内联的复杂交互）
+
+只有以下场景才需要独立 JS 文件：
+- SortableJS 拖拽排序（需要初始化第三方库）
+- 需要持久化状态（sessionStorage/localStorage）的复杂交互
+- 不能用一两行 surreal.js 表达的逻辑
+
+当前独立 JS 文件：
+
+| 文件 | 用途 | 说明 |
+|------|------|------|
+| `static/bom-edit.js` | BOM 编辑页 | SortableJS 拖拽 + collapse/expand 状态持久化 |
+| `static/app.js` | 全局工具 | `lineItemCalc` 行项目计算、`hs*` 兼容函数、分类树 |
+
+### Surreal.js API 速查
+
+| 用法 | 说明 |
+|------|------|
+| `me()` | `<script>` 的父元素 |
+| `me(selector)` | `document.querySelector(selector)` |
+| `me(selector, start)` | 从 start 开始搜索 |
+| `any(selector)` | 返回匹配元素数组 |
+| `any(selector, start)` | 从 start 开始搜索，返回数组 |
+| `me().on(event, fn)` | `addEventListener` |
+| `me(el).classAdd(cls)` | 添加 class |
+| `me(el).classRemove(cls)` | 移除 class |
+| `me(el).classToggle(cls)` | 切换 class |
+| `me(el).attribute(name)` | 读取属性 |
+| `me(el).attribute(name, value)` | 设置属性 |
+| `me(el).remove()` | 移除元素 |
+| `me(el).styles({prop:val})` | 设置样式 |
 
 ---
 
 ## 表单开发模式 (Form Development Pattern)
 
-所有涉及复杂前端交互的表单（动态行项目、计算、条件显示等）必须遵循以下架构：
-
 ### 架构分工
 
 | 层 | 职责 | 技术 |
 |---|---|---|
-| 简单 UI 交互 | modal 开关、class 切换 | Surreal.js helpers (`onclick="hs*()"`) |
-| 复杂前端状态 | 动态行项目、拖拽排序、计算 | vanilla JS（独立 JS 文件） |
-| 复杂数据桥接 | `input type="hidden" name="items_json"` 序列化嵌套数据 | JS + HTML |
-| 表单提交 | `hx-post` + `hx-swap="none"` | htmx |
-| 成功导航 | 服务端返回 `HX-Redirect` 响应头 | htmx |
+| 纯前端 UI | modal 开关、class 切换、tab | Surreal.js `<script>me().on(...)` 内联 |
+| 服务端交互 | 表单提交、搜索、分页 | HTMX `hx-post`/`hx-get` |
+| 复杂前端状态 | 拖拽排序、状态持久化 | 独立 JS 文件（SortableJS 等） |
+| 数据桥接 | `input type="hidden" name="items_json"` | JS `lineItemCalc().collectItems()` |
+| 成功导航 | 服务端返回 `HX-Redirect` | HTMX |
 | 错误提示 | `htmx:responseError` 事件 → Notyf toast | htmx + JS |
-| 服务端接收 | `Form<Struct>` + `serde_json::from_str(&form.items_json)` 解析嵌套数据 | Axum |
-
-### 标准实现步骤
-
-1. **JS 文件**：IIFE 封装的 vanilla JS 模块，管理状态和 DOM 交互
-2. **Maud 模板**：`data-*` 属性传递初始数据，`onclick`/`onsubmit` 调用 `hs*()` 辅助函数处理简单交互
-3. **隐藏 input 桥接**：`input type="hidden" name="items_json"` 将嵌套数据暴露给 htmx
-4. **外部数据集成**：htmx 搜索结果通过 `data-product` JSON 推入 JS 状态
-5. **服务端**：`Form<QuotationCreateForm>` 接收，`items_json: String` 字段用 `serde_json::from_str()` 解析
-
-### 范例参考
-
-- JS：`static/quotation-create.js` — 报价单创建交互
-- Rust：`src/pages/quotation_create.rs` — `quotation_create_page()` + `product_list_fragment()`
+| 服务端接收 | `Form<Struct>` + `serde_json::from_str()` | Axum |
 
 ### 强制规则
 
-- **禁止** `fetch()` 提交表单，用 htmx `hx-post` 原生处理
-- 简单 UI 交互（modal 开关、class 切换）用 `onclick` 调用 `hs*()` 辅助函数处理
-- 复杂交互逻辑抽取到独立 JS 文件，禁止在 Maud 模板里内联 `<script>` 写大段 JS
-- htmx 仅处理需要服务端状态的交互，纯前端交互由 Surreal.js helpers / vanilla JS 闭环
-
----
-
-## 前端交互组件组织模式 (Frontend Component Organization)
-
-当页面的交互逻辑较复杂（含拖拽、动态行项目、localStorage、状态管理等），必须将逻辑抽取到独立的 JS 文件中，禁止在 Maud 模板里内联 `<script>` 写大段 JS。简单交互（modal 开关、class 切换）直接用 `onclick` 调用 Surreal.js helpers。
-
-### Surreal.js Helpers 用法（简单交互）
-
-`app.js` 中定义了一组 `window.hs*()` 辅助函数，底层使用 Surreal.js API，用于纯前端 UI 操作：
-
-```rust
-// Modal 开关
-button onclick="hsAdd(null,'#my-modal','is-open')" { "打开" }
-button onclick="hsRemove(null,'#my-modal','is-open')" { "关闭" }
-
-// 关闭 overlay backdrop（点击自身才关闭）
-div onclick="hsBackdropClose(this,event,'is-open')" { ... }
-
-// 关闭最近祖先
-button onclick="hsRemoveClosest(this,'.modal-overlay','is-open')" { "×" }
-
-// Tab 式切换（从兄弟取走 active，加到自身）
-button onclick="hsTake(this,'.tab-btn','active')" { "Tab 1" }
-
-// Toggle class
-button onclick="hsToggle(null,'.sidebar','collapsed')" { "收起" }
-```
-
-#### 可用 Helpers
-
-| 函数 | 说明 |
-|------|------|
-| `hsAdd(null, selector, cls)` | 给 selector 元素添加 class |
-| `hsRemove(null, selector, cls)` | 给 selector 元素移除 class |
-| `hsRemove(this, null, cls)` | 给自身移除 class |
-| `hsRemoveClosest(this, ancestorSel, cls)` | 给最近祖先移除 class |
-| `hsToggle(null, selector, cls)` | 切换 selector 元素的 class |
-| `hsToggleSelf(el, cls)` | 切换元素自身的 class |
-| `hsTake(this, siblingSel, cls)` | 从兄弟移除 class，加到自身 |
-| `hsBackdropClose(this, event, cls)` | 仅当 event.target === self 时移除 class |
-| `hsToggleSidebar()` | 切换侧栏折叠 + localStorage |
-| `hsSetAndTrigger(selector, value, event)` | 设置 input 值并触发事件 |
-| `hsRemoveClosestEl(this, ancestorSel)` | 移除最近的祖先元素 |
-
-### 已有参考
-
-| JS 文件 | 用途 |
-|---------|------|
-| `static/cost-drawer.js` | BOM 成本报告，临时价格覆盖 + localStorage |
-| `static/bom-edit.js` | BOM 编辑页，拖拽排序 + 节点管理 |
-| `static/return-create.js` | 销售退货单，动态行项目 |
-| `static/app.js` | 分类树选择器组件 |
+- **禁止** `fetch()` 提交表单，用 HTMX `hx-post` 原生处理
+- **禁止** 用 `onclick` 调用自定义 JS 函数做 UI 操作，用 Surreal.js `<script>me().on(...)` 内联
+- **禁止** 在 Maud 模板里用 `script { "..." }` （会被 HTML 转义），必须用 `maud::PreEscaped("<script>...</script>")`
+- 复杂交互逻辑（拖拽、持久化状态）抽取到独立 JS 文件
+- HTMX 仅处理需要服务端状态的交互，纯前端交互由 Surreal.js 内联闭环

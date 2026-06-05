@@ -133,7 +133,7 @@ pub async fn get_role_edit(
     let groups = build_groups();
     let total = total_perm_count(&groups);
 
-    let current_perms: Vec<String> = rwp.permissions.iter().cloned().collect();
+    let current_perms: Vec<String> = rwp.permissions.iter().map(|p| { let (r, a) = p.split_once(':').unwrap_or((p, "")); format!("{}:{}", r.to_uppercase(), a.to_lowercase()) }).collect();
     let checked_count = current_perms.len();
 
     let content = role_edit_page(&rwp, parent_role_name.as_deref(), &groups, total, &current_perms, checked_count);
@@ -192,7 +192,7 @@ pub async fn post_role_edit(
     let rwp = svc.get_role_with_permissions(&service_ctx, &mut conn, path.id).await?;
     let current: Vec<(String, String)> = rwp.permissions.iter().filter_map(|p| {
         let (resource, action) = p.split_once(':')?;
-        Some((resource.to_string(), action.to_string()))
+        Some((resource.to_uppercase(), action.to_lowercase()))
     }).collect();
 
     let to_add: Vec<(String, String)> = submitted

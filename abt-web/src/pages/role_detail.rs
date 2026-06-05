@@ -29,22 +29,17 @@ const RESOURCE_GROUPS: &[ResourceGroupDef] = &[
         resources: &["CUSTOMER", "PRODUCT", "CATEGORY", "BOM", "BOM_CATEGORY"],
     },
     ResourceGroupDef {
-        name: "库存管理",
+        name: "仓储库存",
         icon_cls: "g2",
         resources: &["WAREHOUSE", "LOCATION", "INVENTORY", "PRICE"],
     },
     ResourceGroupDef {
-        name: "销售管理",
+        name: "业务单据",
         icon_cls: "g3",
-        resources: &["SALES_ORDER", "SHIPPING"],
+        resources: &["SALES_ORDER", "PURCHASE_ORDER"],
     },
     ResourceGroupDef {
-        name: "采购管理",
-        icon_cls: "g3",
-        resources: &["PURCHASE_ORDER"],
-    },
-    ResourceGroupDef {
-        name: "生产管理",
+        name: "生产质检",
         icon_cls: "g4",
         resources: &["WORK_ORDER", "INSPECTION", "COST", "LABOR_COST"],
     },
@@ -54,6 +49,9 @@ const RESOURCE_GROUPS: &[ResourceGroupDef] = &[
         resources: &["USER", "ROLE", "DEPARTMENT"],
     },
 ];
+
+const ACTIONS: &[&str] = &["create", "read", "update", "delete"];
+const ACTION_LABELS: &[&str] = &["CREATE", "READ", "UPDATE", "DELETE"];
 
 struct GroupResource {
     code: &'static str,
@@ -107,6 +105,21 @@ fn total_perm_count(groups: &[GroupData]) -> usize {
         .sum()
 }
 
+fn count_matched_perms(groups: &[GroupData], normalized_perms: &[String]) -> usize {
+    let mut count = 0;
+    for group in groups {
+        for res in &group.resources {
+            for action in ACTIONS {
+                let key = format!("{}:{}", res.code, action);
+                if normalized_perms.contains(&key) {
+                    count += 1;
+                }
+            }
+        }
+    }
+    count
+}
+
 // ── Handlers ──
 
 #[require_permission("ROLE", "read")]
@@ -141,12 +154,22 @@ pub async fn get_role_detail(
     let groups = build_groups();
     let total_perms = total_perm_count(&groups);
 
+    // Normalize permissions: RESOURCE (uppercase) : action (lowercase) for consistent matching
+    let normalized_perms: Vec<String> = rwp.permissions.iter()
+        .map(|p| { let (r, a) = p.split_once(':').unwrap_or((p, "")); format!("{}:{}", r.to_uppercase(), a.to_lowercase()) })
+        .collect();
+
+    // Count how many permissions actually match the matrix resources
+    let matched_count = count_matched_perms(&groups, &normalized_perms);
+
     let content = role_detail_page(
         &rwp,
         parent_role_name.as_deref(),
         user_count,
         &groups,
         total_perms,
+        &normalized_perms,
+        matched_count,
     );
 
     let detail_path_str = RoleDetailPath { id: path.id }.to_string();
@@ -254,14 +277,15 @@ fn role_detail_page(
     user_count: usize,
     groups: &[GroupData],
     total_perms: usize,
+    normalized_perms: &[String],
+    matched_count: usize,
 ) -> Markup {
     let role = &rwp.role;
     let role_id = role.role_id;
     let list_path = RoleListPath.to_string();
     let edit_path = RoleEditPath { id: role_id }.to_string();
     let initials = get_initials(&role.role_name);
-    let perm_count = rwp.permissions.len();
-    let perm_set: std::collections::HashSet<&str> = rwp.permissions.iter().map(|s| s.as_str()).collect();
+    let perm_count = matched_count;
 
     html! {
         div {
@@ -297,11 +321,9 @@ fn role_detail_page(
                     }
                 }
                 div.ph-actions {
-                    @if !role.is_system_role {
-                        a.btn.btn-default.btn-sm href=(edit_path) {
-                            (icon::edit_icon("w-3.5 h-3.5"))
-                            " 编辑"
-                        }
+                    a.btn.btn-default.btn-sm href=(edit_path) {
+                        (icon::edit_icon("w-3.5 h-3.5"))
+                        " 编辑"
                     }
                 }
             }
@@ -325,160 +347,161 @@ fn role_detail_page(
                 }
             }
 
-            // ── Two-Column Grid ──
-            div.detail-grid {
-                // ── LEFT: Info Card ──
-                div {
-                    div.d-card {
-                        div.d-card-head {
-                            h3 {
-                                (icon::lock_icon("w-3.5 h-3.5"))
-                                " 角色信息"
-                            }
+            // ── Role Info Card ──
+            div.info-card {
+                div.info-card-title {
+                    (icon::lock_icon("w-[18px] h-[18px] text-accent"))
+                    "角色信息"
+                }
+                div.info-card-rows {
+                    div.info-row {
+                        span.info-label { "角色 ID" }
+                        span.info-val.info-mono {
+                            "#" (format!("{:03}", role_id))
                         }
-                        div.d-card-body {
-                            div.info-card-rows {
-                                div.info-row {
-                                    span.info-label { "角色 ID" }
-                                    span.info-val.info-mono {
-                                        "#" (format!("{:03}", role_id))
-                                    }
-                                }
-                                div.info-row {
-                                    span.info-label { "角色编码" }
-                                    span.info-val.info-mono { (&role.role_code) }
-                                }
-                                div.info-row {
-                                    span.info-label { "角色类型" }
-                                    @if role.is_system_role {
-                                        span.info-val.info-success { "内置角色" }
-                                    } @else {
-                                        span.info-val { "自定义角色" }
-                                    }
-                                }
-                                div.info-row {
-                                    span.info-label { "上级角色" }
-                                    @if let Some(pname) = parent_role_name {
-                                        span.info-val { (pname) }
-                                    } @else {
-                                        span.info-val.info-muted { "无" }
-                                    }
-                                }
-                                div.info-row {
-                                    span.info-label { "描述" }
-                                    @if let Some(desc) = &role.description {
-                                        span.info-val { (desc) }
-                                    } @else {
-                                        span.info-val.info-muted { "—" }
-                                    }
-                                }
-                                div.info-row {
-                                    span.info-label { "创建时间" }
-                                    span.info-val.info-mono {
-                                        (role.created_at.format("%Y-%m-%d %H:%M"))
-                                    }
-                                }
-                                div.info-row {
-                                    span.info-label { "最后更新" }
-                                    @if let Some(updated) = &role.updated_at {
-                                        span.info-val.info-mono {
-                                            (updated.format("%Y-%m-%d %H:%M"))
-                                        }
-                                    } @else {
-                                        span.info-val.info-muted { "—" }
-                                    }
-                                }
+                    }
+                    div.info-row {
+                        span.info-label { "角色编码" }
+                        span.info-val.info-mono { (&role.role_code) }
+                    }
+                    div.info-row {
+                        span.info-label { "角色类型" }
+                        @if role.is_system_role {
+                            span.info-val.info-success { "内置角色" }
+                        } @else {
+                            span.info-val { "自定义角色" }
+                        }
+                    }
+                    div.info-row {
+                        span.info-label { "上级角色" }
+                        @if let Some(pname) = parent_role_name {
+                            span.info-val { (pname) }
+                        } @else {
+                            span.info-val.info-muted { "无" }
+                        }
+                    }
+                    div.info-row {
+                        span.info-label { "描述" }
+                        @if let Some(desc) = &role.description {
+                            span.info-val { (desc) }
+                        } @else {
+                            span.info-val.info-muted { "—" }
+                        }
+                    }
+                    div.info-row {
+                        span.info-label { "创建时间" }
+                        span.info-val.info-mono {
+                            (role.created_at.format("%Y-%m-%d %H:%M"))
+                        }
+                    }
+                    div.info-row {
+                        span.info-label { "最后更新" }
+                        @if let Some(updated) = &role.updated_at {
+                            span.info-val.info-mono {
+                                (updated.format("%Y-%m-%d %H:%M"))
                             }
+                        } @else {
+                            span.info-val.info-muted { "—" }
                         }
                     }
                 }
+            }
 
-                // ── RIGHT: Permission Preview ──
-                div {
-                    div.d-card {
-                        div.d-card-head {
-                            h3 {
-                                (icon::sliders_icon("w-3.5 h-3.5"))
-                                " 权限配置"
-                            }
-                            span.d-card-count { (format!("{} / {} 项", perm_count, total_perms)) }
-                        }
-                        div.d-card-body.perm-preview {
-                            @for group in groups {
-                                (perm_preview_group(group, &perm_set))
-                            }
-                        }
+            // ── Permission Config Card (read-only matrix) ──
+            div.info-card {
+                div.info-card-title {
+                    (icon::sliders_icon("w-[18px] h-[18px] text-accent"))
+                    "权限配置"
+                    span.d-card-count {
+                        (format!("{} / {} 项", perm_count, total_perms))
                     }
+                }
+
+                div.perm-toolbar {
+                    div.perm-toolbar-left {
+                        "已分配 "
+                        span.perm-count { (perm_count) }
+                        " / "
+                        span { (total_perms) }
+                        " 项权限"
+                    }
+                }
+
+                div.perm-groups {
+                    @for (gi, group) in groups.iter().enumerate() {
+                        (perm_detail_group(gi, group, normalized_perms))
+                    }
+                }
+            }
+
+            // Inline script for permission group toggling
+            script {
+                (r#"
+function toggleGroup(g) {
+  var body = document.getElementById('groupBody' + g);
+  var group = body.parentElement;
+  var arrow = group.querySelector('.perm-group-arrow');
+  body.classList.toggle('collapsed');
+  arrow.classList.toggle('open');
+}
+"#)
+            }
+        }
+    }
+}
+
+// ── Permission Matrix (read-only, grouped) ──
+
+fn perm_detail_group(gi: usize, group: &GroupData, perms: &[String]) -> Markup {
+    let resource_count = group.resources.len();
+    html! {
+        div.perm-group data-group=(gi) {
+            div.perm-group-head onclick={ "toggleGroup(" (gi) ")" } {
+                div.perm-group-head-left {
+                    span.perm-group-icon class=(format!("perm-group-icon {}", group.icon_cls)) {
+                        (group_icon_svg(group.icon_cls))
+                    }
+                    span.perm-group-name { (group.name) }
+                    span.perm-group-count { "(" (resource_count) ")" }
+                }
+                div.perm-group-actions {
+                    svg.perm-group-arrow.open width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" {
+                        path d="M6 9l6 6 6-6" {}
+                    }
+                }
+            }
+            div.perm-group-body id={ "groupBody" (gi) } {
+                div.perm-row.perm-row-header {
+                    div { "资源" }
+                    @for label in ACTION_LABELS {
+                        div.perm-cell-header { (label) }
+                    }
+                }
+                @for res in &group.resources {
+                    (perm_detail_row(res, perms))
                 }
             }
         }
     }
 }
 
-// ── Permission Preview (read-only chips, grouped) ──
-
-fn perm_preview_group(group: &GroupData, perm_set: &std::collections::HashSet<&str>) -> Markup {
-    // Check if any resource in this group has assigned perms
-    let has_perms = group.resources.iter().any(|res| {
-        res.defs.iter().any(|def| {
-            let perm = format!("{}:{}", res.code, def.action);
-            perm_set.contains(perm.as_str())
-        })
-    });
-
-    if !has_perms {
-        return html! {};
-    }
-
+fn perm_detail_row(res: &GroupResource, perms: &[String]) -> Markup {
     html! {
-        div.perm-preview-group {
-            div.perm-preview-head {
-                span.perm-group-icon class=(format!("perm-group-icon {}", group.icon_cls)) {
-                    (group_icon_svg(group.icon_cls))
+        div.perm-row {
+            div.perm-resource {
+                (res.name)
+                " "
+                span.perm-code { (res.code) }
+            }
+            @for action in ACTIONS {
+                div.perm-cell {
+                    @let perm_key = format!("{}:{}", res.code, action);
+                    @let checked = perms.contains(&perm_key);
+                    input type="checkbox"
+                          checked[checked]
+                          class="perm-readonly"
+                          tabindex="-1" {}
                 }
-                " " (group.name)
-            }
-            @for res in &group.resources {
-                (perm_preview_resource(res, perm_set))
-            }
-        }
-    }
-}
-
-fn perm_preview_resource(res: &GroupResource, perm_set: &std::collections::HashSet<&str>) -> Markup {
-    // Collect which actions this resource has assigned
-    let assigned: Vec<(&str, &str)> = res.defs.iter()
-        .filter_map(|def| {
-            let perm = format!("{}:{}", res.code, def.action);
-            if perm_set.contains(perm.as_str()) {
-                Some((def.action, def.action_name))
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    // Skip resources with no permissions
-    if assigned.is_empty() {
-        return html! {};
-    }
-
-    html! {
-        div.perm-chips {
-            (icon::box_icon("w-3 h-3"))
-            " " (res.name)
-            " "
-            span.ph-code { (res.code) }
-            " "
-            @for (action, label) in &assigned {
-                @let chip_class = match *action {
-                    "read" => "perm-chip pc-read",
-                    "create" => "perm-chip pc-create",
-                    "update" => "perm-chip pc-write",
-                    "delete" => "perm-chip pc-delete",
-                    _ => "perm-chip",
-                };
-                span class=(chip_class) { (label) }
             }
         }
     }

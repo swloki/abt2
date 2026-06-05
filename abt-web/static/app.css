@@ -1907,7 +1907,11 @@ p { margin: 0; }
 .perm-resource { display: flex; align-items: center; gap: var(--space-2); color: var(--fg); font-weight: 500; }
 .perm-code { font-size: 10px; color: var(--muted); font-family: var(--font-mono); background: #f5f7fa; padding: 1px 5px; border-radius: 3px; }
 .perm-cell { text-align: center; }
-.perm-cell input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.perm-cell input { width: 16px; height: 16px; cursor: pointer; appearance: none; -webkit-appearance: none; border: 2px solid #d1d5db; border-radius: 3px; background: #fff; transition: all .15s; flex-shrink: 0; position: relative; }
+.perm-cell input:checked { background: #22c55e; border-color: #22c55e; }
+.perm-cell input:checked::after { content: ''; position: absolute; left: 4px; top: 1px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.perm-cell input.perm-readonly { cursor: default; pointer-events: none; }
+.perm-cell input.perm-readonly:not(:checked) { opacity: 0.4; }
 .perm-cell-header { text-align: center; font-size: 12px; color: var(--muted); font-weight: 600; }
 .form-hint { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .mt-checkbox { margin-top: 6px; }

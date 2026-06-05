@@ -31,6 +31,7 @@ use crate::utils::RequestContext;
 
 #[derive(Debug, Deserialize)]
 pub struct ProductSearchParams {
+    pub bom_id: Option<i64>,
     pub name: Option<String>,
     pub code: Option<String>,
 }
@@ -162,8 +163,8 @@ pub async fn get_bom_products(
     let svc = state.product_service();
 
     let filter = ProductQuery {
-        name: params.name,
-        code: params.code,
+        name: params.name.filter(|s| !s.is_empty()),
+        code: params.code.filter(|s| !s.is_empty()),
         status: None,
         owner_department_id: None,
         category_id: None,
@@ -176,8 +177,7 @@ pub async fn get_bom_products(
             abt_core::shared::types::PageParams::new(1, 20),
         )
         .await?;
-
-    Ok(Html(product_list_fragment(&result.items).into_string()))
+    Ok(Html(product_list_fragment(&result.items, params.bom_id).into_string()))
 }
 
 /// POST: add a node to BOM
@@ -414,22 +414,17 @@ pub async fn save_as(
 /// HTMX: return edit form HTML fragment for a node
 #[require_permission("BOM", "update")]
 pub async fn get_node_edit_form(
+    path: BomNodePath,
     ctx: RequestContext,
-    Query(params): Query<NodeEditParams>,
 ) -> Result<Html<String>> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let bom_svc = state.bom_query_service();
-    let bom = bom_svc.get(&service_ctx, &mut conn, params.bom_id).await?;
-    let node = bom.bom_detail.nodes.iter().find(|n| n.id == params.node_id)
+    let bom = bom_svc.get(&service_ctx, &mut conn, path.id).await?;
+    let node = bom.bom_detail.nodes.iter().find(|n| n.id == path.node_id)
         .ok_or_else(|| DomainError::not_found("节点不存在"))?;
-    Ok(Html(node_edit_form_fragment(params.bom_id, params.node_id, bom.version, node).into_string()))
+    Ok(Html(node_edit_form_fragment(path.id, path.node_id, bom.version, node).into_string()))
 }
 
-#[derive(Debug, Deserialize)]
-pub struct NodeEditParams {
-    pub bom_id: i64,
-    pub node_id: i64,
-}
 
 fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &BomNode) -> Markup {
     let action = BomNodePath { id: bom_id, node_id }.to_string();
@@ -511,7 +506,7 @@ fn bom_edit_page(
     // Max level for filter
     let max_level = depth_map.values().copied().max().map(|d| d + 1).unwrap_or(0);
     html! {
-        div id="bom-edit-app" hx-get=(BomEditPath { id: bom.bom_id }.to_string()) hx-trigger="nodeUpdated from:body" hx-select="#bom-edit-app" hx-swap="outerHTML" {
+        div id="bom-edit-app" hx-get=(BomEditPath { id: bom.bom_id }.to_string()) hx-trigger="nodeUpdated from:body" hx-select="#bom-edit-app" hx-swap="outerHTML" hx-disinherit="hx-select" {
             // ── Toolbar ──
             div class="bom-toolbar" {
                 // Left side: back, category, view toggle, level filter
@@ -557,12 +552,14 @@ fn bom_edit_page(
                 // Right side: publish/unpublish, add/save-as, labor cost
                 div class="bom-toolbar-right" {
                     @if !is_draft && is_owner {
-                        button class="btn btn-sm btn-warning-ghost" id="bom-publish-btn" {
+                        button class="btn btn-sm btn-warning-ghost" id="bom-publish-btn"
+                            onclick="hsAdd(null,'#bom-publish-dialog','open')" {
                             (icon::return_arrow_icon("w-4 h-4"))
                             " 取消发布"
                         }
                     } @else if is_draft {
                         button class="btn btn-sm btn-success" id="bom-publish-btn"
+                            onclick="hsAdd(null,'#bom-publish-dialog','open')"
                             disabled[node_count == 0]
                             title="请先添加物料" {
                             (icon::rocket_icon("w-4 h-4"))
@@ -571,13 +568,15 @@ fn bom_edit_page(
                     }
 
                     @if node_count == 0 {
-                        button type="button" class="btn btn-sm btn-primary" id="bom-add-root-btn" {
+                        button type="button" class="btn btn-sm btn-primary" id="bom-add-root-btn"
+                            onclick="me('[name=parent_id]').value=0;hsAdd(null,'#bom-add-modal','is-open');bomLoadProducts()" {
                             (icon::plus_icon("w-4 h-4"))
                             " 添加根节点"
                         }
                     } @else {
                         button type="button" class="btn btn-sm btn-success" id="bom-save-as-btn"
-                            data-name=(bom.bom_name) {
+                            data-name=(bom.bom_name)
+                            onclick="me('#bom-save-as-modal [name=new_name]').value=this.dataset.name+'_副本';hsAdd(null,'#bom-save-as-modal','is-open')" {
                             (icon::copy_icon("w-4 h-4"))
                             " 另存为"
                         }
@@ -628,7 +627,7 @@ fn bom_edit_page(
                                     @let has_children = parent_ids.contains(&node.id);
                                     @let product = product_map.get(&node.product_id);
                                     @let ancestors = ancestors_map.get(&node.id).map(|v| v.as_slice()).unwrap_or(&[]);
-                                    (bom_node_row(idx, level, has_children, node, product.map(|v| &**v), ancestors))
+                                    (bom_node_row(bom.bom_id, idx, level, has_children, node, product.map(|v| &**v), ancestors))
                                 }
                             }
                         }
@@ -645,8 +644,10 @@ fn bom_edit_page(
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
                             onclick="hsRemove(null,'#bom-add-modal','is-open')" { "×" }
                     }
-                    div class="modal-body" style="padding:0" {
+                    div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                        input type="hidden" name="parent_id" value="0" {}
                         div class="product-search-bar" {
+                            input type="hidden" name="bom_id" value=(bom.bom_id) {}
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品名称" }
                                 input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
@@ -673,64 +674,18 @@ fn bom_edit_page(
                                 "清除"
                             }
                         }
-                        div id="bom-edit-product-results" style="max-height:320px;overflow-y:auto"
-                            hx-get=(BomProductsPath::PATH)
-                            hx-trigger="intersect once"
-                            hx-swap="innerHTML" {
+                        div id="bom-edit-product-results" style="min-height:200px;max-height:320px;overflow-y:auto" {
                             div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--muted)" {
-                                "加载中…"
+                                "搜索产品或直接输入关键词…"
                             }
                         }
                     }
                 }
             }
 
-            // ── Edit Node Modal ──
+            // ── Edit Node Modal (content loaded via HTMX) ──
             div id="bom-edit-modal" class="modal-overlay"
-                onclick="hsRemove(null,'#bom-edit-modal','is-open')" {
-                div class="modal" onclick="event.stopPropagation()" {
-                    div class="modal-head" {
-                        h2 { "编辑节点" }
-                        button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            onclick="hsRemove(null,'#bom-edit-modal','is-open')" { "×" }
-                    }
-                    div class="modal-body" {
-                        form id="bom-edit-node-form" hx-post="" hx-swap="none" {
-                            input type="hidden" name="expected_version" value=(bom.version) {}
-                            div class="form-grid" {
-                                div class="form-field" {
-                                    label { "数量 " span style="color:var(--danger)" { "*" } }
-                                    input type="number" name="quantity" step="0.01" min="0.01" required {}
-                                }
-                                div class="form-field" {
-                                    label { "损耗率%" }
-                                    input type="number" name="loss_rate" step="0.1" min="0" {}
-                                }
-                                div class="form-field" {
-                                    label { "单位" }
-                                    input type="text" name="unit" {}
-                                }
-                                div class="form-field" {
-                                    label { "工作中心" }
-                                    input type="text" name="work_center" {}
-                                }
-                                div class="form-field" {
-                                    label { "位置" }
-                                    input type="text" name="position" {}
-                                }
-                                div class="form-field field-full" {
-                                    label { "备注" }
-                                    input type="text" name="remark" {}
-                                }
-                            }
-                            div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
-                                button type="button" class="btn btn-default" onclick="hsRemove(null,'#bom-edit-modal','is-open')" { "取消" }
-                                button type="submit" class="btn btn-primary" { "保存" }
-                            }
-                        }
-                    }
-                }
-            }
+                onclick="hsRemove(null,'#bom-edit-modal','is-open');me('#bom-edit-modal').innerHTML=''" { }
 
             // ── Delete Confirm ──
             (crate::components::confirm_dialog::confirm_dialog(
@@ -803,12 +758,13 @@ fn bom_edit_page(
             }
 
             // ── BOM edit page JS ──
-            script src="/bom-edit.js?v=20260603" {}
+            script src="/bom-edit.js?v=20260604" {}
         }
     }
 }
 
 fn bom_node_row(
+    bom_id: i64,
     index: usize,
     level: usize,
     has_children: bool,
@@ -838,16 +794,6 @@ fn bom_node_row(
     } else {
         "bom-row-level-default"
     };
-    let js_args = format!(
-        "{}, '{}', '{}', '{}', '{}', '{}', '{}'",
-        node.id,
-        node.quantity,
-        node.loss_rate,
-        unit.replace('\'', "\\'"),
-        work_center.replace('\'', "\\'"),
-        position.replace('\'', "\\'"),
-        remark.replace('\'', "\\'")
-    );
     let ancestors_str = ancestors.iter().map(|id| id.to_string()).collect::<Vec<_>>().join(",");
     let _indent_px = (level - 1) * 24;
     html! {
@@ -874,15 +820,17 @@ fn bom_node_row(
             td {
                 div style="display:flex;gap:var(--space-1)" {
                     button type="button" class="row-action-btn" title="添加子节点"
-                        onclick=(format!("bomOpenAddChild({})", node.id)) {
+                        onclick=(format!("me('[name=parent_id]').value={};hsAdd(null,'#bom-add-modal','is-open');bomLoadProducts()", node.id)) {
                         (icon::plus_icon("w-3.5 h-3.5"))
                     }
                     button type="button" class="row-action-btn" title="编辑"
-                        onclick=(format!("bomOpenEdit({})", js_args)) {
+                        hx-get=(format!("/admin/md/boms/{}/nodes/{}", bom_id, node.id))
+                        hx-target="#bom-edit-modal" hx-swap="innerHTML" {
+                        (maud::PreEscaped("<script>me().on('htmx:afterRequest',function(){me('#bom-edit-modal').classAdd('is-open')})</script>"))
                         (icon::edit_icon("w-3.5 h-3.5"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"
-                        onclick=(format!("bomOpenDelete({})", node.id)) {
+                        onclick=(format!("me('#bom-node-delete-form').attribute('hx-delete','/admin/md/boms/{}/nodes/{}');htmx.process(me('#bom-node-delete-form'));hsAdd(null,'#bom-delete-dialog','open')", bom_id, node.id)) {
                         (icon::trash_icon("w-3.5 h-3.5"))
                     }
                 }
@@ -931,7 +879,8 @@ fn build_ancestors_map(nodes: &[BomNode]) -> HashMap<i64, Vec<i64>> {
 }
 
 /// Product search results fragment
-fn product_list_fragment(products: &[abt_core::master_data::product::model::Product]) -> Markup {
+fn product_list_fragment(products: &[abt_core::master_data::product::model::Product], bom_id: Option<i64>) -> Markup {
+    let bid = bom_id.unwrap_or(0);
     html! {
         @if products.is_empty() {
             div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
@@ -941,13 +890,6 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
         } @else {
             div class="product-select-list" {
                 @for p in products {
-                    @let product_json = serde_json::json!({
-                        "product_id": p.product_id,
-                        "product_code": &p.product_code,
-                        "product_name": &p.pdt_name,
-                        "specification": &p.meta.specification,
-                        "unit": &p.unit,
-                    }).to_string();
                     div class="product-select-item" {
                         div class="product-select-info" {
                             div class="product-select-name" { (p.pdt_name) }
@@ -959,10 +901,13 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                                 span { (p.unit) }
                             }
                         }
-                        button type="button" class="btn btn-sm btn-primary"
-                            data-product=(product_json)
-                            onclick="bomSelectProduct(JSON.parse(this.dataset.product))" {
-                            "选择"
+                        form hx-post=(format!("/admin/md/boms/{}/nodes", bid))
+                            hx-swap="none"
+                            hx-include="[name='parent_id']" {
+                            input type="hidden" name="product_id" value=(p.product_id) {}
+                            input type="hidden" name="quantity" value="1" {}
+                            input type="hidden" name="unit" value=(p.unit) {}
+                            button type="submit" class="btn btn-sm btn-primary" { "选择" }
                         }
                     }
                 }

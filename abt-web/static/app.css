@@ -1033,14 +1033,26 @@ p { margin: 0; }
 
 /* ─── Modal ─── */
 .modal-overlay {
-  display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(4px); z-index: 1000; place-items: center;
+  position: fixed; inset: 0; z-index: 1000;
+  display: grid; place-items: center;
+  background: rgba(15, 23, 42, 0); backdrop-filter: blur(0px);
+  opacity: 0; visibility: hidden;
+  transition: opacity var(--motion-base) var(--ease-decelerate), visibility var(--motion-base), background var(--motion-base) var(--ease-decelerate), backdrop-filter var(--motion-base) var(--ease-decelerate);
 }
-.modal-overlay.is-open { display: grid; }
+.modal-overlay.is-open {
+  opacity: 1; visibility: visible;
+  background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px);
+}
 .modal {
   background: var(--bg); border-radius: var(--radius-lg); width: 680px;
   max-height: 85vh; overflow-y: auto; box-shadow: var(--shadow-xl);
-  animation: modalSlideIn var(--motion-base) var(--ease-decelerate);
+  transform: translateY(12px) scale(0.98);
+  transition: transform var(--motion-base) var(--ease-decelerate), opacity var(--motion-base) var(--ease-decelerate);
+  opacity: 0;
+}
+.modal-overlay.is-open .modal {
+  transform: translateY(0) scale(1);
+  opacity: 1;
 }
 .modal-head {
   padding: var(--space-5) var(--space-6); border-bottom: 1px solid var(--border-soft);
@@ -1052,8 +1064,6 @@ p { margin: 0; }
   padding: var(--space-4) var(--space-6); border-top: 1px solid var(--border-soft);
   display: flex; justify-content: flex-end; gap: var(--space-3); background: var(--surface-raised);
 }
-@keyframes modalFadeIn { from { opacity: 0 } to { opacity: 1 } }
-@keyframes modalSlideIn { from { opacity: 0; transform: translateY(12px) scale(0.98) } to { opacity: 1; transform: translateY(0) scale(1) } }
 .modal-lg { width: 900px; max-width: 94vw; }
 
 

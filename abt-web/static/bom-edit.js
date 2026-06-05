@@ -11,7 +11,8 @@ function restoreCollapsed() { try { collapsedNodes = JSON.parse(sessionStorage.g
 
 // --- Load products into add modal ---
 window.bomLoadProducts = function () {
-    htmx.ajax('GET', '/admin/md/boms/products', { target: '#bom-edit-product-results', swap: 'innerHTML' });
+    var bomId = me('[name="bom_id"]')?.value || '0';
+    htmx.ajax('GET', '/admin/md/boms/products?bom_id=' + bomId, { target: '#bom-edit-product-results', swap: 'innerHTML' });
 };
 
 // --- Collapse / Expand ---

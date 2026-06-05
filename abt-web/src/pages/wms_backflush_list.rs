@@ -1,0 +1,215 @@
+use axum::extract::Query;
+use axum::response::Html;
+use maud::{html, Markup};
+use axum_extra::routing::TypedPath;
+use serde::Deserialize;
+
+use abt_core::wms::backflush::{BackflushRecord, BackflushService};
+use abt_core::wms::enums::BackflushStatus;
+
+use crate::components::icon;
+use crate::components::pagination::pagination;
+use crate::layout::page::admin_page;
+use crate::routes::wms_backflush::{BackflushDetailPath, BackflushListPath, BackflushTablePath};
+use crate::utils::{empty_as_none, RequestContext};
+
+use abt_macros::require_permission;
+
+// ── Query Params ──
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct BackflushQueryParams {
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub status: Option<i16>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub page: Option<u32>,
+}
+
+// ── Handlers ──
+
+#[require_permission("WMS", "read")]
+pub async fn get_backflush_list(
+    _path: BackflushListPath,
+    ctx: RequestContext,
+    Query(params): Query<BackflushQueryParams>,
+) -> crate::errors::Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let svc = state.backflush_service();
+
+    let filter = build_filter(&params);
+    let page = params.page.unwrap_or(1);
+    let page_size = 20u32;
+
+    let result = svc.list(&service_ctx, &mut conn, filter, page, page_size).await?;
+
+    let content = backflush_list_page(&result, &params);
+    let page_html = admin_page(
+        is_htmx,
+        "倒冲记录",
+        &claims,
+        "inventory",
+        BackflushListPath::PATH,
+        "库存管理",
+        Some("倒冲记录"),
+        content,
+    );
+
+    Ok(Html(page_html.into_string()))
+}
+
+#[require_permission("WMS", "read")]
+pub async fn get_backflush_table(
+    _path: BackflushTablePath,
+    ctx: RequestContext,
+    Query(params): Query<BackflushQueryParams>,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.backflush_service();
+
+    let filter = build_filter(&params);
+    let page = params.page.unwrap_or(1);
+    let page_size = 20u32;
+
+    let result = svc.list(&service_ctx, &mut conn, filter, page, page_size).await?;
+
+    Ok(Html(backflush_table_fragment(&result, &params).into_string()))
+}
+
+// ── Helpers ──
+
+fn build_filter(params: &BackflushQueryParams) -> abt_core::wms::backflush::BackflushFilter {
+    abt_core::wms::backflush::BackflushFilter {
+        status: params.status.and_then(|s| BackflushStatus::from_i16(s)),
+        work_order_id: None,
+    }
+}
+
+// ── Components ──
+
+fn backflush_list_page(
+    result: &abt_core::shared::types::pagination::PaginatedResult<BackflushRecord>,
+    params: &BackflushQueryParams,
+) -> Markup {
+    html! {
+        div {
+            div class="page-header" {
+                h1 class="page-title" { "倒冲记录" }
+            }
+
+            (backflush_table_fragment(result, params))
+        }
+    }
+}
+
+fn backflush_table_fragment(
+    result: &abt_core::shared::types::pagination::PaginatedResult<BackflushRecord>,
+    params: &BackflushQueryParams,
+) -> Markup {
+    let query = build_query_string(params);
+
+    html! {
+        div class="backflush-list-panel" {
+            div class="filter-bar" {
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="keyword"
+                        placeholder="搜索单据编号/工单号…"
+                        hx-get=(BackflushTablePath::PATH)
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="closest .backflush-list-panel"
+                        hx-swap="outerHTML";
+                }
+                select class="filter-select"
+                    name="status"
+                    hx-get=(BackflushTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="closest .backflush-list-panel"
+                    hx-swap="outerHTML" {
+                    option value="" { "全部状态" }
+                    option value="1" selected[params.status == Some(1)] { "草稿" }
+                    option value="2" selected[params.status == Some(2)] { "已执行" }
+                    option value="3" selected[params.status == Some(3)] { "已调整" }
+                }
+            }
+
+            div class="data-card" {
+                div class="data-card-scroll" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th { "单据编号" }
+                                th { "关联工单" }
+                                th { "完工产品" }
+                                th class="num-right" { "完工数量" }
+                                th { "倒冲日期" }
+                                th { "状态" }
+                                th { "差异预警" }
+                                th { "操作员" }
+                                th { "操作" }
+                            }
+                        }
+                        tbody {
+                            @for r in &result.items {
+                                (backflush_row(r))
+                            }
+                            @if result.items.is_empty() {
+                                tr {
+                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                        "暂无倒冲记录"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                (pagination(BackflushListPath::PATH, &query, result.total, result.page, result.total_pages))
+            }
+        }
+    }
+}
+
+fn backflush_row(r: &BackflushRecord) -> Markup {
+    let detail_path = BackflushDetailPath { id: r.id };
+
+    let (status_label, status_class) = match r.status {
+        BackflushStatus::Draft => ("草稿", "status-draft"),
+        BackflushStatus::Executed => ("已执行", "status-completed"),
+        BackflushStatus::Adjusted => ("已调整", "status-confirmed"),
+    };
+
+    html! {
+        tr style="cursor:pointer" {
+            td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (r.doc_number) }
+            td class="mono" onclick=(format!("location.href='{}'", detail_path)) { "—" }
+            td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) { (r.completed_qty.to_string()) }
+            td class="mono" onclick=(format!("location.href='{}'", detail_path)) { (r.backflush_date.to_string()) }
+            td onclick=(format!("location.href='{}'", detail_path)) {
+                span class=(format!("status-pill {status_class}")) { (status_label) }
+            }
+            td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+            td onclick=(format!("location.href='{}'", detail_path)) { "—" }
+            td onclick="event.stopPropagation()" {
+                div class="row-actions" {
+                    a class="row-action-btn" title="查看详情" href=(detail_path.to_string()) {
+                        (icon::eye_icon("w-4 h-4"))
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn build_query_string(params: &BackflushQueryParams) -> String {
+    let mut q = vec![];
+    if let Some(s) = params.status {
+        q.push(format!("status={s}"));
+    }
+    if let Some(p) = params.page {
+        if p > 1 {
+            q.push(format!("page={p}"));
+        }
+    }
+    q.join("&")
+}

@@ -25,6 +25,22 @@ pub mod sidebar;
 pub mod user;
 pub mod role;
 pub mod department;
+pub mod wms_dashboard;
+pub mod wms_warehouse;
+pub mod wms_bin;
+pub mod wms_stock;
+pub mod wms_stock_in;
+pub mod wms_stock_out;
+pub mod wms_arrival;
+pub mod wms_transfer;
+pub mod wms_requisition;
+pub mod wms_conversion;
+pub mod wms_backflush;
+pub mod wms_cycle_count;
+pub mod wms_inventory_lock;
+pub mod wms_strategy;
+pub mod wms_transaction_log;
+pub mod wms_cascade;
 use axum::{Router, middleware};
 
 use crate::auth::middleware::auth_middleware;
@@ -58,6 +74,23 @@ pub fn router(state: AppState) -> Router {
                 .merge(purchase_reconciliation::router())
                 .merge(payment_request::router())
                 .merge(misc_request::router())
+                // ── WMS (Inventory) ──
+                .merge(wms_dashboard::router())
+                .merge(wms_warehouse::router())
+                .merge(wms_bin::router())
+                .merge(wms_stock::router())
+                .merge(wms_stock_in::router())
+                .merge(wms_stock_out::router())
+                .merge(wms_arrival::router())
+                .merge(wms_transfer::router())
+                .merge(wms_requisition::router())
+                .merge(wms_conversion::router())
+                .merge(wms_backflush::router())
+                .merge(wms_cycle_count::router())
+                .merge(wms_inventory_lock::router())
+                .merge(wms_strategy::router())
+                .merge(wms_transaction_log::router())
+                .merge(wms_cascade::router())
                 // ── System Management ──
                 .merge(user::router())
                 .merge(role::router())

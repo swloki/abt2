@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
@@ -6,7 +6,7 @@ use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{
-    CreateTransferReq, InventoryTransfer, TransferFilter,
+    CreateTransferReq, InventoryTransfer, TransferFilter, TransferItem,
 };
 
 #[async_trait]
@@ -24,6 +24,14 @@ pub trait TransferService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<InventoryTransfer>;
+
+    /// 查询调拨单明细列表
+    async fn get_items(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        transfer_id: i64,
+    ) -> Result<Vec<TransferItem>>;
 
     /// 分页查询调拨单列表
     async fn list(

@@ -1,11 +1,11 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
-use super::model::{ConversionFilter, CreateConversionReq, FormConversion};
+use super::model::{ConversionFilter, ConversionItem, CreateConversionReq, FormConversion};
 
 #[async_trait]
 pub trait FormConversionService: Send + Sync {
@@ -22,6 +22,14 @@ pub trait FormConversionService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<FormConversion>;
+
+    /// 获取形态转换单行项目
+    async fn get_items(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        conversion_id: i64,
+    ) -> Result<Vec<ConversionItem>>;
 
     /// 分页查询形态转换单
     async fn list(

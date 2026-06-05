@@ -1,7 +1,7 @@
 ﻿use async_trait::async_trait;
 use rust_decimal::Decimal;
 
-use super::model::{BackflushFilter, BackflushRecord};
+use super::model::{BackflushFilter, BackflushItem, BackflushRecord};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
@@ -20,6 +20,14 @@ pub trait BackflushService: Send + Sync {
 
     /// 查询单条冲扣记录
     async fn get(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<BackflushRecord>;
+
+    /// 查询冲扣明细列表
+    async fn get_items(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        record_id: i64,
+    ) -> Result<Vec<BackflushItem>>;
 
     /// 分页查询冲扣记录
     async fn list(

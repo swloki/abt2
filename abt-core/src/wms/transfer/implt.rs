@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
 use super::model::{CreateTransferReq, InventoryTransfer, TransferFilter};
@@ -65,6 +65,17 @@ impl TransferService for TransferServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("调拨单"))
+    }
+
+    async fn get_items(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        transfer_id: i64,
+    ) -> Result<Vec<super::model::TransferItem>> {
+        TransferRepo::get_items(&mut *db, transfer_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn list(

@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
 use super::model::{ConversionFilter, CreateConversionReq, FormConversion};
@@ -52,6 +52,17 @@ impl FormConversionService for FormConversionServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("FormConversion"))
+    }
+
+    async fn get_items(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        conversion_id: i64,
+    ) -> Result<Vec<super::model::ConversionItem>> {
+        FormConversionRepo::get_items(&mut *db, conversion_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn list(

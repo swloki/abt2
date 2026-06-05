@@ -1,0 +1,290 @@
+use axum::response::Html;
+use axum_extra::routing::TypedPath;
+use maud::{html, Markup};
+
+use abt_core::wms::arrival_notice::model::ArrivalNotice;
+use abt_core::wms::arrival_notice::repo::ArrivalNoticeRepo;
+use abt_core::wms::arrival_notice::ArrivalNoticeService;
+use abt_core::wms::enums::ArrivalStatus;
+
+use crate::components::icon;
+use crate::errors::Result;
+use crate::layout::page::admin_page;
+use crate::routes::wms_arrival::*;
+use crate::utils::RequestContext;
+use abt_macros::require_permission;
+
+// ── Status Label ──
+
+fn status_label(s: ArrivalStatus) -> (&'static str, &'static str) {
+    match s {
+        ArrivalStatus::Draft => ("草稿", "status-draft"),
+        ArrivalStatus::Received => ("已收货", "status-received"),
+        ArrivalStatus::Inspecting => ("检验中", "status-inspecting"),
+        ArrivalStatus::Accepted => ("已接收", "status-completed"),
+        ArrivalStatus::PartiallyAccepted => ("部分接收", "status-partial"),
+        ArrivalStatus::Rejected => ("已拒收", "status-danger"),
+        ArrivalStatus::Cancelled => ("已取消", "status-cancelled"),
+    }
+}
+
+// ── Workflow Steps ──
+
+fn workflow_steps(status: ArrivalStatus) -> Markup {
+    let steps: &[(&str, bool)] = &[
+        ("草稿", true),
+        ("已收货", false),
+        ("检验中", false),
+        ("全部接收", false),
+    ];
+
+    let completed: Vec<bool> = match status {
+        ArrivalStatus::Draft => vec![false, false, false, false],
+        ArrivalStatus::Received => vec![true, true, false, false],
+        ArrivalStatus::Inspecting => vec![true, true, true, false],
+        ArrivalStatus::Accepted | ArrivalStatus::PartiallyAccepted | ArrivalStatus::Rejected => {
+            vec![true, true, true, true]
+        }
+        ArrivalStatus::Cancelled => vec![true, false, false, false],
+    };
+
+    let current_idx = match status {
+        ArrivalStatus::Draft => Some(0),
+        ArrivalStatus::Received => Some(1),
+        ArrivalStatus::Inspecting => Some(2),
+        ArrivalStatus::Accepted | ArrivalStatus::PartiallyAccepted | ArrivalStatus::Rejected => Some(3),
+        ArrivalStatus::Cancelled => None,
+    };
+
+    html! {
+        div class="workflow-steps" {
+            @for (i, (label, _)) in steps.iter().enumerate() {
+                @if i > 0 {
+                    @let line_class = if completed[i] { "wf-line completed" } else { "wf-line" };
+                    div class=(line_class) {}
+                }
+                @let step_class = match current_idx {
+                    Some(ci) if ci == i => "wf-step current",
+                    _ if completed[i] => "wf-step completed",
+                    _ => "wf-step",
+                };
+                div class=(step_class) {
+                    span class="wf-dot" {}
+                    (label)
+                }
+            }
+        }
+        div style="display:flex;align-items:center;gap:var(--space-4);margin-top:var(--space-3);flex-wrap:wrap" {
+            span style="font-size:12px;color:var(--muted)" { "检验结果分支：" }
+            span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--success)" { "● 全部接收 (Accepted)" }
+            span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--warn)" { "● 部分接收 (Partially Accepted)" }
+            span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--danger)" { "● 拒收 (Rejected)" }
+            span style="color:var(--border-soft)" { "|" }
+            span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)" { "仅草稿状态可取消 (Cancelled)" }
+        }
+    }
+}
+
+// ── Handlers ──
+
+#[require_permission("WMS", "read")]
+pub async fn get_arrival_detail(
+    path: ArrivalDetailPath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let svc = state.arrival_notice_service();
+
+    let notice = svc.get(&service_ctx, &mut conn, path.id).await?;
+    let items = ArrivalNoticeRepo::get_items(&mut conn, path.id)
+        .await
+        .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+
+    let content = arrival_detail_page(&notice, &items);
+    let detail_path = ArrivalDetailPath { id: path.id }.to_string();
+    let page_html = admin_page(
+        is_htmx,
+        &format!("{} - 来料通知详情", notice.doc_number),
+        &claims,
+        "inventory",
+        &detail_path,
+        "库存管理",
+        Some(&notice.doc_number),
+        content,
+    );
+
+    Ok(Html(page_html.into_string()))
+}
+
+// ── Components ──
+
+fn arrival_detail_page(
+    notice: &ArrivalNotice,
+    items: &[abt_core::wms::arrival_notice::model::ArrivalNoticeItem],
+) -> Markup {
+    let (status_text, status_class) = status_label(notice.status);
+    let is_draft = notice.status == ArrivalStatus::Draft;
+    let is_received = notice.status == ArrivalStatus::Received;
+    let is_inspecting = notice.status == ArrivalStatus::Inspecting;
+
+    html! {
+        div {
+            a href=(ArrivalListPath::PATH) class="back-link" {
+                (icon::chevron_left_icon("w-4 h-4"))
+                "返回来料通知列表"
+            }
+
+            div class="detail-header" {
+                div {
+                    div class="detail-title-row" {
+                        h1 class="detail-no font-mono" { (notice.doc_number) }
+                        span class=(format!("status-pill {status_class}")) { (status_text) }
+                    }
+                }
+                div class="page-actions" {
+                    button class="btn btn-default" {
+                        (icon::printer_icon("w-4 h-4"))
+                        "打印"
+                    }
+                }
+            }
+
+            (workflow_steps(notice.status))
+
+            // ── 基本信息 ──
+            div class="info-card" {
+                div class="info-card-title" { "基本信息" }
+                div class="info-grid" {
+                    div class="info-item" {
+                        span class="info-label" { "单据编号" }
+                        span class="info-value mono" { (notice.doc_number) }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "来源采购单" }
+                        span class="info-value mono" { "—" }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "供应商" }
+                        span class="info-value" { "—" }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "到货仓库" }
+                        span class="info-value" { "—" }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "到货库区" }
+                        span class="info-value" { "—" }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "到货日期" }
+                        span class="info-value mono" { (notice.arrival_date.format("%Y-%m-%d")) }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "送货单号" }
+                        span class="info-value mono" { (notice.delivery_note.as_deref().unwrap_or("—")) }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "备注" }
+                        span class="info-value" { (if notice.remark.is_empty() { "—" } else { &notice.remark }) }
+                    }
+                }
+            }
+
+            // ── 行项明细 ──
+            div class="data-card" {
+                div class="data-card-scroll" {
+                    table class="data-table" {
+                        thead {
+                            tr {
+                                th { "行号" }
+                                th { "产品" }
+                                th class="num-right" { "申报数量" }
+                                th class="num-right" { "实收数量" }
+                                th class="num-right" { "合格数量" }
+                                th { "批次号" }
+                            }
+                        }
+                        tbody {
+                            @for (i, item) in items.iter().enumerate() {
+                                tr {
+                                    td class="mono" { (i + 1) }
+                                    td { "产品 #" (item.product_id) }
+                                    td class="num-right" { (item.declared_qty) }
+                                    td class="num-right" { (item.received_qty) }
+                                    td class="num-right" { (item.accepted_qty) }
+                                    td class="mono" { (item.batch_no.as_deref().unwrap_or("—")) }
+                                }
+                            }
+                            @if items.is_empty() {
+                                tr {
+                                    td colspan="6" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                        "暂无物料明细"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── IQC 质检结果区 ──
+            @if is_inspecting || notice.status == ArrivalStatus::Accepted || notice.status == ArrivalStatus::PartiallyAccepted || notice.status == ArrivalStatus::Rejected {
+                div class="info-card" style="border-left:3px solid var(--warn)" {
+                    div class="info-card-title" style="display:flex;align-items:center;gap:var(--space-2)" {
+                        (icon::clipboard_list_icon("w-4 h-4"))
+                        "IQC质检结果"
+                        span class="status-pill status-inspecting" style="margin-left:var(--space-2)" { "检验中" }
+                    }
+                    div class="info-grid" style="margin-bottom:var(--space-4)" {
+                        div class="info-item" {
+                            span class="info-label" { "检验标准" }
+                            span class="info-value" { "GB/T 2828.1 抽样检验" }
+                        }
+                        div class="info-item" {
+                            span class="info-label" { "AQL等级" }
+                            span class="info-value mono" { "0.65" }
+                        }
+                        div class="info-item" {
+                            span class="info-label" { "检验员" }
+                            span class="info-value" { "—" }
+                        }
+                        div class="info-item" {
+                            span class="info-label" { "计划完成日期" }
+                            span class="info-value mono" { "—" }
+                        }
+                    }
+                    div style="background:var(--surface-warm);border:1px solid var(--border);border-radius:var(--radius-sm);padding:var(--space-3) var(--space-4);font-size:var(--text-sm);color:var(--fg-2)" {
+                        strong style="color:var(--warn)" { "⚠ IQC硬门规则：" }
+                        "质检不合格的物料将阻断入库流程。不合格批次将触发MRB（物料评审委员会）处理流程，需由质量部判定：退货 / 让步接收 / 挑选使用。"
+                    }
+                }
+            }
+
+            // ── 操作栏 ──
+            @if is_draft || is_received || is_inspecting {
+                div class="action-bar" {
+                    @if is_draft {
+                        button class="btn btn-default" {
+                            (icon::x_icon("w-4 h-4"))
+                            "取消"
+                        }
+                    }
+                    div style="flex:1" {}
+                    @if is_received {
+                        button class="btn btn-default" {
+                            (icon::clipboard_list_icon("w-4 h-4"))
+                            "开始检验"
+                        }
+                    }
+                    @if is_inspecting {
+                        button class="btn btn-primary" {
+                            (icon::check_circle_icon("w-4 h-4"))
+                            "确认接收"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

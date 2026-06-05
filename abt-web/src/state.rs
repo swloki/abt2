@@ -75,6 +75,68 @@ impl AppState {
         abt_core::wms::warehouse::new_warehouse_service(self.pool.clone())
     }
 
+    // ── WMS (Inventory Management) Services ──
+
+    pub fn arrival_notice_service(
+        &self,
+    ) -> impl abt_core::wms::arrival_notice::ArrivalNoticeService {
+        abt_core::wms::arrival_notice::new_arrival_notice_service(self.pool.clone())
+    }
+
+    pub fn inventory_service(&self) -> impl abt_core::wms::inventory::InventoryService {
+        abt_core::wms::inventory::new_inventory_service()
+    }
+
+    pub fn inventory_transaction_service(
+        &self,
+    ) -> impl abt_core::wms::inventory_transaction::InventoryTransactionService {
+        abt_core::wms::inventory_transaction::new_inventory_transaction_service(self.pool.clone())
+    }
+
+    pub fn material_requisition_service(
+        &self,
+    ) -> impl abt_core::wms::material_requisition::MaterialRequisitionService {
+        abt_core::wms::material_requisition::new_material_requisition_service(self.pool.clone())
+    }
+
+    pub fn backflush_service(&self) -> impl abt_core::wms::backflush::BackflushService {
+        abt_core::wms::backflush::new_backflush_service(self.pool.clone())
+    }
+
+    pub fn cycle_count_service(&self) -> impl abt_core::wms::cycle_count::CycleCountService {
+        abt_core::wms::cycle_count::new_cycle_count_service(self.pool.clone())
+    }
+
+    pub fn transfer_service(&self) -> impl abt_core::wms::transfer::TransferService {
+        abt_core::wms::transfer::new_transfer_service(self.pool.clone())
+    }
+
+    pub fn form_conversion_service(
+        &self,
+    ) -> impl abt_core::wms::form_conversion::FormConversionService {
+        abt_core::wms::form_conversion::new_form_conversion_service(self.pool.clone())
+    }
+
+    pub fn inventory_lock_service(
+        &self,
+    ) -> impl abt_core::wms::inventory_lock::InventoryLockService {
+        abt_core::wms::inventory_lock::new_inventory_lock_service(self.pool.clone())
+    }
+
+    pub fn stock_ledger_service(&self) -> impl abt_core::wms::stock_ledger::StockLedgerService {
+        abt_core::wms::stock_ledger::new_stock_ledger_service(self.pool.clone())
+    }
+
+    pub fn strategy_service(&self) -> impl abt_core::wms::strategy::StrategyService {
+        abt_core::wms::strategy::new_strategy_service(self.pool.clone())
+    }
+
+    pub fn inventory_cascade_service(
+        &self,
+    ) -> impl abt_core::wms::inventory_cascade::InventoryCascadeService {
+        abt_core::wms::inventory_cascade::new_inventory_cascade_service()
+    }
+
     pub fn bom_query_service(&self) -> impl abt_core::master_data::bom::BomQueryService {
         abt_core::master_data::bom::new_bom_query_service(self.pool.clone())
     }

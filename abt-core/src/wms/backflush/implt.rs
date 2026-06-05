@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
@@ -158,6 +158,17 @@ impl BackflushService for BackflushServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("BackflushRecord"))
+    }
+
+    async fn get_items(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        record_id: i64,
+    ) -> Result<Vec<super::model::BackflushItem>> {
+        BackflushRepo::get_items(&mut *db, record_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn list(

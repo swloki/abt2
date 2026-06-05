@@ -1342,6 +1342,26 @@ const componentStyles = `
 }
 .temp-price-input:focus { border-color: #2563eb; box-shadow: 0 0 0 1px #2563eb; }
 .temp-price-input::placeholder { color: #9ca3af; font-size: 11px; }
+.temp-price-form {
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.temp-price-confirm {
+  border: none; background: #2563eb; color: #fff;
+  border-radius: 4px; width: 24px; height: 24px;
+  font-size: 13px; line-height: 1; cursor: pointer;
+  display: grid; place-items: center;
+  transition: background .15s;
+}
+.temp-price-confirm:hover { background: #1d4ed8; }
+.temp-price-revert {
+  border: none; background: #fef2f2; color: #ef4444;
+  border-radius: 4px; width: 22px; height: 22px;
+  font-size: 14px; line-height: 1; cursor: pointer;
+  display: inline-grid; place-items: center;
+  vertical-align: middle; margin-left: 2px;
+  transition: background .15s;
+}
+.temp-price-revert:hover { background: #fee2e2; }
 .labor-summary-card {
   border: 1px solid #e5e7eb; background: #fff;
   border-radius: 6px; padding: 16px; margin-bottom: 24px;

@@ -466,7 +466,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                         hx-get=(usage_path)
                         hx-target="#bom-drawer-body"
                         hx-swap="innerHTML"
-                        onclick="hsAdd(null,'#bom-drawer','open')" {
+                        hx-on::after-request="hsAdd(null,'#bom-drawer','open')" {
                         (icon::link_icon("w-4 h-4"))
                     }
                     // More menu trigger
@@ -492,7 +492,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                             hx-get=(drawer_path)
                             hx-target="#price-drawer-body"
                             hx-swap="innerHTML"
-                            onclick="hsRemoveClosest(this,'.row-actions-menu','is-open');hsAdd(null,'#price-drawer','open')" {
+                            onclick="hsRemoveClosest(this,'.row-actions-menu','is-open')" hx-on::after-request="hsAdd(null,'#price-drawer','open')" {
                             (icon::currency_icon("w-4 h-4"))
                             "设置价格"
                         }

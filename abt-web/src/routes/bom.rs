@@ -1,4 +1,4 @@
-use axum::routing::{get, post};
+use axum::routing::{get, post, delete};
 use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
@@ -92,6 +92,18 @@ pub struct BomLaborCostDrawerPath {
     pub id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/cost-drawer/temp-price")]
+pub struct BomCostTempPricePath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/md/boms/{id}/cost-drawer/temp-prices")]
+pub struct BomCostClearTempPath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -111,4 +123,6 @@ pub fn router() -> Router<AppState> {
         .route(BomSaveAsPath::PATH, post(bom_edit::save_as))
         .route(BomCostDrawerPath::PATH, get(bom_detail::get_cost_drawer))
         .route(BomLaborCostDrawerPath::PATH, get(bom_detail::get_labor_cost_drawer))
+        .route(BomCostTempPricePath::PATH, post(bom_detail::save_temp_price))
+        .route(BomCostClearTempPath::PATH, delete(bom_detail::clear_temp_prices))
 }

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use axum::response::Html;
 use maud::{Markup, html};
 use rust_decimal::Decimal;
+use serde::Deserialize;
 
 use abt_core::master_data::bom::{BomCommandService, BomCostService, BomQueryService};
 use abt_core::master_data::bom::model::*;
@@ -12,7 +13,7 @@ use abt_macros::require_permission;
 
 use crate::components::icon;
 use crate::layout::page::admin_page;
-use crate::routes::bom::{BomCostDrawerPath, BomDeletePath, BomDetailPath, BomEditPath, BomLaborCostDrawerPath, BomListPath, BomPublishPath};
+use crate::routes::bom::{BomCostDrawerPath, BomCostTempPricePath, BomCostClearTempPath, BomDeletePath, BomDetailPath, BomEditPath, BomLaborCostDrawerPath, BomListPath, BomPublishPath};
 use crate::utils::RequestContext;
 
 // ── Handlers ──
@@ -83,18 +84,78 @@ pub async fn publish_bom(
     let redirect = BomDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
+// ── Temp Price Session Helpers ──
+
+fn temp_prices_session_key(bom_id: i64) -> String {
+    format!("bom_temp_prices:{}", bom_id)
+}
+
+async fn load_temp_prices(session: &tower_sessions::Session, bom_id: i64) -> HashMap<i64, String> {
+    session.get::<HashMap<i64, String>>(&temp_prices_session_key(bom_id))
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_default()
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TempPriceForm {
+    pub product_id: i64,
+    pub temp_price: String,
+}
 
 #[require_permission("COST", "read")]
 pub async fn get_cost_drawer(
     path: BomCostDrawerPath,
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext { mut conn, state, service_ctx, session, .. } = ctx;
 
     let cost_svc = state.bom_cost_service();
     let report = cost_svc.get_cost_report(&service_ctx, &mut conn, path.id, None).await?;
+    let temp_prices = load_temp_prices(&session, path.id).await;
 
-    Ok(Html(cost_drawer_content(&report).into_string()))
+    Ok(Html(cost_drawer_content(&report, &temp_prices).into_string()))
+}
+
+#[require_permission("COST", "read")]
+pub async fn save_temp_price(
+    path: BomCostTempPricePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<TempPriceForm>,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, session, .. } = ctx;
+
+    let price = form.temp_price.trim().parse::<Decimal>().unwrap_or(Decimal::ZERO);
+    let mut temp_prices = load_temp_prices(&session, path.id).await;
+    if price > Decimal::ZERO {
+        temp_prices.insert(form.product_id, form.temp_price.trim().to_string());
+    } else {
+        temp_prices.remove(&form.product_id);
+    }
+    let _ = session.insert(&temp_prices_session_key(path.id), &temp_prices).await;
+
+    let cost_svc = state.bom_cost_service();
+    let report = cost_svc.get_cost_report(&service_ctx, &mut conn, path.id, None).await?;
+    let temp_prices = load_temp_prices(&session, path.id).await;
+
+    Ok(Html(cost_drawer_content(&report, &temp_prices).into_string()))
+}
+
+#[require_permission("COST", "read")]
+pub async fn clear_temp_prices(
+    path: BomCostClearTempPath,
+    ctx: RequestContext,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, session, .. } = ctx;
+
+    let _ = session.remove::<HashMap<i64, String>>(&temp_prices_session_key(path.id)).await;
+
+    let cost_svc = state.bom_cost_service();
+    let report = cost_svc.get_cost_report(&service_ctx, &mut conn, path.id, None).await?;
+    let temp_prices = load_temp_prices(&session, path.id).await;
+
+    Ok(Html(cost_drawer_content(&report, &temp_prices).into_string()))
 }
 
 #[require_permission("LABOR_COST", "read")]
@@ -174,7 +235,7 @@ fn bom_detail_page(
                             hx-get=(cost_drawer_path.to_string())
                             hx-target="#cost-drawer-body"
                             hx-swap="innerHTML"
-                            onclick="hsAdd(null,'#cost-drawer','open')" {
+                            hx-on::after-request="hsAdd(null,'#cost-drawer','open')" {
                             (icon::currency_icon("w-4 h-4"))
                             " 查看成本"
                         }
@@ -183,7 +244,7 @@ fn bom_detail_page(
                             hx-get=(labor_drawer_path.to_string())
                             hx-target="#labor-drawer-body"
                             hx-swap="innerHTML"
-                            onclick="hsAdd(null,'#labor-drawer','open')" {
+                            hx-on::after-request="hsAdd(null,'#labor-drawer','open')" {
                             (icon::bolt_icon("w-4 h-4"))
                             " 查看人工成本"
                         }
@@ -258,7 +319,7 @@ fn bom_detail_page(
                 // ── Cost Drawer (wider: 1000px) ──
                 div id="cost-drawer" class="drawer-overlay"
                     onclick="hsRemove(null,'#cost-drawer','open')" {
-                        div class="drawer" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
+                        div class="drawer-panel" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
@@ -279,7 +340,7 @@ fn bom_detail_page(
                 // ── Labor Cost Drawer (wider: 800px) ──
                 div id="labor-drawer" class="drawer-overlay"
                     onclick="hsRemove(null,'#labor-drawer','open')" {
-                    div class="drawer" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
+                    div class="drawer-panel" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
@@ -380,30 +441,42 @@ fn format_amount(unit_price: Decimal, quantity: Decimal) -> String {
     format_currency(unit_price * quantity)
 }
 
-fn cost_drawer_content(report: &BomCostReport) -> Markup {
-    let has_labor_cost_issue = !report.labor_costs.is_empty()
-        && report.labor_costs.iter().all(|item| item.unit_price == Decimal::ZERO);
-    let has_missing_prices = report.material_costs.iter().any(|item| item.unit_price.is_none());
+fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String>) -> Markup {
+    let temp_price_path = BomCostTempPricePath { id: report.bom_id }.to_string();
+    let clear_path = BomCostClearTempPath { id: report.bom_id }.to_string();
+
+    // Calculate material total using actual prices or temp prices
+    let has_uncovered_missing = report.material_costs.iter()
+        .any(|item| item.unit_price.is_none() && !temp_prices.contains_key(&item.product_id));
     let material_total: Decimal = report.material_costs.iter()
-        .filter_map(|item| item.unit_price.map(|p| p * item.quantity))
+        .map(|item| {
+            let price = item.unit_price
+                .or_else(|| temp_prices.get(&item.product_id).and_then(|s| s.parse::<Decimal>().ok()));
+            price.map(|p| p * item.quantity).unwrap_or(Decimal::ZERO)
+        })
         .sum();
     let labor_total: Decimal = report.labor_costs.iter()
         .map(|item| item.unit_price * item.quantity)
         .sum();
-    let total_card_class = if has_missing_prices || has_labor_cost_issue { "total-warn" } else { "total-ok" };
-    let total_sub = if has_missing_prices && has_labor_cost_issue {
+    let has_labor_cost_issue = !report.labor_costs.is_empty()
+        && report.labor_costs.iter().all(|item| item.unit_price == Decimal::ZERO);
+
+    let all_resolved = !has_uncovered_missing && !has_labor_cost_issue;
+    let total_card_class = if all_resolved { "total-ok" } else { "total-warn" };
+    let total_sub = if has_uncovered_missing && has_labor_cost_issue {
         "材料缺失单价，人工成本为0"
-    } else if has_missing_prices {
+    } else if has_uncovered_missing {
         "存在缺失单价"
     } else if has_labor_cost_issue {
         "人工成本为0"
+    } else if !temp_prices.is_empty() {
+        "已完成计算（含临时价格）"
     } else {
         "已完成计算"
     };
 
-
     html! {
-        div data-bom-id=(report.bom_id) {
+        div {
             // Warning banner
             @if !report.warnings.is_empty() {
                 div class="cost-warning-banner" {
@@ -445,20 +518,24 @@ fn cost_drawer_content(report: &BomCostReport) -> Markup {
                 }
                 div class={"cost-summary-card " (total_card_class)} {
                     div class="card-label" { "总成本" }
-                    @if has_missing_prices || has_labor_cost_issue {
-                        div class="card-value" { "-" }
-                    } @else {
+                    @if all_resolved {
                         div class="card-value" { (format_currency(material_total + labor_total)) }
+                    } @else {
+                        div class="card-value" { "-" }
                     }
                     div class="card-sub" { (total_sub) }
                 }
             }
-            // Temp price notice (initially hidden, shown by JS when temp prices exist)
-            div id="temp-price-notice" class="temp-price-notice" style="display:none" {
-                (icon::circle_alert_icon("w-4 h-4"))
-                span { "已使用 " strong id="temp-price-count" { "0" } " 个临时价格（仅保存在本地，刷新后仍有效）" }
-                button type="button" class="temp-price-clear"
-                    onclick="window.costDrawerClearTemp()" { "清除全部" }
+            // Temp price notice
+            @if !temp_prices.is_empty() {
+                div class="temp-price-notice" {
+                    (icon::circle_alert_icon("w-4 h-4"))
+                    span { "已使用 " strong { (temp_prices.len()) } " 个临时价格" }
+                    button type="button" class="temp-price-clear"
+                        hx-delete=(clear_path)
+                        hx-target="#cost-drawer-body"
+                        hx-swap="innerHTML" { "清除全部" }
+                }
             }
             // Material cost table
             div class="cost-section" {
@@ -475,10 +552,12 @@ fn cost_drawer_content(report: &BomCostReport) -> Markup {
                     }
                     tbody {
                         @for item in &report.material_costs {
-                            @let has_price = item.unit_price.is_some();
-                            @let tr_class = if has_price { "" } else { "row-danger" };
-                            tr class=(tr_class)
-                                data-product-id=(item.product_id) data-quantity=(item.quantity) {
+                            @let effective_price = item.unit_price
+                                .or_else(|| temp_prices.get(&item.product_id).and_then(|s| s.parse::<Decimal>().ok()));
+                            @let is_missing = item.unit_price.is_none();
+                            @let has_temp = is_missing && temp_prices.contains_key(&item.product_id);
+                            @let tr_class = if is_missing && !has_temp { "row-danger" } else { "" };
+                            tr class=(tr_class) {
                                 td class="cell-name font-mono" title=(item.product_name) {
                                     (item.product_name)
                                 }
@@ -487,18 +566,49 @@ fn cost_drawer_content(report: &BomCostReport) -> Markup {
                                 td class="text-right" {
                                     @if let Some(price) = item.unit_price {
                                         span class="font-mono" { (format_currency(price)) }
+                                    } @else if has_temp {
+                                        span class="temp-price-badge" {
+                                            span { (format_currency(effective_price.unwrap_or(Decimal::ZERO))) }
+                                            span class="temp-tag" { "临时" }
+                                        }
+                                        form style="display:inline"
+                                            hx-post=(temp_price_path)
+                                            hx-target="#cost-drawer-body"
+                                            hx-swap="innerHTML" {
+                                            input type="hidden" name="product_id" value=(item.product_id) {}
+                                            input type="hidden" name="temp_price" value="" {}
+                                            button type="submit" class="temp-price-revert" title="回退"
+                                                onclick="event.stopPropagation()" {
+                                                "×"
+                                            }
+                                        }
                                     } @else {
-                                        // Placeholder for temp price or input — JS will fill
-                                        span class="cost-price-cell" data-product-id=(item.product_id) {}
+                                        form class="temp-price-form"
+                                            hx-post=(temp_price_path)
+                                            hx-target="#cost-drawer-body"
+                                            hx-swap="innerHTML" {
+                                            input type="hidden" name="product_id" value=(item.product_id) {}
+                                            input type="text" class="temp-price-input" name="temp_price"
+                                                placeholder="输入单价"
+                                                onfocus="event.stopPropagation()"
+                                                onclick="event.stopPropagation()" {}
+                                            button type="submit" class="temp-price-confirm" title="确认"
+                                                onclick="event.stopPropagation()" {
+                                                "✓"
+                                            }
+                                        }
                                     }
                                 }
                                 td class="text-right cell-amount" {
-                                    @if let Some(price) = item.unit_price {
-                                        span class="font-mono amount-primary" {
-                                            (format_amount(price, item.quantity))
+                                    @if let Some(price) = effective_price {
+                                        @let amt = price * item.quantity;
+                                        @if has_temp {
+                                            span class="font-mono amount-warn" { (format_currency(amt)) }
+                                        } @else {
+                                            span class="font-mono amount-primary" { (format_currency(amt)) }
                                         }
                                     } @else {
-                                        span class="cost-amount-cell" data-product-id=(item.product_id) {}
+                                        span class="missing-price" { "-" }
                                     }
                                 }
                             }
@@ -568,10 +678,10 @@ fn cost_drawer_content(report: &BomCostReport) -> Markup {
             }
             // Total footer
             div class="cost-drawer-footer bg-gray total-footer" {
-                @if has_missing_prices || has_labor_cost_issue {
-                    @let total_hint = if has_missing_prices && has_labor_cost_issue {
+                @if !all_resolved {
+                    @let total_hint = if has_uncovered_missing && has_labor_cost_issue {
                         "请补全材料单价并设置人工成本"
-                    } else if has_missing_prices {
+                    } else if has_uncovered_missing {
                         "请补全所有材料单价"
                     } else {
                         "请设置人工成本单价"
@@ -585,7 +695,6 @@ fn cost_drawer_content(report: &BomCostReport) -> Markup {
                 }
             }
         }
-        script src="/cost-drawer.js?v=20260603" {}
     }
 }
 

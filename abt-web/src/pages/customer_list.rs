@@ -507,7 +507,7 @@ fn customer_row(c: &Customer) -> Markup {
                         hx-get=(edit_form_path)
                         hx-target="#customer-create-modal .modal-body"
                         hx-swap="innerHTML"
-                        onclick="hsAdd(null,'#customer-create-modal','is-open')" {
+                        hx-on::after-request="hsAdd(null,'#customer-create-modal','is-open')" {
                         (icon::edit_icon("w-4 h-4"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"

@@ -13,7 +13,7 @@ use maud::{Markup, html};
 pub fn drawer(drawer_id: &str, title: &str, submit_label: &str, form_id: &str, body: Markup) -> Markup {
     html! {
         div id=(drawer_id) class="drawer-overlay" onclick="hsBackdropClose(this,event,'open')" {
-            div class="drawer" onclick="event.stopPropagation()" {
+            div class="drawer-panel" onclick="event.stopPropagation()" {
                 div class="drawer-head" {
                     h2 { (title) }
                     button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
@@ -41,7 +41,7 @@ pub fn drawer(drawer_id: &str, title: &str, submit_label: &str, form_id: &str, b
 pub fn drawer_with_footer(drawer_id: &str, title: &str, body: Markup, footer: Markup) -> Markup {
     html! {
         div id=(drawer_id) class="drawer-overlay" onclick="hsBackdropClose(this,event,'open')" {
-            div class="drawer" onclick="event.stopPropagation()" {
+            div class="drawer-panel" onclick="event.stopPropagation()" {
                 div class="drawer-head" {
                     h2 { (title) }
                     button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"

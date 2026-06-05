@@ -204,7 +204,7 @@ fn bom_list_page(
                 // ── Cost Drawer ──
                 div id="cost-drawer" class="drawer-overlay"
                     onclick="hsRemove(null,'#cost-drawer','open')" {
-                    div class="drawer" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
+                    div class="drawer-panel" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
@@ -225,7 +225,7 @@ fn bom_list_page(
                 // ── Labor Cost Drawer ──
                 div id="labor-drawer" class="drawer-overlay"
                     onclick="hsRemove(null,'#labor-drawer','open')" {
-                    div class="drawer" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
+                    div class="drawer-panel" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
@@ -413,7 +413,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                             hx-get=(BomCostDrawerPath { id: bom.bom_id }.to_string())
                             hx-target="#cost-drawer-body"
                             hx-swap="innerHTML"
-                            onclick="hsAdd(null,'#cost-drawer','open')" {
+                            hx-on::after-request="hsAdd(null,'#cost-drawer','open')" {
                             (icon::currency_icon("w-4 h-4"))
                         }
                     } @else if can_view_labor_cost {
@@ -421,7 +421,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                             hx-get=(BomLaborCostDrawerPath { id: bom.bom_id }.to_string())
                             hx-target="#labor-drawer-body"
                             hx-swap="innerHTML"
-                            onclick="hsAdd(null,'#labor-drawer','open')" {
+                            hx-on::after-request="hsAdd(null,'#labor-drawer','open')" {
                             (icon::bolt_icon("w-4 h-4"))
                         }
                     }

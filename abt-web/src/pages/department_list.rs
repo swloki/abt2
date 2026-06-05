@@ -228,10 +228,7 @@ pub async fn delete_department(
         .await?;
 
     let redirect = DepartmentListPath.to_string();
-    Ok((
-        [("HX-Redirect", redirect)],
-        Html("<script>closeDeptDrawer()</script>".to_string()),
-    ))
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Form Data ──
@@ -304,7 +301,7 @@ fn tree_panel(departments: &[Department], selected_id: Option<i64>) -> Markup {
                     hx-get=(DepartmentCreateDrawerPath::PATH)
                     hx-target="#drawerPanel"
                     hx-swap="innerHTML"
-                    onclick="hsAdd(null,'#deptDrawer','open')" {
+                    hx-on::after-request="hsAdd(null,'#deptDrawer','open')" {
                     (icon::plus_icon("w-[13px] h-[13px]"))
                 }
             }
@@ -434,7 +431,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles]) -> Mark
                     hx-get=(edit_path)
                     hx-target="#drawerPanel"
                     hx-swap="innerHTML"
-                    onclick="hsAdd(null,'#deptDrawer','open')" {
+                    hx-on::after-request="hsAdd(null,'#deptDrawer','open')" {
                     (icon::edit_icon("w-[13px] h-[13px]"))
                     "编辑"
                 }

@@ -66,6 +66,7 @@ pub struct RequestContext {
     pub state: AppState,
     pub service_ctx: ServiceContext,
     pub headers: HeaderMap,
+    pub session: Session,
 }
 
 impl FromRequestParts<AppState> for RequestContext {
@@ -93,6 +94,7 @@ impl FromRequestParts<AppState> for RequestContext {
             state: state.clone(),
             service_ctx,
             headers,
+            session,
         })
     }
 }

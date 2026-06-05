@@ -183,8 +183,8 @@ pub async fn get_po_products(
     let svc = state.product_service();
 
     let filter = ProductQuery {
-            name: params.name,
-            code: params.code,
+            name: params.name.filter(|s| !s.is_empty()),
+            code: params.code.filter(|s| !s.is_empty()),
             status: None,
             owner_department_id: None,
             category_id: None,

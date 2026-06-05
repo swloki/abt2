@@ -326,7 +326,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
             hx-get=(detail_path.to_string())
             hx-target="#detail-body"
             hx-swap="innerHTML"
-            onclick="hsAdd(null,'#detail-drawer','open')" {
+            hx-on::after-request="hsAdd(null,'#detail-drawer','open')" {
             td style="color:var(--muted)" { (index + 1) }
             td class="mono" { (row.product_code) }
             td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=(row.product_name) {
@@ -352,7 +352,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
                     hx-get=(detail_path.to_string())
                     hx-target="#detail-body"
                     hx-swap="innerHTML"
-                    onclick="halt(event);hsAdd(null,'#detail-drawer','open')" { "详情" }
+                    onclick="halt(event)" hx-on::after-request="hsAdd(null,'#detail-drawer','open')" { "详情" }
             }
         }
     }

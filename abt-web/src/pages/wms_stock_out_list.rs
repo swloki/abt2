@@ -25,7 +25,9 @@ use abt_macros::require_permission;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct StockOutQueryParams {
-    pub keyword: Option<String>,
+    pub doc_number: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub product_code: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub transaction_type: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
@@ -92,8 +94,11 @@ async fn resolve_wh_names<S: WarehouseService>(
 
 fn build_query_string(params: &StockOutQueryParams) -> String {
     let mut q = vec![];
-    if let Some(ref kw) = params.keyword {
-        q.push(format!("keyword={kw}"));
+    if let Some(ref v) = params.doc_number {
+        q.push(format!("doc_number={v}"));
+    }
+    if let Some(ref v) = params.product_code {
+        q.push(format!("product_code={v}"));
     }
     if let Some(ref tt) = params.transaction_type {
         q.push(format!("transaction_type={tt}"));
@@ -106,11 +111,6 @@ fn build_query_string(params: &StockOutQueryParams) -> String {
     }
     if let Some(ref de) = params.date_end {
         q.push(format!("date_end={de}"));
-    }
-    if let Some(p) = params.page {
-        if p > 1 {
-            q.push(format!("page={p}"));
-        }
     }
     q.join("&")
 }
@@ -173,7 +173,8 @@ pub async fn get_stock_out_table(
     let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
     let wh_names = resolve_wh_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
 
-    Ok(Html(stock_out_table_fragment(&result, &operator_names, &wh_names, &params).into_string()))
+    let query = build_query_string(&params);
+    Ok(Html(stock_out_data_card(&result, &operator_names, &wh_names, &query).into_string()))
 }
 
 // ── Components ──
@@ -203,6 +204,77 @@ fn stock_out_list_page(
 
             // ── Tabs + Filter + Table (HTMX panel) ──
             (stock_out_table_fragment(result, operator_names, wh_names, params))
+        }
+    }
+}
+
+fn stock_out_data_card(
+    result: &abt_core::shared::types::PaginatedResult<abt_core::wms::inventory_transaction::model::InventoryTransaction>,
+    operator_names: &HashMap<i64, String>,
+    wh_names: &HashMap<i64, String>,
+    query: &str,
+) -> Markup {
+    html! {
+        div class="data-card" id="stock-out-data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th style="width:30px" { input type="checkbox"; }
+                            th { "出库单号" }
+                            th { "出库类型" }
+                            th { "来源单号" }
+                            th { "来源仓库" }
+                            th { "物料数量" }
+                            th class="num-right" { "出库总量" }
+                            th class="num-right" { "总金额" }
+                            th { "拣货策略" }
+                            th { "状态" }
+                            th { "操作员" }
+                            th { "出库时间" }
+                            th { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for item in &result.items {
+                            @let (type_label, type_bg, type_color) = out_type_label(&item.transaction_type);
+                            @let wh_name = wh_names.get(&item.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
+                            @let op_name = operator_names.get(&item.operator_id).map(|s| s.as_str()).unwrap_or("—");
+                            tr {
+                                td { input type="checkbox"; }
+                                td class="link-cell mono" style="color:var(--accent)" { (item.doc_number.as_deref().unwrap_or("—")) }
+                                td {
+                                    span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
+                                        (type_label)
+                                    }
+                                }
+                                td class="mono" style="color:var(--fg-2);font-size:12px" { (format!("{}-{}", item.source_type, item.source_id)) }
+                                td { (wh_name) }
+                                td { "1 种" }
+                                td class="num-right mono" { (item.quantity) }
+                                td class="num-right mono" { (item.unit_cost.map(|c| format!("¥{c}")).unwrap_or_else(|| "—".into())) }
+                                td style="font-size:12px;color:var(--fg-2)" { "FIFO" }
+                                td {
+                                    span class="status-pill status-completed" { "已出库" }
+                                }
+                                td { (op_name) }
+                                td style="font-size:12px;color:var(--muted)" { (item.created_at.format("%Y-%m-%d %H:%M")) }
+                                td {
+                                    a href="#" style="color:var(--accent);font-size:var(--text-xs)" { "详情" }
+                                }
+                            }
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="13" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    "暂无出库记录"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            (pagination(StockOutListPath::PATH, query, result.total, result.page, result.total_pages))
         }
     }
 }
@@ -269,109 +341,42 @@ fn stock_out_table_fragment(
             (status_tabs(StockOutTablePath::PATH, "closest .stockout-list-panel", ".filter-bar input, .filter-bar select", tabs, selected_type))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form"
+                hx-get=(StockOutTablePath::PATH)
+                hx-trigger="change,keyup changed delay:300ms from:.search-input"
+                hx-target="#stock-out-data-card"
+                hx-select="#stock-out-data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
-                        placeholder="搜索单号、物料编码…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(StockOutTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .stockout-list-panel"
-                        hx-swap="outerHTML"
-                        hx-include=".filter-bar input, .filter-bar select";
+                    input class="search-input" type="text" name="doc_number"
+                        style="width:180px"
+                        placeholder="单据编号"
+                        value=(params.doc_number.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="transaction_type"
-                    hx-get=(StockOutTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .stockout-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="product_code"
+                        placeholder="物料编码"
+                        value=(params.product_code.as_deref().unwrap_or(""));
+                }
+                select class="filter-select" name="transaction_type" {
                     option value="" selected[selected_type.is_empty()] { "出库类型" }
                     option value="SalesShipment" selected[selected_type == "SalesShipment"] { "销售出库" }
                     option value="MaterialIssue" selected[selected_type == "MaterialIssue"] { "生产领料" }
                 }
                 input class="filter-input" type="date" name="date_start"
                     style="width:140px"
-                    value=(params.date_start.as_deref().unwrap_or(""))
-                    hx-get=(StockOutTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .stockout-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select";
+                    value=(params.date_start.as_deref().unwrap_or(""));
                 span style="color:var(--muted);line-height:36px" { "~" }
                 input class="filter-input" type="date" name="date_end"
                     style="width:140px"
-                    value=(params.date_end.as_deref().unwrap_or(""))
-                    hx-get=(StockOutTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .stockout-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select";
+                    value=(params.date_end.as_deref().unwrap_or(""));
             }
 
             // ── Data Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead {
-                            tr {
-                                th style="width:30px" { input type="checkbox"; }
-                                th { "出库单号" }
-                                th { "出库类型" }
-                                th { "来源单号" }
-                                th { "来源仓库" }
-                                th { "物料数量" }
-                                th class="num-right" { "出库总量" }
-                                th class="num-right" { "总金额" }
-                                th { "拣货策略" }
-                                th { "状态" }
-                                th { "操作员" }
-                                th { "出库时间" }
-                                th { "操作" }
-                            }
-                        }
-                        tbody {
-                            @for item in &result.items {
-                                @let (type_label, type_bg, type_color) = out_type_label(&item.transaction_type);
-                                @let wh_name = wh_names.get(&item.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
-                                @let op_name = operator_names.get(&item.operator_id).map(|s| s.as_str()).unwrap_or("—");
-                                tr {
-                                    td { input type="checkbox"; }
-                                    td class="link-cell mono" style="color:var(--accent)" { (item.doc_number.as_deref().unwrap_or("—")) }
-                                    td {
-                                        span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", type_bg, type_color)) {
-                                            (type_label)
-                                        }
-                                    }
-                                    td class="mono" style="color:var(--fg-2);font-size:12px" { (format!("{}-{}", item.source_type, item.source_id)) }
-                                    td { (wh_name) }
-                                    td { "1 种" }
-                                    td class="num-right mono" { (item.quantity) }
-                                    td class="num-right mono" { (item.unit_cost.map(|c| format!("¥{c}")).unwrap_or_else(|| "—".into())) }
-                                    td style="font-size:12px;color:var(--fg-2)" { "FIFO" }
-                                    td {
-                                        span class="status-pill status-completed" { "已出库" }
-                                    }
-                                    td { (op_name) }
-                                    td style="font-size:12px;color:var(--muted)" { (item.created_at.format("%Y-%m-%d %H:%M")) }
-                                    td {
-                                        a href="#" style="color:var(--accent);font-size:var(--text-xs)" { "详情" }
-                                    }
-                                }
-                            }
-                            @if result.items.is_empty() {
-                                tr {
-                                    td colspan="13" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无出库记录"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                (pagination(StockOutListPath::PATH, &query, result.total, result.page, result.total_pages))
-            }
+            (stock_out_data_card(result, operator_names, wh_names, &query))
 
             // ── Info Note ──
             div style="margin-top:var(--space-6);padding:var(--space-4) var(--space-5);background:var(--danger-bg);border:1px solid rgba(255,77,79,0.15);border-radius:var(--radius-md);display:flex;align-items:flex-start;gap:var(--space-3)" {

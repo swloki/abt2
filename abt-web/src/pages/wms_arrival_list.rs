@@ -28,7 +28,8 @@ use abt_macros::require_permission;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct ArrivalQueryParams {
-    pub keyword: Option<String>,
+    pub doc_number: Option<String>,
+    pub supplier: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
@@ -49,8 +50,11 @@ fn build_filter(params: &ArrivalQueryParams) -> ArrivalNoticeFilter {
 
 fn build_query_string(params: &ArrivalQueryParams) -> String {
     let mut q = vec![];
-    if let Some(ref kw) = params.keyword {
-        q.push(format!("keyword={kw}"));
+    if let Some(ref v) = params.doc_number {
+        q.push(format!("doc_number={v}"));
+    }
+    if let Some(ref v) = params.supplier {
+        q.push(format!("supplier={v}"));
     }
     if let Some(s) = params.status {
         q.push(format!("status={s}"));
@@ -166,11 +170,7 @@ pub async fn get_arrival_table(
     let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
 
-    let warehouses = warehouse_svc
-        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
-        .await?;
-
-    Ok(Html(arrival_table_fragment(&result, &warehouse_names, &supplier_names, &warehouses.items, &params).into_string()))
+    Ok(Html(arrival_data_card(&result, &warehouse_names, &supplier_names, &params).into_string()))
 }
 
 // ── Components ──
@@ -226,23 +226,27 @@ fn arrival_table_fragment(
         div class="arrival-list-panel" {
             (status_tabs(ArrivalTablePath::PATH, "closest .arrival-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
 
-            div class="filter-bar" {
+            form class="filter-bar filter-form"
+                hx-get=(ArrivalTablePath::PATH)
+                hx-trigger="change,keyup changed delay:300ms from:.search-input"
+                hx-target="#arrival-data-card"
+                hx-select="#arrival-data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
-                        placeholder="搜索单号/供应商…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(ArrivalTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .arrival-list-panel"
-                        hx-swap="outerHTML";
+                    input class="search-input" type="text" name="doc_number"
+                        style="width:180px"
+                        placeholder="单据编号"
+                        value=(params.doc_number.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_id"
-                    hx-get=(ArrivalTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .arrival-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="supplier"
+                        placeholder="供应商"
+                        value=(params.supplier.as_deref().unwrap_or(""));
+                }
+                select class="filter-select" name="warehouse_id" {
                     option value="" { "全部仓库" }
                     @for w in warehouses {
                         option value=(w.id) selected[selected_warehouse == w.id.to_string()] { (w.name) }
@@ -250,36 +254,48 @@ fn arrival_table_fragment(
                 }
             }
 
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead {
-                            tr {
-                                th { "单据编号" }
-                                th { "来源采购单" }
-                                th { "供应商" }
-                                th { "到货仓库" }
-                                th { "到货日期" }
-                                th { "状态" }
-                                th { "操作" }
-                            }
+            (arrival_data_card(result, warehouse_names, supplier_names, params))
+        }
+    }
+}
+
+fn arrival_data_card(
+    result: &abt_core::shared::types::pagination::PaginatedResult<abt_core::wms::arrival_notice::model::ArrivalNotice>,
+    warehouse_names: &HashMap<i64, String>,
+    supplier_names: &HashMap<i64, String>,
+    params: &ArrivalQueryParams,
+) -> Markup {
+    let query = build_query_string(params);
+    html! {
+        div class="data-card" id="arrival-data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "单据编号" }
+                            th { "来源采购单" }
+                            th { "供应商" }
+                            th { "到货仓库" }
+                            th { "到货日期" }
+                            th { "状态" }
+                            th { "操作" }
                         }
-                        tbody {
-                            @for n in &result.items {
-                                (arrival_row(n, warehouse_names, supplier_names))
-                            }
-                            @if result.items.is_empty() {
-                                tr {
-                                    td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无来料通知数据"
-                                    }
+                    }
+                    tbody {
+                        @for n in &result.items {
+                            (arrival_row(n, warehouse_names, supplier_names))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    "暂无来料通知数据"
                                 }
                             }
                         }
                     }
                 }
-                (pagination(ArrivalListPath::PATH, &query, result.total, result.page, result.total_pages))
             }
+            (pagination(ArrivalListPath::PATH, &query, result.total, result.page, result.total_pages))
         }
     }
 }

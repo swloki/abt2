@@ -25,7 +25,10 @@ use abt_macros::require_permission;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct WarehouseQueryParams {
-    pub keyword: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub code: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub name: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
@@ -79,16 +82,22 @@ pub async fn get_warehouse_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    Ok(Html(warehouse_table_fragment(&result, &params).into_string()))
+    Ok(Html(warehouse_data_card(&result, &build_query_string(&params)).into_string()))
 }
 
 // ── Helpers ──
 
 fn build_filter(params: &WarehouseQueryParams) -> WarehouseFilter {
+    let keyword = match (&params.code, &params.name) {
+        (Some(c), Some(n)) if !c.is_empty() && !n.is_empty() => Some(format!("{} {}", c, n)),
+        (Some(c), _) if !c.is_empty() => Some(c.clone()),
+        (_, Some(n)) if !n.is_empty() => Some(n.clone()),
+        _ => None,
+    };
     WarehouseFilter {
         warehouse_type: params.warehouse_type.and_then(WarehouseType::from_i16),
         status: params.status.and_then(WarehouseStatus::from_i16),
-        keyword: params.keyword.clone(),
+        keyword,
     }
 }
 
@@ -160,22 +169,27 @@ fn warehouse_table_fragment(
             (status_tabs(WarehouseTablePath::PATH, "closest .warehouse-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form"
+                hx-get=(WarehouseTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#warehouse-data-card"
+                hx-select="#warehouse-data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
-                        placeholder="搜索仓库编码、名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(WarehouseTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .warehouse-list-panel"
-                        hx-swap="outerHTML";
+                    input class="search-input" type="text" name="code"
+                        style="width:180px"
+                        placeholder="仓库编码"
+                        value=(params.code.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_type"
-                    hx-get=(WarehouseTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .warehouse-list-panel"
-                    hx-swap="outerHTML" {
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="name"
+                        placeholder="仓库名称"
+                        value=(params.name.as_deref().unwrap_or(""));
+                }
+                select class="filter-select" name="warehouse_type" {
                     option value="" { "全部类型" }
                     option value="1" selected[params.warehouse_type == Some(1)] { "原材料仓" }
                     option value="2" selected[params.warehouse_type == Some(2)] { "成品仓" }
@@ -185,39 +199,47 @@ fn warehouse_table_fragment(
                 }
             }
 
-            // ── Data Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead {
-                            tr {
-                                th { "仓库编码" }
-                                th { "仓库名称" }
-                                th { "仓库类型" }
-                                th { "状态" }
-                                th { "地址" }
-                                th { "管理员" }
-                                th { "库区数" }
-                                th { "储位数" }
-                                th { "操作" }
-                            }
+            (warehouse_data_card(result, &query))
+        }
+    }
+}
+
+fn warehouse_data_card(
+    result: &abt_core::shared::types::PaginatedResult<Warehouse>,
+    query: &str,
+) -> Markup {
+    html! {
+        div id="warehouse-data-card" class="data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "仓库编码" }
+                            th { "仓库名称" }
+                            th { "仓库类型" }
+                            th { "状态" }
+                            th { "地址" }
+                            th { "管理员" }
+                            th { "库区数" }
+                            th { "储位数" }
+                            th { "操作" }
                         }
-                        tbody {
-                            @for w in &result.items {
-                                (warehouse_row(w))
-                            }
-                            @if result.items.is_empty() {
-                                tr {
-                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无仓库数据"
-                                    }
+                    }
+                    tbody {
+                        @for w in &result.items {
+                            (warehouse_row(w))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    "暂无仓库数据"
                                 }
                             }
                         }
                     }
                 }
-                (pagination(WarehouseListPath::PATH, &query, result.total, result.page, result.total_pages))
             }
+            (pagination(WarehouseListPath::PATH, query, result.total, result.page, result.total_pages))
         }
     }
 }
@@ -279,8 +301,11 @@ fn warehouse_row(w: &Warehouse) -> Markup {
 
 fn build_query_string(params: &WarehouseQueryParams) -> String {
     let mut q = vec![];
-    if let Some(ref kw) = params.keyword {
-        q.push(format!("keyword={kw}"));
+    if let Some(ref v) = params.code {
+        q.push(format!("code={v}"));
+    }
+    if let Some(ref v) = params.name {
+        q.push(format!("name={v}"));
     }
     if let Some(s) = params.status {
         q.push(format!("status={s}"));

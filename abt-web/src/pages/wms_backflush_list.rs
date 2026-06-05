@@ -22,6 +22,10 @@ pub struct BackflushQueryParams {
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
+    pub doc_number: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub work_order: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
 }
 
@@ -72,8 +76,7 @@ pub async fn get_backflush_table(
     let page_size = 20u32;
 
     let result = svc.list(&service_ctx, &mut conn, filter, page, page_size).await?;
-
-    Ok(Html(backflush_table_fragment(&result, &params).into_string()))
+    Ok(Html(backflush_data_card(&result, &params).into_string()))
 }
 
 // ── Helpers ──
@@ -110,22 +113,27 @@ fn backflush_table_fragment(
 
     html! {
         div class="backflush-list-panel" {
-            div class="filter-bar" {
+            form class="filter-bar filter-form"
+                hx-get=(BackflushTablePath::PATH)
+                hx-trigger="change,keyup changed delay:300ms from:.search-input"
+                hx-target="#backflush-data-card"
+                hx-select="#backflush-data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
-                        placeholder="搜索单据编号/工单号…"
-                        hx-get=(BackflushTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .backflush-list-panel"
-                        hx-swap="outerHTML";
+                    input class="search-input" type="text" name="doc_number"
+                        style="width:180px"
+                        placeholder="单据编号"
+                        value=(params.doc_number.as_deref().unwrap_or(""));
                 }
-                select class="filter-select"
-                    name="status"
-                    hx-get=(BackflushTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .backflush-list-panel"
-                    hx-swap="outerHTML" {
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="work_order"
+                        placeholder="工单号"
+                        value=(params.work_order.as_deref().unwrap_or(""));
+                }
+                select class="filter-select" name="status" {
                     option value="" { "全部状态" }
                     option value="1" selected[params.status == Some(1)] { "草稿" }
                     option value="2" selected[params.status == Some(2)] { "已执行" }
@@ -133,7 +141,7 @@ fn backflush_table_fragment(
                 }
             }
 
-            div class="data-card" {
+            div id="backflush-data-card" class="data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {
@@ -165,6 +173,48 @@ fn backflush_table_fragment(
                 }
                 (pagination(BackflushListPath::PATH, &query, result.total, result.page, result.total_pages))
             }
+        }
+    }
+}
+
+fn backflush_data_card(
+    result: &abt_core::shared::types::pagination::PaginatedResult<BackflushRecord>,
+    params: &BackflushQueryParams,
+) -> Markup {
+    let query = build_query_string(params);
+
+    html! {
+        div id="backflush-data-card" class="data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "单据编号" }
+                            th { "关联工单" }
+                            th { "完工产品" }
+                            th class="num-right" { "完工数量" }
+                            th { "倒冲日期" }
+                            th { "状态" }
+                            th { "差异预警" }
+                            th { "操作员" }
+                            th { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for r in &result.items {
+                            (backflush_row(r))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    "暂无倒冲记录"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            (pagination(BackflushListPath::PATH, &query, result.total, result.page, result.total_pages))
         }
     }
 }
@@ -206,10 +256,14 @@ fn build_query_string(params: &BackflushQueryParams) -> String {
     if let Some(s) = params.status {
         q.push(format!("status={s}"));
     }
+    if let Some(ref v) = params.doc_number {
+        if !v.is_empty() { q.push(format!("doc_number={v}")); }
+    }
+    if let Some(ref v) = params.work_order {
+        if !v.is_empty() { q.push(format!("work_order={v}")); }
+    }
     if let Some(p) = params.page {
-        if p > 1 {
-            q.push(format!("page={p}"));
-        }
+        q.push(format!("page={p}"));
     }
     q.join("&")
 }

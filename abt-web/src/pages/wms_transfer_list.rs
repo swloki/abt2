@@ -23,6 +23,8 @@ pub struct TransferQueryParams {
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
+    pub doc_number: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
 }
 
@@ -74,7 +76,69 @@ pub async fn get_transfer_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page, page_size).await?;
 
-    Ok(Html(transfer_table_fragment(&result, &params).into_string()))
+    let query = build_query_string(&params);
+    let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
+    let total_count = result.total;
+
+    let tabs = &[
+        TabItem { value: String::new(), label: "全部", count: Some(total_count) },
+        TabItem { value: "1".into(), label: "草稿", count: None },
+        TabItem { value: "2".into(), label: "在途", count: None },
+        TabItem { value: "3".into(), label: "已完成", count: None },
+        TabItem { value: "4".into(), label: "已取消", count: None },
+    ];
+
+    let data_card = html! {
+        div class="data-card" id="transfer-data-card" {
+            (status_tabs(TransferTablePath::PATH, "#transfer-data-card", ".filter-bar input, .filter-bar select", tabs, &active_value))
+
+            form class="filter-bar filter-form"
+                hx-get=(TransferTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#transfer-data-card"
+                hx-select="#transfer-data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="doc_number"
+                        placeholder="调拨单号";
+                }
+            }
+
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "调拨单号" }
+                            th { "调出仓库" }
+                            th { "调入仓库" }
+                            th { "调拨日期" }
+                            th { "状态" }
+                            th class="num-right" { "物料项数" }
+                            th { "操作员" }
+                            th { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for t in &result.items {
+                            (transfer_row(t))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    "暂无调拨数据"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            (pagination(TransferListPath::PATH, &query, result.total, result.page, result.total_pages))
+        }
+    };
+
+    Ok(Html(data_card.into_string()))
 }
 
 // ── Helpers ──
@@ -127,52 +191,52 @@ fn transfer_table_fragment(
     ];
 
     html! {
-        div class="transfer-list-panel" {
-            (status_tabs(TransferTablePath::PATH, "closest .transfer-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+        div class="data-card" id="transfer-data-card" {
+            (status_tabs(TransferTablePath::PATH, "#transfer-data-card", ".filter-bar input, .filter-bar select", tabs, &active_value))
 
-            div class="filter-bar" {
+            form class="filter-bar filter-form"
+                hx-get=(TransferTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#transfer-data-card"
+                hx-select="#transfer-data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
-                        placeholder="搜索调拨单号…"
-                        hx-get=(TransferTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .transfer-list-panel"
-                        hx-swap="outerHTML";
+                    input class="search-input" type="text" name="doc_number"
+                        placeholder="调拨单号";
                 }
             }
 
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead {
-                            tr {
-                                th { "调拨单号" }
-                                th { "调出仓库" }
-                                th { "调入仓库" }
-                                th { "调拨日期" }
-                                th { "状态" }
-                                th class="num-right" { "物料项数" }
-                                th { "操作员" }
-                                th { "操作" }
-                            }
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "调拨单号" }
+                            th { "调出仓库" }
+                            th { "调入仓库" }
+                            th { "调拨日期" }
+                            th { "状态" }
+                            th class="num-right" { "物料项数" }
+                            th { "操作员" }
+                            th { "操作" }
                         }
-                        tbody {
-                            @for t in &result.items {
-                                (transfer_row(t))
-                            }
-                            @if result.items.is_empty() {
-                                tr {
-                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无调拨数据"
-                                    }
+                    }
+                    tbody {
+                        @for t in &result.items {
+                            (transfer_row(t))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    "暂无调拨数据"
                                 }
                             }
                         }
                     }
                 }
-                (pagination(TransferListPath::PATH, &query, result.total, result.page, result.total_pages))
             }
+            (pagination(TransferListPath::PATH, &query, result.total, result.page, result.total_pages))
         }
     }
 }
@@ -214,10 +278,8 @@ fn build_query_string(params: &TransferQueryParams) -> String {
     if let Some(s) = params.status {
         q.push(format!("status={s}"));
     }
-    if let Some(p) = params.page {
-        if p > 1 {
-            q.push(format!("page={p}"));
-        }
+    if let Some(ref d) = params.doc_number {
+        q.push(format!("doc_number={d}"));
     }
     q.join("&")
 }

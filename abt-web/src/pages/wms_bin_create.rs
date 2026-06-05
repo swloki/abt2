@@ -185,7 +185,7 @@ fn bin_create_page(
                             }
                         }
                         div class="form-field" style="grid-column: span 2" {
-                            label { "允许物料类型" }
+                            label style="white-space:nowrap" { "允许物料类型" }
                             div style="display:flex;flex-wrap:wrap;gap:10px;padding-top:4px" {
                                 label style="display:flex;align-items:center;gap:4px;font-size:var(--text-sm);color:var(--fg-2);cursor:pointer" {
                                     input type="checkbox" name="allowed_product_types" value="raw_material" style="accent-color:var(--accent)" checked;

@@ -24,7 +24,7 @@ use abt_macros::require_permission;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct CycleCountQueryParams {
-    pub keyword: Option<String>,
+    pub doc_number: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
@@ -79,7 +79,7 @@ pub async fn get_cycle_count_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    Ok(Html(cycle_count_table_fragment(&result, &params).into_string()))
+    Ok(Html(cycle_count_data_card(&result, &params).into_string()))
 }
 
 // ── Helpers ──
@@ -138,7 +138,6 @@ fn cycle_count_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<CycleCount>,
     params: &CycleCountQueryParams,
 ) -> Markup {
-    let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
     let total_count = result.total;
 
@@ -155,58 +154,67 @@ fn cycle_count_table_fragment(
         div class="cycle-count-panel" {
             (status_tabs(CycleCountTablePath::PATH, "closest .cycle-count-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
 
-            div class="filter-bar" {
+            form class="filter-bar filter-form"
+                hx-get=(CycleCountTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#cycle-count-data-card"
+                hx-select="#cycle-count-data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
-                        placeholder="搜索盘点单号…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(CycleCountTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .cycle-count-panel"
-                        hx-swap="outerHTML";
+                    input class="search-input" type="text" name="doc_number"
+                        placeholder="盘点单号"
+                        value=(params.doc_number.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_id"
-                    hx-get=(CycleCountTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .cycle-count-panel"
-                    hx-swap="outerHTML" {
+                select class="filter-select" name="warehouse_id" {
                     option value="" { "全部仓库" }
                 }
             }
 
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead {
-                            tr {
-                                th { "盘点单号" }
-                                th { "盘点仓库" }
-                                th { "盘点库区" }
-                                th { "盘点日期" }
-                                th { "状态" }
-                                th { "盲盘" }
-                                th class="num-right" { "物料项数" }
-                                th { "操作员" }
-                                th { "操作" }
-                            }
+            (cycle_count_data_card(result, params))
+        }
+    }
+}
+
+fn cycle_count_data_card(
+    result: &abt_core::shared::types::PaginatedResult<CycleCount>,
+    params: &CycleCountQueryParams,
+) -> Markup {
+    let query = build_query_string(params);
+
+    html! {
+        div class="data-card" id="cycle-count-data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "盘点单号" }
+                            th { "盘点仓库" }
+                            th { "盘点库区" }
+                            th { "盘点日期" }
+                            th { "状态" }
+                            th { "盲盘" }
+                            th class="num-right" { "物料项数" }
+                            th { "操作员" }
+                            th { "操作" }
                         }
-                        tbody {
-                            @for item in &result.items {
-                                (cycle_count_row(item))
-                            }
-                            @if result.items.is_empty() {
-                                tr {
-                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无盘点数据"
-                                    }
+                    }
+                    tbody {
+                        @for item in &result.items {
+                            (cycle_count_row(item))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    "暂无盘点数据"
                                 }
                             }
                         }
                     }
                 }
-                (pagination(CycleCountListPath::PATH, &query, result.total, result.page, result.total_pages))
             }
+            (pagination(CycleCountListPath::PATH, &query, result.total, result.page, result.total_pages))
         }
     }
 }
@@ -259,19 +267,14 @@ fn cycle_count_row(item: &CycleCount) -> Markup {
 
 fn build_query_string(params: &CycleCountQueryParams) -> String {
     let mut q = vec![];
-    if let Some(ref kw) = params.keyword {
-        q.push(format!("keyword={kw}"));
+    if let Some(ref v) = params.doc_number {
+        q.push(format!("doc_number={v}"));
     }
     if let Some(s) = params.status {
         q.push(format!("status={s}"));
     }
     if let Some(w) = params.warehouse_id {
         q.push(format!("warehouse_id={w}"));
-    }
-    if let Some(p) = params.page {
-        if p > 1 {
-            q.push(format!("page={p}"));
-        }
     }
     if q.is_empty() { String::new() } else { format!("?{}", q.join("&")) }
 }

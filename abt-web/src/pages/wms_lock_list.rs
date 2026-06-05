@@ -24,8 +24,10 @@ use abt_macros::require_permission;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct LockQueryParams {
-    pub keyword: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
+    pub doc_number: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub product: Option<String>,
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub warehouse_id: Option<i64>,
@@ -79,7 +81,8 @@ pub async fn get_lock_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    Ok(Html(lock_table_fragment(&result, &params).into_string()))
+    let fragment = lock_data_card_fragment(&result, &params);
+    Ok(Html(fragment.into_string()))
 }
 
 // ── Helpers ──
@@ -151,59 +154,75 @@ fn lock_table_fragment(
         div class="lock-list-panel" {
             (status_tabs(LockTablePath::PATH, "closest .lock-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
 
-            div class="filter-bar" {
+            form class="filter-bar filter-form"
+                hx-get=(LockTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#lock-data-card"
+                hx-select="#lock-data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
-                        placeholder="搜索锁库单号/产品…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(LockTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .lock-list-panel"
-                        hx-swap="outerHTML";
+                    input class="search-input" type="text" name="doc_number"
+                        style="width:180px"
+                        placeholder="锁库单号"
+                        value=(params.doc_number.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_id"
-                    hx-get=(LockTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .lock-list-panel"
-                    hx-swap="outerHTML" {
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="product"
+                        placeholder="产品编码/名称"
+                        value=(params.product.as_deref().unwrap_or(""));
+                }
+                select class="filter-select" name="warehouse_id" {
                     option value="" { "全部仓库" }
                 }
             }
 
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" style="min-width:1060px" {
-                        thead {
-                            tr {
-                                th { "锁库单号" }
-                                th { "产品编码" }
-                                th { "产品名称" }
-                                th { "锁定仓库" }
-                                th class="num-right" { "锁定数量" }
-                                th { "锁定原因" }
-                                th { "关联客户" }
-                                th { "状态" }
-                                th { "操作员" }
-                                th { "操作" }
-                            }
+            (lock_data_card_fragment(result, params))
+        }
+    }
+}
+
+fn lock_data_card_fragment(
+    result: &abt_core::shared::types::PaginatedResult<InventoryLock>,
+    params: &LockQueryParams,
+) -> Markup {
+    let query = build_query_string(params);
+
+    html! {
+        div class="data-card" id="lock-data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" style="min-width:1060px" {
+                    thead {
+                        tr {
+                            th { "锁库单号" }
+                            th { "产品编码" }
+                            th { "产品名称" }
+                            th { "锁定仓库" }
+                            th class="num-right" { "锁定数量" }
+                            th { "锁定原因" }
+                            th { "关联客户" }
+                            th { "状态" }
+                            th { "操作员" }
+                            th { "操作" }
                         }
-                        tbody {
-                            @for lock in &result.items {
-                                (lock_row(lock))
-                            }
-                            @if result.items.is_empty() {
-                                tr {
-                                    td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无锁库数据"
-                                    }
+                    }
+                    tbody {
+                        @for lock in &result.items {
+                            (lock_row(lock))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    "暂无锁库数据"
                                 }
                             }
                         }
                     }
                 }
-                (pagination(LockListPath::PATH, &query, result.total, result.page, result.total_pages))
             }
+            (pagination(LockListPath::PATH, &query, result.total, result.page, result.total_pages))
         }
     }
 }
@@ -259,19 +278,17 @@ fn lock_row(lock: &InventoryLock) -> Markup {
 
 fn build_query_string(params: &LockQueryParams) -> String {
     let mut q = vec![];
-    if let Some(ref kw) = params.keyword {
-        q.push(format!("keyword={kw}"));
+    if let Some(ref v) = params.doc_number {
+        q.push(format!("doc_number={v}"));
+    }
+    if let Some(ref v) = params.product {
+        q.push(format!("product={v}"));
     }
     if let Some(s) = params.status {
         q.push(format!("status={s}"));
     }
     if let Some(w) = params.warehouse_id {
         q.push(format!("warehouse_id={w}"));
-    }
-    if let Some(p) = params.page {
-        if p > 1 {
-            q.push(format!("page={p}"));
-        }
     }
     if q.is_empty() { String::new() } else { format!("?{}", q.join("&")) }
 }

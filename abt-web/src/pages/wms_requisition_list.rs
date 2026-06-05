@@ -26,7 +26,8 @@ use abt_macros::require_permission;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct RequisitionQueryParams {
-    pub keyword: Option<String>,
+    pub doc_number: Option<String>,
+    pub work_order: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
     #[serde(default, deserialize_with = "empty_as_none")]
@@ -47,8 +48,11 @@ fn build_filter(params: &RequisitionQueryParams) -> RequisitionFilter {
 
 fn build_query_string(params: &RequisitionQueryParams) -> String {
     let mut q = vec![];
-    if let Some(ref kw) = params.keyword {
-        q.push(format!("keyword={kw}"));
+    if let Some(ref v) = params.doc_number {
+        q.push(format!("doc_number={v}"));
+    }
+    if let Some(ref v) = params.work_order {
+        q.push(format!("work_order={v}"));
     }
     if let Some(s) = params.status {
         q.push(format!("status={s}"));
@@ -162,11 +166,7 @@ pub async fn get_requisition_table(
     let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
 
-    let warehouses = warehouse_svc
-        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
-        .await?;
-
-    Ok(Html(requisition_table_fragment(&result, &warehouse_names, &operator_names, &warehouses.items, &params).into_string()))
+    Ok(Html(requisition_data_card(&result, &warehouse_names, &operator_names, &params).into_string()))
 }
 
 // ── Components ──
@@ -219,23 +219,27 @@ fn requisition_table_fragment(
         div class="requisition-list-panel" {
             (status_tabs(RequisitionTablePath::PATH, "closest .requisition-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
 
-            div class="filter-bar" {
+            form class="filter-bar filter-form"
+                hx-get=(RequisitionTablePath::PATH)
+                hx-trigger="change,keyup changed delay:300ms from:.search-input"
+                hx-target="#requisition-data-card"
+                hx-select="#requisition-data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
-                        placeholder="搜索单据编号、关联工单…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(RequisitionTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .requisition-list-panel"
-                        hx-swap="outerHTML";
+                    input class="search-input" type="text" name="doc_number"
+                        style="width:180px"
+                        placeholder="单据编号"
+                        value=(params.doc_number.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_id"
-                    hx-get=(RequisitionTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .requisition-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="work_order"
+                        placeholder="关联工单"
+                        value=(params.work_order.as_deref().unwrap_or(""));
+                }
+                select class="filter-select" name="warehouse_id" {
                     option value="" { "全部仓库" }
                     @for w in warehouses {
                         option value=(w.id) selected[selected_warehouse == w.id.to_string()] { (w.name) }
@@ -243,36 +247,48 @@ fn requisition_table_fragment(
                 }
             }
 
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead {
-                            tr {
-                                th { "单据编号" }
-                                th { "关联工单" }
-                                th { "领料仓库" }
-                                th { "领料日期" }
-                                th { "状态" }
-                                th { "操作员" }
-                                th { "操作" }
-                            }
+            (requisition_data_card(result, warehouse_names, operator_names, params))
+        }
+    }
+}
+
+fn requisition_data_card(
+    result: &abt_core::shared::types::pagination::PaginatedResult<abt_core::wms::material_requisition::model::MaterialRequisition>,
+    warehouse_names: &HashMap<i64, String>,
+    operator_names: &HashMap<i64, String>,
+    params: &RequisitionQueryParams,
+) -> Markup {
+    let query = build_query_string(params);
+    html! {
+        div class="data-card" id="requisition-data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "单据编号" }
+                            th { "关联工单" }
+                            th { "领料仓库" }
+                            th { "领料日期" }
+                            th { "状态" }
+                            th { "操作员" }
+                            th { "操作" }
                         }
-                        tbody {
-                            @for r in &result.items {
-                                (requisition_row(r, warehouse_names, operator_names))
-                            }
-                            @if result.items.is_empty() {
-                                tr {
-                                    td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无领料单数据"
-                                    }
+                    }
+                    tbody {
+                        @for r in &result.items {
+                            (requisition_row(r, warehouse_names, operator_names))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    "暂无领料单数据"
                                 }
                             }
                         }
                     }
                 }
-                (pagination(RequisitionListPath::PATH, &query, result.total, result.page, result.total_pages))
             }
+            (pagination(RequisitionListPath::PATH, &query, result.total, result.page, result.total_pages))
         }
     }
 }

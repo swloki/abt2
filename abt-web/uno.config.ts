@@ -1001,7 +1001,7 @@ const componentStyles = `
   font-size: var(--text-sm); color: var(--fg-2);
 }
 .supplier-info-bar .label { color: var(--muted); font-size: 12px; }
-.form-field label { display: block; font-size: 12px; font-weight: 500; color: var(--fg-2); margin-bottom: var(--space-1); }
+.form-field label { display: block; font-size: 12px; font-weight: 500; color: var(--fg-2); margin-bottom: var(--space-1); white-space: nowrap; }
 .form-field input,
 .form-field select,
 .form-field textarea {

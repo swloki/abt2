@@ -21,8 +21,10 @@ use abt_macros::require_permission;
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct BinQueryParams {
-    pub keyword: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
+    pub code: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub name: Option<String>,
     pub warehouse_id: Option<i64>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
@@ -98,7 +100,8 @@ pub async fn get_bin_table(
         }
     }
 
-    Ok(Html(bin_table_fragment(&result, &params, &warehouses.items, &zone_map).into_string()))
+    // HTMX partial: return only the data-card
+    Ok(Html(bin_data_card(&result, &params, &zone_map).into_string()))
 }
 
 // ── Helpers ──
@@ -110,7 +113,12 @@ fn build_search_params(params: &BinQueryParams) -> SearchBinsParams {
         _ => None,
     };
     SearchBinsParams {
-        keyword: params.keyword.clone(),
+        keyword: match (&params.code, &params.name) {
+            (Some(c), Some(n)) if !c.trim().is_empty() && !n.trim().is_empty() => Some(format!("{} {}", c.trim(), n.trim())),
+            (Some(c), _) if !c.trim().is_empty() => Some(c.trim().to_string()),
+            (_, Some(n)) if !n.trim().is_empty() => Some(n.trim().to_string()),
+            _ => None,
+        },
         is_active,
         warehouse_id: params.warehouse_id,
         page: params.page.unwrap_or(1),
@@ -161,6 +169,51 @@ fn bin_list_page(
     }
 }
 
+/// The data-card with table + pagination. This is the HTMX swap target.
+fn bin_data_card(
+    result: &abt_core::shared::types::PaginatedResult<BinWithWarehouse>,
+    params: &BinQueryParams,
+    zones: &HashMap<i64, Zone>,
+) -> Markup {
+    let query = build_query_string(params);
+
+    html! {
+        div id="bin-data-card" class="data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "储位编码" }
+                            th { "储位名称" }
+                            th { "所属仓库" }
+                            th { "所属库区" }
+                            th class="num-right" { "行" }
+                            th class="num-right" { "列" }
+                            th class="num-right" { "层" }
+                            th class="num-right" { "容量上限" }
+                            th { "当前状态" }
+                            th { "操作" }
+                        }
+                    }
+                    tbody {
+                        @for item in &result.items {
+                            (bin_row(item, zones))
+                        }
+                        @if result.items.is_empty() {
+                            tr {
+                                td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    "暂无储位数据"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            (pagination(BinListPath::PATH, &query, result.total, result.page, result.total_pages))
+        }
+    }
+}
+
 fn bin_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<BinWithWarehouse>,
     params: &BinQueryParams,
@@ -172,22 +225,27 @@ fn bin_table_fragment(
     html! {
         div class="bin-list-panel" {
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form"
+                hx-get=(BinTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#bin-data-card"
+                hx-select="#bin-data-card"
+                hx-swap="outerHTML"
+                hx-include="closest form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="keyword"
-                        placeholder="搜索储位编码/名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(BinTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .bin-list-panel"
-                        hx-swap="outerHTML";
+                    input class="search-input" type="text" name="code"
+                        style="width:180px"
+                        placeholder="储位编码"
+                        value=(params.code.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_id"
-                    hx-get=(BinTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .bin-list-panel"
-                    hx-swap="outerHTML" {
+                div class="search-wrap" {
+                    (icon::search_icon("w-4 h-4"))
+                    input class="search-input" type="text" name="name"
+                        placeholder="储位名称"
+                        value=(params.name.as_deref().unwrap_or(""));
+                }
+                select class="filter-select" name="warehouse_id" {
                     option value="" { "全部仓库" }
                     @for wh in warehouses {
                         option value=(wh.id) selected[params.warehouse_id == Some(wh.id)] {
@@ -195,11 +253,7 @@ fn bin_table_fragment(
                         }
                     }
                 }
-                select class="filter-select" name="status"
-                    hx-get=(BinTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .bin-list-panel"
-                    hx-swap="outerHTML" {
+                select class="filter-select" name="status" {
                     option value="" { "全部状态" }
                     option value="1" selected[params.status == Some(1)] { "空闲" }
                     option value="2" selected[params.status == Some(2)] { "占用" }
@@ -209,39 +263,7 @@ fn bin_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead {
-                            tr {
-                                th { "储位编码" }
-                                th { "储位名称" }
-                                th { "所属仓库" }
-                                th { "所属库区" }
-                                th class="num-right" { "行" }
-                                th class="num-right" { "列" }
-                                th class="num-right" { "层" }
-                                th class="num-right" { "容量上限" }
-                                th { "当前状态" }
-                                th { "操作" }
-                            }
-                        }
-                        tbody {
-                            @for item in &result.items {
-                                (bin_row(item, zones))
-                            }
-                            @if result.items.is_empty() {
-                                tr {
-                                    td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无储位数据"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                (pagination(BinListPath::PATH, &query, result.total, result.page, result.total_pages))
-            }
+            (bin_data_card(result, params, zones))
         }
     }
 }
@@ -291,8 +313,15 @@ fn bin_row(item: &BinWithWarehouse, zones: &HashMap<i64, Zone>) -> Markup {
 
 fn build_query_string(params: &BinQueryParams) -> String {
     let mut q = vec![];
-    if let Some(kw) = &params.keyword {
-        q.push(format!("keyword={kw}"));
+    if let Some(ref v) = params.code {
+        if !v.trim().is_empty() {
+            q.push(format!("code={v}"));
+        }
+    }
+    if let Some(ref v) = params.name {
+        if !v.trim().is_empty() {
+            q.push(format!("name={v}"));
+        }
     }
     if let Some(w) = params.warehouse_id {
         q.push(format!("warehouse_id={w}"));

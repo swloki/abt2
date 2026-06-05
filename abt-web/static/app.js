@@ -172,92 +172,60 @@ window.hsRemoveClosestEl = function(el, ancestorSelector) {
     if (ancestor) ancestor.remove();
 };
 
-// ── Quotation Create helpers ──
-// Calculate a single row's line total and update the totals bar
-window.quotationCalcRow = function(tr) {
-    var q = parseFloat(tr.querySelector('[name="quantity"]').value) || 0;
-    var p = parseFloat(tr.querySelector('[name="unit_price"]').value) || 0;
-    var d = parseFloat(tr.querySelector('[name="discount_rate"]').value) || 0;
-    var lineTotal = q * p * (1 - d / 100);
-    var cell = tr.querySelector('.line-total');
-    if (cell) cell.textContent = lineTotal.toFixed(2);
-    quotationRecalcTotals();
-};
-
-// Recalculate and display subtotal, discount, grand total
-window.quotationRecalcTotals = function() {
-    var subtotal = 0, disc = 0;
-    any('#quotation-item-tbody tr').forEach(function(row) {
-        var q = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
-        var p = parseFloat(row.querySelector('[name="unit_price"]').value) || 0;
-        var d = parseFloat(row.querySelector('[name="discount_rate"]').value) || 0;
-        subtotal += q * p;
-        disc += q * p * (d / 100);
-    });
-    var el;
-    el = me('#subtotal-value');
-    if (el) el.textContent = '¥ ' + subtotal.toFixed(2);
-    el = me('#discount-value');
-    if (el) el.textContent = '- ¥ ' + disc.toFixed(2);
-    el = me('#grand-value');
-    if (el) el.textContent = '¥ ' + (subtotal - disc).toFixed(2);
-};
-
-// Collect item rows into JSON for form submission
-window.quotationSubmit = function(form) {
-    var items = [];
-    any('#quotation-item-tbody tr').forEach(function(row) {
-        var obj = {};
-        row.querySelectorAll('input, select, textarea').forEach(function(inp) {
-            if (inp.name) obj[inp.name] = inp.value;
+// ── Generic Line Item Calculator ──
+// Usage: var calc = lineItemCalc('#order-item-tbody');
+// calc.calcRow(tr) / calc.recalcTotals() / calc.collectItems()
+// Or in HTML: oninput="lineItemCalc('#quotation-item-tbody').calcRow(this)"
+window.lineItemCalc = function(tbodyId) {
+    function calcRow(row) {
+        var q = parseFloat(me('[name="quantity"]', row).value) || 0;
+        var p = parseFloat(me('[name="unit_price"]', row).value) || 0;
+        var d = parseFloat(me('[name="discount_rate"]', row).value) || 0;
+        var cell = me('.line-total', row);
+        if (cell) cell.textContent = (q * p * (1 - d / 100)).toFixed(2);
+        recalcTotals();
+    }
+    function recalcTotals() {
+        var tbody = me(tbodyId);
+        if (!tbody) return;
+        var subtotal = 0, disc = 0;
+        any('tr', tbody).forEach(function (row) {
+            var q = parseFloat(me('[name="quantity"]', row).value) || 0;
+            var p = parseFloat(me('[name="unit_price"]', row).value) || 0;
+            var d = parseFloat(me('[name="discount_rate"]', row).value) || 0;
+            subtotal += q * p;
+            disc += q * p * (d / 100);
+            var cell = me('.line-total', row);
+            if (cell) cell.textContent = (q * p * (1 - d / 100)).toFixed(2);
         });
-        items.push(obj);
-    });
-    var hidden = me('#items-json');
-    if (hidden) hidden.value = JSON.stringify(items);
-};
-
-// ── Sales Order Create helpers ──
-// Calculate a single row's line total and update the totals bar
-window.salesOrderCalcRow = function(tr) {
-    var q = parseFloat(tr.querySelector('[name="quantity"]').value) || 0;
-    var p = parseFloat(tr.querySelector('[name="unit_price"]').value) || 0;
-    var d = parseFloat(tr.querySelector('[name="discount_rate"]').value) || 0;
-    var lineTotal = q * p * (1 - d / 100);
-    var cell = tr.querySelector('.line-total');
-    if (cell) cell.textContent = lineTotal.toFixed(2);
-    salesOrderRecalcTotals();
-};
-
-// Recalculate and display subtotal, discount, grand total
-window.salesOrderRecalcTotals = function() {
-    var subtotal = 0, disc = 0;
-    any('#order-item-tbody tr').forEach(function(row) {
-        var q = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
-        var p = parseFloat(row.querySelector('[name="unit_price"]').value) || 0;
-        var d = parseFloat(row.querySelector('[name="discount_rate"]').value) || 0;
-        subtotal += q * p;
-        disc += q * p * (d / 100);
-    });
-    var el;
-    el = me('#subtotal-value');
-    if (el) el.textContent = '¥ ' + subtotal.toFixed(2);
-    el = me('#discount-value');
-    if (el) el.textContent = '- ¥ ' + disc.toFixed(2);
-    el = me('#grand-value');
-    if (el) el.textContent = '¥ ' + (subtotal - disc).toFixed(2);
-};
-
-// Collect item rows into JSON for form submission
-window.salesOrderSubmit = function(form) {
-    var items = [];
-    any('#order-item-tbody tr').forEach(function(row) {
-        var obj = {};
-        row.querySelectorAll('input, select, textarea').forEach(function(inp) {
-            if (inp.name) obj[inp.name] = inp.value;
+        me('#subtotal-value').textContent = '\u00a5 ' + subtotal.toFixed(2);
+        me('#discount-value').textContent = '- \u00a5 ' + disc.toFixed(2);
+        me('#grand-value').textContent = '\u00a5 ' + (subtotal - disc).toFixed(2);
+    }
+    function collectItems() {
+        var tbody = me(tbodyId);
+        if (!tbody) return;
+        var items = [];
+        any('tr', tbody).forEach(function (row) {
+            var obj = {};
+            any('input, select, textarea', row).forEach(function (el) {
+                var name = el.attribute('name');
+                if (name) obj[name] = el.value;
+            });
+            items.push(obj);
         });
-        items.push(obj);
-    });
-    var hidden = me('#items-json');
-    if (hidden) hidden.value = JSON.stringify(items);
+        me('#items-json').value = JSON.stringify(items);
+    }
+    return { calcRow: calcRow, recalcTotals: recalcTotals, collectItems: collectItems };
 };
+
+// ── Page-specific aliases for inline handlers ──
+var _qc = lineItemCalc('#quotation-item-tbody');
+window.quotationCalcRow = _qc.calcRow;
+window.quotationRecalcTotals = _qc.recalcTotals;
+window.quotationSubmit = _qc.collectItems;
+
+var _sc = lineItemCalc('#order-item-tbody');
+window.salesOrderCalcRow = _sc.calcRow;
+window.salesOrderRecalcTotals = _sc.recalcTotals;
+window.salesOrderSubmit = _sc.collectItems;

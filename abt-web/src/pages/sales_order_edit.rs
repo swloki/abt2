@@ -178,7 +178,7 @@ fn order_edit_page(
             form id="order-form"
                   hx-post=(update_path.to_string())
                   hx-swap="none"
-                  onsubmit="OrderEdit.collectItems()" {
+                  onsubmit="lineItemCalc('#order-item-tbody').collectItems()" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Customer Info ──
@@ -358,7 +358,19 @@ fn order_edit_page(
                 }
             }
 
-        script src="/order-edit.js" {}
+        (maud::PreEscaped(r#"<script>
+            function oeRecalc() { lineItemCalc('#order-item-tbody').recalcTotals() }
+            document.addEventListener('input', function(e) {
+                if (e.target.classList.contains('num-input')) {
+                    var row = e.target.closest('tr');
+                    if (row && row.closest('#order-item-tbody')) oeRecalc();
+                }
+            });
+            document.addEventListener('htmx:afterSettle', function(e) {
+                if (e.target.querySelector && e.target.querySelector('#order-item-tbody')) oeRecalc();
+            });
+            document.addEventListener('DOMContentLoaded', oeRecalc);
+        </script>"#))
         }
     }
 }

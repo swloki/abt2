@@ -185,7 +185,7 @@ fn quotation_edit_page(
             form id="quotation-form"
                   hx-post=(update_path.to_string())
                   hx-swap="none"
-                  onsubmit="quotationEditCollectItems()" {
+                  onsubmit="lineItemCalc('#quotation-item-tbody').collectItems()" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Customer Info ──
@@ -254,7 +254,7 @@ fn quotation_edit_page(
                         tbody id="quotation-item-tbody" {
                             @for item in items {
                                 @let (code, name) = product_codes.get(&item.product_id).cloned().unwrap_or_default();
-                                tr oninput="quotationEditCalcLine(this)" {
+                                tr oninput="lineItemCalc('#quotation-item-tbody').calcRow(this)" {
                                     td class="line-num" { }
                                     td class="mono" { (code) }
                                     td { (name) }
@@ -363,60 +363,7 @@ fn quotation_edit_page(
                 }
             }
 
-            script { (maud::PreEscaped(r#"
-function quotationEditCollectItems() {
-    var items = [];
-    var rows = any('#quotation-item-tbody tr');
-    rows.forEach(function(row) {
-        var q = row.querySelector('[name="quantity"]');
-        var p = row.querySelector('[name="unit_price"]');
-        var d = row.querySelector('[name="discount_rate"]');
-        var desc = row.querySelector('[name="description"]');
-        var u = row.querySelector('[name="unit"]');
-        var pid = row.querySelector('[name="product_id"]');
-        items.push({
-            product_id: pid ? Number(pid.value) : 0,
-            quantity: q ? Number(q.value) : 0,
-            unit_price: p ? Number(p.value) : 0,
-            discount_rate: d ? Number(d.value) : 0,
-            description: desc ? desc.value : '',
-            unit: u ? u.value : ''
-        });
-    });
-    me('#items-json').value = JSON.stringify(items);
-}
-
-function quotationEditCalcLine(tr) {
-    var q = Number(tr.querySelector('[name="quantity"]').value) || 0;
-    var p = Number(tr.querySelector('[name="unit_price"]').value) || 0;
-    var d = Number(tr.querySelector('[name="discount_rate"]').value) || 0;
-    var lineTotal = q * p * (1 - d / 100);
-    tr.querySelector('.line-total').textContent = lineTotal.toFixed(2);
-    quotationEditRecalc();
-}
-
-function quotationEditRecalc() {
-    var subtotal = 0, disc = 0;
-    any('#quotation-item-tbody tr').forEach(function(row) {
-        var q = Number((row.querySelector('[name="quantity"]') || {}).value) || 0;
-        var p = Number((row.querySelector('[name="unit_price"]') || {}).value) || 0;
-        var d = Number((row.querySelector('[name="discount_rate"]') || {}).value) || 0;
-        var lineTotal = q * p * (1 - d / 100);
-        var el = row.querySelector('.line-total');
-        if (el) el.textContent = lineTotal.toFixed(2);
-        subtotal += q * p;
-        disc += q * p * (d / 100);
-    });
-    me('#subtotal-value').textContent = '¥ ' + subtotal.toFixed(2);
-    me('#discount-value').textContent = '- ¥ ' + disc.toFixed(2);
-    me('#grand-value').textContent = '¥ ' + (subtotal - disc).toFixed(2);
-}
-
-// init: fire initial recalc on load
-document.addEventListener('DOMContentLoaded', function() {
-    quotationEditRecalc();
-});
-"#)) }
+            (maud::PreEscaped(r#"<script>document.addEventListener('DOMContentLoaded',function(){lineItemCalc('#quotation-item-tbody').recalcTotals()})</script>"#))
         }
     }
 }

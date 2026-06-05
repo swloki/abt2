@@ -419,15 +419,19 @@ button type="button" title="编辑"
     (icon::edit_icon("w-3.5 h-3.5"))
 }
 
-// modal 容器：绑 afterSettle 自动打开，onclick 关闭
-div id="bom-edit-modal" class="modal-overlay"
-    onclick="me(this).classRemove('is-open');me(this).innerHTML=''" { }
+// modal 容器 + 外部 <script> 链式绑定 afterSettle 和 click
+div id="bom-edit-modal" class="modal-overlay" { }
 (maud::PreEscaped(r#"<script>
-    me('#bom-edit-modal').on('htmx:afterSettle',function(){me(this).classAdd('is-open')});
+    me('#bom-edit-modal')
+        .on('htmx:afterSettle',function(){me(this).classAdd('is-open')})
+        .on('click',function(ev){if(ev.target===me('#bom-edit-modal'))me('#bom-edit-modal').classRemove('is-open')});
 </script>"#))
 ```
 
-**注意**：`<script>` 必须放在 modal 容器**外面**，因为 HTMX swap 会替换 innerHTML 导致内部 `<script>` 丢失。
+**注意**：
+- `<script>` 必须放在 modal 容器**外面**，HTMX swap 会替换 innerHTML 导致内部监听器丢失
+- surreal.js 支持链式调用：`me(el).on(...).on(...).classAdd(...)`
+- `afterSettle` 回调里用 `function(){}` （不用箭头函数），这样 `this` 指向触发事件的元素
 
 ### HTMX 表单替代 JS 函数
 

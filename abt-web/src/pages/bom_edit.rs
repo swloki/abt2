@@ -684,11 +684,11 @@ fn bom_edit_page(
             }
 
             // ── Edit Node Modal (content loaded via HTMX) ──
-            // ── Edit Node Modal (content loaded via HTMX) ──
-            div id="bom-edit-modal" class="modal-overlay"
-                onclick="me(this).classRemove('is-open');me(this).innerHTML=''" { }
+            div id="bom-edit-modal" class="modal-overlay" { }
             (maud::PreEscaped(r#"<script>
-                me('#bom-edit-modal').on('htmx:afterSettle',function(){me(this).classAdd('is-open')});
+                me('#bom-edit-modal')
+                    .on('htmx:afterSettle',function(){me(this).classAdd('is-open')})
+                    .on('click',function(ev){if(ev.target===me('#bom-edit-modal'))me('#bom-edit-modal').classRemove('is-open')});
             </script>"#))
 
             // ── Delete Confirm ──

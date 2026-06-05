@@ -407,23 +407,27 @@ button class="tab-btn" {
 
 ### HTMX + Surreal.js 联合模式
 
-场景：点击按钮 → HTMX 加载服务端内容 → 内容加载完成后执行前端操作（如打开 modal）。
+场景：按钮用 `hx-get` 加载内容到 modal → 成功后自动打开 modal。
 
-按钮用 `hx-get` 加载内容，内嵌 `<script>me().on('htmx:afterRequest', ...)</script>` 监听完成后打开 modal：
+**关键**：`htmx:afterSettle` 只在成功 swap 后触发，且触发在 **target 元素**上（即 modal 容器）。出错不会触发。
 
 ```rust
+// 按钮：只需 hx-get + hx-target + hx-swap，不需要任何 <script>
 button type="button" title="编辑"
     hx-get=(format!("/admin/md/boms/{}/nodes/{}", bom_id, node_id))
     hx-target="#bom-edit-modal" hx-swap="innerHTML" {
-    (maud::PreEscaped("<script>me().on('htmx:afterRequest',function(){me('#bom-edit-modal').classAdd('is-open')})</script>"))
     (icon::edit_icon("w-3.5 h-3.5"))
 }
 
-// modal 容器（空，内容由 hx-get 动态填充）：
-div id="bom-edit-modal" class="modal-overlay" {
-    (maud::PreEscaped("<script>me().on('click',function(e){if(e.target===me())me().classRemove('is-open')})</script>"))
-}
+// modal 容器：绑 afterSettle 自动打开，onclick 关闭
+div id="bom-edit-modal" class="modal-overlay"
+    onclick="me(this).classRemove('is-open');me(this).innerHTML=''" { }
+(maud::PreEscaped(r#"<script>
+    me('#bom-edit-modal').on('htmx:afterSettle',function(){me(this).classAdd('is-open')});
+</script>"#))
 ```
+
+**注意**：`<script>` 必须放在 modal 容器**外面**，因为 HTMX swap 会替换 innerHTML 导致内部 `<script>` 丢失。
 
 ### HTMX 表单替代 JS 函数
 

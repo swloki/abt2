@@ -684,8 +684,12 @@ fn bom_edit_page(
             }
 
             // ── Edit Node Modal (content loaded via HTMX) ──
+            // ── Edit Node Modal (content loaded via HTMX) ──
             div id="bom-edit-modal" class="modal-overlay"
-                onclick="hsRemove(null,'#bom-edit-modal','is-open');me('#bom-edit-modal').innerHTML=''" { }
+                onclick="me(this).classRemove('is-open');me(this).innerHTML=''" { }
+            (maud::PreEscaped(r#"<script>
+                me('#bom-edit-modal').on('htmx:afterSettle',function(){me(this).classAdd('is-open')});
+            </script>"#))
 
             // ── Delete Confirm ──
             (crate::components::confirm_dialog::confirm_dialog(
@@ -826,7 +830,6 @@ fn bom_node_row(
                     button type="button" class="row-action-btn" title="编辑"
                         hx-get=(format!("/admin/md/boms/{}/nodes/{}", bom_id, node.id))
                         hx-target="#bom-edit-modal" hx-swap="innerHTML" {
-                        (maud::PreEscaped("<script>me().on('htmx:afterRequest',function(){me('#bom-edit-modal').classAdd('is-open')})</script>"))
                         (icon::edit_icon("w-3.5 h-3.5"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"

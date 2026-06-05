@@ -263,7 +263,7 @@ fn customer_detail_page(
                 div class="detail-card-title" {
                     span { "联系人" }
                     button class="btn btn-sm btn-primary"
-                        _="on click add .is-open to #contact-create-modal" {
+                        onclick="hsAdd(null,'#contact-create-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加"
                     }
@@ -301,7 +301,7 @@ fn customer_detail_page(
             div class="detail-card-title" {
                 span { "地址信息" }
                 button class="btn btn-sm btn-primary"
-                    _="on click add .is-open to #address-create-modal" {
+                    onclick="hsAdd(null,'#address-create-modal','is-open')" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加"
                 }

@@ -637,7 +637,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                     }
                     div class="tree-footer" {
                         button class="btn btn-primary" style="width: 100%; justify-content: center;"
-                            _="on click add .is-open to #create-modal" {
+                            onclick="hsAdd(null,'#create-modal','is-open')" {
                             (icon::plus_icon("w-4 h-4"))
                             "新建分类"
                         }
@@ -673,7 +673,7 @@ fn category_split_view_script() -> Markup {
         r#"
         function filterTree(q) {
             q = (q || '').trim().toLowerCase();
-            var container = document.getElementById('category-tree');
+            var container = me('#category-tree');
             if (!container) return;
             var allNodes = container.querySelectorAll('.tree-node');
             if (!q) {
@@ -749,19 +749,18 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
             div.tree-node.expanded[should_expand] data-name=(name_lower) {
                 div.tree-node-row.active[is_active]
                     style=(pad)
-                    _="on click remove .active from .active in (closest .tree-scroll) then add .active to me"
                     hx-get=(detail_url)
                     hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
                     hx-push-url="true" {
-                    span.tree-arrow
-                        onclick="event.stopPropagation()"
-                        _="on click toggle .expanded on (closest .tree-node)" {
+                    span.tree-arrow {
                         (icon::chevron_down_icon(""))
+                        script { (PreEscaped("me().on('click', ev => { halt(ev); me(me(ev).closest('.tree-node')).classToggle('expanded') })")) }
                     }
                     span class="tree-node-name" { (name) }
                     @if count > 0 {
                         span class="tree-node-count" { (count) }
                     }
+                    script { (PreEscaped("me().on('click', ev => { any('.active', me(ev).closest('.tree-scroll')).classRemove('active'); me(ev).classAdd('active') })")) }
                 }
                 div class="tree-children" {
                     @for child in &node.children {
@@ -773,7 +772,6 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
             div.tree-node data-name=(name_lower) {
                 div.tree-node-row.active[is_active]
                     style=(pad)
-                    _="on click remove .active from .active in (closest .tree-scroll) then add .active to me"
                     hx-get=(detail_url)
                     hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
                     hx-push-url="true" {
@@ -784,6 +782,7 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
                     @if count > 0 {
                         span class="tree-node-count" { (count) }
                     }
+                    script { (PreEscaped("me().on('click', ev => { any('.active', me(ev).closest('.tree-scroll')).classRemove('active'); me(ev).classAdd('active') })")) }
                 }
             }
         }
@@ -819,7 +818,7 @@ fn detail_panel(
                     }
                     div class="cat-info-actions" {
                         button class="btn btn-default btn-sm"
-                            _="on click add .is-open to #edit-category-modal" {
+                            onclick="hsAdd(null,'#edit-category-modal','is-open')" {
                             (icon::edit_icon("w-4 h-4"))
                             "编辑"
                         }
@@ -955,7 +954,7 @@ fn detail_panel(
 // ── Create Category Modal ──
 
 fn create_category_modal(tree: &[CategoryTree]) -> Markup {
-    // TODO: hyperscript migration - modal tied to Alpine categorySplitView component
+    // TODO: Surreal.js migration - modal tied to Alpine categorySplitView component
     modal::modal(
         "create-modal",
         "新建分类",

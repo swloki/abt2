@@ -24,6 +24,7 @@ enum NavIcon {
     Wrench,
     Tag,
     Link,
+    Lock,
 }
 struct NavItem {
     name: &'static str,
@@ -193,6 +194,28 @@ fn modules() -> Vec<NavModule> {
                 },
             ],
         },
+        NavModule {
+            id: "system",
+            name: "系统管理",
+            items: vec![
+                NavItem {
+                    name: "用户管理",
+                    path: "/admin/system/users",
+                    icon: NavIcon::Users,
+                },
+                NavItem {
+                    name: "角色管理",
+                    path: "/admin/system/roles",
+                    icon: NavIcon::Lock,
+                },
+                NavItem {
+                    name: "部门管理",
+                    path: "/admin/system/departments",
+                    icon: NavIcon::Building,
+                },
+
+            ],
+        },
     ]
 }
 
@@ -217,6 +240,7 @@ fn render_item_icon(ni: NavIcon) -> Markup {
         NavIcon::Wrench => icon::sliders_icon(""),
         NavIcon::Tag => icon::file_text_icon(""),
         NavIcon::Link => icon::link_icon(""),
+        NavIcon::Lock => icon::lock_icon(""),
     }
 }
 
@@ -226,6 +250,7 @@ fn render_module_icon(module_id: &str) -> Markup {
         "purchase" => icon::clipboard_module_icon(""),
         "inventory" => icon::package_icon(""),
         "md" => icon::grid_icon(""),
+        "system" => icon::lock_icon(""),
         _ => html! {},
     }
 }
@@ -312,7 +337,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str) -> Mark
                            hx-get=(hx_url)
                            hx-target=".sidebar-body"
                            hx-swap="innerHTML"
-                           _="on click remove .active from .rail-item then add .active to me"
+                           onclick="hsTake(this,'.rail-item','active')"
                            title=(m.name) {
                             span class="rail-icon" { (render_module_icon(m.id)) }
                             span class="rail-label" { (m.name.replace("管理", "")) }
@@ -321,7 +346,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str) -> Mark
                 }
                 div class="rail-bottom" {
                     button class="rail-item rail-collapse"
-                            _="on click toggle .sidebar-collapsed on .app-shell then if .app-shell.classList.contains('sidebar-collapsed') then call localStorage.setItem('sidebar-collapsed','true') else call localStorage.removeItem('sidebar-collapsed')"
+                            onclick="hsToggleSidebar()"
                             title="收起侧栏" {
                         (icon::sidebar_toggle_icon(""))
                         span class="rail-label" { "收起" }

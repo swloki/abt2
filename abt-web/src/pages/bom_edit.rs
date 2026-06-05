@@ -434,11 +434,11 @@ pub struct NodeEditParams {
 fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &BomNode) -> Markup {
     let action = BomNodePath { id: bom_id, node_id }.to_string();
     html! {
-        div class="modal" _="on click call event.stopPropagation()" {
+        div class="modal" onclick="event.stopPropagation()" {
             div class="modal-head" {
                 h2 { "编辑节点" }
                 button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                    _="on click remove .is-open from #bom-edit-modal then put '' into #bom-edit-modal" { "×" }
+                    onclick="hsRemove(null,'#bom-edit-modal','is-open');me('#bom-edit-modal').innerHTML=''" { "×" }
             }
             div class="modal-body" {
                 form hx-post=(action) hx-swap="none" {
@@ -471,7 +471,7 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
                     }
                     div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
                         button type="button" class="btn btn-default"
-                            _="on click remove .is-open from #bom-edit-modal then put '' into #bom-edit-modal" { "取消" }
+                            onclick="hsRemove(null,'#bom-edit-modal','is-open');me('#bom-edit-modal').innerHTML=''" { "取消" }
                         button type="submit" class="btn btn-primary" { "保存" }
                     }
                 }
@@ -511,7 +511,7 @@ fn bom_edit_page(
     // Max level for filter
     let max_level = depth_map.values().copied().max().map(|d| d + 1).unwrap_or(0);
     html! {
-        div id="bom-edit-app" {
+        div id="bom-edit-app" hx-get=(BomEditPath { id: bom.bom_id }.to_string()) hx-trigger="nodeUpdated from:body" hx-select="#bom-edit-app" hx-swap="outerHTML" {
             // ── Toolbar ──
             div class="bom-toolbar" {
                 // Left side: back, category, view toggle, level filter
@@ -549,7 +549,7 @@ fn bom_edit_page(
                     }
 
                     button type="button" class="bom-level-filter" id="bom-collapse-all-btn"
-                        _="on click call bomToggleAllCollapse()" {
+                        onclick="bomToggleAllCollapse()" {
                         "全部折叠"
                     }
                 }
@@ -638,12 +638,12 @@ fn bom_edit_page(
 
             // ── Add Node Modal ──
             div id="bom-add-modal" class="modal-overlay"
-                _="on click remove .is-open from #bom-add-modal" {
-                div class="modal modal-lg" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(null,'#bom-add-modal','is-open')" {
+                div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "添加物料" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            _="on click remove .is-open from #bom-add-modal" { "×" }
+                            onclick="hsRemove(null,'#bom-add-modal','is-open')" { "×" }
                     }
                     div class="modal-body" style="padding:0" {
                         div class="product-search-bar" {
@@ -669,7 +669,7 @@ fn bom_edit_page(
                                 hx-get=(BomProductsPath::PATH)
                                 hx-target="#bom-edit-product-results"
                                 hx-swap="innerHTML"
-                                _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
+                                onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
                                 "清除"
                             }
                         }
@@ -687,15 +687,16 @@ fn bom_edit_page(
 
             // ── Edit Node Modal ──
             div id="bom-edit-modal" class="modal-overlay"
-                _="on click remove .is-open from #bom-edit-modal" {
-                div class="modal" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(null,'#bom-edit-modal','is-open')" {
+                div class="modal" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "编辑节点" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            _="on click remove .is-open from #bom-edit-modal" { "×" }
+                            onclick="hsRemove(null,'#bom-edit-modal','is-open')" { "×" }
                     }
                     div class="modal-body" {
                         form id="bom-edit-node-form" hx-post="" hx-swap="none" {
+                            input type="hidden" name="expected_version" value=(bom.version) {}
                             div class="form-grid" {
                                 div class="form-field" {
                                     label { "数量 " span style="color:var(--danger)" { "*" } }
@@ -723,7 +724,7 @@ fn bom_edit_page(
                                 }
                             }
                             div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
-                                button type="button" class="btn btn-default" _="on click remove .is-open from #bom-edit-modal" { "取消" }
+                                button type="button" class="btn btn-default" onclick="hsRemove(null,'#bom-edit-modal','is-open')" { "取消" }
                                 button type="submit" class="btn btn-primary" { "保存" }
                             }
                         }
@@ -777,12 +778,12 @@ fn bom_edit_page(
 
             // ── Save As Modal ──
             div id="bom-save-as-modal" class="modal-overlay"
-                _="on click remove .is-open from #bom-save-as-modal" {
-                div class="modal" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(null,'#bom-save-as-modal','is-open')" {
+                div class="modal" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "另存为" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            _="on click remove .is-open from #bom-save-as-modal" { "×" }
+                            onclick="hsRemove(null,'#bom-save-as-modal','is-open')" { "×" }
                     }
                     div class="modal-body" {
                         form hx-post=(BomSaveAsPath { id: bom.bom_id }.to_string())
@@ -793,7 +794,7 @@ fn bom_edit_page(
                                     placeholder="输入新的 BOM 名称" {}
                             }
                             div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
-                                button type="button" class="btn btn-default" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
+                                button type="button" class="btn btn-default" onclick="hsRemove(null,'#bom-save-as-modal','is-open')" { "取消" }
                                 button type="submit" class="btn btn-success" { "确认另存为" }
                             }
                         }
@@ -855,7 +856,7 @@ fn bom_node_row(
             td style="text-align:center" {
                 @if has_children {
                     button type="button" class="bom-collapse-btn"
-                        _=(format!("on click call bomToggleCollapse({})", node.id)) {
+                        onclick=(format!("bomToggleCollapse({})", node.id)) {
                         (icon::chevron_down_icon("bom-collapse-icon"))
                     }
                 }
@@ -873,15 +874,15 @@ fn bom_node_row(
             td {
                 div style="display:flex;gap:var(--space-1)" {
                     button type="button" class="row-action-btn" title="添加子节点"
-                        _=(format!("on click call bomOpenAddChild({})", node.id)) {
+                        onclick=(format!("bomOpenAddChild({})", node.id)) {
                         (icon::plus_icon("w-3.5 h-3.5"))
                     }
                     button type="button" class="row-action-btn" title="编辑"
-                        _=(format!("on click call bomOpenEdit({})", js_args)) {
+                        onclick=(format!("bomOpenEdit({})", js_args)) {
                         (icon::edit_icon("w-3.5 h-3.5"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"
-                        _=(format!("on click call bomOpenDelete({})", node.id)) {
+                        onclick=(format!("bomOpenDelete({})", node.id)) {
                         (icon::trash_icon("w-3.5 h-3.5"))
                     }
                 }

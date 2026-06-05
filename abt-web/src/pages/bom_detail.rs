@@ -174,7 +174,7 @@ fn bom_detail_page(
                             hx-get=(cost_drawer_path.to_string())
                             hx-target="#cost-drawer-body"
                             hx-swap="innerHTML"
-                            _="on click add .open to #cost-drawer" {
+                            onclick="hsAdd(null,'#cost-drawer','open')" {
                             (icon::currency_icon("w-4 h-4"))
                             " 查看成本"
                         }
@@ -183,7 +183,7 @@ fn bom_detail_page(
                             hx-get=(labor_drawer_path.to_string())
                             hx-target="#labor-drawer-body"
                             hx-swap="innerHTML"
-                            _="on click add .open to #labor-drawer" {
+                            onclick="hsAdd(null,'#labor-drawer','open')" {
                             (icon::bolt_icon("w-4 h-4"))
                             " 查看人工成本"
                         }
@@ -257,12 +257,12 @@ fn bom_detail_page(
             @if can_view_cost {
                 // ── Cost Drawer (wider: 1000px) ──
                 div id="cost-drawer" class="drawer-overlay"
-                    _="on click remove .open from #cost-drawer" {
-                    div class="drawer" style="max-width:1000px;width:100%" _="on click call event.stopPropagation()" {
+                    onclick="hsRemove(null,'#cost-drawer','open')" {
+                        div class="drawer" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                                _="on click remove .open from #cost-drawer" { "×" }
+                                onclick="hsRemove(null,'#cost-drawer','open')" { "×" }
                         }
                         div class="drawer-body" {
                             div id="cost-drawer-body" {
@@ -271,19 +271,19 @@ fn bom_detail_page(
                         }
                         div class="drawer-foot" {
                             button type="button" class="btn btn-default"
-                                _="on click remove .open from #cost-drawer" { "关闭" }
+                                onclick="hsRemove(null,'#cost-drawer','open')" { "关闭" }
                         }
                     }
                 }
             } @else if can_view_labor_cost {
                 // ── Labor Cost Drawer (wider: 800px) ──
                 div id="labor-drawer" class="drawer-overlay"
-                    _="on click remove .open from #labor-drawer" {
-                    div class="drawer" style="max-width:800px;width:100%" _="on click call event.stopPropagation()" {
+                    onclick="hsRemove(null,'#labor-drawer','open')" {
+                    div class="drawer" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                                _="on click remove .open from #labor-drawer" { "×" }
+                                onclick="hsRemove(null,'#labor-drawer','open')" { "×" }
                         }
                         div class="drawer-body" {
                             div id="labor-drawer-body" {
@@ -292,7 +292,7 @@ fn bom_detail_page(
                         }
                         div class="drawer-foot" {
                             button type="button" class="btn btn-default"
-                                _="on click remove .open from #labor-drawer" { "关闭" }
+                                onclick="hsRemove(null,'#labor-drawer','open')" { "关闭" }
                         }
                     }
                 }
@@ -408,7 +408,7 @@ fn cost_drawer_content(report: &BomCostReport) -> Markup {
             @if !report.warnings.is_empty() {
                 div class="cost-warning-banner" {
                     button type="button" class="cost-warning-toggle"
-                        _="on click toggle .show on the next <div/>" {
+                        onclick="me(this.nextElementSibling).classToggle('show')" {
                         div class="warning-left" {
                             (icon::circle_alert_icon("w-4 h-4"))
                             span { "部分材料缺失单价（共 " (report.warnings.len()) " 项）" }
@@ -458,7 +458,7 @@ fn cost_drawer_content(report: &BomCostReport) -> Markup {
                 (icon::circle_alert_icon("w-4 h-4"))
                 span { "已使用 " strong id="temp-price-count" { "0" } " 个临时价格（仅保存在本地，刷新后仍有效）" }
                 button type="button" class="temp-price-clear"
-                    _="on click js window.costDrawerClearTemp()" { "清除全部" }
+                    onclick="window.costDrawerClearTemp()" { "清除全部" }
             }
             // Material cost table
             div class="cost-section" {

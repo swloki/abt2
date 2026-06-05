@@ -185,13 +185,7 @@ fn quotation_edit_page(
             form id="quotation-form"
                   hx-post=(update_path.to_string())
                   hx-swap="none"
-                  _="on submit
-                     set items to []
-                     repeat for row in <tr/> in <#quotation-item-tbody/>
-                       get row as Values
-                       append it to items
-                     end
-                     set #items-json's value to items as JSONString" {
+                  onsubmit="quotationEditCollectItems()" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Customer Info ──
@@ -236,7 +230,7 @@ fn quotation_edit_page(
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="form-section-title" style="margin:0;padding:0;border:none" { "产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
-                        _="on click add .is-open to #product-modal" {
+                        onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品"
                     }
@@ -257,17 +251,10 @@ fn quotation_edit_page(
                                 th style="width:36px" { }
                             }
                         }
-                        tbody id="quotation-item-tbody" _="init send recalc to .totals-bar" {
+                        tbody id="quotation-item-tbody" {
                             @for item in items {
                                 @let (code, name) = product_codes.get(&item.product_id).cloned().unwrap_or_default();
-                                tr _="on input in .num-input
-                                   set row to closest <tr/>
-                                   get row as Values
-                                   set q to (its quantity as Number or 0)
-                                   set p to (its unit_price as Number or 0)
-                                   set d to (its discount_rate as Number or 0)
-                                   put ((q * p * (1 - (d / 100))) as Fixed:2) into .line-total in row
-                                   send recalc to .totals-bar" {
+                                tr oninput="quotationEditCalcLine(this)" {
                                     td class="line-num" { }
                                     td class="mono" { (code) }
                                     td { (name) }
@@ -278,7 +265,7 @@ fn quotation_edit_page(
                                     td { input class="form-input num-input" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
                                     td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
                                     td { button type="button" class="btn-remove-row" title="删除行"
-                                        _="on click remove the closest <tr/>" {
+                                        onclick="hsRemoveClosestEl(this,'tr')" {
                                         (icon::x_icon("w-3.5 h-3.5"))
                                     } }
                                     input type="hidden" name="product_id" value=(item.product_id) {}
@@ -289,27 +276,12 @@ fn quotation_edit_page(
                 }
                 div class="add-row-bar" {
                     button type="button" class="btn-add-row"
-                        _="on click add .is-open to #product-modal" {
+                        onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
                     }
                 }
-                div class="totals-bar" _="on recalc
-                   set subtotal to 0
-                   set disc to 0
-                   for row in <tr/> in #quotation-item-tbody
-                     get row as Values
-                     set q to (its quantity as Number or 0)
-                     set p to (its unit_price as Number or 0)
-                     set d to (its discount_rate as Number or 0)
-                     set lineTotal to q * p * (1 - (d / 100))
-                     put (lineTotal as Fixed:2) into .line-total in row
-                     increment subtotal by q * p
-                     increment disc by q * p * (d / 100)
-                   end
-                   put ('¥ ' + (subtotal as Fixed:2)) into #subtotal-value
-                   put ('- ¥ ' + (disc as Fixed:2)) into #discount-value
-                   put ('¥ ' + ((subtotal - disc) as Fixed:2)) into #grand-value" {
+                div class="totals-bar" {
                     div class="totals-item" {
                         span class="totals-label" { "合计金额" }
                         span class="totals-value" id="subtotal-value" { "¥ 0.00" }
@@ -344,12 +316,12 @@ fn quotation_edit_page(
 
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
-                _="on click remove .is-open from #product-modal" {
-                div class="modal modal-lg" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(null,'#product-modal','is-open')" {
+                div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            _="on click remove .is-open from #product-modal" { "×" }
+                            onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
                     }
                     div class="modal-body" style="padding:0" {
                         div class="product-search-bar" {
@@ -375,7 +347,7 @@ fn quotation_edit_page(
                                 hx-get=(QuotationProductsPath::PATH)
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
-                                _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
+                                onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
                                 "清除"
                             }
                         }
@@ -391,6 +363,60 @@ fn quotation_edit_page(
                 }
             }
 
+            script { (maud::PreEscaped(r#"
+function quotationEditCollectItems() {
+    var items = [];
+    var rows = any('#quotation-item-tbody tr');
+    rows.forEach(function(row) {
+        var q = row.querySelector('[name="quantity"]');
+        var p = row.querySelector('[name="unit_price"]');
+        var d = row.querySelector('[name="discount_rate"]');
+        var desc = row.querySelector('[name="description"]');
+        var u = row.querySelector('[name="unit"]');
+        var pid = row.querySelector('[name="product_id"]');
+        items.push({
+            product_id: pid ? Number(pid.value) : 0,
+            quantity: q ? Number(q.value) : 0,
+            unit_price: p ? Number(p.value) : 0,
+            discount_rate: d ? Number(d.value) : 0,
+            description: desc ? desc.value : '',
+            unit: u ? u.value : ''
+        });
+    });
+    me('#items-json').value = JSON.stringify(items);
+}
+
+function quotationEditCalcLine(tr) {
+    var q = Number(tr.querySelector('[name="quantity"]').value) || 0;
+    var p = Number(tr.querySelector('[name="unit_price"]').value) || 0;
+    var d = Number(tr.querySelector('[name="discount_rate"]').value) || 0;
+    var lineTotal = q * p * (1 - d / 100);
+    tr.querySelector('.line-total').textContent = lineTotal.toFixed(2);
+    quotationEditRecalc();
+}
+
+function quotationEditRecalc() {
+    var subtotal = 0, disc = 0;
+    any('#quotation-item-tbody tr').forEach(function(row) {
+        var q = Number((row.querySelector('[name="quantity"]') || {}).value) || 0;
+        var p = Number((row.querySelector('[name="unit_price"]') || {}).value) || 0;
+        var d = Number((row.querySelector('[name="discount_rate"]') || {}).value) || 0;
+        var lineTotal = q * p * (1 - d / 100);
+        var el = row.querySelector('.line-total');
+        if (el) el.textContent = lineTotal.toFixed(2);
+        subtotal += q * p;
+        disc += q * p * (d / 100);
+    });
+    me('#subtotal-value').textContent = '¥ ' + subtotal.toFixed(2);
+    me('#discount-value').textContent = '- ¥ ' + disc.toFixed(2);
+    me('#grand-value').textContent = '¥ ' + (subtotal - disc).toFixed(2);
+}
+
+// init: fire initial recalc on load
+document.addEventListener('DOMContentLoaded', function() {
+    quotationEditRecalc();
+});
+"#)) }
         }
     }
 }

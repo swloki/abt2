@@ -284,14 +284,7 @@ fn pq_create_page(
 
             form id="pq-form"
                   hx-post=(PQCreatePath::PATH)
-                  hx-swap="none"
-                  _="on submit
-                     set items to []
-                     repeat for row in <tr/> in <#pq-item-tbody/>
-                       get row as Values
-                       append it to items
-                     end
-                     set #items-json's value to items as JSONString" {
+                  hx-swap="none" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
                 input type="hidden" id="form-action" name="action" value="submit";
 
@@ -369,7 +362,7 @@ fn pq_create_page(
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="form-section-title" style="margin:0;padding:0;border:none" { "报价产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
-                        _="on click add .is-open to #product-modal" {
+                        onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品"
                     }
@@ -394,7 +387,7 @@ fn pq_create_page(
                 }
                 div class="add-row-bar" {
                     button type="button" class="btn-add-row"
-                        _="on click add .is-open to #product-modal" {
+                        onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
                     }
@@ -411,25 +404,36 @@ fn pq_create_page(
             div class="create-action-bar" {
                 a class="btn btn-default" href=(PQListPath::PATH) { "取消" }
                 div style="display:flex;gap:var(--space-3)" {
-                    button type="button" class="btn btn-default"
-                        _="on click set #form-action's value to 'draft' then trigger submit on #pq-form" {
+                    button type="button" class="btn btn-default" {
                         "保存草稿"
+                        script { (maud::PreEscaped("me().on('click', ev => { me('#form-action').value='draft'; me('#pq-form').requestSubmit() })")) }
                     }
                     button type="submit" class="btn btn-primary" {
                         "提交报价"
                     }
                 }
             }
+            script {
+                (maud::PreEscaped("me().on('submit', ev => {
+                    var items=[];
+                    any('#pq-item-tbody tr').forEach(function(row){
+                        var vals={};
+                        row.querySelectorAll('input,select').forEach(function(el){if(el.name)vals[el.name]=el.value});
+                        items.push(vals)
+                    });
+                    me('#items-json').value=JSON.stringify(items)
+                })"))
+            }
             }
 
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
-                _="on click remove .is-open from #product-modal" {
-                div class="modal modal-lg" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(null,'#product-modal','is-open')" {
+                div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            _="on click remove .is-open from #product-modal" { "×" }
+                            onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
                     }
                     div class="modal-body" style="padding:0" {
                         div class="product-search-bar" {
@@ -455,7 +459,7 @@ fn pq_create_page(
                                     hx-get=(PQProductsPath::PATH)
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
-                                    _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
+                                    onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
                                     "清除"
                                 }
                             }
@@ -515,7 +519,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             hx-get=(format!("{}?product_id={}", PQItemRowPath::PATH, p.product_id))
                             hx-target="#pq-item-tbody"
                             hx-swap="beforeend"
-                            _="on htmx:afterRequest remove .is-open from #product-modal" {
+                            hx-on::after-request="hsRemove(null,'#product-modal','is-open')" {
                             "选择"
                         }
                     }
@@ -537,7 +541,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td { input class="form-input" type="text" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" name="currency" value="CNY" {} }
             td style="text-align:center" { input type="checkbox" name="is_preferred" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
-                _="on click remove the closest <tr/>" {
+                onclick="hsRemoveClosestEl(this,'tr')" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
             input type="hidden" name="product_id" value=(product.product_id) {}

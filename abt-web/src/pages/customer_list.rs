@@ -213,7 +213,7 @@ fn customer_form(customer: &Option<Customer>, form_id: &str, action_url: &str) -
             div class="modal-head" {
                 h2 { (title) }
                 button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                    _="on click remove .is-open from #customer-create-modal" { "×" }
+                    onclick="hsRemove(null,'#customer-create-modal','is-open')" { "×" }
             }
             form id=(form_id) class="modal-body"
                 hx-post=(action_url)
@@ -284,7 +284,7 @@ fn customer_form(customer: &Option<Customer>, form_id: &str, action_url: &str) -
             }
             div class="modal-foot" {
                 button type="button" class="btn btn-default"
-                    _="on click remove .is-open from #customer-create-modal" { "取消" }
+                    onclick="hsRemove(null,'#customer-create-modal','is-open')" { "取消" }
                 button type="submit" class="btn btn-primary" form=(form_id) { (submit_label) }
             }
         }
@@ -311,7 +311,7 @@ fn customer_list_page(
                         "导出"
                     }
                     button class="btn btn-primary"
-                        _="on click add .is-open to #customer-create-modal" {
+                        onclick="hsAdd(null,'#customer-create-modal','is-open')" {
                         (icon::plus_icon("w-4 h-4"))
                         "新建客户"
                     }
@@ -362,8 +362,8 @@ fn customer_list_page(
             (customer_table_fragment(result, params))
 
             div class="modal-overlay" id="customer-create-modal"
-                _="on click remove .is-open" {
-                div class="modal" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(this,null,'is-open')" {
+                div class="modal" onclick="event.stopPropagation()" {
                     (customer_form(&None, "create-customer-form", CreateCustomerPath::PATH))
                 }
             }
@@ -507,7 +507,7 @@ fn customer_row(c: &Customer) -> Markup {
                         hx-get=(edit_form_path)
                         hx-target="#customer-create-modal .modal-body"
                         hx-swap="innerHTML"
-                        _="on click add .is-open to #customer-create-modal" {
+                        onclick="hsAdd(null,'#customer-create-modal','is-open')" {
                         (icon::edit_icon("w-4 h-4"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"

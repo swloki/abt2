@@ -121,9 +121,9 @@
         }
     }
 
-    // Global clear function (called from Hyperscript)
+    // Global clear function (called from onclick handler)
     window.costDrawerClearTemp = function () {
-        var container = document.querySelector('[data-bom-id]');
+        var container = me('[data-bom-id]');
         if (!container) return;
         var bomId = container.dataset.bomId;
         localStorage.removeItem(storageKey(bomId));

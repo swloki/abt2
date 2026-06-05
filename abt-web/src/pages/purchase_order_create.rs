@@ -317,14 +317,7 @@ fn po_create_page(
 
             form id="po-form"
                   hx-post=(POCreatePath::PATH)
-                  hx-swap="none"
-                  _="on submit
-                     set items to []
-                     repeat for row in <tr/> in <#po-item-tbody/>
-                       get row as Values
-                       append it to items
-                     end
-                     set #items-json's value to items as JSONString" {
+                  hx-swap="none" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Supplier Selection ──
@@ -429,7 +422,7 @@ fn po_create_page(
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="form-section-title" style="margin:0;padding:0;border:none" { "采购产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
-                        _="on click add .is-open to #product-modal" {
+                        onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品"
                     }
@@ -454,7 +447,7 @@ fn po_create_page(
                 }
                 div class="add-row-bar" {
                     button type="button" class="btn-add-row"
-                        _="on click add .is-open to #product-modal" {
+                        onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
                     }
@@ -471,16 +464,29 @@ fn po_create_page(
                     }
                 }
             }
+            script {
+                (maud::PreEscaped("me().on('submit', ev => {
+                    var rows=any('#po-item-tbody tr');
+                    var items=[];
+                    rows.forEach(function(row){
+                        var fd=new FormData(row.closest('form'));
+                        var obj={};
+                        fd.forEach(function(v,k){if(!obj[k])obj[k]=v});
+                        items.push(obj)
+                    });
+                    me('#items-json').value=JSON.stringify(items)
+                })"))
+            }
             }
 
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
-                _="on click remove .is-open from #product-modal" {
-                div class="modal modal-lg" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(null,'#product-modal','is-open')" {
+                div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            _="on click remove .is-open from #product-modal" { "×" }
+                            onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
                     }
                     div class="modal-body" style="padding:0" {
                         div class="product-search-bar" {
@@ -506,7 +512,7 @@ fn po_create_page(
                                     hx-get=(POProductsPath::PATH)
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
-                                    _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
+                                    onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
                                     "清除"
                                 }
                             }
@@ -536,8 +542,8 @@ fn supplier_detail_fragment(contact_name: &str, contact_phone: &str, coop_years:
             span { "合作年限: " strong { (coop_years) " 年" } }
         }
         script {
-            (format!("document.getElementById('supplier-contact').value = '{}';", contact_name.replace('\'', "\\'")))
-            (format!("document.getElementById('supplier-phone').value = '{}';", contact_phone.replace('\'', "\\'")))
+            (maud::PreEscaped(format!("me('#supplier-contact').value = '{}';", contact_name.replace('\'', "\\'"))))
+            (maud::PreEscaped(format!("me('#supplier-phone').value = '{}';", contact_phone.replace('\'', "\\'"))))
         }
     }
 }
@@ -568,7 +574,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             hx-get=(format!("{}?product_id={}", POItemRowPath::PATH, p.product_id))
                             hx-target="#po-item-tbody"
                             hx-swap="beforeend"
-                            _="on htmx:afterRequest remove .is-open from #product-modal" {
+                            hx-on::after-request="hsRemove(null,'#product-modal','is-open')" {
                             "选择"
                         }
                     }
@@ -580,22 +586,20 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
 
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
     html! {
-        tr _="on input in .num-input
-               set row to closest <tr/>
-               get row as Values
-               set q to (its quantity as Number or 0)
-               set p to (its unit_price as Number or 0)
-               put ((q * p) as Fixed:2) into .line-subtotal in row
-               -- update summary
-               set grand to 0
-               repeat for r in <tr/> in <#po-item-tbody/>
-                 get r as Values
-                 set rq to (its quantity as Number or 0)
-                 set rp to (its unit_price as Number or 0)
-                 set grand to grand + (rq * rp)
-               end
-               put (grand as Fixed:2) into #grandTotal
-               set #totalItems's innerText to the number of <tr/> in <#po-item-tbody/>" {
+        tr oninput="
+               var row=this;
+               var q=parseFloat(row.querySelector('[name=quantity]').value)||0;
+               var p=parseFloat(row.querySelector('[name=unit_price]').value)||0;
+               row.querySelector('.line-subtotal').textContent=(q*p).toFixed(2);
+               var grand=0;
+               any('#po-item-tbody tr').forEach(function(r){
+                 var rq=parseFloat(r.querySelector('[name=quantity]').value)||0;
+                 var rp=parseFloat(r.querySelector('[name=unit_price]').value)||0;
+                 grand+=rq*rp;
+               });
+               me('#grandTotal').textContent=grand.toFixed(2);
+               me('#totalItems').innerText=any('#po-item-tbody tr').length;
+        " {
             td class="line-num" { }
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
@@ -605,7 +609,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td class="line-subtotal mono" style="text-align:right" { "0.00" }
             td { input class="form-input" type="date" name="item_delivery_date" style="width:110px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
-                _="on click remove the closest <tr/>" {
+                onclick="hsRemoveClosestEl(this,'tr')" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
             input type="hidden" name="product_id" value=(product.product_id) {}

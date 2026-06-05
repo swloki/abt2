@@ -137,7 +137,7 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
                  hx-target="#login-form-area"
                  hx-select="#login-form-area"
                  hx-swap="outerHTML"
-                 _="on submit add .loading to me" {
+                 onsubmit="this.classList.add('loading')" {
 
                 div class="mb-5" {
                     div class="flex items-center justify-between mb-[7px]" {
@@ -162,10 +162,9 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
                                class="field-input" style="padding-right: 44px"
                                placeholder="请输入密码" autocomplete="current-password";
                         (lock_icon("field-icon"))
-                        button type="button" class="pw-toggle"
-                            _="on click toggle .pw-visible from closest div then if (closest div matches .pw-visible) set #password.type to 'text' else set #password.type to 'password'"
-                            aria-label="显示密码" {
+                        button type="button" class="pw-toggle" aria-label="显示密码" {
                             (eye_icon("w-[18px] h-[18px]"))
+                            script { (maud::PreEscaped("me().on('click', ev => { var d=me(ev).closest('div'); me(d).classToggle('pw-visible'); me('#password').type=d.classList.contains('pw-visible')?'text':'password' })")) }
                         }
                     }
                 }

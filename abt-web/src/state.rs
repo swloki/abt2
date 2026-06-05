@@ -160,6 +160,10 @@ impl AppState {
         abt_core::shared::identity::implt::DepartmentServiceImpl::new(self.pool.clone())
     }
 
+    pub fn role_service(&self) -> impl abt_core::shared::identity::RoleService {
+        abt_core::shared::identity::implt::RoleServiceImpl::new(self.pool.clone(), self.permission_cache.clone())
+    }
+
     // ── Master Data Services ──
 
     pub fn category_service(&self) -> impl abt_core::master_data::category::CategoryService {

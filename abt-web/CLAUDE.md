@@ -1,6 +1,6 @@
 # abt-web
 
-Rust 全栈前端，Axum + Maud + HTMX + hyperscript + UnoCSS，直接调用 `abt-core` Service trait。
+Rust 全栈前端，Axum + Maud + HTMX + Surreal.js + UnoCSS，直接调用 `abt-core` Service trait。
 
 ## Commands
 
@@ -75,7 +75,7 @@ cargo clippy                  # Lint 检查
 - **Axum Handler** 直接调用 `abt-core` Service trait，无 gRPC 中间层
 - **Maud** 编译期 HTML 宏渲染完整页面或局部片段
 - **HTMX** 处理表单提交、分页、搜索等需要服务器状态的交互
-- **hyperscript** 处理纯前端 UI 状态（dropdown、modal、tab 切换），通过 Maud 的 `_=` 属性绑定
+- **Surreal.js** 处理纯前端 UI 状态（dropdown、modal、tab 切换），通过内联 `<script>me().on(...)</script>` 绑定
 
 ### 数据访问层（强制）
 
@@ -102,7 +102,7 @@ src/
 │   ├── middleware.rs     # JWT 验证中间件
 │   └── session.rs       # Session 类型
 ├── layout/
-│   ├── base.rs          # HTML 壳（HTMX + hyperscript + UnoCSS）
+│   ├── base.rs          # HTML 壳（HTMX + Surreal.js + UnoCSS）
 │   ├── admin.rs         # Admin 布局（sidebar + header + content）
 │   ├── sidebar.rs       # 侧边栏
 │   └── header.rs        # 顶部栏
@@ -355,17 +355,17 @@ pub fn router() -> axum::Router {
 
 **使用 htmx 的场景**：交互涉及服务器状态流转、数据库读写、权限校验（表单提交、动态分页、条件搜索）。
 
-**禁止使用 htmx 的场景**：纯前端 UI 状态切换（Dropdown 菜单展开、Modal 弹窗显隐、选项卡纯样式切换）。此类交互由 **hyperscript**（通过 Maud 的 `_=` 属性，如 `_="on click toggle .is-open on #modal"`）在前端本地闭环，严禁通过 htmx 向后端发送请求，防止路由碎片化。
+**禁止使用 htmx 的场景**：纯前端 UI 状态切换（Dropdown 菜单展开、Modal 弹窗显隐、选项卡纯样式切换）。此类交互由 **Surreal.js**（如 `me().classAdd('.is-open')` / `me().classRemove('.is-open')`）在前端本地闭环，严禁通过 htmx 向后端发送请求，防止路由碎片化。
 
 ---
 
 ## 高级混合交互模式 (Advanced Hybrid Interactions)
 
-### hyperscript 与 htmx 的数据桥接模式 (Hidden Input Binding)
+### Surreal.js 与 htmx 的数据桥接模式 (Hidden Input Binding)
 
 场景：当组件存在复杂的纯前端高频交互（如拖拽、动态行项目表单），直接用 htmx 请求后端会导致严重的路由碎片化与网络延迟。
 
-解法：复杂前端交互逻辑用独立 JS 文件（vanilla JS）管理状态，简单 UI 交互用 hyperscript 处理。状态通过 hidden input 桥接，htmx 提交时自动携带前端状态。
+解法：复杂前端交互逻辑用独立 JS 文件（vanilla JS）管理状态，简单 UI 交互用 Surreal.js 处理。状态通过 hidden input 桥接，htmx 提交时自动携带前端状态。
 
 ```rust
 pub fn star_rating_component(current_rating: u32) -> Markup {
@@ -397,7 +397,7 @@ pub fn star_rating_component(current_rating: u32) -> Markup {
 
 | 层 | 职责 | 技术 |
 |---|---|---|
-| 简单 UI 交互 | modal 开关、class 切换 | hyperscript (`_=` 属性) |
+| 简单 UI 交互 | modal 开关、class 切换 | Surreal.js helpers (`onclick="hs*()"`) |
 | 复杂前端状态 | 动态行项目、拖拽排序、计算 | vanilla JS（独立 JS 文件） |
 | 复杂数据桥接 | `input type="hidden" name="items_json"` 序列化嵌套数据 | JS + HTML |
 | 表单提交 | `hx-post` + `hx-swap="none"` | htmx |
@@ -408,7 +408,7 @@ pub fn star_rating_component(current_rating: u32) -> Markup {
 ### 标准实现步骤
 
 1. **JS 文件**：IIFE 封装的 vanilla JS 模块，管理状态和 DOM 交互
-2. **Maud 模板**：`data-*` 属性传递初始数据，hyperscript `_=` 处理简单交互
+2. **Maud 模板**：`data-*` 属性传递初始数据，`onclick`/`onsubmit` 调用 `hs*()` 辅助函数处理简单交互
 3. **隐藏 input 桥接**：`input type="hidden" name="items_json"` 将嵌套数据暴露给 htmx
 4. **外部数据集成**：htmx 搜索结果通过 `data-product` JSON 推入 JS 状态
 5. **服务端**：`Form<QuotationCreateForm>` 接收，`items_json: String` 字段用 `serde_json::from_str()` 解析
@@ -421,89 +421,53 @@ pub fn star_rating_component(current_rating: u32) -> Markup {
 ### 强制规则
 
 - **禁止** `fetch()` 提交表单，用 htmx `hx-post` 原生处理
-- 简单 UI 交互（modal 开关、class 切换）用 hyperscript `_=` 属性处理
+- 简单 UI 交互（modal 开关、class 切换）用 `onclick` 调用 `hs*()` 辅助函数处理
 - 复杂交互逻辑抽取到独立 JS 文件，禁止在 Maud 模板里内联 `<script>` 写大段 JS
-- htmx 仅处理需要服务端状态的交互，纯前端交互由 hyperscript / vanilla JS 闭环
+- htmx 仅处理需要服务端状态的交互，纯前端交互由 Surreal.js helpers / vanilla JS 闭环
 
 ---
 
 ## 前端交互组件组织模式 (Frontend Component Organization)
 
-当页面的交互逻辑较复杂（含拖拽、动态行项目、localStorage、状态管理等），必须将逻辑抽取到独立的 JS 文件中，禁止在 Maud 模板里内联 `<script>` 写大段 JS。简单交互（modal 开关、class 切换）直接用 hyperscript `_=` 属性。
+当页面的交互逻辑较复杂（含拖拽、动态行项目、localStorage、状态管理等），必须将逻辑抽取到独立的 JS 文件中，禁止在 Maud 模板里内联 `<script>` 写大段 JS。简单交互（modal 开关、class 切换）直接用 `onclick` 调用 Surreal.js helpers。
 
-### hyperscript 用法（简单交互）
+### Surreal.js Helpers 用法（简单交互）
 
-hyperscript 通过 Maud 的 `_=` 属性绑定，用于纯前端 UI 操作：
+`app.js` 中定义了一组 `window.hs*()` 辅助函数，底层使用 Surreal.js API，用于纯前端 UI 操作：
 
 ```rust
 // Modal 开关
-button _="on click add .is-open to #my-modal" { "打开" }
-button _="on click remove .is-open from #my-modal" { "关闭" }
+button onclick="hsAdd(null,'#my-modal','is-open')" { "打开" }
+button onclick="hsRemove(null,'#my-modal','is-open')" { "关闭" }
 
-// 事件响应
-div _="on contactChanged from the body remove .is-open from #contact-modal" { ... }
+// 关闭 overlay backdrop（点击自身才关闭）
+div onclick="hsBackdropClose(this,event,'is-open')" { ... }
+
+// 关闭最近祖先
+button onclick="hsRemoveClosest(this,'.modal-overlay','is-open')" { "×" }
+
+// Tab 式切换（从兄弟取走 active，加到自身）
+button onclick="hsTake(this,'.tab-btn','active')" { "Tab 1" }
+
+// Toggle class
+button onclick="hsToggle(null,'.sidebar','collapsed')" { "收起" }
 ```
 
-### 独立 JS 文件（复杂交互）
+#### 可用 Helpers
 
-- 放在 `static/` 目录下，文件名与功能对应，如 `cost-drawer.js`、`bom-edit.js`、`return-create.js`
-- 使用 IIFE 封装，监听 `htmx:afterSettle` 和 `DOMContentLoaded` 自动初始化
-- 在使用该组件的页面底部用 `<script src="/xxx.js?v=日期" />` 引入（放在 `html! {}` 块内）
-
-### 标准结构
-
-```javascript
-// static/cost-drawer.js
-(function () {
-    'use strict';
-
-    function storageKey(bomId) {
-        return 'bom-cost-temp-prices:' + bomId;
-    }
-
-    function loadTempPrices(bomId) { ... }
-    function saveTempPrices(bomId, map) { ... }
-
-    function initCostDrawer(container) {
-        // 初始化交互逻辑
-    }
-
-    function tryInit(target) {
-        var el = target.querySelector('.cost-drawer');
-        if (el) initCostDrawer(el);
-    }
-
-    // 监听 HTMX 交换和 DOM 加载
-    document.addEventListener('htmx:afterSettle', function (e) {
-        tryInit(e.target);
-    });
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () { tryInit(document); });
-    } else {
-        tryInit(document);
-    }
-})();
-```
-
-### Rust 端集成
-
-```rust
-// 在页面 HTML 输出末尾引入 JS 文件
-html! {
-    div {
-        // 页面内容，简单交互用 hyperscript
-        button _="on click add .is-open to #modal" { "打开" }
-    }
-    script src="/cost-drawer.js?v=20260602" {}
-}
-```
-
-### Maud 与 hyperscript 注意事项
-
-- hyperscript 通过 `_=` 属性绑定：`button _="on click toggle .active on me" {}`
-- 空元素（`input`、`br`、`hr`）必须以 `{}` 结尾
-- 需要动态 hyperscript 表达式时用 Maud 的 `()` 插值：`_=(format!("on click call window.myFunc({})", id))`
-- 服务器数据通过 `data-*` 属性传入，JS 端用 `dataset` 读取
+| 函数 | 说明 |
+|------|------|
+| `hsAdd(null, selector, cls)` | 给 selector 元素添加 class |
+| `hsRemove(null, selector, cls)` | 给 selector 元素移除 class |
+| `hsRemove(this, null, cls)` | 给自身移除 class |
+| `hsRemoveClosest(this, ancestorSel, cls)` | 给最近祖先移除 class |
+| `hsToggle(null, selector, cls)` | 切换 selector 元素的 class |
+| `hsToggleSelf(el, cls)` | 切换元素自身的 class |
+| `hsTake(this, siblingSel, cls)` | 从兄弟移除 class，加到自身 |
+| `hsBackdropClose(this, event, cls)` | 仅当 event.target === self 时移除 class |
+| `hsToggleSidebar()` | 切换侧栏折叠 + localStorage |
+| `hsSetAndTrigger(selector, value, event)` | 设置 input 值并触发事件 |
+| `hsRemoveClosestEl(this, ancestorSel)` | 移除最近的祖先元素 |
 
 ### 已有参考
 

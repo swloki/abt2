@@ -2,21 +2,21 @@
     'use strict';
 
     function loadOrderData() {
-        var dataEl = document.getElementById('pr-order-data');
+        var dataEl = me('#pr-order-data');
         if (!dataEl) return;
         var supplierName = dataEl.getAttribute('data-supplier-name') || '—';
         var contact = dataEl.getAttribute('data-contact') || '—';
         var phone = dataEl.getAttribute('data-phone') || '—';
-        document.getElementById('pr-supplier-name').value = supplierName;
-        document.getElementById('pr-contact').value = contact;
-        document.getElementById('pr-phone').value = phone;
+        me('#pr-supplier-name').value = supplierName;
+        me('#pr-contact').value = contact;
+        me('#pr-phone').value = phone;
 
-        var orderId = document.getElementById('pr-order-select').value;
-        var hiddenInput = document.querySelector('#pr-form input[name="order_id"]');
+        var orderId = me('#pr-order-select').value;
+        var hiddenInput = me('#pr-form input[name="order_id"]');
         if (hiddenInput) hiddenInput.value = orderId;
 
-        var section = document.getElementById('pr-items-section');
-        var tbody = document.getElementById('pr-item-tbody');
+        var section = me('#pr-items-section');
+        var tbody = me('#pr-item-tbody');
         if (!section || !tbody) return;
 
         var itemDivs = dataEl.querySelectorAll('div[data-item]');
@@ -52,7 +52,7 @@
     }
 
     function updateTotals() {
-        var tbody = document.getElementById('pr-item-tbody');
+        var tbody = me('#pr-item-tbody');
         if (!tbody) return;
         var totalQty = 0;
         var totalAmount = 0;
@@ -69,14 +69,30 @@
                 totalAmount += amount;
             }
         });
-        var totalQtyEl = document.getElementById('pr-total-qty');
-        var totalAmountEl = document.getElementById('pr-total-amount');
+        var totalQtyEl = me('#pr-total-qty');
+        var totalAmountEl = me('#pr-total-amount');
         if (totalQtyEl) totalQtyEl.textContent = totalQty;
         if (totalAmountEl) totalAmountEl.textContent = totalAmount.toFixed(2);
     }
 
+    function collectItems() {
+        var items = [];
+        var rows = any('#pr-item-tbody tr');
+        for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var obj = {};
+            var inputs = row.querySelectorAll('input, select, textarea');
+            for (var j = 0; j < inputs.length; j++) {
+                var el = inputs[j];
+                if (el.name) obj[el.name] = el.value;
+            }
+            items.push(obj);
+        }
+        me('#items-json').value = JSON.stringify(items);
+    }
+
     // Expose for inline event handlers
-    window.PRCreate = { updateTotals: updateTotals };
+    window.PRCreate = { updateTotals: updateTotals, collectItems: collectItems };
 
     // Auto-fill supplier info & render items after HTMX loads order data
     document.addEventListener('htmx:afterRequest', function (e) {

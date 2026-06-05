@@ -144,14 +144,7 @@ fn misc_create_page() -> Markup {
 
             form id="misc-form"
                   hx-post=(MiscCreatePath::PATH)
-                  hx-swap="none"
-                  _="on submit
-                     set items to []
-                     repeat for row in <tr/> in <#misc-item-tbody/>
-                       get row as Values
-                       append it to items
-                     end
-                     set #items-json's value to items as JSONString" {
+                  hx-swap="none" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Basic Info ──
@@ -236,6 +229,17 @@ fn misc_create_page() -> Markup {
                     button type="submit" class="btn btn-primary" { "提交请购" }
                 }
             }
+            script {
+                (maud::PreEscaped("me().on('submit', ev => {
+                    var items=[];
+                    any('#misc-item-tbody tr').forEach(function(r){
+                        var o={};
+                        r.querySelectorAll('input,select,textarea').forEach(function(e){if(e.name)o[e.name]=e.value});
+                        items.push(o)
+                    });
+                    me('#items-json').value=JSON.stringify(items)
+                })"))
+            }
             }
 
         }
@@ -244,12 +248,7 @@ fn misc_create_page() -> Markup {
 
 fn empty_row_fragment() -> Markup {
     html! {
-        tr _="on input in .num-input
-           set row to closest <tr/>
-           get row as Values
-           set q to (its quantity as Number or 0)
-           set p to (its estimated_price as Number or 0)
-           put ((q * p) as Fixed:2) into .line-subtotal in row" {
+        tr oninput="if(!event.target.classList.contains('num-input'))return;const r=this,q=parseFloat(r.querySelector('[name=quantity]').value)||0,p=parseFloat(r.querySelector('[name=estimated_price]').value)||0;r.querySelector('.line-subtotal').textContent=(q*p).toFixed(2)" {
             td class="line-num" { }
             td { input class="form-input" type="text" name="item_name" required placeholder="物品名称" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { input class="form-input" type="text" name="specification" placeholder="规格型号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
@@ -259,7 +258,7 @@ fn empty_row_fragment() -> Markup {
             td class="line-subtotal mono" style="text-align:right" { "0.00" }
             td { input class="form-input" type="text" name="item_remark" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
-                _="on click remove the closest <tr/>" {
+                onclick="hsRemoveClosestEl(this,'tr')" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
         }

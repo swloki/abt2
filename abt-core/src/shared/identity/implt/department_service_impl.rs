@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
 use super::super::department_service::DepartmentService;
@@ -131,6 +131,15 @@ impl DepartmentService for DepartmentServiceImpl {
         user_id: i64,
     ) -> Result<Vec<Department>> {
         IdentityRepo::get_user_departments(&mut *db, user_id).await
+    }
+
+    async fn update_department_status(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        dept_id: i64,
+        is_active: bool,
+    ) -> Result<()> {
+        IdentityRepo::update_department_status(&mut *db, dept_id, is_active).await
     }
 }
 

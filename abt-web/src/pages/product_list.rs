@@ -302,7 +302,7 @@ fn product_list_page(
 ) -> Markup {
 
     html! {
-        div _="on closeDrawer remove .open from #price-drawer" {
+        div { (maud::PreEscaped("<script>document.body.addEventListener('closeDrawer',()=>hsRemove(null,'#price-drawer','open'))</script>"))
             // ── Page Header ──
             div class="page-header" {
                 h1 class="page-title" { "产品管理" span style="font-size:var(--text-sm);font-weight:400;color:var(--muted);margin-left:var(--space-2)" { "(" (result.total) ")" } }
@@ -341,7 +341,7 @@ fn product_list_page(
                 },
                 html! {
                     button type="button" class="btn btn-default"
-                        _="on click remove .open from #bom-drawer" { "关闭" }
+                        onclick="hsRemove(null,'#bom-drawer','open')" { "关闭" }
                     a href="/admin/md/boms/new" class="btn btn-primary" style="text-decoration:none" {
                         (icon::plus_icon("w-4 h-4"))
                         "新建 BOM"
@@ -455,7 +455,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
             }
             td onclick=(format!("location.href='{}'", detail_path)) { (p.unit) }
             td onclick="event.stopPropagation()" {
-                div class="row-actions" _="on click call event.stopPropagation()" {
+                div class="row-actions" onclick="event.stopPropagation()" {
                     // View detail
                     a class="row-action-btn" title="查看"
                         href=(detail_path) {
@@ -466,21 +466,20 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                         hx-get=(usage_path)
                         hx-target="#bom-drawer-body"
                         hx-swap="innerHTML"
-                        _="on click add .open to #bom-drawer" {
+                        onclick="hsAdd(null,'#bom-drawer','open')" {
                         (icon::link_icon("w-4 h-4"))
                     }
                     // More menu trigger
                     button type="button" class="row-action-btn" title="更多"
-                        id=(format!("more-btn-{}", p.product_id))
-                        _="on click toggle .is-open on next .row-actions-menu then if next .row-actions-menu matches .is-open call positionDropdown(me, next .row-actions-menu)" {
+                        id=(format!("more-btn-{}", p.product_id)) {
                         (icon::dots_vertical_icon("w-4 h-4"))
+                        script { (maud::PreEscaped("me().on('click', ev => { me(me(ev).nextElementSibling).classToggle('is-open'); if(me(ev).nextElementSibling.classList.contains('is-open')) positionDropdown(me(ev), me(ev).nextElementSibling) })")) }
                     }
                     // Backdrop to close menu on outside click
                     div style="position:fixed;inset:0;z-index:49;display:none"
-                        _="on click remove .is-open from the closest .row-actions-menu then hide me" {}
+                        onclick="hsRemoveClosest(this,'.row-actions-menu','is-open');this.style.display='none'" {}
                     // Dropdown menu
-                    div class="row-actions-menu"
-                        _="on click call event.stopPropagation()" {
+                    div class="row-actions-menu" onclick="event.stopPropagation()" {
                         a href=(edit_path) {
                             (icon::edit_icon("w-4 h-4"))
                             "编辑"
@@ -493,7 +492,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                             hx-get=(drawer_path)
                             hx-target="#price-drawer-body"
                             hx-swap="innerHTML"
-                            _="on click remove .is-open from closest .row-actions-menu then add .open to #price-drawer" {
+                            onclick="hsRemoveClosest(this,'.row-actions-menu','is-open');hsAdd(null,'#price-drawer','open')" {
                             (icon::currency_icon("w-4 h-4"))
                             "设置价格"
                         }
@@ -501,7 +500,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                             button type="button"
                                 hx-post=(unwatch_path)
                                 hx-swap="none"
-                                _="on click remove .is-open from closest .row-actions-menu" {
+                                onclick="hsRemoveClosest(this,'.row-actions-menu','is-open')" {
                                 (icon::bell_icon("w-4 h-4"))
                                 "取消关注"
                             }
@@ -509,7 +508,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                             button type="button"
                                 hx-post=(watch_path)
                                 hx-swap="none"
-                                _="on click remove .is-open from closest .row-actions-menu" {
+                                onclick="hsRemoveClosest(this,'.row-actions-menu','is-open')" {
                                 (icon::bell_icon("w-4 h-4"))
                                 "关注"
                             }
@@ -519,7 +518,7 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                             hx-confirm=(format!("删除后无法恢复，确定要删除产品「{}」吗？", p.pdt_name))
                             hx-target=(format!("#product-row-{}", p.product_id))
                             hx-swap="outerHTML swap:0.5s"
-                            _="on click remove .is-open from closest .row-actions-menu" {
+                            onclick="hsRemoveClosest(this,'.row-actions-menu','is-open')" {
                             (icon::trash_icon("w-4 h-4"))
                             "删除"
                         }
@@ -608,13 +607,13 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
 
     html! {
         div class="bom-ref-card" {
-            div class="bom-ref-main" _="on click toggle .is-expanded on closest .bom-ref-card then toggle *display on next .bom-ref-detail" {
+            div class="bom-ref-main" {
                 div class="bom-ref-icon parent" {
                     (icon::bolt_icon("w-4.5 h-4.5"))
                 }
                 div class="bom-ref-info" {
                     div class="bom-ref-name" {
-                        a href=(bom_detail_path) _="on click call event.stopPropagation()" style="color:var(--accent);text-decoration:none;font-weight:600" {
+                        a href=(bom_detail_path) onclick="event.stopPropagation()" style="color:var(--accent);text-decoration:none;font-weight:600" {
                             (entry.source_name)
                         }
                         span style="font-size:11px;font-weight:400;color:var(--muted);font-family:var(--font-mono)" {
@@ -636,12 +635,14 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
                             span style="font-size:12px;font-weight:400;color:var(--muted)" { (unit) }
                         }
                     }
-                    button class="bom-ref-expand" _="on click call event.stopPropagation() then toggle .is-expanded on closest .bom-ref-card then toggle *display on closest .bom-ref-card .bom-ref-detail" {
+                    button class="bom-ref-expand" {
                         svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" {
                             path d="M19 9l-7 7-7-7" {}
                         }
+                        script { (maud::PreEscaped("me().on('click', ev => { halt(ev); var c=me(ev).closest('.bom-ref-card'); me(c).classToggle('is-expanded'); var d=me('.bom-ref-detail', c); d.styles({display: d.style.display==='none'?'':'none'}) })")) }
                     }
                 }
+                script { (maud::PreEscaped("me().on('click', ev => { me(me(ev).closest('.bom-ref-card')).classToggle('is-expanded'); var d=me(ev).nextElementSibling; d?.styles({display: d.style.display==='none'?'':'none'}) })")) }
             }
             @if has_detail {
                 div class="bom-ref-detail" style="display:none" {
@@ -694,8 +695,8 @@ fn bom_ref_card(entry: &UsageEntry) -> Markup {
 fn usage_error_dialog(name: &str, total: u64) -> Markup {
     html! {
         div class="dialog-overlay open"
-            _="on click remove .open" {
-            div class="dialog" _="on click call event.stopPropagation()" {
+            onclick="hsRemove(this,null,'open')" {
+            div class="dialog" onclick="event.stopPropagation()" {
                 div class="dialog-body" {
                     div class="dialog-icon-wrap" {
                         (icon::circle_alert_icon("w-7 h-7"))
@@ -709,7 +710,7 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
                 }
                 div class="dialog-foot" {
                     button type="button" class="btn btn-primary"
-                        _="on click remove .open from closest .dialog-overlay" { "知道了" }
+                        onclick="hsRemoveClosest(this,'.dialog-overlay','open')" { "知道了" }
                 }
             }
         }
@@ -719,12 +720,12 @@ fn usage_error_dialog(name: &str, total: u64) -> Markup {
 fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
     html! {
         div class="modal-overlay is-open"
-            _="on click remove .is-open" {
-            div class="modal" _="on click call event.stopPropagation()" {
+            onclick="hsRemove(this,null,'is-open')" {
+            div class="modal" onclick="event.stopPropagation()" {
                 div class="modal-head" {
                     h2 { "价格变更记录" }
                     button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                        _="on click remove .is-open from closest .modal-overlay" { "×" }
+                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open')" { "×" }
                 }
                 div class="modal-body" {
                     @if entries.is_empty() {
@@ -737,7 +738,7 @@ fn price_history_table(_product_id: i64, entries: &[PriceLogEntry]) -> Markup {
                 }
                 div class="modal-foot" {
                     button type="button" class="btn btn-default"
-                        _="on click remove .is-open from closest .modal-overlay" { "关闭" }
+                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open')" { "关闭" }
                 }
             }
         }

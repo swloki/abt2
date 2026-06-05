@@ -257,13 +257,7 @@ fn pr_create_page(
             form id="pr-form"
                   hx-post=(PRCreatePath::PATH)
                   hx-swap="none"
-                  _="on submit
-                     set items to []
-                     repeat for row in <tr/> in <#pr-item-tbody/>
-                       get row as Values
-                       append it to items
-                     end
-                     set #items-json's value to items as JSONString" {
+                  onsubmit="PRCreate.collectItems()" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
                 input type="hidden" name="order_id";
 

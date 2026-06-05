@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use super::model::Department;
 use crate::shared::types::context::ServiceContext;
@@ -59,4 +59,11 @@ pub trait DepartmentService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
     ) -> Result<Vec<Department>>;
+
+    async fn update_department_status(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        dept_id: i64,
+        is_active: bool,
+    ) -> Result<()>;
 }

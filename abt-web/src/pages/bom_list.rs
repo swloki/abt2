@@ -203,12 +203,12 @@ fn bom_list_page(
             @if can_view_cost {
                 // ── Cost Drawer ──
                 div id="cost-drawer" class="drawer-overlay"
-                    _="on click remove .open from #cost-drawer" {
-                    div class="drawer" style="max-width:1000px;width:100%" _="on click call event.stopPropagation()" {
+                    onclick="hsRemove(null,'#cost-drawer','open')" {
+                    div class="drawer" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                                _="on click remove .open from #cost-drawer" { "×" }
+                                onclick="hsRemove(null,'#cost-drawer','open')" { "×" }
                         }
                         div class="drawer-body" {
                             div id="cost-drawer-body" {
@@ -217,19 +217,19 @@ fn bom_list_page(
                         }
                         div class="drawer-foot" {
                             button type="button" class="btn btn-default"
-                                _="on click remove .open from #cost-drawer" { "关闭" }
+                                onclick="hsRemove(null,'#cost-drawer','open')" { "关闭" }
                         }
                     }
                 }
             } @else if can_view_labor_cost {
                 // ── Labor Cost Drawer ──
                 div id="labor-drawer" class="drawer-overlay"
-                    _="on click remove .open from #labor-drawer" {
-                    div class="drawer" style="max-width:800px;width:100%" _="on click call event.stopPropagation()" {
+                    onclick="hsRemove(null,'#labor-drawer','open')" {
+                    div class="drawer" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                                _="on click remove .open from #labor-drawer" { "×" }
+                                onclick="hsRemove(null,'#labor-drawer','open')" { "×" }
                         }
                         div class="drawer-body" {
                             div id="labor-drawer-body" {
@@ -238,7 +238,7 @@ fn bom_list_page(
                         }
                         div class="drawer-foot" {
                             button type="button" class="btn btn-default"
-                                _="on click remove .open from #labor-drawer" { "关闭" }
+                                onclick="hsRemove(null,'#labor-drawer','open')" { "关闭" }
                         }
                     }
                 }
@@ -413,7 +413,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                             hx-get=(BomCostDrawerPath { id: bom.bom_id }.to_string())
                             hx-target="#cost-drawer-body"
                             hx-swap="innerHTML"
-                            _="on click add .open to #cost-drawer" {
+                            onclick="hsAdd(null,'#cost-drawer','open')" {
                             (icon::currency_icon("w-4 h-4"))
                         }
                     } @else if can_view_labor_cost {
@@ -421,7 +421,7 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                             hx-get=(BomLaborCostDrawerPath { id: bom.bom_id }.to_string())
                             hx-target="#labor-drawer-body"
                             hx-swap="innerHTML"
-                            _="on click add .open to #labor-drawer" {
+                            onclick="hsAdd(null,'#labor-drawer','open')" {
                             (icon::bolt_icon("w-4 h-4"))
                         }
                     }

@@ -1,5 +1,5 @@
 use abt_core::shared::identity::model::Claims;
-use maud::{DOCTYPE, Markup, html, PreEscaped};
+use maud::{DOCTYPE, Markup, PreEscaped, html};
 
 use super::header;
 use super::sidebar;
@@ -18,9 +18,9 @@ fn document(title: &str, body: Markup) -> Markup {
                 link rel="icon" type="image/svg+xml" href="/favicon.svg";
                 link rel="stylesheet" href="/app.css?v=20260531";
                 script src="/htmx.min.js" {}
-                script src="/app.js?v=20260603" {}
                 script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" {}
-                script src="https://unpkg.com/hyperscript.org@0.9.91" {}
+                script src="/surreal.js" {}
+                script src="/app.js?v=20260603" {}
             }
             body {
                 (body)
@@ -41,9 +41,8 @@ fn admin_shell(
     content: Markup,
 ) -> Markup {
     html! {
-        div id="app-wrapper"
-            _="on load if localStorage.getItem('sidebar-collapsed') === 'true' then add .sidebar-collapsed to .app-shell"
-        {
+        div id="app-wrapper" {
+            (PreEscaped("<script>if(localStorage.getItem('sidebar-collapsed')==='true')me('.app-shell').classAdd('sidebar-collapsed')</script>"))
             div class="app-shell" {
                 (sidebar::sidebar(claims, active_module, current_path))
                 div class="main-content" {
@@ -54,7 +53,7 @@ fn admin_shell(
                 }
             }
             div class="mobile-sidebar-overlay"
-                _="on click remove .open" {}
+                onclick="hsRemove(this,null,'open')" {}
             (sidebar::mobile_nav(active_module, current_path))
         }
     }
@@ -106,8 +105,8 @@ fn global_confirm_dialog() -> Markup {
     html! {
         div id="global-confirm-dialog" {
             div class="dialog-overlay"
-                _="on click remove .open" {
-                div class="dialog" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(this,null,'open')" {
+                div class="dialog" onclick="event.stopPropagation()" {
                     div class="dialog-body" {
                         div class="dialog-icon-wrap" {
                             (PreEscaped(icon))
@@ -115,8 +114,8 @@ fn global_confirm_dialog() -> Markup {
                         p class="dialog-desc" id="global-confirm-message" {}
                     }
                     div class="dialog-foot" {
-                        button type="button" class="btn btn-default" _="on click remove .open from closest .dialog-overlay" { "取消" }
-                        button type="button" class="btn btn-danger" _="on click call window._confirmIssueRequest() then remove .open from closest .dialog-overlay" { "确认" }
+                        button type="button" class="btn btn-default" onclick="hsRemoveClosest(this,'.dialog-overlay','open')" { "取消" }
+                        button type="button" class="btn btn-danger" onclick="window._confirmIssueRequest();hsRemoveClosest(this,'.dialog-overlay','open')" { "确认" }
                     }
                 }
             }

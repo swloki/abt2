@@ -54,12 +54,12 @@
     // ── Modal helpers ──
 
     function openModal(id) {
-        var el = document.getElementById(id);
+        var el = me('#' + id);
         if (el) el.classList.add('is-open');
     }
 
     function closeModal(id) {
-        var el = document.getElementById(id);
+        var el = me('#' + id);
         if (el) el.classList.remove('is-open');
     }
 
@@ -104,6 +104,36 @@
 
     window.bomOpenAddChild = openAddChild;
 
+    // ── Edit Node ──
+
+    function openEdit(nodeId, quantity, lossRate, unit, workCenter, position, remark) {
+        var form = me('#bom-edit-node-form');
+        if (!form) return;
+        form.querySelector('[name="quantity"]').value = quantity;
+        form.querySelector('[name="loss_rate"]').value = lossRate;
+        form.querySelector('[name="unit"]').value = unit;
+        form.querySelector('[name="work_center"]').value = workCenter;
+        form.querySelector('[name="position"]').value = position;
+        form.querySelector('[name="remark"]').value = remark;
+        form.setAttribute('hx-post', '/admin/md/boms/' + bomId() + '/nodes/' + nodeId);
+        htmx.process(form);
+        openModal('bom-edit-modal');
+    }
+
+    window.bomOpenEdit = openEdit;
+
+    // ── Delete Node ──
+
+    function openDelete(nodeId) {
+        var form = me('#bom-node-delete-form');
+        if (!form) return;
+        form.setAttribute('hx-delete', '/admin/md/boms/' + bomId() + '/nodes/' + nodeId);
+        htmx.process(form);
+        me('#bom-delete-dialog').classList.add('open');
+    }
+
+    window.bomOpenDelete = openDelete;
+
     // ── Collapse / Expand ──
 
     function toggleCollapse(nodeId) {
@@ -116,7 +146,7 @@
 
     function toggleAllCollapse() {
         allCollapsed = !allCollapsed;
-        var tbody = document.getElementById('bom-sortable-tbody');
+        var tbody = me('#bom-sortable-tbody');
         if (!tbody) return;
         var parentIds = [];
         tbody.querySelectorAll('tr[data-node-id]').forEach(function (r) {
@@ -131,7 +161,7 @@
         applyVisibility();
 
         // Update button text
-        var btn = document.getElementById('bom-collapse-all-btn');
+        var btn = me('#bom-collapse-all-btn');
         if (btn) btn.textContent = allCollapsed ? '全部展开' : '全部折叠';
     }
 
@@ -140,7 +170,7 @@
     // ── Level Filter ──
 
     function applyVisibility() {
-        var tbody = document.getElementById('bom-sortable-tbody');
+        var tbody = me('#bom-sortable-tbody');
         if (!tbody) return;
         tbody.querySelectorAll('tr[data-node-id]').forEach(function (tr) {
             var level = Number(tr.dataset.level);
@@ -168,7 +198,7 @@
     }
 
     function initLevelFilter() {
-        var select = document.getElementById('bom-level-filter');
+        var select = me('#bom-level-filter');
         if (!select) return;
         select.addEventListener('change', function () {
             layerFilter = parseInt(select.value) || 0;
@@ -179,7 +209,7 @@
     // ── Collapse button styling ──
 
     function updateCollapseButtons() {
-        var tbody = document.getElementById('bom-sortable-tbody');
+        var tbody = me('#bom-sortable-tbody');
         if (!tbody) return;
         tbody.querySelectorAll('.bom-collapse-btn').forEach(function (btn) {
             var row = btn.closest('tr');
@@ -198,7 +228,7 @@
     function initSortable() {
         restoreCollapsed();
 
-        var tbody = document.getElementById('bom-sortable-tbody');
+        var tbody = me('#bom-sortable-tbody');
         if (!tbody) return;
         var table = tbody.closest('table');
 
@@ -366,9 +396,9 @@
     }
 
     function bindEditButtons() {
-        document.querySelectorAll('button[title="编辑"]').forEach(function (btn) {
+        any('button[title="编辑"]').forEach(function (btn) {
             btn.addEventListener('htmx:afterRequest', function () {
-                document.getElementById('bom-edit-modal').classList.add('is-open');
+                me('#bom-edit-modal').classList.add('is-open');
             });
         });
     }
@@ -381,7 +411,7 @@
         updateCollapseButtons();
 
         // "Add root node" button
-        var addRootBtn = document.getElementById('bom-add-root-btn');
+        var addRootBtn = me('#bom-add-root-btn');
         if (addRootBtn) {
             addRootBtn.addEventListener('click', function () {
                 addParentId = 0;
@@ -391,21 +421,21 @@
         }
 
         // "Save As" button
-        var saveAsBtn = document.getElementById('bom-save-as-btn');
+        var saveAsBtn = me('#bom-save-as-btn');
         if (saveAsBtn) {
             saveAsBtn.addEventListener('click', function () {
                 saveAsName = (saveAsBtn.dataset.name || '') + '_副本';
-                var input = document.querySelector('#bom-save-as-modal [name="new_name"]');
+                var input = me('#bom-save-as-modal [name="new_name"]');
                 if (input) input.value = saveAsName;
                 openModal('bom-save-as-modal');
             });
         }
 
         // Publish/unpublish buttons
-        var publishBtn = document.getElementById('bom-publish-btn');
+        var publishBtn = me('#bom-publish-btn');
         if (publishBtn) {
             publishBtn.addEventListener('click', function () {
-                var overlay = document.getElementById('bom-publish-dialog');
+                var overlay = me('#bom-publish-dialog');
                 if (overlay) overlay.classList.add('open');
             });
         }
@@ -414,7 +444,7 @@
         bindEditButtons();
         // Reload .data-card on nodeUpdated (edit/delete node)
         document.body.addEventListener('nodeUpdated', function () {
-            var card = document.querySelector('.data-card');
+            var card = me('.data-card');
             if (card) {
                 htmx.ajax('GET', window.location.pathname, {
                     target: card,
@@ -426,7 +456,7 @@
                 });
             }
             // Also close edit modal if open
-            var modal = document.getElementById('bom-edit-modal');
+            var modal = me('#bom-edit-modal');
             if (modal) {
                 modal.classList.remove('is-open');
                 modal.innerHTML = '';

@@ -294,13 +294,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
             form id="quotation-form"
                   hx-post=(QuotationCreatePath::PATH)
                   hx-swap="none"
-                  _="on submit
-                     set items to []
-                     repeat for row in <tr/> in <#quotation-item-tbody/>
-                       get row as Values
-                       append it to items
-                     end
-                     set #items-json's value to items as JSONString" {
+                onsubmit="quotationSubmit(this)" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Customer Info (HTMX self-contained) ──
@@ -345,7 +339,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="form-section-title" style="margin:0;padding:0;border:none" { "产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
-                        _="on click add .is-open to #product-modal" {
+                        onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品"
                     }
@@ -371,27 +365,12 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                 }
                 div class="add-row-bar" {
                     button type="button" class="btn-add-row"
-                        _="on click add .is-open to #product-modal" {
+                        onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
                     }
                 }
-                div class="totals-bar" _="on recalc
-                   set subtotal to 0
-                   set disc to 0
-                   for row in <tr/> in #quotation-item-tbody
-                     get row as Values
-                     set q to (its quantity as Number or 0)
-                     set p to (its unit_price as Number or 0)
-                     set d to (its discount_rate as Number or 0)
-                     set lineTotal to q * p * (1 - (d / 100))
-                     put (lineTotal as Fixed:2) into .line-total in row
-                     increment subtotal by q * p
-                     increment disc by q * p * (d / 100)
-                   end
-                   put ('¥ ' + (subtotal as Fixed:2)) into #subtotal-value
-                   put ('- ¥ ' + (disc as Fixed:2)) into #discount-value
-                   put ('¥ ' + ((subtotal - disc) as Fixed:2)) into #grand-value" {
+                div class="totals-bar" {
                     div class="totals-item" {
                         span class="totals-label" { "合计金额" }
                         span class="totals-value" id="subtotal-value" { "¥ 0.00" }
@@ -426,12 +405,12 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
-                _="on click remove .is-open from #product-modal" {
-                div class="modal modal-lg" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(null,'#product-modal','is-open')" {
+                div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            _="on click remove .is-open from #product-modal" { "×" }
+                            onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
                     }
                     div class="modal-body" style="padding:0" {
                         div class="product-search-bar" {
@@ -457,7 +436,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                                     hx-get=(QuotationProductsPath::PATH)
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
-                                    _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
+                                    onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
                                     "清除"
                                 }
                             }
@@ -503,7 +482,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             hx-get=(format!("{}?product_id={}", QuotationItemRowPath::PATH, p.product_id))
                             hx-target="#quotation-item-tbody"
                             hx-swap="beforeend"
-                            _="on htmx:afterRequest remove .is-open from #product-modal" {
+                            hx-on::after-request="hsRemove(null,'#product-modal','is-open')" {
                             "选择"
                         }
                     }
@@ -515,14 +494,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
 
 fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
     html! {
-        tr _="on input in .num-input
-           set row to closest <tr/>
-           get row as Values
-           set q to (its quantity as Number or 0)
-           set p to (its unit_price as Number or 0)
-           set d to (its discount_rate as Number or 0)
-           put ((q * p * (1 - (d / 100))) as Fixed:2) into .line-total in row
-           send recalc to .totals-bar" {
+        tr oninput="quotationCalcRow(this)" {
             td class="line-num" { }
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
@@ -533,7 +505,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td { input class="form-input num-input" type="number" min="0" max="100" name="discount_rate" style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
             td { button type="button" class="btn-remove-row" title="删除行"
-                _="on click remove the closest <tr/>" {
+                onclick="hsRemoveClosestEl(this,'tr')" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
             input type="hidden" name="product_id" value=(product.product_id) {}

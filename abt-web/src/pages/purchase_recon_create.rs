@@ -167,7 +167,7 @@ fn precon_create_page(
                     span class="form-section-title" style="margin:0;padding:0;border:none" { "对账明细" }
                     button type="button" class="btn btn-sm btn-primary"
                         id="btn-add-orders"
-                        _="on click add .is-open to #order-modal" {
+                        onclick="hsAdd(null,'#order-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "从订单添加"
                     }
@@ -179,7 +179,7 @@ fn precon_create_page(
                         "暂无对账明细"
                     }
                     button type="button" class="btn btn-sm btn-primary"
-                        _="on click add .is-open to #order-modal" {
+                        onclick="hsAdd(null,'#order-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "选择订单"
                     }
@@ -226,12 +226,12 @@ fn precon_create_page(
 
             // ── Order Picker Modal ──
             div class="modal-overlay" id="order-modal"
-                _="on click remove .is-open from #order-modal" {
-                div class="modal modal-lg" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(null,'#order-modal','is-open')" {
+                div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择待对账订单" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            _="on click remove .is-open from #order-modal" {
+                            onclick="hsRemove(null,'#order-modal','is-open')" {
                             (icon::x_icon("w-5 h-5"))
                         }
                     }
@@ -255,9 +255,9 @@ fn precon_create_page(
                         }
                         div style="display:flex;gap:var(--space-2)" {
                             button type="button" class="btn btn-default"
-                                _="on click remove .is-open from #order-modal" { "取消" }
+                                onclick="hsRemove(null,'#order-modal','is-open')" { "取消" }
                             button type="button" class="btn btn-primary" id="btn-confirm-orders"
-                                _="on click remove .is-open from #order-modal" {
+                                onclick="hsRemove(null,'#order-modal','is-open')" {
                                 "确认添加"
                             }
                         }

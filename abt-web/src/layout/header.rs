@@ -8,7 +8,7 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
     html! {
         header class="top-header" {
             div class="top-header-left" {
-                button class="mobile-menu-btn" _="on click add .open to .mobile-sidebar-overlay" aria-label="菜单" {
+                button class="mobile-menu-btn" onclick="hsAdd(null,'.mobile-sidebar-overlay','open')" aria-label="菜单" {
                     (icon::menu_icon(""))
                 }
                 div class="breadcrumb" {

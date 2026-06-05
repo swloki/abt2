@@ -178,13 +178,7 @@ fn order_edit_page(
             form id="order-form"
                   hx-post=(update_path.to_string())
                   hx-swap="none"
-                  _="on submit
-                     set items to []
-                     repeat for row in <tr/> in <#order-item-tbody/>
-                       get row as Values
-                       append it to items
-                     end
-                     set #items-json's value to items as JSONString" {
+                  onsubmit="OrderEdit.collectItems()" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── Customer Info ──
@@ -229,7 +223,7 @@ fn order_edit_page(
                 div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
                     span class="form-section-title" style="margin:0;padding:0;border:none" { "产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
-                        _="on click add .is-open to #product-modal" {
+                        onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品"
                     }
@@ -251,17 +245,10 @@ fn order_edit_page(
                                 th style="width:36px" { }
                             }
                         }
-                        tbody id="order-item-tbody" _="init send recalc to .totals-bar" {
+                        tbody id="order-item-tbody" {
                             @for item in items {
                                 @let (code, name) = product_codes.get(&item.product_id).cloned().unwrap_or_default();
-                                tr _="on input in .num-input
-                                   set row to closest <tr/>
-                                   get row as Values
-                                   set q to (its quantity as Number or 0)
-                                   set p to (its unit_price as Number or 0)
-                                   set d to (its discount_rate as Number or 0)
-                                   put ((q * p * (1 - (d / 100))) as Fixed:2) into .line-total in row
-                                   send recalc to .totals-bar" {
+                                tr {
                                     td class="line-num" { }
                                     td class="mono" { (code) }
                                     td { (name) }
@@ -273,7 +260,7 @@ fn order_edit_page(
                                     td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
                                     td { input class="form-input" type="date" name="item_delivery_date" value=(item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default()) style="width:110px;padding:5px 6px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
                                     td { button type="button" class="btn-remove-row" title="删除行"
-                                        _="on click remove the closest <tr/>" {
+                                        onclick="hsRemoveClosestEl(this,'tr')" {
                                         (icon::x_icon("w-3.5 h-3.5"))
                                     } }
                                     input type="hidden" name="product_id" value=(item.product_id) {}
@@ -284,27 +271,12 @@ fn order_edit_page(
                 }
                 div class="add-row-bar" {
                     button type="button" class="btn-add-row"
-                        _="on click add .is-open to #product-modal" {
+                        onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
                     }
                 }
-                div class="totals-bar" _="on recalc
-                   set subtotal to 0
-                   set disc to 0
-                   for row in <tr/> in #order-item-tbody
-                     get row as Values
-                     set q to (its quantity as Number or 0)
-                     set p to (its unit_price as Number or 0)
-                     set d to (its discount_rate as Number or 0)
-                     set lineTotal to q * p * (1 - (d / 100))
-                     put (lineTotal as Fixed:2) into .line-total in row
-                     increment subtotal by q * p
-                     increment disc by q * p * (d / 100)
-                   end
-                   put ('¥ ' + (subtotal as Fixed:2)) into #subtotal-value
-                   put ('- ¥ ' + (disc as Fixed:2)) into #discount-value
-                   put ('¥ ' + ((subtotal - disc) as Fixed:2)) into #grand-value" {
+                div class="totals-bar" {
                     div class="totals-item" {
                         span class="totals-label" { "合计金额" }
                         span class="totals-value" id="subtotal-value" { "¥ 0.00" }
@@ -339,12 +311,12 @@ fn order_edit_page(
 
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
-                _="on click remove .is-open from #product-modal" {
-                div class="modal modal-lg" _="on click call event.stopPropagation()" {
+                onclick="hsRemove(null,'#product-modal','is-open')" {
+                div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            _="on click remove .is-open from #product-modal" { "×" }
+                            onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
                     }
                     div class="modal-body" style="padding:0" {
                         div class="product-search-bar" {
@@ -370,7 +342,7 @@ fn order_edit_page(
                                 hx-get=(OrderProductsPath::PATH)
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
-                                _="on click set value of .product-search-input to '' then trigger keyup on .product-search-input" {
+                                onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
                                 "清除"
                             }
                         }
@@ -386,6 +358,7 @@ fn order_edit_page(
                 }
             }
 
+        script src="/order-edit.js" {}
         }
     }
 }

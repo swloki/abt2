@@ -232,9 +232,7 @@ fn pay_create_page(
 
             form id="pay-form"
                   hx-post=(PayCreatePath::PATH)
-                  hx-swap="none"
-                  _="on input in #pay-amount
-                     set val to my value as Number or 0" {
+                  hx-swap="none" {
 
             // ── 供应商信息 ──
             (supplier_section(suppliers, None, &[], &[]))

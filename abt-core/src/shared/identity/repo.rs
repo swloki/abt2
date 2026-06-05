@@ -474,6 +474,21 @@ impl IdentityRepo {
         Ok(())
     }
 
+    pub async fn update_department_status(
+        executor: &mut sqlx::postgres::PgConnection,
+        dept_id: i64,
+        is_active: bool,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE departments SET is_active = $2, updated_at = NOW() WHERE department_id = $1"
+        )
+        .bind(dept_id)
+        .bind(is_active)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
     pub async fn get_department(
         executor: &mut sqlx::postgres::PgConnection,
         dept_id: i64,

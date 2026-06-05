@@ -28,7 +28,7 @@ window.positionDropdown = function (trigger, dropdown) {
 
 
 window.showToast = function (message, type) {
-    var container = document.querySelector('.toast-container');
+    var container = me('.toast-container');
     if (!container) return;
     type = type || 'success';
 
@@ -85,13 +85,13 @@ document.addEventListener('htmx:afterRequest', function (e) {
 document.addEventListener('htmx:confirm', function (e) {
     if (!e.detail.question) return;
     e.preventDefault();
-    var dialog = document.getElementById('global-confirm-dialog');
+    var dialog = me('#global-confirm-dialog');
     if (!dialog) {
         if (confirm(e.detail.question)) e.detail.issueRequest(true);
         return;
     }
     var overlay = dialog.querySelector('.dialog-overlay');
-    var msg = document.getElementById('global-confirm-message');
+    var msg = me('#global-confirm-message');
     if (!overlay || !msg) {
         if (confirm(e.detail.question)) e.detail.issueRequest(true);
         return;
@@ -101,3 +101,163 @@ document.addEventListener('htmx:confirm', function (e) {
     overlay.classList.add('open');
 });
 
+// ── Surreal.js helpers (replaces hyperscript _= attributes) ──
+// These wrap surreal.js me() API for use in onclick/onsubmit handlers from Maud templates.
+
+// Toggle class on self
+window.hsToggleSelf = function(el, cls) {
+    me(el).classToggle(cls);
+};
+
+// Add class to target (selector or element)
+window.hsAdd = function(el, selector, cls) {
+    me(selector || el).classAdd(cls);
+};
+
+// Remove class from target
+window.hsRemove = function(el, selector, cls) {
+    me(selector || el).classRemove(cls);
+};
+
+// Remove class from closest ancestor matching selector
+window.hsRemoveClosest = function(el, ancestorSelector, cls) {
+    var ancestor = el.closest(ancestorSelector);
+    if (ancestor) me(ancestor).classRemove(cls);
+};
+
+// Add class to target, remove from siblings (tab-style)
+window.hsTake = function(el, siblingSelector, cls) {
+    var parent = el.parentElement;
+    if (parent) {
+        parent.querySelectorAll(siblingSelector).forEach(function(s) {
+            me(s).classRemove(cls);
+        });
+    }
+    me(el).classAdd(cls);
+};
+
+// Close overlay on backdrop click (only if click target IS the overlay itself)
+window.hsBackdropClose = function(el, e, cls) {
+    if (e.target === el) me(el).classRemove(cls);
+};
+
+// Toggle class on target
+window.hsToggle = function(el, selector, cls) {
+    me(selector).classToggle(cls);
+};
+
+// Toggle sidebar collapsed + persist to localStorage
+window.hsToggleSidebar = function() {
+    var shell = me('.app-shell');
+    me(shell).classToggle('sidebar-collapsed');
+    if (shell.classList.contains('sidebar-collapsed')) {
+        localStorage.setItem('sidebar-collapsed', 'true');
+    } else {
+        localStorage.removeItem('sidebar-collapsed');
+    }
+};
+
+// Set value of input and trigger event
+window.hsSetAndTrigger = function(selector, value, eventName) {
+    var input = me(selector);
+    if (input) {
+        input.value = value;
+        input.send(eventName || 'keyup');
+    }
+};
+
+// Remove closest ancestor element of given tag
+window.hsRemoveClosestEl = function(el, ancestorSelector) {
+    var ancestor = el.closest(ancestorSelector);
+    if (ancestor) ancestor.remove();
+};
+
+// ── Quotation Create helpers ──
+// Calculate a single row's line total and update the totals bar
+window.quotationCalcRow = function(tr) {
+    var q = parseFloat(tr.querySelector('[name="quantity"]').value) || 0;
+    var p = parseFloat(tr.querySelector('[name="unit_price"]').value) || 0;
+    var d = parseFloat(tr.querySelector('[name="discount_rate"]').value) || 0;
+    var lineTotal = q * p * (1 - d / 100);
+    var cell = tr.querySelector('.line-total');
+    if (cell) cell.textContent = lineTotal.toFixed(2);
+    quotationRecalcTotals();
+};
+
+// Recalculate and display subtotal, discount, grand total
+window.quotationRecalcTotals = function() {
+    var subtotal = 0, disc = 0;
+    any('#quotation-item-tbody tr').forEach(function(row) {
+        var q = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
+        var p = parseFloat(row.querySelector('[name="unit_price"]').value) || 0;
+        var d = parseFloat(row.querySelector('[name="discount_rate"]').value) || 0;
+        subtotal += q * p;
+        disc += q * p * (d / 100);
+    });
+    var el;
+    el = me('#subtotal-value');
+    if (el) el.textContent = '¥ ' + subtotal.toFixed(2);
+    el = me('#discount-value');
+    if (el) el.textContent = '- ¥ ' + disc.toFixed(2);
+    el = me('#grand-value');
+    if (el) el.textContent = '¥ ' + (subtotal - disc).toFixed(2);
+};
+
+// Collect item rows into JSON for form submission
+window.quotationSubmit = function(form) {
+    var items = [];
+    any('#quotation-item-tbody tr').forEach(function(row) {
+        var obj = {};
+        row.querySelectorAll('input, select, textarea').forEach(function(inp) {
+            if (inp.name) obj[inp.name] = inp.value;
+        });
+        items.push(obj);
+    });
+    var hidden = me('#items-json');
+    if (hidden) hidden.value = JSON.stringify(items);
+};
+
+// ── Sales Order Create helpers ──
+// Calculate a single row's line total and update the totals bar
+window.salesOrderCalcRow = function(tr) {
+    var q = parseFloat(tr.querySelector('[name="quantity"]').value) || 0;
+    var p = parseFloat(tr.querySelector('[name="unit_price"]').value) || 0;
+    var d = parseFloat(tr.querySelector('[name="discount_rate"]').value) || 0;
+    var lineTotal = q * p * (1 - d / 100);
+    var cell = tr.querySelector('.line-total');
+    if (cell) cell.textContent = lineTotal.toFixed(2);
+    salesOrderRecalcTotals();
+};
+
+// Recalculate and display subtotal, discount, grand total
+window.salesOrderRecalcTotals = function() {
+    var subtotal = 0, disc = 0;
+    any('#order-item-tbody tr').forEach(function(row) {
+        var q = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
+        var p = parseFloat(row.querySelector('[name="unit_price"]').value) || 0;
+        var d = parseFloat(row.querySelector('[name="discount_rate"]').value) || 0;
+        subtotal += q * p;
+        disc += q * p * (d / 100);
+    });
+    var el;
+    el = me('#subtotal-value');
+    if (el) el.textContent = '¥ ' + subtotal.toFixed(2);
+    el = me('#discount-value');
+    if (el) el.textContent = '- ¥ ' + disc.toFixed(2);
+    el = me('#grand-value');
+    if (el) el.textContent = '¥ ' + (subtotal - disc).toFixed(2);
+};
+
+// Collect item rows into JSON for form submission
+window.salesOrderSubmit = function(form) {
+    var items = [];
+    any('#order-item-tbody tr').forEach(function(row) {
+        var obj = {};
+        row.querySelectorAll('input, select, textarea').forEach(function(inp) {
+            if (inp.name) obj[inp.name] = inp.value;
+        });
+        items.push(obj);
+    });
+    var hidden = me('#items-json');
+    if (hidden) hidden.value = JSON.stringify(items);
+};

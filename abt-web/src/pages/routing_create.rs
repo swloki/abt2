@@ -150,7 +150,7 @@ fn routing_create_page(
             form id="routing-form"
                   hx-post=(RoutingCreatePath::PATH)
                   hx-swap="none"
-                  onsubmit="syncFromDom(); document.querySelector('#routing-form input[name=steps_json]').value = getStepsJson()" {
+                  onsubmit="syncFromDom(); me('#routing-form input[name=steps_json]').value = getStepsJson()" {
                 input type="hidden" name="steps_json";
 
                 // ── Section: 基本信息 ──
@@ -254,7 +254,7 @@ function getProcessName(code) {{
 }}
 
 function syncFromDom() {{
-    const rows = document.querySelectorAll('#routing-steps-body tr');
+    const rows = any('#routing-steps-body tr');
     rows.forEach((row, idx) => {{
         if (!steps[idx]) return;
         const select = row.querySelector('select');
@@ -284,7 +284,7 @@ function renderSteps() {{
             '<td><button type="button" class="btn-remove-row" onclick="removeStep(' + idx + ')" title="删除"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></td>' +
             '</tr>';
     }});
-    document.getElementById('routing-steps-body').innerHTML = html;
+    me('#routing-steps-body').innerHTML = html;
 }}
 
 function onStepChange(idx) {{

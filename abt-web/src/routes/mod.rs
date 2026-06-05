@@ -22,7 +22,9 @@ pub mod reconciliation;
 pub mod sales_return;
 pub mod shipping;
 pub mod sidebar;
-
+pub mod user;
+pub mod role;
+pub mod department;
 use axum::{Router, middleware};
 
 use crate::auth::middleware::auth_middleware;
@@ -56,6 +58,10 @@ pub fn router(state: AppState) -> Router {
                 .merge(purchase_reconciliation::router())
                 .merge(payment_request::router())
                 .merge(misc_request::router())
+                // ── System Management ──
+                .merge(user::router())
+                .merge(role::router())
+                .merge(department::router())
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth_middleware,

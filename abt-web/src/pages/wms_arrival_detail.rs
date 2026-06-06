@@ -2,7 +2,9 @@ use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 
-use abt_core::wms::arrival_notice::model::ArrivalNotice;
+use abt_core::wms::arrival_notice::model::{
+    ArrivalNotice, InspectArrivalNoticeReq, InspectItemReq, ReceiveArrivalNoticeReq, ReceiveItemReq,
+};
 use abt_core::wms::arrival_notice::repo::ArrivalNoticeRepo;
 use abt_core::wms::arrival_notice::ArrivalNoticeService;
 use abt_core::wms::enums::ArrivalStatus;
@@ -13,6 +15,13 @@ use crate::layout::page::admin_page;
 use crate::routes::wms_arrival::*;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
+
+// ── Form Data ──
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ArrivalActionForm {
+    pub action: String,
+}
 
 // ── Status Label ──
 
@@ -101,8 +110,8 @@ pub async fn get_arrival_detail(
         .await
         .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
 
-    let content = arrival_detail_page(&notice, &items);
     let detail_path = ArrivalDetailPath { id: path.id }.to_string();
+    let content = arrival_detail_page(&notice, &items, &detail_path);
     let page_html = admin_page(
         is_htmx,
         &format!("{} - 来料通知详情", notice.doc_number),
@@ -117,15 +126,73 @@ pub async fn get_arrival_detail(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("WMS", "write")]
+pub async fn post_arrival_action(
+    path: ArrivalDetailPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ArrivalActionForm>,
+) -> crate::errors::Result<axum::response::Response> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.arrival_notice_service();
+
+    match form.action.as_str() {
+        "cancel" => {
+            svc.cancel(&service_ctx, &mut conn, path.id).await?;
+        }
+        "receive" => {
+            // 快速收货：实收数量 = 申报数量
+            let items = ArrivalNoticeRepo::get_items(&mut conn, path.id)
+                .await
+                .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+            let receive_items: Vec<ReceiveItemReq> = items.iter()
+                .map(|item| ReceiveItemReq {
+                    item_id: item.id,
+                    received_qty: item.declared_qty,
+                    batch_no: None,
+                })
+                .collect();
+            svc.receive(&service_ctx, &mut conn, ReceiveArrivalNoticeReq {
+                id: path.id,
+                items: receive_items,
+            }).await?;
+        }
+        "inspect" => {
+            // 快速检验：合格数量 = 实收数量（全部接收）
+            let items = ArrivalNoticeRepo::get_items(&mut conn, path.id)
+                .await
+                .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+            let inspect_items: Vec<InspectItemReq> = items.iter()
+                .map(|item| InspectItemReq {
+                    item_id: item.id,
+                    accepted_qty: item.received_qty,
+                })
+                .collect();
+            svc.inspect(&service_ctx, &mut conn, InspectArrivalNoticeReq {
+                id: path.id,
+                items: inspect_items,
+            }).await?;
+        }
+        _ => {}
+    }
+
+    let redirect_url = ArrivalDetailPath { id: path.id }.to_string();
+    let mut resp = axum::response::Response::default();
+    resp.headers_mut().insert(
+        axum::http::HeaderName::from_static("hx-redirect"),
+        redirect_url.parse().unwrap(),
+    );
+
+    Ok(resp)
+}
+
 // ── Components ──
 
 fn arrival_detail_page(
     notice: &ArrivalNotice,
     items: &[abt_core::wms::arrival_notice::model::ArrivalNoticeItem],
+    detail_path: &str,
 ) -> Markup {
     let (status_text, status_class) = status_label(notice.status);
-    let is_draft = notice.status == ArrivalStatus::Draft;
-    let is_received = notice.status == ArrivalStatus::Received;
     let is_inspecting = notice.status == ArrivalStatus::Inspecting;
 
     html! {
@@ -143,10 +210,7 @@ fn arrival_detail_page(
                     }
                 }
                 div class="page-actions" {
-                    button class="btn btn-default" {
-                        (icon::printer_icon("w-4 h-4"))
-                        "打印"
-                    }
+                    (arrival_action_buttons(notice.status, detail_path))
                 }
             }
 
@@ -260,31 +324,52 @@ fn arrival_detail_page(
                     }
                 }
             }
+        }
+    }
+}
 
-            // ── 操作栏 ──
-            @if is_draft || is_received || is_inspecting {
-                div class="action-bar" {
-                    @if is_draft {
-                        button class="btn btn-default" {
-                            (icon::x_icon("w-4 h-4"))
-                            "取消"
-                        }
-                    }
-                    div style="flex:1" {}
-                    @if is_received {
-                        button class="btn btn-default" {
-                            (icon::clipboard_list_icon("w-4 h-4"))
-                            "开始检验"
-                        }
-                    }
-                    @if is_inspecting {
-                        button class="btn btn-primary" {
-                            (icon::check_circle_icon("w-4 h-4"))
-                            "确认接收"
-                        }
-                    }
+fn arrival_action_buttons(status: ArrivalStatus, detail_path: &str) -> Markup {
+    match status {
+        ArrivalStatus::Draft => {
+            html! {
+                button class="btn btn-default"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"cancel"}"#
+                    hx-confirm="确定要取消此来料通知吗？"
+                    hx-redirect=(detail_path) {
+                    (icon::x_icon("w-4 h-4"))
+                    "取消"
+                }
+                button class="btn btn-primary"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"receive"}"#
+                    hx-confirm="确定要确认收货吗？实收数量将自动按申报数量填写。"
+                    hx-redirect=(detail_path) {
+                    (icon::check_circle_icon("w-4 h-4"))
+                    "确认收货"
                 }
             }
         }
+        ArrivalStatus::Received => {
+            html! {
+                button class="btn btn-default"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"cancel"}"#
+                    hx-confirm="确定要取消此来料通知吗？"
+                    hx-redirect=(detail_path) {
+                    (icon::x_icon("w-4 h-4"))
+                    "取消"
+                }
+                button class="btn btn-primary"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"inspect"}"#
+                    hx-confirm="确定要开始检验并确认接收吗？合格数量将按实收数量自动填写。"
+                    hx-redirect=(detail_path) {
+                    (icon::clipboard_list_icon("w-4 h-4"))
+                    "检验接收"
+                }
+            }
+        }
+        _ => html! {},
     }
 }

@@ -27,6 +27,30 @@ where
     }
 }
 
+/// Deserializer that accepts either a single string or a sequence of strings.
+/// Used for checkbox groups where 0..1 checked items send a single value,
+/// but 2+ send a sequence.
+pub fn multi_string<'de, D>(de: D) -> std::result::Result<Vec<String>, D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    use serde::de::Visitor;
+    struct MultiStringVisitor;
+    impl<'de> Visitor<'de> for MultiStringVisitor {
+        type Value = Vec<String>;
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { f.write_str("string or sequence of strings") }
+        fn visit_str<E: de::Error>(self, v: &str) -> std::result::Result<Vec<String>, E> {
+            if v.is_empty() { Ok(vec![]) } else { Ok(vec![v.to_string()]) }
+        }
+        fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> std::result::Result<Vec<String>, A::Error> {
+            let mut v = Vec::new();
+            while let Some(item) = seq.next_element::<String>()? { if !item.is_empty() { v.push(item); } }
+            Ok(v)
+        }
+    }
+    de.deserialize_any(MultiStringVisitor)
+}
+
 pub async fn resolve_customer_names<S: CustomerService>(
     svc: &S,
     ctx: &ServiceContext,

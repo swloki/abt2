@@ -67,6 +67,26 @@ impl InventoryTransactionRepo {
             .collect()
     }
 
+
+    pub async fn get_by_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+    ) -> Result<Option<InventoryTransaction>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, doc_number, transaction_type, product_id, warehouse_id, zone_id,
+                   bin_id, batch_no, quantity, unit_cost, source_type, source_id,
+                   remark, operator_id, created_at
+            FROM inventory_transactions
+            WHERE id = $1
+            "#,
+        )
+        .bind(id)
+        .fetch_optional(executor)
+        .await?;
+
+        Ok(row.as_ref().and_then(|r| InventoryTransaction::from_row(r).ok()))
+    }
     pub async fn query(
         executor: &mut sqlx::postgres::PgConnection,
         filter: &TransactionFilter,

@@ -52,3 +52,19 @@ pub struct RequisitionFilter {
     pub work_order_id: Option<i64>,
     pub warehouse_id: Option<i64>,
 }
+
+/// 手动创建领料单请求（非工单驱动）
+#[derive(Debug, Clone)]
+pub struct CreateManualReq {
+    pub warehouse_id: i64,
+    pub requisition_date: NaiveDate,
+    pub remark: Option<String>,
+    pub items: Vec<CreateManualItemReq>,
+}
+
+/// 手动创建领料单行项目请求
+#[derive(Debug, Clone)]
+pub struct CreateManualItemReq {
+    pub product_id: i64,
+    pub requested_qty: Decimal,
+}

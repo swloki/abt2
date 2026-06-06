@@ -275,6 +275,7 @@ mod tests {
                 specification: "100x200".to_string(),
                 acquire_channel: "采购".to_string(),
                 old_code: None,
+                remark: None,
             },
             created_at: None,
             updated_at: None,

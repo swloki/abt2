@@ -21,6 +21,14 @@ pub struct ArrivalTablePath;
 pub struct ArrivalCreatePath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/arrivals/create/products")]
+pub struct ArrivalProductsPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/arrivals/create/item-row")]
+pub struct ArrivalItemRowPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/arrivals/{id}")]
 pub struct ArrivalDetailPath {
     pub id: i64,
@@ -32,6 +40,8 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route(ArrivalListPath::PATH, get(wms_arrival_list::get_arrival_list))
         .route(ArrivalTablePath::PATH, get(wms_arrival_list::get_arrival_table))
+        .route(ArrivalProductsPath::PATH, get(wms_arrival_create::get_products))
+        .route(ArrivalItemRowPath::PATH, get(wms_arrival_create::get_item_row))
         .route(ArrivalCreatePath::PATH, get(wms_arrival_create::get_arrival_create).post(wms_arrival_create::create_arrival))
-        .route(ArrivalDetailPath::PATH, get(wms_arrival_detail::get_arrival_detail))
+        .route(ArrivalDetailPath::PATH, get(wms_arrival_detail::get_arrival_detail).post(wms_arrival_detail::post_arrival_action))
 }

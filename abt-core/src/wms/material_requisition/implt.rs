@@ -1,7 +1,7 @@
 ﻿use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
-use super::model::{IssueMaterialReq, MaterialRequisition, RequisitionFilter};
+use super::model::{CreateManualReq, IssueMaterialReq, MaterialRequisition, RequisitionFilter};
 use super::repo::MaterialRequisitionRepo;
 use super::service::MaterialRequisitionService;
 use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
@@ -228,15 +228,58 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
             });
         }
 
-        let affected =
-            MaterialRequisitionRepo::soft_delete(&mut *db, id)
-                .await
-                .map_err(|e| DomainError::Internal(e.into()))?;
+        let affected = MaterialRequisitionRepo::update_status(
+            &mut *db,
+            id,
+            RequisitionStatus::Cancelled,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
 
         if affected == 0 {
             return Err(DomainError::not_found("MaterialRequisition"));
         }
 
         Ok(())
+    }
+
+    /// 手动创建领料单（非工单驱动，work_order_id = 0）
+    async fn create_manual(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        req: CreateManualReq,
+    ) -> Result<i64> {
+        if req.items.is_empty() {
+            return Err(DomainError::validation("请至少添加一条领料明细"));
+        }
+
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::MaterialRequisition)
+            .await
+            .unwrap_or_else(|_| format!("MR{}", chrono::Local::now().format("%Y%m%d%H%M%S")));
+
+        let requisition = MaterialRequisitionRepo::insert(
+            &mut *db,
+            &doc_number,
+            0, // work_order_id = 0 表示手动创建
+            req.requisition_date,
+            req.warehouse_id,
+            ctx.operator_id,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        for item in &req.items {
+            MaterialRequisitionRepo::insert_item(
+                &mut *db,
+                requisition.id,
+                item.product_id,
+                item.requested_qty,
+            )
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        }
+
+        Ok(requisition.id)
     }
 }

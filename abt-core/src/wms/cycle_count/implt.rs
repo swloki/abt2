@@ -201,7 +201,7 @@ impl CycleCountService for CycleCountServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("盘点单"))?;
 
-        if count.status != CycleCountStatus::Draft && count.status != CycleCountStatus::Counting {
+        if !matches!(count.status, CycleCountStatus::Draft | CycleCountStatus::Counting | CycleCountStatus::Completed) {
             return Err(DomainError::InvalidStateTransition {
                 from: Self::status_name(count.status),
                 to: "Cancelled".to_string(),

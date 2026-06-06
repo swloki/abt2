@@ -59,6 +59,13 @@ pub trait WarehouseService: Send + Sync {
         req: CreateZoneReq,
     ) -> Result<i64>;
 
+    /// 按 ID 查询库区，不存在则返回 NotFound
+    async fn get_zone(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Zone>;
+
     /// 查询仓库下的所有库区
     async fn list_zones(
         &self,

@@ -220,6 +220,32 @@ impl StockLedgerRepo {
         Ok(())
     }
 
+    /// 调整预留量：按产品+仓库增加/减少 reserved_qty（同步调整 available_qty）
+    /// delta > 0 表示增加预留，delta < 0 表示释放预留
+    pub async fn adjust_reserved_qty(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+        warehouse_id: i64,
+        delta: rust_decimal::Decimal,
+    ) -> Result<u64> {
+        let result = sqlx::query(
+            r#"
+            UPDATE stock_ledger
+            SET reserved_qty = reserved_qty + $3,
+                available_qty = available_qty - $3,
+                updated_at = NOW()
+            WHERE product_id = $1 AND warehouse_id = $2
+            "#,
+        )
+        .bind(product_id)
+        .bind(warehouse_id)
+        .bind(delta)
+        .execute(&mut *executor)
+        .await?;
+
+        Ok(result.rows_affected())
+    }
+
     // ---- Excel 导出辅助方法 ----
 
     /// 列出所有库存数据用于 Excel 导出，关联产品/仓库/库区/储位/价格/分类信息

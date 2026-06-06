@@ -64,10 +64,9 @@ pub async fn post_lock_action(
     let redirect_url = LockDetailPath { id: path.id }.to_string();
     let mut resp = axum::response::Response::default();
     resp.headers_mut().insert(
-        axum::http::header::LOCATION,
+        axum::http::HeaderName::from_static("hx-redirect"),
         redirect_url.parse().unwrap(),
     );
-    *resp.status_mut() = axum::http::StatusCode::SEE_OTHER;
 
     Ok(resp)
 }

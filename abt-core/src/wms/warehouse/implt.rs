@@ -124,6 +124,17 @@ impl WarehouseService for WarehouseServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    async fn get_zone(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Zone> {
+        WarehouseRepo::get_zone_by_id(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found(format!("Zone #{id}")))
+    }
+
     async fn update_zone(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -146,6 +157,17 @@ impl WarehouseService for WarehouseServiceImpl {
         _ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<()> {
+        // 检查库区下是否存在未删除的库位
+        let bin_count = WarehouseRepo::count_active_bins_by_zone(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        if bin_count > 0 {
+            return Err(DomainError::validation(format!(
+                "库区下存在 {bin_count} 个库位，请先删除所有库位后再删除库区"
+            )));
+        }
+
         let affected = WarehouseRepo::soft_delete_zone(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;

@@ -10,11 +10,11 @@ use abt_core::shared::identity::UserService;
 use abt_core::wms::enums::TransactionType;
 use abt_core::wms::inventory_transaction::model::TransactionFilter;
 use abt_core::wms::inventory_transaction::InventoryTransactionService;
-use abt_core::wms::warehouse::WarehouseService;
+use abt_core::wms::warehouse::{WarehouseFilter, WarehouseService};
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath, StockInTablePath};
@@ -129,8 +129,9 @@ pub async fn get_stock_in_list(
     let user_svc = state.user_service();
     let warehouse_svc = state.warehouse_service();
 
+    let txn_type = params.transaction_type.as_deref().and_then(TransactionType::from_name);
     let filter = TransactionFilter {
-        transaction_type: Some(TransactionType::PurchaseReceipt),
+        transaction_type: txn_type,
         product_id: None,
         warehouse_id: params.warehouse_id,
         source_type: None,
@@ -141,8 +142,9 @@ pub async fn get_stock_in_list(
 
     let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
     let wh_names = resolve_wh_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
+    let warehouses = warehouse_svc.list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200).await.map(|r| r.items).unwrap_or_default();
 
-    let content = stock_in_list_page(&result, &operator_names, &wh_names, &params);
+    let content = stock_in_list_page(&result, &operator_names, &wh_names, &warehouses, &params);
     let page_html = admin_page(
         is_htmx, "入库管理", &claims, "inventory", StockInListPath::PATH, "库存管理", None, content,
     );
@@ -160,8 +162,9 @@ pub async fn get_stock_in_table(
     let user_svc = state.user_service();
     let warehouse_svc = state.warehouse_service();
 
+    let txn_type = params.transaction_type.as_deref().and_then(TransactionType::from_name);
     let filter = TransactionFilter {
-        transaction_type: Some(TransactionType::PurchaseReceipt),
+        transaction_type: txn_type,
         product_id: None,
         warehouse_id: params.warehouse_id,
         source_type: None,
@@ -172,8 +175,9 @@ pub async fn get_stock_in_table(
 
     let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
     let wh_names = resolve_wh_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
+    let warehouses = warehouse_svc.list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200).await.map(|r| r.items).unwrap_or_default();
 
-    Ok(Html(stock_in_data_card(&result, &operator_names, &wh_names, &params).into_string()))
+    Ok(Html(stock_in_data_card(&result, &operator_names, &wh_names, &warehouses, &params).into_string()))
 }
 
 // ── Components ──
@@ -182,6 +186,7 @@ fn stock_in_list_page(
     result: &abt_core::shared::types::PaginatedResult<abt_core::wms::inventory_transaction::model::InventoryTransaction>,
     operator_names: &HashMap<i64, String>,
     wh_names: &HashMap<i64, String>,
+    warehouses: &[abt_core::wms::warehouse::model::Warehouse],
     params: &StockInQueryParams,
 ) -> Markup {
     html! {
@@ -202,7 +207,7 @@ fn stock_in_list_page(
             }
 
             // ── Tabs + Filter + Table (HTMX panel) ──
-            (stock_in_table_fragment(result, operator_names, wh_names, params))
+            (stock_in_table_fragment(result, operator_names, wh_names, warehouses, params))
         }
     }
 }
@@ -211,9 +216,10 @@ fn stock_in_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<abt_core::wms::inventory_transaction::model::InventoryTransaction>,
     operator_names: &HashMap<i64, String>,
     wh_names: &HashMap<i64, String>,
+    warehouses: &[abt_core::wms::warehouse::model::Warehouse],
     params: &StockInQueryParams,
 ) -> Markup {
-    let query = build_query_string(params);
+    let _query = build_query_string(params);
     let total_count = result.total;
 
     let tabs = &[
@@ -266,7 +272,7 @@ fn stock_in_table_fragment(
                 }
             }
 
-            (status_tabs(StockInTablePath::PATH, "#stock-in-data-card", "closest form", tabs, selected_type))
+            (status_tabs_with_param(StockInTablePath::PATH, "#stock-in-data-card", "closest form", tabs, selected_type, "transaction_type"))
 
             // ── Filter Bar ──
             form class="filter-bar filter-form"
@@ -294,6 +300,12 @@ fn stock_in_table_fragment(
                     option value="PurchaseReceipt" selected[selected_type == "PurchaseReceipt"] { "采购入库" }
                     option value="ProductionReceipt" selected[selected_type == "ProductionReceipt"] { "生产入库" }
                 }
+                select class="filter-select" name="warehouse_id" {
+                    option value="" selected[params.warehouse_id.is_none()] { "全部仓库" }
+                    @for wh in warehouses {
+                        option value=(wh.id) selected[params.warehouse_id == Some(wh.id)] { (wh.name) }
+                    }
+                }
                 input class="filter-input" type="date" name="date_start"
                     style="width:140px"
                     value=(params.date_start.as_deref().unwrap_or(""));
@@ -304,7 +316,7 @@ fn stock_in_table_fragment(
             }
 
             // ── Data Table ──
-            (stock_in_data_card(result, operator_names, wh_names, params))
+            (stock_in_data_card(result, operator_names, wh_names, warehouses, params))
 
             // ── Info Note ──
             div style="margin-top:var(--space-6);padding:var(--space-4) var(--space-5);background:var(--accent-bg);border:1px solid rgba(22,119,255,0.15);border-radius:var(--radius-md);display:flex;align-items:flex-start;gap:var(--space-3)" {
@@ -323,6 +335,7 @@ fn stock_in_data_card(
     result: &abt_core::shared::types::PaginatedResult<abt_core::wms::inventory_transaction::model::InventoryTransaction>,
     operator_names: &HashMap<i64, String>,
     wh_names: &HashMap<i64, String>,
+    _warehouses: &[abt_core::wms::warehouse::model::Warehouse],
     params: &StockInQueryParams,
 ) -> Markup {
     let query = build_query_string(params);
@@ -371,7 +384,7 @@ fn stock_in_data_card(
                                 td { (op_name) }
                                 td style="font-size:12px;color:var(--muted)" { (item.created_at.format("%Y-%m-%d %H:%M")) }
                                 td {
-                                    a href="#" style="color:var(--accent);font-size:var(--text-xs)" { "详情" }
+                                    a href=(format!("/admin/wms/stock-in/{}", item.id)) style="color:var(--accent);font-size:var(--text-xs)" { "详情" }
                                 }
                             }
                         }

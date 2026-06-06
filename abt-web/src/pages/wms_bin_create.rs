@@ -29,7 +29,8 @@ pub struct BinCreateForm {
     pub column_no: Option<String>,
     pub layer_no: Option<String>,
     pub capacity_limit: Option<String>,
-    pub allowed_product_types: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "crate::utils::multi_string")]
+    pub allowed_product_types: Vec<String>,
     pub temperature_req: Option<String>,
 }
 
@@ -91,7 +92,7 @@ pub async fn create_bin(
         column_no: form.column_no.filter(|s| !s.is_empty()),
         layer_no: form.layer_no.filter(|s| !s.is_empty()),
         capacity_limit,
-        allowed_product_types: form.allowed_product_types.filter(|v| !v.is_empty()),
+        allowed_product_types: if form.allowed_product_types.is_empty() { None } else { Some(form.allowed_product_types) },
         temperature_req: form.temperature_req.filter(|s| !s.is_empty()),
     };
 

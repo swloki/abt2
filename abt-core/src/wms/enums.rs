@@ -121,6 +121,27 @@ define_wms_enum!(TransactionType {
     Scrap = 12,
 });
 
+impl TransactionType {
+    /// Parse from variant name string (e.g., "PurchaseReceipt")
+    pub fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "PurchaseReceipt" => Some(Self::PurchaseReceipt),
+            "ProductionReceipt" => Some(Self::ProductionReceipt),
+            "SalesShipment" => Some(Self::SalesShipment),
+            "MaterialIssue" => Some(Self::MaterialIssue),
+            "MaterialReturn" => Some(Self::MaterialReturn),
+            "Backflush" => Some(Self::Backflush),
+            "Transfer" => Some(Self::Transfer),
+            "FormConversion" => Some(Self::FormConversion),
+            "Adjustment" => Some(Self::Adjustment),
+            "Lock" => Some(Self::Lock),
+            "Unlock" => Some(Self::Unlock),
+            "Scrap" => Some(Self::Scrap),
+            _ => None,
+        }
+    }
+}
+
 // -- Material Requisition --
 define_wms_enum!(RequisitionStatus {
     Draft = 1,

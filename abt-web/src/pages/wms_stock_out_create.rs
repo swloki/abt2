@@ -1,16 +1,37 @@
-use axum::response::Html;
+use axum::extract::Query;
+use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
+use serde::Deserialize;
 use rust_decimal::Decimal;
 
+use abt_core::master_data::product::ProductService;
+use abt_core::master_data::product::model::ProductQuery;
+use abt_core::shared::types::{DomainError, PageParams};
 use abt_core::wms::warehouse::WarehouseService;
+use abt_core::wms::inventory_transaction::InventoryTransactionService;
+use abt_core::wms::inventory_transaction::model::RecordTransactionReq;
+use abt_core::wms::enums::TransactionType;
 
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_stock_out::StockOutCreatePath;
-use crate::utils::RequestContext;
+use crate::routes::wms_stock_out::{StockOutCreatePath, StockOutListPath, StockOutProductsPath, StockOutItemRowPath};
+use crate::utils::{RequestContext, empty_as_none};
 use abt_macros::require_permission;
+
+// ── Query Params ──
+
+#[derive(Debug, Deserialize)]
+pub struct ProductSearchParams {
+    pub name: Option<String>,
+    pub code: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ItemRowParams {
+    pub product_id: i64,
+}
 
 // ── Handlers ──
 
@@ -36,18 +57,136 @@ pub async fn get_stock_out_create(
     Ok(Html(page_html.into_string()))
 }
 
+/// HTMX: search products for the modal
+#[require_permission("PRODUCT", "read")]
+pub async fn get_products(
+    ctx: RequestContext,
+    Query(params): Query<ProductSearchParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.product_service();
+
+    let filter = ProductQuery {
+        name: params.name.filter(|s| !s.is_empty()),
+        code: params.code.filter(|s| !s.is_empty()),
+        status: None,
+        owner_department_id: None,
+        category_id: None,
+    };
+    let result = svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
+
+    Ok(Html(product_list_fragment(&result.items).into_string()))
+}
+
+/// HTMX: return a single item row fragment for a given product_id
+#[require_permission("WMS", "write")]
+pub async fn get_item_row(
+    ctx: RequestContext,
+    Query(params): Query<ItemRowParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.product_service();
+    let product = svc.get(&service_ctx, &mut conn, params.product_id).await?;
+    Ok(Html(item_row_fragment(&product).into_string()))
+}
+
+// ── Form Data ──
+
+#[derive(Debug, Deserialize)]
+pub struct StockOutCreateForm {
+    pub source_type: String,
+    pub source_ref: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub warehouse_id: Option<i64>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub zone_id: Option<i64>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub bin_id: Option<i64>,
+    pub remark: Option<String>,
+    pub items_json: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct StockOutItemWeb {
+    product_id: String,
+    quantity: String,
+    unit_cost: Option<String>,
+}
+
 #[require_permission("WMS", "write")]
 pub async fn create_stock_out(
     _path: StockOutCreatePath,
     ctx: RequestContext,
-) -> Result<Html<String>> {
-    let is_htmx = ctx.is_htmx();
-    let claims = ctx.claims;
-    let content = html! { "TODO: process stock-out form" };
-    let page_html = admin_page(
-        is_htmx, "新建出库单", &claims, "inventory", StockOutCreatePath::PATH, "库存管理", None, content,
-    );
-    Ok(Html(page_html.into_string()))
+    axum::Form(form): axum::Form<StockOutCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.inventory_transaction_service();
+
+    let warehouse_id = form.warehouse_id
+        .ok_or_else(|| DomainError::validation("请选择来源仓库"))?;
+
+    let web_items: Vec<StockOutItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效物料数据: {e}")))?;
+
+    if web_items.is_empty() {
+        return Err(DomainError::validation("请至少添加一个物料").into());
+    }
+
+    let transaction_type = match form.source_type.as_str() {
+        "shipping" | "sales" => TransactionType::SalesShipment,
+        "requisition" | "material" => TransactionType::MaterialIssue,
+        _ => TransactionType::SalesShipment,
+    };
+
+    let source_type = match form.source_type.as_str() {
+        "shipping" => "shipping",
+        "requisition" => "requisition",
+        other => other,
+    };
+
+    let remark = form.remark.filter(|s| !s.is_empty());
+
+    // Record one transaction per line item
+    for item in &web_items {
+        let product_id: i64 = item.product_id.parse()
+            .map_err(|_| DomainError::validation("无效产品ID"))?;
+        let quantity: Decimal = item.quantity.parse()
+            .map_err(|_| DomainError::validation("无效数量"))?;
+        let unit_cost: Option<Decimal> = item.unit_cost.as_ref()
+            .and_then(|s| s.parse().ok());
+
+        if quantity <= Decimal::ZERO {
+            return Err(DomainError::validation("出库数量必须大于0").into());
+        }
+
+        // Check available stock
+        let available = svc.query_available(&service_ctx, &mut conn, product_id, Some(warehouse_id)).await?;
+        if quantity > available {
+            return Err(DomainError::business_rule(
+                &format!("库存不足：产品ID {} 需要 {}，可用 {}", product_id, quantity, available),
+            ).into());
+        }
+
+        let req = RecordTransactionReq {
+            doc_number: None,
+            transaction_type,
+            product_id,
+            warehouse_id,
+            zone_id: form.zone_id,
+            bin_id: form.bin_id,
+            batch_no: None,
+            quantity,
+            unit_cost,
+            source_type: source_type.to_string(),
+            source_id: 0,
+            remark: remark.clone(),
+        };
+
+        svc.record(&service_ctx, &mut conn, req).await?;
+    }
+
+    let redirect = StockOutListPath.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
@@ -90,7 +229,8 @@ fn stock_out_create_content(
                 }
             }
 
-            form id="stockOutForm" hx-post=(StockOutCreatePath::PATH) hx-swap="none" {
+            form id="stockOutForm" hx-post=(StockOutCreatePath::PATH) hx-swap="none"
+                onsubmit="return wmsStockOutCollectItems()" {
                 // ── Source Section ──
                 div class="wms-form-section" {
                     div class="form-section-title" {
@@ -174,7 +314,7 @@ fn stock_out_create_content(
                     div class="form-section-title" {
                         (icon::box_icon("w-4 h-4"))
                         "出库物料明细"
-                        span style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
+                        span id="stockout-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
                     }
                     table class="detail-table" {
                         thead {
@@ -183,21 +323,20 @@ fn stock_out_create_content(
                                 th { "产品编码" }
                                 th { "产品名称" }
                                 th { "规格型号" }
-                                th { "批次号" }
                                 th style="width:100px" { "出库数量 " span style="color:var(--danger)" { "*" } }
-                                th style="width:90px" { "可用库存" }
+                                th style="width:90px" { "单位" }
                                 th style="width:110px" { "单位成本" }
                                 th style="width:110px" { "小计" }
-                                th { "来源储位" }
                                 th style="width:40px" { }
                             }
                         }
-                        tbody {
+                        tbody id="stockout-item-tbody" {
                             // JS-managed dynamic rows
                         }
                     }
                     div style="margin-top:var(--space-4)" {
-                        button type="button" class="add-row-btn" style="display:inline-flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-4);border:1px dashed var(--border);border-radius:var(--radius-sm);background:var(--bg);color:var(--accent);font-size:var(--text-sm);cursor:pointer" {
+                        button type="button" class="add-row-btn"
+                            onclick="me('#stockout-product-modal').classAdd('is-open')" {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "添加物料"
                         }
@@ -235,15 +374,15 @@ fn stock_out_create_content(
                     div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-6)" {
                         div style="text-align:center;padding:var(--space-4);background:var(--surface);border-radius:var(--radius-md)" {
                             div style="font-size:11px;color:var(--muted);margin-bottom:var(--space-1)" { "物料种类" }
-                            div style="font-size:var(--text-xl);font-weight:600;font-family:var(--font-mono)" { "0" }
+                            div id="stockout-summary-kinds" style="font-size:var(--text-xl);font-weight:600;font-family:var(--font-mono)" { "0" }
                         }
                         div style="text-align:center;padding:var(--space-4);background:var(--surface);border-radius:var(--radius-md)" {
                             div style="font-size:11px;color:var(--muted);margin-bottom:var(--space-1)" { "出库总量" }
-                            div style="font-size:var(--text-xl);font-weight:600;font-family:var(--font-mono)" { "0" }
+                            div id="stockout-summary-qty" style="font-size:var(--text-xl);font-weight:600;font-family:var(--font-mono)" { "0" }
                         }
                         div style="text-align:center;padding:var(--space-4);background:var(--danger-bg);border-radius:var(--radius-md);border:1px solid rgba(255,77,79,0.15)" {
                             div style="font-size:11px;color:var(--danger);margin-bottom:var(--space-1)" { "出库总金额" }
-                            div style="font-size:var(--text-xl);font-weight:600;font-family:var(--font-mono);color:var(--danger)" { "¥0.00" }
+                            div id="stockout-summary-amount" style="font-size:var(--text-xl);font-weight:600;font-family:var(--font-mono);color:var(--danger)" { "¥0.00" }
                         }
                         div style="text-align:center;padding:var(--space-4);background:var(--surface);border-radius:var(--radius-md)" {
                             div style="font-size:11px;color:var(--muted);margin-bottom:var(--space-1)" { "拣货策略" }
@@ -260,7 +399,177 @@ fn stock_out_create_content(
                     }
                     textarea class="form-input" name="remark" placeholder="输入备注信息…" rows="3" style="width:100%;min-height:80px;padding:var(--space-2) var(--space-3);resize:vertical" { }
                 }
+
+                // hidden input for items JSON
+                input type="hidden" name="items_json" id="stockout-items-json" value="[]" {}
             }
+        }
+
+        // ── Product Search Modal ──
+        div id="stockout-product-modal" class="modal-overlay"
+            onclick="hsBackdropClose(this,event,'is-open')" {
+            div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal-head" {
+                    h2 { "选择物料" }
+                    button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                        onclick="hsRemove(null,'#stockout-product-modal','is-open')" { "×" }
+                }
+                div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                    div class="product-search-bar" {
+                        div class="product-search-field" {
+                            label class="product-search-label" { "产品名称" }
+                            input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
+                                hx-get=(StockOutProductsPath::PATH)
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-target="#stockout-product-results"
+                                hx-swap="innerHTML"
+                                hx-include=".product-search-bar" {}
+                        }
+                        div class="product-search-field" {
+                            label class="product-search-label" { "产品编码" }
+                            input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
+                                hx-get=(StockOutProductsPath::PATH)
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-target="#stockout-product-results"
+                                hx-swap="innerHTML"
+                                hx-include=".product-search-bar" {}
+                        }
+                        button type="button" class="product-search-clear"
+                            hx-get=(StockOutProductsPath::PATH)
+                            hx-target="#stockout-product-results"
+                            hx-swap="innerHTML"
+                            onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
+                            "清除"
+                        }
+                    }
+                    div id="stockout-product-results" {
+                        div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                            (icon::package_icon("w-8 h-8"))
+                            p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "输入关键词搜索物料" }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Line Item JS ──
+        (maud::PreEscaped(r#"<script>
+        // Line item calculations
+        function wmsStockOutCalcRow(row) {
+            var qtyInput = row.querySelector('input[name="quantity"]');
+            var costInput = row.querySelector('input[name="unit_cost"]');
+            var totalCell = row.querySelector('.line-subtotal');
+            var qty = parseFloat(qtyInput.value) || 0;
+            var cost = parseFloat(costInput.value) || 0;
+            var subtotal = qty * cost;
+            totalCell.textContent = subtotal > 0 ? '¥' + subtotal.toFixed(2) : '—';
+            wmsStockOutCalcSummary();
+        }
+
+        function wmsStockOutCalcSummary() {
+            var tbody = document.getElementById('stockout-item-tbody');
+            var rows = tbody.querySelectorAll('tr');
+            var kinds = rows.length;
+            var totalQty = 0;
+            var totalAmount = 0;
+            rows.forEach(function(row) {
+                var qty = parseFloat(row.querySelector('input[name="quantity"]').value) || 0;
+                var cost = parseFloat(row.querySelector('input[name="unit_cost"]').value) || 0;
+                totalQty += qty;
+                totalAmount += qty * cost;
+            });
+            document.getElementById('stockout-summary-kinds').textContent = kinds;
+            document.getElementById('stockout-summary-qty').textContent = totalQty;
+            document.getElementById('stockout-summary-amount').textContent = '¥' + totalAmount.toFixed(2);
+            document.getElementById('stockout-item-count').textContent = '共 ' + kinds + ' 项';
+        }
+
+        // Collect items for form submission
+        function wmsStockOutCollectItems() {
+            var tbody = document.getElementById('stockout-item-tbody');
+            var rows = tbody.querySelectorAll('tr');
+            var items = [];
+            rows.forEach(function(row) {
+                items.push({
+                    product_id: row.querySelector('input[name="product_id"]').value,
+                    quantity: row.querySelector('input[name="quantity"]').value || '0',
+                    unit_cost: row.querySelector('input[name="unit_cost"]').value || null
+                });
+            });
+            document.getElementById('stockout-items-json').value = JSON.stringify(items);
+            if (items.length === 0) {
+                alert('请至少添加一个物料');
+                return false;
+            }
+            return true;
+        }
+
+        // Renumber rows
+        function wmsStockOutRenumber() {
+            var tbody = document.getElementById('stockout-item-tbody');
+            var rows = tbody.querySelectorAll('tr');
+            rows.forEach(function(row, i) {
+                row.querySelector('.line-num').textContent = i + 1;
+            });
+            wmsStockOutCalcSummary();
+        }
+        </script>"#))
+    }
+}
+
+/// Product search results fragment
+fn product_list_fragment(products: &[abt_core::master_data::product::model::Product]) -> Markup {
+    html! {
+        @if products.is_empty() {
+            div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                (icon::package_icon("w-8 h-8"))
+                p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的产品" }
+            }
+        } @else {
+            div class="product-select-list" {
+                @for p in products {
+                    div class="product-select-item" {
+                        div class="product-select-info" {
+                            div class="product-select-name" { (p.pdt_name) }
+                            div class="product-select-meta" {
+                                span class="product-select-code" { (p.product_code) }
+                                span class="product-select-sep" { "·" }
+                                span { (p.meta.specification) }
+                                span class="product-select-sep" { "·" }
+                                span { (p.unit) }
+                            }
+                        }
+                        button type="button" class="btn btn-sm btn-primary"
+                            hx-get=(format!("{}?product_id={}", StockOutItemRowPath::PATH, p.product_id))
+                            hx-target="#stockout-item-tbody"
+                            hx-swap="beforeend"
+                            hx-on::after-request="hsRemove(null,'#stockout-product-modal','is-open');setTimeout(wmsStockOutRenumber,50)" {
+                            "选择"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Single item row fragment
+fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
+    html! {
+        tr oninput="wmsStockOutCalcRow(this)" {
+            td class="line-num" { }
+            td class="mono" { (product.product_code) }
+            td { (product.pdt_name) }
+            td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
+            td { input class="form-input num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td style="text-align:center;font-size:var(--text-sm);color:var(--fg-2)" { (product.unit) }
+            td { input class="form-input num-input" type="number" step="0.01" name="unit_cost" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td class="line-subtotal" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
+            td { button type="button" class="btn-remove-row" title="删除行"
+                onclick="hsRemoveClosestEl(this,'tr');setTimeout(wmsStockOutRenumber,50)" {
+                (icon::x_icon("w-3.5 h-3.5"))
+            } }
+            input type="hidden" name="product_id" value=(product.product_id) {}
         }
     }
 }

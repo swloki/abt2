@@ -13,7 +13,7 @@ use crate::layout::page::admin_page;
 use crate::routes::wms_warehouse::{
     WarehouseCreatePath, WarehouseDetailPath, WarehouseEditPath, WarehouseListPath,
 };
-use crate::utils::RequestContext;
+use crate::utils::{RequestContext, empty_as_none};
 
 use abt_macros::require_permission;
 
@@ -26,6 +26,7 @@ pub struct WarehouseCreateForm {
     pub warehouse_type: i16,
     pub is_virtual: Option<String>,
     pub address: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub manager_id: Option<i64>,
     pub remark: Option<String>,
 }
@@ -74,6 +75,12 @@ pub async fn create_warehouse(
 
     let is_virtual = form.is_virtual.is_some();
 
+    if form.code.trim().is_empty() {
+        return Err(abt_core::shared::types::DomainError::validation("仓库编码不能为空").into());
+    }
+    if form.name.trim().is_empty() {
+        return Err(abt_core::shared::types::DomainError::validation("仓库名称不能为空").into());
+    }
     let create_req = CreateWarehouseReq {
         code: form.code,
         name: form.name,

@@ -9,10 +9,11 @@ use maud::{Markup, html};
 /// `body` — form content slot.
 pub fn modal(modal_id: &str, title: &str, submit_label: &str, form_id: &str, hx_post: &str, body: Markup) -> Markup {
     let close_click = format!("hsRemoveClosest(this,'.modal-overlay','is-open');me('#{}').reset()", form_id);
+    let after_request = format!("if(event.detail.xhr.status < 400){{hsRemoveClosest(this,'.modal-overlay','is-open');this.reset()}}");
     html! {
         div id=(modal_id) class="modal-overlay" onclick="hsBackdropClose(this,event,'is-open')" {
             form id=(form_id) class="modal" hx-post=(hx_post) hx-swap="none"
-                onsubmit="hsRemoveClosest(this,'.modal-overlay','is-open');this.reset()" {
+                hx-on::after-request=(after_request) {
                 div class="modal-head" {
                     h2 { (title) }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"

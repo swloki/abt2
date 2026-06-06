@@ -1,14 +1,39 @@
-use axum::response::Html;
+use axum::extract::Query;
+use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
+use serde::Deserialize;
+use chrono::NaiveDate;
+use rust_decimal::Decimal;
 
-use crate::errors::Result;
-use crate::routes::wms_transfer::TransferCreatePath;
-use crate::utils::RequestContext;
-use abt_macros::require_permission;
-use crate::layout::page::admin_page;
+use abt_core::master_data::product::ProductService;
+use abt_core::master_data::product::model::ProductQuery;
+use abt_core::shared::types::{DomainError, PageParams};
+use abt_core::wms::transfer::TransferService;
+use abt_core::wms::transfer::model::{CreateTransferReq, CreateTransferItemReq};
+use abt_core::wms::warehouse::WarehouseService;
 
 use crate::components::icon;
+use crate::errors::Result;
+use crate::layout::page::admin_page;
+use crate::routes::wms_transfer::{TransferCreatePath, TransferListPath, TransferProductsPath, TransferItemRowPath};
+use crate::utils::{RequestContext, empty_as_none};
+use abt_macros::require_permission;
+
+// ── Query Params ──
+
+#[derive(Debug, Deserialize)]
+pub struct ProductSearchParams {
+    pub name: Option<String>,
+    pub code: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ItemRowParams {
+    pub product_id: i64,
+}
+
+// ── Handlers ──
 
 #[require_permission("WMS", "write")]
 pub async fn get_transfer_create(
@@ -16,43 +41,133 @@ pub async fn get_transfer_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
-    let claims = ctx.claims;
-    let content = transfer_create_page();
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let warehouse_svc = state.warehouse_service();
+
+    let warehouses = warehouse_svc
+        .list(&service_ctx, &mut conn, abt_core::wms::warehouse::model::WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+
+    let content = transfer_create_page(&warehouses);
     let page_html = admin_page(
-        is_htmx,
-        "新建调拨单",
-        &claims,
-        "inventory",
-        "/admin/wms/transfers/create",
-        "库存管理",
-        None,
-        content,
+        is_htmx, "新建调拨单", &claims, "inventory", TransferCreatePath::PATH, "库存管理", None, content,
     );
     Ok(Html(page_html.into_string()))
+}
+
+/// HTMX: search products
+#[require_permission("PRODUCT", "read")]
+pub async fn get_products(
+    ctx: RequestContext,
+    Query(params): Query<ProductSearchParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.product_service();
+
+    let filter = ProductQuery {
+        name: params.name.filter(|s| !s.is_empty()),
+        code: params.code.filter(|s| !s.is_empty()),
+        status: None,
+        owner_department_id: None,
+        category_id: None,
+    };
+    let result = svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
+    Ok(Html(product_list_fragment(&result.items).into_string()))
+}
+
+/// HTMX: return a single item row
+#[require_permission("WMS", "write")]
+pub async fn get_item_row(
+    ctx: RequestContext,
+    Query(params): Query<ItemRowParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.product_service();
+    let product = svc.get(&service_ctx, &mut conn, params.product_id).await?;
+    Ok(Html(item_row_fragment(&product).into_string()))
+}
+
+// ── Form Data ──
+
+#[derive(Debug, Deserialize)]
+struct TransferItemWeb {
+    product_id: String,
+    quantity: String,
+    batch_no: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct TransferCreateForm {
+    #[serde(deserialize_with = "empty_as_none")]
+    pub from_warehouse_id: Option<i64>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub from_zone_id: Option<i64>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub from_bin_id: Option<i64>,
+    #[serde(deserialize_with = "empty_as_none")]
+    pub to_warehouse_id: Option<i64>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub to_zone_id: Option<i64>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub to_bin_id: Option<i64>,
+    pub transfer_date: NaiveDate,
+    pub remark: Option<String>,
+    pub items_json: String,
 }
 
 #[require_permission("WMS", "write")]
 pub async fn create_transfer(
     _path: TransferCreatePath,
     ctx: RequestContext,
-) -> Result<Html<String>> {
-    let is_htmx = ctx.is_htmx();
-    let claims = ctx.claims;
-    let content = transfer_create_page();
-    let page_html = admin_page(
-        is_htmx,
-        "新建调拨单",
-        &claims,
-        "inventory",
-        "/admin/wms/transfers/create",
-        "库存管理",
-        None,
-        content,
-    );
-    Ok(Html(page_html.into_string()))
+    axum::Form(form): axum::Form<TransferCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.transfer_service();
+
+    let from_warehouse_id = form.from_warehouse_id
+        .ok_or_else(|| DomainError::validation("请选择调出仓库"))?;
+    let to_warehouse_id = form.to_warehouse_id
+        .ok_or_else(|| DomainError::validation("请选择调入仓库"))?;
+
+    let web_items: Vec<TransferItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("无效物料数据: {e}")))?;
+
+    if web_items.is_empty() {
+        return Err(DomainError::validation("调拨单至少需要一条明细").into());
+    }
+
+    let items: Vec<CreateTransferItemReq> = web_items.into_iter().map(|item| {
+        CreateTransferItemReq {
+            product_id: item.product_id.parse().unwrap_or(0),
+            quantity: item.quantity.parse().unwrap_or(Decimal::ZERO),
+            batch_no: item.batch_no,
+        }
+    }).collect();
+
+    let req = CreateTransferReq {
+        from_warehouse_id,
+        from_zone_id: form.from_zone_id,
+        from_bin_id: form.from_bin_id,
+        to_warehouse_id,
+        to_zone_id: form.to_zone_id,
+        to_bin_id: form.to_bin_id,
+        transfer_date: form.transfer_date,
+        items,
+    };
+
+    let _id = svc.create(&service_ctx, &mut conn, req).await?;
+
+    let redirect = TransferListPath.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
-fn transfer_create_page() -> Markup {
+// ── Components ──
+
+fn transfer_create_page(
+    warehouses: &[abt_core::wms::warehouse::model::Warehouse],
+) -> Markup {
     html! {
         div {
             a href="/admin/wms/transfers" class="back-link" {
@@ -73,75 +188,241 @@ fn transfer_create_page() -> Markup {
                 div class="wf-step" { span class="wf-dot" {} "已完成" }
             }
 
-            form hx-post=(TransferCreatePath::PATH) hx-swap="none" {
+            form hx-post=(TransferCreatePath::PATH) hx-swap="none"
+                onsubmit="return transferCollectItems()" {
                 // ── From / To Warehouse ──
                 div class="wms-form-section" {
-                    h3 class="form-section-title" { "调拨信息" }
+                    h3 class="form-section-title" {
+                        (icon::building_icon("w-[18px] h-[18px]"))
+                        "调拨信息"
+                    }
                     div class="wms-form-grid" {
                         div class="form-field" {
-                            label class="form-label" { "调出仓库" }
-                            select class="form-select" name="from_warehouse_id" required {}
+                            label class="form-label" { "调出仓库 " span class="required" { "*" } }
+                            select class="form-select" name="from_warehouse_id" required {
+                                option value="" { "请选择仓库" }
+                                @for wh in warehouses {
+                                    option value=(wh.id) { (wh.name) }
+                                }
+                            }
                         }
                         div class="form-field" {
                             label class="form-label" { "调出库区" }
-                            select class="form-select" name="from_zone_id" {}
+                            select class="form-select" name="from_zone_id" {
+                                option value="" { "按策略分配" }
+                            }
                         }
                         div class="form-field" {
                             label class="form-label" { "调出储位" }
-                            select class="form-select" name="from_bin_id" {}
+                            select class="form-select" name="from_bin_id" {
+                                option value="" { "按策略分配" }
+                            }
                         }
                         div class="form-field" {
-                            label class="form-label" { "调入仓库" }
-                            select class="form-select" name="to_warehouse_id" required {}
+                            label class="form-label" { "调入仓库 " span class="required" { "*" } }
+                            select class="form-select" name="to_warehouse_id" required {
+                                option value="" { "请选择仓库" }
+                                @for wh in warehouses {
+                                    option value=(wh.id) { (wh.name) }
+                                }
+                            }
                         }
                         div class="form-field" {
                             label class="form-label" { "调入库区" }
-                            select class="form-select" name="to_zone_id" {}
+                            select class="form-select" name="to_zone_id" {
+                                option value="" { "按策略分配" }
+                            }
                         }
                         div class="form-field" {
                             label class="form-label" { "调入储位" }
-                            select class="form-select" name="to_bin_id" {}
+                            select class="form-select" name="to_bin_id" {
+                                option value="" { "按策略分配" }
+                            }
                         }
                         div class="form-field" {
-                            label class="form-label" { "调拨日期" }
-                            input class="form-input" type="date" name="transfer_date" required {}
+                            label class="form-label" { "调拨日期 " span class="required" { "*" } }
+                            input class="form-input" type="date" name="transfer_date" value="2026-06-06" required {}
                         }
                     }
                 }
 
                 // ── Line Items ──
                 div class="wms-form-section" {
-                    h3 class="form-section-title" { "调拨明细" }
-                    div class="data-card" {
-                        table class="data-table" {
-                            thead {
-                                tr {
-                                    th { "行号" }
-                                    th { "产品" }
-                                    th class="num-right" { "数量" }
-                                    th { "批次号" }
-                                    th { "操作" }
-                                }
-                            }
-                            tbody id="line-items" {
-                                // Dynamic rows added via JS
+                    h3 class="form-section-title" {
+                        (icon::box_icon("w-[18px] h-[18px]"))
+                        "调拨明细"
+                        span id="transfer-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
+                    }
+                    table class="detail-table" {
+                        thead {
+                            tr {
+                                th style="width:40px" { "序号" }
+                                th { "产品编码" }
+                                th { "产品名称" }
+                                th { "规格型号" }
+                                th style="width:100px" { "调拨数量 " span class="required" { "*" } }
+                                th { "批次号" }
+                                th style="width:40px" { }
                             }
                         }
+                        tbody id="transfer-item-tbody" { }
                     }
-                    button type="button" class="btn btn-default" style="margin-top:var(--space-3)"
-                        onclick="addTransferLine()" {
-                        (icon::plus_icon("w-4 h-4"))
-                        "添加行"
+                    div style="margin-top:var(--space-4)" {
+                        button type="button" class="add-row-btn"
+                            onclick="me('#transfer-product-modal').classAdd('is-open')" {
+                            (icon::plus_icon("w-3.5 h-3.5"))
+                            "添加物料"
+                        }
                     }
                 }
+
+                // ── Remark ──
+                div class="wms-form-section" {
+                    h3 class="form-section-title" {
+                        (icon::edit_icon("w-[18px] h-[18px]"))
+                        "备注"
+                    }
+                    textarea class="form-input" name="remark" placeholder="输入备注信息…" rows="3" style="width:100%;min-height:80px;padding:var(--space-2) var(--space-3);resize:vertical" { }
+                }
+
+                input type="hidden" name="items_json" id="transfer-items-json" value="[]" {}
 
                 // ── Actions ──
                 div class="create-action-bar" {
                     a href="/admin/wms/transfers" class="btn btn-default" { "取消" }
-                    button type="submit" class="btn btn-default" name="action" value="draft" { "保存草稿" }
-                    button type="submit" class="btn btn-primary" name="action" value="submit" { "提交" }
+                    button type="submit" class="btn btn-primary" {
+                        (icon::check_circle_icon("w-4 h-4"))
+                        "提交调拨"
+                    }
                 }
             }
+        }
+
+        // ── Product Search Modal ──
+        div id="transfer-product-modal" class="modal-overlay"
+            onclick="hsBackdropClose(this,event,'is-open')" {
+            div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal-head" {
+                    h2 { "选择物料" }
+                    button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                        onclick="hsRemove(null,'#transfer-product-modal','is-open')" { "×" }
+                }
+                div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                    div class="product-search-bar" {
+                        div class="product-search-field" {
+                            label class="product-search-label" { "产品名称" }
+                            input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
+                                hx-get=(TransferProductsPath::PATH)
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-target="#transfer-product-results"
+                                hx-swap="innerHTML"
+                                hx-include=".product-search-bar" {}
+                        }
+                        div class="product-search-field" {
+                            label class="product-search-label" { "产品编码" }
+                            input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
+                                hx-get=(TransferProductsPath::PATH)
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-target="#transfer-product-results"
+                                hx-swap="innerHTML"
+                                hx-include=".product-search-bar" {}
+                        }
+                        button type="button" class="product-search-clear"
+                            hx-get=(TransferProductsPath::PATH)
+                            hx-target="#transfer-product-results"
+                            hx-swap="innerHTML"
+                            onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
+                            "清除"
+                        }
+                    }
+                    div id="transfer-product-results" {
+                        div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                            (icon::package_icon("w-8 h-8"))
+                            p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "输入关键词搜索物料" }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Line Item JS ──
+        (maud::PreEscaped(r#"<script>
+        function transferCollectItems() {
+            var tbody = document.getElementById('transfer-item-tbody');
+            var rows = tbody.querySelectorAll('tr');
+            var items = [];
+            rows.forEach(function(row) {
+                items.push({
+                    product_id: row.querySelector('input[name="product_id"]').value,
+                    quantity: row.querySelector('input[name="quantity"]').value || '0',
+                    batch_no: row.querySelector('input[name="batch_no"]').value || null
+                });
+            });
+            document.getElementById('transfer-items-json').value = JSON.stringify(items);
+            if (items.length === 0) { alert('请至少添加一个物料'); return false; }
+            return true;
+        }
+        function transferRenumber() {
+            var tbody = document.getElementById('transfer-item-tbody');
+            tbody.querySelectorAll('tr').forEach(function(row, i) {
+                row.querySelector('.line-num').textContent = i + 1;
+            });
+        }
+        </script>"#))
+    }
+}
+
+/// Product search results fragment
+fn product_list_fragment(products: &[abt_core::master_data::product::model::Product]) -> Markup {
+    html! {
+        @if products.is_empty() {
+            div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                (icon::package_icon("w-8 h-8"))
+                p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的产品" }
+            }
+        } @else {
+            div class="product-select-list" {
+                @for p in products {
+                    div class="product-select-item" {
+                        div class="product-select-info" {
+                            div class="product-select-name" { (p.pdt_name) }
+                            div class="product-select-meta" {
+                                span class="product-select-code" { (p.product_code) }
+                                span class="product-select-sep" { "·" }
+                                span { (p.meta.specification) }
+                                span class="product-select-sep" { "·" }
+                                span { (p.unit) }
+                            }
+                        }
+                        button type="button" class="btn btn-sm btn-primary"
+                            hx-get=(format!("{}?product_id={}", TransferItemRowPath::PATH, p.product_id))
+                            hx-target="#transfer-item-tbody"
+                            hx-swap="beforeend"
+                            hx-on::after-request="hsRemove(null,'#transfer-product-modal','is-open');setTimeout(transferRenumber,50)" {
+                            "选择"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Single item row fragment
+fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
+    html! {
+        tr {
+            td class="line-num" { }
+            td class="mono" { (product.product_code) }
+            td { (product.pdt_name) }
+            td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
+            td { input class="form-input num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input" type="text" name="batch_no" placeholder="批次号" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { button type="button" class="btn-remove-row" title="删除行"
+                onclick="hsRemoveClosestEl(this,'tr');setTimeout(transferRenumber,50)" {
+                (icon::x_icon("w-3.5 h-3.5"))
+            } }
+            input type="hidden" name="product_id" value=(product.product_id) {}
         }
     }
 }

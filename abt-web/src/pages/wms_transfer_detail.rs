@@ -1,5 +1,4 @@
 use axum::response::Html;
-use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 
 use crate::errors::Result;
@@ -11,6 +10,15 @@ use crate::layout::page::admin_page;
 use abt_core::wms::enums::TransferStatus;
 use abt_core::wms::transfer::{TransferItem, TransferService};
 use crate::components::icon;
+
+// ── Form Data ──
+
+#[derive(Debug, serde::Deserialize)]
+pub struct TransferActionForm {
+    pub action: String,
+}
+
+// ── Handlers ──
 
 #[require_permission("WMS", "read")]
 pub async fn get_transfer_detail(
@@ -24,7 +32,8 @@ pub async fn get_transfer_detail(
     let transfer = svc.get(&service_ctx, &mut conn, path.id).await?;
     let items = svc.get_items(&service_ctx, &mut conn, path.id).await?;
 
-    let content = transfer_detail_page(&transfer, &items);
+    let detail_path = TransferDetailPath { id: path.id }.to_string();
+    let content = transfer_detail_page(&transfer, &items, &detail_path);
     let page_html = admin_page(
         is_htmx,
         "调拨单详情",
@@ -38,9 +47,38 @@ pub async fn get_transfer_detail(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("WMS", "write")]
+pub async fn post_transfer_action(
+    path: TransferDetailPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<TransferActionForm>,
+) -> crate::errors::Result<axum::response::Response> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.transfer_service();
+
+    match form.action.as_str() {
+        "dispatch" => svc.dispatch(&service_ctx, &mut conn, path.id).await?,
+        "complete" => svc.complete(&service_ctx, &mut conn, path.id).await?,
+        "cancel" => svc.cancel(&service_ctx, &mut conn, path.id).await?,
+        _ => {}
+    }
+
+    let redirect_url = TransferDetailPath { id: path.id }.to_string();
+    let mut resp = axum::response::Response::default();
+    resp.headers_mut().insert(
+        axum::http::HeaderName::from_static("hx-redirect"),
+        redirect_url.parse().unwrap(),
+    );
+
+    Ok(resp)
+}
+
+// ── Components ──
+
 fn transfer_detail_page(
     transfer: &abt_core::wms::transfer::InventoryTransfer,
     items: &[TransferItem],
+    detail_path: &str,
 ) -> Markup {
     let (status_label, status_class) = match transfer.status {
         TransferStatus::Draft => ("草稿", "status-draft"),
@@ -48,10 +86,6 @@ fn transfer_detail_page(
         TransferStatus::Completed => ("已完成", "status-completed"),
         TransferStatus::Cancelled => ("已取消", "status-cancelled"),
     };
-
-    let show_cancel = matches!(transfer.status, TransferStatus::Draft);
-    let show_dispatch = matches!(transfer.status, TransferStatus::Draft);
-    let show_complete = matches!(transfer.status, TransferStatus::InTransit);
 
     html! {
         div {
@@ -68,24 +102,7 @@ fn transfer_detail_page(
                     }
                 }
                 div class="page-actions" {
-                    @if show_cancel {
-                        button class="btn btn-default" {
-                            (icon::x_icon("w-4 h-4"))
-                            "取消"
-                        }
-                    }
-                    @if show_dispatch {
-                        button class="btn btn-primary" {
-                            (icon::arrow_right_icon("w-4 h-4"))
-                            "发货"
-                        }
-                    }
-                    @if show_complete {
-                        button class="btn btn-primary" {
-                            (icon::check_circle_icon("w-4 h-4"))
-                            "确认完成"
-                        }
-                    }
+                    (transfer_action_buttons(transfer.status, detail_path))
                 }
             }
 
@@ -165,6 +182,44 @@ fn transfer_detail_page(
                 }
             }
         }
+    }
+}
+
+fn transfer_action_buttons(status: TransferStatus, detail_path: &str) -> Markup {
+    match status {
+        TransferStatus::Draft => {
+            html! {
+                button class="btn btn-default"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"cancel"}"#
+                    hx-confirm="确定要取消此调拨单吗？"
+                    hx-redirect=(detail_path) {
+                    (icon::x_icon("w-4 h-4"))
+                    "取消"
+                }
+                button class="btn btn-primary"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"dispatch"}"#
+                    hx-confirm="确定要发货吗？"
+                    hx-redirect=(detail_path) {
+                    (icon::arrow_right_icon("w-4 h-4"))
+                    "发货"
+                }
+            }
+        }
+        TransferStatus::InTransit => {
+            html! {
+                button class="btn btn-primary"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"complete"}"#
+                    hx-confirm="确定要完成调拨吗？"
+                    hx-redirect=(detail_path) {
+                    (icon::check_circle_icon("w-4 h-4"))
+                    "确认完成"
+                }
+            }
+        }
+        _ => html! {},
     }
 }
 

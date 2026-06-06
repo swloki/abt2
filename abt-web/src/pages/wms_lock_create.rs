@@ -17,10 +17,13 @@ use abt_macros::require_permission;
 
 #[derive(Debug, Deserialize)]
 pub struct CreateLockForm {
-    pub product_id: i64,
-    pub warehouse_id: i64,
+    #[serde(deserialize_with = "crate::utils::empty_as_none")]
+    pub product_id: Option<i64>,
+    #[serde(deserialize_with = "crate::utils::empty_as_none")]
+    pub warehouse_id: Option<i64>,
     pub locked_qty: String,
     pub lock_reason: String,
+    #[serde(deserialize_with = "crate::utils::empty_as_none")]
     pub customer_id: Option<i64>,
 }
 
@@ -58,12 +61,15 @@ pub async fn create_lock(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.inventory_lock_service();
 
+    let product_id = form.product_id.ok_or_else(|| crate::errors::WebError::from(abt_core::shared::types::DomainError::validation("请选择产品")))?;
+    let warehouse_id = form.warehouse_id.ok_or_else(|| crate::errors::WebError::from(abt_core::shared::types::DomainError::validation("请选择仓库")))?;
+
     let locked_qty: Decimal = form.locked_qty.parse()
         .map_err(|e| crate::errors::WebError::from(abt_core::shared::types::DomainError::Validation(format!("无效数量: {e}"))))?;
 
     let req = CreateLockReq {
-        product_id: form.product_id,
-        warehouse_id: form.warehouse_id,
+        product_id,
+        warehouse_id,
         locked_qty,
         lock_reason: form.lock_reason,
         customer_id: form.customer_id,

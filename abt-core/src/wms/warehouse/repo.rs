@@ -387,6 +387,21 @@ impl WarehouseRepo {
         Ok(result.rows_affected())
     }
 
+    /// 检查库区下是否存在未删除的库位
+    pub async fn count_active_bins_by_zone(
+        executor: &mut sqlx::postgres::PgConnection,
+        zone_id: i64,
+    ) -> Result<i64> {
+        let row: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM bins WHERE zone_id = $1 AND deleted_at IS NULL",
+        )
+        .bind(zone_id)
+        .fetch_one(&mut *executor)
+        .await?;
+
+        Ok(row.0)
+    }
+
     /// 软删除库区
     pub async fn soft_delete_zone(
         executor: &mut sqlx::postgres::PgConnection,

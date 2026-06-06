@@ -12,12 +12,13 @@ use abt_core::shared::types::PageParams;
 use abt_core::wms::stock_ledger::model::StockFilter;
 use abt_core::wms::stock_ledger::StockLedgerService;
 use abt_core::wms::warehouse::WarehouseService;
+use abt_core::wms::warehouse::model::WarehouseFilter;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_stock::{StockListPath, StockTablePath};
+use crate::routes::wms_stock::{StockListPath, StockTablePath, StockZonesPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -33,8 +34,8 @@ pub struct StockQueryParams {
     pub zone_id: Option<i64>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub low_stock: Option<bool>,
-    #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
+    pub batch_no: Option<String>,
 }
 
 // ── Helpers ──
@@ -45,7 +46,7 @@ fn build_filter(params: &StockQueryParams, single_product_id: Option<i64>) -> St
         warehouse_id: params.warehouse_id,
         zone_id: params.zone_id,
         bin_id: None,
-        batch_no: None,
+        batch_no: params.batch_no.clone(),
     }
 }
 
@@ -69,6 +70,11 @@ fn build_query_string(params: &StockQueryParams) -> String {
     }
     if params.low_stock == Some(true) {
         q.push("low_stock=true".into());
+    }
+    if let Some(bn) = &params.batch_no {
+        if !bn.is_empty() {
+            q.push(format!("batch_no={bn}"));
+        }
     }
     q.join("&")
 }
@@ -196,6 +202,46 @@ fn format_decimal(d: &Decimal) -> String {
 
 // ── Handlers ──
 
+/// HTMX: 返回库区选项（根据 warehouse_id 级联）
+#[derive(Debug, Deserialize)]
+pub struct ZoneCascadeParams {
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub warehouse_id: Option<i64>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub zone_id: Option<i64>,
+}
+
+pub async fn get_zone_options(
+    _path: StockZonesPath,
+    ctx: RequestContext,
+    Query(params): Query<ZoneCascadeParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let warehouse_svc = state.warehouse_service();
+
+    let zones = if let Some(wid) = params.warehouse_id {
+        warehouse_svc.list_zones(&service_ctx, &mut conn, wid).await.unwrap_or_default()
+    } else {
+        vec![]
+    };
+
+    Ok(Html(zone_select_fragment(&zones, params.zone_id).into_string()))
+}
+
+fn zone_select_fragment(
+    zones: &[abt_core::wms::warehouse::model::Zone],
+    selected: Option<i64>,
+) -> Markup {
+    html! {
+        select class="form-select" name="zone_id" id="zone-select" style="width:140px" {
+            option value="" { "全部库区" }
+            @for z in zones {
+                option value=(z.id) selected[selected == Some(z.id)] { (z.code) }
+            }
+        }
+    }
+}
+
 #[require_permission("WMS", "read")]
 pub async fn get_stock_list(
     _path: StockListPath,
@@ -208,13 +254,19 @@ pub async fn get_stock_list(
     let product_svc = state.product_service();
     let warehouse_svc = state.warehouse_service();
 
+    let has_search = params.product_code.as_deref().map_or(false, |s| !s.trim().is_empty())
+        || params.product_name.as_deref().map_or(false, |s| !s.trim().is_empty());
     let (single_pid, all_pids) = resolve_product_search(&product_svc, &service_ctx, &mut conn, &params).await.unwrap_or((None, vec![]));
     let filter = build_filter(&params, single_pid);
     let page_num = params.page.unwrap_or(1);
     let mut result = svc.query(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    // Post-filter when multiple products matched
-    if !all_pids.is_empty() && all_pids.len() > 1 {
+    // 搜索了但没找到匹配产品 → 清空结果
+    if has_search && all_pids.is_empty() && single_pid.is_none() {
+        result.items.clear();
+    }
+    // 多个产品匹配 → post-filter
+    else if !all_pids.is_empty() && all_pids.len() > 1 {
         let id_set: HashSet<i64> = all_pids.into_iter().collect();
         result.items.retain(|item| id_set.contains(&item.product_id));
     }
@@ -223,8 +275,13 @@ pub async fn get_stock_list(
     let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let zone_codes = resolve_zone_codes(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let bin_codes = resolve_bin_codes(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let content = stock_list_page(&result, &product_names, &warehouse_names, &zone_codes, &bin_codes, &params);
+    let warehouses = warehouse_svc.list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200).await.map(|r| r.items).unwrap_or_default();
+    let zones = if let Some(wid) = params.warehouse_id {
+        warehouse_svc.list_zones(&service_ctx, &mut conn, wid).await.unwrap_or_default()
+    } else {
+        vec![]
+    };
+    let content = stock_list_page(&result, &product_names, &warehouse_names, &zone_codes, &bin_codes, &warehouses, &zones, &params);
     let page_html = admin_page(
         is_htmx, "库存查询", &claims, "inventory", StockListPath::PATH, "库存管理", None, content,
     );
@@ -242,13 +299,19 @@ pub async fn get_stock_table(
     let product_svc = state.product_service();
     let warehouse_svc = state.warehouse_service();
 
+    let has_search = params.product_code.as_deref().map_or(false, |s| !s.trim().is_empty())
+        || params.product_name.as_deref().map_or(false, |s| !s.trim().is_empty());
     let (single_pid, all_pids) = resolve_product_search(&product_svc, &service_ctx, &mut conn, &params).await.unwrap_or((None, vec![]));
     let filter = build_filter(&params, single_pid);
     let page_num = params.page.unwrap_or(1);
     let mut result = svc.query(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    // Post-filter when multiple products matched
-    if !all_pids.is_empty() && all_pids.len() > 1 {
+    // 搜索了但没找到匹配产品 → 清空结果
+    if has_search && all_pids.is_empty() && single_pid.is_none() {
+        result.items.clear();
+    }
+    // 多个产品匹配 → post-filter
+    else if !all_pids.is_empty() && all_pids.len() > 1 {
         let id_set: HashSet<i64> = all_pids.into_iter().collect();
         result.items.retain(|item| id_set.contains(&item.product_id));
     }
@@ -257,7 +320,6 @@ pub async fn get_stock_table(
     let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let zone_codes = resolve_zone_codes(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let bin_codes = resolve_bin_codes(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-
     // HTMX partial: return only the data-card
     Ok(Html(stock_data_card(&result, &product_names, &warehouse_names, &zone_codes, &bin_codes, &params).into_string()))
 }
@@ -270,6 +332,8 @@ fn stock_list_page(
     warehouse_names: &HashMap<i64, String>,
     zone_codes: &HashMap<i64, String>,
     bin_codes: &HashMap<i64, String>,
+    warehouses: &[abt_core::wms::warehouse::model::Warehouse],
+    zones: &[abt_core::wms::warehouse::model::Zone],
     params: &StockQueryParams,
 ) -> Markup {
     html! {
@@ -319,8 +383,7 @@ fn stock_list_page(
             }
 
             // ── Filter Bar (outside data-card, always visible) ──
-            (stock_filter_bar(params))
-
+            (stock_filter_bar(warehouses, zones, params))
             // ── Data Card (HTMX target) ──
             (stock_data_card(result, product_names, warehouse_names, zone_codes, bin_codes, params))
         }
@@ -329,7 +392,11 @@ fn stock_list_page(
 
 /// Filter bar with separate product_code / product_name inputs.
 /// Uses the same pattern as product_list: form-level hx-trigger with debounce.
-fn stock_filter_bar(params: &StockQueryParams) -> Markup {
+fn stock_filter_bar(
+    warehouses: &[abt_core::wms::warehouse::model::Warehouse],
+    zones: &[abt_core::wms::warehouse::model::Zone],
+    params: &StockQueryParams,
+) -> Markup {
     html! {
         form class="filter-bar filter-form"
             hx-get=(StockTablePath::PATH)
@@ -338,7 +405,6 @@ fn stock_filter_bar(params: &StockQueryParams) -> Markup {
             hx-select="#stock-data-card"
             hx-swap="outerHTML"
             hx-include="closest form" {
-
             div class="search-wrap" {
                 (icon::search_icon("w-4 h-4"))
                 input class="search-input" type="text" name="product_code"
@@ -351,6 +417,24 @@ fn stock_filter_bar(params: &StockQueryParams) -> Markup {
                 input class="search-input" type="text" name="product_name"
                     placeholder="产品名称"
                     value=(params.product_name.as_deref().unwrap_or(""));
+            }
+            select class="form-select" name="warehouse_id" style="width:160px"
+                hx-get=(StockZonesPath::PATH)
+                hx-trigger="change"
+                hx-target="#zone-select"
+                hx-swap="outerHTML"
+                hx-include="[name='zone_id']" {
+                option value="" { "全部仓库" }
+                @for w in warehouses {
+                    option value=(w.id) selected[params.warehouse_id == Some(w.id)] { (w.name) }
+                }
+            }
+            (zone_select_fragment(zones, params.zone_id))
+            div class="search-wrap" {
+                (icon::search_icon("w-4 h-4"))
+                input class="search-input" type="text" name="batch_no"
+                    placeholder="批次号"
+                    value=(params.batch_no.as_deref().unwrap_or(""));
             }
             label class="toggle-wrap" style="cursor:pointer;display:flex;align-items:center;gap:var(--space-2);font-size:var(--text-sm);color:var(--fg-2);white-space:nowrap" {
                 input type="checkbox" name="low_stock" value="true"

@@ -1,4 +1,4 @@
-use axum::routing::{get, post, put, delete};
+use axum::routing::{get, post};
 use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
@@ -64,9 +64,9 @@ pub fn router() -> Router<AppState> {
         .route(WarehouseTablePath::PATH, get(wms_warehouse_list::get_warehouse_table))
         .route(WarehouseCreatePath::PATH, get(wms_warehouse_create::get_warehouse_create).post(wms_warehouse_create::create_warehouse))
         .route(WarehouseDetailPath::PATH, get(wms_warehouse_detail::get_warehouse_detail))
-        .route(WarehouseEditPath::PATH, get(wms_warehouse_detail::get_warehouse_edit))
+        .route(WarehouseEditPath::PATH, get(wms_warehouse_detail::get_warehouse_edit).post(wms_warehouse_detail::update_warehouse))
         .route(WarehouseDeletePath::PATH, post(wms_warehouse_detail::delete_warehouse))
-        .route(WarehouseZoneCreatePath::PATH, post(wms_warehouse_detail::create_zone))
-        .route(WarehouseZonePath::PATH, put(wms_warehouse_detail::update_zone).delete(wms_warehouse_detail::delete_zone))
+        .route(WarehouseZoneCreatePath::PATH, get(wms_warehouse_detail::get_zones).post(wms_warehouse_detail::create_zone))
+        .route(WarehouseZonePath::PATH, get(wms_warehouse_detail::get_zone_edit_form).put(wms_warehouse_detail::update_zone).delete(wms_warehouse_detail::delete_zone))
         .route(WarehouseZoneBinsPath::PATH, get(wms_warehouse_detail::get_zone_bins))
 }

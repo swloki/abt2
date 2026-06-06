@@ -687,7 +687,7 @@ fn bom_edit_page(
             div id="bom-edit-modal" class="modal-overlay" { }
             (maud::PreEscaped(r#"<script>
                 me('#bom-edit-modal')
-                    .on('htmx:afterSettle',function(){me(this).classAdd('is-open')})
+                    .on('htmx:afterSettle',function(ev){if(ev.detail.xhr.responseText.length>0)me(this).classAdd('is-open')})
                     .on('click',function(ev){if(ev.target===me('#bom-edit-modal'))me('#bom-edit-modal').classRemove('is-open')});
             </script>"#))
 
@@ -700,7 +700,6 @@ fn bom_edit_page(
                 "bom-node-delete-form",
                 html! {
                     form id="bom-node-delete-form" style="display:none"
-                        hx-delete=""
                         hx-swap="none" {}
                 },
             ))

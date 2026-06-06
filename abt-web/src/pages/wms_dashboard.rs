@@ -90,12 +90,44 @@ pub async fn get_wms_dashboard(
         .map(|r| r.total)
         .unwrap_or(0);
 
+    // 按仓库分组统计
+    let warehouse_list = wh_svc
+        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 100)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+
+    let mut warehouses = Vec::new();
+    for wh in &warehouse_list {
+        let mut filter = StockFilter::default();
+        filter.warehouse_id = Some(wh.id);
+        let sku = txn_svc
+            .query_stock(&service_ctx, &mut conn, filter, 1, 1)
+            .await
+            .map(|r| r.total)
+            .unwrap_or(0);
+        let type_label = match wh.warehouse_type {
+            abt_core::wms::enums::WarehouseType::RawMaterial => "原材料",
+            abt_core::wms::enums::WarehouseType::FinishedGoods => "成品",
+            abt_core::wms::enums::WarehouseType::SemiFinished => "半成品",
+            abt_core::wms::enums::WarehouseType::Consumable => "辅料",
+            abt_core::wms::enums::WarehouseType::VirtualOutsource => "虚拟委外",
+        };
+        warehouses.push(WarehouseGroup {
+            name: wh.name.clone(),
+            code: wh.code.clone(),
+            wh_type: type_label.to_string(),
+            sku_count: sku,
+        });
+    }
+
     let stats = DashboardStats {
         warehouse_count,
         stock_sku_count,
         month_in_count,
         month_out_count,
         low_stock_count,
+        warehouses,
     };
 
     let content = wms_dashboard_content(&stats);
@@ -120,6 +152,14 @@ struct DashboardStats {
     month_in_count: u64,
     month_out_count: u64,
     low_stock_count: u64,
+    warehouses: Vec<WarehouseGroup>,
+}
+
+struct WarehouseGroup {
+    name: String,
+    code: String,
+    wh_type: String,
+    sku_count: u64,
 }
 
 // ── Main content (matches prototype 03-index.html) ──
@@ -214,6 +254,32 @@ fn wms_dashboard_content(stats: &DashboardStats) -> Markup {
             }
         }
 
+        // ── Per-Warehouse Statistics ──
+        div style="margin-bottom:var(--space-8)" {
+            h2 style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-4)" { "按仓库统计" }
+            div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:var(--space-4)" {
+                @for wh in &stats.warehouses {
+                    div class="stat-card" style="cursor:pointer" onclick=(format!("location.href='/admin/wms/stock?warehouse_id='")) {
+                        div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-3)" {
+                            div class="stat-icon" style="background:linear-gradient(135deg,#e6f4ff,#d6e8ff);color:var(--accent);width:36px;height:36px" {
+                                (icon::building_icon("w-4 h-4"))
+                            }
+                            div {
+                                div style="font-weight:600;font-size:var(--text-sm)" { (wh.name) }
+                                div style="font-size:var(--text-xs);color:var(--muted)" { (wh.code) " · " (wh.wh_type) }
+                            }
+                        }
+                        div style="display:flex;justify-content:space-between;align-items:center" {
+                            span style="font-size:var(--text-xs);color:var(--fg-2)" { "库存品类" }
+                            span style="font-size:var(--text-lg);font-weight:700;font-variant-numeric:tabular-nums;color:var(--accent)" { (wh.sku_count) }
+                        }
+                    }
+                }
+                @if stats.warehouses.is_empty() {
+                    div style="text-align:center;padding:var(--space-6);color:var(--muted)" { "暂无仓库数据" }
+                }
+            }
+        }
         // ── Recent Operations ──
         div {
             h2 style="font-size:var(--text-lg);font-weight:600;margin-bottom:var(--space-4)" { "最近操作" }

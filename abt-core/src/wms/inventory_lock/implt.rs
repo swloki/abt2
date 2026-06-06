@@ -12,6 +12,7 @@ use crate::shared::types::pagination::PaginatedResult;
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::DocumentType;
 use crate::wms::enums::LockStatus;
+use crate::wms::stock_ledger::repo::StockLedgerRepo;
 
 pub struct InventoryLockServiceImpl {
     pool: PgPool,
@@ -40,6 +41,11 @@ impl InventoryLockService for InventoryLockServiceImpl {
             .unwrap_or_else(|_| format!("LK{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
         let lock = InventoryLockRepo::insert(&mut *db, &doc_number, &req, ctx.operator_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 同步更新 stock_ledger 预留量
+        StockLedgerRepo::adjust_reserved_qty(&mut *db, req.product_id, req.warehouse_id, req.locked_qty)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
@@ -89,6 +95,11 @@ impl InventoryLockService for InventoryLockServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
+        // 释放预留量
+        StockLedgerRepo::adjust_reserved_qty(&mut *db, lock.product_id, lock.warehouse_id, -lock.locked_qty)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
         Ok(())
     }
 
@@ -109,6 +120,11 @@ impl InventoryLockService for InventoryLockServiceImpl {
         }
 
         InventoryLockRepo::update_status(&mut *db, id, LockStatus::Cancelled)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 退回预留量
+        StockLedgerRepo::adjust_reserved_qty(&mut *db, lock.product_id, lock.warehouse_id, -lock.locked_qty)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 

@@ -16,6 +16,8 @@ ABT 是 BOM（物料清单）和库存管理系统，基于 Rust 构建。底层
 - `JWT_SECRET`（必须）
 - `WEB_PORT`（默认 `3000`）、`WEB_HOST`（默认 `0.0.0.0`）、`MAX_CONNECTION`（默认 `20`）
 
+**本地登录凭据**：用户名 `admin`，密码 `123456`
+
 ## Design Principle: Interface & Model First（接口与模型先行）
 
 新功能开发强制执行以下顺序，不可跳步：
@@ -173,3 +175,38 @@ AuditLogServiceImpl::new(self.pool.clone())
 3. 在 `abt-core/migrations/` 添加数据库迁移
 4. 在 `abt-web/src/pages/` 创建页面（如需 UI）
 5. 同步更新 `docs/uml-design/` 设计文档
+
+
+## WMS Module Testing（库存管理模块测试）
+
+### 测试计划
+
+- **主文档**：`docs/plans/2026-06-05-002-test-wms-full-module-plan.md`
+- **子文档**：`docs/plans/2026-06-05-002[a-g]-test-wms-phase*.md`（Phase 1–7）
+- **设计依据**：`docs/uml-design/03-wms.html`（UML）+ `docs/uml-design/00-module-dependencies.html`（模块依赖）
+
+### 测试范围
+
+16 个菜单页面，280+ 测试项，三层覆盖：
+- **L1 WMS 内部**：页面 CRUD + 状态流转 + 业务规则
+- **L2 跨模块联动**：Purchase→来料、Sales→出库、MES→领料/倒冲、OM→调拨
+- **L3 共享层**：单据编号、InventoryReservation、CostEntry、事务只追加
+
+### 测试工作流
+
+```
+Phase 1 基础数据 → Phase 2 入库 → Phase 3 出库 → Phase 4 生产 → Phase 5 仓储 → Phase 6 查询 → Phase 7 错误/UI/跨模块
+每个 Phase: 测试 → 记录结果 → 修复缺陷 → 重测 → 全部通过后进入下一 Phase
+```
+
+### 测试结果记录
+
+- **测试报告**：`docs/wms-test-report.md`（全部完成后输出）
+- **状态标记**：✅ 通过 / ⚠️ 部分实现 / ❌ 未实现 / ⏭ 无法测试（依赖未实现模块）
+- **缺陷优先级**：P0（阻塞） / P1（严重） / P2（一般）
+
+### 修复缺陷时注意
+
+- 修复后必须 `cargo clippy` 通过
+- 修复后必须重测对应测试项确认通过
+- 设计文档级别的变更需要用户确认后再修改

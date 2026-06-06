@@ -1,27 +1,59 @@
-use axum::response::Html;
+use axum::extract::Query;
+use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
+use rust_decimal::Decimal;
 
-use abt_core::wms::cycle_count::model::CreateCycleCountReq;
+use abt_core::master_data::product::ProductService;
+use abt_core::master_data::product::model::ProductQuery;
+use abt_core::shared::types::{DomainError, PageParams};
+use abt_core::wms::cycle_count::model::{CreateCycleCountReq, CreateCycleCountItemReq};
 use abt_core::wms::cycle_count::CycleCountService;
+use abt_core::wms::warehouse::model::WarehouseFilter;
+use abt_core::wms::warehouse::WarehouseService;
 
+use crate::components::icon;
+use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_cycle_count::{CycleCountCreatePath, CycleCountListPath};
-use crate::utils::RequestContext;
-
+use crate::routes::wms_cycle_count::*;
+use crate::utils::{RequestContext, empty_as_none};
 use abt_macros::require_permission;
+
+// ── Query Params ──
+
+#[derive(Debug, Deserialize)]
+pub struct ProductSearchParams {
+    pub name: Option<String>,
+    pub code: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ItemRowParams {
+    pub product_id: i64,
+}
 
 // ── Form Data ──
 
 #[derive(Debug, Deserialize)]
+struct CycleCountItemWeb {
+    product_id: String,
+    bin_id: Option<String>,
+    batch_no: Option<String>,
+    system_qty: String,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct CreateCycleCountForm {
-    pub warehouse_id: i64,
+    #[serde(deserialize_with = "empty_as_none")]
+    pub warehouse_id: Option<i64>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub zone_id: Option<i64>,
     pub count_date: String,
     pub is_blind: Option<String>,
     pub remark: Option<String>,
     pub action: Option<String>,
+    pub items_json: String,
 }
 
 // ── Handlers ──
@@ -30,17 +62,24 @@ pub struct CreateCycleCountForm {
 pub async fn get_cycle_count_create(
     _path: CycleCountCreatePath,
     ctx: RequestContext,
-) -> crate::errors::Result<Html<String>> {
+) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
-    let claims = ctx.claims;
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let warehouse_svc = state.warehouse_service();
 
-    let content = cycle_count_create_form();
+    let warehouses = warehouse_svc
+        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
+        .await
+        .map(|r| r.items)
+        .unwrap_or_default();
+
+    let content = cycle_count_create_page(&warehouses);
     let page_html = admin_page(
         is_htmx,
         "新建盘点",
         &claims,
         "inventory",
-        CycleCountListPath::PATH,
+        CycleCountCreatePath::PATH,
         "库存管理",
         Some("新建盘点"),
         content,
@@ -49,27 +88,77 @@ pub async fn get_cycle_count_create(
     Ok(Html(page_html.into_string()))
 }
 
+/// HTMX: search products for the modal
+#[require_permission("PRODUCT", "read")]
+pub async fn get_products(
+    ctx: RequestContext,
+    Query(params): Query<ProductSearchParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.product_service();
+
+    let filter = ProductQuery {
+        name: params.name.filter(|s| !s.is_empty()),
+        code: params.code.filter(|s| !s.is_empty()),
+        status: None,
+        owner_department_id: None,
+        category_id: None,
+    };
+    let result = svc.list(&service_ctx, &mut conn, filter, PageParams::new(1, 20)).await?;
+
+    Ok(Html(product_list_fragment(&result.items).into_string()))
+}
+
+/// HTMX: return a single item row fragment
+#[require_permission("WMS", "write")]
+pub async fn get_item_row(
+    ctx: RequestContext,
+    Query(params): Query<ItemRowParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.product_service();
+    let product = svc.get(&service_ctx, &mut conn, params.product_id).await?;
+    Ok(Html(item_row_fragment(&product).into_string()))
+}
+
 #[require_permission("WMS", "write")]
 pub async fn create_cycle_count(
     _path: CycleCountCreatePath,
     ctx: RequestContext,
     axum::Form(form): axum::Form<CreateCycleCountForm>,
-) -> crate::errors::Result<axum::response::Response> {
+) -> Result<axum::response::Response> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.cycle_count_service();
 
     let count_date = chrono::NaiveDate::parse_from_str(&form.count_date, "%Y-%m-%d")
-        .map_err(|e| crate::errors::WebError::from(abt_core::shared::types::DomainError::Validation(format!("无效日期格式: {e}"))))?;
+        .map_err(|e| DomainError::validation(format!("无效日期格式: {e}")))?;
 
     let is_blind = form.is_blind.as_deref() == Some("on");
+    let warehouse_id = form.warehouse_id
+        .ok_or_else(|| DomainError::validation("请选择盘点仓库"))?;
+
+    let web_items: Vec<CycleCountItemWeb> = serde_json::from_str(&form.items_json)
+        .map_err(|e| DomainError::validation(format!("物料数据无效: {e}")))?;
+
+    let items: Vec<CreateCycleCountItemReq> = web_items.into_iter().map(|it| {
+        let product_id: i64 = it.product_id.parse().unwrap_or(0);
+        let bin_id: i64 = it.bin_id.as_ref().and_then(|s| s.parse().ok()).unwrap_or(0);
+        let system_qty: Decimal = it.system_qty.parse().unwrap_or(Decimal::ZERO);
+        CreateCycleCountItemReq {
+            bin_id,
+            product_id,
+            batch_no: it.batch_no.filter(|s| !s.is_empty()),
+            system_qty,
+        }
+    }).collect();
 
     let req = CreateCycleCountReq {
-        warehouse_id: form.warehouse_id,
+        warehouse_id,
         zone_id: form.zone_id,
         count_date,
         is_blind,
         remark: form.remark,
-        items: vec![],
+        items,
     };
 
     let id = svc.create(&service_ctx, &mut conn, req).await?;
@@ -78,35 +167,50 @@ pub async fn create_cycle_count(
         svc.start_count(&service_ctx, &mut conn, id).await?;
     }
 
-    let mut resp = axum::response::Response::default();
-    resp.headers_mut().insert(
-        axum::http::header::LOCATION,
-        CycleCountListPath::PATH.parse().unwrap(),
-    );
-    resp.headers_mut().insert(
-        "HX-Redirect",
-        CycleCountListPath::PATH.parse().unwrap(),
-    );
-    *resp.status_mut() = axum::http::StatusCode::SEE_OTHER;
-
-    Ok(resp)
+    let redirect = CycleCountListPath.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())).into_response())
 }
 
 // ── Components ──
 
-fn cycle_count_create_form() -> Markup {
+fn cycle_count_create_page(
+    warehouses: &[abt_core::wms::warehouse::model::Warehouse],
+) -> Markup {
     html! {
-        div class="data-card" {
-            form method="POST" action=(CycleCountCreatePath::PATH)
-                hx-post=(CycleCountCreatePath::PATH)
-                hx-redirect=(CycleCountListPath::PATH) {
+        div {
+            a href=(CycleCountListPath::PATH) class="back-link" {
+                (icon::chevron_left_icon("w-4 h-4"))
+                "返回盘点列表"
+            }
+
+            div class="page-header" {
+                h1 class="page-title" { "新建盘点" }
+            }
+
+            div class="workflow-steps" {
+                div class="wf-step current" { span class="wf-dot" {} "草稿" }
+                div class="wf-line" {}
+                div class="wf-step" { span class="wf-dot" {} "盘点中" }
+                div class="wf-line" {}
+                div class="wf-step" { span class="wf-dot" {} "完成" }
+            }
+
+            form hx-post=(CycleCountCreatePath::PATH) hx-swap="none" id="cycleCountForm"
+                onsubmit="return cycleCountCollectItems()" {
 
                 div class="wms-form-section" {
+                    div class="form-section-title" {
+                        (icon::building_icon("w-4 h-4"))
+                        "盘点信息"
+                    }
                     div class="wms-form-grid" {
                         div class="form-field" {
-                            label class="form-label" { "仓库" }
+                            label class="form-label" { "仓库 " span class="required" { "*" } }
                             select class="form-select" name="warehouse_id" required {
                                 option value="" { "请选择仓库" }
+                                @for w in warehouses {
+                                    option value=(w.id) { (w.name) }
+                                }
                             }
                         }
                         div class="form-field" {
@@ -116,8 +220,8 @@ fn cycle_count_create_form() -> Markup {
                             }
                         }
                         div class="form-field" {
-                            label class="form-label" { "盘点日期" }
-                            input class="form-input" type="date" name="count_date" required;
+                            label class="form-label" { "盘点日期 " span class="required" { "*" } }
+                            input class="form-input" type="date" name="count_date" required {}
                         }
                         div class="form-field" {
                             label class="form-label" { "盲盘模式" }
@@ -126,12 +230,49 @@ fn cycle_count_create_form() -> Markup {
                                 "开启盲盘（隐藏系统数量）"
                             }
                         }
-                        div class="form-field" style="grid-column:1/-1" {
-                            label class="form-label" { "备注" }
-                            textarea class="form-input" name="remark" rows="3" placeholder="可选备注…" {}
-                        }
                     }
                 }
+
+                // ── Line Items ──
+                div class="wms-form-section" {
+                    div class="form-section-title" {
+                        (icon::box_icon("w-4 h-4"))
+                        "盘点物料"
+                        span id="cc-item-count" style="margin-left:auto;font-size:var(--text-xs);font-weight:400;color:var(--muted)" { "共 0 项" }
+                    }
+                    div class="data-card" {
+                        table class="data-table" {
+                            thead {
+                                tr {
+                                    th style="width:40px" { "行号" }
+                                    th { "产品编码" }
+                                    th { "产品名称" }
+                                    th { "规格" }
+                                    th style="width:100px" { "储位" }
+                                    th style="width:120px" { "批次号" }
+                                    th style="width:100px" { "系统数量" }
+                                    th style="width:40px" { }
+                                }
+                            }
+                            tbody id="cc-item-tbody" { }
+                        }
+                    }
+                    button type="button" class="add-row-btn"
+                        onclick="me('#product-modal').classAdd('is-open')" {
+                        (icon::plus_icon("w-3.5 h-3.5"))
+                        "添加物料"
+                    }
+                }
+
+                div class="wms-form-section" {
+                    div class="form-section-title" {
+                        (icon::edit_icon("w-4 h-4"))
+                        "备注"
+                    }
+                    textarea class="form-input" name="remark" rows="3" placeholder="可选备注…" style="resize:vertical;width:100%;min-height:80px" {}
+                }
+
+                input type="hidden" name="items_json" id="cc-items-json" value="[]" {}
 
                 div class="create-action-bar" {
                     a class="btn btn-default" href=(CycleCountListPath::PATH) { "取消" }
@@ -139,10 +280,148 @@ fn cycle_count_create_form() -> Markup {
                         "保存草稿"
                     }
                     button type="submit" class="btn btn-primary" name="action" value="start" {
+                        (icon::check_circle_icon("w-4 h-4"))
                         "开始盘点"
                     }
                 }
             }
+        }
+
+        // ── Product Search Modal ──
+        div id="product-modal" class="modal-overlay"
+            onclick="hsBackdropClose(this,event,'is-open')" {
+            div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal-head" {
+                    h2 { "选择物料" }
+                    button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                        onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
+                }
+                div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                    div class="product-search-bar" {
+                        div class="product-search-field" {
+                            label class="product-search-label" { "产品名称" }
+                            input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
+                                hx-get=(CycleCountProductsPath::PATH)
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-target="#cc-product-results"
+                                hx-swap="innerHTML"
+                                hx-include=".product-search-bar" {}
+                        }
+                        div class="product-search-field" {
+                            label class="product-search-label" { "产品编码" }
+                            input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
+                                hx-get=(CycleCountProductsPath::PATH)
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-target="#cc-product-results"
+                                hx-swap="innerHTML"
+                                hx-include=".product-search-bar" {}
+                        }
+                        button type="button" class="product-search-clear"
+                            hx-get=(CycleCountProductsPath::PATH)
+                            hx-target="#cc-product-results"
+                            hx-swap="innerHTML"
+                            onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
+                            "清除"
+                        }
+                    }
+                    div id="cc-product-results" {
+                        div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                            (icon::package_icon("w-8 h-8"))
+                            p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "输入关键词搜索物料" }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── JS ──
+        (maud::PreEscaped(r#"<script>
+        function ccCalcSummary() {
+            var tbody = document.getElementById('cc-item-tbody');
+            var rows = tbody.querySelectorAll('tr');
+            document.getElementById('cc-item-count').textContent = '共 ' + rows.length + ' 项';
+        }
+
+        function ccRenumber() {
+            var tbody = document.getElementById('cc-item-tbody');
+            var rows = tbody.querySelectorAll('tr');
+            rows.forEach(function(row, i) {
+                row.querySelector('.line-num').textContent = i + 1;
+            });
+            ccCalcSummary();
+        }
+
+        function cycleCountCollectItems() {
+            var tbody = document.getElementById('cc-item-tbody');
+            var rows = tbody.querySelectorAll('tr');
+            var items = [];
+            rows.forEach(function(row) {
+                items.push({
+                    product_id: row.querySelector('input[name="product_id"]').value,
+                    bin_id: row.querySelector('input[name="bin_id"]').value || null,
+                    batch_no: row.querySelector('input[name="batch_no"]').value || null,
+                    system_qty: row.querySelector('input[name="system_qty"]').value || '0'
+                });
+            });
+            document.getElementById('cc-items-json').value = JSON.stringify(items);
+            return true;
+        }
+        </script>"#))
+    }
+}
+
+/// Product search results fragment
+fn product_list_fragment(products: &[abt_core::master_data::product::model::Product]) -> Markup {
+    html! {
+        @if products.is_empty() {
+            div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                (icon::package_icon("w-8 h-8"))
+                p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的产品" }
+            }
+        } @else {
+            div class="product-select-list" {
+                @for p in products {
+                    div class="product-select-item" {
+                        div class="product-select-info" {
+                            div class="product-select-name" { (p.pdt_name) }
+                            div class="product-select-meta" {
+                                span class="product-select-code" { (p.product_code) }
+                                span class="product-select-sep" { "·" }
+                                span { (p.meta.specification) }
+                                span class="product-select-sep" { "·" }
+                                span { (p.unit) }
+                            }
+                        }
+                        button type="button" class="btn btn-sm btn-primary"
+                            hx-get=(format!("{}?product_id={}", CycleCountItemRowPath::PATH, p.product_id))
+                            hx-target="#cc-item-tbody"
+                            hx-swap="beforeend"
+                            hx-on::after-request="hsRemove(null,'#product-modal','is-open');setTimeout(ccRenumber,50)" {
+                            "选择"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Single item row fragment
+fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -> Markup {
+    html! {
+        tr {
+            td class="line-num" { }
+            td class="mono" { (product.product_code) }
+            td { (product.pdt_name) }
+            td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
+            td { input class="form-input" type="number" name="bin_id" placeholder="储位ID" style="width:80px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input" type="text" name="batch_no" placeholder="批次号" style="width:100px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input num-input" type="number" min="0" step="any" name="system_qty" placeholder="0" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { button type="button" class="btn-remove-row" title="删除行"
+                onclick="hsRemoveClosestEl(this,'tr');setTimeout(ccRenumber,50)" {
+                (icon::x_icon("w-3.5 h-3.5"))
+            } }
+            input type="hidden" name="product_id" value=(product.product_id) {}
         }
     }
 }

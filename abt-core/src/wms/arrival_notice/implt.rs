@@ -271,20 +271,16 @@ impl ArrivalNoticeService for ArrivalNoticeServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found(format!("ArrivalNotice #{id}")))?;
 
-        if notice.status != ArrivalStatus::Draft {
+        if !matches!(notice.status, ArrivalStatus::Draft | ArrivalStatus::Received) {
             return Err(DomainError::InvalidStateTransition {
                 from: format!("{:?}", notice.status),
                 to: "Cancelled".to_string(),
             });
         }
 
-        let affected = ArrivalNoticeRepo::soft_delete(&mut *db, id)
+        ArrivalNoticeRepo::update_status(&mut *db, id, ArrivalStatus::Cancelled)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
-
-        if affected == 0 {
-            return Err(DomainError::not_found(format!("ArrivalNotice #{id}")));
-        }
 
         Ok(())
     }

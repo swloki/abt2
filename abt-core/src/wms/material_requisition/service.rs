@@ -5,7 +5,7 @@ use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
-use super::model::{MaterialRequisition, RequisitionFilter, IssueMaterialReq};
+use super::model::{MaterialRequisition, RequisitionFilter, IssueMaterialReq, CreateManualReq};
 
 #[async_trait]
 pub trait MaterialRequisitionService: Send + Sync {
@@ -13,6 +13,13 @@ pub trait MaterialRequisitionService: Send + Sync {
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
         work_order_id: i64,
+    ) -> Result<i64>;
+
+    /// 手动创建领料单（非工单驱动）
+    async fn create_manual(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        req: CreateManualReq,
     ) -> Result<i64>;
 
     async fn get(

@@ -4,7 +4,7 @@ use maud::{html, Markup};
 use rust_decimal::Decimal;
 
 use abt_core::wms::enums::RequisitionStatus;
-use abt_core::wms::material_requisition::model::MaterialRequisition;
+use abt_core::wms::material_requisition::model::{IssueItemReq, IssueMaterialReq, MaterialRequisition};
 use abt_core::wms::material_requisition::repo::MaterialRequisitionRepo;
 use abt_core::wms::material_requisition::MaterialRequisitionService;
 
@@ -14,6 +14,13 @@ use crate::layout::page::admin_page;
 use crate::routes::wms_requisition::*;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
+
+// ── Form Data ──
+
+#[derive(Debug, serde::Deserialize)]
+pub struct RequisitionActionForm {
+    pub action: String,
+}
 
 // ── Status Label ──
 
@@ -92,8 +99,8 @@ pub async fn get_requisition_detail(
         .await
         .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
 
-    let content = requisition_detail_page(&requisition, &items);
     let detail_path = RequisitionDetailPath { id: path.id }.to_string();
+    let content = requisition_detail_page(&requisition, &items, &detail_path);
     let page_html = admin_page(
         is_htmx,
         &format!("{} - 领料单详情", requisition.doc_number),
@@ -108,15 +115,56 @@ pub async fn get_requisition_detail(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("WMS", "write")]
+pub async fn post_requisition_action(
+    path: RequisitionDetailPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<RequisitionActionForm>,
+) -> crate::errors::Result<axum::response::Response> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.material_requisition_service();
+
+    match form.action.as_str() {
+        "confirm" => svc.confirm(&service_ctx, &mut conn, path.id).await?,
+        "cancel" => svc.cancel(&service_ctx, &mut conn, path.id).await?,
+        "issue" => {
+            // 快速发料：实发数量 = 需求数量
+            let items = MaterialRequisitionRepo::get_items(&mut conn, path.id)
+                .await
+                .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
+            let issue_items: Vec<IssueItemReq> = items.iter()
+                .map(|item| IssueItemReq {
+                    item_id: item.id,
+                    issued_qty: item.requested_qty,
+                    bin_id: None,
+                })
+                .collect();
+            svc.issue(&service_ctx, &mut conn, IssueMaterialReq {
+                id: path.id,
+                items: issue_items,
+            }).await?;
+        }
+        _ => {}
+    }
+
+    let redirect_url = RequisitionDetailPath { id: path.id }.to_string();
+    let mut resp = axum::response::Response::default();
+    resp.headers_mut().insert(
+        axum::http::HeaderName::from_static("hx-redirect"),
+        redirect_url.parse().unwrap(),
+    );
+
+    Ok(resp)
+}
+
 // ── Components ──
 
 fn requisition_detail_page(
     requisition: &MaterialRequisition,
     items: &[abt_core::wms::material_requisition::model::MaterialReqItem],
+    detail_path: &str,
 ) -> Markup {
     let (status_text, status_class) = status_label(requisition.status);
-    let is_draft = requisition.status == RequisitionStatus::Draft;
-    let is_confirmed = requisition.status == RequisitionStatus::Confirmed;
 
     html! {
         div {
@@ -133,24 +181,7 @@ fn requisition_detail_page(
                     }
                 }
                 div class="page-actions" {
-                    @if is_draft || is_confirmed {
-                        button class="btn btn-default" {
-                            (icon::x_icon("w-4 h-4"))
-                            "取消"
-                        }
-                    }
-                    @if is_confirmed {
-                        button class="btn btn-primary" {
-                            (icon::bolt_icon("w-4 h-4"))
-                            "确认发料"
-                        }
-                    }
-                    @if is_draft {
-                        button class="btn btn-primary" {
-                            (icon::check_circle_icon("w-4 h-4"))
-                            "确认"
-                        }
-                    }
+                    (requisition_action_buttons(requisition.status, detail_path))
                 }
             }
 
@@ -221,5 +252,51 @@ fn requisition_detail_page(
                 }
             }
         }
+    }
+}
+
+fn requisition_action_buttons(status: RequisitionStatus, detail_path: &str) -> Markup {
+    match status {
+        RequisitionStatus::Draft => {
+            html! {
+                button class="btn btn-default"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"cancel"}"#
+                    hx-confirm="确定要取消此领料单吗？"
+                    hx-redirect=(detail_path) {
+                    (icon::x_icon("w-4 h-4"))
+                    "取消"
+                }
+                button class="btn btn-primary"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"confirm"}"#
+                    hx-confirm="确定要确认此领料单吗？"
+                    hx-redirect=(detail_path) {
+                    (icon::check_circle_icon("w-4 h-4"))
+                    "确认"
+                }
+            }
+        }
+        RequisitionStatus::Confirmed => {
+            html! {
+                button class="btn btn-default"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"cancel"}"#
+                    hx-confirm="确定要取消此领料单吗？"
+                    hx-redirect=(detail_path) {
+                    (icon::x_icon("w-4 h-4"))
+                    "取消"
+                }
+                button class="btn btn-primary"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"issue"}"#
+                    hx-confirm="确定要确认发料吗？实发数量将按需求数量自动填写。"
+                    hx-redirect=(detail_path) {
+                    (icon::bolt_icon("w-4 h-4"))
+                    "确认发料"
+                }
+            }
+        }
+        _ => html! {},
     }
 }

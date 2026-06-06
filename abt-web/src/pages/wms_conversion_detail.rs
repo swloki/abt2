@@ -1,5 +1,4 @@
 use axum::response::Html;
-use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 
 use crate::errors::Result;
@@ -11,6 +10,15 @@ use crate::layout::page::admin_page;
 use abt_core::wms::enums::{ConversionDir, ConversionStatus};
 use abt_core::wms::form_conversion::{ConversionItem, FormConversionService};
 use crate::components::icon;
+
+// ── Form Data ──
+
+#[derive(Debug, serde::Deserialize)]
+pub struct ConversionActionForm {
+    pub action: String,
+}
+
+// ── Handlers ──
 
 #[require_permission("WMS", "read")]
 pub async fn get_conversion_detail(
@@ -24,7 +32,8 @@ pub async fn get_conversion_detail(
     let conversion = svc.get(&service_ctx, &mut conn, path.id).await?;
     let items = svc.get_items(&service_ctx, &mut conn, path.id).await?;
 
-    let content = conversion_detail_page(&conversion, &items);
+    let detail_path = ConversionDetailPath { id: path.id }.to_string();
+    let content = conversion_detail_page(&conversion, &items, &detail_path);
     let page_html = admin_page(
         is_htmx,
         "形态转换详情",
@@ -38,17 +47,43 @@ pub async fn get_conversion_detail(
     Ok(Html(page_html.into_string()))
 }
 
+#[require_permission("WMS", "write")]
+pub async fn post_conversion_action(
+    path: ConversionDetailPath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ConversionActionForm>,
+) -> crate::errors::Result<axum::response::Response> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.form_conversion_service();
+
+    match form.action.as_str() {
+        "complete" => svc.complete(&service_ctx, &mut conn, path.id).await?,
+        "cancel" => svc.cancel(&service_ctx, &mut conn, path.id).await?,
+        _ => {}
+    }
+
+    let redirect_url = ConversionDetailPath { id: path.id }.to_string();
+    let mut resp = axum::response::Response::default();
+    resp.headers_mut().insert(
+        axum::http::HeaderName::from_static("hx-redirect"),
+        redirect_url.parse().unwrap(),
+    );
+
+    Ok(resp)
+}
+
+// ── Components ──
+
 fn conversion_detail_page(
     conversion: &abt_core::wms::form_conversion::FormConversion,
     items: &[ConversionItem],
+    detail_path: &str,
 ) -> Markup {
     let (status_label, status_class) = match conversion.status {
         ConversionStatus::Draft => ("草稿", "status-draft"),
         ConversionStatus::Completed => ("已完成", "status-completed"),
         ConversionStatus::Cancelled => ("已取消", "status-cancelled"),
     };
-
-    let show_actions = matches!(conversion.status, ConversionStatus::Draft);
 
     let consume_items: Vec<_> = items.iter().filter(|i| i.direction == ConversionDir::Consume).collect();
     let produce_items: Vec<_> = items.iter().filter(|i| i.direction == ConversionDir::Produce).collect();
@@ -68,16 +103,7 @@ fn conversion_detail_page(
                     }
                 }
                 div class="page-actions" {
-                    @if show_actions {
-                        button class="btn btn-default" {
-                            (icon::x_icon("w-4 h-4"))
-                            "取消"
-                        }
-                        button class="btn btn-primary" {
-                            (icon::check_circle_icon("w-4 h-4"))
-                            "确认完成"
-                        }
-                    }
+                    (conversion_action_buttons(conversion.status, detail_path))
                 }
             }
 
@@ -205,6 +231,32 @@ fn conversion_detail_page(
                 }
             }
         }
+    }
+}
+
+fn conversion_action_buttons(status: ConversionStatus, detail_path: &str) -> Markup {
+    match status {
+        ConversionStatus::Draft => {
+            html! {
+                button class="btn btn-default"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"cancel"}"#
+                    hx-confirm="确定要取消此转换单吗？"
+                    hx-redirect=(detail_path) {
+                    (icon::x_icon("w-4 h-4"))
+                    "取消"
+                }
+                button class="btn btn-primary"
+                    hx-post=(detail_path)
+                    hx-vals=r#"{"action":"complete"}"#
+                    hx-confirm="确定要完成形态转换吗？"
+                    hx-redirect=(detail_path) {
+                    (icon::check_circle_icon("w-4 h-4"))
+                    "确认完成"
+                }
+            }
+        }
+        _ => html! {},
     }
 }
 

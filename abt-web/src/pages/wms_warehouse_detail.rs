@@ -26,6 +26,7 @@ pub struct ZoneForm {
     pub code: String,
     pub name: String,
     pub zone_type: i16,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub sort_order: Option<i32>,
     pub remark: Option<String>,
 }
@@ -90,6 +91,40 @@ pub async fn get_warehouse_edit(
 }
 
 #[require_permission("WAREHOUSE", "write")]
+pub async fn update_warehouse(
+    path: WarehouseEditPath,
+    ctx: RequestContext,
+    Form(form): Form<crate::pages::wms_warehouse_create::WarehouseCreateForm>,
+) -> crate::errors::Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.warehouse_service();
+
+    let warehouse_type = WarehouseType::from_i16(form.warehouse_type)
+        .ok_or_else(|| abt_core::shared::types::DomainError::validation("无效的仓库类型"))?;
+
+    let is_virtual = form.is_virtual.is_some();
+
+    if form.name.trim().is_empty() {
+        return Err(abt_core::shared::types::DomainError::validation("仓库名称不能为空").into());
+    }
+
+    let req = UpdateWarehouseReq {
+        name: Some(form.name),
+        warehouse_type: Some(warehouse_type),
+        address: if is_virtual { None } else { form.address.filter(|s| !s.is_empty()) },
+        manager_id: form.manager_id,
+        is_virtual: Some(is_virtual),
+        remark: form.remark.filter(|s| !s.is_empty()),
+        status: None,
+    };
+
+    svc.update(&service_ctx, &mut conn, path.id, req).await?;
+
+    let redirect = WarehouseDetailPath { id: path.id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
+#[require_permission("WAREHOUSE", "write")]
 pub async fn delete_warehouse(
     path: WarehouseDeletePath,
     ctx: RequestContext,
@@ -103,6 +138,17 @@ pub async fn delete_warehouse(
 }
 
 // ── Zone CRUD ──
+
+#[require_permission("WAREHOUSE", "read")]
+pub async fn get_zones(
+    path: WarehouseZoneCreatePath,
+    ctx: RequestContext,
+) -> crate::errors::Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.warehouse_service();
+    let zones = svc.list_zones(&service_ctx, &mut conn, path.id).await?;
+    Ok(Html(zones_table_fragment(&zones, path.id).into_string()))
+}
 
 #[require_permission("WAREHOUSE", "write")]
 pub async fn create_zone(
@@ -133,6 +179,17 @@ pub async fn create_zone(
         [("HX-Trigger", "zoneChanged")],
         Html(zones_table_fragment(&zones, path.id).into_string()),
     ))
+}
+
+#[require_permission("WAREHOUSE", "read")]
+pub async fn get_zone_edit_form(
+    path: WarehouseZonePath,
+    ctx: RequestContext,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.warehouse_service();
+    let zone = svc.get_zone(&service_ctx, &mut conn, path.zone_id).await?;
+    Ok(Html(zone_edit_form_fragment(&zone).into_string()))
 }
 
 #[require_permission("WAREHOUSE", "write")]
@@ -257,7 +314,7 @@ fn warehouse_detail_page(
     let type_label = warehouse_type_label(&warehouse.warehouse_type);
 
     html! {
-        div _="on zoneChanged from the body remove .is-open from #zone-create-modal" {
+        div {
         // ── Detail Header ──
         div class="detail-header" style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:var(--space-5)" {
             div {
@@ -344,8 +401,8 @@ fn warehouse_detail_page(
                         "共 " (zones.len()) " 个库区"
                     }
                 }
-                button type="button" class="btn btn-primary" style="font-size:12px;padding:4px 12px"
-                    onclick="document.getElementById('zone-create-modal').classList.add('is-open')" {
+                button type="button" class="btn btn-primary" style="font-size:12px;padding:4px 12px" {
+                    (maud::PreEscaped("<script>me().on('click',function(){me('#zone-create-modal').classAdd('is-open')})</script>"))
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "新建库区"
                 }
@@ -414,71 +471,78 @@ fn warehouse_detail_page(
         ))
 
         // ── Zone Edit Modal ──
-        div id="zone-edit-modal" class="modal-overlay" onclick="hsBackdropClose(this,event,'is-open')" {
-            form id="edit-zone-form" class="modal" hx-put="" hx-swap="none"
-                onsubmit="hsRemoveClosest(this,'.modal-overlay','is-open');this.reset()" {
-                div class="modal-head" {
-                    h2 { "编辑库区" }
-                    button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open');me('#edit-zone-form').reset()" { "×" }
+        div id="zone-edit-modal" class="modal-overlay" { }
+        (maud::PreEscaped(r#"<script>
+me('#zone-edit-modal')
+    .on('htmx:afterSettle',function(ev){if(ev.detail.xhr.responseText.length>0)me(this).classAdd('is-open')})
+    .on('click',function(ev){if(ev.target===me('#zone-edit-modal'))me('#zone-edit-modal').classRemove('is-open')});
+document.body.addEventListener('zoneChanged',function(){me('#zone-edit-modal').classRemove('is-open')});
+</script>"#))
+        }
+    }
+}
+
+fn zone_edit_form_fragment(zone: &Zone) -> Markup {
+    let put_path = WarehouseZonePath { zone_id: zone.id };
+    let type_val: i16 = match zone.zone_type {
+        ZoneType::Receiving => 1,
+        ZoneType::Storage => 2,
+        ZoneType::Picking => 3,
+        ZoneType::Packing => 4,
+        ZoneType::Inspection => 5,
+        ZoneType::Returns => 6,
+    };
+
+    html! {
+        form class="modal" hx-put=(put_path) hx-swap="none" {
+            div class="modal-head" {
+                h2 { "编辑库区" }
+                button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px" {
+                    (maud::PreEscaped("<script>me().on('click',function(){me('#zone-edit-modal').classRemove('is-open')})</script>"))
+                    "×"
                 }
-                div class="modal-body" {
-                    input type="hidden" name="zone_id" id="edit-zone-id";
-                    div class="form-grid" {
-                        div class="form-field" {
-                            label { "库区编码" }
-                            input type="text" name="code" id="edit-zone-code" readonly
-                                style="background:var(--surface);color:var(--muted)";
+            }
+            div class="modal-body" {
+                div class="form-grid" {
+                    div class="form-field" {
+                        label { "库区编码" }
+                        input type="text" name="code" value=(zone.code) readonly
+                            style="background:var(--surface);color:var(--muted)";
+                    }
+                    div class="form-field" {
+                        label { "库区名称 " span style="color:var(--danger)" { "*" } }
+                        input type="text" name="name" value=(zone.name) required;
+                    }
+                    div class="form-field" {
+                        label { "库区类型 " span style="color:var(--danger)" { "*" } }
+                        select name="zone_type" required {
+                            option value="1" selected[type_val == 1] { "收货区" }
+                            option value="2" selected[type_val == 2] { "存储区" }
+                            option value="3" selected[type_val == 3] { "拣货区" }
+                            option value="4" selected[type_val == 4] { "包装区" }
+                            option value="5" selected[type_val == 5] { "待检区" }
+                            option value="6" selected[type_val == 6] { "退货区" }
                         }
-                        div class="form-field" {
-                            label { "库区名称 " span style="color:var(--danger)" { "*" } }
-                            input type="text" name="name" id="edit-zone-name" required;
-                        }
-                        div class="form-field" {
-                            label { "库区类型 " span style="color:var(--danger)" { "*" } }
-                            select name="zone_type" id="edit-zone-type" required {
-                                option value="1" { "收货区" }
-                                option value="2" { "存储区" }
-                                option value="3" { "拣货区" }
-                                option value="4" { "包装区" }
-                                option value="5" { "待检区" }
-                                option value="6" { "退货区" }
-                            }
-                        }
-                        div class="form-field" {
-                            label { "排序" }
-                            input type="number" name="sort_order" id="edit-zone-sort";
-                        }
-                        div class="form-field field-full" {
-                            label { "备注" }
-                            textarea name="remark" id="edit-zone-remark"
-                                style="width:100%;min-height:60px;resize:vertical" {}
+                    }
+                    div class="form-field" {
+                        label { "排序" }
+                        input type="number" name="sort_order" value=(zone.sort_order);
+                    }
+                    div class="form-field field-full" {
+                        label { "备注" }
+                        textarea name="remark" style="width:100%;min-height:60px;resize:vertical" {
+                            (zone.remark.as_deref().unwrap_or(""))
                         }
                     }
                 }
-                div class="modal-foot" {
-                    button type="button" class="btn btn-default"
-                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open');me('#edit-zone-form').reset()" { "取消" }
-                    button type="submit" class="btn btn-primary" { "保存" }
-                }
             }
-        }
-        // ── Zone Edit Script ──
-        script {
-            r#"
-            window.openEditZone = function(id, code, name, type, remark) {
-                var form = document.getElementById('edit-zone-form');
-                document.getElementById('edit-zone-id').value = id;
-                document.getElementById('edit-zone-code').value = code;
-                document.getElementById('edit-zone-name').value = name;
-                document.getElementById('edit-zone-type').value = type;
-                document.getElementById('edit-zone-sort').value = '';
-                document.getElementById('edit-zone-remark').value = remark;
-                form.setAttribute('hx-put', '/admin/wms/warehouses/zones/' + id);
-                document.getElementById('zone-edit-modal').classList.add('is-open');
-            };
-            "#
-        }
+            div class="modal-foot" {
+                button type="button" class="btn btn-default" {
+                    (maud::PreEscaped("<script>me().on('click',function(){me('#zone-edit-modal').classRemove('is-open')})</script>"))
+                    "取消"
+                }
+                button type="submit" class="btn btn-primary" { "保存" }
+            }
         }
     }
 }
@@ -543,19 +607,9 @@ fn zone_row(z: &Zone, warehouse_id: i64) -> Markup {
                         (icon::eye_icon("w-4 h-4"))
                     }
                     button type="button" class="row-action-btn" title="编辑"
-                        onclick=(format!(
-                            "openEditZone({},'{}','{}',{},'{}')",
-                            z.id, z.code, z.name,
-                            match z.zone_type {
-                                ZoneType::Receiving => 1,
-                                ZoneType::Storage => 2,
-                                ZoneType::Picking => 3,
-                                ZoneType::Packing => 4,
-                                ZoneType::Inspection => 5,
-                                ZoneType::Returns => 6,
-                            },
-                            z.remark.as_deref().unwrap_or("")
-                        )) {
+                        hx-get=(WarehouseZonePath { zone_id: z.id })
+                        hx-target="#zone-edit-modal"
+                        hx-swap="innerHTML" {
                         (icon::edit_icon("w-4 h-4"))
                     }
                     button type="button" class="row-action-btn" title="删除" style="color:var(--danger)"

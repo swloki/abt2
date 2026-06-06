@@ -11,7 +11,10 @@ use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::DocumentType;
+use crate::wms::enums::TransactionType;
 use crate::wms::enums::TransferStatus;
+use crate::wms::inventory_transaction::model::RecordTransactionReq;
+use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
 
 pub struct TransferServiceImpl {
     pool: PgPool,
@@ -90,6 +93,8 @@ impl TransferService for TransferServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))
     }
 
+    /// 发货：Draft → InTransit
+    /// 设计：dispatch -> 扣减源仓库库存（InventoryTransaction.Transfer 负数）
     async fn dispatch(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -105,6 +110,29 @@ impl TransferService for TransferServiceImpl {
             });
         }
 
+        let items = TransferRepo::get_items(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 扣减源仓库库存
+        let tx_svc = new_inventory_transaction_service(self.pool.clone());
+        for item in &items {
+            tx_svc.record(ctx, db, RecordTransactionReq {
+                doc_number: Some(transfer.doc_number.clone()),
+                transaction_type: TransactionType::Transfer,
+                product_id: item.product_id,
+                warehouse_id: transfer.from_warehouse_id,
+                zone_id: transfer.from_zone_id,
+                bin_id: transfer.from_bin_id,
+                batch_no: item.batch_no.clone(),
+                quantity: -item.quantity,
+                unit_cost: None,
+                source_type: "inventory_transfer".to_string(),
+                source_id: id,
+                remark: Some("调拨发货-扣减源仓库".to_string()),
+            }).await?;
+        }
+
         TransferRepo::update_status(&mut *db, id, TransferStatus::InTransit)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
@@ -112,6 +140,8 @@ impl TransferService for TransferServiceImpl {
         Ok(())
     }
 
+    /// 完成：InTransit → Completed
+    /// 设计：complete -> 增加目标仓库库存（InventoryTransaction.Transfer 正数）
     async fn complete(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -125,6 +155,29 @@ impl TransferService for TransferServiceImpl {
                 from: format!("{:?}", transfer.status),
                 to: "Completed".to_string(),
             });
+        }
+
+        let items = TransferRepo::get_items(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 增加目标仓库库存
+        let tx_svc = new_inventory_transaction_service(self.pool.clone());
+        for item in &items {
+            tx_svc.record(ctx, db, RecordTransactionReq {
+                doc_number: Some(transfer.doc_number.clone()),
+                transaction_type: TransactionType::Transfer,
+                product_id: item.product_id,
+                warehouse_id: transfer.to_warehouse_id,
+                zone_id: transfer.to_zone_id,
+                bin_id: transfer.to_bin_id,
+                batch_no: item.batch_no.clone(),
+                quantity: item.quantity,
+                unit_cost: None,
+                source_type: "inventory_transfer".to_string(),
+                source_id: id,
+                remark: Some("调拨完成-增加目标仓库".to_string()),
+            }).await?;
         }
 
         TransferRepo::update_status(&mut *db, id, TransferStatus::Completed)

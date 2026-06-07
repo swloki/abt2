@@ -28,6 +28,8 @@ pub trait WorkOrderService: Send + Sync {
         id: i64,
         expected_version: i32,
     ) -> Result<()>;
+    async fn get_product_name(&self, db: PgExecutor<'_>, product_id: i64) -> Result<Option<String>>;
+
     async fn list(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

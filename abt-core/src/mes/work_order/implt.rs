@@ -307,4 +307,15 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
+
+    async fn get_product_name(&self, db: PgExecutor<'_>, product_id: i64) -> Result<Option<String>> {
+        let row: Option<(String,)> = sqlx::query_as(
+            "SELECT pdt_name FROM products WHERE product_id = $1",
+        )
+        .bind(product_id)
+        .fetch_optional(&mut *db)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(row.map(|r| r.0))
+    }
 }

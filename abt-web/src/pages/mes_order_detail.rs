@@ -56,7 +56,9 @@ pub async fn get_order_detail(
         .find_by_id(&service_ctx, &mut conn, path.id)
         .await?;
 
-    let content = order_detail_page(&order);
+    let product_name = svc.get_product_name(&mut conn, order.product_id).await?.unwrap_or_default();
+
+    let content = order_detail_page(&order, &product_name);
     let page_html = admin_page(
         is_htmx,
         "工单详情",
@@ -138,7 +140,7 @@ pub async fn cancel_order(
 
 // ── Components ──
 
-fn order_detail_page(order: &abt_core::mes::work_order::WorkOrder) -> Markup {
+fn order_detail_page(order: &abt_core::mes::work_order::WorkOrder, product_name: &str) -> Markup {
     let (status_label, status_bg, status_color) = wo_status_label(&order.status);
 
     html! {
@@ -194,12 +196,12 @@ fn order_detail_page(order: &abt_core::mes::work_order::WorkOrder) -> Markup {
                         span class="info-value mono" { (order.doc_number) }
                     }
                     div class="info-item" {
-                        span class="info-label" { "产品ID" }
-                        span class="info-value mono" { (order.product_id) }
+                        span class="info-label" { "产品" }
+                        span class="info-value" { (product_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "计划数量" }
-                        span class="info-value mono" { (order.planned_qty) }
+                        span class="info-value mono" { (crate::utils::fmt_qty(order.planned_qty)) }
                     }
                     div class="info-item" {
                         span class="info-label" { "计划开始日期" }

@@ -128,8 +128,8 @@ fn report_data_card(
                             td { (item.process_name) }
                             td { (item.report_date) }
                             td { (wn) }
-                            td class="num-right mono" { (item.completed_qty) }
-                            td class="num-right mono" { (item.defect_qty) }
+                            td class="num-right mono" { (crate::utils::fmt_qty(item.completed_qty)) }
+                            td class="num-right mono" { (crate::utils::fmt_qty(item.defect_qty)) }
                             td { (sl) }
                             td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }
                         }

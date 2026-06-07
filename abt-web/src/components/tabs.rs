@@ -39,7 +39,7 @@ fn status_tab(hx_get: &str, hx_target: &str, hx_include: &str, tab: &TabItem, ac
     let vals = if tab.value.is_empty() {
         format!("{{\"{param_name}\": \"\"}}")
     } else {
-        format!("{{\"{param_name}\": {}}}", tab.value)
+        format!("{{\"{param_name}\": \"{}\"}}", tab.value)
     };
 
     html! {

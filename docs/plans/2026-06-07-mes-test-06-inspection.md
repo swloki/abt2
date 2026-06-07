@@ -1,8 +1,12 @@
 # MES-06 生产报检
 
-> 路由前缀: `/admin/mes/inspections`
-> 代码文件: `mes_inspection_list.rs`, `mes_inspection_create.rs`, `mes_inspection_detail.rs`
-> 原型文件: `04-inspection-list.html`, `04-inspection-create.html`, `04-inspection-detail.html`
+> **路由前缀**: `/admin/mes/inspections`
+> **代码文件**: `mes_inspection_list.rs`, `mes_inspection_create.rs`, `mes_inspection_detail.rs`
+> **路由文件**: `abt-web/src/routes/mes_inspection.rs`
+> **服务**: `abt-core/src/mes/production_inspection/`
+> **原型文件**: `04-inspection-list.html`, `04-inspection-create.html`, `04-inspection-detail.html`
+
+---
 
 ## 1. 检验列表页
 
@@ -11,41 +15,48 @@
 | ID | 测试项 | 操作 | 预期结果 |
 |----|--------|------|---------|
 | INSP-01 | 直接访问 | GET /admin/mes/inspections | 200，标题 "生产报检" |
-| INSP-02 | 侧栏导航 | 点击"生产报检" | 跳转 /admin/mes/inspections |
-| INSP-03 | Dashboard 入口 | 点击"生产报检"快捷卡片 | 跳转 /admin/mes/inspections |
+| INSP-02 | 侧栏导航 | 点击"生产报检" | 跳转 |
+| INSP-03 | Dashboard 入口 | 点击快捷卡片 | 跳转 |
 
 ### 1.2 页面头部
 
 | ID | 测试项 | 预期结果 |
 |----|--------|---------|
 | INSP-10 | 页面标题 | "生产报检" |
-| INSP-11 | 新建按钮 | 右侧 "新建检验" 按钮，链接 /admin/mes/inspections/create |
+| INSP-11 | 新建按钮 | "新建检验"，链接 /admin/mes/inspections/create |
 
 ### 1.3 检验类型 Tab 栏
 
-`status_tabs_with_param` 组件：
+| Tab | 值 | 标签 | 原型 count |
+|-----|---|------|-----------|
+| 全部 | (空) | 全部 | 52 |
+| FirstArticle | FirstArticle | 首检 | 12 |
+| InProcess | InProcess | 巡检 | 25 |
+| Final | Final | 完工检 | 15 |
 
-| Tab | 值 | 标签 | count |
-|-----|----|------|-------|
-| 全部 | (空) | 全部 | 0 |
-| FirstArticle | FirstArticle | 首检 | None |
-| InProcess | InProcess | 巡检 | None |
-| Final | Final | 完工检 | None |
+### 1.4 筛选区域（原型）
 
-### 1.4 Tab 交互测试
+原型有：
+- **搜索**: "搜索报检单号…"
+- **结果筛选**: select 全部结果/合格/不合格/让步接收
+- **工单筛选**: select 全部工单
 
-| ID | 测试项 | 操作 | 预期结果 |
-|----|--------|------|---------|
-| INSP-20 | 点击"首检" | 点击 Tab | HTMX 请求 InspectionTablePath，参数 inspection_type=FirstArticle |
-| INSP-21 | 点击"巡检" | 点击 Tab | 参数 inspection_type=InProcess |
-| INSP-22 | 点击"完工检" | 点击 Tab | 参数 inspection_type=Final |
-| INSP-23 | 全部 Tab 高亮 | 默认状态 | "全部" Tab 有 active 样式 |
+### 1.5 数据表格
 
-### 1.5 数据表格（当前为 Stub）
+**原型表头**:
 
-> **注意**: 列表和 table endpoint 都是 stub。
+| 列 | 说明 |
+|----|------|
+| 报检单号 | mono，链接 |
+| 工单 | 链接 |
+| 工序 | 文本 |
+| 产品 | 文本 |
+| 检验类型 | 颜色 pill |
+| 抽检结果 | 堆叠（抽样/合格/不良） |
+| 检验结果 | 颜色 pill（合格/不合格/让步接收） |
+| 检验信息 | 堆叠（检验员/日期） |
 
-表头：
+**实现表头**:
 
 | 列 | 对齐 |
 |----|------|
@@ -58,12 +69,16 @@
 | 结果 | 左 |
 | 操作 | 左 |
 
-### 1.6 Stub 状态测试
+### 1.6 列表测试
 
-| ID | 测试项 | 预期结果 |
-|----|--------|---------|
-| INSP-30 | 空数据提示 | "暂无检验记录" |
-| INSP-31 | Table endpoint | GET /admin/mes/inspections/table | 返回 "暂无数据" |
+| ID | 测试项 | 操作 | 预期结果 |
+|----|--------|------|---------|
+| INSP-20 | 空数据 | 无记录 | "暂无检验记录" |
+| INSP-21 | Tab 切换 | 点击"首检" | HTMX 刷新，参数 inspection_type=FirstArticle |
+| INSP-22 | Tab 高亮 | 默认 | "全部" active |
+| INSP-23 | 数据展示 | 有记录 | 显示所有列 |
+| INSP-24 | 行点击 | 点击行 | 跳转详情 |
+| INSP-25 | 分页 | >20 条 | 分页组件 |
 
 ---
 
@@ -73,41 +88,53 @@
 
 | ID | 测试项 | 操作 | 预期结果 |
 |----|--------|------|---------|
-| INSP-40 | 从列表进入 | 点击"新建检验" | 跳转 /admin/mes/inspections/create |
-| INSP-41 | 页面标题 | — | "新建检验" |
-| INSP-42 | 返回链接 | "← 返回列表" | 跳回 /admin/mes/inspections |
+| INSP-30 | 从列表进入 | 点击"新建检验" | 跳转 /admin/mes/inspections/create |
+| INSP-31 | 页面标题 | — | "新建检验" |
+| INSP-32 | 返回链接 | "← 返回列表" | 跳回列表 |
 
 ### 2.2 表单字段
 
-"检验信息" form-section + form-grid：
+**实现字段** (form-grid):
 
-| 字段 | 控件 | name | 必填 | 选项/说明 |
-|------|------|------|------|----------|
-| 工单ID | number | work_order_id | ✅ | — |
-| 产品ID | number | product_id | ✅ | — |
-| 工序ID | number | routing_id | — | 可选 |
-| 检验类型 | select | inspection_type | — | 首检(1) / 巡检(2) / 完工检(3) |
-| 样本数量 | number | sample_qty | ✅ | step=0.01 |
-| 检验日期 | date | inspection_date | ✅ | — |
-| 处置意见 | text | disposition | — | span-2 |
+| ID | 字段 | 控件 | name | 必填 | 选项/说明 |
+|----|------|------|------|------|----------|
+| INSP-40 | 工单ID | number | work_order_id | ✅ | — |
+| INSP-41 | 产品ID | number | product_id | ✅ | — |
+| INSP-42 | 工序ID | number | routing_id | — | 可选 |
+| INSP-43 | 检验类型 | select | inspection_type | — | 首检(1)/巡检(2)/完工检(3) |
+| INSP-44 | 样本数量 | number | sample_qty | ✅ | step=0.01 |
+| INSP-45 | 检验日期 | date | inspection_date | ✅ | — |
+| INSP-46 | 处置意见 | text | disposition | — | span-2 |
 
-> **注意**: 表单没有 remark 字段，但 `CreateInspectionReq` 包含 remark。UI 缺少备注输入框。
+**原型额外字段（对比）**:
+
+| 原型字段 | 实现状态 | 说明 |
+|---------|---------|------|
+| 报检单号（只读） | ❌ 缺失 | 自动 PI-2026-XX-XXXXX |
+| 工单选择器 | ❌ 缺失 | 原型用 select |
+| 工序选择器 | ❌ 缺失 | 原型用 select |
+| 产品（自动填充） | ❌ 缺失 | 选择工单后自动填充 |
+| 检验员选择器 | ❌ 缺失 | 原型用 select |
+| 合格数量 | ❌ 缺失 | number |
+| 不合格数量 | ❌ 缺失 | number |
+| 检验结果 | ❌ 缺失 | select 合格/不合格/让步接收 |
+| 备注 | ❌ 缺失 | CreateInspectionReq 有 remark |
 
 ### 2.3 提交测试
 
 | ID | 测试项 | 操作 | 预期结果 |
 |----|--------|------|---------|
 | INSP-50 | 空提交 | 不填直接提交 | HTML5 校验阻止 |
-| INSP-51 | 有效提交-首检 | 选择首检+填写必填项 | hx-post → HX-Redirect 到列表 |
+| INSP-51 | 有效提交-首检 | 选择首检+必填项 | hx-post → HX-Redirect 到列表 |
 | INSP-52 | 有效提交-巡检 | 选择巡检 | 同上 |
 | INSP-53 | 有效提交-完工检 | 选择完工检 | 同上 |
-| INSP-54 | 无效检验类型 | 修改 value 为不存在的值 | 服务端返回"无效检验类型" |
+| INSP-54 | 无效检验类型 | 不存在的值 | 服务端错误 |
 | INSP-55 | 取消 | 点击"取消" | 跳回列表 |
 
 ### 2.4 InspectionType 枚举映射
 
-| 表单 value | 枚举值 | 中文 |
-|------------|--------|------|
+| 表单 value | 枚举 | 中文 |
+|-----------|------|------|
 | 1 | FirstArticle | 首检 |
 | 2 | InProcess | 巡检 |
 | 3 | Final | 完工检 |
@@ -120,13 +147,13 @@
 
 | ID | 测试项 | 操作 | 预期结果 |
 |----|--------|------|---------|
-| INSP-60 | 直接访问 | GET /admin/mes/inspections/{id} | 200，标题 "检验 {doc_number}" |
-| INSP-61 | 返回链接 | "← 返回列表" | 跳回 /admin/mes/inspections |
+| INSP-60 | 直接访问 | GET /admin/mes/inspections/{id} | 200，标题含 doc_number |
+| INSP-61 | 返回链接 | "← 返回列表" | 跳回列表 |
 | INSP-62 | 无效 ID | /admin/mes/inspections/999999 | 错误页 |
 
-### 3.3 详情信息卡片
+### 3.2 详情信息卡片
 
-info-grid 布局：
+**实现字段** (info-grid):
 
 | 字段 | 样式 | 说明 |
 |------|------|------|
@@ -141,43 +168,55 @@ info-grid 布局：
 | 检验员 | — | inspector_id |
 | 检验日期 | — | inspection_date |
 
-### 3.4 检验结果颜色测试
+**原型额外字段**:
 
-| ID | 测试项 | 预期结果 |
-|----|--------|---------|
-| INSP-70 | Pass (合格) | 绿色背景 rgba(82,196,26,0.08)，绿色文字 |
-| INSP-71 | Fail (不合格) | 红色背景 rgba(245,63,63,0.06)，红色文字 |
-| INSP-72 | Conditional (让步接收) | 橙色背景 rgba(250,140,22,0.08)，橙色文字 |
+| 原型字段 | 实现状态 | 说明 |
+|---------|---------|------|
+| 工单编号+链接 | ❌ 缺失 | 原型有链接到工单 |
+| 工序名称 | ❌ 缺失 | 如"贴片(SMT)" |
+| 产品名称 | ❌ 缺失 | 如"PCB-A 主板" |
+| 检验员名称 | ❌ 缺失 | 如"李检查" |
+| 处置意见 | 需验证 | 单独子区域显示 |
 
-### 3.5 记录检验结果表单
+### 3.3 检验结果颜色测试
+
+| ID | 结果 | 预期颜色 |
+|----|------|---------|
+| INSP-70 | Pass (合格) | 绿色 bg rgba(82,196,26,0.08) |
+| INSP-71 | Fail (不合格) | 红色 bg rgba(245,63,63,0.06) |
+| INSP-72 | Conditional (让步接收) | 橙色 bg rgba(250,140,22,0.08) |
+
+### 3.4 记录检验结果表单
 
 在详情页底部有"记录检验结果"区域：
 
-| 字段 | 控件 | name | 选项 |
-|------|------|------|------|
-| 结果 | select | result | 合格(1) / 不合格(2) / 让步接收(3) |
+| ID | 字段 | 控件 | name | 选项 |
+|----|------|------|------|------|
+| INSP-80 | 结果 | select | result | 合格(1)/不合格(2)/让步接收(3) |
 
-提交按钮："提交" (primary)，hx-post /admin/mes/inspections/{id}/record-result
+提交: hx-post /admin/mes/inspections/{id}/record-result
 
-### 3.6 记录结果交互测试
+### 3.5 记录结果交互
 
 | ID | 测试项 | 操作 | 预期结果 |
 |----|--------|------|---------|
-| INSP-80 | 选择"合格"并提交 | — | hx-post → HX-Redirect 回详情，结果变"合格" |
-| INSP-81 | 选择"不合格"并提交 | — | 结果变"不合格" |
-| INSP-82 | 选择"让步接收"并提交 | — | 结果变"让步接收" |
-| INSP-83 | 无效结果值 | 手动修改 value | 服务端返回"无效检验结果" |
-| INSP-84 | select 宽度 | — | width=200px, inline-block |
-| INSP-85 | 提交按钮间距 | — | margin-left=var(--space-3) |
+| INSP-85 | 选择"合格"并提交 | — | 结果变"合格"(绿色) |
+| INSP-86 | 选择"不合格"并提交 | — | 结果变"不合格"(红色) |
+| INSP-87 | 选择"让步接收"并提交 | — | 结果变"让步接收"(橙色) |
+| INSP-88 | 无效结果值 | 手动修改 | 服务端错误 |
+| INSP-89 | select 宽度 | — | width=200px |
+| INSP-90 | 提交按钮间距 | — | margin-left=var(--space-3) |
 
-## 4. 与原型设计对比
+---
 
-| 对比项 | 原型 | 实现 | 差异 |
-|--------|------|------|------|
-| 列表查询+分页 | 有 | ⚠️ stub | 未实现数据查询 |
-| 检验类型 Tab | 首检/巡检/完工检 | ✅ 一致 | — |
-| 创建表单 | 有工单搜索 | ⚠️ 手动输入 ID | 无搜索功能 |
-| 详情页检验结果 | 有结果录入 | ✅ 有 select 录入 | — |
-| 创建时 remark | 原型有备注 | ⚠️ UI 缺失 | CreateInspectionReq 有 remark 但表单无输入 |
-| disposition 处置意见 | 原型有 | ✅ 有 | — |
-| 检验员选择 | 原型有下拉 | ⚠️ 自动取当前用户 | inspector_id 由服务端设置 |
+## 4. 缺陷跟踪
+
+| ID | 问题描述 | 优先级 | 状态 |
+|----|---------|--------|------|
+| INSP-BUG-01 | 创建表单用 number input 输入工单/产品ID | P2 | 记录 |
+| INSP-BUG-02 | 创建表单缺少合格数量/不合格数量/检验结果字段 | P1 | 记录 |
+| INSP-BUG-03 | 创建表单缺少备注输入 | P3 | 记录 |
+| INSP-BUG-04 | 创建表单缺少检验员选择 | P3 | 记录 |
+| INSP-BUG-05 | 详情显示ID而非名称（工单/产品/检验员） | P1 | 记录 |
+| INSP-BUG-06 | 详情缺少处置意见子区域 | P2 | 记录 |
+| INSP-BUG-07 | 列表缺少结果筛选和工单筛选 | P2 | 记录 |

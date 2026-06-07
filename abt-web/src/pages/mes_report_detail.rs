@@ -38,10 +38,10 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
                 div class="info-item" { label { "报工日期" } span { (report.report_date) } }
                 div class="info-item" { label { "班次" } span { (shift_label) } }
                 div class="info-item" { label { "工人ID" } span { (report.worker_id) } }
-                div class="info-item" { label { "完成数量" } span class="mono" { (report.completed_qty) } }
-                div class="info-item" { label { "不良数量" } span class="mono" { (report.defect_qty) } }
+                div class="info-item" { label { "完成数量" } span class="mono" { (crate::utils::fmt_qty(report.completed_qty)) } }
+                div class="info-item" { label { "不良数量" } span class="mono" { (crate::utils::fmt_qty(report.defect_qty)) } }
                 div class="info-item" { label { "不良原因" } span { (defect_label) } }
-                div class="info-item" { label { "工时" } span class="mono" { (report.work_hours) } }
+                div class="info-item" { label { "工时" } span class="mono" { (crate::utils::fmt_qty(report.work_hours)) } }
                 div class="info-item" { label { "创建时间" } span { (report.created_at.format("%Y-%m-%d %H:%M")) } }
                 @if !report.remark.is_empty() {
                     div class="info-item span-2" { label { "备注" } span { (report.remark) } }

@@ -1,9 +1,13 @@
 # MES-04 生产批次 + 流转卡查询
 
-> 批次路由前缀: `/admin/mes/batches`
-> 流转卡路由: `/admin/mes/cards`
-> 代码文件: `mes_batch_list.rs`, `mes_batch_detail.rs`, `mes_card_query.rs`
-> 原型文件: `04-batch-list.html`, `04-batch-detail.html`, `04-card-query.html`
+> **批次路由**: `/admin/mes/batches`
+> **流转卡路由**: `/admin/mes/cards`
+> **代码文件**: `mes_batch_list.rs`, `mes_batch_detail.rs`, `mes_card_query.rs`, `mes_schedule_board.rs`
+> **路由文件**: `abt-web/src/routes/mes_batch.rs`
+> **服务**: `abt-core/src/mes/production_batch/`
+> **原型文件**: `04-batch-list.html`, `04-batch-detail.html`, `04-card-query.html`, `04-schedule-board.html`
+
+---
 
 ## 1. 批次列表页
 
@@ -17,19 +21,26 @@
 
 ### 1.2 状态 Tab 栏
 
-| Tab | 值 | 标签 | count |
-|-----|----|------|-------|
-| 全部 | (空) | 全部 | 0 |
-| Pending | Pending | 待生产 | None |
-| InProgress | InProgress | 进行中 | None |
-| PendingReceipt | PendingReceipt | 待入库 | None |
-| Completed | Completed | 已完成 | None |
+| Tab | 值 | 标签 | 原型 count |
+|-----|---|------|-----------|
+| 全部 | (空) | 全部 | 87 |
+| Pending | Pending | 待生产 | 15 |
+| InProgress | InProgress | 进行中 | 52 |
+| Suspended | Suspended | 已暂停 | 8 |
+| PendingReceipt | PendingReceipt | 待入库 | 12 |
+| Completed | Completed | 已完成 | 35 |
 
-### 1.3 数据表格（当前为 Stub）
+### 1.3 搜索/筛选
 
-> **注意**: 当前列表页是 stub 实现，不从数据库查询，始终显示"暂无批次数据"。
+| ID | 筛选项 | 原型设计 |
+|----|--------|---------|
+| BT-10 | 关键词搜索 | "搜索批次号、流转卡号…" |
+| BT-11 | 工单筛选 | select 全部工单 |
+| BT-12 | 班组筛选 | select 全部班组 |
 
-表头结构已定义：
+### 1.4 数据表格
+
+**实现表头**:
 
 | 列 | 对齐 |
 |----|------|
@@ -42,13 +53,32 @@
 | 状态 | 左 |
 | 操作 | 左 |
 
-### 1.4 Stub 状态测试
+**原型额外列（对比）**:
 
-| ID | 测试项 | 预期结果 |
-|----|--------|---------|
-| BT-10 | 空数据提示 | 显示"暂无批次数据"居中 |
-| BT-11 | Tab 切换 | 点击不同 Tab，HTMX 请求但返回 stub |
-| BT-12 | 表格结构 | thead 有 8 列 |
+| 原型列 | 实现状态 | 说明 |
+|--------|---------|------|
+| 流转卡号 | ❌ 缺失 | 原型有 card_sn 显示 |
+| 产品名称 | ❌ 缺失 | 原型显示名称非 ID |
+| 班组 | ❌ 缺失 | 如"白班A组" |
+| 报废数量 | ❌ 缺失 | 原型有报废数 |
+| 操作按钮 | ❌ 缺失 | 原型有报工/入库/查看 |
+
+> **注意**: 实现 `list_batches()` 返回的 `BatchListItem` 包含 product_name, wo_doc_number 等字段，需验证前端是否使用。
+
+### 1.5 列表测试
+
+| ID | 测试项 | 操作 | 预期结果 |
+|----|--------|------|---------|
+| BT-20 | 空数据 | 无批次 | "暂无批次数据" 居中 |
+| BT-21 | Tab 切换 | 点击不同 Tab | HTMX 刷新，过滤正确 |
+| BT-22 | 数据展示 | 有批次数据 | 显示批次号/工单号/产品名/数量等 |
+| BT-23 | 行点击 | 点击行 | 跳转详情 |
+| BT-24 | 分页 | >20 条 | 分页组件 |
+| BT-25 | 操作按钮 | 不同状态 | 原型有报工/入库/查看按钮 |
+
+### 1.6 页面按钮
+
+原型右上角有"流转卡查询"按钮，实现需验证。
 
 ---
 
@@ -58,13 +88,13 @@
 
 | ID | 测试项 | 操作 | 预期结果 |
 |----|--------|------|---------|
-| BT-20 | 直接访问 | GET /admin/mes/batches/{id} | 200，标题 "批次 {batch_no}" |
-| BT-21 | 返回链接 | "← 返回列表" | 跳回 /admin/mes/batches |
-| BT-22 | 无效 ID | /admin/mes/batches/999999 | 错误页 |
+| BT-30 | 直接访问 | GET /admin/mes/batches/{id} | 200，标题含批次号 |
+| BT-31 | 返回链接 | "← 返回列表" | 跳回列表 |
+| BT-32 | 无效 ID | /admin/mes/batches/999999 | 错误页 |
 
 ### 2.2 批次信息卡片
 
-info-grid 布局：
+**实现字段** (info-grid):
 
 | 字段 | 样式 | 说明 |
 |------|------|------|
@@ -77,92 +107,140 @@ info-grid 布局：
 | 当前工序 | — | current_step (数字) |
 | 状态 | 颜色 pill | 内联样式 |
 
-### 2.3 条件显示的操作按钮
+**原型额外字段**:
 
-根据批次状态，header 区域显示不同操作：
+| 原型字段 | 实现状态 | 说明 |
+|---------|---------|------|
+| 工单编号+链接 | ❌ 缺失 | 原型有链接到工单详情 |
+| 产品名称 | ❌ 缺失 | 如"PCB-A 主板" |
+| 班组 | ❌ 缺失 | 如"白班A组" |
+| 实际开始 | ❌ 缺失 | 日期+时间 |
+| 实际结束 | ❌ 缺失 | 日期+时间或"—" |
+| 创建人 | ❌ 缺失 | 操作人姓名 |
+| 创建时间 | ❌ 缺失 | 日期+时间 |
+
+### 2.3 工序流转进度（原型）
+
+原型有 4-step 进度条：
+- ✅ 已完成节点：绿色 ✓
+- 🔵 当前节点：蓝色序号
+- ⚪ 待处理节点：灰色序号
+- 🟠 报检节点：橙色边框
+
+每个节点显示工序名称和信息。
+
+> **实现**: 当前只显示 current_step 数字，**没有** 工序进度条可视化。
+
+### 2.4 操作按钮（按状态）
 
 #### InProgress 状态
 
 | ID | 测试项 | 预期结果 |
 |----|--------|---------|
-| BT-30 | 暂停按钮 | 显示 "暂停" 按钮 (default) |
-| BT-31 | 暂停操作 | hx-post /admin/mes/batches/{id}/suspend，隐藏字段 reason="手动暂停" |
-| BT-32 | 暂停成功 | HX-Redirect 回详情，状态变 Suspended |
+| BT-40 | 暂停按钮 | 显示"暂停"按钮 |
+| BT-41 | 暂停操作 | hx-post /admin/mes/batches/{id}/suspend, reason="手动暂停" |
+| BT-42 | 暂停成功 | 状态变 Suspended |
 
 #### Suspended 状态
 
 | ID | 测试项 | 预期结果 |
 |----|--------|---------|
-| BT-40 | 恢复按钮 | 显示 "恢复" 按钮 (primary) |
-| BT-41 | 恢复操作 | hx-post /admin/mes/batches/{id}/resume |
-| BT-42 | 恢复成功 | 状态变回 InProgress |
+| BT-45 | 恢复按钮 | 显示"恢复"按钮 |
+| BT-46 | 恢复操作 | hx-post /admin/mes/batches/{id}/resume |
+| BT-47 | 恢复成功 | 状态变 InProgress |
 
 #### PendingReceipt 状态
 
 | ID | 测试项 | 预期结果 |
 |----|--------|---------|
-| BT-50 | 推进入库按钮 | 显示 "推进入库" 按钮 (primary) |
+| BT-50 | 推进入库按钮 | 显示"推进入库" |
 | BT-51 | 推进操作 | hx-post /admin/mes/batches/{id}/advance |
-| BT-52 | 推进成功 | 创建入库单，跳转 |
+| BT-52 | 推进成功 | 创建入库单 |
 
 #### 其他状态
 
 | ID | 测试项 | 预期结果 |
 |----|--------|---------|
-| BT-60 | Pending/Completed/Cancelled | 不显示任何操作按钮 |
+| BT-55 | Pending/Completed/Cancelled | 不显示操作按钮 |
 
-### 2.4 报工表单
+### 2.5 报工表单
 
-仅在 `Pending` 或 `InProgress` 状态下显示。
+仅在 Pending 或 InProgress 状态下显示。
 
 #### 表单字段
 
-| 字段 | 控件 | name | 必填 | 默认值 | 说明 |
-|------|------|------|------|--------|------|
-| 工序号 | number | step_no | — | current_step + 1 | width=80px |
-| 工人ID | number | worker_id | ✅ | — | — |
-| 班次 | select | shift | — | 白班 | 白班(value=1) / 夜班(value=2) |
-| 完成数量 | number | completed_qty | ✅ | — | step=0.01 |
-| 不良数量 | number | defect_qty | — | 0 | step=0.01 |
-| 工时 | number | work_hours | ✅ | — | step=0.01 |
-| 报工日期 | date | report_date | ✅ | — | — |
+| ID | 字段 | 控件 | name | 必填 | 默认值 | 说明 |
+|----|------|------|------|------|--------|------|
+| BT-60 | 工序号 | number | step_no | — | current_step+1 | width=80px |
+| BT-61 | 工人ID | number | worker_id | ✅ | — | — |
+| BT-62 | 班次 | select | shift | — | 白班 | 白班(1)/夜班(2) |
+| BT-63 | 完成数量 | number | completed_qty | ✅ | — | step=0.01 |
+| BT-64 | 不良数量 | number | defect_qty | — | 0 | step=0.01 |
+| BT-65 | 工时 | number | work_hours | ✅ | — | step=0.01 |
+| BT-66 | 报工日期 | date | report_date | ✅ | — | — |
 
-#### 报工交互测试
+> **缺失字段**: ConfirmStepForm 有 defect_reason 和 remark，但表单 UI 没有对应输入控件。
+
+#### 报工交互
 
 | ID | 测试项 | 操作 | 预期结果 |
 |----|--------|------|---------|
-| BT-70 | 报工表单可见性 | InProgress 批次 | 显示报工表单 |
-| BT-71 | 报工表单隐藏 | Completed 批次 | 不显示报工表单 |
-| BT-72 | 工序号默认值 | — | current_step + 1 |
-| BT-73 | 提交报工 | 填写完整信息 | hx-post /admin/mes/batches/{id}/confirm-step |
-| BT-74 | 提交成功 | — | HX-Redirect 回详情页 |
+| BT-70 | 表单可见性 | InProgress | 显示 |
+| BT-71 | 表单隐藏 | Completed | 不显示 |
+| BT-72 | 工序号默认 | — | current_step + 1 |
+| BT-73 | 提交报工 | 完整填写 | hx-post /admin/mes/batches/{id}/confirm-step |
+| BT-74 | 提交成功 | — | HX-Redirect 回详情 |
 | BT-75 | 空提交 | 不填工人ID | HTML5 校验阻止 |
 
-### 2.5 ConfirmStepForm 结构
+#### StepConfirmationResult 返回值
 
-```rust
-pub struct ConfirmStepForm {
-    pub step_no: i32,
-    pub worker_id: i64,
-    pub shift: ShiftType,
-    pub completed_qty: Decimal,
-    pub defect_qty: Decimal,
-    pub defect_reason: Option<DefectReason>,
-    pub work_hours: Decimal,
-    pub report_date: NaiveDate,
-    pub remark: Option<String>,
-}
-```
+服务端 `confirm_routing_step` 返回：
+- work_report_id: 新建的报工记录 ID
+- batch_id: 批次 ID
+- step_no: 当前工序号
+- next_step_no: 下一工序号
+- batch_status: 新的批次状态
+- inspection_triggered: 是否触发了检验
+- wage_amount: 计算的计件工资
 
-> **注意**: 报工表单中 **没有** defect_reason 和 remark 的 UI 输入控件，但 ConfirmStepForm 包含这些字段。需确认是否遗漏 UI 或服务端会正确处理缺失字段。
+### 2.6 报工记录表格（原型）
 
-### 2.6 报废操作
+原型有"报工记录"表格：
+
+| 列 | 说明 |
+|----|------|
+| 报工单号 | 链接 |
+| 工序 | 文本 |
+| 班次 | pill |
+| 工人 | 文本 |
+| 完成数量 | mono/绿色 |
+| 不良数量 | mono/红色 |
+| 不良原因 | 文本 |
+| 工时 | mono |
+| 报工时间 | 时间 |
+
+> **实现**: 详情页没有报工记录历史表格。
+
+### 2.7 状态变更记录（原型）
+
+原型有"状态变更记录"表格：
+
+| 列 | 说明 |
+|----|------|
+| 时间 | 时间 |
+| 操作 | pill |
+| 变更 | 文本 |
+| 操作人 | 文本 |
+| 备注 | 灰色 |
+
+> **实现**: 详情页没有状态变更记录。
+
+### 2.8 报废操作
 
 | ID | 测试项 | 预期结果 |
 |----|--------|---------|
 | BT-80 | 报废路由 | POST /admin/mes/batches/{id}/scrap |
 | BT-81 | 报废表单 | SuspendForm { reason: String } |
-| BT-82 | 报废成功 | 状态变更 |
 
 ---
 
@@ -175,31 +253,61 @@ pub struct ConfirmStepForm {
 | CQ-01 | 直接访问 | GET /admin/mes/cards | 200，标题 "流转卡查询" |
 | CQ-02 | 侧栏导航 | 点击"流转卡查询" | 跳转 /admin/mes/cards |
 
-### 3.3 页面内容（当前为静态页面）
+### 3.2 原型设计
 
-| 元素 | 说明 |
-|------|------|
-| 页面标题 | "流转卡查询" |
-| 提示信息 | "请输入流转卡序列号进行查询" (居中，灰色) |
-| 输入框 | "流转卡序列号"，placeholder="扫描或输入卡号…" |
-| 表单布局 | max-width=400px 居中 |
+原型包含：
+1. **搜索区域**: 标题 + 说明 + 输入框（"输入流转卡号 / 批次号"）+ 查询按钮 + 扫描二维码按钮
+2. **搜索结果卡片**: 流转卡号 + 状态 + 基本信息 grid + 工序流转进度条 + 报工明细表格
+3. **最近卡片 grid**: 展示最近的流转卡
 
-### 3.4 测试要点
+### 3.3 实现测试
 
 | ID | 测试项 | 预期结果 |
 |----|--------|---------|
-| CQ-10 | 输入框显示 | 显示流转卡序列号输入框 |
-| CQ-11 | placeholder | "扫描或输入卡号…" |
-| CQ-12 | 查询功能 | **未实现** — 输入后无查询逻辑 |
-| CQ-13 | 布局 | 居中，最大宽度 400px |
+| CQ-10 | 输入框 | 显示流转卡序列号输入框，placeholder="扫描或输入卡号…" |
+| CQ-11 | 布局 | 居中，最大宽度 400px |
+| CQ-12 | 查询功能 | 输入后是否有查询逻辑 |
+| CQ-13 | 原型搜索结果 | ❌ 无 |
+| CQ-14 | 原型最近卡片 | ❌ 无 |
+| CQ-15 | 原型扫码功能 | ❌ 无 |
 
-## 4. 与原型设计对比
+---
 
-| 对比项 | 原型 | 实现 | 差异 |
-|--------|------|------|------|
-| 批次列表 | 有数据查询+分页+搜索 | ⚠️ stub 空数据 | 未实现列表查询 |
-| 批次详情-工序进度 | 原型有工序进度条 | ❌ 未实现 | 只显示 current_step 数字 |
-| 批次详情-报工记录 | 原型有报工历史列表 | ❌ 未实现 | 只显示内联报工表单 |
-| 流转卡查询 | 原型有完整查询结果展示 | ⚠️ 静态输入框 | 无查询逻辑 |
-| 报工表单 defect_reason | 确认表单有该字段 | ⚠️ UI 缺失 | 表单无不良原因选择 |
-| 报工表单 remark | 确认表单有该字段 | ⚠️ UI 缺失 | 表单无备注输入 |
+## 4. 排程看板页
+
+### 4.1 页面访问
+
+| ID | 测试项 | 操作 | 预期结果 |
+|----|--------|------|---------|
+| SB-01 | 直接访问 | GET /admin/mes/schedule | 200 |
+| SB-02 | 侧栏导航 | 点击"排程看板" | 跳转 |
+
+### 4.2 原型设计
+
+- 统计行: 活跃工单/进行中/已完成/延期/待排产
+- 工具栏: 看板/甘特图 切换 + 产线筛选 + 日期导航
+- 看板视图: 4 列（待排产/进行中/待入库/已完成）
+- 甘特图: 日期横轴，工单行，计划/实际/延期条
+
+### 4.3 实现测试
+
+| ID | 测试项 | 预期结果 |
+|----|--------|---------|
+| SB-10 | 页面内容 | 显示"排程看板功能开发中" |
+| SB-11 | 完整功能 | ❌ 未实现 |
+
+---
+
+## 5. 缺陷跟踪
+
+| ID | 问题描述 | 优先级 | 状态 |
+|----|---------|--------|------|
+| BT-BUG-01 | 列表缺少流转卡号/产品名/班组/报废列 | P2 | 记录 |
+| BT-BUG-02 | 详情缺少工单链接/产品名/班组/实际时间/创建信息 | P2 | 记录 |
+| BT-BUG-03 | 详情缺少工序流转进度可视化 | P2 | 记录 |
+| BT-BUG-04 | 详情缺少报工记录历史表格 | P2 | 记录 |
+| BT-BUG-05 | 详情缺少状态变更记录表格 | P3 | 记录 |
+| BT-BUG-06 | 报工表单缺少 defect_reason 和 remark UI | P2 | 记录 |
+| BT-BUG-07 | 流转卡查询无查询逻辑 | P2 | 记录 |
+| BT-BUG-08 | 排程看板未实现 | P2 | 记录 |
+| BT-BUG-09 | 列表缺少操作按钮（报工/入库/查看） | P2 | 记录 |

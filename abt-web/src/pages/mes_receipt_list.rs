@@ -98,7 +98,7 @@ fn receipt_data_card(
         div class="data-card" id="receipt-data-card" {
             div class="data-card-scroll" {
                 table class="data-table" { thead { tr {
-                    th { "单号" } th { "工单" } th { "批次" } th { "产品ID" }
+                    th { "单号" } th { "工单" } th { "批次" } th { "产品" }
                     th class="num-right" { "入库数量" } th { "仓库" } th { "状态" } th { "操作" }
                 }} tbody {
                     @for item in &result.items {
@@ -107,12 +107,13 @@ fn receipt_data_card(
                         @let dp = format!("/admin/mes/receipts/{}", item.id);
                         @let wo_doc = item.work_order_doc.as_deref().unwrap_or("—");
                         @let wh_name = item.warehouse_name.as_deref().unwrap_or("—");
+                        @let prod_name = item.product_name.as_deref().unwrap_or("—");
                         tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
                             td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
                             td class="mono" { (wo_doc) }
                             td { @if let Some(bid) = item.batch_id { (bid) } @else { "—" } }
-                            td { (item.product_id) }
-                            td class="num-right mono" { (item.received_qty) }
+                            td { (prod_name) }
+                            td class="num-right mono" { (crate::utils::fmt_qty(item.received_qty)) }
                             td { (wh_name) }
                             td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
                             td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }

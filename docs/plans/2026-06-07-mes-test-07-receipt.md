@@ -1,8 +1,13 @@
-# MES-07 完工入库
+# MES-07 完工入库 + 物料消耗
 
-> 路由前缀: `/admin/mes/receipts`
-> 代码文件: `mes_receipt_list.rs`, `mes_receipt_create.rs`, `mes_receipt_detail.rs`
-> 原型文件: `04-receipt-list.html`, `04-receipt-create.html`, `04-receipt-detail.html`
+> **入库路由**: `/admin/mes/receipts`
+> **物料消耗路由**: `/admin/mes/material-usage`
+> **代码文件**: `mes_receipt_list.rs`, `mes_receipt_create.rs`, `mes_receipt_detail.rs`, `mes_material_usage.rs`
+> **路由文件**: `abt-web/src/routes/mes_receipt.rs`
+> **服务**: `abt-core/src/mes/production_receipt/`
+> **原型文件**: `04-receipt-list.html`, `04-receipt-create.html`, `04-receipt-detail.html`, `04-material-usage.html`
+
+---
 
 ## 1. 入库列表页
 
@@ -11,21 +16,42 @@
 | ID | 测试项 | 操作 | 预期结果 |
 |----|--------|------|---------|
 | RC-01 | 直接访问 | GET /admin/mes/receipts | 200，标题 "完工入库" |
-| RC-02 | 侧栏导航 | 点击"完工入库" | 跳转 /admin/mes/receipts |
-| RC-03 | Dashboard 入口 | 点击"完工入库"快捷卡片 | 跳转 /admin/mes/receipts |
+| RC-02 | 侧栏导航 | 点击"完工入库" | 跳转 |
+| RC-03 | Dashboard 入口 | 点击快捷卡片 | 跳转 |
 
 ### 1.2 页面头部
 
 | ID | 测试项 | 预期结果 |
 |----|--------|---------|
 | RC-10 | 页面标题 | "完工入库" |
-| RC-11 | 新建按钮 | 右侧 "新建入库" 按钮，链接 /admin/mes/receipts/create |
+| RC-11 | 新建按钮 | "新建入库"，链接 /admin/mes/receipts/create |
 
-### 1.3 数据表格（当前为 Stub）
+### 1.3 筛选区域（原型）
 
-> **注意**: 列表页是 stub，始终显示"暂无入库记录"。
+原型有：
+- **状态 Tab**: 全部(45)/草稿(3)/已确认(38)/已取消(4)
+- **搜索**: "搜索入库单号…"
+- **状态筛选**: select
+- **日期范围**: date range
 
-表头：
+### 1.4 数据表格
+
+**原型表头**:
+
+| 列 | 说明 |
+|----|------|
+| 入库单号 | mono，链接 |
+| 工单 | 链接 |
+| 批次 | 链接 |
+| 产品 | 文本 |
+| 入库数量 | mono |
+| 仓库 | 文本 |
+| 入库日期 | 日期 |
+| 倒冲状态 | pill（已触发/未触发） |
+| 状态 | pill |
+| 操作 | 查看/编辑 |
+
+**实现表头**:
 
 | 列 | 对齐 |
 |----|------|
@@ -38,7 +64,7 @@
 | 状态 | 左 |
 | 操作 | 左 |
 
-### 1.4 入库状态标签
+### 1.5 入库状态标签
 
 | 值 | 中文 | 背景色 | 文字色 |
 |----|------|--------|--------|
@@ -46,12 +72,16 @@
 | Confirmed | 已确认 | rgba(82,196,26,0.08) | var(--success) |
 | Cancelled | 已取消 | rgba(245,63,63,0.06) | #f53f3f |
 
-### 1.5 Stub 状态测试
+### 1.6 列表测试
 
-| ID | 测试项 | 预期结果 |
-|----|--------|---------|
-| RC-20 | 空数据提示 | "暂无入库记录" 居中 |
-| RC-21 | 表格结构 | 8 列 thead |
+| ID | 测试项 | 操作 | 预期结果 |
+|----|--------|------|---------|
+| RC-20 | 空数据 | 无记录 | "暂无入库记录" |
+| RC-21 | 数据展示 | 有记录 | 显示所有列 |
+| RC-22 | 行点击 | 点击行 | 跳转详情 |
+| RC-23 | 分页 | >20 条 | 分页组件 |
+| RC-24 | 状态Tab | 原型有 | 需验证实现是否有 |
+| RC-25 | 倒冲状态列 | 原型有 | 需验证实现是否有 |
 
 ---
 
@@ -63,33 +93,47 @@
 |----|--------|------|---------|
 | RC-30 | 从列表进入 | 点击"新建入库" | 跳转 /admin/mes/receipts/create |
 | RC-31 | 页面标题 | — | "新建入库" |
-| RC-32 | 返回链接 | "← 返回列表" | 跳回 /admin/mes/receipts |
+| RC-32 | 返回链接 | "← 返回列表" | 跳回列表 |
 
 ### 2.2 表单字段
 
-"入库信息" form-section + form-grid：
+**实现字段** (form-grid):
 
-| 字段 | 控件 | name | 必填 | 说明 |
-|------|------|------|------|------|
-| 工单ID | number | work_order_id | ✅ | — |
-| 批次ID | number | batch_id | — | 可选 |
-| 产品ID | number | product_id | ✅ | — |
-| 入库数量 | number | received_qty | ✅ | step=0.01 |
-| 仓库ID | number | warehouse_id | ✅ | — |
-| 库区ID | number | zone_id | — | 可选 |
-| 储位ID | number | bin_id | — | 可选 |
-| 入库日期 | date | receipt_date | ✅ | — |
+| ID | 字段 | 控件 | name | 必填 | 说明 |
+|----|------|------|------|------|------|
+| RC-40 | 工单ID | number | work_order_id | ✅ | — |
+| RC-41 | 批次ID | number | batch_id | — | 可选 |
+| RC-42 | 产品ID | number | product_id | ✅ | — |
+| RC-43 | 入库数量 | number | received_qty | ✅ | step=0.01 |
+| RC-44 | 仓库ID | number | warehouse_id | ✅ | — |
+| RC-45 | 库区ID | number | zone_id | — | 可选 |
+| RC-46 | 储位ID | number | bin_id | — | 可选 |
+| RC-47 | 入库日期 | date | receipt_date | ✅ | — |
+
+**原型额外字段（对比）**:
+
+| 原型字段 | 实现状态 | 说明 |
+|---------|---------|------|
+| 入库单号（只读） | ❌ 缺失 | 自动 PR-2026-XX-XXXXX |
+| 工单选择器 | ❌ 缺失 | 原型用 select |
+| 批次选择器 | ❌ 缺失 | 原型用 select |
+| 产品（自动填充） | ❌ 缺失 | 选择工单后自动填充 |
+| 仓库选择器 | ❌ 缺失 | 原型用 select |
+| 库区选择器 | ❌ 缺失 | 原型用 select |
+| 储位选择器 | ❌ 缺失 | 原型用 select |
+| 自动触发倒冲 checkbox | ❌ 缺失 | 原型默认勾选 |
+| 备注 | ❌ 缺失 | ReceiptCreateForm 有 remark |
 
 ### 2.3 提交测试
 
 | ID | 测试项 | 操作 | 预期结果 |
 |----|--------|------|---------|
-| RC-40 | 空提交 | 不填直接提交 | HTML5 校验阻止 |
-| RC-41 | 有效提交 | 填写所有必填项 | hx-post → HX-Redirect 到列表 |
-| RC-42 | 不带批次ID | 只填必填项 | 提交成功（batch_id 可选） |
-| RC-43 | 不带库区/储位 | 只填仓库 | 提交成功（zone_id/bin_id 可选） |
-| RC-44 | 无效产品ID | 非数字 | 服务端返回错误 |
-| RC-45 | 取消 | 点击"取消" | 跳回列表 |
+| RC-50 | 空提交 | 不填直接提交 | HTML5 校验阻止 |
+| RC-51 | 有效提交 | 填写所有必填项 | hx-post → HX-Redirect 到列表 |
+| RC-52 | 不带批次ID | 只填必填项 | 成功 |
+| RC-53 | 不带库区/储位 | 只填仓库 | 成功 |
+| RC-54 | 无效产品ID | 非数字 | 服务端错误 |
+| RC-55 | 取消 | 点击"取消" | 跳回列表 |
 
 ### 2.4 ReceiptCreateForm 结构
 
@@ -103,11 +147,11 @@ pub struct ReceiptCreateForm {
     pub zone_id: Option<i64>,
     pub bin_id: Option<i64>,
     pub receipt_date: NaiveDate,
-    pub remark: Option<String>,
+    pub remark: Option<String>,  // UI 缺失
 }
 ```
 
-> **注意**: 表单没有 remark 字段，但 `ReceiptCreateForm` 和 `CreateReceiptReq` 包含 remark。UI 缺少备注输入框。
+> **原型对比**: 原型有"保存草稿"和"确认入库"两个按钮，实现可能只有一个提交按钮。
 
 ---
 
@@ -117,74 +161,131 @@ pub struct ReceiptCreateForm {
 
 | ID | 测试项 | 操作 | 预期结果 |
 |----|--------|------|---------|
-| RC-50 | 直接访问 | GET /admin/mes/receipts/{id} | 200，标题 "入库单 {doc_number}" |
-| RC-51 | 返回链接 | "← 返回列表" | 跳回 /admin/mes/receipts |
-| RC-52 | 无效 ID | /admin/mes/receipts/999999 | 错误页 |
+| RC-60 | 直接访问 | GET /admin/mes/receipts/{id} | 200，标题含 doc_number |
+| RC-61 | 返回链接 | "← 返回列表" | 跳回列表 |
+| RC-62 | 无效 ID | /admin/mes/receipts/999999 | 错误页 |
 
 ### 3.2 详情头部
 
 | ID | 元素 | 说明 |
 |----|------|------|
-| RC-53 | 入库单号 | detail-no class, mono 大号 |
-| RC-54 | 操作按钮区 | 仅 Draft 状态显示"确认入库"按钮 |
+| RC-63 | 入库单号 | detail-no, mono 大号 |
+| RC-64 | 操作按钮区 | Draft 时显示"确认入库" |
 
 ### 3.3 详情信息卡片
 
-info-grid 布局：
+**实现字段** (info-grid):
 
 | 字段 | 样式 | 说明 |
 |------|------|------|
 | 单号 | mono | doc_number |
 | 工单ID | — | — |
-| 批次ID | — | 有值显示数字，无值显示"—" |
+| 批次ID | — | 有值数字/无值"—" |
 | 产品ID | — | — |
 | 入库数量 | mono | received_qty |
 | 仓库ID | — | — |
 | 入库日期 | — | — |
-| 状态 | 颜色 pill | 草稿/已确认/已取消 |
-| 倒冲触发 | — | "是" 或 "否" |
+| 状态 | 颜色 pill | — |
+| 倒冲触发 | — | "是"/"否" |
 | 创建时间 | — | YYYY-MM-DD HH:mm |
-| 备注 (有值时) | span-2 | — |
+| 备注 | span-2 | 有值时显示 |
 
-### 3.4 批次ID显示测试
+**原型额外字段**:
+
+| 原型字段 | 实现状态 | 说明 |
+|---------|---------|------|
+| 工单编号+链接 | ❌ 缺失 | 链接到工单 |
+| 批次编号+链接 | ❌ 缺失 | 链接到批次 |
+| 产品名称 | ❌ 缺失 | 如"PCB-A 主板" |
+| 仓库名称 | ❌ 缺失 | 如"深圳成品仓" |
+| 库区名称 | ❌ 缺失 | 如"A区 — 成品暂存" |
+| 储位名称 | ❌ 缺失 | 如"A-01-03" |
+| 确认人 | ❌ 缺失 | 操作人姓名 |
+
+### 3.4 倒冲明细（原型）
+
+原型有"倒冲明细"子表格：
+
+| 列 | 说明 |
+|----|------|
+| 材料名称 | 文本 |
+| 材料编码 | mono |
+| BOM用量(每件) | mono |
+| 实际用量(X件) | mono |
+| 差异 | mono（绿色=0, 红色=正） |
+
+> **实现**: 详情页没有倒冲明细表格。
+
+### 3.5 确认入库（Draft → Confirmed）
 
 | ID | 测试项 | 预期结果 |
 |----|--------|---------|
-| RC-60 | 有批次ID | 显示批次 ID 数字 |
-| RC-61 | 无批次ID (None) | 显示 "—" |
+| RC-70 | 按钮可见性 | Draft 显示"确认入库" (primary) |
+| RC-71 | 确认操作 | hx-post /admin/mes/receipts/{id}/confirm |
+| RC-72 | 确认成功 | 状态变"已确认"，按钮消失 |
+| RC-73 | 非 Draft | 不显示按钮 |
+| RC-74 | 倒冲触发 | 确认后 backflush_triggered=true |
+| RC-75 | WMS 库存 | 确认后产品库存增加 |
+| RC-76 | QMS FQC 门禁 | 确认前检查是否有 FQC 阻止 |
 
-### 3.5 倒冲触发显示测试
+### 3.6 confirm() 服务端逻辑
 
-| ID | 测试项 | 预期结果 |
-|----|--------|---------|
-| RC-70 | backflush_triggered=true | 显示 "是" |
-| RC-71 | backflush_triggered=false | 显示 "否" |
-
-### 3.6 确认入库（Draft → Confirmed）
-
-| ID | 测试项 | 预期结果 |
-|----|--------|---------|
-| RC-80 | 按钮可见性 | 状态=Draft 时显示"确认入库" (primary) |
-| RC-81 | 确认操作 | hx-post /admin/mes/receipts/{id}/confirm |
-| RC-82 | 确认成功 | HX-Redirect 回详情，状态变"已确认" |
-| RC-83 | 确认后按钮 | 状态=Confirmed | "确认入库"按钮消失 |
-| RC-84 | 非 Draft 状态 | — | 不显示"确认入库"按钮 |
-| RC-85 | 倒冲触发 | 确认入库后 | 检查 backflush_triggered 是否变为 true |
+服务端 `confirm()` 包含：
+1. **QMS FQC 门禁** — 检查是否有未通过的 FQC
+2. **WMS 库存事务** — 增加产品库存
+3. **Cost entry** — 记录成本
+4. **Backflush** — 倒冲扣减原材料
+5. **Release hard reservation** — 释放硬预留
+6. **Update batch status** — 更新批次状态
 
 ### 3.7 完整状态流转
 
 ```
 Draft → Confirmed
   ↘
-   Cancelled (如果服务端支持)
+   Cancelled
 ```
 
-## 4. 与原型设计对比
+---
 
-| 对比项 | 原型 | 实现 | 差异 |
-|--------|------|------|------|
-| 列表查询+分页 | 有 | ⚠️ stub | 未实现数据查询 |
-| 创建表单 | 有工单搜索+仓库选择下拉 | ⚠️ 手动输入 ID | 无搜索/选择器 |
-| 创建表单 remark | 有备注输入 | ⚠️ UI 缺失 | form 结构有 remark 但无输入框 |
-| 详情页倒冲信息 | 有 | ✅ 显示 backflush_triggered | — |
-| 确认入库触发倒冲 | 原型设计有 | ⚠️ 待验证 | 需确认 confirm 是否触发 WMS 倒冲 |
+## 4. 物料消耗追踪页
+
+### 4.1 页面访问
+
+| ID | 测试项 | 操作 | 预期结果 |
+|----|--------|------|---------|
+| MU-01 | 直接访问 | GET /admin/mes/material-usage | 200 |
+| MU-02 | 侧栏导航 | 点击"物料消耗" | 跳转 |
+
+### 4.2 原型设计
+
+- **筛选**: 工单选择 + 批次选择
+- **工单头部**: 工单编号 + 产品 + 状态 + 统计
+- **用量汇总卡片(4个)**: BOM标准用量/实际消耗/倒冲消耗/用量差异
+- **BOM 对比表**: 物料编码/名称/单位/单件用量/标准总量/领料数量/倒冲消耗/损耗率/差异
+- **倒冲明细记录表**: 倒冲时间/触发单据/批次/入库数量/倒冲物料数/差异/状态
+- **领料记录表**: 领料单号/领料类型/仓库/物料数/领料人/领料时间/状态
+- **导出按钮**
+
+### 4.3 实现测试
+
+| ID | 测试项 | 预期结果 |
+|----|--------|---------|
+| MU-10 | 页面内容 | 显示"物料消耗追踪功能开发中" |
+| MU-11 | 完整功能 | ❌ 未实现 |
+
+---
+
+## 5. 缺陷跟踪
+
+| ID | 问题描述 | 优先级 | 状态 |
+|----|---------|--------|------|
+| RC-BUG-01 | 列表显示产品ID而非名称 | P1 | 记录 |
+| RC-BUG-02 | 列表缺少倒冲状态列 | P2 | 记录 |
+| RC-BUG-03 | 列表缺少状态Tab | P2 | 记录 |
+| RC-BUG-04 | 创建表单用 number input 输入所有ID | P2 | 记录 |
+| RC-BUG-05 | 创建表单缺少备注/倒冲触发 checkbox | P2 | 记录 |
+| RC-BUG-06 | 创建表单缺少"保存草稿"+"确认入库"双按钮 | P3 | 记录 |
+| RC-BUG-07 | 详情显示ID而非名称（工单/批次/产品/仓库） | P1 | 记录 |
+| RC-BUG-08 | 详情缺少倒冲明细子表格 | P2 | 记录 |
+| RC-BUG-09 | 物料消耗追踪未实现 | P2 | 记录 |

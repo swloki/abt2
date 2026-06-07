@@ -18,24 +18,38 @@ impl DashboardRepo {
         Ok(stats)
     }
 
-    pub async fn get_quick_entry_stats(executor: &mut sqlx::postgres::PgConnection) -> Result<QuickEntryStats> {
+    pub async fn get_quick_entry_stats(
+        executor: &mut sqlx::postgres::PgConnection,
+    ) -> Result<QuickEntryStats> {
         let plan_total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM production_plans")
-            .fetch_one(&mut *executor).await?;
-        let order_active: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM work_orders WHERE status IN (2,3)")
-            .fetch_one(&mut *executor).await?;
-        let batch_active: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM production_batches WHERE status IN (1,2,3,4)")
-            .fetch_one(&mut *executor).await?;
+            .fetch_one(&mut *executor)
+            .await?;
+        let order_active: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM work_orders WHERE status IN (2,3)")
+                .fetch_one(&mut *executor)
+                .await?;
+        let batch_active: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM production_batches WHERE status IN (1,2,3,4)")
+                .fetch_one(&mut *executor)
+                .await?;
         let report_month: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM work_reports WHERE EXTRACT(MONTH FROM created_at) = EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM created_at) = EXTRACT(YEAR FROM CURRENT_DATE)")
             .fetch_one(&mut *executor).await?;
-        let insp_pending: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM production_inspections WHERE result = 0")
-            .fetch_one(&mut *executor).await?;
-        let receipt_pending: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM production_receipts WHERE status = 1")
-            .fetch_one(&mut *executor).await?;
+        let insp_pending: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM production_inspections WHERE result = 0")
+                .fetch_one(&mut *executor)
+                .await?;
+        let receipt_pending: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM production_receipts WHERE status = 1")
+                .fetch_one(&mut *executor)
+                .await?;
         let batch_total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM production_batches")
-            .fetch_one(&mut *executor).await?;
-        let insp_total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM production_inspections WHERE result = 0")
-            .fetch_one(&mut *executor).await?;
+            .fetch_one(&mut *executor)
+            .await?;
+        let insp_total: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM production_inspections WHERE result = 0")
+                .fetch_one(&mut *executor)
+                .await?;
 
         Ok(QuickEntryStats {
             plan_total: plan_total.0,
@@ -73,8 +87,11 @@ impl DashboardRepo {
                FROM production_inspections pi \
                LEFT JOIN products p ON p.product_id = pi.product_id \
                LEFT JOIN users u ON u.user_id = pi.inspector_id \
-             ) ops ORDER BY created_at DESC LIMIT $1"
-        ).bind(limit).fetch_all(&mut *executor).await?;
+             ) ops ORDER BY created_at DESC LIMIT $1",
+        )
+        .bind(limit)
+        .fetch_all(&mut *executor)
+        .await?;
         Ok(ops)
     }
 }

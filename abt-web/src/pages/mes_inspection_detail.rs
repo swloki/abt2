@@ -48,9 +48,9 @@ pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestConte
                 div class="info-item" { label { "工单ID" } span { (insp.work_order_id) } }
                 div class="info-item" { label { "产品ID" } span { (insp.product_id) } }
                 div class="info-item" { label { "检验类型" } span { (type_label) } }
-                div class="info-item" { label { "样本数量" } span class="mono" { (insp.sample_qty) } }
-                div class="info-item" { label { "合格数量" } span class="mono" { (insp.qualified_qty) } }
-                div class="info-item" { label { "不合格数量" } span class="mono" { (insp.unqualified_qty) } }
+                div class="info-item" { label { "样本数量" } span class="mono" { (crate::utils::fmt_qty(insp.sample_qty)) } }
+                div class="info-item" { label { "合格数量" } span class="mono" { (crate::utils::fmt_qty(insp.qualified_qty)) } }
+                div class="info-item" { label { "不合格数量" } span class="mono" { (crate::utils::fmt_qty(insp.unqualified_qty)) } }
                 div class="info-item" { label { "结果" } span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", rb, rc)) { (rl) } }
                 div class="info-item" { label { "检验员" } span { (insp.inspector_id) } }
                 div class="info-item" { label { "检验日期" } span { (insp.inspection_date) } }

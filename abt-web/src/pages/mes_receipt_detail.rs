@@ -43,7 +43,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
                 div class="info-item" { label { "工单ID" } span { (receipt.work_order_id) } }
                 div class="info-item" { label { "批次ID" } span { (receipt.batch_id.map(|id| id.to_string()).unwrap_or_else(|| "\u{2014}".into())) } }
                 div class="info-item" { label { "产品ID" } span { (receipt.product_id) } }
-                div class="info-item" { label { "入库数量" } span class="mono" { (receipt.received_qty) } }
+                div class="info-item" { label { "入库数量" } span class="mono" { (crate::utils::fmt_qty(receipt.received_qty)) } }
                 div class="info-item" { label { "仓库ID" } span { (receipt.warehouse_id) } }
                 div class="info-item" { label { "入库日期" } span { (receipt.receipt_date) } }
                 div class="info-item" { label { "状态" } span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }

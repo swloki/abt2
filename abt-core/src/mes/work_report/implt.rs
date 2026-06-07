@@ -161,7 +161,7 @@ impl WorkReportService for WorkReportServiceImpl {
         .await.map_err(|e| DomainError::Internal(e.into()))?;
 
         let worker: Option<(String,)> = sqlx::query_as(
-            "SELECT nickname FROM users WHERE user_id = $1",
+            "SELECT display_name FROM users WHERE user_id = $1",
         )
         .bind(report.worker_id)
         .fetch_optional(&mut *db)

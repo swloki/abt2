@@ -40,6 +40,11 @@ pub trait ProductionBatchService: Send + Sync {
     ) -> Result<()>;
     async fn resume(&self, ctx: &ServiceContext, db: PgExecutor<'_>, batch_id: i64) -> Result<()>;
     async fn scrap(&self, ctx: &ServiceContext, db: PgExecutor<'_>, batch_id: i64, reason: String) -> Result<()>;
+    async fn get_product_name(
+        &self,
+        db: PgExecutor<'_>,
+        product_id: i64,
+    ) -> Result<Option<String>>;
     async fn list_routings(
         &self,
         ctx: &ServiceContext,

@@ -30,7 +30,8 @@ pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Res
     let svc = state.production_batch_service();
     let batch = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
     let routings = svc.list_routings(&service_ctx, &mut conn, batch.work_order_id).await?;
-    let content = batch_detail_page(&batch, &routings);
+    let product_name = svc.get_product_name(&mut conn, batch.product_id).await?.unwrap_or_default();
+    let content = batch_detail_page(&batch, &product_name, &routings);
     Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", Some(BatchListPath::PATH), content).into_string()))
 }
 
@@ -99,7 +100,7 @@ pub struct SuspendForm {
     pub reason: String,
 }
 
-fn batch_detail_page(batch: &abt_core::mes::production_batch::ProductionBatch, routings: &[abt_core::mes::production_batch::WorkOrderRouting]) -> Markup {
+fn batch_detail_page(batch: &abt_core::mes::production_batch::ProductionBatch, product_name: &str, routings: &[abt_core::mes::production_batch::WorkOrderRouting]) -> Markup {
     use abt_core::mes::enums::BatchStatus;
     let (sl, sb, sc) = batch_status_label(&batch.status);
 
@@ -141,7 +142,7 @@ fn batch_detail_page(batch: &abt_core::mes::production_batch::ProductionBatch, r
             div class="info-grid" {
                 div class="info-item" { label { "批次号" } span class="mono" { (batch.batch_no) } }
                 div class="info-item" { label { "流转卡号" } span class="mono" { (batch.card_sn) } }
-                div class="info-item" { label { "产品ID" } span { (batch.product_id) } }
+                div class="info-item" { label { "产品" } span { (product_name) } }
                 div class="info-item" { label { "数量" } span class="mono" { (crate::utils::fmt_qty(batch.batch_qty)) } }
                 div class="info-item" { label { "已完成" } span class="mono" { (crate::utils::fmt_qty(batch.completed_qty)) } }
                 div class="info-item" { label { "报废" } span class="mono" { (crate::utils::fmt_qty(batch.scrap_qty)) } }

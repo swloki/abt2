@@ -46,6 +46,7 @@ pub struct InspectionListItem {
     pub id: i64,
     pub doc_number: String,
     pub work_order_id: i64,
+    pub work_order_doc: Option<String>,
     pub routing_id: Option<i64>,
     pub product_id: i64,
     pub product_name: Option<String>,

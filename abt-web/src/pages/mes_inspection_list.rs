@@ -141,7 +141,7 @@ fn inspection_data_card(
                         @let dp = format!("/admin/mes/inspections/{}", item.id);
                         tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
                             td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
-                            td class="mono" { (item.work_order_id) }
+                            td class="mono" { (item.work_order_doc.as_deref().unwrap_or("\u{2014}")) }
                             td { (tl) }
                             td { (item.product_name.as_deref().unwrap_or("\u{2014}")) }
                             td class="num-right mono" { (crate::utils::fmt_qty(item.sample_qty)) }

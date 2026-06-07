@@ -119,13 +119,15 @@ impl ProductionInspectionRepo {
             "SELECT COUNT(*) FROM production_inspections pi WHERE {where_sql}"
         );
         let data_sql = format!(
-            "SELECT pi.id, pi.doc_number, pi.work_order_id, pi.routing_id, \
-             pi.product_id, COALESCE(p.pdt_name, '') AS product_name, \
+            "SELECT pi.id, pi.doc_number, pi.work_order_id, \
+             wo.doc_number AS work_order_doc, \
+             pi.routing_id, pi.product_id, COALESCE(p.pdt_name, '') AS product_name, \
              pi.inspection_type, pi.sample_qty, pi.qualified_qty, pi.unqualified_qty, \
              pi.result, pi.inspector_id, pi.inspection_date, pi.disposition, \
              pi.remark, pi.operator_id, pi.created_at, pi.updated_at \
              FROM production_inspections pi \
              LEFT JOIN products p ON p.product_id = pi.product_id \
+             LEFT JOIN work_orders wo ON wo.id = pi.work_order_id \
              WHERE {where_sql} \
              ORDER BY pi.id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );

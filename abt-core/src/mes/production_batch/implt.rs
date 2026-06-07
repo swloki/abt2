@@ -42,14 +42,14 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         req: CreateBatchReq,
     ) -> Result<i64> {
         let batch_no = new_document_sequence_service(self.pool.clone())
-            .next_number(ctx, db, DocumentType::WorkOrder)
+            .next_number(ctx, db, DocumentType::ProductionBatch)
             .await
             .unwrap_or_else(|_| format!("PB{}", chrono::Utc::now().format("%Y%m%d%H%M%S")));
 
         let card_sn = new_document_sequence_service(self.pool.clone())
-            .next_number(ctx, db, DocumentType::WorkOrder)
+            .next_number(ctx, db, DocumentType::FlowCard)
             .await
-            .unwrap_or_else(|_| format!("CS{}", chrono::Utc::now().format("%Y%m%d%H%M%S%3f")));
+            .unwrap_or_else(|_| format!("FC{}", chrono::Utc::now().format("%Y%m%d%H%M%S%3f")));
 
         let batch = ProductionBatchRepo::insert(
             &mut *db,

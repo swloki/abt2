@@ -52,6 +52,10 @@ pub enum DocumentType {
     LaborProcessDict = 38,
     Routing = 39,
     BomLaborProcess = 40,
+    // MES — 生产批次
+    ProductionBatch = 41,
+    // MES — 流转卡
+    FlowCard = 42,
 }
 
 impl DocumentType {
@@ -97,6 +101,8 @@ impl DocumentType {
             38 => Some(Self::LaborProcessDict),
             39 => Some(Self::Routing),
             40 => Some(Self::BomLaborProcess),
+            41 => Some(Self::ProductionBatch),
+            42 => Some(Self::FlowCard),
             _ => None,
         }
     }
@@ -158,6 +164,9 @@ impl DocumentType {
             Self::LaborProcessDict => "LPD",
             Self::Routing => "RTG",
             Self::BomLaborProcess => "BLP",
+            // MES — 生产批次
+            Self::ProductionBatch => "PB",
+            Self::FlowCard => "FC",
         }
     }
 }

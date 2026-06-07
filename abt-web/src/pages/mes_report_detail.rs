@@ -16,6 +16,7 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.work_report_service();
     let report = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
+    let lookups = svc.get_detail_lookups(&mut conn, &report).await?;
 
     let shift_label = match report.shift { abt_core::mes::enums::ShiftType::Day => "白班", _ => "夜班" };
     let defect_label = report.defect_reason.map(|d| match d {
@@ -25,6 +26,11 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
         abt_core::mes::enums::DefectReason::ProcessIssue => "工艺问题",
     }).unwrap_or("\u{2014}");
 
+    let wo = lookups.wo_doc_number.as_deref().unwrap_or("—");
+    let batch = lookups.batch_no.as_deref().unwrap_or("—");
+    let process = lookups.process_name.as_deref().unwrap_or("—");
+    let worker = lookups.worker_name.as_deref().unwrap_or("—");
+
     let content = html! { div {
         div class="page-header" {
             div class="page-header-left" { a class="back-link" href=(ReportListPath::PATH) { "\u{2190} 返回列表" } h1 class="page-title" { "报工 " (report.doc_number) } }
@@ -32,12 +38,12 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
         div class="info-card" {
             div class="info-grid" {
                 div class="info-item" { label { "单号" } span class="mono" { (report.doc_number) } }
-                div class="info-item" { label { "工单ID" } span { (report.work_order_id) } }
-                div class="info-item" { label { "批次ID" } span { (report.batch_id) } }
-                div class="info-item" { label { "工序ID" } span { (report.routing_id) } }
+                div class="info-item" { label { "工单" } span { (wo) } }
+                div class="info-item" { label { "批次" } span { (batch) } }
+                div class="info-item" { label { "工序" } span { (process) } }
                 div class="info-item" { label { "报工日期" } span { (report.report_date) } }
                 div class="info-item" { label { "班次" } span { (shift_label) } }
-                div class="info-item" { label { "工人ID" } span { (report.worker_id) } }
+                div class="info-item" { label { "工人" } span { (worker) } }
                 div class="info-item" { label { "完成数量" } span class="mono" { (crate::utils::fmt_qty(report.completed_qty)) } }
                 div class="info-item" { label { "不良数量" } span class="mono" { (crate::utils::fmt_qty(report.defect_qty)) } }
                 div class="info-item" { label { "不良原因" } span { (defect_label) } }

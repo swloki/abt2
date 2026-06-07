@@ -19,6 +19,12 @@ pub trait ProductionInspectionService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<ProductionInspection>;
+    async fn get_detail_lookups(
+        &self,
+        db: PgExecutor<'_>,
+        insp: &ProductionInspection,
+    ) -> Result<super::model::InspectionDetailLookups>;
+
     async fn record_result(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

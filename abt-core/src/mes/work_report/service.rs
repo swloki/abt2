@@ -26,6 +26,12 @@ pub trait WorkReportService: Send + Sync {
         date_range: DateRange,
     ) -> Result<WageSummary>;
 
+    async fn get_detail_lookups(
+        &self,
+        db: PgExecutor<'_>,
+        report: &WorkReport,
+    ) -> Result<ReportDetailLookups>;
+
     async fn list(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

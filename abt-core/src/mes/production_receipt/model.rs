@@ -51,6 +51,14 @@ pub struct CreateReceiptReq {
 }
 
 #[derive(Debug, Clone, Default)]
+pub struct ReceiptDetailLookups {
+    pub wo_doc_number: Option<String>,
+    pub batch_no: Option<String>,
+    pub product_name: Option<String>,
+    pub warehouse_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct ReceiptListFilter {
     pub keyword: Option<String>,
 }

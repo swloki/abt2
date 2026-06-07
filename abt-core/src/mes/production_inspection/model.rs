@@ -36,6 +36,13 @@ pub struct CreateInspectionReq {
     pub remark: Option<String>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct InspectionDetailLookups {
+    pub wo_doc_number: Option<String>,
+    pub product_name: Option<String>,
+    pub inspector_name: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct InspectionListFilter {
     pub keyword: Option<String>,

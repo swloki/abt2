@@ -257,4 +257,47 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
+
+    async fn get_detail_lookups(
+        &self,
+        db: PgExecutor<'_>,
+        receipt: &ProductionReceipt,
+    ) -> Result<ReceiptDetailLookups> {
+        let wo: Option<(String,)> = sqlx::query_as(
+            "SELECT doc_number FROM work_orders WHERE id = $1",
+        )
+        .bind(receipt.work_order_id)
+        .fetch_optional(&mut *db)
+        .await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        let batch: Option<(String,)> = if let Some(bid) = receipt.batch_id {
+            sqlx::query_as("SELECT batch_no FROM production_batches WHERE id = $1")
+                .bind(bid)
+                .fetch_optional(&mut *db)
+                .await.map_err(|e| DomainError::Internal(e.into()))?
+        } else {
+            None
+        };
+
+        let product: Option<(String,)> = sqlx::query_as(
+            "SELECT pdt_name FROM products WHERE product_id = $1",
+        )
+        .bind(receipt.product_id)
+        .fetch_optional(&mut *db)
+        .await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        let warehouse: Option<(String,)> = sqlx::query_as(
+            "SELECT name FROM warehouses WHERE warehouse_id = $1",
+        )
+        .bind(receipt.warehouse_id)
+        .fetch_optional(&mut *db)
+        .await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        Ok(ReceiptDetailLookups {
+            wo_doc_number: wo.map(|r| r.0),
+            batch_no: batch.map(|r| r.0),
+            product_name: product.map(|r| r.0),
+            warehouse_name: warehouse.map(|r| r.0),
+        })
+    }
 }

@@ -53,6 +53,14 @@ pub struct WageDetail {
 }
 
 #[derive(Debug, Clone, Default)]
+pub struct ReportDetailLookups {
+    pub wo_doc_number: Option<String>,
+    pub batch_no: Option<String>,
+    pub process_name: Option<String>,
+    pub worker_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct ReportListFilter {
     pub keyword: Option<String>,
     pub work_order_id: Option<i64>,

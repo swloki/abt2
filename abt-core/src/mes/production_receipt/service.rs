@@ -17,6 +17,12 @@ pub trait ProductionReceiptService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<ProductionReceipt>;
+    async fn get_detail_lookups(
+        &self,
+        db: PgExecutor<'_>,
+        receipt: &ProductionReceipt,
+    ) -> Result<super::model::ReceiptDetailLookups>;
+
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
     async fn list(
         &self,

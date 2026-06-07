@@ -133,4 +133,45 @@ impl WorkReportService for WorkReportServiceImpl {
             details,
         })
     }
+
+    async fn get_detail_lookups(
+        &self,
+        db: PgExecutor<'_>,
+        report: &WorkReport,
+    ) -> Result<ReportDetailLookups> {
+        let wo: Option<(String,)> = sqlx::query_as(
+            "SELECT doc_number FROM work_orders WHERE id = $1",
+        )
+        .bind(report.work_order_id)
+        .fetch_optional(&mut *db)
+        .await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        let batch: Option<(String,)> = sqlx::query_as(
+            "SELECT batch_no FROM production_batches WHERE id = $1",
+        )
+        .bind(report.batch_id)
+        .fetch_optional(&mut *db)
+        .await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        let routing: Option<(String,)> = sqlx::query_as(
+            "SELECT process_name FROM work_order_routings WHERE id = $1",
+        )
+        .bind(report.routing_id)
+        .fetch_optional(&mut *db)
+        .await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        let worker: Option<(String,)> = sqlx::query_as(
+            "SELECT nickname FROM users WHERE user_id = $1",
+        )
+        .bind(report.worker_id)
+        .fetch_optional(&mut *db)
+        .await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        Ok(ReportDetailLookups {
+            wo_doc_number: wo.map(|r| r.0),
+            batch_no: batch.map(|r| r.0),
+            process_name: routing.map(|r| r.0),
+            worker_name: worker.map(|r| r.0),
+        })
+    }
 }

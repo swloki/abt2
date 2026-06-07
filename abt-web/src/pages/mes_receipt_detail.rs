@@ -24,7 +24,13 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.production_receipt_service();
     let receipt = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
+    let lookups = svc.get_detail_lookups(&mut conn, &receipt).await?;
     let (sl, sb, sc) = receipt_status_label(&receipt.status);
+
+    let wo = lookups.wo_doc_number.as_deref().unwrap_or("—");
+    let batch = lookups.batch_no.as_deref().unwrap_or("—");
+    let product = lookups.product_name.as_deref().unwrap_or("—");
+    let warehouse = lookups.warehouse_name.as_deref().unwrap_or("—");
 
     let content = html! { div {
         div class="page-header" {
@@ -40,11 +46,11 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
         div class="info-card" {
             div class="info-grid" {
                 div class="info-item" { label { "单号" } span class="mono" { (receipt.doc_number) } }
-                div class="info-item" { label { "工单ID" } span { (receipt.work_order_id) } }
-                div class="info-item" { label { "批次ID" } span { (receipt.batch_id.map(|id| id.to_string()).unwrap_or_else(|| "\u{2014}".into())) } }
-                div class="info-item" { label { "产品ID" } span { (receipt.product_id) } }
+                div class="info-item" { label { "工单" } span { (wo) } }
+                div class="info-item" { label { "批次" } span { (batch) } }
+                div class="info-item" { label { "产品" } span { (product) } }
                 div class="info-item" { label { "入库数量" } span class="mono" { (crate::utils::fmt_qty(receipt.received_qty)) } }
-                div class="info-item" { label { "仓库ID" } span { (receipt.warehouse_id) } }
+                div class="info-item" { label { "仓库" } span { (warehouse) } }
                 div class="info-item" { label { "入库日期" } span { (receipt.receipt_date) } }
                 div class="info-item" { label { "状态" } span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
                 div class="info-item" { label { "倒冲触发" } span { (if receipt.backflush_triggered { "是" } else { "否" }) } }

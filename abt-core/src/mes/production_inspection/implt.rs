@@ -112,4 +112,37 @@ impl ProductionInspectionService for ProductionInspectionServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
+
+    async fn get_detail_lookups(
+        &self,
+        db: PgExecutor<'_>,
+        insp: &ProductionInspection,
+    ) -> Result<InspectionDetailLookups> {
+        let wo: Option<(String,)> = sqlx::query_as(
+            "SELECT doc_number FROM work_orders WHERE id = $1",
+        )
+        .bind(insp.work_order_id)
+        .fetch_optional(&mut *db)
+        .await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        let product: Option<(String,)> = sqlx::query_as(
+            "SELECT pdt_name FROM products WHERE product_id = $1",
+        )
+        .bind(insp.product_id)
+        .fetch_optional(&mut *db)
+        .await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        let inspector: Option<(String,)> = sqlx::query_as(
+            "SELECT nickname FROM users WHERE user_id = $1",
+        )
+        .bind(insp.inspector_id)
+        .fetch_optional(&mut *db)
+        .await.map_err(|e| DomainError::Internal(e.into()))?;
+
+        Ok(InspectionDetailLookups {
+            wo_doc_number: wo.map(|r| r.0),
+            product_name: product.map(|r| r.0),
+            inspector_name: inspector.map(|r| r.0),
+        })
+    }
 }

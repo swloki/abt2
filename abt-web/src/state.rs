@@ -302,4 +302,7 @@ impl AppState {
     pub fn mes_dashboard_service(&self) -> impl abt_core::mes::dashboard::MesDashboardService {
         abt_core::mes::dashboard::new_mes_dashboard_service(self.pool.clone())
     }
+    pub fn production_exception_service(&self) -> impl abt_core::mes::production_exception::ProductionExceptionService {
+        abt_core::mes::production_exception::new_production_exception_service(self.pool.clone())
+    }
 }

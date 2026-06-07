@@ -124,6 +124,75 @@ export default defineConfig({
     "stat-card":
       "bg-white border border-border-soft rounded-md px-6 py-5 flex items-center gap-4 shadow-xs hover-shadow-sm hover--translate-y-px transition-all duration-240",
 
+    // ─── Board Stats (Schedule Board) ───
+    "board-stats": "grid grid-cols-5 gap-4 mb-6",
+    "stat-card-value": "text-2xl font-bold font-mono tabular-nums",
+    "stat-card-label": "text-sm text-muted mt-1",
+    "stat-pending": "text-muted",
+    "stat-progress": "text-[#fa8c16]",
+    "stat-receipt": "text-accent",
+    "stat-done": "text-[var(--success)]",
+
+    // ─── Kanban Board ───
+    "kanban-board": "grid grid-cols-4 gap-4",
+    "kanban-column":
+      "bg-[var(--surface)] rounded-md border border-border-soft min-h-[400px] flex flex-col",
+    "kanban-col-header":
+      "flex items-center justify-between px-4 py-3 border-b border-border-soft",
+    "kanban-col-title": "text-sm font-semibold text-fg",
+    "kanban-col-count":
+      "text-xs text-muted bg-[rgba(0,0,0,0.04)] px-2 py-0.5 rounded-full",
+    "kanban-col-body": "flex-1 p-3 flex flex-col gap-3 overflow-y-auto",
+    "kanban-empty": "text-sm text-muted text-center py-8",
+    "kanban-card":
+      "block bg-white rounded-md border border-border-soft p-4 shadow-xs hover-shadow-md hover--translate-y-px transition-all duration-200 cursor-pointer",
+    "kanban-card-top": "flex items-center justify-between mb-2",
+    "kanban-card-no": "text-sm font-semibold",
+    "kanban-card-pill":
+      "text-[10px] px-2 py-0.5 rounded-full font-medium",
+    "kanban-card-product": "text-sm text-fg-2 mb-2",
+    "kanban-card-meta": "text-xs text-muted",
+    "kanban-card-progress": "mt-2",
+    "kanban-card-tag":
+      "mt-2 text-[10px] text-muted bg-[rgba(0,0,0,0.03)] px-2 py-0.5 rounded",
+
+    // ─── Progress Bar ───
+    "progress-bar": "h-1.5 bg-[rgba(0,0,0,0.06)] rounded-full overflow-hidden",
+    "progress-fill": "h-full bg-accent rounded-full transition-all duration-300",
+    "progress-text": "text-[10px] text-muted mt-1",
+
+    // ─── Kanban Card Pill Colors ───
+    "pill-pending": "bg-[rgba(0,0,0,0.04)] text-muted",
+    "pill-progress": "bg-[rgba(250,140,22,0.08)] text-[#d46b08]",
+    "pill-suspended": "bg-[rgba(245,63,63,0.06)] text-[#f53f3f]",
+    "pill-receipt": "bg-[rgba(22,119,255,0.08)] text-accent",
+    "pill-done": "bg-[rgba(82,196,26,0.08)] text-[var(--success)]",
+
+    // ─── Kanban Column Accent Colors ───
+    "kanban-col-pending": "",
+    "kanban-col-progress": "",
+    "kanban-col-receipt": "",
+    "kanban-col-done": "",
+
+    // ─── Material Usage ───
+    "usage-summary": "grid grid-cols-4 gap-4 mb-6",
+    "text-center-empty": "text-center py-8 text-sm text-muted",
+    "diff-indicator": "text-xs font-medium font-mono",
+    "diff-positive": "text-[var(--danger)]",
+    "diff-negative": "text-[var(--success)]",
+    "diff-zero": "text-muted",
+    "data-card-header": "flex items-center justify-between mb-4",
+    "data-card-title": "text-base font-semibold text-fg",
+
+    // ─── Timeline ───
+    "timeline": "flex flex-col gap-0",
+    "timeline-item": "flex gap-4 pb-4 border-l-2 border-border-soft pl-4 ml-1 relative",
+    "timeline-dot": "w-2.5 h-2.5 rounded-full bg-accent absolute -left-[6px] top-1",
+    "timeline-content": "flex-1 min-w-0",
+    "timeline-time": "text-xs text-muted",
+    "timeline-action": "text-sm font-medium text-fg mt-0.5",
+    "timeline-desc": "text-sm text-muted mt-1",
+
     // ─── Page ───
     "page-title": "text-xl font-bold text-fg tracking-tight",
     "page-header": "flex items-center justify-between mb-6",

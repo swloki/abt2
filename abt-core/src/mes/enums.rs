@@ -161,3 +161,33 @@ impl DefectReason {
         matches!(self, Self::MaterialDefect | Self::EquipmentFault | Self::ProcessIssue)
     }
 }
+
+// -- Production Exception --
+define_mes_enum!(ExceptionType {
+    BatchSuspended = 1,
+    BatchScrapped = 2,
+    DefectAnomaly = 3,
+    InspectionFailed = 4,
+    EquipmentFault = 5,
+});
+
+define_mes_enum!(ExceptionStatus {
+    Pending = 1,
+    Processing = 2,
+    Closed = 3,
+    ConditionalRelease = 4,
+    Resolved = 5,
+});
+
+define_mes_enum!(ExceptionSeverity {
+    Urgent = 1,
+    Normal = 2,
+    Low = 3,
+});
+
+define_mes_enum!(ReasonCategory {
+    MaterialDefect = 1,
+    EquipmentFault = 2,
+    OperatorError = 3,
+    ProcessIssue = 4,
+});

@@ -32,4 +32,20 @@ impl MesDashboardService for MesDashboardServiceImpl {
     async fn get_recent_ops(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, limit: i64) -> Result<Vec<RecentOp>> {
         DashboardRepo::get_recent_ops(&mut *db, limit).await
     }
+
+    async fn get_schedule_stats(&self, _ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<ScheduleStats> {
+        DashboardRepo::get_schedule_stats(&mut *db).await
+    }
+
+    async fn get_schedule_cards(&self, _ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<Vec<ScheduleCard>> {
+        DashboardRepo::get_schedule_cards(&mut *db).await
+    }
+
+    async fn get_wo_basic_info(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, work_order_id: i64) -> Result<WoBasicInfo> {
+        DashboardRepo::get_wo_basic_info(&mut *db, work_order_id).await
+    }
+
+    async fn get_bom_comparison(&self, _ctx: &ServiceContext, db: PgExecutor<'_>, work_order_id: i64) -> Result<Vec<BomCompareItem>> {
+        DashboardRepo::get_bom_comparison(&mut *db, work_order_id).await
+    }
 }

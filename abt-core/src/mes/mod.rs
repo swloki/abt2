@@ -12,5 +12,6 @@ pub mod work_report;
 pub mod production_inspection;
 pub mod production_receipt;
 pub mod dashboard;
+pub mod production_exception;
 
 pub use enums::*;

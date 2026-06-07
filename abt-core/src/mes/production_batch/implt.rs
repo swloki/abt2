@@ -109,6 +109,17 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .ok_or_else(|| DomainError::not_found("ProductionBatch"))
     }
 
+    /// 按流转卡序列号查找批次
+    async fn find_by_card_sn(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        card_sn: String,
+    ) -> Result<Option<ProductionBatch>> {
+        ProductionBatchRepo::find_by_card_sn(&mut *db, &card_sn)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     /// 按工单ID列出所有批次
     async fn list_by_work_order(
         &self,

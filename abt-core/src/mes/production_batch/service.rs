@@ -15,6 +15,7 @@ pub trait ProductionBatchService: Send + Sync {
         splits: Vec<SplitReq>,
     ) -> Result<Vec<i64>>;
     async fn find_by_id(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<ProductionBatch>;
+    async fn find_by_card_sn(&self, ctx: &ServiceContext, db: PgExecutor<'_>, card_sn: String) -> Result<Option<ProductionBatch>>;
     async fn list_by_work_order(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

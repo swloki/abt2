@@ -57,6 +57,10 @@ pub struct BatchScrapPath {
 pub struct CardQueryPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/cards/search")]
+pub struct CardQuerySearchPath;
+
+#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/schedule")]
 pub struct ScheduleBoardPath;
 
@@ -73,5 +77,6 @@ pub fn router() -> Router<AppState> {
         .route(BatchResumePath::PATH, post(mes_batch_detail::resume_batch))
         .route(BatchScrapPath::PATH, post(mes_batch_detail::scrap_batch))
         .route(CardQueryPath::PATH, get(mes_card_query::get_card_query))
+        .route(CardQuerySearchPath::PATH, get(mes_card_query::search_card))
         .route(ScheduleBoardPath::PATH, get(mes_schedule_board::get_schedule_board))
 }

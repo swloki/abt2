@@ -36,6 +36,10 @@ pub struct ReceiptConfirmPath {
 #[typed_path("/admin/mes/material-usage")]
 pub struct MaterialUsagePath;
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/material-usage/data")]
+pub struct MaterialUsageDataPath;
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -49,4 +53,5 @@ pub fn router() -> Router<AppState> {
         .route(ReceiptDetailPath::PATH, get(mes_receipt_detail::get_receipt_detail))
         .route(ReceiptConfirmPath::PATH, post(mes_receipt_detail::confirm_receipt))
         .route(MaterialUsagePath::PATH, get(mes_material_usage::get_material_usage))
+        .route(MaterialUsageDataPath::PATH, get(mes_material_usage::load_usage_data))
 }

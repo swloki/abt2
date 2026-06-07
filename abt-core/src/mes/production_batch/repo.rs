@@ -139,6 +139,26 @@ impl ProductionBatchRepo {
         Ok(())
     }
 
+    pub async fn find_by_card_sn(
+        executor: &mut sqlx::postgres::PgConnection,
+        card_sn: &str,
+    ) -> Result<Option<ProductionBatch>> {
+        let row = sqlx::query(
+            r#"
+            SELECT id, batch_no, card_sn, work_order_id, product_id, batch_qty,
+                   completed_qty, scrap_qty, team_id, current_step,
+                   actual_start, actual_end, status, operator_id, created_at, updated_at
+            FROM production_batches
+            WHERE card_sn = $1
+            "#,
+        )
+        .bind(card_sn)
+        .fetch_optional(&mut *executor)
+        .await?;
+
+        row.map(|r| ProductionBatch::from_row(&r).map_err(Into::into)).transpose()
+    }
+
     pub async fn list_batches(
         executor: &mut sqlx::postgres::PgConnection,
         filter: &BatchListFilter,

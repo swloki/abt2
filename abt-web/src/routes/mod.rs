@@ -48,7 +48,8 @@ pub mod mes_batch;
 pub mod mes_report;
 pub mod mes_inspection;
 pub mod mes_receipt;
-use axum::{Router, middleware, routing::get};
+pub mod mes_exception;
+use axum::{Router, middleware};
 
 use crate::auth::middleware::auth_middleware;
 use crate::state::AppState;
@@ -106,7 +107,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(mes_report::router())
                 .merge(mes_inspection::router())
                 .merge(mes_receipt::router())
-                .route("/admin/mes/exceptions", get(crate::pages::mes_exception_list::get_exception_list))
+                .merge(mes_exception::router())
                 // ── System Management ──
                 .merge(user::router())
                 .merge(role::router())

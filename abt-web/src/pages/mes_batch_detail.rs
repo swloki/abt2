@@ -29,7 +29,8 @@ pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Res
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.production_batch_service();
     let batch = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
-    let content = batch_detail_page(&batch);
+    let routings = svc.list_routings(&service_ctx, &mut conn, batch.work_order_id).await?;
+    let content = batch_detail_page(&batch, &routings);
     Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", Some(BatchListPath::PATH), content).into_string()))
 }
 
@@ -98,9 +99,21 @@ pub struct SuspendForm {
     pub reason: String,
 }
 
-fn batch_detail_page(batch: &abt_core::mes::production_batch::ProductionBatch) -> Markup {
+fn batch_detail_page(batch: &abt_core::mes::production_batch::ProductionBatch, routings: &[abt_core::mes::production_batch::WorkOrderRouting]) -> Markup {
     use abt_core::mes::enums::BatchStatus;
     let (sl, sb, sc) = batch_status_label(&batch.status);
+
+    let current_step_display = if batch.current_step == 0 {
+        html! { span style="color:var(--muted)" { "未开始" } }
+    } else {
+        let total = routings.len();
+        let step_name = routings.iter()
+            .find(|r| r.step_no == batch.current_step)
+            .map(|r| r.process_name.as_str())
+            .unwrap_or("—");
+        html! { (batch.current_step) "/" (total) " " (step_name) }
+    };
+
     html! { div {
         div class="page-header" {
             div class="page-header-left" { a class="back-link" href=(BatchListPath::PATH) { "\u{2190} 返回列表" } h1 class="page-title" { "批次 " (batch.batch_no) } }
@@ -129,11 +142,38 @@ fn batch_detail_page(batch: &abt_core::mes::production_batch::ProductionBatch) -
                 div class="info-item" { label { "批次号" } span class="mono" { (batch.batch_no) } }
                 div class="info-item" { label { "流转卡号" } span class="mono" { (batch.card_sn) } }
                 div class="info-item" { label { "产品ID" } span { (batch.product_id) } }
-                div class="info-item" { label { "数量" } span class="mono" { (batch.batch_qty) } }
-                div class="info-item" { label { "已完成" } span class="mono" { (batch.completed_qty) } }
-                div class="info-item" { label { "报废" } span class="mono" { (batch.scrap_qty) } }
-                div class="info-item" { label { "当前工序" } span { (batch.current_step) } }
+                div class="info-item" { label { "数量" } span class="mono" { (crate::utils::fmt_qty(batch.batch_qty)) } }
+                div class="info-item" { label { "已完成" } span class="mono" { (crate::utils::fmt_qty(batch.completed_qty)) } }
+                div class="info-item" { label { "报废" } span class="mono" { (crate::utils::fmt_qty(batch.scrap_qty)) } }
+                div class="info-item" { label { "当前工序" } span { (current_step_display) } }
                 div class="info-item" { label { "状态" } span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
+            }
+        }
+
+        // Routing steps table
+        @if !routings.is_empty() {
+            div class="form-section" style="margin-top:var(--space-6)" {
+                div class="form-section-title" { "工序路线" }
+                div class="data-card" {
+                    div class="data-card-scroll" {
+                        table class="data-table" { thead { tr {
+                            th { "序号" } th { "工序名称" } th class="num-right" { "计划数" }
+                            th class="num-right" { "完成数" } th class="num-right" { "不良数" } th { "状态" }
+                        }} tbody {
+                            @for r in routings {
+                                @let is_current = r.step_no == batch.current_step;
+                                tr style=(if is_current { "background:rgba(22,119,255,0.04);font-weight:600" } else { "" }) {
+                                    td class="mono" { (r.step_no) }
+                                    td { (r.process_name) }
+                                    td class="num-right mono" { (crate::utils::fmt_qty(r.planned_qty)) }
+                                    td class="num-right mono" { (crate::utils::fmt_qty(r.completed_qty)) }
+                                    td class="num-right mono" { (crate::utils::fmt_qty(r.defect_qty)) }
+                                    td { (fmt_routing_status(&r.status)) }
+                                }
+                            }
+                        }}
+                    }
+                }
             }
         }
 
@@ -158,4 +198,15 @@ fn batch_detail_page(batch: &abt_core::mes::production_batch::ProductionBatch) -
             }
         }
     }}
+}
+
+fn fmt_routing_status(s: &abt_core::mes::enums::RoutingStatus) -> Markup {
+    use abt_core::mes::enums::RoutingStatus;
+    let (label, bg, color) = match s {
+        RoutingStatus::Pending => ("待开始", "rgba(0,0,0,0.04)", "var(--muted)"),
+        RoutingStatus::InProgress => ("进行中", "rgba(250,140,22,0.08)", "#fa8c16"),
+        RoutingStatus::Completed => ("已完成", "rgba(82,196,26,0.08)", "var(--success)"),
+        RoutingStatus::Skipped => ("已跳过", "rgba(114,46,209,0.06)", "#722ed1"),
+    };
+    html! { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{bg};color:{color}")) { (label) } }
 }

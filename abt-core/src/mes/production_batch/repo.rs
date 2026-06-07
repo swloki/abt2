@@ -184,10 +184,13 @@ impl ProductionBatchRepo {
         let data_sql = format!(
             "SELECT pb.id, pb.batch_no, pb.work_order_id, wo.doc_number AS wo_doc_number, \
              pb.product_id, p.pdt_name AS product_name, pb.batch_qty, pb.completed_qty, pb.current_step, \
+             wor.process_name AS current_step_name, \
+             (SELECT COUNT(*)::int FROM work_order_routings WHERE work_order_id = pb.work_order_id) AS total_steps, \
              pb.status, pb.created_at \
              FROM production_batches pb \
              LEFT JOIN work_orders wo ON wo.id = pb.work_order_id \
              LEFT JOIN products p ON p.product_id = pb.product_id \
+             LEFT JOIN work_order_routings wor ON wor.work_order_id = pb.work_order_id AND wor.step_no = pb.current_step \
              WHERE {where_sql} \
              ORDER BY pb.created_at DESC \
              LIMIT ${limit_idx} OFFSET ${offset_idx}"

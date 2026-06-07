@@ -114,6 +114,8 @@ pub struct BatchListItem {
     pub batch_qty: Decimal,
     pub completed_qty: Decimal,
     pub current_step: i32,
+    pub current_step_name: Option<String>,
+    pub total_steps: Option<i32>,
     pub status: BatchStatus,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }

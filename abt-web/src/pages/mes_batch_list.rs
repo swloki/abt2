@@ -52,6 +52,17 @@ fn parse_batch_status(s: &str) -> Option<BatchStatus> {
     }
 }
 
+fn fmt_current_step(current: i32, step_name: Option<&str>, total: Option<i32>) -> Markup {
+    if current == 0 {
+        return html! { span style="color:var(--muted)" { "未开始" } };
+    }
+    let total_str = total.map_or(String::new(), |t| format!("/{t}"));
+    match step_name {
+        Some(name) => html! { (current)(total_str) " " (name) },
+        None => html! { "工序 "(current)(total_str) },
+    }
+}
+
 #[require_permission("MES", "read")]
 pub async fn get_batch_list(
     _path: BatchListPath, ctx: RequestContext, Query(params): Query<BatchQueryParams>,
@@ -147,7 +158,7 @@ fn batch_data_card(
                             td { (item.product_name.as_deref().unwrap_or("\u{2014}")) }
                             td class="num-right mono" { (crate::utils::fmt_qty(item.batch_qty)) }
                             td class="num-right mono" { (crate::utils::fmt_qty(item.completed_qty)) }
-                            td { "工序 " (item.current_step) }
+                            td { (fmt_current_step(item.current_step, item.current_step_name.as_deref(), item.total_steps)) }
                             td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
                             td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }
                         }

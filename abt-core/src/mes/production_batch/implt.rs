@@ -454,4 +454,15 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
         Ok(crate::shared::types::PaginatedResult::new(items, total as u64, page, page_size))
     }
+
+    async fn list_routings(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        work_order_id: i64,
+    ) -> Result<Vec<WorkOrderRouting>> {
+        WorkOrderRoutingRepo::get_by_work_order_id(&mut *db, work_order_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
 }

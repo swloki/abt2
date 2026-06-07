@@ -202,8 +202,8 @@ impl ProductionBatchRepo {
         let limit_idx = param_idx + 1;
         let offset_idx = param_idx + 2;
         let data_sql = format!(
-            "SELECT pb.id, pb.batch_no, pb.work_order_id, wo.doc_number AS wo_doc_number, \
-             pb.product_id, p.pdt_name AS product_name, pb.batch_qty, pb.completed_qty, pb.current_step, \
+            "SELECT pb.id, pb.batch_no, pb.card_sn, pb.work_order_id, wo.doc_number AS wo_doc_number, \
+             pb.product_id, p.pdt_name AS product_name, pb.batch_qty, pb.completed_qty, pb.scrap_qty, pb.current_step, \
              wor.process_name AS current_step_name, \
              (SELECT COUNT(*)::int FROM work_order_routings WHERE work_order_id = pb.work_order_id) AS total_steps, \
              pb.status, pb.created_at \

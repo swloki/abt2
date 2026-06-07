@@ -37,25 +37,25 @@ fn exception_detail_page(
     use abt_core::mes::enums::{ExceptionSeverity, ExceptionStatus, ExceptionType, ReasonCategory};
 
     let (type_label, type_cls) = match exc.exception_type {
-        ExceptionType::BatchSuspended => ("批次暂停", "pill-suspended"),
-        ExceptionType::BatchScrapped => ("批次报废", "pill-pending"),
-        ExceptionType::DefectAnomaly => ("不良异常", "pill-progress"),
-        ExceptionType::InspectionFailed => ("报检不合格", "pill-receipt"),
-        ExceptionType::EquipmentFault => ("设备故障", "pill-suspended"),
+        ExceptionType::BatchSuspended => ("批次暂停", "status-suspended"),
+        ExceptionType::BatchScrapped => ("批次报废", "status-defect"),
+        ExceptionType::DefectAnomaly => ("不良异常", "status-inspecting"),
+        ExceptionType::InspectionFailed => ("报检不合格", "status-confirmed"),
+        ExceptionType::EquipmentFault => ("设备故障", "status-progress"),
     };
 
     let (status_label, status_cls) = match exc.status {
-        ExceptionStatus::Pending => ("待处理", "pill-pending"),
-        ExceptionStatus::Processing => ("处理中", "pill-progress"),
-        ExceptionStatus::Closed => ("已关闭", "pill-done"),
-        ExceptionStatus::ConditionalRelease => ("条件放行", "pill-receipt"),
-        ExceptionStatus::Resolved => ("已恢复", "pill-done"),
+        ExceptionStatus::Pending => ("待处理", "status-draft"),
+        ExceptionStatus::Processing => ("处理中", "status-progress"),
+        ExceptionStatus::Closed => ("已关闭", "status-completed"),
+        ExceptionStatus::ConditionalRelease => ("条件放行", "status-inspecting"),
+        ExceptionStatus::Resolved => ("已恢复", "status-completed"),
     };
 
     let (severity_label, severity_cls) = match exc.severity {
-        ExceptionSeverity::Urgent => ("紧急", "pill-suspended"),
-        ExceptionSeverity::Normal => ("一般", "pill-progress"),
-        ExceptionSeverity::Low => ("低", "pill-pending"),
+        ExceptionSeverity::Urgent => ("紧急", "status-suspended"),
+        ExceptionSeverity::Normal => ("一般", "status-progress"),
+        ExceptionSeverity::Low => ("低", "status-neutral"),
     };
 
     let reason_label = exc.reason_category.map(|r| match r {
@@ -80,9 +80,9 @@ fn exception_detail_page(
         // Status + severity
         div class="info-card" {
             div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)" {
-                span class=(format!("kanban-card-pill {type_cls}")) { (type_label) }
-                span class=(format!("kanban-card-pill {status_cls}")) { (status_label) }
-                span class=(format!("kanban-card-pill {severity_cls}")) { (severity_label) }
+                span class=(format!("status-pill {type_cls}")) { (type_label) }
+                span class=(format!("status-pill {status_cls}")) { (status_label) }
+                span class=(format!("status-pill {severity_cls}")) { (severity_label) }
             }
             div class="info-grid" {
                 div class="info-item" { label { "异常类型" } span { (type_label) } }
@@ -126,7 +126,7 @@ fn exception_detail_page(
                             div class="timeline-dot" {}
                             div class="timeline-content" {
                                 div class="timeline-time" { (event.created_at.format("%Y-%m-%d %H:%M")) }
-                                div class="timeline-action" { (event.event_type) }
+                                div class="timeline-action" { (event_type_label(&event.event_type)) }
                                 @if let Some(ref desc) = event.description {
                                     div class="timeline-desc" { (desc) }
                                 }
@@ -137,4 +137,18 @@ fn exception_detail_page(
             }
         }
     }}
+}
+
+
+fn event_type_label(t: &str) -> String {
+    match t {
+        "reported" => "异常上报".to_string(),
+        "suspended" => "批次暂停".to_string(),
+        "repair_submitted" => "提交维修".to_string(),
+        "repair_in_progress" => "维修进行中".to_string(),
+        "resolved" => "已恢复".to_string(),
+        "closed" => "已关闭".to_string(),
+        "processing" => "处理中".to_string(),
+        _ => t.to_string(),
+    }
 }

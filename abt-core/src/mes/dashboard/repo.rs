@@ -172,15 +172,16 @@ impl DashboardRepo {
              p.pdt_name AS component_name, \
              p.unit, \
              bn.quantity AS per_unit_qty, \
-             bn.quantity * wo.completed_qty AS standard_total, \
+             bn.quantity * COALESCE(wo_batch.completed, 0) AS standard_total, \
              COALESCE(SUM(bi.actual_qty), 0) AS backflush_total \
              FROM work_orders wo \
              JOIN bom_nodes bn ON bn.bom_id = wo.bom_snapshot_id AND bn.parent_id != 0 \
              LEFT JOIN products p ON p.product_id = bn.product_id \
+             LEFT JOIN (SELECT work_order_id, SUM(completed_qty) AS completed FROM production_batches WHERE status != 6 GROUP BY work_order_id) wo_batch ON wo_batch.work_order_id = wo.id \
              LEFT JOIN backflush_records br ON br.work_order_id = wo.id AND br.status = 2 \
              LEFT JOIN backflush_items bi ON bi.record_id = br.id AND bi.component_id = bn.product_id \
              WHERE wo.id = $1 \
-             GROUP BY bn.product_id, p.pdt_code, p.pdt_name, p.unit, bn.quantity, wo.completed_qty \
+             GROUP BY bn.product_id, p.product_code, p.pdt_name, p.unit, bn.quantity, wo_batch.completed \
              ORDER BY p.pdt_name"
         )
         .bind(work_order_id)

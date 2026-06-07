@@ -144,12 +144,15 @@ fn exception_table_fragment(
                                 }
                                 td { (exception_type_label(&item.exception_type)) }
                                 td {
-                                    @if let Some(ref wo) = item.wo_doc_number {
-                                        a href=(format!("/admin/mes/orders/{}", item.work_order_id.unwrap_or(0))) class="link-cell" { (wo) }
-                                    }
-                                    @if let Some(ref bn) = item.batch_no {
-                                        br;
-                                        a href=(format!("/admin/mes/batches/{}", item.batch_id.unwrap_or(0))) class="link-cell" { (bn) }
+                                    div class="cell-stack" {
+                                        @if let Some(ref wo) = item.wo_doc_number {
+                                            span class="sub" {
+                                                a href=(format!("/admin/mes/orders/{}", item.work_order_id.unwrap_or(0))) class="link-cell" { (wo) }
+                                            }
+                                        }
+                                        @if let Some(ref bn) = item.batch_no {
+                                            a href=(format!("/admin/mes/batches/{}", item.batch_id.unwrap_or(0))) class="link-cell" { (bn) }
+                                        }
                                     }
                                 }
                                 td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" {
@@ -176,22 +179,22 @@ fn exception_table_fragment(
 
 fn exception_type_label(t: &ExceptionType) -> Markup {
     let (label, cls) = match t {
-        ExceptionType::BatchSuspended => ("批次暂停", "pill-suspended"),
-        ExceptionType::BatchScrapped => ("批次报废", "pill-pending"),
-        ExceptionType::DefectAnomaly => ("不良异常", "pill-progress"),
-        ExceptionType::InspectionFailed => ("报检不合格", "pill-receipt"),
-        ExceptionType::EquipmentFault => ("设备故障", "pill-suspended"),
+        ExceptionType::BatchSuspended => ("批次暂停", "status-suspended"),
+        ExceptionType::BatchScrapped => ("批次报废", "status-defect"),
+        ExceptionType::DefectAnomaly => ("不良异常", "status-inspecting"),
+        ExceptionType::InspectionFailed => ("报检不合格", "status-confirmed"),
+        ExceptionType::EquipmentFault => ("设备故障", "status-progress"),
     };
-    html! { span class=(format!("kanban-card-pill {cls}")) { (label) } }
+    html! { span class=(format!("status-pill {cls}")) { (label) } }
 }
 
 fn exception_status_label(s: &ExceptionStatus) -> Markup {
     let (label, cls) = match s {
-        ExceptionStatus::Pending => ("待处理", "pill-pending"),
-        ExceptionStatus::Processing => ("处理中", "pill-progress"),
-        ExceptionStatus::Closed => ("已关闭", "pill-done"),
-        ExceptionStatus::ConditionalRelease => ("条件放行", "pill-receipt"),
-        ExceptionStatus::Resolved => ("已恢复", "pill-done"),
+        ExceptionStatus::Pending => ("待处理", "status-draft"),
+        ExceptionStatus::Processing => ("处理中", "status-progress"),
+        ExceptionStatus::Closed => ("已关闭", "status-completed"),
+        ExceptionStatus::ConditionalRelease => ("条件放行", "status-inspecting"),
+        ExceptionStatus::Resolved => ("已恢复", "status-completed"),
     };
-    html! { span class=(format!("kanban-card-pill {cls}")) { (label) } }
+    html! { span class=(format!("status-pill {cls}")) { (label) } }
 }

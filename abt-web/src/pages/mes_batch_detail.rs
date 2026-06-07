@@ -4,22 +4,24 @@ use maud::{html, Markup};
 use serde::Deserialize;
 
 use abt_core::mes::production_batch::ProductionBatchService;
-
+use abt_core::mes::work_order::WorkOrderService;
+use abt_core::mes::work_report::WorkReportService;
+use abt_core::shared::identity::UserService;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_batch::{BatchDetailPath, BatchListPath, BatchConfirmStepPath, BatchAdvancePath, BatchSuspendPath, BatchResumePath, BatchScrapPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
-fn batch_status_label(s: &abt_core::mes::enums::BatchStatus) -> (&'static str, &'static str, &'static str) {
+fn batch_status_label(s: &abt_core::mes::enums::BatchStatus) -> (&'static str, &'static str) {
     use abt_core::mes::enums::BatchStatus::*;
     match s {
-        Pending => ("待生产", "rgba(0,0,0,0.04)", "var(--muted)"),
-        InProgress => ("进行中", "rgba(250,140,22,0.08)", "#fa8c16"),
-        Suspended => ("已暂停", "rgba(245,63,63,0.06)", "#f53f3f"),
-        PendingReceipt => ("待入库", "rgba(22,119,255,0.08)", "var(--accent)"),
-        Completed => ("已完成", "rgba(82,196,26,0.08)", "var(--success)"),
-        Cancelled => ("已取消", "rgba(114,46,209,0.06)", "#722ed1"),
+        Pending => ("待生产", "status-draft"),
+        InProgress => ("进行中", "status-progress"),
+        Suspended => ("已暂停", "status-suspended"),
+        PendingReceipt => ("待入库", "status-inspecting"),
+        Completed => ("已完成", "status-completed"),
+        Cancelled => ("已取消", "status-neutral"),
     }
 }
 
@@ -28,10 +30,34 @@ pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Res
     let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.production_batch_service();
+    let wo_svc = state.work_order_service();
+    let wr_svc = state.work_report_service();
+    let user_svc = state.user_service();
     let batch = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
     let routings = svc.list_routings(&service_ctx, &mut conn, batch.work_order_id).await?;
     let product_name = svc.get_product_name(&mut conn, batch.product_id).await?.unwrap_or_default();
-    let content = batch_detail_page(&batch, &product_name, &routings);
+    let wo = wo_svc.find_by_id(&service_ctx, &mut conn, batch.work_order_id).await?;
+
+    // 报工记录
+    let reports = wr_svc.list_by_batch(&service_ctx, &mut conn, batch.id).await.unwrap_or_default();
+
+    // 批量获取工人名和创建人名
+    let mut user_ids: Vec<i64> = reports.iter().map(|r| r.worker_id).collect();
+    user_ids.push(batch.operator_id);
+    user_ids.sort_unstable();
+    user_ids.dedup();
+    let users = user_svc.get_users_by_ids(&service_ctx, &mut conn, user_ids).await.unwrap_or_default();
+    let user_map: std::collections::HashMap<i64, String> = users.iter()
+        .map(|u| (u.user.user_id, u.user.display_name.clone().unwrap_or_else(|| u.user.username.clone())))
+        .collect();
+    let creator_name = user_map.get(&batch.operator_id).cloned().unwrap_or_else(|| "—".to_string());
+
+    // 工序名映射
+    let routing_map: std::collections::HashMap<i64, &str> = routings.iter()
+        .map(|r| (r.id as i64, r.process_name.as_str()))
+        .collect();
+
+    let content = batch_detail_page(&batch, &product_name, &wo, &routings, &reports, &routing_map, &user_map, &creator_name);
     Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", Some(BatchListPath::PATH), content).into_string()))
 }
 
@@ -100,9 +126,18 @@ pub struct SuspendForm {
     pub reason: String,
 }
 
-fn batch_detail_page(batch: &abt_core::mes::production_batch::ProductionBatch, product_name: &str, routings: &[abt_core::mes::production_batch::WorkOrderRouting]) -> Markup {
+fn batch_detail_page(
+    batch: &abt_core::mes::production_batch::ProductionBatch,
+    product_name: &str,
+    wo: &abt_core::mes::work_order::WorkOrder,
+    routings: &[abt_core::mes::production_batch::WorkOrderRouting],
+    reports: &[abt_core::mes::work_report::WorkReport],
+    routing_map: &std::collections::HashMap<i64, &str>,
+    user_map: &std::collections::HashMap<i64, String>,
+    creator_name: &str,
+) -> Markup {
     use abt_core::mes::enums::BatchStatus;
-    let (sl, sb, sc) = batch_status_label(&batch.status);
+    let (sl, sc) = batch_status_label(&batch.status);
 
     let current_step_display = if batch.current_step == 0 {
         html! { span style="color:var(--muted)" { "未开始" } }
@@ -115,99 +150,160 @@ fn batch_detail_page(batch: &abt_core::mes::production_batch::ProductionBatch, p
         html! { (batch.current_step) "/" (total) " " (step_name) }
     };
 
+    let shift_label = |s: &abt_core::mes::enums::ShiftType| -> &'static str {
+        use abt_core::mes::enums::ShiftType;
+        match s { ShiftType::Day => "白班", ShiftType::Night => "夜班" }
+    };
+
+    let defect_label = |d: &Option<abt_core::mes::enums::DefectReason>| -> &'static str {
+        use abt_core::mes::enums::DefectReason;
+        match d {
+            None => "—",
+            Some(DefectReason::MaterialDefect) => "物料不良",
+            Some(DefectReason::EquipmentFault) => "设备故障",
+            Some(DefectReason::OperatorError) => "操作失误",
+            Some(DefectReason::ProcessIssue) => "工艺问题",
+        }
+    };
+
     html! { div {
-        div class="page-header" {
-            div class="page-header-left" { a class="back-link" href=(BatchListPath::PATH) { "\u{2190} 返回列表" } h1 class="page-title" { "批次 " (batch.batch_no) } }
-            div class="page-actions" {
-                @if batch.status == BatchStatus::InProgress {
-                    form hx-post=(format!("/admin/mes/batches/{}/suspend", batch.id)) hx-swap="none" style="display:inline" {
-                        input type="hidden" name="reason" value="手动暂停";
-                        button class="btn btn-default" type="submit" { "暂停" }
-                    }
+        // ── Header: doc no + status + actions + 5-col info grid ──
+        div class="batch-detail-header" {
+            div class="batch-detail-title-row" {
+                div class="detail-doc-no" {
+                    (batch.batch_no)
+                    span class=(format!("status-pill {sc}")) { (sl) }
+                    span class="time-cell" style="font-weight:400;margin-left:var(--space-2)" { "流转卡: " (batch.card_sn) }
                 }
-                @if batch.status == BatchStatus::Suspended {
-                    form hx-post=(format!("/admin/mes/batches/{}/resume", batch.id)) hx-swap="none" style="display:inline" {
-                        button class="btn btn-primary" type="submit" { "恢复" }
+                div style="display:flex;gap:var(--space-3)" {
+                    @if batch.status == BatchStatus::InProgress {
+                        a class="btn btn-default" href=(format!("/admin/mes/batches/{}/suspend", batch.id)) { "暂停" }
+                        a class="btn btn-primary" href=(format!("/admin/mes/reports/create?batch_id={}", batch.id)) { "工序报工" }
                     }
-                }
-                @if batch.status == BatchStatus::PendingReceipt {
-                    form hx-post=(format!("/admin/mes/batches/{}/advance", batch.id)) hx-swap="none" style="display:inline" {
-                        button class="btn btn-primary" type="submit" { "推进入库" }
+                    @if batch.status == BatchStatus::Suspended {
+                        form hx-post=(format!("/admin/mes/batches/{}/resume", batch.id)) hx-swap="none" style="display:inline" {
+                            button class="btn btn-primary" type="submit" { "恢复" }
+                        }
+                    }
+                    @if batch.status == BatchStatus::PendingReceipt {
+                        a class="btn btn-primary" href=(format!("/admin/mes/receipts/create?batch_id={}", batch.id)) { "入库" }
                     }
                 }
             }
-        }
-
-        div class="info-card" {
-            div class="info-grid" {
-                div class="info-item" { label { "批次号" } span class="mono" { (batch.batch_no) } }
-                div class="info-item" { label { "流转卡号" } span class="mono" { (batch.card_sn) } }
-                div class="info-item" { label { "产品" } span { (product_name) } }
-                div class="info-item" { label { "数量" } span class="mono" { (crate::utils::fmt_qty(batch.batch_qty)) } }
-                div class="info-item" { label { "已完成" } span class="mono" { (crate::utils::fmt_qty(batch.completed_qty)) } }
-                div class="info-item" { label { "报废" } span class="mono" { (crate::utils::fmt_qty(batch.scrap_qty)) } }
-                div class="info-item" { label { "当前工序" } span { (current_step_display) } }
-                div class="info-item" { label { "状态" } span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
+            // 10 fields matching prototype order
+            div class="detail-info-grid-5" {
+                div class="detail-info-item" { span class="detail-info-label" { "工单" } span class="detail-info-value" { a href=(format!("/admin/mes/orders/{}", wo.id)) class="link-cell" { (wo.doc_number) } } }
+                div class="detail-info-item" { span class="detail-info-label" { "产品" } span class="detail-info-value" { (product_name) } }
+                div class="detail-info-item" { span class="detail-info-label" { "班组" } span class="detail-info-value" { "—" } }
+                div class="detail-info-item" { span class="detail-info-label" { "批次数量" } span class="detail-info-value" { (crate::utils::fmt_qty(batch.batch_qty)) } }
+                div class="detail-info-item" { span class="detail-info-label" { "完成/报废" } span class="detail-info-value" { span class="text-success" { (crate::utils::fmt_qty(batch.completed_qty)) } " / " span class="text-danger" { (crate::utils::fmt_qty(batch.scrap_qty)) } } }
+                div class="detail-info-item" { span class="detail-info-label" { "当前工序" } span class="detail-info-value" style="color:var(--warn)" { (current_step_display) } }
+                div class="detail-info-item" { span class="detail-info-label" { "实际开始" } span class="detail-info-value" { (batch.actual_start.map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".to_string())) } }
+                div class="detail-info-item" { span class="detail-info-label" { "实际结束" } span class="detail-info-value text-muted" { (batch.actual_end.map(|t| t.format("%Y-%m-%d %H:%M").to_string()).unwrap_or_else(|| "—".to_string())) } }
+                div class="detail-info-item" { span class="detail-info-label" { "创建人" } span class="detail-info-value" { (creator_name) } }
+                div class="detail-info-item" { span class="detail-info-label" { "创建时间" } span class="detail-info-value" { (batch.created_at.format("%Y-%m-%d %H:%M").to_string()) } }
             }
         }
 
-        // Routing steps table
+        // ── 工序流转进度 (horizontal step dots) ──
         @if !routings.is_empty() {
-            div class="form-section" style="margin-top:var(--space-6)" {
-                div class="form-section-title" { "工序路线" }
-                div class="data-card" {
-                    div class="data-card-scroll" {
-                        table class="data-table" { thead { tr {
-                            th { "序号" } th { "工序名称" } th class="num-right" { "计划数" }
-                            th class="num-right" { "完成数" } th class="num-right" { "不良数" } th { "状态" }
-                        }} tbody {
-                            @for r in routings {
-                                @let is_current = r.step_no == batch.current_step;
-                                tr style=(if is_current { "background:rgba(22,119,255,0.04);font-weight:600" } else { "" }) {
-                                    td class="mono" { (r.step_no) }
-                                    td { (r.process_name) }
-                                    td class="num-right mono" { (crate::utils::fmt_qty(r.planned_qty)) }
-                                    td class="num-right mono" { (crate::utils::fmt_qty(r.completed_qty)) }
-                                    td class="num-right mono" { (crate::utils::fmt_qty(r.defect_qty)) }
-                                    td { (fmt_routing_status(&r.status)) }
+            div class="sub-section" {
+                div class="sub-section-title" { "工序流转进度" }
+                div class="progress-track" {
+                    @for (i, r) in routings.iter().enumerate() {
+                        @let is_completed = r.status == abt_core::mes::enums::RoutingStatus::Completed;
+                        @let is_active = r.step_no == batch.current_step;
+                        @let cls = if is_completed { "progress-step completed" } else if is_active { "progress-step active" } else { "progress-step" };
+                        div class=(cls) {
+                            div class="progress-step-dot" {
+                                @if is_completed { "✓" } @else { (r.step_no) }
+                            }
+                            div class="progress-step-label" { (r.process_name) }
+                            @if i < routings.len() - 1 {
+                                div class="progress-step-line" {}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 报工记录 (matches prototype sub-section) ──
+        div class="sub-section" {
+            div class="sub-section-title" { "报工记录" }
+            @if reports.is_empty() {
+                div style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无报工记录" }
+            } @else {
+                div class="data-card-scroll" {
+                    table class="data-table" style="width:100%" {
+                        thead {
+                            tr {
+                                th { "报工单号" }
+                                th { "工序" }
+                                th { "班次" }
+                                th { "工人" }
+                                th { "完成数量" }
+                                th { "不良数量" }
+                                th { "不良原因" }
+                                th { "工时(h)" }
+                                th { "报工时间" }
+                            }
+                        }
+                        tbody {
+                            @for r in reports {
+                                tr {
+                                    td { a href=(format!("/admin/mes/reports/{}", r.id)) class="link-cell mono" { (r.doc_number) } }
+                                    td { (routing_map.get(&r.routing_id).copied().unwrap_or("—")) }
+                                    td { span class="status-pill status-neutral" { (shift_label(&r.shift)) } }
+                                    td { (user_map.get(&r.worker_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                    td class="mono text-success" { (crate::utils::fmt_qty(r.completed_qty)) }
+                                    td class="mono text-danger" { (crate::utils::fmt_qty(r.defect_qty)) }
+                                    td { (defect_label(&r.defect_reason)) }
+                                    td class="mono" { (crate::utils::fmt_qty(r.work_hours)) }
+                                    td class="time-cell" { (r.created_at.format("%Y-%m-%d %H:%M").to_string()) }
                                 }
                             }
-                        }}
+                        }
                     }
                 }
             }
         }
 
-        // Report form for current step
-        @if batch.status == BatchStatus::Pending || batch.status == BatchStatus::InProgress {
-            div class="form-section" style="margin-top:var(--space-6)" {
-                div class="form-section-title" { "报工" }
-                form hx-post=(format!("/admin/mes/batches/{}/confirm-step", batch.id)) hx-swap="none" {
-                    div class="form-grid" {
-                        div class="form-field" { label class="form-label" { "工序号" } input class="form-input" type="number" name="step_no" value=(batch.current_step + 1) style="width:80px"; }
-                        div class="form-field" { label class="form-label" { "工人ID" } input class="form-input" type="number" name="worker_id" required; }
-                        div class="form-field" { label class="form-label" { "班次" } select class="form-select" name="shift" {
-                            option value="1" { "白班" } option value="2" { "夜班" }
-                        }}
-                        div class="form-field" { label class="form-label" { "完成数量" } input class="form-input" type="number" step="0.01" name="completed_qty" required; }
-                        div class="form-field" { label class="form-label" { "不良数量" } input class="form-input" type="number" step="0.01" name="defect_qty" value="0"; }
-                        div class="form-field" { label class="form-label" { "工时" } input class="form-input" type="number" step="0.01" name="work_hours" required; }
-                        div class="form-field" { label class="form-label" { "报工日期" } input class="form-input" type="date" name="report_date" required; }
+        // ── 状态变更记录 (matches prototype sub-section) ──
+        div class="sub-section" {
+            div class="sub-section-title" { "状态变更记录" }
+            table class="data-table" style="width:100%" {
+                thead {
+                    tr {
+                        th { "时间" }
+                        th { "操作" }
+                        th { "变更" }
+                        th { "操作人" }
+                        th { "备注" }
                     }
-                    div style="margin-top:var(--space-4)" { button type="submit" class="btn btn-primary" { "提交报工" } }
+                }
+                tbody {
+                    // 创建记录
+                    tr {
+                        td class="time-cell" { (batch.created_at.format("%Y-%m-%d %H:%M").to_string()) }
+                        td { span class="status-pill status-draft" { "创建" } }
+                        td { "批次创建" }
+                        td { (creator_name) }
+                        td class="text-muted" { "工单下达自动生成" }
+                    }
+                    // 实际开始记录
+                    @if let Some(start) = batch.actual_start {
+                        tr {
+                            td class="time-cell" { (start.format("%Y-%m-%d %H:%M").to_string()) }
+                            td { span class="status-pill status-confirmed" { "开始生产" } }
+                            td { "待生产 → 进行中" }
+                            td { (creator_name) }
+                            td class="text-muted" { "首道工序开始" }
+                        }
+                    }
                 }
             }
         }
     }}
 }
 
-fn fmt_routing_status(s: &abt_core::mes::enums::RoutingStatus) -> Markup {
-    use abt_core::mes::enums::RoutingStatus;
-    let (label, bg, color) = match s {
-        RoutingStatus::Pending => ("待开始", "rgba(0,0,0,0.04)", "var(--muted)"),
-        RoutingStatus::InProgress => ("进行中", "rgba(250,140,22,0.08)", "#fa8c16"),
-        RoutingStatus::Completed => ("已完成", "rgba(82,196,26,0.08)", "var(--success)"),
-        RoutingStatus::Skipped => ("已跳过", "rgba(114,46,209,0.06)", "#722ed1"),
-    };
-    html! { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{bg};color:{color}")) { (label) } }
-}

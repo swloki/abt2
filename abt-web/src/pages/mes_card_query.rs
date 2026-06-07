@@ -75,15 +75,15 @@ pub async fn search_card(
     Ok(Html(html_content.into_string()))
 }
 
-fn batch_status_label(s: &abt_core::mes::enums::BatchStatus) -> (&'static str, &'static str, &'static str) {
+fn batch_status_label(s: &abt_core::mes::enums::BatchStatus) -> (&'static str, &'static str) {
     use abt_core::mes::enums::BatchStatus::*;
     match s {
-        Pending => ("待生产", "rgba(0,0,0,0.04)", "var(--muted)"),
-        InProgress => ("进行中", "rgba(250,140,22,0.08)", "#fa8c16"),
-        Suspended => ("已暂停", "rgba(245,63,63,0.06)", "#f53f3f"),
-        PendingReceipt => ("待入库", "rgba(22,119,255,0.08)", "var(--accent)"),
-        Completed => ("已完成", "rgba(82,196,26,0.08)", "var(--success)"),
-        Cancelled => ("已取消", "rgba(114,46,209,0.06)", "#722ed1"),
+        Pending => ("待生产", "status-draft"),
+        InProgress => ("进行中", "status-progress"),
+        Suspended => ("已暂停", "status-suspended"),
+        PendingReceipt => ("待入库", "status-inspecting"),
+        Completed => ("已完成", "status-completed"),
+        Cancelled => ("已取消", "status-neutral"),
     }
 }
 
@@ -117,7 +117,7 @@ fn card_search_result(
     routings: &[abt_core::mes::production_batch::WorkOrderRouting],
     reports: &[abt_core::mes::work_report::WorkReport],
 ) -> Markup {
-    let (status_label, status_bg, status_color) = batch_status_label(&batch.status);
+    let (status_label, status_cls) = batch_status_label(&batch.status);
     let total_steps = routings.len() as i32;
 
     let current_step_display = if batch.current_step == 0 {
@@ -139,7 +139,7 @@ fn card_search_result(
         div class="info-card" style="margin-bottom:var(--space-4)" {
             div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)" {
                 span class="mono" style="font-size:var(--text-lg);font-weight:600" { (batch.card_sn) }
-                span style=(format!("display:inline-flex;padding:2px 10px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) { (status_label) }
+                span class=(format!("status-pill {status_cls}")) { (status_label) }
             }
             div style="color:var(--muted);font-size:var(--text-sm)" {
                 "批次 " span class="mono" { (batch.batch_no) }
@@ -155,7 +155,7 @@ fn card_search_result(
                 div class="info-item" { label { "已完成 / 报废" } span class="mono" { (crate::utils::fmt_qty(batch.completed_qty)) " / " (crate::utils::fmt_qty(batch.scrap_qty)) } }
                 div class="info-item" { label { "当前工序" } span { (current_step_display) } }
                 div class="info-item" { label { "实际开始" } span { (actual_start_str) } }
-                div class="info-item" { label { "状态" } span style=(format!("color:{}", status_color)) { (status_label) } }
+                div class="info-item" { label { "状态" } span class=(format!("status-pill {status_cls}")) { (status_label) } }
             }
         }
 
@@ -235,7 +235,7 @@ fn card_search_result(
                                             "0"
                                         }
                                     }
-                                    td class="num-right mono" { (report.work_hours) }
+                                    td class="num-right mono" { (crate::utils::fmt_qty(report.work_hours)) "h" }
                                     td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" { (report.remark) }
                                 }
                             }

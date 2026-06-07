@@ -32,26 +32,24 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
     let worker = lookups.worker_name.as_deref().unwrap_or("—");
 
     let content = html! { div {
-        div class="page-header" {
-            div class="page-header-left" { a class="back-link" href=(ReportListPath::PATH) { "\u{2190} 返回列表" } h1 class="page-title" { "报工 " (report.doc_number) } }
-        }
-        div class="info-card" {
-            div class="info-grid" {
-                div class="info-item" { label { "单号" } span class="mono" { (report.doc_number) } }
-                div class="info-item" { label { "工单" } span { (wo) } }
-                div class="info-item" { label { "批次" } span { (batch) } }
-                div class="info-item" { label { "工序" } span { (process) } }
-                div class="info-item" { label { "报工日期" } span { (report.report_date) } }
-                div class="info-item" { label { "班次" } span { (shift_label) } }
-                div class="info-item" { label { "工人" } span { (worker) } }
-                div class="info-item" { label { "完成数量" } span class="mono" { (crate::utils::fmt_qty(report.completed_qty)) } }
-                div class="info-item" { label { "不良数量" } span class="mono" { (crate::utils::fmt_qty(report.defect_qty)) } }
-                div class="info-item" { label { "不良原因" } span { (defect_label) } }
-                div class="info-item" { label { "工时" } span class="mono" { (crate::utils::fmt_qty(report.work_hours)) } }
-                div class="info-item" { label { "创建时间" } span { (report.created_at.format("%Y-%m-%d %H:%M")) } }
-                @if !report.remark.is_empty() {
-                    div class="info-item span-2" { label { "备注" } span { (report.remark) } }
-                }
+        div class="batch-detail-header" {
+            div class="batch-detail-title-row" {
+                div class="detail-doc-no" { (report.doc_number) " " span class="status-pill status-completed" { "已确认" } }
+            }
+            div class="detail-info-grid-5" {
+                div class="detail-info-item" { span class="detail-info-label" { "工单" } span class="detail-info-value" { (wo) } }
+                div class="detail-info-item" { span class="detail-info-label" { "批次" } span class="detail-info-value" { (batch) } }
+                div class="detail-info-item" { span class="detail-info-label" { "工序" } span class="detail-info-value" { (process) } }
+                div class="detail-info-item" { span class="detail-info-label" { "班次" } span class="detail-info-value" { (shift_label) } }
+                div class="detail-info-item" { span class="detail-info-label" { "工人" } span class="detail-info-value" { (worker) } }
+                div class="detail-info-item" { span class="detail-info-label" { "完成数量" } span class="detail-info-value text-success" { (crate::utils::fmt_qty(report.completed_qty)) } }
+                div class="detail-info-item" { span class="detail-info-label" { "不良数量" } span class="detail-info-value text-danger" { (crate::utils::fmt_qty(report.defect_qty)) } }
+                div class="detail-info-item" { span class="detail-info-label" { "不良原因" } span class="detail-info-value" { (defect_label) } }
+                div class="detail-info-item" { span class="detail-info-label" { "实际工时" } span class="detail-info-value" { (crate::utils::fmt_qty(report.work_hours)) " h" } }
+                div class="detail-info-item" { span class="detail-info-label" { "报工日期" } span class="detail-info-value" { (report.report_date) } }
+                div class="detail-info-item" { span class="detail-info-label" { "创建人" } span class="detail-info-value" { (worker) } }
+                div class="detail-info-item" { span class="detail-info-label" { "创建时间" } span class="detail-info-value" { (report.created_at.format("%Y-%m-%d %H:%M")) } }
+                div class="detail-info-item" { span class="detail-info-label" { "备注" } span class="detail-info-value" { (if report.remark.is_empty() { "—".to_string() } else { report.remark.clone() }) } }
             }
         }
     }};

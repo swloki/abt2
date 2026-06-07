@@ -27,15 +27,15 @@ pub struct BatchQueryParams {
     pub page: Option<u32>,
 }
 
-fn batch_status_label(s: &BatchStatus) -> (&'static str, &'static str, &'static str) {
+fn batch_status_label(s: &BatchStatus) -> (&'static str, &'static str) {
     use BatchStatus::*;
     match s {
-        Pending => ("待生产", "rgba(0,0,0,0.04)", "var(--muted)"),
-        InProgress => ("进行中", "rgba(250,140,22,0.08)", "#fa8c16"),
-        Suspended => ("已暂停", "rgba(245,63,63,0.06)", "#f53f3f"),
-        PendingReceipt => ("待入库", "rgba(22,119,255,0.08)", "var(--accent)"),
-        Completed => ("已完成", "rgba(82,196,26,0.08)", "var(--success)"),
-        Cancelled => ("已取消", "rgba(114,46,209,0.06)", "#722ed1"),
+        Pending => ("待生产", "status-draft"),
+        InProgress => ("进行中", "status-progress"),
+        Suspended => ("已暂停", "status-suspended"),
+        PendingReceipt => ("待入库", "status-inspecting"),
+        Completed => ("已完成", "status-completed"),
+        Cancelled => ("已取消", "status-neutral"),
     }
 }
 
@@ -146,21 +146,57 @@ fn batch_data_card(
         div class="data-card" id="batch-data-card" {
             div class="data-card-scroll" {
                 table class="data-table" { thead { tr {
-                    th { "批次号" } th { "工单编号" } th { "产品" } th class="num-right" { "数量" }
-                    th class="num-right" { "已完成" } th { "当前工序" } th { "状态" } th { "操作" }
+                    th { "批次号" } th { "关联" } th { "产品" } th { "班组" }
+                    th { "数量" } th { "当前工序" } th { "状态" } th { "操作" }
                 }} tbody {
                     @for item in &result.items {
-                        @let (sl, sb, sc) = batch_status_label(&item.status);
+                        @let (sl, sc) = batch_status_label(&item.status);
                         @let dp = format!("/admin/mes/batches/{}", item.id);
                         tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
-                            td class="link-cell mono" style="color:var(--accent)" { (item.batch_no) }
-                            td class="mono" { (item.wo_doc_number.as_deref().unwrap_or("\u{2014}")) }
-                            td { (item.product_name.as_deref().unwrap_or("\u{2014}")) }
-                            td class="num-right mono" { (crate::utils::fmt_qty(item.batch_qty)) }
-                            td class="num-right mono" { (crate::utils::fmt_qty(item.completed_qty)) }
+                            td class="link-cell mono" { (item.batch_no) }
+                            td {
+                                div class="cell-stack" {
+                                    span class="sub" { (item.card_sn) }
+                                    a href=(format!("/admin/mes/orders/{}", item.work_order_id)) class="link-cell" onclick="event.stopPropagation()" { (item.wo_doc_number.as_deref().unwrap_or("—")) }
+                                }
+                            }
+                            td { (item.product_name.as_deref().unwrap_or("—")) }
+                            td { "—" }
+                            td {
+                                div class="cell-stack" {
+                                    span { "计划: " (crate::utils::fmt_qty(item.batch_qty)) }
+                                    @if item.completed_qty > rust_decimal::Decimal::ZERO {
+                                        span class="text-success" { "完成: " (crate::utils::fmt_qty(item.completed_qty)) }
+                                    }
+                                    @if item.scrap_qty > rust_decimal::Decimal::ZERO {
+                                        span class="text-danger" { "报废: " (crate::utils::fmt_qty(item.scrap_qty)) }
+                                    }
+                                }
+                            }
                             td { (fmt_current_step(item.current_step, item.current_step_name.as_deref(), item.total_steps)) }
-                            td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
-                            td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }
+                            td { span class=(format!("status-pill {sc}")) { (sl) } }
+                            td {
+                                div class="row-actions" {
+                                    @if item.status == BatchStatus::InProgress {
+                                        a href=(format!("/admin/mes/reports/create?batch_id={}", item.id))
+                                           class="row-action-btn" title="报工"
+                                           onclick="event.stopPropagation()" {
+                                            (icon::edit_icon("w-3.5 h-3.5"))
+                                        }
+                                    }
+                                    @if item.status == BatchStatus::PendingReceipt {
+                                        a href=(format!("/admin/mes/receipts/create?batch_id={}", item.id))
+                                           class="row-action-btn" title="入库"
+                                           onclick="event.stopPropagation()" {
+                                            (icon::download_icon("w-3.5 h-3.5"))
+                                        }
+                                    }
+                                    a href=(dp) class="row-action-btn" title="查看"
+                                       onclick="event.stopPropagation()" {
+                                        (icon::eye_icon("w-3.5 h-3.5"))
+                                    }
+                                }
+                            }
                         }
                     }
                     @if result.items.is_empty() {

@@ -287,7 +287,7 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         .await.map_err(|e| DomainError::Internal(e.into()))?;
 
         let warehouse: Option<(String,)> = sqlx::query_as(
-            "SELECT name FROM warehouses WHERE warehouse_id = $1",
+            "SELECT name FROM warehouses WHERE id = $1",
         )
         .bind(receipt.warehouse_id)
         .fetch_optional(&mut *db)

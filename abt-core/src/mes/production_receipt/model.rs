@@ -49,3 +49,22 @@ pub struct CreateReceiptReq {
     pub receipt_date: NaiveDate,
     pub remark: Option<String>,
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct ReceiptListFilter {
+    pub keyword: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct ReceiptListItem {
+    pub id: i64,
+    pub doc_number: String,
+    pub work_order_doc: Option<String>,
+    pub batch_id: Option<i64>,
+    pub product_id: i64,
+    pub product_name: Option<String>,
+    pub received_qty: rust_decimal::Decimal,
+    pub warehouse_name: Option<String>,
+    pub status: i16,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}

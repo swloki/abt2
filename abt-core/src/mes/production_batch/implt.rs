@@ -440,4 +440,18 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
 
         Ok(())
     }
+
+    async fn list_batches(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        filter: BatchListFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<crate::shared::types::PaginatedResult<BatchListItem>> {
+        let (items, total) = ProductionBatchRepo::list_batches(&mut *db, &filter, page, page_size)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        Ok(crate::shared::types::PaginatedResult::new(items, total as u64, page, page_size))
+    }
 }

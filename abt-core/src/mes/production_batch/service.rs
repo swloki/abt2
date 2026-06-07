@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
@@ -40,4 +40,12 @@ pub trait ProductionBatchService: Send + Sync {
     ) -> Result<()>;
     async fn resume(&self, ctx: &ServiceContext, db: PgExecutor<'_>, batch_id: i64) -> Result<()>;
     async fn scrap(&self, ctx: &ServiceContext, db: PgExecutor<'_>, batch_id: i64, reason: String) -> Result<()>;
+    async fn list_batches(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        filter: BatchListFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<crate::shared::types::PaginatedResult<BatchListItem>>;
 }

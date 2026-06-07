@@ -265,4 +265,41 @@ impl AppState {
     ) -> impl abt_core::master_data::bom_labor_process::BomLaborProcessService {
         abt_core::master_data::bom_labor_process::new_bom_labor_process_service(self.pool.clone())
     }
+
+    // ── MES (Production) Services ──
+
+    pub fn production_plan_service(
+        &self,
+    ) -> impl abt_core::mes::production_plan::ProductionPlanService {
+        abt_core::mes::production_plan::new_production_plan_service(self.pool.clone())
+    }
+
+    pub fn work_order_service(&self) -> impl abt_core::mes::work_order::WorkOrderService {
+        abt_core::mes::work_order::new_work_order_service(self.pool.clone())
+    }
+
+    pub fn production_batch_service(
+        &self,
+    ) -> impl abt_core::mes::production_batch::ProductionBatchService {
+        abt_core::mes::production_batch::new_production_batch_service(self.pool.clone())
+    }
+
+    pub fn work_report_service(&self) -> impl abt_core::mes::work_report::WorkReportService {
+        abt_core::mes::work_report::new_work_report_service(self.pool.clone())
+    }
+
+    pub fn production_inspection_service(
+        &self,
+    ) -> impl abt_core::mes::production_inspection::ProductionInspectionService {
+        abt_core::mes::production_inspection::new_production_inspection_service(self.pool.clone())
+    }
+
+    pub fn production_receipt_service(
+        &self,
+    ) -> impl abt_core::mes::production_receipt::ProductionReceiptService {
+        abt_core::mes::production_receipt::new_production_receipt_service(self.pool.clone())
+    }
+    pub fn mes_dashboard_service(&self) -> impl abt_core::mes::dashboard::MesDashboardService {
+        abt_core::mes::dashboard::new_mes_dashboard_service(self.pool.clone())
+    }
 }

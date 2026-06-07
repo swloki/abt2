@@ -136,8 +136,75 @@ impl ProductionBatchRepo {
         .bind(BatchStatus::InProgress)
         .execute(&mut *executor)
         .await?;
-
         Ok(())
+    }
+
+    pub async fn list_batches(
+        executor: &mut sqlx::postgres::PgConnection,
+        filter: &BatchListFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<(Vec<BatchListItem>, i64)> {
+        let offset = (page.saturating_sub(1)) * page_size;
+
+        let mut where_clauses = vec!["1=1".to_string()];
+        let mut param_idx: i32 = 0;
+
+        if filter.status.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("pb.status = ${param_idx}"));
+        }
+        if let Some(kw) = &filter.keyword {
+            if !kw.is_empty() {
+                param_idx += 1;
+                where_clauses.push(format!("pb.batch_no ILIKE ${param_idx}"));
+            }
+        }
+
+        let where_sql = where_clauses.join(" AND ");
+
+        // Count query
+        let count_sql = format!(
+            "SELECT COUNT(*)::bigint FROM production_batches pb WHERE {where_sql}"
+        );
+        let mut count_query = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
+        if let Some(st) = filter.status {
+            count_query = count_query.bind(st.as_i16());
+        }
+        if let Some(kw) = &filter.keyword {
+            if !kw.is_empty() {
+                count_query = count_query.bind(format!("%{kw}%"));
+            }
+        }
+        let total: i64 = count_query.fetch_one(&mut *executor).await?;
+
+        // Data query
+        let limit_idx = param_idx + 1;
+        let offset_idx = param_idx + 2;
+        let data_sql = format!(
+            "SELECT pb.id, pb.batch_no, pb.work_order_id, wo.doc_number AS wo_doc_number, \
+             pb.product_id, p.pdt_name AS product_name, pb.batch_qty, pb.completed_qty, pb.current_step, \
+             pb.status, pb.created_at \
+             FROM production_batches pb \
+             LEFT JOIN work_orders wo ON wo.id = pb.work_order_id \
+             LEFT JOIN products p ON p.product_id = pb.product_id \
+             WHERE {where_sql} \
+             ORDER BY pb.created_at DESC \
+             LIMIT ${limit_idx} OFFSET ${offset_idx}"
+        );
+        let mut data_query = sqlx::query_as::<sqlx::Postgres, BatchListItem>(sqlx::AssertSqlSafe(data_sql));
+        if let Some(st) = filter.status {
+            data_query = data_query.bind(st.as_i16());
+        }
+        if let Some(kw) = &filter.keyword {
+            if !kw.is_empty() {
+                data_query = data_query.bind(format!("%{kw}%"));
+            }
+        }
+        data_query = data_query.bind(page_size as i64).bind(offset as i64);
+        let items = data_query.fetch_all(&mut *executor).await?;
+
+        Ok((items, total))
     }
 }
 

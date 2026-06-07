@@ -1,0 +1,161 @@
+use axum::extract::Query;
+use axum::response::Html;
+use axum_extra::routing::TypedPath;
+use maud::{html, Markup};
+use serde::Deserialize;
+
+use abt_core::mes::production_inspection::{InspectionListItem, InspectionListFilter};
+use abt_core::mes::production_inspection::ProductionInspectionService;
+use abt_core::mes::enums::InspectionType;
+use abt_core::shared::types::PaginatedResult;
+
+use crate::components::icon;
+use crate::components::pagination::pagination;
+use crate::components::tabs::{status_tabs_with_param, TabItem};
+use crate::errors::Result;
+use crate::layout::page::admin_page;
+use crate::routes::mes_inspection::{InspectionCreatePath, InspectionListPath, InspectionTablePath};
+use crate::utils::{empty_as_none, RequestContext};
+use abt_macros::require_permission;
+
+fn insp_type_label(t: &abt_core::mes::enums::InspectionType) -> &'static str {
+    use abt_core::mes::enums::InspectionType::*;
+    match t { FirstArticle => "首检", InProcess => "巡检", Final => "完工检" }
+}
+
+fn insp_result_label(r: &abt_core::mes::enums::InspectionResultType) -> (&'static str, &'static str, &'static str) {
+    use abt_core::mes::enums::InspectionResultType::*;
+    match r {
+        Pass => ("合格", "rgba(82,196,26,0.08)", "var(--success)"),
+        Fail => ("不合格", "rgba(245,63,63,0.06)", "#f53f3f"),
+        Conditional => ("让步接收", "rgba(250,140,22,0.08)", "#fa8c16"),
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, Default)]
+pub struct InspectionQueryParams {
+    pub keyword: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub inspection_type: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub page: Option<u32>,
+}
+
+impl InspectionQueryParams {
+    fn to_filter(&self) -> InspectionListFilter {
+        let inspection_type = self.inspection_type.as_deref().and_then(|s| match s {
+            "FirstArticle" => Some(InspectionType::FirstArticle),
+            "InProcess" => Some(InspectionType::InProcess),
+            "Final" => Some(InspectionType::Final),
+            _ => None,
+        });
+        InspectionListFilter {
+            keyword: self.keyword.clone(),
+            inspection_type,
+        }
+    }
+}
+
+#[require_permission("MES", "read")]
+pub async fn get_inspection_list(
+    _path: InspectionListPath, ctx: RequestContext, Query(params): Query<InspectionQueryParams>,
+) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let RequestContext { mut conn, claims, state, service_ctx, .. } = ctx;
+    let filter = params.to_filter();
+    let page = params.page.unwrap_or(1);
+    let svc = state.production_inspection_service();
+    let result = svc.list_inspections(&service_ctx, &mut conn, filter, page, 20).await?;
+    let content = inspection_list_page(&result, &params);
+    Ok(Html(admin_page(is_htmx, "生产报检", &claims, "production", InspectionListPath::PATH, "生产管理", None, content).into_string()))
+}
+
+#[require_permission("MES", "read")]
+pub async fn get_inspection_table(
+    _path: InspectionTablePath, ctx: RequestContext, Query(params): Query<InspectionQueryParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let filter = params.to_filter();
+    let page = params.page.unwrap_or(1);
+    let svc = state.production_inspection_service();
+    let result = svc.list_inspections(&service_ctx, &mut conn, filter, page, 20).await?;
+    Ok(Html(inspection_data_card(&result, &params).into_string()))
+}
+
+fn inspection_list_page(
+    result: &PaginatedResult<InspectionListItem>,
+    params: &InspectionQueryParams,
+) -> Markup {
+    html! { div {
+        div class="page-header" { h1 class="page-title" { "生产报检" } div class="page-actions" {
+            a class="btn btn-primary" href=(InspectionCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建检验" }
+        }}
+        (inspection_table_fragment(result, params))
+    }}
+}
+
+fn inspection_table_fragment(
+    result: &PaginatedResult<InspectionListItem>,
+    params: &InspectionQueryParams,
+) -> Markup {
+    let tabs = &[
+        TabItem { value: String::new(), label: "全部", count: Some(result.total) },
+        TabItem { value: "FirstArticle".into(), label: "首检", count: None },
+        TabItem { value: "InProcess".into(), label: "巡检", count: None },
+        TabItem { value: "Final".into(), label: "完工检", count: None },
+    ];
+    let sel = params.inspection_type.as_deref().unwrap_or("");
+
+    html! { div {
+        (status_tabs_with_param(InspectionTablePath::PATH, "#insp-data-card", "closest form", tabs, sel, "inspection_type"))
+        form class="filter-bar filter-form" hx-get=(InspectionTablePath::PATH)
+            hx-trigger="change, keyup changed delay:300ms from:.search-input"
+            hx-target="#insp-data-card" hx-select="#insp-data-card" hx-swap="outerHTML" hx-include="closest form" {
+            div class="search-wrap" { (icon::search_icon("w-4 h-4"))
+                input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索报检单号…" value=(params.keyword.as_deref().unwrap_or(""));
+            }
+        }
+        (inspection_data_card(result, params))
+    }}
+}
+
+fn inspection_data_card(
+    result: &PaginatedResult<InspectionListItem>,
+    params: &InspectionQueryParams,
+) -> Markup {
+    let mut qs = vec![];
+    if let Some(k) = &params.keyword { qs.push(format!("keyword={k}")); }
+    if let Some(t) = &params.inspection_type { qs.push(format!("inspection_type={t}")); }
+    let query = qs.join("&");
+
+    html! {
+        div class="data-card" id="insp-data-card" {
+            div class="data-card-scroll" {
+                table class="data-table" { thead { tr {
+                    th { "单号" } th { "工单" } th { "类型" } th { "产品" }
+                    th class="num-right" { "样本" } th class="num-right" { "合格" } th { "结果" } th { "操作" }
+                }} tbody {
+                    @for item in &result.items {
+                        @let tl = insp_type_label(&item.inspection_type);
+                        @let (rl, rb, rc) = insp_result_label(&item.result);
+                        @let dp = format!("/admin/mes/inspections/{}", item.id);
+                        tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
+                            td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
+                            td class="mono" { (item.work_order_id) }
+                            td { (tl) }
+                            td { (item.product_name.as_deref().unwrap_or("\u{2014}")) }
+                            td class="num-right mono" { (item.sample_qty) }
+                            td class="num-right mono" { (item.qualified_qty) }
+                            td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", rb, rc)) { (rl) } }
+                            td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }
+                        }
+                    }
+                    @if result.items.is_empty() {
+                        tr { td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" { "暂无检验记录" } }
+                    }
+                }}
+            }
+            (pagination(InspectionListPath::PATH, &query, result.total, result.page, result.total_pages))
+        }
+    }
+}

@@ -14,7 +14,7 @@ use crate::shared::cost_entry::{new_cost_entry_service, model::EntryRequest, ser
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::enums::{AuditAction, CostEntityType, CostType, DocumentType};
 use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
-use crate::shared::types::Result;
+use crate::shared::types::{PaginatedResult, Result};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::pagination::PageParams;
@@ -244,5 +244,17 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
         }
 
         Ok(())
+    }
+
+    async fn list(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        filter: ReceiptListFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<ReceiptListItem>> {
+        ProductionReceiptRepo::list(&mut *db, &filter, page, page_size)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
     }
 }

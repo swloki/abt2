@@ -96,3 +96,24 @@ pub struct StepConfirmationResult {
     pub inspection_triggered: bool,
     pub wage_amount: Decimal,
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct BatchListFilter {
+    pub status: Option<BatchStatus>,
+    pub keyword: Option<String>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct BatchListItem {
+    pub id: i64,
+    pub batch_no: String,
+    pub work_order_id: i64,
+    pub wo_doc_number: Option<String>,
+    pub product_id: i64,
+    pub product_name: Option<String>,
+    pub batch_qty: Decimal,
+    pub completed_qty: Decimal,
+    pub current_step: i32,
+    pub status: BatchStatus,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}

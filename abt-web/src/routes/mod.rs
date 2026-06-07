@@ -41,7 +41,14 @@ pub mod wms_inventory_lock;
 pub mod wms_strategy;
 pub mod wms_transaction_log;
 pub mod wms_cascade;
-use axum::{Router, middleware};
+pub mod mes_dashboard;
+pub mod mes_plan;
+pub mod mes_order;
+pub mod mes_batch;
+pub mod mes_report;
+pub mod mes_inspection;
+pub mod mes_receipt;
+use axum::{Router, middleware, routing::get};
 
 use crate::auth::middleware::auth_middleware;
 use crate::state::AppState;
@@ -91,6 +98,15 @@ pub fn router(state: AppState) -> Router {
                 .merge(wms_strategy::router())
                 .merge(wms_transaction_log::router())
                 .merge(wms_cascade::router())
+                // ── MES (Production) ──
+                .merge(mes_dashboard::router())
+                .merge(mes_plan::router())
+                .merge(mes_order::router())
+                .merge(mes_batch::router())
+                .merge(mes_report::router())
+                .merge(mes_inspection::router())
+                .merge(mes_receipt::router())
+                .route("/admin/mes/exceptions", get(crate::pages::mes_exception_list::get_exception_list))
                 // ── System Management ──
                 .merge(user::router())
                 .merge(role::router())

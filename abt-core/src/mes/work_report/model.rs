@@ -51,3 +51,34 @@ pub struct WageDetail {
     pub unit_price: Decimal,
     pub wage_amount: Decimal,
 }
+
+#[derive(Debug, Clone, Default)]
+pub struct ReportListFilter {
+    pub keyword: Option<String>,
+    pub work_order_id: Option<i64>,
+    pub shift: Option<i32>,
+    pub date_from: Option<NaiveDate>,
+    pub date_to: Option<NaiveDate>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct ReportListItem {
+    pub id: i64,
+    pub doc_number: String,
+    pub work_order_id: i64,
+    pub batch_id: i64,
+    pub product_id: i64,
+    pub product_name: Option<String>,
+    pub process_name: String,
+    pub step_order: i32,
+    pub report_date: NaiveDate,
+    pub shift: ShiftType,
+    pub worker_id: i64,
+    pub worker_name: Option<String>,
+    pub completed_qty: Decimal,
+    pub defect_qty: Decimal,
+    pub work_hours: Decimal,
+    pub remark: String,
+    pub operator_id: i64,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}

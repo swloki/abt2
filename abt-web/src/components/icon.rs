@@ -242,3 +242,23 @@ pub fn bolt_icon(c: &str) -> Markup {
 pub fn rocket_icon(c: &str) -> Markup {
     svg(r#"<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>"#, c)
 }
+
+pub fn tool_icon(c: &str) -> Markup {
+    svg(r#"<path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>"#, c)
+}
+
+pub fn briefcase_icon(c: &str) -> Markup {
+    svg(r#"<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/>"#, c)
+}
+
+pub fn calendar_icon(c: &str) -> Markup {
+    svg(r#"<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14h4v4H8z"/>"#, c)
+}
+
+pub fn dollar_icon(c: &str) -> Markup {
+    svg(r#"<path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>"#, c)
+}
+
+pub fn alert_triangle_icon(c: &str) -> Markup {
+    svg(r#"<path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/>"#, c)
+}

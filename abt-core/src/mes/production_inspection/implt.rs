@@ -11,6 +11,7 @@ use crate::shared::enums::DocumentType;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
+use crate::shared::types::pagination::PaginatedResult;
 
 pub struct ProductionInspectionServiceImpl {
     #[allow(dead_code)]
@@ -98,5 +99,17 @@ impl ProductionInspectionService for ProductionInspectionServiceImpl {
         }
 
         Ok(())
+    }
+
+    async fn list_inspections(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        filter: InspectionListFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<InspectionListItem>> {
+        ProductionInspectionRepo::list(&mut *db, &filter, page, page_size)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
     }
 }

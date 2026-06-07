@@ -105,3 +105,28 @@ pub mod wms_lock_detail;
 pub mod wms_strategy_list;
 pub mod wms_transaction_log_list;
 pub mod wms_cascade_list;
+
+// ── MES (Production) ──
+pub mod mes_dashboard;
+pub mod mes_plan_list;
+pub mod mes_plan_create;
+pub mod mes_plan_detail;
+pub mod mes_order_list;
+pub mod mes_order_create;
+pub mod mes_order_detail;
+pub mod mes_batch_list;
+pub mod mes_batch_detail;
+pub mod mes_card_query;
+pub mod mes_schedule_board;
+pub mod mes_material_usage;
+pub mod mes_exception_list;
+pub mod mes_report_list;
+pub mod mes_report_create;
+pub mod mes_report_detail;
+pub mod mes_wage_list;
+pub mod mes_inspection_list;
+pub mod mes_inspection_create;
+pub mod mes_inspection_detail;
+pub mod mes_receipt_list;
+pub mod mes_receipt_create;
+pub mod mes_receipt_detail;

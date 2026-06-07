@@ -134,3 +134,14 @@ impl RequestContext {
         self.headers.get("HX-Request").is_some()
     }
 }
+
+/// Format a Decimal value by trimming trailing zeros (100.000000 → 100, 1.50 → 1.5)
+pub fn fmt_qty(v: impl Into<rust_decimal::Decimal>) -> String {
+    let d = v.into();
+    let s = d.to_string();
+    if s.contains('.') {
+        s.trim_end_matches('0').trim_end_matches('.').to_string()
+    } else {
+        s
+    }
+}

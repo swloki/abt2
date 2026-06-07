@@ -1,8 +1,9 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
+use crate::shared::types::pagination::PaginatedResult;
 use super::super::enums::InspectionResultType;
 use super::model::*;
 
@@ -24,4 +25,11 @@ pub trait ProductionInspectionService: Send + Sync {
         id: i64,
         result: InspectionResultType,
     ) -> Result<()>;
+    async fn list_inspections(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        filter: InspectionListFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<InspectionListItem>>;
 }

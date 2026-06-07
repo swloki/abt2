@@ -1,8 +1,9 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
+use crate::shared::types::pagination::PaginatedResult;
 use super::model::*;
 
 #[async_trait]
@@ -24,4 +25,12 @@ pub trait WorkReportService: Send + Sync {
         worker_id: i64,
         date_range: DateRange,
     ) -> Result<WageSummary>;
+
+    async fn list(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        filter: ReportListFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<ReportListItem>>;
 }

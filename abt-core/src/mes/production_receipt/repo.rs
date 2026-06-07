@@ -1,4 +1,4 @@
-use crate::shared::types::Result;
+use crate::shared::types::{PaginatedResult, Result};
 
 use super::model::*;
 use super::super::enums::*;
@@ -136,5 +136,70 @@ impl ProductionReceiptRepo {
         .await?;
 
         Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn list(
+        executor: &mut sqlx::postgres::PgConnection,
+        filter: &ReceiptListFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<ReceiptListItem>> {
+        let offset = page.saturating_sub(1) * page_size;
+
+        let mut where_clauses = vec!["1=1".to_string()];
+        let mut param_idx = 0u32;
+
+        if filter.keyword.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("r.doc_number ILIKE ${param_idx}"));
+        }
+
+        let where_sql = where_clauses.join(" AND ");
+        let limit_idx = param_idx + 1;
+        let offset_idx = param_idx + 2;
+
+        let count_sql = format!(
+            "SELECT COUNT(*) FROM production_receipts r WHERE {where_sql}"
+        );
+        let data_sql = format!(
+            "SELECT r.id, r.doc_number, wo.doc_number AS work_order_doc, \
+             r.batch_id, r.product_id, p.pdt_name AS product_name, \
+             r.received_qty, w.name AS warehouse_name, r.status, r.created_at \
+             FROM production_receipts r \
+             LEFT JOIN work_orders wo ON r.work_order_id = wo.id \
+             LEFT JOIN products p ON r.product_id = p.product_id \
+             LEFT JOIN warehouses w ON r.warehouse_id = w.id \
+             WHERE {where_sql} \
+             ORDER BY r.created_at DESC \
+             LIMIT ${limit_idx} OFFSET ${offset_idx}"
+        );
+
+        let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
+        let mut data_q = sqlx::query_as::<_, ReceiptListItem>(sqlx::AssertSqlSafe(data_sql));
+
+        if let Some(ref kw) = filter.keyword {
+            let pattern = format!("%{kw}%");
+            count_q = count_q.bind(pattern.clone());
+            data_q = data_q.bind(pattern);
+        }
+
+        data_q = data_q.bind(page_size as i64).bind(offset as i64);
+
+        let total: i64 = count_q.fetch_one(&mut *executor).await?;
+        let items = data_q.fetch_all(&mut *executor).await?;
+
+        let total_pages = if page_size == 0 {
+            0
+        } else {
+            (total as u64).div_ceil(page_size as u64) as u32
+        };
+
+        Ok(PaginatedResult {
+            items,
+            total: total as u64,
+            page,
+            page_size,
+            total_pages,
+        })
     }
 }

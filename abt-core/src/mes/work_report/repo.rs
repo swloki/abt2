@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 use sqlx::FromRow;
 use crate::shared::types::Result;
+use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::*;
 
@@ -101,12 +102,101 @@ impl WorkReportRepo {
         .bind(to)
         .fetch_all(&mut *executor)
         .await?;
-
-        rows.iter()
+        Ok(rows.iter()
             .filter_map(|r| WorkReport::from_row(r).ok())
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(Ok)
-            .collect()
+            .collect::<Vec<_>>())
+    }
+    pub async fn list(
+        executor: &mut sqlx::postgres::PgConnection,
+        filter: &ReportListFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<ReportListItem>> {
+        let offset = page.saturating_sub(1) * page_size;
+
+        let mut where_clauses = vec!["1=1".to_string()];
+        let mut param_idx = 1u32;
+
+        let keyword_param = if let Some(k) = &filter.keyword {
+            if !k.is_empty() {
+                where_clauses.push(format!("wr.doc_number ILIKE ${param_idx}"));
+                param_idx += 1;
+                Some(format!("%{k}%"))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        if let Some(_wo_id) = filter.work_order_id {
+            where_clauses.push(format!("wr.work_order_id = ${param_idx}"));
+            param_idx += 1;
+        }
+
+        if let Some(_s) = filter.shift {
+            where_clauses.push(format!("wr.shift = ${param_idx}"));
+            param_idx += 1;
+        }
+
+        if let Some(_d) = filter.date_from {
+            where_clauses.push(format!("wr.report_date >= ${param_idx}"));
+            param_idx += 1;
+        }
+
+        if let Some(_d) = filter.date_to {
+            where_clauses.push(format!("wr.report_date <= ${param_idx}"));
+            param_idx += 1;
+        }
+
+        let where_sql = where_clauses.join(" AND ");
+
+        // count
+        let count_sql = format!("SELECT COUNT(*)::bigint FROM work_reports wr WHERE {where_sql}");
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
+        if let Some(k) = &keyword_param { count_q = count_q.bind(k); }
+        if let Some(v) = filter.work_order_id { count_q = count_q.bind(v); }
+        if let Some(v) = filter.shift { count_q = count_q.bind(v); }
+        if let Some(v) = filter.date_from { count_q = count_q.bind(v); }
+        if let Some(v) = filter.date_to { count_q = count_q.bind(v); }
+        let total = count_q.fetch_one(&mut *executor).await? as u64;
+
+        // data
+        let limit_idx = param_idx;
+        let offset_idx = param_idx + 1;
+        let data_sql = format!(
+            r#"
+            SELECT wr.id, wr.doc_number,
+                   wr.work_order_id, wr.batch_id,
+                   wo.product_id,
+                   p.pdt_name AS product_name,
+                   wor.process_name,
+                   wor.step_no AS step_order,
+                   wr.report_date, wr.shift,
+                   wr.worker_id,
+                   u.display_name AS worker_name,
+                   wr.completed_qty, wr.defect_qty,
+                   wr.work_hours, wr.remark,
+                   wr.operator_id, wr.created_at
+            FROM work_reports wr
+            JOIN work_orders wo ON wo.id = wr.work_order_id
+            JOIN products p ON p.product_id = wo.product_id
+            JOIN work_order_routings wor ON wor.id = wr.routing_id
+            LEFT JOIN users u ON u.user_id = wr.worker_id
+            WHERE {where_sql}
+            ORDER BY wr.report_date DESC, wr.id DESC
+            LIMIT ${limit_idx} OFFSET ${offset_idx}
+            "#
+        );
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, ReportListItem>(sqlx::AssertSqlSafe(data_sql));
+        if let Some(k) = &keyword_param { data_q = data_q.bind(k); }
+        if let Some(v) = filter.work_order_id { data_q = data_q.bind(v); }
+        if let Some(v) = filter.shift { data_q = data_q.bind(v); }
+        if let Some(v) = filter.date_from { data_q = data_q.bind(v); }
+        if let Some(v) = filter.date_to { data_q = data_q.bind(v); }
+        data_q = data_q.bind(page_size as i64).bind(offset as i64);
+        let items = data_q.fetch_all(&mut *executor).await?;
+
+        Ok(PaginatedResult::new(items, total, page, page_size))
     }
 }

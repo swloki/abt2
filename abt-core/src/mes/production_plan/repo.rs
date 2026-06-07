@@ -232,4 +232,29 @@ impl ProductionPlanRepo {
             total_pages,
         })
     }
+
+    pub async fn get_plan_stats(
+        executor: &mut sqlx::postgres::PgConnection,
+        plan_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, PlanExtraStats>> {
+        if plan_ids.is_empty() {
+            return Ok(std::collections::HashMap::new());
+        }
+        let placeholders: Vec<String> = plan_ids.iter().enumerate().map(|(i, _)| format!("${}", i + 1)).collect();
+        let sql = format!(
+            "SELECT pi.plan_id, COUNT(*) AS item_count, \
+             STRING_AGG(DISTINCT so.doc_number, ', ') AS sales_orders \
+             FROM production_plan_items pi \
+             LEFT JOIN sales_orders so ON so.id = pi.sales_order_id \
+             WHERE pi.plan_id = ANY(ARRAY[{ids}]) \
+             GROUP BY pi.plan_id",
+            ids = placeholders.join(", ")
+        );
+        let mut q = sqlx::query_as::<_, (i64, i64, Option<String>)>(sqlx::AssertSqlSafe(sql));
+        for &id in plan_ids { q = q.bind(id); }
+        let rows: Vec<(i64, i64, Option<String>)> = q.fetch_all(executor).await?;
+        Ok(rows.into_iter().map(|(pid, cnt, so)| {
+            (pid, PlanExtraStats { item_count: cnt, sales_orders: so.unwrap_or_default() })
+        }).collect())
+    }
 }

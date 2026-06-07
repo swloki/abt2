@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
@@ -10,6 +10,7 @@ use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
+use crate::shared::types::pagination::PaginatedResult;
 
 pub struct WorkReportServiceImpl {
     #[allow(dead_code)]
@@ -51,6 +52,18 @@ impl WorkReportService for WorkReportServiceImpl {
         batch_id: i64,
     ) -> Result<Vec<WorkReport>> {
         WorkReportRepo::list_by_batch(&mut *db, batch_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn list(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        filter: ReportListFilter,
+        page: u32,
+        page_size: u32,
+    ) -> Result<PaginatedResult<ReportListItem>> {
+        WorkReportRepo::list(&mut *db, &filter, page, page_size)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

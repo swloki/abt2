@@ -31,6 +31,13 @@ enum NavIcon {
     Switch,
     Refresh,
     Lightning,
+    Factory,
+    Calendar,
+    Layers,
+    Hammer,
+    Eye,
+    DollarSign,
+    AlertTriangle,
 }
 struct NavItem {
     name: &'static str,
@@ -151,6 +158,24 @@ fn modules() -> Vec<NavModule> {
             ],
         },
         NavModule {
+            id: "production",
+            name: "生产管理",
+            items: vec![
+                NavItem { name: "生产总览", path: "/admin/mes", icon: NavIcon::Home },
+                NavItem { name: "生产计划", path: "/admin/mes/plans", icon: NavIcon::Calendar },
+                NavItem { name: "工单管理", path: "/admin/mes/orders", icon: NavIcon::ClipboardDoc },
+                NavItem { name: "生产批次", path: "/admin/mes/batches", icon: NavIcon::Layers },
+                NavItem { name: "流转卡查询", path: "/admin/mes/cards", icon: NavIcon::Search },
+                NavItem { name: "排程看板", path: "/admin/mes/schedule", icon: NavIcon::Grid },
+                NavItem { name: "报工记录", path: "/admin/mes/reports", icon: NavIcon::Hammer },
+                NavItem { name: "计件工资", path: "/admin/mes/wages", icon: NavIcon::DollarSign },
+                NavItem { name: "生产报检", path: "/admin/mes/inspections", icon: NavIcon::Eye },
+                NavItem { name: "完工入库", path: "/admin/mes/receipts", icon: NavIcon::ArrowDown },
+                NavItem { name: "物料消耗", path: "/admin/mes/material-usage", icon: NavIcon::Package },
+                NavItem { name: "生产异常", path: "/admin/mes/exceptions", icon: NavIcon::AlertTriangle },
+            ],
+        },
+        NavModule {
             id: "md",
             name: "主数据",
             items: vec![
@@ -254,6 +279,13 @@ fn render_item_icon(ni: NavIcon) -> Markup {
         NavIcon::Switch => icon::refresh_icon(""),
         NavIcon::Refresh => icon::refresh_icon(""),
         NavIcon::Lightning => icon::bolt_icon(""),
+        NavIcon::Factory => icon::box_icon(""),
+        NavIcon::Calendar => icon::file_text_icon(""),
+        NavIcon::Layers => icon::grid_icon(""),
+        NavIcon::Hammer => icon::sliders_icon(""),
+        NavIcon::Eye => icon::search_icon(""),
+        NavIcon::DollarSign => icon::payment_icon(""),
+        NavIcon::AlertTriangle => icon::circle_alert_icon(""),
     }
 }
 
@@ -262,6 +294,7 @@ fn render_module_icon(module_id: &str) -> Markup {
         "sales" => icon::trending_up_icon(""),
         "purchase" => icon::clipboard_module_icon(""),
         "inventory" => icon::package_icon(""),
+        "production" => icon::box_icon(""),
         "md" => icon::grid_icon(""),
         "system" => icon::lock_icon(""),
         _ => html! {},

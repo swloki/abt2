@@ -44,7 +44,7 @@ pub struct CreatePlanReq {
     pub items: Vec<CreatePlanItemReq>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct CreatePlanItemReq {
     pub product_id: i64,
     pub planned_qty: Decimal,
@@ -55,6 +55,7 @@ pub struct CreatePlanItemReq {
     pub bom_snapshot_id: Option<i64>,
     pub routing_id: Option<i64>,
     pub work_center_id: Option<i64>,
+    #[serde(default)]
     pub priority: i32,
 }
 
@@ -79,4 +80,10 @@ pub struct BatchReleaseResult {
 pub struct BatchFailure {
     pub index: i32,
     pub error: DomainError,
+}
+
+#[derive(Debug, Clone)]
+pub struct PlanExtraStats {
+    pub item_count: i64,
+    pub sales_orders: String,
 }

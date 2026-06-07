@@ -66,6 +66,16 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
             .ok_or_else(|| DomainError::not_found("ProductionPlan"))
     }
 
+    async fn list_items(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        plan_id: i64,
+    ) -> Result<Vec<ProductionPlanItem>> {
+        ProductionPlanRepo::get_items_by_plan_id(&mut *db, plan_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
     async fn confirm(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -134,6 +144,12 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
                 }),
             }
         }
+        // Update plan status to InProgress after successful release
+        if !successful.is_empty() {
+            ProductionPlanRepo::update_status(&mut *db, plan_id, PlanStatus::InProgress)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+        }
 
         let total = items.len() as i32;
         Ok(BatchReleaseResult { plan_id, successful_work_orders: successful, failed_items: failed, total })
@@ -147,6 +163,16 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         page_size: u32,
     ) -> Result<PaginatedResult<ProductionPlan>> {
         ProductionPlanRepo::list(&mut *db, &filter, page, page_size)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn get_plan_stats(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        plan_ids: &[i64],
+    ) -> Result<std::collections::HashMap<i64, PlanExtraStats>> {
+        ProductionPlanRepo::get_plan_stats(&mut *db, plan_ids)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

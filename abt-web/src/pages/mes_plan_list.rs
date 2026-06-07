@@ -237,12 +237,12 @@ fn plan_table_fragment(
                     option value="Mto" selected[params.plan_type.as_deref() == Some("Mto")] { "按单生产 (MTO)" }
                     option value="Mts" selected[params.plan_type.as_deref() == Some("Mts")] { "按库存备货 (MTS)" }
                 }
-                input class="filter-input" type="date" name="date_from"
-                    style="width:140px"
+                input class="search-input" type="date" name="date_from"
+                    style="max-width:160px"
                     value=(params.date_from.as_deref().unwrap_or(""));
-                span style="color:var(--muted);line-height:36px" { "~" }
-                input class="filter-input" type="date" name="date_to"
-                    style="width:140px"
+                span style="color:var(--muted);font-size:13px" { "至" }
+                input class="search-input" type="date" name="date_to"
+                    style="max-width:160px"
                     value=(params.date_to.as_deref().unwrap_or(""));
             }
 
@@ -284,6 +284,7 @@ fn plan_data_card(
                             @let stats = plan_stats.get(&item.id);
                             @let item_count = stats.map(|s| s.item_count).unwrap_or(0);
                             @let sales_orders = stats.map(|s| s.sales_orders.as_str()).unwrap_or("—");
+                            @let sales_orders_display = if sales_orders.is_empty() { "—" } else { sales_orders };
                             tr style="cursor:pointer" onclick=(format!("location.href='{}'", detail_path.to_string())) {
                                 td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
                                 td { (item.plan_date) }
@@ -293,7 +294,7 @@ fn plan_data_card(
                                     }
                                 }
                                 td style="text-align:center" { (item_count) }
-                                td { (sales_orders) }
+                                td { (sales_orders_display) }
                                 td {
                                     span style=(format!("display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", status_bg, status_color)) {
                                         (status_label)

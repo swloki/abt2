@@ -277,6 +277,7 @@ fn return_table_fragment(
     let received_count = status_counts.get(&3).copied();
     let inspecting_count = status_counts.get(&4).copied();
     let completed_count = status_counts.get(&5).copied();
+    let cancelled_count = status_counts.get(&6).copied();
     let rejected_count = status_counts.get(&7).copied();
 
     let tabs = &[
@@ -286,6 +287,7 @@ fn return_table_fragment(
         TabItem { value: "3".into(), label: "已收货", count: received_count },
         TabItem { value: "4".into(), label: "质检中", count: inspecting_count },
         TabItem { value: "5".into(), label: "已完成", count: completed_count },
+        TabItem { value: "6".into(), label: "已取消", count: cancelled_count },
         TabItem { value: "7".into(), label: "已驳回", count: rejected_count },
     ];
 

@@ -15,6 +15,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
 use crate::utils::RequestContext;
+use crate::utils::fmt_qty;
 use abt_macros::require_permission;
 
 // ── Helpers ──
@@ -370,7 +371,7 @@ fn item_row(
     let product_code = codes.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let delivery = item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into());
     let discount = if item.discount_rate > rust_decimal::Decimal::ZERO {
-        format!("{}%", item.discount_rate)
+        format!("{}%", fmt_qty(item.discount_rate))
     } else {
         "—".into()
     };
@@ -381,12 +382,12 @@ fn item_row(
             td class="mono" { (product_code) }
             td { (product_name) }
             td { (item.unit.as_str()) }
-            td class="num-right" { (item.quantity) }
+            td class="num-right" { (fmt_qty(item.quantity)) }
             td class="num-right" { "¥ " (format!("{:.2}", item.unit_price)) }
             td class="num-right" { (discount) }
             td class="num-right" { "¥ " (format!("{:.2}", item.amount)) }
-            td class="num-right" { (item.shipped_qty) }
-            td class="num-right" { (item.returned_qty) }
+            td class="num-right" { (fmt_qty(item.shipped_qty)) }
+            td class="num-right" { (fmt_qty(item.returned_qty)) }
             td class="mono" { (delivery) }
         }
     }

@@ -16,6 +16,7 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::shipping::*;
+use crate::utils::fmt_qty;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -357,8 +358,8 @@ fn item_row(
             td { (product_name) }
             td { (spec) }
             td { (unit) }
-            td class="num-right" { (item.requested_qty) }
-            td class="num-right" { (item.shipped_qty) }
+            td class="num-right" { (fmt_qty(item.requested_qty)) }
+            td class="num-right" { (fmt_qty(item.shipped_qty)) }
             td { (warehouse) }
         }
     }

@@ -16,6 +16,7 @@ use abt_core::shared::types::PgExecutor;
 use abt_core::shared::types::ServiceContext;
 
 use crate::components::icon;
+use crate::utils::fmt_qty;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
@@ -500,7 +501,7 @@ fn item_row(index: usize, item: &SalesReturnItem, details: &HashMap<i64, Product
             td { (product_name) }
             td { (unit) }
             td class="num-right mono" { (format!("{:.2}", item.unit_price)) }
-            td class="num-right" { (item.returned_qty) }
+            td class="num-right" { (fmt_qty(item.returned_qty)) }
             td class="num-right mono" { (format!("{:.2}", item.amount)) }
             td { (disposition_label(item.disposition)) }
         }

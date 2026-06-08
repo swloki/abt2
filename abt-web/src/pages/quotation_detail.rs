@@ -13,6 +13,7 @@ use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::quotation::*;
 use crate::utils::RequestContext;
+use crate::utils::fmt_qty;
 use abt_macros::require_permission;
 
 // ── Helpers ──
@@ -230,10 +231,10 @@ fn item_row(item: &QuotationItem, names: &HashMap<i64, String>) -> Markup {
             td { (item.line_no) }
             td { (product_name) }
             td { (item.description.as_str()) }
-            td class="num-right" { (item.quantity) }
+            td class="num-right" { (fmt_qty(item.quantity)) }
             td { (item.unit.as_str()) }
             td class="num-right mono" { (format!("{:.2}", item.unit_price)) }
-            td class="num-right" { (item.discount_rate) }
+            td class="num-right" { (fmt_qty(item.discount_rate)) }
             td class="num-right mono" { (format!("{:.2}", item.amount)) }
             td { (delivery) }
         }

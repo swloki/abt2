@@ -19,6 +19,7 @@ use crate::routes::reconciliation::*;
 use crate::routes::order::OrderDetailPath;
 use crate::routes::shipping::ShippingDetailPath;
 use crate::utils::RequestContext;
+use crate::utils::fmt_qty;
 use abt_macros::require_permission;
 
 // ── Helpers ──
@@ -404,7 +405,7 @@ fn item_row(
             td class="mono" { (product_code) }
             td { (product_name) }
             td { (unit) }
-            td class="num-right" { (item.quantity) }
+            td class="num-right" { (fmt_qty(item.quantity)) }
             td class="num-right mono" { (format!("{:.2}", item.unit_price)) }
             td class="num-right mono" { (format!("{:.2}", item.amount)) }
             td {

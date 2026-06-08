@@ -80,6 +80,7 @@ pub struct WoBasicInfo {
     pub completed_qty: Decimal,
     pub status: i16,
     pub bom_snapshot_id: Option<i64>,
+    pub bom_version: Option<String>,
 }
 
 /// BOM vs 实际对比行
@@ -92,6 +93,7 @@ pub struct BomCompareItem {
     pub per_unit_qty: Decimal,
     pub standard_total: Decimal,
     pub backflush_total: Decimal,
+    pub picked_qty: Decimal,
 }
 
 /// 物料消耗汇总

@@ -151,9 +151,11 @@ impl DashboardRepo {
              p.pdt_name AS product_name, \
              wo.planned_qty, \
              COALESCE((SELECT SUM(pb.completed_qty) FROM production_batches pb WHERE pb.work_order_id = wo.id AND pb.status != 6), 0) AS completed_qty, \
-             wo.status, wo.bom_snapshot_id \
+             wo.status, wo.bom_snapshot_id, \
+             b.bom_name AS bom_version \
              FROM work_orders wo \
              LEFT JOIN products p ON p.product_id = wo.product_id \
+             LEFT JOIN boms b ON b.bom_id = wo.bom_snapshot_id \
              WHERE wo.id = $1"
         )
         .bind(work_order_id)
@@ -173,7 +175,8 @@ impl DashboardRepo {
              p.unit, \
              bn.quantity AS per_unit_qty, \
              bn.quantity * COALESCE(wo_batch.completed, 0) AS standard_total, \
-             COALESCE(SUM(bi.actual_qty), 0) AS backflush_total \
+             COALESCE(SUM(bi.actual_qty), 0) AS backflush_total, \
+             COALESCE((SELECT SUM(mri.issued_qty) FROM material_requisition_items mri JOIN material_requisitions mr ON mr.id = mri.requisition_id WHERE mr.work_order_id = wo.id AND mri.product_id = bn.product_id AND mr.deleted_at IS NULL), 0) AS picked_qty \
              FROM work_orders wo \
              JOIN bom_nodes bn ON bn.bom_id = wo.bom_snapshot_id AND bn.parent_id != 0 \
              LEFT JOIN products p ON p.product_id = bn.product_id \
@@ -181,7 +184,7 @@ impl DashboardRepo {
              LEFT JOIN backflush_records br ON br.work_order_id = wo.id AND br.status = 2 \
              LEFT JOIN backflush_items bi ON bi.record_id = br.id AND bi.component_id = bn.product_id \
              WHERE wo.id = $1 \
-             GROUP BY bn.product_id, p.product_code, p.pdt_name, p.unit, bn.quantity, wo_batch.completed \
+             GROUP BY wo.id, bn.product_id, p.product_code, p.pdt_name, p.unit, bn.quantity, wo_batch.completed \
              ORDER BY p.pdt_name"
         )
         .bind(work_order_id)

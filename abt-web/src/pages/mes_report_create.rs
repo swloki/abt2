@@ -50,6 +50,14 @@ pub async fn get_report_create(
     let work_orders = wo_svc.list(&service_ctx, &mut conn, wo_filter, 1, 200).await?;
     let active_wos: Vec<_> = work_orders.items.into_iter().filter(|wo| wo.status != abt_core::mes::enums::WorkOrderStatus::Cancelled).collect();
 
+    // Load product names for work orders
+    let mut wo_product_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for w in &active_wos {
+        if let Ok(Some(name)) = wo_svc.get_product_name(&mut conn, w.product_id).await {
+            wo_product_names.insert(w.id, name);
+        }
+    }
+
     // If batch_id specified, load batch + routings
     let (batch, routings, wo) = if let Some(bid) = query.batch_id {
         let b = batch_svc.find_by_id(&service_ctx, &mut conn, bid).await?;
@@ -64,8 +72,12 @@ pub async fn get_report_create(
     let workers_result = user_svc.list_users(&service_ctx, &mut conn, 1, 100).await?;
     let workers = workers_result.items;
 
-    let content = report_create_page(&active_wos, batch.as_ref(), &routings, wo.as_ref(), &workers);
+    // Generate doc number for display (WR-yyyy-mm-NNNNN)
+    let doc_number = format!("WR-{}", chrono::Local::now().format("%Y-%m-%d"));
+
+    let content = report_create_page(&active_wos, &wo_product_names, batch.as_ref(), &routings, wo.as_ref(), &workers, &doc_number);
     Ok(Html(admin_page(is_htmx, "新建报工", &claims, "production", ReportCreatePath::PATH, "生产管理", Some(ReportListPath::PATH), content).into_string()))
+
 }
 
 #[require_permission("MES", "write")]
@@ -91,11 +103,23 @@ pub async fn create_report(
 
 fn report_create_page(
     work_orders: &[abt_core::mes::work_order::WorkOrder],
+    wo_product_names: &std::collections::HashMap<i64, String>,
     batch: Option<&abt_core::mes::production_batch::ProductionBatch>,
     routings: &[abt_core::mes::production_batch::WorkOrderRouting],
     wo: Option<&abt_core::mes::work_order::WorkOrder>,
     workers: &[abt_core::shared::identity::User],
+    doc_number: &str,
 ) -> Markup {
+    // Find current routing's unit_price
+    let current_step = batch.map(|b| b.current_step);
+    let current_routing = routings.iter().find(|r| Some(r.step_no) == current_step);
+    let unit_price = current_routing.and_then(|r| r.unit_price).unwrap_or(rust_decimal::Decimal::ZERO);
+    let unit_price_display = if unit_price == rust_decimal::Decimal::ZERO {
+        "—".to_string()
+    } else {
+        format!("¥{}", crate::utils::fmt_qty(unit_price))
+    };
+
     html! { div {
         div class="page-header" { h1 class="page-title" { "新建报工" } }
         form hx-post=(ReportCreatePath::PATH) hx-swap="none" {
@@ -103,16 +127,25 @@ fn report_create_page(
                 input type="hidden" name="batch_id" value=(b.id);
             }
 
+            // === 基本信息 ===
             div class="form-section" {
-                div class="form-section-title" { "基本信息" }
+                div class="form-section-title" {
+                    (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>"#))
+                    "基本信息"
+                }
                 div class="form-grid" {
+                    div class="form-group" {
+                        label class="form-label" { "报工单号" }
+                        input class="form-input" type="text" readonly value=(doc_number) style="background:var(--surface);color:var(--muted)";
+                    }
                     div class="form-group" {
                         label class="form-label" { "工单 " span class="required" { "*" } }
                         select class="form-select" name="wo_id" required {
-                            option value="" { "选择工单..." }
+                            option value="" { "请选择工单" }
                             @for w in work_orders {
                                 @let sel = wo.map_or(false, |cur| cur.id == w.id);
-                                option value=(w.id) selected[sel] { (w.doc_number) }
+                                @let label = wo_product_names.get(&w.id).map_or(w.doc_number.clone(), |name| format!("{} ({})", w.doc_number, name));
+                                option value=(w.id) selected[sel] { (label) }
                             }
                         }
                     }
@@ -131,7 +164,8 @@ fn report_create_page(
                                 @for r in routings {
                                     @if r.status != abt_core::mes::enums::RoutingStatus::Completed {
                                         @let is_cur = batch.map_or(false, |b| b.current_step == r.step_no);
-                                        option value=(r.step_no) selected[is_cur] { (r.step_no) " - " (r.process_name) }
+                                        @let cur_tag = if is_cur { " [当前工序]" } else { "" };
+                                        option value=(r.step_no) selected[is_cur] { (r.step_no) " - " (r.process_name) (cur_tag) }
                                     }
                                 }
                             }
@@ -142,15 +176,15 @@ fn report_create_page(
                     div class="form-group" {
                         label class="form-label" { "班次 " span class="required" { "*" } }
                         div class="shift-toggle" {
-                            button type="button" class="shift-btn active" onclick="this.classList.add('active');this.nextElementSibling.classList.remove('active');document.querySelector('input[name=shift]').value='1'" { "白班" }
-                            button type="button" class="shift-btn" onclick="this.classList.add('active');this.previousElementSibling.classList.remove('active');document.querySelector('input[name=shift]').value='2'" { "夜班" }
+                            button type="button" class="shift-btn active" { "白班" script { (maud::PreEscaped("me().on('click',e=>{me(e).classAdd('active');me(me(e).nextElementSibling).classRemove('active');me('input[name=shift]',me(e).parentElement).value='1'})")) } }
+                            button type="button" class="shift-btn" { "夜班" script { (maud::PreEscaped("me().on('click',e=>{me(e).classAdd('active');me(me(e).previousElementSibling).classRemove('active');me('input[name=shift]',me(e).parentElement).value='2'})")) } }
                             input type="hidden" name="shift" value="1";
                         }
                     }
                     div class="form-group" {
                         label class="form-label" { "工人 " span class="required" { "*" } }
                         select class="form-select" name="worker_id" required {
-                            option value="" { "选择工人..." }
+                            option value="" { "请选择工人" }
                             @for w in workers {
                                 option value=(w.user_id) { (w.display_name.as_deref().unwrap_or(&w.username)) }
                             }
@@ -163,35 +197,50 @@ fn report_create_page(
                 }
             }
 
+            // === 生产数据 ===
             div class="form-section" {
-                div class="form-section-title" { "生产数据" }
+                div class="form-section-title" {
+                    (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"#))
+                    "生产数据"
+                }
                 div class="form-grid" {
                     div class="form-group" {
                         label class="form-label" { "完成数量 " span class="required" { "*" } }
-                        input class="form-input" type="number" step="0.01" name="completed_qty" required;
+                        input class="form-input" type="number" placeholder="0" min="0" name="completed_qty" required;
                     }
                     div class="form-group" {
                         label class="form-label" { "不良数量" }
-                        input class="form-input" type="number" step="0.01" name="defect_qty" value="0";
+                        input class="form-input" type="number" placeholder="0" min="0" name="defect_qty" value="0";
                     }
                     div class="form-group" {
                         label class="form-label" { "不良原因" }
                         select class="form-select" name="defect_reason" {
-                            option value="" { "无" }
-                            option value="1" { "物料不良" }
-                            option value="2" { "设备故障" }
-                            option value="3" { "操作失误" }
-                            option value="4" { "工艺问题" }
+                            option value="" { "—" }
+                            option value="1" { "物料不良 (MaterialDefect)" }
+                            option value="2" { "设备故障 (EquipmentFault)" }
+                            option value="3" { "操作失误 (OperatorError)" }
+                            option value="4" { "工艺问题 (ProcessIssue)" }
                         }
                     }
                     div class="form-group" {
                         label class="form-label" { "实际工时 (h)" }
-                        input class="form-input" type="number" step="0.5" name="work_hours" required;
+                        input class="form-input" type="number" placeholder="0" step="0.5" min="0" name="work_hours";
                     }
                     div class="form-group" {
-                        label class="form-label" { "备注" }
-                        textarea class="form-input" name="remark" style="height:80px" {};
+                        label class="form-label" { "计件单价" }
+                        input class="form-input" type="text" readonly value=(unit_price_display) style="background:var(--surface);color:var(--muted)";
                     }
+                    div class="form-group" {
+                        label class="form-label" { "预计工资" }
+                        div class="wage-display" {
+                            div class="wage-amount" id="wageAmount" { "¥0.00" }
+                            div class="wage-label" { "完成数量 × 计件单价" }
+                        }
+                    }
+                }
+                div style="margin-top:var(--space-4)" {
+                    label class="form-label" { "备注" }
+                    textarea class="form-textarea" name="remark" placeholder="报工备注…" style="margin-top:var(--space-1)" {};
                 }
             }
 
@@ -200,5 +249,7 @@ fn report_create_page(
                 button type="submit" class="btn btn-primary" { "确认报工" }
             }
         }
+        // 预计工资实时计算
+        (maud::PreEscaped(format!("<script>me('input[name=completed_qty]').on('input',e=>{{var q=parseFloat(me(e).value)||0;var p={unit_price};me('#wageAmount').textContent='¥'+(q*p).toFixed(2)}})</script>")))
     }}
 }

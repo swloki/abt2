@@ -42,7 +42,6 @@ fn admin_shell(
 ) -> Markup {
     html! {
         div id="app-wrapper" {
-            (PreEscaped("<script>if(localStorage.getItem('sidebar-collapsed')==='true')me('.app-shell').classAdd('sidebar-collapsed')</script>"))
             div class="app-shell" {
                 (sidebar::sidebar(claims, active_module, current_path))
                 div class="main-content" {
@@ -52,6 +51,7 @@ fn admin_shell(
                     }
                 }
             }
+            (PreEscaped("<script>if(localStorage.getItem('sidebar-collapsed')==='true')me('.app-shell').classAdd('sidebar-collapsed')</script>"))
             div class="mobile-sidebar-overlay"
                 onclick="hsRemove(this,null,'open')" {}
             (sidebar::mobile_nav(active_module, current_path))

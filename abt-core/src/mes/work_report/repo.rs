@@ -106,6 +106,30 @@ impl WorkReportRepo {
             .filter_map(|r| WorkReport::from_row(r).ok())
             .collect::<Vec<_>>())
     }
+
+    pub async fn list_by_date_range(
+        executor: &mut sqlx::postgres::PgConnection,
+        from: NaiveDate,
+        to: NaiveDate,
+    ) -> Result<Vec<WorkReport>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT id, doc_number, work_order_id, batch_id, routing_id,
+                   report_date, shift, worker_id, completed_qty, defect_qty,
+                   defect_reason, work_hours, remark, operator_id, created_at, updated_at
+            FROM work_reports
+            WHERE report_date >= $1 AND report_date <= $2
+            ORDER BY worker_id, report_date, created_at
+            "#,
+        )
+        .bind(from)
+        .bind(to)
+        .fetch_all(&mut *executor)
+        .await?;
+        Ok(rows.iter()
+            .filter_map(|r| WorkReport::from_row(r).ok())
+            .collect::<Vec<_>>())
+    }
     pub async fn list(
         executor: &mut sqlx::postgres::PgConnection,
         filter: &ReportListFilter,

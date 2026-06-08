@@ -1,12 +1,13 @@
 use axum::extract::Query;
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
-use maud::{html, Markup};
+use maud::{html, Markup, PreEscaped};
 use serde::Deserialize;
 
 use abt_core::mes::production_batch::ProductionBatchService;
 use abt_core::mes::work_order::WorkOrderService;
 use abt_core::mes::work_report::WorkReportService;
+use abt_core::shared::identity::UserService;
 
 use crate::errors::Result;
 use crate::layout::page::admin_page;
@@ -17,8 +18,22 @@ use abt_macros::require_permission;
 #[require_permission("MES", "read")]
 pub async fn get_card_query(_path: CardQueryPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
-    let RequestContext { claims, .. } = ctx;
-    let content = card_query_page();
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+
+    // 加载最近批次用于"最近查询"区域
+    let batch_svc = state.production_batch_service();
+    let recent_result = batch_svc
+        .list_batches(&service_ctx, &mut conn, Default::default(), 1, 6)
+        .await
+        .unwrap_or_else(|_| abt_core::shared::types::PaginatedResult {
+            items: vec![],
+            total: 0,
+            page: 1,
+            page_size: 6,
+            total_pages: 0,
+        });
+
+    let content = card_query_page(&recent_result.items);
     Ok(Html(admin_page(is_htmx, "流转卡查询", &claims, "production", CardQueryPath::PATH, "生产管理", None, content).into_string()))
 }
 
@@ -39,7 +54,7 @@ pub async fn search_card(
         Some(ref q) if !q.trim().is_empty() => q.trim().to_string(),
         _ => {
             return Ok(Html(html! {
-                div class="info-card" style="text-align:center;padding:var(--space-6);color:var(--muted)" {
+                div style="text-align:center;padding:var(--space-6);color:var(--muted)" {
                     "请输入流转卡序列号进行查询"
                 }
             }.into_string()));
@@ -54,7 +69,7 @@ pub async fn search_card(
         Some(b) => b,
         None => {
             return Ok(Html(html! {
-                div class="info-card" style="text-align:center;padding:var(--space-6);color:var(--danger)" {
+                div style="text-align:center;padding:var(--space-6);color:var(--danger)" {
                     "未找到流转卡 \"" (query) "\" 对应的批次"
                 }
             }.into_string()));
@@ -65,13 +80,20 @@ pub async fn search_card(
     let routings = batch_svc.list_routings(&service_ctx, &mut conn, batch.work_order_id).await?;
     let reports = report_svc.list_by_batch(&service_ctx, &mut conn, batch.id).await?;
 
-    // Get work order doc_number via service
+    // 获取工单单号
     let wo_doc_number = wo_svc.find_by_id(&service_ctx, &mut conn, batch.work_order_id)
         .await
         .map(|wo| wo.doc_number)
         .unwrap_or_default();
 
-    let html_content = card_search_result(&batch, &product_name, &wo_doc_number, &routings, &reports);
+    // 加载工人名称映射
+    let user_svc = state.user_service();
+    let users = user_svc.list_users(&service_ctx, &mut conn, 1, 200).await?;
+    let user_map: std::collections::HashMap<i64, String> = users.items.iter()
+        .map(|u| (u.user_id, u.display_name.clone().unwrap_or_else(|| u.username.clone())))
+        .collect();
+
+    let html_content = card_search_result(&batch, &product_name, &wo_doc_number, &routings, &reports, &user_map);
     Ok(Html(html_content.into_string()))
 }
 
@@ -87,27 +109,84 @@ fn batch_status_label(s: &abt_core::mes::enums::BatchStatus) -> (&'static str, &
     }
 }
 
-fn card_query_page() -> Markup {
-    html! { div {
-        div class="page-header" {
-            h1 class="page-title" { "流转卡查询" }
-        }
+fn card_query_page(recent_batches: &[abt_core::mes::production_batch::BatchListItem]) -> Markup {
+    html! {
+        div {
+            // 搜索区
+            div class="card-search-box" {
+                div class="card-search-title" { "流转卡查询" }
+                div class="card-search-desc" { "输入流转卡号、批次号或扫描二维码，实时查看工序流转进度" }
+                div class="card-search-input-wrap" {
+                    form hx-get=(CardQuerySearchPath::PATH) hx-target="#card-result" hx-swap="innerHTML" hx-trigger="submit" style="display:flex;gap:var(--space-3);flex:1" {
+                        input class="card-search-input" type="text" name="q" placeholder="输入流转卡号 / 批次号，如 FC-SN-060301" autofocus;
+                        button class="btn btn-primary" type="submit" style="display:inline-flex;align-items:center;gap:var(--space-2);white-space:nowrap" {
+                            (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>"#))
+                            "查询"
+                        }
+                    }
+                }
+                button class="card-scan-btn" {
+                    (PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>"#))
+                    "扫描二维码"
+                    script { (PreEscaped("me().on('click',e=>{/* 扫码功能待实现 */})")) }
+                }
+            }
 
-        // Search box
-        div class="info-card" style="text-align:center;padding:var(--space-8);margin-bottom:var(--space-6)" {
-            div style="margin-bottom:var(--space-2);font-size:var(--text-lg);font-weight:600;color:var(--fg)" { "流转卡查询" }
-            div style="color:var(--muted);margin-bottom:var(--space-4)" { "扫描或输入流转卡序列号，查看批次信息和生产进度" }
-            form hx-get=(CardQuerySearchPath::PATH) hx-target="#card-result" hx-swap="innerHTML" hx-trigger="submit" {
-                div style="display:flex;gap:var(--space-3);max-width:480px;margin:0 auto" {
-                    input class="form-input" type="text" name="q" placeholder="扫描或输入卡号..." style="flex:1;font-size:var(--text-base)" autofocus;
-                    button class="btn btn-primary" type="submit" { "查询" }
+            // 查询结果区域
+            div id="card-result" {}
+
+            // 最近查询的流转卡
+            @if !recent_batches.is_empty() {
+                div class="recent-section" {
+                    div class="recent-title" {
+                        (PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>"#))
+                        "最近查询的流转卡"
+                    }
+                    div class="recent-grid" {
+                        @for batch in recent_batches {
+                            @let (status_label, status_cls) = batch_status_label(&batch.status);
+                            @let progress_pct = if batch.total_steps.unwrap_or(0) > 0 {
+                                ((batch.current_step as f64 / batch.total_steps.unwrap_or(1) as f64) * 100.0) as i32
+                            } else { 0 };
+                            @let progress_color = match &batch.status {
+                                abt_core::mes::enums::BatchStatus::Completed => "var(--success)",
+                                abt_core::mes::enums::BatchStatus::PendingReceipt => "var(--warn)",
+                                abt_core::mes::enums::BatchStatus::Suspended => "var(--danger)",
+                                abt_core::mes::enums::BatchStatus::Pending => "var(--muted)",
+                                _ => "var(--accent)",
+                            };
+                            @let step_info = match batch.total_steps {
+                                Some(ts) if ts > 0 => format!("{}/{}", batch.current_step, ts),
+                                _ => "—".to_string(),
+                            };
+
+                            div class="recent-card"
+                                hx-get=(format!("{}?q={}", CardQuerySearchPath::PATH, batch.card_sn))
+                                hx-target="#card-result"
+                                hx-swap="innerHTML"
+                                style="cursor:pointer"
+                            {
+                                div class="recent-card-top" {
+                                    span class="recent-card-no" { (batch.card_sn) }
+                                    span class=(format!("status-pill {status_cls}")) { (status_label) }
+                                }
+                                div class="recent-card-product" {
+                                    (batch.product_name.as_deref().unwrap_or("—"))
+                                    " · "
+                                    (step_info)
+                                    " "
+                                    (batch.current_step_name.as_deref().unwrap_or(""))
+                                }
+                                div class="recent-card-progress" {
+                                    div class="recent-card-progress-bar" style=(format!("width:{}%;background:{}", progress_pct, progress_color)) {}
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-
-        // Result area
-        div id="card-result" {}
-    }}
+    }
 }
 
 fn card_search_result(
@@ -116,6 +195,7 @@ fn card_search_result(
     wo_doc_number: &str,
     routings: &[abt_core::mes::production_batch::WorkOrderRouting],
     reports: &[abt_core::mes::work_report::WorkReport],
+    user_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
     let (status_label, status_cls) = batch_status_label(&batch.status);
     let total_steps = routings.len() as i32;
@@ -134,118 +214,182 @@ fn card_search_result(
         .map(|t| t.format("%Y-%m-%d %H:%M").to_string())
         .unwrap_or_else(|| "—".to_string());
 
+    // 构建routing查找映射
+    let routing_map: std::collections::HashMap<i64, &abt_core::mes::production_batch::WorkOrderRouting> =
+        routings.iter().map(|r| (r.id, r)).collect();
+
     html! {
-        // Result header
-        div class="info-card" style="margin-bottom:var(--space-4)" {
-            div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-4)" {
-                span class="mono" style="font-size:var(--text-lg);font-weight:600" { (batch.card_sn) }
-                span class=(format!("status-pill {status_cls}")) { (status_label) }
+        div class="card-result" {
+            // 结果头部
+            div class="card-result-header" {
+                div class="card-result-no" {
+                    (batch.card_sn)
+                    span class=(format!("status-pill {status_cls}")) { (status_label) }
+                }
+                div class="card-result-meta" {
+                    span {
+                        (PreEscaped(r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/></svg>"#))
+                        "批次 " span class="mono" { (batch.batch_no) }
+                    }
+                    span {
+                        (PreEscaped(r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>"#))
+                        "工单 "
+                        a href=(format!("/admin/mes/orders/{}", batch.work_order_id)) style="color:var(--accent)" { (wo_doc_number) }
+                    }
+                }
             }
-            div style="color:var(--muted);font-size:var(--text-sm)" {
-                "批次 " span class="mono" { (batch.batch_no) }
-                " · 工单 " a href=(format!("/admin/mes/orders/{}", batch.work_order_id)) style="color:var(--accent)" { (wo_doc_number) }
-            }
-        }
 
-        // Info grid
-        div class="info-card" style="margin-bottom:var(--space-4)" {
-            div class="info-grid" {
-                div class="info-item" { label { "产品" } span { (product_name) } }
-                div class="info-item" { label { "批次数量" } span class="mono" { (crate::utils::fmt_qty(batch.batch_qty)) } }
-                div class="info-item" { label { "已完成 / 报废" } span class="mono" { (crate::utils::fmt_qty(batch.completed_qty)) " / " (crate::utils::fmt_qty(batch.scrap_qty)) } }
-                div class="info-item" { label { "当前工序" } span { (current_step_display) } }
-                div class="info-item" { label { "实际开始" } span { (actual_start_str) } }
-                div class="info-item" { label { "状态" } span class=(format!("status-pill {status_cls}")) { (status_label) } }
-            }
-        }
+            div class="card-result-body" {
+                // 基本信息网格
+                div class="card-info-grid" {
+                    div class="card-info-item" {
+                        span class="card-info-label" { "产品" }
+                        span class="card-info-value" { (product_name) }
+                    }
+                    div class="card-info-item" {
+                        span class="card-info-label" { "批次数量" }
+                        span class="card-info-value" style="font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.batch_qty)) }
+                    }
+                    div class="card-info-item" {
+                        span class="card-info-label" { "完成/报废" }
+                        span class="card-info-value" {
+                            span style="color:var(--success);font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.completed_qty)) }
+                            " / "
+                            span style="color:var(--danger);font-family:var(--font-mono)" { (crate::utils::fmt_qty(batch.scrap_qty)) }
+                        }
+                    }
+                    div class="card-info-item" {
+                        span class="card-info-label" { "实际开始" }
+                        span class="card-info-value" { (actual_start_str) }
+                    }
+                    div class="card-info-item" {
+                        span class="card-info-label" { "当前工序" }
+                        span class="card-info-value" style="color:var(--warn)" { (current_step_display) }
+                    }
+                    div class="card-info-item" {
+                        span class="card-info-label" { "状态" }
+                        span class=(format!("card-info-value status-pill {status_cls}")) { (status_label) }
+                    }
+                }
 
-        // Flow progress - workflow steps
-        @if !routings.is_empty() {
-            div class="info-card" style="margin-bottom:var(--space-4)" {
-                div style="font-weight:600;margin-bottom:var(--space-3)" { "工序进度" }
-                div class="workflow-steps" {
-                    @for (i, routing) in routings.iter().enumerate() {
-                        @let is_completed = routing.status == abt_core::mes::enums::RoutingStatus::Completed;
-                        @let is_current = routing.step_no == batch.current_step;
+                // 工序流转进度
+                @if !routings.is_empty() {
+                    div class="flow-progress" {
+                        @for (i, routing) in routings.iter().enumerate() {
+                            @let is_completed = routing.status == abt_core::mes::enums::RoutingStatus::Completed;
+                            @let is_current = routing.step_no == batch.current_step;
+                            @let is_inspection = routing.is_inspection_point;
+                            @let step_cls = if is_completed {
+                                "flow-step completed"
+                            } else if is_current {
+                                "flow-step active"
+                            } else if is_inspection {
+                                "flow-step inspection"
+                            } else {
+                                "flow-step"
+                            };
 
-                        div class="wf-step" {
-                            @if is_completed {
-                                div class="wf-step-dot wf-step-done" { "✓" }
-                            } @else if is_current {
-                                div class="wf-step-dot wf-step-active" { (routing.step_no) }
-                            } @else {
-                                div class="wf-step-dot wf-step-pending" { (routing.step_no) }
-                            }
-                            div class="wf-step-name" { (routing.process_name) }
-                            div class="wf-step-info" {
-                                @if is_completed || is_current {
-                                    span style="font-size:var(--text-xs);color:var(--muted)" {
+                            div class=(step_cls) {
+                                @if is_completed {
+                                    div class="flow-step-node" { "✓" }
+                                } @else {
+                                    div class="flow-step-node" { (routing.step_no) }
+                                }
+                                div class="flow-step-name" { (routing.process_name) }
+                                div class="flow-step-info" {
+                                    @if is_completed || is_current {
                                         "完成 " (crate::utils::fmt_qty(routing.completed_qty))
                                         @if routing.defect_qty > rust_decimal::Decimal::ZERO {
-                                            " / 不良 " (crate::utils::fmt_qty(routing.defect_qty))
+                                            br;
+                                            "不良 " (crate::utils::fmt_qty(routing.defect_qty))
                                         }
+                                        br;
+                                        "工时 " (crate::utils::fmt_qty(routing.completed_qty)) "h"
+                                    } @else {
+                                        "待生产"
                                     }
+                                }
+                                @if i < routings.len() - 1 {
+                                    div class="flow-step-bar" {}
                                 }
                             }
                         }
-                        @if i < routings.len() - 1 {
-                            div class="wf-step-bar" {}
-                        }
                     }
                 }
-            }
-        }
 
-        // Work report detail table
-        @if !reports.is_empty() {
-            div class="data-card" {
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead { tr {
-                            th { "报工单号" }
-                            th { "工序" }
-                            th { "班次" }
-                            th { "报工日期" }
-                            th class="num-right" { "完成" }
-                            th class="num-right" { "不良" }
-                            th class="num-right" { "工时" }
-                            th { "备注" }
-                        }}
-                        tbody {
-                            @for report in reports {
-                                tr {
-                                    td class="mono" {
-                                        a href=(format!("/admin/mes/reports/{}", report.id)) style="color:var(--accent)" { (report.doc_number) }
-                                    }
-                                    td {
-                                        (routings.iter().find(|r| r.id == report.routing_id)
-                                            .map(|r| r.process_name.as_str())
-                                            .unwrap_or("—"))
-                                    }
-                                    td {
-                                        @if report.shift == abt_core::mes::enums::ShiftType::Day { "白班" }
-                                        @else { "夜班" }
-                                    }
-                                    td { (report.report_date) }
-                                    td class="num-right mono" { (crate::utils::fmt_qty(report.completed_qty)) }
-                                    td class="num-right mono" {
-                                        @if report.defect_qty > rust_decimal::Decimal::ZERO {
-                                            span style="color:var(--danger)" { (crate::utils::fmt_qty(report.defect_qty)) }
-                                        } @else {
-                                            "0"
+                // 报工明细
+                @if !reports.is_empty() {
+                    div class="section-card" style="margin-bottom:0" {
+                        div class="section-card-head" {
+                            (PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>"#))
+                            "报工明细"
+                        }
+                        div class="section-card-body" style="padding:0" {
+                            div class="data-card-scroll" {
+                                table class="card-sub-table" {
+                                    thead { tr {
+                                        th { "报工单号" }
+                                        th { "工序" }
+                                        th { "班次" }
+                                        th { "工人" }
+                                        th class="num-right" { "完成" }
+                                        th class="num-right" { "不良" }
+                                        th { "不良原因" }
+                                        th class="num-right" { "工时" }
+                                        th class="num-right" { "计件工资" }
+                                    }}
+                                    tbody {
+                                        @for report in reports {
+                                            @let process_name = routing_map.get(&report.routing_id)
+                                                .map(|r| r.process_name.as_str())
+                                                .unwrap_or("—");
+                                            @let worker_name = user_map.get(&report.worker_id)
+                                                .map(|s| s.as_str())
+                                                .unwrap_or("—");
+                                            @let unit_price = routing_map.get(&report.routing_id)
+                                                .and_then(|r| r.unit_price)
+                                                .unwrap_or(rust_decimal::Decimal::ZERO);
+                                            @let wage = report.completed_qty * unit_price;
+                                            @let defect_reason_str = match &report.defect_reason {
+                                                Some(abt_core::mes::enums::DefectReason::MaterialDefect) => "物料不良",
+                                                Some(abt_core::mes::enums::DefectReason::EquipmentFault) => "设备故障",
+                                                Some(abt_core::mes::enums::DefectReason::OperatorError) => "操作失误",
+                                                Some(abt_core::mes::enums::DefectReason::ProcessIssue) => "工艺问题",
+                                                _ => "—",
+                                            };
+                                            tr {
+                                                td {
+                                                    a href=(format!("/admin/mes/reports/{}", report.id)) style="color:var(--accent)" class="mono" { (report.doc_number) }
+                                                }
+                                                td { (process_name) }
+                                                td {
+                                                    @if report.shift == abt_core::mes::enums::ShiftType::Day { "白班" }
+                                                    @else { "夜班" }
+                                                }
+                                                td { (worker_name) }
+                                                td class="num-right mono" style="color:var(--success)" { (crate::utils::fmt_qty(report.completed_qty)) }
+                                                td class="num-right mono" {
+                                                    @if report.defect_qty > rust_decimal::Decimal::ZERO {
+                                                        span style="color:var(--danger)" { (crate::utils::fmt_qty(report.defect_qty)) }
+                                                    } @else {
+                                                        "0"
+                                                    }
+                                                }
+                                                td { (defect_reason_str) }
+                                                td class="num-right mono" { (crate::utils::fmt_qty(report.work_hours)) "h" }
+                                                td class="num-right mono" style="color:var(--success)" { "¥" (crate::utils::fmt_qty(wage)) }
+                                            }
                                         }
                                     }
-                                    td class="num-right mono" { (crate::utils::fmt_qty(report.work_hours)) "h" }
-                                    td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" { (report.remark) }
                                 }
                             }
                         }
                     }
+                } @else {
+                    div style="text-align:center;padding:var(--space-4);color:var(--muted)" {
+                        "暂无报工记录"
+                    }
                 }
-            }
-        } @else {
-            div class="info-card" style="text-align:center;padding:var(--space-4);color:var(--muted)" {
-                "暂无报工记录"
             }
         }
     }

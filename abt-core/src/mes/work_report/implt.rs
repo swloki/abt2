@@ -134,6 +134,81 @@ impl WorkReportService for WorkReportServiceImpl {
         })
     }
 
+    async fn list_all_wage_summaries(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        date_range: DateRange,
+    ) -> Result<Vec<WageSummary>> {
+        let all_reports = WorkReportRepo::list_by_date_range(
+            &mut *db,
+            date_range.from,
+            date_range.to,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // Group by worker_id
+        let mut worker_reports: std::collections::HashMap<i64, Vec<&WorkReport>> = std::collections::HashMap::new();
+        for r in &all_reports {
+            worker_reports.entry(r.worker_id).or_default().push(r);
+        }
+
+        let mut summaries = Vec::new();
+        for (worker_id, reports) in worker_reports {
+            let mut total_amount = Decimal::ZERO;
+            let mut details = Vec::new();
+
+            for report in reports {
+                let routings = WorkOrderRoutingRepo::get_by_work_order_id(
+                    &mut *db,
+                    report.work_order_id,
+                )
+                .await
+                .ok()
+                .unwrap_or_default();
+
+                let routing_info = routings.into_iter().find(|r| r.id == report.routing_id);
+
+                let (process_name, unit_price) = routing_info
+                    .as_ref()
+                    .map(|r| (r.process_name.clone(), r.unit_price.unwrap_or(Decimal::ZERO)))
+                    .unwrap_or_else(|| (String::new(), Decimal::ZERO));
+
+                let non_operator_defect_qty = match report.defect_reason {
+                    Some(reason) if reason.affect_wage() => report.defect_qty,
+                    _ => Decimal::ZERO,
+                };
+                let wage_amount = (report.completed_qty + non_operator_defect_qty) * unit_price;
+                total_amount += wage_amount;
+
+                details.push(WageDetail {
+                    work_order_id: report.work_order_id,
+                    batch_id: report.batch_id,
+                    routing_id: report.routing_id,
+                    process_name,
+                    report_date: report.report_date,
+                    completed_qty: report.completed_qty,
+                    defect_qty: report.defect_qty,
+                    defect_reason: report.defect_reason,
+                    unit_price,
+                    wage_amount,
+                });
+            }
+
+            summaries.push(WageSummary {
+                worker_id,
+                period_start: date_range.from,
+                period_end: date_range.to,
+                total_amount,
+                details,
+            });
+        }
+
+        // Sort by total_amount descending
+        summaries.sort_by(|a, b| b.total_amount.cmp(&a.total_amount));
+        Ok(summaries)
+    }
+
     async fn get_detail_lookups(
         &self,
         db: PgExecutor<'_>,

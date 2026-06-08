@@ -4,11 +4,15 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use rust_decimal::Decimal;
 use serde::Deserialize;
+use std::collections::HashMap;
 
-use abt_core::mes::dashboard::MesDashboardService;
+use abt_core::master_data::product::ProductService;
 use abt_core::mes::work_order::WorkOrderService;
+use abt_core::mes::dashboard::MesDashboardService;
 use abt_core::wms::backflush::{BackflushFilter, BackflushService};
+use abt_core::wms::material_requisition::{MaterialRequisitionService, model::RequisitionFilter};
 
+use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::mes_receipt::{MaterialUsageDataPath, MaterialUsagePath};
@@ -20,7 +24,6 @@ pub async fn get_material_usage(_path: MaterialUsagePath, ctx: RequestContext) -
     let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
-    // Load work orders for dropdown (non-cancelled)
     let wo_svc = state.work_order_service();
     let filter = abt_core::mes::work_order::WorkOrderFilter {
         status: None,
@@ -32,7 +35,19 @@ pub async fn get_material_usage(_path: MaterialUsagePath, ctx: RequestContext) -
     let wo_result = wo_svc.list(&service_ctx, &mut conn, filter, 1, 100).await?;
     let work_orders = wo_result.items;
 
-    let content = material_usage_page(&work_orders);
+    // Batch-load product names for dropdown display
+    let product_ids: Vec<i64> = work_orders.iter().map(|wo| wo.product_id).collect();
+    let products = if product_ids.is_empty() {
+        Vec::new()
+    } else {
+        state.product_service().get_by_ids(&service_ctx, &mut conn, product_ids).await.unwrap_or_default()
+    };
+    let product_map: HashMap<i64, String> = products
+        .into_iter()
+        .map(|p| (p.product_id, p.pdt_name))
+        .collect();
+
+    let content = material_usage_page(&work_orders, &product_map);
     Ok(Html(admin_page(is_htmx, "物料消耗追踪", &claims, "production", MaterialUsagePath::PATH, "生产管理", None, content).into_string()))
 }
 
@@ -60,6 +75,7 @@ pub async fn load_usage_data(
 
     let dash_svc = state.mes_dashboard_service();
     let bf_svc = state.backflush_service();
+    let req_svc = state.material_requisition_service();
 
     let wo_info = dash_svc.get_wo_basic_info(&service_ctx, &mut conn, wo_id).await?;
     let bom_items = dash_svc.get_bom_comparison(&service_ctx, &mut conn, wo_id).await?;
@@ -68,39 +84,59 @@ pub async fn load_usage_data(
         BackflushFilter { work_order_id: Some(wo_id), status: None },
         1, 50,
     ).await?;
+    let requisitions = req_svc.list(
+        &service_ctx, &mut conn,
+        RequisitionFilter { work_order_id: Some(wo_id), ..Default::default() },
+        1, 50,
+    ).await?;
 
     // Compute summary
     let standard_qty: Decimal = bom_items.iter().map(|i| i.standard_total).sum();
     let backflush_qty: Decimal = bom_items.iter().map(|i| i.backflush_total).sum();
+    let picked_total: Decimal = bom_items.iter().map(|i| i.picked_qty).sum();
     let variance = backflush_qty - standard_qty;
 
-    let html_content = usage_data_fragment(&wo_info, &bom_items, standard_qty, backflush_qty, variance, &bf_records.items);
+    let html_content = usage_data_fragment(
+        &wo_info, &bom_items,
+        standard_qty, backflush_qty, picked_total, variance,
+        &bf_records.items, &requisitions.items,
+    );
     Ok(Html(html_content.into_string()))
 }
 
 fn material_usage_page(
     work_orders: &[abt_core::mes::work_order::WorkOrder],
+    product_map: &HashMap<i64, String>,
 ) -> Markup {
     html! { div {
         div class="page-header" {
             h1 class="page-title" { "物料消耗追踪" }
+            div class="page-actions" {
+                button class="btn btn-default" {
+                    (icon::download_icon(""))
+                    " 导出"
+                }
+            }
         }
 
-        // Filter bar - work order selector
+        // Filter bar
         div class="filter-bar" {
-            select class="form-select" name="wo_id"
+            select class="filter-select" name="wo_id"
                 hx-get=(MaterialUsageDataPath::PATH)
                 hx-target="#usage-content"
                 hx-trigger="change"
                 hx-swap="innerHTML" {
                 option value="" { "选择工单..." }
                 @for wo in work_orders {
-                    @if wo.status != abt_core::mes::enums::WorkOrderStatus::Cancelled {
-                        option value=(wo.id) {
-                            (wo.doc_number)
-                        }
-                    }
+                    @let label = match product_map.get(&wo.product_id) {
+                        Some(name) => format!("{} · {} ({})", wo.doc_number, name, crate::utils::fmt_qty(wo.planned_qty)),
+                        None => wo.doc_number.clone(),
+                    };
+                    option value=(wo.id) { (label) }
                 }
+            }
+            select class="filter-select" disabled {
+                option { "全部批次" }
             }
         }
 
@@ -116,8 +152,10 @@ fn usage_data_fragment(
     bom_items: &[abt_core::mes::dashboard::model::BomCompareItem],
     standard_qty: Decimal,
     backflush_qty: Decimal,
+    picked_total: Decimal,
     variance: Decimal,
     bf_records: &[abt_core::wms::backflush::model::BackflushRecord],
+    requisitions: &[abt_core::wms::material_requisition::model::MaterialRequisition],
 ) -> Markup {
     let status_display = match wo_info.status {
         1 => ("待计划", "pill-pending"),
@@ -127,56 +165,81 @@ fn usage_data_fragment(
         5 => ("已取消", "pill-suspended"),
         _ => ("—", ""),
     };
-
-    let variance_color = if variance > Decimal::ZERO { "color:var(--danger)" } else if variance < Decimal::ZERO { "color:var(--success)" } else { "" };
+    let status_pill = html! { span class=(format!("kanban-card-pill {}", status_display.1)) { (status_display.0) } };
 
     html! {
-        // WO header
-        div class="info-card" {
-            div class="info-grid" {
-                div class="info-item" { label { "工单号" } span class="mono" { (wo_info.doc_number) } }
-                div class="info-item" { label { "产品" } span { (wo_info.product_name.as_deref().unwrap_or("—")) } }
-                div class="info-item" { label { "状态" } span class=(format!("kanban-card-pill {}", status_display.1)) { (status_display.0) } }
-                div class="info-item" { label { "计划数量" } span class="mono" { (crate::utils::fmt_qty(wo_info.planned_qty)) } }
-                div class="info-item" { label { "完成数量" } span class="mono" { (crate::utils::fmt_qty(wo_info.completed_qty)) } }
+        // ── WO header ──
+        div class="wo-header" {
+            div class="wo-header-left" {
+                span class="wo-header-no" { (wo_info.doc_number) }
+                span class="wo-header-product" { (wo_info.product_name.as_deref().unwrap_or("—")) }
+                (status_pill)
+            }
+            div class="flex gap-4 text-sm text-muted" {
+                span { "计划: " strong class="mono" { (crate::utils::fmt_qty(wo_info.planned_qty)) } }
+                span { "完成: " strong class="text-success mono" { (crate::utils::fmt_qty(wo_info.completed_qty)) } }
+                @if let Some(v) = &wo_info.bom_version {
+                    span { "BOM: " strong { (v) } }
+                }
             }
         }
 
-        // Summary stats
+        // ── Summary stats ──
         div class="usage-summary" {
+            // BOM standard
             div class="stat-card" {
-                div class="stat-card-value" { (crate::utils::fmt_qty(standard_qty)) }
-                div class="stat-card-label" { "BOM 标准用量" }
-            }
-            div class="stat-card" {
-                div class="stat-card-value stat-progress" { (crate::utils::fmt_qty(backflush_qty)) }
-                div class="stat-card-label" { "倒冲消耗" }
-            }
-            div class="stat-card" {
-                div class="stat-card-value" style=(variance_color) {
-                    @if variance > Decimal::ZERO { "+" }
-                    (crate::utils::fmt_qty(variance))
-                }
-                div class="stat-card-label" { "用量差异" }
-            }
-            div class="stat-card" {
-                @if standard_qty > Decimal::ZERO {
-                    @let rate = ((variance / standard_qty) * Decimal::ONE_HUNDRED).abs();
-                    div class="stat-card-value" style=(variance_color) {
-                        (crate::utils::fmt_qty(rate)) "%"
+                div class="stat-icon blue" { (icon::box_icon("")) }
+                div {
+                    div class="stat-card-value" { (crate::utils::fmt_qty(standard_qty)) }
+                    div class="stat-card-label" { "BOM 标准用量" }
+                    div class="text-xs text-muted mt-1" {
+                        "按完成 " (crate::utils::fmt_qty(wo_info.completed_qty)) " 件计算"
                     }
-                } @else {
-                    div class="stat-card-value" { "—" }
                 }
-                div class="stat-card-label" { "差异率" }
+            }
+            // Actual picked
+            div class="stat-card" {
+                div class="stat-icon green" { (icon::clipboard_list_icon("")) }
+                div {
+                    div class="stat-card-value" { (crate::utils::fmt_qty(picked_total)) }
+                    div class="stat-card-label" { "实际消耗(领料)" }
+                    div class="text-xs text-muted mt-1" { "含损耗余量" }
+                }
+            }
+            // Backflush
+            div class="stat-card" {
+                div class="stat-icon orange" { (icon::refresh_icon("")) }
+                div {
+                    div class="stat-card-value" { (crate::utils::fmt_qty(backflush_qty)) }
+                    div class="stat-card-label" { "倒冲消耗" }
+                }
+            }
+            // Variance
+            div class="stat-card" {
+                div class="stat-icon red" { (icon::circle_alert_icon("")) }
+                div {
+                    @let variance_cls = if variance > Decimal::ZERO { "text-danger" } else if variance < Decimal::ZERO { "text-success" } else { "" };
+                    div class=(format!("stat-card-value {variance_cls}")) {
+                        @if variance > Decimal::ZERO { "+" }
+                        (crate::utils::fmt_qty(variance))
+                    }
+                    div class="stat-card-label" { "用量差异" }
+                    @if standard_qty > Decimal::ZERO {
+                        @let rate = ((variance / standard_qty) * Decimal::ONE_HUNDRED).abs();
+                        div class="text-xs text-muted mt-1" {
+                            "超出标准 " (crate::utils::fmt_qty(rate)) "%"
+                        }
+                    }
+                }
             }
         }
 
-        // BOM comparison table
+        // ── BOM comparison table ──
         @if !bom_items.is_empty() {
-            div class="data-card" {
-                div class="data-card-header" {
-                    span class="data-card-title" { "BOM 标准用量 vs 倒冲消耗" }
+            div class="section-card" {
+                div class="section-card-head" {
+                    (icon::box_icon(""))
+                    "BOM 标准用量 vs 实际消耗"
                 }
                 div class="data-card-scroll" {
                     table class="data-table" {
@@ -186,20 +249,30 @@ fn usage_data_fragment(
                             th { "单位" }
                             th class="num-right" { "单件用量" }
                             th class="num-right" { "标准总量" }
+                            th class="num-right" { "领料数量" }
                             th class="num-right" { "倒冲消耗" }
+                            th class="num-right" { "损耗率" }
                             th class="num-right" { "差异" }
                         }}
                         tbody {
                             @for item in bom_items {
                                 @let diff = item.backflush_total - item.standard_total;
                                 @let diff_cls = if diff > Decimal::ZERO { "diff-positive" } else if diff < Decimal::ZERO { "diff-negative" } else { "diff-zero" };
+                                @let loss_rate = if item.standard_total > Decimal::ZERO {
+                                    let r = ((item.picked_qty - item.standard_total) / item.standard_total) * Decimal::ONE_HUNDRED;
+                                    format!("{}%", crate::utils::fmt_qty(r))
+                                } else {
+                                    "—".to_string()
+                                };
                                 tr {
                                     td class="mono" { (item.component_code.as_deref().unwrap_or("—")) }
                                     td { (item.component_name.as_deref().unwrap_or("—")) }
                                     td { (item.unit.as_deref().unwrap_or("—")) }
                                     td class="num-right mono" { (crate::utils::fmt_qty(item.per_unit_qty)) }
                                     td class="num-right mono" { (crate::utils::fmt_qty(item.standard_total)) }
+                                    td class="num-right mono" { (crate::utils::fmt_qty(item.picked_qty)) }
                                     td class="num-right mono" { (crate::utils::fmt_qty(item.backflush_total)) }
+                                    td class="num-right mono" { (loss_rate) }
                                     td class="num-right" {
                                         span class=(format!("diff-indicator {diff_cls}")) {
                                             @if diff > Decimal::ZERO { "+" }
@@ -216,11 +289,12 @@ fn usage_data_fragment(
             div class="info-card text-center-empty" { "该工单未关联 BOM，无法显示物料对比" }
         }
 
-        // Backflush records
+        // ── Backflush detail records ──
         @if !bf_records.is_empty() {
-            div class="data-card" {
-                div class="data-card-header" {
-                    span class="data-card-title" { "倒冲消耗记录" }
+            div class="section-card" {
+                div class="section-card-head" {
+                    (icon::refresh_icon(""))
+                    "倒冲明细记录"
                 }
                 div class="data-card-scroll" {
                     table class="data-table" {
@@ -246,6 +320,36 @@ fn usage_data_fragment(
                 }
             }
         }
+
+        // ── Requisition records ──
+        @if !requisitions.is_empty() {
+            div class="section-card" {
+                div class="section-card-head" {
+                    (icon::clipboard_list_icon(""))
+                    "领料记录"
+                }
+                div class="data-card-scroll" {
+                    table class="data-table" {
+                        thead { tr {
+                            th { "领料单号" }
+                            th { "领料日期" }
+                            th { "状态" }
+                        }}
+                        tbody {
+                            @for req in requisitions {
+                                tr {
+                                    td class="mono" {
+                                        a href=(format!("/admin/wms/requisition/{}", req.id)) class="link-cell" { (req.doc_number) }
+                                    }
+                                    td { (req.requisition_date) }
+                                    td { (requisition_status_label(&req.status)) }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -255,6 +359,17 @@ fn backflush_status_label(s: &abt_core::wms::enums::BackflushStatus) -> Markup {
         BackflushStatus::Draft => ("待处理", "pill-pending"),
         BackflushStatus::Executed => ("已完成", "pill-done"),
         BackflushStatus::Adjusted => ("已调整", "pill-progress"),
+    };
+    html! { span class=(format!("kanban-card-pill {cls}")) { (label) } }
+}
+
+fn requisition_status_label(s: &abt_core::wms::enums::RequisitionStatus) -> Markup {
+    use abt_core::wms::enums::RequisitionStatus;
+    let (label, cls) = match s {
+        RequisitionStatus::Draft => ("待确认", "pill-pending"),
+        RequisitionStatus::Confirmed => ("已确认", "pill-progress"),
+        RequisitionStatus::Issued => ("已发料", "pill-done"),
+        RequisitionStatus::Cancelled => ("已取消", "pill-suspended"),
     };
     html! { span class=(format!("kanban-card-pill {cls}")) { (label) } }
 }

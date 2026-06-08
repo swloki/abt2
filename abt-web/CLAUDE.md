@@ -13,14 +13,13 @@ cargo clippy                  # Lint 检查
 ## Architecture
 
 ### CSS 管理规则
-
-**所有样式通过 UnoCSS 统一管理，禁止新增独立 CSS 文件。**
-
-- `static/app.css` 是 UnoCSS 生成的唯一样式输出文件，由 `npm run build:css` 或 `npm run watch` 生成
-- `uno.config.ts` 通过 `preflights` 注入基础 CSS（CSS 变量、重置、布局、组件样式）
-- 新增组件样式优先使用 UnoCSS `shortcuts`（工具类组合）；复杂选择器、伪元素、媒体查询等无法用 shortcuts 表达的样式放入 `preflights`
+样式文件位于项目根级 `static/` 目录（非 `abt-web/static/`）：
+- **`static/base.css`** — 手写 CSS，包含 CSS 变量、重置、布局、组件样式、复杂选择器等。**可直接编辑**
+- **`static/app.css`** — UnoCSS (`uno.config.ts`) 生成的输出文件。**禁止手动修改**，仅通过 `npm run build:css` 生成
+- **`uno.config.ts`**（项目根级）— UnoCSS shortcuts 配置，新增工具类组合优先在此添加
+- 新增组件样式优先使用 UnoCSS `shortcuts`（工具类组合）；复杂选择器、伪元素、媒体查询等无法用 shortcuts 表达的样式放入 `static/base.css`
 - HTML 模板只引用 `/app.css`，不引用其他 CSS 文件
-- 禁止在 `static/` 下新建 CSS 文件
+- **禁止**在 `static/` 下新建独立 CSS 文件
 
 ### 组件样式类名速查 (uno.config.ts)
 

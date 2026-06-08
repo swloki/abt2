@@ -1,0 +1,370 @@
+use axum::response::{Html, IntoResponse};
+use axum_extra::routing::TypedPath;
+use maud::{html, Markup};
+use serde::Deserialize;
+
+use abt_core::qms::enums::InspectionSourceType;
+use abt_core::qms::inspection_result::model::{CheckResult, CreateInspectionResultReq};
+use abt_core::qms::inspection_result::InspectionResultService;
+use abt_core::qms::inspection_specification::model::InspectionSpecFilter;
+use abt_core::qms::inspection_specification::InspectionSpecificationService;
+use abt_core::shared::identity::UserService;
+use abt_core::shared::types::PageParams;
+
+use crate::components::icon;
+use crate::errors::Result;
+use crate::layout::page::admin_page;
+use crate::routes::qms::{ResultCreatePath, ResultListPath};
+use crate::utils::RequestContext;
+use abt_macros::require_permission;
+
+// ── Form request ──
+
+#[derive(Debug, Deserialize)]
+pub struct ResultCreateForm {
+    pub spec_id: i64,
+    pub source_type: i16,
+    pub source_id: i64,
+    pub batch_no: String,
+    pub sample_qty: String,
+    pub result: i16,
+    pub qualified_qty: String,
+    pub unqualified_qty: String,
+    pub inspector_id: Option<i64>,
+    pub inspection_date: String,
+    pub check_results_json: String,
+}
+
+// ── Handlers ──
+
+#[require_permission("QMS", "write")]
+pub async fn get_create(
+    _path: ResultCreatePath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+
+    let spec_svc = state.inspection_specification_service();
+    let filter = InspectionSpecFilter {
+        status: Some(abt_core::qms::enums::SpecStatus::Active),
+        ..Default::default()
+    };
+    let specs = spec_svc
+        .list(&service_ctx, &mut *conn, filter, PageParams { page: 1, page_size: 200 })
+        .await
+        .map(|p| p.items)
+        .unwrap_or_default();
+
+    let user_svc = state.user_service();
+    let users = user_svc
+        .list_users(&service_ctx, &mut *conn, 1, 200)
+        .await
+        .map(|p| p.items)
+        .unwrap_or_default();
+
+    let content = result_create_page(&specs, &users);
+    let page_html = admin_page(
+        is_htmx,
+        "记录检验结果",
+        &claims,
+        "quality",
+        ResultCreatePath::PATH,
+        "质量管理",
+        Some(ResultListPath::PATH),
+        content,
+    );
+
+    Ok(Html(page_html.into_string()))
+}
+
+#[require_permission("QMS", "write")]
+pub async fn create(
+    _path: ResultCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<ResultCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+
+    let source_type = InspectionSourceType::from_i16(form.source_type).ok_or_else(|| {
+        abt_core::shared::types::DomainError::Validation("无效来源类型".into())
+    })?;
+
+    let sample_qty: rust_decimal::Decimal = form.sample_qty.parse().unwrap_or_default();
+    let qualified_qty: rust_decimal::Decimal = form.qualified_qty.parse().unwrap_or_default();
+    let unqualified_qty: rust_decimal::Decimal = form.unqualified_qty.parse().unwrap_or_default();
+
+    let req = CreateInspectionResultReq {
+        spec_id: form.spec_id,
+        source_type,
+        source_id: form.source_id,
+        batch_no: form.batch_no,
+        sample_qty,
+    };
+
+    let svc = state.inspection_result_service();
+    let id = svc.create(&service_ctx, &mut conn, req).await?;
+
+    // Parse check results JSON and record result if provided
+    let result_type = abt_core::qms::enums::InspectionResultType::from_i16(form.result);
+    if let Some(result_val) = result_type {
+        let check_results: Vec<CheckResult> = if form.check_results_json.is_empty() {
+            vec![]
+        } else {
+            serde_json::from_str(&form.check_results_json).unwrap_or_default()
+        };
+
+        let inspection_date = chrono::NaiveDate::parse_from_str(&form.inspection_date, "%Y-%m-%d")
+            .ok();
+
+        if let Some(inspection_date) = inspection_date {
+            let record_req = abt_core::qms::inspection_result::model::RecordInspectionResultReq {
+                result: result_val,
+                qualified_qty,
+                unqualified_qty,
+                check_results,
+                inspector_id: form.inspector_id.unwrap_or(1),
+                inspection_date,
+            };
+            let _gate = svc.record_result(&service_ctx, &mut conn, id, record_req).await?;
+        }
+    }
+
+    Ok(
+        axum::response::Response::builder()
+            .header("HX-Redirect", ResultListPath::PATH)
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+}
+
+// ── Page rendering ──
+
+fn result_create_page(
+    specs: &[abt_core::qms::inspection_specification::model::InspectionSpecification],
+    users: &[abt_core::shared::identity::model::User],
+) -> Markup {
+    html! {
+        div {
+            // ── Back link ──
+            a class="back-link" href=(ResultListPath::PATH) {
+                (icon::arrow_left_icon(""))
+                " 返回检验结果列表"
+            }
+
+            // ── Page header ──
+            div class="page-header" {
+                div class="page-header-left" {
+                    h1 class="page-title" { "记录检验结果" }
+                }
+                div class="page-header-right" {
+                    span class="text-sm text-muted" { "自动保存草稿" }
+                }
+            }
+
+            form id="result-form" hx-post=(ResultCreatePath::PATH) hx-swap="none" {
+
+                // ── Section 1: 检验信息 ──
+                div class="form-section" {
+                    div class="form-section-title" {
+                        (icon::file_text_icon(""))
+                        " 检验信息"
+                    }
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label class="form-label" { "检验规格 " span style="color:var(--danger)" { "*" } }
+                            select class="form-select" name="spec_id" required {
+                                option value="" disabled selected { "请选择检验规格" }
+                                @for spec in specs {
+                                    option value=(spec.id) {
+                                        (spec.doc_number)
+                                        " - "
+                                        @match spec.inspection_type {
+                                            abt_core::qms::enums::InspectionType::Iqc => "IQC",
+                                            abt_core::qms::enums::InspectionType::Ipqc => "IPQC",
+                                            abt_core::qms::enums::InspectionType::Fqc => "FQC",
+                                            abt_core::qms::enums::InspectionType::Oqc => "OQC",
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "来源类型 " span style="color:var(--danger)" { "*" } }
+                            select class="form-select" name="source_type" required {
+                                option value="" disabled selected { "请选择来源类型" }
+                                option value="1" { "来料通知" }
+                                option value="2" { "工单工序" }
+                                option value="3" { "发货单" }
+                                option value="4" { "委外单" }
+                            }
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "来源单号 " span style="color:var(--danger)" { "*" } }
+                            input class="form-input" type="text" name="source_id" required placeholder="请输入来源单号";
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "批次号 " span style="color:var(--danger)" { "*" } }
+                            input class="form-input" type="text" name="batch_no" required placeholder="请输入批次号";
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "抽样数量 " span style="color:var(--danger)" { "*" } }
+                            input class="form-input" type="number" name="sample_qty" step="any" required placeholder="请输入抽样数量";
+                        }
+                    }
+                }
+
+                // ── Section 2: 检验结果 ──
+                div class="form-section" {
+                    div class="form-section-title" {
+                        (icon::check_circle_icon(""))
+                        " 检验结果"
+                    }
+                    div class="form-grid" {
+                        div class="form-field" {
+                            label class="form-label" { "检验结论 " span style="color:var(--danger)" { "*" } }
+                            select class="form-select" name="result" required {
+                                option value="" disabled selected { "请选择检验结论" }
+                                option value="1" { "合格" }
+                                option value="2" { "不合格" }
+                                option value="3" { "让步接收" }
+                            }
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "合格数量" }
+                            input class="form-input" type="number" name="qualified_qty" step="any" min="0" placeholder="0";
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "不合格数量" }
+                            input class="form-input" type="number" name="unqualified_qty" step="any" min="0" placeholder="0";
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "检验员" }
+                            select class="form-select" name="inspector_id" {
+                                option value="" disabled selected { "请选择检验员" }
+                                @for user in users {
+                                    @if user.is_active {
+                                        option value=(user.user_id) {
+                                            (user.display_name.as_deref().unwrap_or(&user.username))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "检验日期" }
+                            input class="form-input" type="date" name="inspection_date";
+                        }
+                    }
+                }
+
+                // ── Section 3: 检验项目明细 ──
+                div class="form-section" style="padding:0;overflow:hidden" {
+                    div style="padding:var(--space-6) var(--space-6) var(--space-4)" {
+                        div class="form-section-title" style="border-bottom:none;padding-bottom:0;margin-bottom:0" {
+                            (icon::clipboard_list_icon(""))
+                            " 检验项目明细"
+                        }
+                    }
+                    div style="overflow-x:auto" {
+                        table class="line-items-table" {
+                            thead {
+                                tr {
+                                    th style="width:50px;text-align:center" { "序号" }
+                                    th style="min-width:140px" { "检验项目" }
+                                    th style="min-width:140px" { "检验标准" }
+                                    th style="min-width:120px" { "实测值" }
+                                    th style="width:110px;text-align:center" { "是否合格" }
+                                    th style="min-width:120px" { "备注" }
+                                }
+                            }
+                            tbody id="check-items-body" {
+                                // 5 pre-filled example rows
+                                @for i in 1..=5 {
+                                    tr {
+                                        td class="line-num" { (i) }
+                                        td {
+                                            input class="form-input" type="text"
+                                                name={"item_" (i)}
+                                                placeholder="检验项目";
+                                        }
+                                        td {
+                                            input class="form-input" type="text"
+                                                name={"standard_" (i)}
+                                                placeholder="检验标准";
+                                        }
+                                        td {
+                                            input class="form-input" type="text"
+                                                name={"measured_" (i)}
+                                                placeholder="实测值";
+                                        }
+                                        td style="text-align:center" {
+                                            select class="form-select" name={"pass_" (i)} {
+                                                option value="" { "—" }
+                                                option value="1" { "✓ 合格" }
+                                                option value="0" { "✗ 不合格" }
+                                            }
+                                        }
+                                        td {
+                                            input class="form-input" type="text"
+                                                name={"remark_" (i)}
+                                                placeholder="备注";
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Hidden field for check results JSON ──
+                input type="hidden" name="check_results_json" id="check-results-json" value="";
+
+                // ── Action bar ──
+                div class="create-action-bar" {
+                    a class="btn btn-default" href=(ResultListPath::PATH) { "取消" }
+                    button type="button" class="btn btn-default" id="btn-save-draft" { "保存草稿" }
+                    button type="submit" class="btn btn-primary" { "提交检验结果" }
+                }
+            }
+
+            // ── Inline script: collect check items before submit ──
+            script {
+                (maud::PreEscaped(r#"
+document.getElementById('result-form').addEventListener('htmx:beforeRequest', function(e) {
+    var rows = document.querySelectorAll('#check-items-body tr');
+    var items = [];
+    rows.forEach(function(row, idx) {
+        var item = row.querySelector('input[name="item_' + (idx+1) + '"]');
+        var standard = row.querySelector('input[name="standard_' + (idx+1) + '"]');
+        var measured = row.querySelector('input[name="measured_' + (idx+1) + '"]');
+        var pass = row.querySelector('select[name="pass_' + (idx+1) + '"]');
+        var remark = row.querySelector('input[name="remark_' + (idx+1) + '"]');
+        if (item && item.value) {
+            items.push({
+                item: item.value,
+                standard: standard ? standard.value : '',
+                measured: measured ? measured.value : '',
+                pass: pass ? pass.value === '1' : false,
+                remark: remark ? remark.value : null
+            });
+        }
+    });
+    document.getElementById('check-results-json').value = JSON.stringify(items);
+});
+"#))
+            }
+        }
+    }
+}

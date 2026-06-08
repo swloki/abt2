@@ -7,9 +7,13 @@ use crate::qms::enums::*;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CheckItem {
+    #[serde(default)]
     pub item: String,
+    #[serde(default)]
     pub standard: String,
+    #[serde(default)]
     pub tolerance: String,
+    #[serde(default)]
     pub method: String,
 }
 

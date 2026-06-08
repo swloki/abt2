@@ -305,4 +305,35 @@ impl AppState {
     pub fn production_exception_service(&self) -> impl abt_core::mes::production_exception::ProductionExceptionService {
         abt_core::mes::production_exception::new_production_exception_service(self.pool.clone())
     }
+
+    // ── OM (Outsourcing) Services ──
+
+    pub fn outsourcing_order_service(
+        &self,
+    ) -> impl abt_core::om::outsourcing_order::OutsourcingOrderService {
+        abt_core::om::outsourcing_order::new_outsourcing_order_service(self.pool.clone())
+    }
+
+    pub fn outsourcing_tracking_service(
+        &self,
+    ) -> impl abt_core::om::outsourcing_tracking::OutsourcingTrackingService {
+        abt_core::om::outsourcing_tracking::new_outsourcing_tracking_service()
+    }
+    // ── QMS (Quality Management) Services ──
+    pub fn inspection_specification_service(
+        &self,
+    ) -> impl abt_core::qms::inspection_specification::InspectionSpecificationService {
+        abt_core::qms::inspection_specification::new_inspection_specification_service(self.pool.clone())
+    }
+    pub fn inspection_result_service(
+        &self,
+    ) -> impl abt_core::qms::inspection_result::InspectionResultService {
+        abt_core::qms::inspection_result::new_inspection_result_service(self.pool.clone())
+    }
+    pub fn mrb_service(&self) -> impl abt_core::qms::mrb::MrbService {
+        abt_core::qms::mrb::new_mrb_service(self.pool.clone())
+    }
+    pub fn rma_service(&self) -> impl abt_core::qms::rma::RmaService {
+        abt_core::qms::rma::new_rma_service(self.pool.clone())
+    }
 }

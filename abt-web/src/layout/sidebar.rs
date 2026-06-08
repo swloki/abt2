@@ -176,6 +176,26 @@ fn modules() -> Vec<NavModule> {
             ],
         },
         NavModule {
+            id: "outsourcing",
+            name: "委外管理",
+            items: vec![
+                NavItem { name: "委外总览", path: "/admin/om", icon: NavIcon::Home },
+                NavItem { name: "委外单管理", path: "/admin/om/outsourcing", icon: NavIcon::ClipboardDoc },
+                NavItem { name: "追踪管理", path: "/admin/om/tracking", icon: NavIcon::Search },
+            ],
+        },
+        NavModule {
+            id: "quality",
+            name: "质量管理",
+            items: vec![
+                NavItem { name: "质量总览", path: "/admin/qms", icon: NavIcon::Home },
+                NavItem { name: "检验规格", path: "/admin/qms/specs", icon: NavIcon::File },
+                NavItem { name: "检验结果", path: "/admin/qms/results", icon: NavIcon::Check },
+                NavItem { name: "MRB评审", path: "/admin/qms/mrb", icon: NavIcon::AlertTriangle },
+                NavItem { name: "RMA客诉", path: "/admin/qms/rma", icon: NavIcon::Return },
+            ],
+        },
+        NavModule {
             id: "md",
             name: "主数据",
             items: vec![
@@ -295,7 +315,9 @@ fn render_module_icon(module_id: &str) -> Markup {
         "purchase" => icon::clipboard_module_icon(""),
         "inventory" => icon::package_icon(""),
         "production" => icon::box_icon(""),
+        "outsourcing" => icon::truck_icon(""),
         "md" => icon::grid_icon(""),
+        "quality" => icon::check_circle_icon(""),
         "system" => icon::lock_icon(""),
         _ => html! {},
     }

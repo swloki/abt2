@@ -1,4 +1,4 @@
-﻿use chrono::Utc;
+use chrono::Utc;
 
 use super::model::{OutsourcingTracking, OverdueTrackingQuery, RecordNodeReq};
 use super::repo::OutsourcingTrackingRepo;
@@ -118,6 +118,21 @@ impl OutsourcingTrackingService for OutsourcingTrackingServiceImpl {
     ) -> Result<PaginatedResult<OutsourcingTracking>> {
         let (items, total) =
             OutsourcingTrackingRepo::query_overdue(&mut *db, &filter, &page)
+                .await
+                .map_err(|e| DomainError::Internal(e.into()))?;
+
+        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    async fn list_active_summary(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        supplier_id: Option<i64>,
+        node_type: Option<crate::om::enums::TrackingNodeType>,
+        page: PageParams,
+    ) -> Result<PaginatedResult<OutsourcingTracking>> {
+        let (items, total) =
+            OutsourcingTrackingRepo::list_active_summary(&mut *db, supplier_id, node_type, &page)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
 

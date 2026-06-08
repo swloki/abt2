@@ -1,6 +1,7 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use super::model::{OutsourcingTracking, OverdueTrackingQuery, RecordNodeReq};
+use crate::om::enums::TrackingNodeType;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
@@ -25,6 +26,14 @@ pub trait OutsourcingTrackingService: Send + Sync {
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
         filter: OverdueTrackingQuery,
+        page: crate::shared::types::pagination::PageParams,
+    ) -> Result<PaginatedResult<OutsourcingTracking>>;
+
+    async fn list_active_summary(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        supplier_id: Option<i64>,
+        node_type: Option<TrackingNodeType>,
         page: crate::shared::types::pagination::PageParams,
     ) -> Result<PaginatedResult<OutsourcingTracking>>;
 }

@@ -131,3 +131,24 @@ pub mod mes_inspection_detail;
 pub mod mes_receipt_list;
 pub mod mes_receipt_create;
 pub mod mes_receipt_detail;
+
+// ── OM (Outsourcing) ──
+pub mod om_dashboard;
+pub mod om_outsourcing_list;
+pub mod om_outsourcing_create;
+pub mod om_outsourcing_detail;
+pub mod om_tracking_list;
+// ── QMS (Quality Management) ──
+pub mod qms_dashboard;
+pub mod qms_spec_list;
+pub mod qms_spec_create;
+pub mod qms_spec_detail;
+pub mod qms_result_list;
+pub mod qms_result_create;
+pub mod qms_result_detail;
+pub mod qms_mrb_list;
+pub mod qms_mrb_create;
+pub mod qms_mrb_detail;
+pub mod qms_rma_list;
+pub mod qms_rma_create;
+pub mod qms_rma_detail;

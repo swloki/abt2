@@ -2,5 +2,6 @@ pub mod enums;
 pub mod outsourcing_order;
 pub mod outsourcing_tracking;
 
-pub use outsourcing_order::service::OutsourcingOrderService;
-pub use outsourcing_tracking::service::OutsourcingTrackingService;
+// Re-export key types for consumer convenience
+pub use outsourcing_order::{OutsourcingOrderService, OutsourcingOrder, OutsourcingOrderQuery, OutsourcingMaterial, CreateOutsourcingOrderReq, OutsourcingMaterialItem, SendOutsourcingReq, ReceiveOutsourcingReq, ConvertToInternalReq, CancelOutsourcingReq};
+pub use outsourcing_tracking::{OutsourcingTrackingService, OutsourcingTracking, RecordNodeReq};

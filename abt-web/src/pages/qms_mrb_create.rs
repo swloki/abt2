@@ -1,0 +1,240 @@
+use axum::response::{Html, IntoResponse};
+use axum_extra::routing::TypedPath;
+use maud::{html, Markup};
+use serde::Deserialize;
+
+use abt_core::master_data::product::model::{Product, ProductQuery};
+use abt_core::master_data::product::ProductService;
+use abt_core::qms::enums::{InspectionResultType, InspectionStatus};
+use abt_core::qms::enums::{MRBDisposition, ResponsibleParty};
+use abt_core::qms::inspection_result::model::InspectionResultFilter;
+use abt_core::qms::inspection_result::InspectionResultService;
+use abt_core::qms::inspection_result::model::InspectionResult;
+use abt_core::qms::mrb::model::CreateMrbReq;
+use abt_core::qms::mrb::MrbService;
+use abt_core::shared::types::PageParams;
+
+use crate::components::icon;
+use crate::errors::Result;
+use crate::layout::page::admin_page;
+use crate::routes::qms::{MrbCreatePath, MrbListPath};
+use crate::utils::RequestContext;
+use abt_macros::require_permission;
+
+// ── Form request ──
+
+#[derive(Debug, Deserialize)]
+pub struct MrbCreateForm {
+    pub inspection_result_id: i64,
+    pub product_id: i64,
+    pub defect_description: String,
+    pub disposition: i16,
+    pub responsible_party: i16,
+    pub cost_impact: String,
+    pub remark: String,
+}
+
+// ── Handlers ──
+
+#[require_permission("QMS", "write")]
+pub async fn get_create(
+    _path: MrbCreatePath,
+    ctx: RequestContext,
+) -> Result<Html<String>> {
+    let is_htmx = ctx.is_htmx();
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        claims,
+        ..
+    } = ctx;
+
+    // Load products
+    let product_svc = state.product_service();
+    let products = product_svc
+        .list(&service_ctx, &mut conn, ProductQuery::default(), PageParams::new(1, 500))
+        .await?;
+
+    // Load failed inspection results (Completed + Fail)
+    let insp_svc = state.inspection_result_service();
+    let filter = InspectionResultFilter {
+        result: Some(InspectionResultType::Fail),
+        status: Some(InspectionStatus::Completed),
+        ..Default::default()
+    };
+    let failed_results = insp_svc
+        .list_by_source(&service_ctx, &mut conn, filter, PageParams::new(1, 200))
+        .await?;
+
+    let content = mrb_create_page(&products.items, &failed_results.items);
+    let page_html = admin_page(
+        is_htmx,
+        "新建MRB评审",
+        &claims,
+        "quality",
+        MrbCreatePath::PATH,
+        "质量管理",
+        Some(MrbListPath::PATH),
+        content,
+    );
+
+    Ok(Html(page_html.into_string()))
+}
+
+#[require_permission("QMS", "write")]
+pub async fn create(
+    _path: MrbCreatePath,
+    ctx: RequestContext,
+    axum::Form(form): axum::Form<MrbCreateForm>,
+) -> Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+
+    let disposition = MRBDisposition::from_i16(form.disposition).ok_or_else(|| {
+        abt_core::shared::types::DomainError::Validation("无效处置方式".into())
+    })?;
+
+    let responsible_party = ResponsibleParty::from_i16(form.responsible_party).ok_or_else(|| {
+        abt_core::shared::types::DomainError::Validation("无效责任方".into())
+    })?;
+
+    let cost_impact: rust_decimal::Decimal = form.cost_impact.parse().unwrap_or_default();
+
+    let req = CreateMrbReq {
+        inspection_result_id: form.inspection_result_id,
+        product_id: form.product_id,
+        defect_description: form.defect_description,
+        disposition,
+        responsible_party,
+        cost_impact,
+        remark: form.remark,
+    };
+
+    let svc = state.mrb_service();
+    let _id = svc.create(&service_ctx, &mut conn, req).await?;
+
+    Ok(
+        axum::response::Response::builder()
+            .header("HX-Redirect", MrbListPath::PATH)
+            .body(axum::body::Body::empty())
+            .unwrap(),
+    )
+}
+
+// ── Page rendering ──
+
+fn mrb_create_page(products: &[Product], failed_results: &[InspectionResult]) -> Markup {
+    html! {
+        div {
+            // ── Page header ──
+            div class="page-header" {
+                div class="page-header-left" {
+                    a class="back-link" href=(MrbListPath::PATH) {
+                        (icon::arrow_left_icon("w-4 h-4"))
+                        "返回列表"
+                    }
+                    h1 class="page-title" { "新建MRB评审" }
+                }
+            }
+
+            form id="mrb-form" hx-post=(MrbCreatePath::PATH) hx-swap="none" {
+
+                // ── Section 1: 关联信息 ──
+                div class="form-section" {
+                    div class="form-section-title" {
+                        (icon::link_icon("w-4 h-4"))
+                        "关联信息"
+                    }
+                    div class="form-grid" {
+                        div class="form-field" style="grid-column:span 2" {
+                            label class="form-label required" { "关联检验结果" }
+                            select class="form-select" name="inspection_result_id" required {
+                                option value="" disabled selected { "请选择检验结果" }
+                                @for r in failed_results {
+                                    option value=(r.id) { (r.doc_number) " — " (r.batch_no) }
+                                }
+                            }
+                        }
+                        div class="form-field" style="grid-column:span 2" {
+                            label class="form-label required" { "产品" }
+                            select class="form-select" name="product_id" required {
+                                option value="" disabled selected { "请选择产品" }
+                                @for p in products {
+                                    option value=(p.product_id) { (p.product_code) " — " (p.pdt_name) }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Section 2: 缺陷信息 ──
+                div class="form-section" {
+                    div class="form-section-title" {
+                        (icon::alert_triangle_icon("w-4 h-4"))
+                        "缺陷信息"
+                    }
+                    div class="form-grid" {
+                        div class="form-field" style="grid-column:1/-1" {
+                            label class="form-label required" { "缺陷描述" }
+                            textarea class="form-textarea" name="defect_description" rows="3" required placeholder="请描述缺陷详情…" {}
+                        }
+                        div class="form-field" {
+                            label class="form-label required" { "处置方式" }
+                            select class="form-select" name="disposition" required {
+                                option value="" disabled selected { "请选择处置方式" }
+                                option value="1" { "报废" }
+                                option value="2" { "退货" }
+                                option value="3" { "降级" }
+                                option value="4" { "返工" }
+                            }
+                        }
+                        div class="form-field" {
+                            label class="form-label required" { "责任方" }
+                            select class="form-select" name="responsible_party" required {
+                                option value="" disabled selected { "请选择责任方" }
+                                option value="1" { "内部" }
+                                option value="2" { "供应商" }
+                                option value="3" { "客户" }
+                            }
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "成本影响" }
+                            div style="position:relative" {
+                                span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:var(--text-sm);pointer-events:none" { "¥" }
+                                input class="form-input" type="number" name="cost_impact" step="any"
+                                    style="padding-left:28px"
+                                    placeholder="0.00";
+                            }
+                        }
+                    }
+                }
+
+                // ── Section 3: 备注 ──
+                div class="form-section" {
+                    div class="form-section-title" {
+                        (icon::file_text_icon("w-4 h-4"))
+                        "备注"
+                    }
+                    div class="form-field" {
+                        textarea class="form-textarea" name="remark" rows="3" placeholder="填写备注信息…" {}
+                    }
+                }
+
+                // ── Action bar ──
+                div class="create-action-bar" {
+                    a class="btn btn-default" href=(MrbListPath::PATH) { "取消" }
+                    button type="button" class="btn btn-default"
+                        onclick="document.getElementById('mrb-form').querySelector('[name=remark]').value+='[草稿]';htmx.trigger('#mrb-form','submit')" {
+                        "保存草稿"
+                    }
+                    button type="submit" class="btn btn-primary" { "提交审批" }
+                }
+            }
+        }
+    }
+}

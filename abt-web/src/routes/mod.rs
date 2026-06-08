@@ -49,6 +49,8 @@ pub mod mes_report;
 pub mod mes_inspection;
 pub mod mes_receipt;
 pub mod mes_exception;
+pub mod om;
+pub mod qms;
 use axum::{Router, middleware};
 
 use crate::auth::middleware::auth_middleware;
@@ -108,6 +110,10 @@ pub fn router(state: AppState) -> Router {
                 .merge(mes_inspection::router())
                 .merge(mes_receipt::router())
                 .merge(mes_exception::router())
+                // ── OM (Outsourcing) ──
+                .merge(om::router())
+                // ── QMS (Quality Management) ──
+                .merge(qms::router())
                 // ── System Management ──
                 .merge(user::router())
                 .merge(role::router())

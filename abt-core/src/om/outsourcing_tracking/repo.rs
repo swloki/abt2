@@ -109,7 +109,6 @@ impl OutsourcingTrackingRepo {
 
         Ok((rows, total as u64))
     }
-
     pub async fn query_overdue(
         executor: &mut sqlx::postgres::PgConnection,
         q: &OverdueTrackingQuery,
@@ -156,6 +155,66 @@ impl OutsourcingTrackingRepo {
             .bind(q.supplier_id)
             .bind(q.node_type)
             .bind(q.overdue_before)
+            .bind(limit)
+            .bind(offset)
+            .fetch_all(&mut *executor)
+            .await?;
+
+        Ok((rows, total as u64))
+    }
+
+    /// List tracking summaries for active outsourcing orders (not closed/cancelled).
+    /// Returns the latest tracked node for each outsourcing order.
+    pub async fn list_active_summary(
+        executor: &mut sqlx::postgres::PgConnection,
+        supplier_id: Option<i64>,
+        node_type: Option<TrackingNodeType>,
+        page: &PageParams,
+    ) -> Result<(Vec<OutsourcingTracking>, u64)> {
+        let limit = page.page_size as i64;
+        let offset = page.offset() as i64;
+
+        // Get the latest tracking row per outsourcing order for active orders
+        let where_clause = "
+            WHERE o.status NOT IN (6, 7, 8)
+              AND o.deleted_at IS NULL
+              AND ($1::bigint IS NULL OR o.supplier_id = $1)
+              AND ($2::smallint IS NULL OR t.node_type = $2)
+        ";
+
+        let count_sql = format!(
+            "SELECT COUNT(DISTINCT t.outsourcing_id) AS cnt
+             FROM outsourcing_trackings t
+             JOIN outsourcing_orders o ON o.id = t.outsourcing_id
+             {where_clause}"
+        );
+        let count_row = sqlx::query(sqlx::AssertSqlSafe(count_sql))
+            .bind(supplier_id)
+            .bind(node_type)
+            .fetch_one(&mut *executor)
+            .await?;
+
+        use sqlx::Row;
+        let total: i64 = count_row.try_get("cnt")?;
+
+        // For each active outsourcing order, get the tracking row with the highest node_type
+        let data_sql = format!(
+            "SELECT t.id, t.outsourcing_id, t.node_type, t.tracked_at, t.planned_at,
+                    t.remark, t.operator_id, t.created_at
+             FROM outsourcing_trackings t
+             JOIN outsourcing_orders o ON o.id = t.outsourcing_id
+             JOIN (
+                 SELECT outsourcing_id, MAX(node_type) AS max_node
+                 FROM outsourcing_trackings
+                 GROUP BY outsourcing_id
+             ) latest ON t.outsourcing_id = latest.outsourcing_id AND t.node_type = latest.max_node
+             {where_clause}
+             ORDER BY t.planned_at NULLS LAST, t.created_at DESC
+             LIMIT $3 OFFSET $4"
+        );
+        let rows = sqlx::query_as::<_, OutsourcingTracking>(sqlx::AssertSqlSafe(data_sql))
+            .bind(supplier_id)
+            .bind(node_type)
             .bind(limit)
             .bind(offset)
             .fetch_all(&mut *executor)

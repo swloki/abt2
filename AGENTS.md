@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+
+## 不要使用puppeteer测试
 ## Constraints
 
 - **Use Chinese (中文)** for all communication

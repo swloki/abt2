@@ -1,4 +1,5 @@
-﻿use sqlx::PgPool;
+use sqlx::PgPool;
+use rust_decimal::Decimal;
 
 use crate::fms::cash_journal::model::*;
 use crate::fms::cash_journal::repo::{CashJournalLineRepo, CashJournalRepo};
@@ -17,6 +18,7 @@ use crate::shared::idempotency::new_idempotency_service;
 use crate::shared::state_machine::service::StateMachineService;
 use crate::shared::state_machine::new_state_machine_service;
 use crate::shared::types::{PgExecutor,DomainError, PageParams, PaginatedResult, ServiceContext, Result};
+use crate::fms::enums::JournalStatus;
 
 pub struct CashJournalServiceImpl {
     pool: PgPool,
@@ -215,5 +217,38 @@ impl CashJournalService for CashJournalServiceImpl {
             net_balance,
             currency: "CNY".to_string(),
         })
+    }
+
+    async fn list_recent(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        limit: i64,
+    ) -> Result<Vec<CashJournal>> {
+        let mut filter = CashJournalFilter::default();
+        filter.status = vec![JournalStatus::Confirmed];
+        let page = PageParams::new(1, limit as u32);
+        let (items, _) = CashJournalRepo::query(
+            db, &filter, &page, ctx.data_scope, ctx.operator_id, ctx.department_id,
+        ).await?;
+        Ok(items)
+    }
+
+    async fn distribution_by_type(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        period: String,
+    ) -> Result<Vec<(i16, Decimal)>> {
+        CashJournalRepo::distribution_by_type(db, &period).await
+    }
+
+    async fn monthly_trend(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        months_back: i32,
+    ) -> Result<Vec<(String, Decimal, Decimal)>> {
+        CashJournalRepo::monthly_trend(db, months_back).await
     }
 }

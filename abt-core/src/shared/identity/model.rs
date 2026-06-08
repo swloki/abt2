@@ -155,7 +155,7 @@ pub struct ResourceActionDef {
     pub action_name: &'static str,
 }
 
-/// 18 resources x 4 actions = 72 permission entries
+/// 19 resources x 4 actions = 76 permission entries
 pub static RESOURCE_ACTION_DEFS: &[ResourceActionDef] = &[
     // CUSTOMER
     ResourceActionDef { resource_code: "CUSTOMER", resource_name: "Customer", description: "Customer management", action: "create", action_name: "Create" },
@@ -251,4 +251,9 @@ pub static RESOURCE_ACTION_DEFS: &[ResourceActionDef] = &[
     ResourceActionDef { resource_code: "SHIPPING", resource_name: "Shipping", description: "Shipping request management", action: "read", action_name: "Read" },
     ResourceActionDef { resource_code: "SHIPPING", resource_name: "Shipping", description: "Shipping request management", action: "update", action_name: "Update" },
     ResourceActionDef { resource_code: "SHIPPING", resource_name: "Shipping", description: "Shipping request management", action: "delete", action_name: "Delete" },
+    // FMS
+    ResourceActionDef { resource_code: "FMS", resource_name: "Financial Management", description: "Financial management", action: "create", action_name: "Create" },
+    ResourceActionDef { resource_code: "FMS", resource_name: "Financial Management", description: "Financial management", action: "read", action_name: "Read" },
+    ResourceActionDef { resource_code: "FMS", resource_name: "Financial Management", description: "Financial management", action: "update", action_name: "Update" },
+    ResourceActionDef { resource_code: "FMS", resource_name: "Financial Management", description: "Financial management", action: "delete", action_name: "Delete" },
  ];

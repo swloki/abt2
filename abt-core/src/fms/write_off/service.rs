@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use rust_decimal::Decimal;
 
 use super::model::*;
@@ -24,6 +24,13 @@ pub trait WriteOffService: Send + Sync {
         page: PageParams,
     ) -> Result<PaginatedResult<WriteOff>>;
 
+    /// List all write-off records with optional type filter and pagination.
+    async fn list(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        write_off_type: Option<crate::fms::enums::WriteOffType>,
+        page: PageParams,
+    ) -> Result<PaginatedResult<WriteOff>>;
     /// Get the unreconciled amount for a given source document.
     /// Returns source_total - SUM(write_off.amount).
     /// The caller must provide the source_total since source documents live in other modules.

@@ -1,4 +1,4 @@
-﻿use crate::fms::cost_accounting::model::*;
+use crate::fms::cost_accounting::model::*;
 use crate::fms::cost_accounting::repo::CostAccountingRepo;
 use crate::fms::cost_accounting::service::CostAccountingService;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
@@ -66,5 +66,29 @@ impl CostAccountingService for CostAccountingServiceImpl {
         CostAccountingRepo::get_margin_analysis(db, order_id)
             .await
             
+    }
+
+    async fn list_product_costs(
+        &self, db: PgExecutor<'_>, period: &str,
+    ) -> Result<Vec<ProductCostRow>> {
+        CostAccountingRepo::list_product_costs_by_period(db, period).await
+    }
+
+    async fn list_work_order_costs(
+        &self, db: PgExecutor<'_>,
+    ) -> Result<Vec<WorkOrderCostRow>> {
+        CostAccountingRepo::list_work_order_costs(db).await
+    }
+
+    async fn list_profit_center_pl(
+        &self, db: PgExecutor<'_>, period: &str,
+    ) -> Result<Vec<ProfitCenterPLRow>> {
+        CostAccountingRepo::list_profit_center_pl(db, period).await
+    }
+
+    async fn list_margin_analysis(
+        &self, db: PgExecutor<'_>,
+    ) -> Result<Vec<MarginRow>> {
+        CostAccountingRepo::list_margin_analysis(db).await
     }
 }

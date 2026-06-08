@@ -79,6 +79,58 @@ impl WriteOffRepo {
         Ok((items, total as u64))
     }
 
+    /// List all write-offs with optional type filter and pagination.
+    /// Returns (items, total_count).
+    pub async fn list(
+        executor: PgExecutor<'_>,
+        write_off_type: Option<WriteOffType>,
+        page: &PageParams,
+    ) -> Result<(Vec<WriteOff>, u64)> {
+        // 根据是否有类型筛选，分别走不同 SQL
+        let (total, items) = match write_off_type {
+            Some(wt) => {
+                let total: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(
+                    "SELECT COUNT(*) FROM write_offs WHERE write_off_type = $1"
+                ))
+                .bind(wt)
+                .fetch_one(&mut *executor)
+                .await?;
+
+                let items = sqlx::query_as::<sqlx::Postgres, WriteOff>(sqlx::AssertSqlSafe(format!(
+                    "SELECT {WRITE_OFF_COLUMNS} FROM write_offs \
+                     WHERE write_off_type = $1 ORDER BY id DESC LIMIT $2 OFFSET $3"
+                )))
+                .bind(wt)
+                .bind(page.page_size as i64)
+                .bind(page.offset() as i64)
+                .fetch_all(&mut *executor)
+                .await?;
+
+                (total, items)
+            }
+            None => {
+                let total: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(
+                    "SELECT COUNT(*) FROM write_offs"
+                ))
+                .fetch_one(&mut *executor)
+                .await?;
+
+                let items = sqlx::query_as::<sqlx::Postgres, WriteOff>(sqlx::AssertSqlSafe(format!(
+                    "SELECT {WRITE_OFF_COLUMNS} FROM write_offs \
+                     ORDER BY id DESC LIMIT $1 OFFSET $2"
+                )))
+                .bind(page.page_size as i64)
+                .bind(page.offset() as i64)
+                .fetch_all(&mut *executor)
+                .await?;
+
+                (total, items)
+            }
+        };
+
+        Ok((items, total as u64))
+    }
+
     /// Sum all write-off amounts for a given source document (plain read).
     pub async fn sum_written_off_by_source(
         executor: PgExecutor<'_>,

@@ -1,4 +1,4 @@
-﻿use chrono::Utc;
+use chrono::Utc;
 use sqlx::PgPool;
 
 use crate::fms::cash_journal::repo::CashJournalRepo;
@@ -195,6 +195,19 @@ impl WriteOffService for WriteOffServiceImpl {
             WriteOffRepo::list_by_source(db, source_type, source_id, &page)
                 .await
                 ?;
+
+        Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    async fn list(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        write_off_type: Option<WriteOffType>,
+        page: PageParams,
+    ) -> Result<PaginatedResult<WriteOff>> {
+        let (items, total) =
+            WriteOffRepo::list(db, write_off_type, &page)
+                .await?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }

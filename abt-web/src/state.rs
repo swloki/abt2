@@ -336,4 +336,23 @@ impl AppState {
     pub fn rma_service(&self) -> impl abt_core::qms::rma::RmaService {
         abt_core::qms::rma::new_rma_service(self.pool.clone())
     }
+    // ── FMS (Financial Management) Services ──
+    pub fn cash_journal_service(
+        &self,
+    ) -> impl abt_core::fms::cash_journal::CashJournalService {
+        abt_core::fms::cash_journal::new_cash_journal_service(self.pool.clone())
+    }
+    pub fn expense_service(
+        &self,
+    ) -> impl abt_core::fms::expense::ExpenseReimbursementService {
+        abt_core::fms::expense::new_expense_service(self.pool.clone())
+    }
+    pub fn write_off_service(&self) -> impl abt_core::fms::write_off::WriteOffService {
+        abt_core::fms::write_off::new_write_off_service(self.pool.clone())
+    }
+    pub fn cost_accounting_service(
+        &self,
+    ) -> impl abt_core::fms::cost_accounting::CostAccountingService {
+        abt_core::fms::cost_accounting::new_cost_accounting_service()
+    }
 }

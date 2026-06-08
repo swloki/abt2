@@ -1,5 +1,6 @@
-﻿use chrono::Datelike;
+use chrono::Datelike;
 use sqlx::PgPool;
+use rust_decimal::Decimal;
 
 use crate::fms::cash_journal::repo::{CashJournalLineRepo, CashJournalRepo};
 use crate::fms::enums::{
@@ -120,6 +121,13 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
             ?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    async fn list_items(
+        &self, _ctx: &ServiceContext, db: PgExecutor<'_>,
+        reimbursement_id: i64,
+    ) -> Result<Vec<ExpenseReimbursementItem>> {
+        ExpenseReimbursementItemRepo::get_by_reimbursement_id(db, reimbursement_id).await
     }
 
     /// IndependentTx — opens its own transaction from PgPool.
@@ -268,5 +276,28 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         }
 
         Ok(journal_id)
+    }
+
+    async fn list_pending(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        limit: i64,
+    ) -> Result<Vec<ExpenseReimbursement>> {
+        let mut filter = ExpenseFilter::default();
+        filter.status = vec![ExpenseStatus::Submitted];
+        let page = PageParams::new(1, limit as u32);
+        let (items, _) = ExpenseReimbursementRepo::query(
+            db, &filter, &page, ctx.data_scope, ctx.operator_id, ctx.department_id,
+        ).await?;
+        Ok(items)
+    }
+
+    async fn pending_summary(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+    ) -> Result<(i64, Decimal)> {
+        ExpenseReimbursementRepo::pending_summary(db).await
     }
 }

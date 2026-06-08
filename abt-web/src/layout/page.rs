@@ -16,7 +16,7 @@ fn document(title: &str, body: Markup) -> Markup {
                 meta name="viewport" content="width=device-width, initial-scale=1.0";
                 title { (title) " - ABT 管理系统" }
                 link rel="icon" type="image/svg+xml" href="/favicon.svg";
-                link rel="stylesheet" href="/app.css?v=20260531";
+                link rel="stylesheet" href="/app.css?v=20260608";
                 script src="/htmx.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" {}
                 script src="/surreal.js" {}

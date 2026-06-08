@@ -220,6 +220,18 @@ impl ExpenseReimbursementRepo {
 
         Ok((items, total))
     }
+
+    /// Count and sum of pending (submitted, status=2) expense reimbursements.
+    pub async fn pending_summary(executor: PgExecutor<'_>) -> Result<(i64, rust_decimal::Decimal)> {
+        let row: (i64, rust_decimal::Decimal) = sqlx::query_as(
+            r#"SELECT COUNT(*), COALESCE(SUM(total_amount), 0)
+               FROM expense_reimbursements
+               WHERE status = 2 AND deleted_at IS NULL"#,
+        )
+        .fetch_one(executor)
+        .await?;
+        Ok(row)
+    }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,8 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
+use rust_decimal::Decimal;
 use super::model::*;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
-
 #[async_trait]
 pub trait CashJournalService: Send + Sync {
     async fn create(
@@ -32,4 +32,27 @@ pub trait CashJournalService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         period: String,
     ) -> Result<BalanceSummary>;
+
+    async fn list_recent(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        limit: i64,
+    ) -> Result<Vec<CashJournal>>;
+
+    /// 按类型分布：当月各 journal_type 的合计金额
+    async fn distribution_by_type(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        period: String,
+    ) -> Result<Vec<(i16, Decimal)>>;
+
+    /// 近 N 月现金流趋势: Vec<(period, inflow, outflow)>
+    async fn monthly_trend(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        months_back: i32,
+    ) -> Result<Vec<(String, Decimal, Decimal)>>;
 }

@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 
 use super::model::*;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, ServiceContext, Result};
@@ -36,4 +36,23 @@ pub trait CostAccountingService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         order_id: i64,
     ) -> Result<MarginAnalysis>;
+    /// 查询指定期间所有产品的成本汇总列表
+    async fn list_product_costs(
+        &self, db: PgExecutor<'_>, period: &str,
+    ) -> Result<Vec<ProductCostRow>>;
+
+    /// 查询所有工单的成本汇总列表
+    async fn list_work_order_costs(
+        &self, db: PgExecutor<'_>,
+    ) -> Result<Vec<WorkOrderCostRow>>;
+
+    /// 查询所有利润中心 P&L
+    async fn list_profit_center_pl(
+        &self, db: PgExecutor<'_>, period: &str,
+    ) -> Result<Vec<ProfitCenterPLRow>>;
+
+    /// 查询所有销售订单的毛利数据
+    async fn list_margin_analysis(
+        &self, db: PgExecutor<'_>,
+    ) -> Result<Vec<MarginRow>>;
 }

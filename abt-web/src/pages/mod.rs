@@ -152,3 +152,13 @@ pub mod qms_mrb_detail;
 pub mod qms_rma_list;
 pub mod qms_rma_create;
 pub mod qms_rma_detail;
+// ── FMS (Financial Management) ──
+pub mod fms_dashboard;
+pub mod fms_journal_list;
+pub mod fms_journal_detail;
+pub mod fms_journal_create;
+pub mod fms_expense_list;
+pub mod fms_expense_detail;
+pub mod fms_expense_create;
+pub mod fms_writeoff_list;
+pub mod fms_cost_analysis;

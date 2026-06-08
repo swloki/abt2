@@ -196,6 +196,17 @@ fn modules() -> Vec<NavModule> {
             ],
         },
         NavModule {
+            id: "finance",
+            name: "财务管理",
+            items: vec![
+                NavItem { name: "财务总览", path: "/admin/fms", icon: NavIcon::Home },
+                NavItem { name: "出纳日记账", path: "/admin/fms/journals", icon: NavIcon::File },
+                NavItem { name: "费用报销", path: "/admin/fms/expenses", icon: NavIcon::Payment },
+                NavItem { name: "核销管理", path: "/admin/fms/writeoffs", icon: NavIcon::Check },
+                NavItem { name: "成本核算", path: "/admin/fms/cost-analysis", icon: NavIcon::DollarSign },
+            ],
+        },
+        NavModule {
             id: "md",
             name: "主数据",
             items: vec![
@@ -318,6 +329,7 @@ fn render_module_icon(module_id: &str) -> Markup {
         "outsourcing" => icon::truck_icon(""),
         "md" => icon::grid_icon(""),
         "quality" => icon::check_circle_icon(""),
+        "finance" => icon::currency_icon(""),
         "system" => icon::lock_icon(""),
         _ => html! {},
     }

@@ -263,6 +263,47 @@ impl CashJournalRepo {
         .await?;
         Ok(row)
     }
+
+    /// Sum amount grouped by journal_type for a given period (confirmed only).
+    /// Returns Vec<(journal_type_i16, total_amount)>.
+    pub async fn distribution_by_type(
+        executor: PgExecutor<'_>,
+        period: &str,
+    ) -> Result<Vec<(i16, Decimal)>> {
+        let rows: Vec<(i16, Decimal)> = sqlx::query_as(
+            r#"SELECT journal_type, SUM(amount)
+               FROM cash_journals
+               WHERE period = $1 AND status = 2 AND deleted_at IS NULL
+               GROUP BY journal_type
+               ORDER BY journal_type"#,
+        )
+        .bind(period)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
+    }
+
+    /// Monthly inflow/outflow trend for the last N months (confirmed only).
+    /// Returns Vec<(period, total_inflow, total_outflow)> sorted by period ASC.
+    pub async fn monthly_trend(
+        executor: PgExecutor<'_>,
+        months_back: i32,
+    ) -> Result<Vec<(String, Decimal, Decimal)>> {
+        let rows: Vec<(String, Decimal, Decimal)> = sqlx::query_as(
+            r#"SELECT period,
+                      COALESCE(SUM(amount) FILTER (WHERE direction = 1), 0),
+                      COALESCE(SUM(amount) FILTER (WHERE direction = 2), 0)
+               FROM cash_journals
+               WHERE status = 2 AND deleted_at IS NULL
+                 AND period >= TO_CHAR(DATE_TRUNC('month', NOW() - ($1 || ' months')::INTERVAL), 'YYYY-MM')
+               GROUP BY period
+               ORDER BY period ASC"#,
+        )
+        .bind(months_back.to_string())
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
+    }
 }
 
 // ---------------------------------------------------------------------------

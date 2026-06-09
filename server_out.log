@@ -1,0 +1,5 @@
+2026-06-09T08:10:07.517894Z  INFO abt_web::state: Database pool initialized (max 20 connections)
+2026-06-09T08:10:07.518214Z  INFO abt_web::state: File session store initialized at: sessions
+2026-06-09T08:10:07.521931Z  INFO abt_core::shared::identity::permission_cache: RolePermissionCache loaded count=3
+2026-06-09T08:10:07.522143Z  INFO abt_web::state: Permission cache loaded
+2026-06-09T08:10:07.522246Z  INFO abt_web: Starting abt-web2 on http://0.0.0.0:8000

@@ -214,6 +214,14 @@ pub fn upload_icon(c: &str) -> Markup {
     svg(r#"<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>"#, c)
 }
 
+pub fn save_icon(c: &str) -> Markup {
+    svg(r#"<path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>"#, c)
+}
+
+pub fn send_icon(c: &str) -> Markup {
+    svg(r#"<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>"#, c)
+}
+
 #[allow(dead_code)]
 pub fn filter_icon(c: &str) -> Markup {
     svg(r#"<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>"#, c)

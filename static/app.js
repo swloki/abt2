@@ -96,7 +96,7 @@ document.addEventListener('htmx:confirm', function (e) {
         if (confirm(e.detail.question)) e.detail.issueRequest(true);
         return;
     }
-    msg.textContent = e.detail.question;
+    msg.innerHTML = e.detail.question;
     window._confirmIssueRequest = e.detail.issueRequest.bind(e.detail, true);
     overlay.classList.add('open');
 });

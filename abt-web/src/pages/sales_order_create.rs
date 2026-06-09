@@ -4,13 +4,16 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 
-use abt_core::master_data::customer::model::CustomerQuery;
+use abt_core::master_data::customer::model::{CustomerContact, CustomerQuery};
 use abt_core::master_data::customer::CustomerService;
 use abt_core::master_data::product::model::ProductQuery;
 use abt_core::master_data::product::ProductService;
+use abt_core::sales::quotation::QuotationService;
+use abt_core::sales::quotation::model::QuotationItem;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::shared::types::PageParams;
+use std::collections::HashMap;
 
 use crate::components::customer_info::{customer_info_panel, CustomerContactsParams};
 use crate::components::icon;
@@ -54,12 +57,28 @@ struct ItemWeb {
     item_delivery_date: Option<String>,
 }
 
-// ── Handlers ──
+#[derive(Debug, Deserialize)]
+pub struct OrderCreateQueryParams {
+    pub from_quotation: Option<i64>,
+}
+
+struct OrderPrefill {
+    customer_id: i64,
+    contact_id: i64,
+    payment_terms: Option<String>,
+    delivery_terms: Option<String>,
+    remark: Option<String>,
+    items: Vec<QuotationItem>,
+    product_names: HashMap<i64, String>,
+    product_codes: HashMap<i64, String>,
+    contacts: Vec<CustomerContact>,
+}
 
 #[require_permission("SALES_ORDER", "create")]
 pub async fn get_order_create(
     _path: OrderCreatePath,
     ctx: RequestContext,
+    Query(params): Query<OrderCreateQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
@@ -69,7 +88,37 @@ pub async fn get_order_create(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = order_create_page(&customers.items);
+    // ── Pre-fill from quotation if specified ──
+    let mut prefill = None;
+    if let Some(qid) = params.from_quotation {
+        let q_svc = state.quotation_service();
+        let product_svc = state.product_service();
+        if let Ok(q) = q_svc.find_by_id(&service_ctx, &mut conn, qid).await {
+            let q_items = q_svc.list_items(&service_ctx, &mut conn, qid).await.unwrap_or_default();
+            let product_ids: Vec<i64> = q_items.iter().map(|i| i.product_id).collect();
+            let products = if !product_ids.is_empty() {
+                product_svc.get_by_ids(&service_ctx, &mut conn, product_ids).await.unwrap_or_default()
+            } else { vec![] };
+            let p_names: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect();
+            let p_codes: HashMap<i64, String> = products.iter().map(|p| (p.product_id, p.product_code.clone())).collect();
+
+            let contacts = customer_svc.list_contacts(&service_ctx, &mut conn, q.customer_id).await.unwrap_or_default();
+
+            prefill = Some(OrderPrefill {
+                customer_id: q.customer_id,
+                contact_id: q.contact_id,
+                payment_terms: Some(q.payment_terms.clone()),
+                delivery_terms: Some(q.delivery_terms.clone()),
+                remark: if q.remark.is_empty() { None } else { Some(q.remark.clone()) },
+                items: q_items,
+                product_names: p_names,
+                product_codes: p_codes,
+                contacts,
+            });
+        }
+    }
+
+    let content = order_create_page(&customers.items, &prefill);
     let page_html = admin_page(
         is_htmx, "新建订单", &claims, "sales", OrderCreatePath::PATH, "销售管理", Some("新建订单"), content,
     );
@@ -211,15 +260,22 @@ pub async fn create_order(
 
 // ── Components: Page ──
 
-fn order_create_page(customers: &[abt_core::master_data::customer::model::Customer]) -> Markup {
+fn order_create_page(customers: &[abt_core::master_data::customer::model::Customer], prefill: &Option<OrderPrefill>) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 
+    // Pre-fill values
+    let (sel_customer_id, sel_contacts, sel_payment, sel_delivery, sel_remark): (Option<i64>, &[CustomerContact], Option<&str>, Option<&str>, Option<&str>) = if let Some(p) = prefill {
+        (Some(p.customer_id), &p.contacts, p.payment_terms.as_deref(), p.delivery_terms.as_deref(), p.remark.as_deref())
+    } else {
+        (None, &[], None, None, None)
+    };
+
     html! {
-        div id="order-app" {
+        div id="order-app" class="padded-section" {
             // ── Page Header ──
             div class="page-header" {
                 a class="back-link" href=(OrderListPath::PATH) {
-                    (icon::chevron_left_icon("w-4 h-4"))
+                    (icon::arrow_left_icon("w-4 h-4"))
                     "返回订单列表"
                 }
                 h1 class="page-title" { "新建订单" }
@@ -227,75 +283,85 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
 
             form id="order-form"
                   hx-post=(OrderCreatePath::PATH)
-                  hx-swap="none"
-                onsubmit="salesOrderSubmit(this)" {
+                  hx-swap="none" {
                 input type="hidden" id="items-json" name="items_json" value="[]" {}
 
             // ── Customer Info (HTMX self-contained) ──
-            (customer_info_panel(customers, &[], None, OrderCustomerContactsPath::PATH))
+            (customer_info_panel(customers, sel_contacts, sel_customer_id, OrderCustomerContactsPath::PATH))
 
             // ── Order Info ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "订单信息" }
+            div class="form-section-card" {
+                div class="form-section-title" {
+                    (icon::clipboard_document_icon("w-[18px] h-[18px]"))
+                    "订单信息"
+                }
                 div class="form-grid" {
                     div class="form-field" {
-                        label { "订单日期" }
-                        input type="date" value=(today) disabled {}
+                        label class="form-label" { "订单日期" span class="required" { "*" } }
+                        input class="form-input" type="date" value=(today) readonly {}
                     }
                     div class="form-field" {
-                        label { "付款条款" }
-                        select name="payment_terms" {
-                            option value="30天净额" { "30天净额" }
-                            option value="60天净额" { "60天净额" }
-                            option value="预付30%" { "预付30%" }
-                            option value="货到付款" { "货到付款" }
-                            option value="月结30天" { "月结30天" }
+                        label class="form-label" { "业务员" }
+                        select class="form-select" name="sales_rep" {
+                            option value="" { "当前用户" }
                         }
                     }
                     div class="form-field" {
-                        label { "交货条款" }
-                        select name="delivery_terms" {
-                            option value="FOB 深圳" { "FOB 深圳" }
-                            option value="FOB 广州" { "FOB 广州" }
-                            option value="CIF 目的港" { "CIF 目的港" }
-                            option value="EXW 工厂交货" { "EXW 工厂交货" }
+                        label class="form-label" { "付款条款" span class="required" { "*" } }
+                        select class="form-select" name="payment_terms" {
+                            option value="30天净额" selected[sel_payment == Some("30天净额")] { "30天净额" }
+                            option value="60天净额" selected[sel_payment == Some("60天净额")] { "60天净额" }
+                            option value="预付30%" selected[sel_payment == Some("预付30%")] { "预付30%" }
+                            option value="货到付款" selected[sel_payment == Some("货到付款")] { "货到付款" }
+                            option value="月结30天" selected[sel_payment == Some("月结30天")] { "月结30天" }
                         }
                     }
                     div class="form-field" {
-                        label { "交货地址" }
-                        input type="text" name="delivery_address" placeholder="输入交货地址" {}
+                        label class="form-label" { "交货条款" }
+                        select class="form-select" name="delivery_terms" {
+                            option value="FOB 深圳" selected[sel_delivery == Some("FOB 深圳")] { "FOB 深圳" }
+                            option value="FOB 广州" selected[sel_delivery == Some("FOB 广州")] { "FOB 广州" }
+                            option value="CIF 目的港" selected[sel_delivery == Some("CIF 目的港")] { "CIF 目的港" }
+                            option value="EXW 工厂交货" selected[sel_delivery == Some("EXW 工厂交货")] { "EXW 工厂交货" }
+                        }
+                    }
+                    div class="form-field span-2" {
+                        label class="form-label" { "交货地址" }
+                        input class="form-input" type="text" name="delivery_address" placeholder="默认取客户地址，可修改" {}
                     }
                 }
             }
 
             // ── Line Items ──
-            div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
-                div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                    span class="form-section-title" style="margin:0;padding:0;border:none" { "产品明细" }
-                    button type="button" class="btn btn-sm btn-primary"
-                        onclick="hsAdd(null,'#product-modal','is-open')" {
-                        (icon::plus_icon("w-3.5 h-3.5"))
-                        "添加产品"
-                    }
+            div class="form-section-card" {
+                div class="form-section-title" {
+                    (icon::package_icon("w-[18px] h-[18px]"))
+                    "产品明细"
                 }
-                div style="overflow-x:auto" {
-                    table class="data-table" style="min-width:1000px" {
+                div class="data-card-scroll" {
+                    table class="line-items-table" {
                         thead {
                             tr {
-                                th style="width:36px;text-align:center" { "#" }
+                                th class="col-num" { "#" }
                                 th { "产品编码" }
                                 th { "产品名称" }
                                 th { "规格描述" }
-                                th style="width:56px" { "单位" }
-                                th style="width:90px;text-align:right" { "数量" }
-                                th style="width:110px;text-align:right" { "单价 (¥)" }
-                                th style="width:76px;text-align:right" { "折扣%" }
-                                th style="width:110px;text-align:right" { "小计 (¥)" }
-                                th style="width:110px" { "交货日期" }
-                                th style="width:36px" { }
+                                th class="col-unit" { "单位" }
+                                th class="col-qty" { "数量" }
+                                th class="col-price" { "单价 (¥)" }
+                                th class="col-disc" { "折扣%" }
+                                th class="col-subtotal" { "小计 (¥)" }
+                                th class="col-date" { "交货日期" }
+                                th class="col-action" { }
                             }
                         }
-                        tbody id="order-item-tbody" { }
+                        tbody id="order-item-tbody" {
+                            @if let Some(p) = prefill {
+                                @for item in &p.items {
+                                    (prefill_item_row(item, &p.product_names, &p.product_codes))
+                                }
+                            }
+                        }
                     }
                 }
                 div class="add-row-bar" {
@@ -322,16 +388,40 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
             }
 
             // ── Remark ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
-                div class="form-section-title" { "备注" }
-                textarea name="remark" placeholder="输入订单相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+            div class="form-section-card" {
+                div class="form-section-title" {
+                    (icon::file_text_icon("w-[18px] h-[18px]"))
+                    "备注"
+                }
+                textarea class="form-textarea" name="remark" placeholder="输入订单相关备注信息…" {
+                    @if let Some(r) = sel_remark { (r) }
+                }
+            }
+
+            // ── Attachment ──
+            div class="form-section-card" {
+                div class="form-section-title" {
+                    (icon::upload_icon("w-[18px] h-[18px]"))
+                    "附件"
+                }
+                div class="upload-area" {
+                    (icon::upload_icon("w-8 h-8"))
+                    p class="upload-title" { "点击或拖拽文件到此处上传" }
+                    p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
+                }
             }
 
             // ── Action Bar ──
             div class="create-action-bar" {
                 a class="btn btn-default" href=(OrderListPath::PATH) { "取消" }
-                div style="display:flex;gap:var(--space-3)" {
-                    button type="submit" class="btn btn-primary" {
+                div class="flex gap-3" {
+                    button type="button" class="btn btn-default" {
+                        (icon::save_icon("w-4 h-4"))
+                        "保存草稿"
+                    }
+                    button type="button" class="btn btn-primary" {
+                        (maud::PreEscaped(r#"<script>me().on('click',function(){salesOrderSubmit();htmx.trigger(me('#order-form'),'submit')})</script>"#))
+                        (icon::send_icon("w-4 h-4"))
                         "提交订单"
                     }
                 }
@@ -344,10 +434,10 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
-                        button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                        button class="modal-close-btn"
                             onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
                     }
-                    div class="modal-body" style="padding:0" {
+                    div class="modal-body p-0" {
                         div class="product-search-bar" {
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品名称" }
@@ -375,18 +465,51 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
                                 "清除"
                             }
                         }
-                        div id="product-search-results" style="max-height:320px;overflow-y:auto"
+                        div id="product-search-results" class="product-search-scroll"
                         hx-get=(OrderProductsPath::PATH)
                         hx-trigger="intersect once"
                         hx-swap="innerHTML" {
-                            div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--muted)" {
-                                "加载中…"
-                            }
+                            div class="loading-placeholder" { "加载中…" }
                         }
                     }
                 }
             }
 
+        }
+        // ── Pre-fill: recalculate totals after page load ──
+        @if prefill.is_some() {
+            (maud::PreEscaped(r#"<script>document.addEventListener('DOMContentLoaded',function(){if(typeof salesOrderRecalcTotals==='function')salesOrderRecalcTotals()})</script>"#))
+        }
+    }
+}
+
+fn prefill_item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &HashMap<i64, String>) -> Markup {
+    let product_name = names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+    let product_code = codes.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
+    let delivery = item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default();
+    let discount = if item.discount_rate > rust_decimal::Decimal::ZERO {
+        item.discount_rate.to_string()
+    } else {
+        String::new()
+    };
+
+    html! {
+        tr oninput="salesOrderCalcRow(this)" {
+            td class="line-num" { }
+            td class="mono" { (product_code) }
+            td { (product_name) }
+            td { input class="li-input" type="text" name="description" value=(item.description.as_str()) {} }
+            td { input class="li-input-center" type="text" name="unit" readonly value=(item.unit.as_str()) {} }
+            td { input class="li-input-num" type="number" min="1" step="1" name="quantity" value=(item.quantity) {} }
+            td { input class="li-input-price" type="number" step="0.01" name="unit_price" value=(item.unit_price) {} }
+            td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" value=(discount) {} }
+            td class="line-total" { "—" }
+            td { input class="li-input-date" type="date" name="item_delivery_date" value=(delivery) {} }
+            td { button type="button" class="btn-remove-row" title="删除行"
+                onclick="hsRemoveClosestEl(this,'tr')" {
+                (icon::x_icon("w-3.5 h-3.5"))
+            } }
+            input type="hidden" name="product_id" value=(item.product_id) {}
         }
     }
 }
@@ -395,9 +518,9 @@ fn order_create_page(customers: &[abt_core::master_data::customer::model::Custom
 fn product_list_fragment(products: &[abt_core::master_data::product::model::Product]) -> Markup {
     html! {
         @if products.is_empty() {
-            div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+            div class="flex-center" style="padding:var(--space-12)" {
                 (icon::package_icon("w-8 h-8"))
-                p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的产品" }
+                p class="mt-2 text-sm" { "未找到匹配的产品" }
             }
         } @else {
             div class="product-select-list" {
@@ -433,13 +556,13 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td class="line-num" { }
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
-            td { input class="form-input" type="text" name="description" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { input class="form-input" type="text" name="unit" readonly value=(product.unit) style="width:56px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
-            td { input class="form-input num-input" type="number" min="1" step="1" name="quantity" placeholder="0" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { input class="form-input num-input" type="number" step="0.01" name="unit_price" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td { input class="form-input num-input" type="number" min="0" max="100" name="discount_rate" style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-            td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
-            td { input class="form-input" type="date" name="item_delivery_date" style="width:110px;padding:5px 6px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="li-input" type="text" name="description" {} }
+            td { input class="li-input-center" type="text" name="unit" readonly value=(product.unit) {} }
+            td { input class="li-input-num" type="number" min="1" step="1" name="quantity" placeholder="0" {} }
+            td { input class="li-input-price" type="number" step="0.01" name="unit_price" placeholder="0.00" {} }
+            td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" {} }
+            td class="line-total" { "—" }
+            td { input class="li-input-date" type="date" name="item_delivery_date" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
                 onclick="hsRemoveClosestEl(this,'tr')" {
                 (icon::x_icon("w-3.5 h-3.5"))

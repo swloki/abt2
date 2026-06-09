@@ -61,7 +61,7 @@ fn status_label(s: ReconciliationStatus) -> (&'static str, &'static str) {
         ReconciliationStatus::Sent => ("已发送", "status-sent"),
         ReconciliationStatus::Confirmed => ("已确认", "status-confirmed"),
         ReconciliationStatus::Disputed => ("有异议", "status-disputed"),
-        ReconciliationStatus::Settled => ("已结算", "status-completed"),
+        ReconciliationStatus::Settled => ("已结算", "status-settled"),
     }
 }
 
@@ -297,7 +297,7 @@ fn reconciliation_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="8" class="td-empty" {
                                         "暂无对账数据"
                                     }
                                 }
@@ -342,7 +342,7 @@ fn reconciliation_row(
     let delete_path = ReconciliationDeletePath { id: r.id };
 
     html! {
-        tr style="cursor:pointer" {
+        tr {
             td class="link-cell mono" onclick=(&onclick) { (r.doc_number) }
             td onclick=(&onclick) { (customer_name) }
             td onclick=(&onclick) { (r.period.as_str()) }
@@ -353,7 +353,7 @@ fn reconciliation_row(
                 span class="mono" { "¥ " (format!("{:.2}", r.confirmed_amount)) }
             }
             td class="num-right" onclick=(&onclick) {
-                span class="mono" style="font-weight:600" { "¥ " (format!("{:.2}", r.difference)) }
+                span class="mono font-semibold" { "¥ " (format!("{:.2}", r.difference)) }
             }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }

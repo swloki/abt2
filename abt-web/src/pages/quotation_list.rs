@@ -110,9 +110,9 @@ pub async fn get_quotation_list(
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
     let mut names = HashMap::new();
-    let mut seen = HashSet::new();
+    let mut seen_customers = HashSet::new();
     for q in &result.items {
-        if seen.insert(q.customer_id)
+        if seen_customers.insert(q.customer_id)
             && let Ok(c) = customer_svc.get(&service_ctx, &mut conn, q.customer_id).await {
                 names.insert(q.customer_id, c.name);
             }
@@ -144,9 +144,9 @@ pub async fn get_quotation_table(
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
     let mut names = HashMap::new();
-    let mut seen = HashSet::new();
+    let mut seen_customers = HashSet::new();
     for q in &result.items {
-        if seen.insert(q.customer_id)
+        if seen_customers.insert(q.customer_id)
             && let Ok(c) = customer_svc.get(&service_ctx, &mut conn, q.customer_id).await {
                 names.insert(q.customer_id, c.name);
             }
@@ -284,7 +284,7 @@ fn quotation_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="7" class="td-empty" {
                                         "暂无报价单数据"
                                     }
                                 }
@@ -307,7 +307,7 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>) -> Markup {
     let customer_name = names.get(&q.customer_id).map(|s| s.as_str()).unwrap_or("—");
 
     html! {
-        tr style="cursor:pointer" {
+        tr {
             td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (q.doc_number) }
             td onclick=(format!("location.href='{}'", detail_path)) { (customer_name) }
             td onclick=(format!("location.href='{}'", detail_path)) {

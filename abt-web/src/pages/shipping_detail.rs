@@ -26,7 +26,7 @@ fn status_label(s: ShippingStatus) -> (&'static str, &'static str) {
     match s {
         ShippingStatus::Draft => ("草稿", "status-draft"),
         ShippingStatus::Confirmed => ("已确认", "status-confirmed"),
-        ShippingStatus::Picking => ("拣货中", "status-progress"),
+        ShippingStatus::Picking => ("拣货中", "status-picking"),
         ShippingStatus::Shipped => ("已发货", "status-shipped"),
         ShippingStatus::Cancelled => ("已取消", "status-cancelled"),
     }
@@ -176,26 +176,26 @@ fn workflow_steps(current: ShippingStatus) -> Markup {
         div class="workflow-steps" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
-                    div class=(if i <= current_idx && !is_cancelled { "workflow-connector active" } else { "workflow-connector" }) {}
+                    div class=(if i <= current_idx && !is_cancelled { "wf-line current" } else { "wf-line" }) {}
                 }
                 @let step_class = if is_cancelled {
-                    "workflow-step"
+                    "wf-step"
                 } else if i < current_idx {
-                    "workflow-step completed"
+                    "wf-step completed"
                 } else if i == current_idx {
-                    "workflow-step active"
+                    "wf-step current"
                 } else {
-                    "workflow-step"
+                    "wf-step"
                 };
                 div class=(step_class) {
-                    div class="step-dot" {}
-                    span class="step-label" { (label) }
+                    div class="wf-dot" {}
+                    (label)
                 }
             }
             @if is_cancelled {
-                div class="workflow-step cancelled" {
-                    div class="step-dot" {}
-                    span class="step-label" { "已取消" }
+                div class="wf-step cancelled danger" {
+                    div class="wf-dot" {}
+                    "已取消"
                 }
             }
         }
@@ -230,9 +230,9 @@ fn shipping_detail_page(
                         h1 class="detail-no font-mono" { (s.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
-                    div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)" {
+                    div class="detail-source" {
                         "来源订单："
-                        a href=(format!("/admin/orders/{}", s.order_id)) style="color:var(--info);font-weight:500" { (order_number) }
+                        a href=(format!("/admin/orders/{}", s.order_id)) { (order_number) }
                     }
                 }
                 div class="page-actions" {
@@ -318,7 +318,7 @@ fn shipping_detail_page(
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="8" class="td-empty" {
                                         "暂无明细"
                                     }
                                 }
@@ -330,7 +330,7 @@ fn shipping_detail_page(
 
             // ── Remarks ──
             @if !s.remark.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
+                div class="info-card mt-6" {
                     div class="info-card-title" { "备注" }
                     p class="text-muted" { (s.remark.as_str()) }
                 }

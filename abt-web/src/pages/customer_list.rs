@@ -15,6 +15,7 @@ use crate::components::tabs::{status_tabs, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::customer::{CreateCustomerPath, CustomerDetailPath, CustomerListPath, CustomerTablePath, EditCustomerFormPath, UpdateCustomerPath, DeleteCustomerPath};
 use crate::utils::{empty_as_none, RequestContext};
+use crate::utils::fmt_qty;
 use abt_macros::require_permission;
 
 // ── Query Params ──
@@ -437,7 +438,7 @@ fn customer_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="7" class="td-empty" {
                                         "暂无客户数据"
                                     }
                                 }
@@ -483,20 +484,20 @@ fn customer_row(c: &Customer) -> Markup {
     };
 
     html! {
-        tr style="cursor:pointer" {
+        tr {
             td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (c.code) }
             td onclick=(format!("location.href='{}'", detail_path)) { strong { (c.name) } }
             td onclick=(format!("location.href='{}'", detail_path)) { span class=(format!("tag-chip {}", category_label.1)) { (category_label.0) } }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 @if let Some(limit) = c.credit_limit {
-                    div style="display:flex;align-items:center;gap:6px" {
-                        span class="mono" style="font-size:12px" { "¥ " (format_amount(limit)) }
+                    div class="credit-cell" {
+                        span class="mono text-xs" { "¥ " (format_amount(limit)) }
                         div class="credit-bar" {
                             div class="credit-bar-fill" style="width:0%;background:var(--accent)" {}
                         }
                     }
                 } @else {
-                    span style="color:var(--muted)" { "—" }
+                    span class="text-muted" { "—" }
                 }
             }
             td onclick=(format!("location.href='{}'", detail_path)) { span class=(format!("status-pill {status_class}")) { (status_label) } }
@@ -524,12 +525,10 @@ fn customer_row(c: &Customer) -> Markup {
 }
 
 fn format_amount(d: rust_decimal::Decimal) -> String {
-    let abs = d.abs();
-    let threshold = rust_decimal::Decimal::ONE_HUNDRED * rust_decimal::Decimal::ONE_THOUSAND;
-    if abs >= threshold {
-        format!("{:.0}", d)
+    if d == rust_decimal::Decimal::ZERO {
+        "—".into()
     } else {
-        format!("{}", d)
+        fmt_qty(d)
     }
 }
 

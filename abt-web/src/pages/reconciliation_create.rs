@@ -67,13 +67,14 @@ pub async fn get_reconciliation_create(
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
+    let username = claims.display_name.as_str();
 
     let customer_svc = state.customer_service();
     let customers = customer_svc
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = reconciliation_create_page(&customers.items);
+    let content = reconciliation_create_page(&customers.items, username);
     let page_html = admin_page(
         is_htmx, "新建对账单", &claims, "sales",
         ReconciliationCreatePath::PATH, "销售管理", Some("新建对账单"), content,
@@ -173,15 +174,14 @@ pub async fn get_reconciliation_preview(
 
 fn reconciliation_create_page(
     customers: &[abt_core::master_data::customer::model::Customer],
+    username: &str,
 ) -> Markup {
-    let periods = generate_periods();
-
     html! {
-        div id="rec-app" {
+        div id="rec-app" class="padded-section" {
             // ── Page Header ──
             div class="page-header" {
                 a class="back-link" href=(ReconciliationListPath::PATH) {
-                    (icon::chevron_left_icon("w-4 h-4"))
+                    (icon::arrow_left_icon("w-4 h-4"))
                     "返回对账单列表"
                 }
                 h1 class="page-title" { "新建对账单" }
@@ -190,13 +190,17 @@ fn reconciliation_create_page(
             form id="rec-create-form"
                   hx-post=(ReconciliationCreatePath::PATH)
                   hx-swap="none" {
-                // ── Customer & Period ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "对账信息" }
+
+                // ── 对账基本信息 ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::clipboard_document_icon("w-[18px] h-[18px]"))
+                        "对账基本信息"
+                    }
                     div class="form-grid" {
                         div class="form-field" {
-                            label { "客户名称" span style="color:var(--danger)" { "*" } }
-                            select name="customer_id" id="rec-customer-select"
+                            label class="form-label" { "客户 " span class="required" { "*" } }
+                            select class="form-select" name="customer_id" id="rec-customer-select"
                                 onchange="triggerPreview()" {
                                 option value="" { "请选择客户" }
                                 @for c in customers {
@@ -205,140 +209,139 @@ fn reconciliation_create_page(
                             }
                         }
                         div class="form-field" {
-                            label { "对账期间" span style="color:var(--danger)" { "*" } }
-                            select name="period" id="rec-period-select"
-                                onchange="triggerPreview()" {
-                                option value="" { "请选择对账期间" }
-                                @for (value, label) in &periods {
-                                    option value=(value) { (label) }
-                                }
+                            label class="form-label" { "对账期间 " span class="required" { "*" } }
+                            input class="form-input" type="month" name="period" id="rec-period-select"
+                                onchange="triggerPreview()" placeholder="选择月份";
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "对账日期" }
+                            input class="form-input" type="date" id="rec-date";
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "销售员" }
+                            input class="form-input" type="text" readonly value=(username);
+                        }
+                        div class="form-field span-2" {
+                            label class="form-label" { "联系人 / 电话" }
+                            div class="contact-inline-fields" {
+                                input class="form-input" type="text" id="rec-contact-name" readonly placeholder="选择客户后自动填充";
+                                input class="form-input" type="text" id="rec-contact-phone" readonly placeholder="—";
                             }
+                        }
+                        div class="form-field span-2" {
+                            label class="form-label" { "备注" }
+                            input class="form-input" type="text" placeholder="对账备注信息…";
                         }
                     }
                 }
 
-                // ── Preview Area ──
-                div id="rec-preview-area"
-                    class="data-card"
-                    style="padding:0;overflow:hidden;margin-bottom:var(--space-4)"
+                // ── 对账明细 ──
+                div class="line-items-card" id="rec-preview-area"
                     hx-get=(ReconciliationPreviewPath::PATH)
                     hx-trigger="previewChanged from:#rec-app"
-                    hx-include="#rec-create-form select"
+                    hx-include="#rec-customer-select,#rec-period-select"
                     hx-target="this"
                     hx-swap="outerHTML" {
-                    div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                        span class="form-section-title" style="margin:0;padding:0;border:none" { "对账明细预览" }
-                        span style="font-size:var(--text-sm);color:var(--muted)" { "基于已发货数据自动聚合" }
-                    }
-                    div style="overflow-x:auto" {
-                        table class="data-table" style="min-width:800px" {
-                            thead {
-                                tr {
-                                    th style="width:36px;text-align:center" { "#" }
-                                    th { "来源发货单" }
-                                    th { "关联订单" }
-                                    th { "产品编码" }
-                                    th { "产品名称" }
-                                    th style="width:56px" { "单位" }
-                                    th style="width:80px;text-align:right" { "数量" }
-                                    th style="width:100px;text-align:right" { "单价" }
-                                    th style="width:100px;text-align:right" { "金额" }
-                                }
-                            }
-                            tbody {
-                                tr {
-                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        (icon::clipboard_list_icon("w-5 h-5"))
-                                        " 选择客户和对账期间后，将预览对账明细"
-                                    }
-                                }
-                            }
+                    div class="line-items-header" {
+                        h3 {
+                            (icon::package_icon("w-[18px] h-[18px]"))
+                            "对账明细"
+                        }
+                        button type="button" class="btn btn-default" id="pickOrderBtn" disabled {
+                            (icon::plus_icon("w-3.5 h-3.5"))
+                            "从发货单添加"
                         }
                     }
-                    div class="totals-bar" {
-                        div class="totals-item" {
-                            span class="totals-label" { "明细行数" }
-                            span class="totals-value" { "0 行" }
-                        }
-                        div class="totals-item" {
-                            span class="totals-label" { "总数量" }
-                            span class="totals-value" { "0" }
-                        }
-                        div class="totals-item" {
-                            span class="totals-label" { "总金额" }
-                            span class="totals-value" { "¥ 0.00" }
-                        }
+
+                    // Empty state
+                    div class="empty-state" id="emptyState" {
+                        (icon::clipboard_list_icon("w-12 h-12"))
+                        p class="empty-state-title" { "暂无对账明细" }
+                        p class="empty-state-desc" { "请先选择客户，然后从发货单中添加对账明细" }
+                        button type="button" class="btn btn-primary mt-5" onclick="document.getElementById('pickOrderBtn').click()" { "选择发货单" }
                     }
                 }
 
                 // ── Remark ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "备注" }
-                    textarea name="remark" placeholder="输入对账相关备注信息…"
-                        style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::file_text_icon("w-[18px] h-[18px]"))
+                        "备注"
+                    }
+                    textarea class="form-textarea" name="remark" placeholder="输入对账相关备注信息…" {}
+                }
+
+                // ── Attachment ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::upload_icon("w-[18px] h-[18px]"))
+                        "附件"
+                    }
+                    div class="upload-area" {
+                        (icon::upload_icon("w-8 h-8"))
+                        p class="upload-title" { "点击或拖拽文件到此处上传" }
+                        p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
+                    }
                 }
 
                 // ── Action Bar ──
                 div class="create-action-bar" {
                     a class="btn btn-default" href=(ReconciliationListPath::PATH) { "取消" }
-                    div style="display:flex;gap:var(--space-3)" {
-                        button type="submit" class="btn btn-primary"
-                        button type="submit" class="btn btn-primary" {
-                            "创建对账单"
+                    div class="action-bar-right" {
+                        button type="button" class="btn btn-default" onclick="showToast('草稿功能开发中','info')" {
+                            (icon::save_icon("w-4 h-4"))
+                            "保存草稿"
+                        }
+                        button type="button" class="btn btn-primary" {
+                            (maud::PreEscaped(r#"<script>me().on('click',function(){htmx.trigger(document.getElementById('rec-create-form'),'submit')})</script>"#))
+                            (icon::send_icon("w-4 h-4"))
+                            "提交确认"
                         }
                     }
                 }
             }
 
+            // ── Toast helper ──
+            (maud::PreEscaped(r#"<script>
+function triggerPreview() {
+    htmx.trigger(document.getElementById('rec-app'), 'previewChanged');
+}
+function showToast(msg, type) {
+    const existing = document.querySelector('.feedback-toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.className = 'feedback-toast';
+    const bg = type === 'error' ? 'var(--danger)' : type === 'info' ? 'var(--accent)' : 'var(--success)';
+    t.style.cssText = `position:fixed;top:72px;right:32px;padding:12px 20px;border-radius:var(--radius-md);background:${bg};color:#fff;font-size:var(--text-sm);font-weight:500;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12)`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+}
+</script>"#))
         }
     }
 }
-
 fn preview_empty(message: &str) -> Markup {
     html! {
-        div id="rec-preview-area" class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
-            div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                span class="form-section-title" style="margin:0;padding:0;border:none" { "对账明细预览" }
-                span style="font-size:var(--text-sm);color:var(--muted)" { "基于已发货数据自动聚合" }
-            }
-            div style="overflow-x:auto" {
-                table class="data-table" style="min-width:800px" {
-                    thead {
-                        tr {
-                            th style="width:36px;text-align:center" { "#" }
-                            th { "来源发货单" }
-                            th { "关联订单" }
-                            th { "产品编码" }
-                            th { "产品名称" }
-                            th style="width:56px" { "单位" }
-                            th style="width:80px;text-align:right" { "数量" }
-                            th style="width:100px;text-align:right" { "单价" }
-                            th style="width:100px;text-align:right" { "金额" }
-                        }
-                    }
-                    tbody {
-                        tr {
-                            td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                (icon::clipboard_list_icon("w-5 h-5"))
-                                " " (message)
-                            }
-                        }
-                    }
+        div class="line-items-card" id="rec-preview-area"
+            hx-get=(ReconciliationPreviewPath::PATH)
+            hx-trigger="previewChanged from:#rec-app"
+            hx-include="#rec-customer-select,#rec-period-select"
+            hx-target="this"
+            hx-swap="outerHTML" {
+            div class="line-items-header" {
+                h3 {
+                    (icon::package_icon("w-[18px] h-[18px]"))
+                    "对账明细"
+                }
+                button type="button" class="btn btn-default" id="pickOrderBtn" disabled {
+                    (icon::plus_icon("w-3.5 h-3.5"))
+                    "从发货单添加"
                 }
             }
-            div class="totals-bar" {
-                div class="totals-item" {
-                    span class="totals-label" { "明细行数" }
-                    span class="totals-value" { "0 行" }
-                }
-                div class="totals-item" {
-                    span class="totals-label" { "总数量" }
-                    span class="totals-value" { "0" }
-                }
-                div class="totals-item" {
-                    span class="totals-label" { "总金额" }
-                    span class="totals-value" { "¥ 0.00" }
-                }
+            div class="empty-state" id="emptyState" {
+                (icon::clipboard_list_icon("w-12 h-12"))
+                p class="empty-state-title" { (message) }
             }
         }
     }
@@ -347,32 +350,49 @@ fn preview_empty(message: &str) -> Markup {
 fn preview_table(
     items: &[ReconciliationPreviewItem],
     product_map: &HashMap<i64, ProductInfo>,
-    order_numbers: &HashMap<i64, String>,
+    _order_numbers: &HashMap<i64, String>,
     shipping_numbers: &HashMap<i64, String>,
 ) -> Markup {
     let total_amount: rust_decimal::Decimal = items.iter().map(|i| i.amount).sum();
-    let total_qty: rust_decimal::Decimal = items.iter().map(|i| i.quantity).sum();
+    let _total_qty: rust_decimal::Decimal = items.iter().map(|i| i.quantity).sum();
     let item_count = items.len();
 
     html! {
-        div id="rec-preview-area" class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
-            div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                span class="form-section-title" style="margin:0;padding:0;border:none" { "对账明细预览" }
-                span style="font-size:var(--text-sm);color:var(--muted)" { "基于已发货数据自动聚合" }
+        div class="line-items-card" id="rec-preview-area"
+            hx-get=(ReconciliationPreviewPath::PATH)
+            hx-trigger="previewChanged from:#rec-app"
+            hx-include="#rec-customer-select,#rec-period-select"
+            hx-target="this"
+            hx-swap="outerHTML" {
+            div class="line-items-header" {
+                h3 {
+                    (icon::package_icon("w-[18px] h-[18px]"))
+                    "对账明细"
+                }
+                div class="line-items-header-actions" {
+                    span class="line-items-count" {
+                        (item_count) " 行"
+                    }
+                    button type="button" class="btn btn-default" id="pickOrderBtn" {
+                        (icon::plus_icon("w-3.5 h-3.5"))
+                        "从发货单添加"
+                    }
+                }
             }
-            div style="overflow-x:auto" {
-                table class="data-table" style="min-width:800px" {
+            div class="data-card-scroll" {
+                table class="line-items-table" {
                     thead {
                         tr {
-                            th style="width:36px;text-align:center" { "#" }
-                            th { "来源发货单" }
-                            th { "关联订单" }
+                            th class="col-num" { "行号" }
+                            th { "关联发货单" }
                             th { "产品编码" }
                             th { "产品名称" }
-                            th style="width:56px" { "单位" }
-                            th style="width:80px;text-align:right" { "数量" }
-                            th style="width:100px;text-align:right" { "单价" }
-                            th style="width:100px;text-align:right" { "金额" }
+                            th class="col-qty" { "发货数量" }
+                            th class="col-qty" { "退货数量" }
+                            th class="col-price" { "退货金额" }
+                            th class="col-price" { "单价" }
+                            th class="col-subtotal" { "应收金额" }
+                            th class="col-action" { }
                         }
                     }
                     tbody {
@@ -380,44 +400,50 @@ fn preview_table(
                             @let product = product_map.get(&item.product_id);
                             @let product_code = product.map(|p| p.code.as_str()).unwrap_or("—");
                             @let product_name = product.map(|p| p.name.as_str()).unwrap_or("—");
-                            @let unit = product.map(|p| p.unit.as_str()).unwrap_or("—");
-                            @let order_num = order_numbers.get(&item.sales_order_id).map(|s| s.as_str()).unwrap_or("—");
                             @let shipping_num = shipping_numbers.get(&item.shipping_request_id).map(|s| s.as_str()).unwrap_or("—");
                             @let shipping_detail = ShippingDetailPath { id: item.shipping_request_id };
-                            @let order_detail = OrderDetailPath { id: item.sales_order_id };
 
                             tr {
                                 td class="line-num" { (i + 1) }
                                 td {
-                                    a href=(shipping_detail.to_string()) style="color:var(--info)" { (shipping_num) }
-                                }
-                                td {
-                                    a href=(order_detail.to_string()) style="color:var(--info)" { (order_num) }
+                                    a href=(shipping_detail.to_string()) class="link-accent" { (shipping_num) }
                                 }
                                 td class="mono" { (product_code) }
                                 td { (product_name) }
-                                td { (unit) }
                                 td class="num-right" { (item.quantity) }
+                                td class="num-right" { "—" }
+                                td class="num-right" { "—" }
                                 td class="num-right mono" { (format!("{:.2}", item.unit_price)) }
                                 td class="num-right mono" { (format!("{:.2}", item.amount)) }
+                                td {
+                                    button type="button" class="btn-remove-row" title="删除" {
+                                        (icon::x_icon("w-3.5 h-3.5"))
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
-            div class="totals-bar" {
-                div class="totals-item" {
-                    span class="totals-label" { "明细行数" }
-                    span class="totals-value" { (item_count) " 行" }
-                }
-                div class="totals-item" {
-                    span class="totals-label" { "总数量" }
-                    span class="totals-value" { (total_qty) }
-                }
-                div class="totals-item" {
-                    span class="totals-label" { "总金额" }
-                    span class="totals-value" style="font-weight:600" { "¥ " (format!("{:.2}", total_amount)) }
-                }
+        }
+
+        // ── 金额汇总 ──
+        div class="amount-summary-card" {
+            div class="amount-summary-row" {
+                span class="label" { "发货总额" }
+                span class="value" { "¥ " (format!("{:.2}", total_amount)) }
+            }
+            div class="amount-summary-row" {
+                span class="label" { "退货总额" }
+                span class="value negative" { "— ¥ 0.00" }
+            }
+            div class="amount-summary-row" {
+                span class="label" { "调整金额" }
+                span class="value muted-value" { "¥ 0.00" }
+            }
+            div class="amount-summary-row total" {
+                span class="label" { "净额（应收）" }
+                span class="value" { "¥ " (format!("{:.2}", total_amount)) }
             }
         }
     }

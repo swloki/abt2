@@ -1,11 +1,17 @@
    Compiling abt-web v0.1.0 (E:\work\abt\abt-web)
+warning: unused import: `crate::routes::order::OrderDetailPath`
+   --> abt-web\src\pages\reconciliation_create.rs:455:5
+    |
+455 | use crate::routes::order::OrderDetailPath;
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
 warning: unused import: `confirm_dialog`
   --> abt-web\src\pages\product_detail.rs:12:25
    |
 12 | use crate::components::{confirm_dialog, detail::detail_row, icon};
    |                         ^^^^^^^^^^^^^^
-   |
-   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
 
 warning: unused import: `IntoResponse`
  --> abt-web\src\pages\wms_warehouse_list.rs:2:28
@@ -72,6 +78,12 @@ warning: unused import: `Markup`
   |
 3 | use maud::{html, Markup};
   |                  ^^^^^^
+
+warning: unused import: `abt_core::shared::types::PgExecutor`
+  --> abt-web\src\pages\fms_journal_list.rs:10:5
+   |
+10 | use abt_core::shared::types::PgExecutor;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 warning: unused import: `post`
  --> abt-web\src\routes\wms_bin.rs:1:26
@@ -189,6 +201,18 @@ warning: unused variable: `completed_count`
 320 |     let completed_count = all_node_types.iter().filter(|nt| tracked_nodes.contains_key(nt)).count();
     |         ^^^^^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_completed_count`
 
+warning: unused variable: `fill_class`
+   --> abt-web\src\pages\fms_dashboard.rs:360:58
+    |
+360 | ...                   @for (type_id, label, color, fill_class) in dist_types {
+    |                                                    ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_fill_class`
+
+warning: unused variable: `service_ctx`
+  --> abt-web\src\pages\fms_cost_analysis.rs:30:9
+   |
+30 |         service_ctx,
+   |         ^^^^^^^^^^^ help: try ignoring the field: `service_ctx: _`
+
 warning: variants `Archive`, `Link`, and `Factory` are never constructed
   --> abt-web\src\layout\sidebar.rs:22:5
    |
@@ -264,6 +288,21 @@ warning: fields `remark`, `action`, and `items_json` are never read
    |         ^^^^^^^^^^
    |
    = note: `PreconCreateForm` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: field `unit` is never read
+  --> abt-web\src\pages\reconciliation_create.rs:46:5
+   |
+43 | struct ProductInfo {
+   |        ----------- field in this struct
+...
+46 |     unit: String,
+   |     ^^^^
+
+warning: function `generate_periods` is never used
+  --> abt-web\src\pages\reconciliation_create.rs:49:4
+   |
+49 | fn generate_periods() -> Vec<(String, String)> {
+   |    ^^^^^^^^^^^^^^^^
 
 warning: field `step_order` is never read
   --> abt-web\src\pages\routing_create.rs:34:5
@@ -388,6 +427,28 @@ warning: field `bg` is never read
 218 |     bg: &'static str,
     |     ^^
 
+warning: fields `counterparty_name` and `source_no` are never read
+  --> abt-web\src\pages\fms_journal_create.rs:26:9
+   |
+20 | pub struct JournalCreateForm {
+   |            ----------------- fields in this struct
+...
+26 |     pub counterparty_name: Option<String>,
+   |         ^^^^^^^^^^^^^^^^^
+27 |     pub source_no: Option<String>,
+   |         ^^^^^^^^^
+   |
+   = note: `JournalCreateForm` has a derived impl for the trait `Debug`, but this is intentionally ignored during dead code analysis
+
+warning: field `deviation` is never read
+   --> abt-web\src\pages\fms_cost_analysis.rs:136:5
+    |
+128 | struct MarginView {
+    |        ---------- field in this struct
+...
+136 |     deviation: Decimal,
+    |     ^^^^^^^^^
+
 warning: struct `ProcessDictDetailPath` is never constructed
   --> abt-web\src\routes\labor_process_dict.rs:25:12
    |
@@ -403,15 +464,7 @@ warning: method `bom_labor_process_service` is never used
 263 |     pub fn bom_labor_process_service(
     |            ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-warning: `abt-web` (bin "abt-web") generated 50 warnings (run `cargo fix --bin "abt-web" -p abt-web` to apply 30 suggestions)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 11.27s
+warning: `abt-web` (bin "abt-web") generated 58 warnings (run `cargo fix --bin "abt-web" -p abt-web` to apply 34 suggestions)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 8.69s
      Running `target\debug\abt-web.exe`
-[tracing-subscriber] Unable to write an event to the Writer for this Subscriber! Error: 管道正在被关闭。 (os error 232)
-
-[tracing-subscriber] Unable to write an event to the Writer for this Subscriber! Error: 管道正在被关闭。 (os error 232)
-
-[tracing-subscriber] Unable to write an event to the Writer for this Subscriber! Error: 管道正在被关闭。 (os error 232)
-
-[tracing-subscriber] Unable to write an event to the Writer for this Subscriber! Error: 管道正在被关闭。 (os error 232)
-
 error: process didn't exit successfully: `target\debug\abt-web.exe` (exit code: 1)

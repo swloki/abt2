@@ -16,11 +16,11 @@ fn document(title: &str, body: Markup) -> Markup {
                 meta name="viewport" content="width=device-width, initial-scale=1.0";
                 title { (title) " - ABT 管理系统" }
                 link rel="icon" type="image/svg+xml" href="/favicon.svg";
-                link rel="stylesheet" href="/app.css?v=20260608";
+                link rel="stylesheet" href=(cache_url("/app.css")) {}
                 script src="/htmx.min.js" {}
                 script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" {}
                 script src="/surreal.js" {}
-                script src="/app.js?v=20260603" {}
+                script src=(cache_url("/app.js")) {}
             }
             body {
                 (body)
@@ -121,4 +121,18 @@ fn global_confirm_dialog() -> Markup {
             }
         }
     }
+}
+
+/// Cache-busting URL: appends `?v=<startup_unix_secs>` so static assets refresh every server restart.
+fn cache_url(path: &str) -> String {
+    use std::sync::OnceLock;
+    static TS: OnceLock<String> = OnceLock::new();
+    let ts = TS.get_or_init(|| {
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        secs.to_string()
+    });
+    format!("{path}?v={ts}")
 }

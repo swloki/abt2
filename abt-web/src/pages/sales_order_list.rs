@@ -307,7 +307,7 @@ fn order_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="9" class="td-empty" {
                                         "暂无订单数据"
                                     }
                                 }
@@ -337,7 +337,7 @@ fn order_row(
     let is_draft = o.status == SalesOrderStatus::Draft;
 
     html! {
-        tr style="cursor:pointer" {
+        tr {
             td class="link-cell mono" onclick=(&onclick) { (o.doc_number) }
             td onclick=(&onclick) { "—" }
             td onclick=(&onclick) { (customer_name) }

@@ -30,7 +30,7 @@ fn status_label(s: ReconciliationStatus) -> (&'static str, &'static str) {
         ReconciliationStatus::Sent => ("已发送", "status-sent"),
         ReconciliationStatus::Confirmed => ("已确认", "status-confirmed"),
         ReconciliationStatus::Disputed => ("有异议", "status-disputed"),
-        ReconciliationStatus::Settled => ("已结算", "status-completed"),
+        ReconciliationStatus::Settled => ("已结算", "status-settled"),
     }
 }
 
@@ -204,26 +204,26 @@ fn workflow_steps(current: ReconciliationStatus) -> Markup {
         div class="workflow-steps" {
             @for (i, (label, _)) in steps.iter().enumerate() {
                 @if i > 0 {
-                    div class=(if i <= current_idx && !is_disputed { "workflow-connector active" } else { "workflow-connector" }) {}
+                    div class=(if i <= current_idx && !is_disputed { "wf-line current" } else { "wf-line" }) {}
                 }
                 @let step_class = if is_disputed {
-                    "workflow-step"
+                    "wf-step"
                 } else if i < current_idx {
-                    "workflow-step completed"
+                    "wf-step completed"
                 } else if i == current_idx {
-                    "workflow-step active"
+                    "wf-step current"
                 } else {
-                    "workflow-step"
+                    "wf-step"
                 };
                 div class=(step_class) {
-                    div class="step-dot" {}
-                    span class="step-label" { (label) }
+                    div class="wf-dot" {}
+                    (label)
                 }
             }
             @if is_disputed {
-                div class="workflow-step disputed" {
-                    div class="step-dot" {}
-                    span class="step-label" { "有异议" }
+                div class="wf-step disputed" {
+                    div class="wf-dot" {}
+                    "有异议"
                 }
             }
         }
@@ -258,13 +258,12 @@ fn reconciliation_detail_page(
                         h1 class="detail-no font-mono" { (rec.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
-                    div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)" {
+                    div class="detail-source" {
                         "对账期间：" (rec.period.as_str())
                         "　客户：" (customer_name)
                     }
                 }
                 div class="page-actions" {
-                    a class="btn btn-default" href=(ReconciliationListPath::PATH) { "返回列表" }
                     @if rec.status == ReconciliationStatus::Draft {
                         button class="btn btn-primary"
                             hx-post=(SendReconciliationPath { id: rec.id }.to_string())
@@ -290,22 +289,22 @@ fn reconciliation_detail_page(
             (workflow_steps(rec.status))
 
             // ── Summary Cards ──
-            div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4);margin-bottom:var(--space-6)" {
-                div class="data-card" style="text-align:center" {
+            div class="grid grid-cols-3 gap-4 mb-6" {
+                div class="data-card stat-mini" {
                     div class="info-label" { "总金额" }
-                    div class="mono" style="font-size:var(--text-xl);font-weight:600" {
+                    div class="mono stat-mini-value" {
                         "¥ " (format!("{:.2}", rec.total_amount))
                     }
                 }
-                div class="data-card" style="text-align:center" {
+                div class="data-card stat-mini" {
                     div class="info-label" { "确认金额" }
-                    div class="mono" style="font-size:var(--text-xl);font-weight:600;color:var(--success)" {
+                    div class="mono stat-mini-value text-success" {
                         "¥ " (format!("{:.2}", rec.confirmed_amount))
                     }
                 }
-                div class="data-card" style="text-align:center" {
+                div class="data-card stat-mini" {
                     div class="info-label" { "差额" }
-                    div class="mono" style="font-size:var(--text-xl);font-weight:600;color:var(--danger)" {
+                    div class="mono stat-mini-value text-danger" {
                         "¥ " (format!("{:.2}", rec.difference))
                     }
                 }
@@ -336,31 +335,29 @@ fn reconciliation_detail_page(
 
             // ── Items Table ──
             div class="data-card" {
-                div class="form-section-title" { "对账明细" }
-                div class="data-card-scroll" {
-                    table class="data-table" {
-                        thead {
-                            tr {
-                                th { "来源单号" }
-                                th { "关联订单" }
-                                th { "产品编码" }
-                                th { "产品名称" }
-                                th { "单位" }
-                                th class="num-right" { "数量" }
-                                th class="num-right" { "单价" }
-                                th class="num-right" { "金额" }
-                                th { "确认" }
-                            }
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "来源类型" }
+                            th { "来源单号" }
+                            th { "关联订单" }
+                            th { "产品编码" }
+                            th { "产品名称" }
+                            th { "单位" }
+                            th class="num-right" { "数量" }
+                            th class="num-right" { "单价" }
+                            th class="num-right" { "金额" }
+                            th { "确认" }
                         }
-                        tbody {
-                            @for item in items {
-                                (item_row(item, product_details, order_numbers, shipping_numbers))
-                            }
-                            @if items.is_empty() {
-                                tr {
-                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                        "暂无明细"
-                                    }
+                    }
+                    tbody {
+                        @for item in items {
+                            (item_row(item, product_details, order_numbers, shipping_numbers))
+                        }
+                        @if items.is_empty() {
+                            tr {
+                                td colspan="10" class="td-empty" {
+                                    "暂无明细"
                                 }
                             }
                         }
@@ -368,9 +365,31 @@ fn reconciliation_detail_page(
                 }
             }
 
+            // ── Amount Summary ──
+            div class="amount-summary" {
+                div class="amount-row" {
+                    span class="amount-label" { "确认金额" }
+                    span class="amount-value text-success" {
+                        "¥ " (format!("{:.2}", rec.confirmed_amount))
+                    }
+                }
+                div class="amount-row" {
+                    span class="amount-label" { "差异金额" }
+                    span class="amount-value" {
+                        "¥ " (format!("{:.2}", rec.difference))
+                    }
+                }
+                div class="amount-row" {
+                    span class="amount-label" { "对账净额" }
+                    span class="amount-value accent" {
+                        "¥ " (format!("{:.2}", rec.total_amount))
+                    }
+                }
+            }
+
             // ── Remarks ──
             @if !rec.remark.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
+                div class="info-card mt-6" {
                     div class="info-card-title" { "备注" }
                     p class="text-muted" { (rec.remark.as_str()) }
                 }
@@ -396,11 +415,12 @@ fn item_row(
 
     html! {
         tr {
+            td { "发货" }
             td {
-                a href=(shipping_detail.to_string()) style="color:var(--info)" { (shipping_num) }
+                a href=(shipping_detail.to_string()) class="link-color-info" { (shipping_num) }
             }
             td {
-                a href=(order_detail.to_string()) style="color:var(--info)" { (order_num) }
+                a href=(order_detail.to_string()) class="link-color-info" { (order_num) }
             }
             td class="mono" { (product_code) }
             td { (product_name) }
@@ -410,9 +430,9 @@ fn item_row(
             td class="num-right mono" { (format!("{:.2}", item.amount)) }
             td {
                 @if item.confirmed {
-                    span style="color:var(--success)" { "已确认" }
+                    span class="text-success" { "已确认" }
                 } @else {
-                    span style="color:var(--muted)" { "未确认" }
+                    span class="text-muted" { "未确认" }
                 }
             }
         }

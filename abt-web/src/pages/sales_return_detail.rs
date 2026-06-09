@@ -32,7 +32,7 @@ fn status_label(s: ReturnStatus) -> (&'static str, &'static str) {
         ReturnStatus::Draft => ("草稿", "status-draft"),
         ReturnStatus::Confirmed => ("已确认", "status-confirmed"),
         ReturnStatus::Received => ("已收货", "status-progress"),
-        ReturnStatus::Inspecting => ("质检中", "status-progress"),
+        ReturnStatus::Inspecting => ("质检中", "status-inspecting"),
         ReturnStatus::Completed => ("已完成", "status-completed"),
         ReturnStatus::Cancelled => ("已取消", "status-cancelled"),
         ReturnStatus::Rejected => ("已驳回", "status-rejected"),
@@ -298,36 +298,36 @@ fn workflow_steps(current: ReturnStatus) -> Markup {
                 @if i > 0 {
                     div class=({
                             if i <= current_idx && !terminal {
-                                "workflow-connector active"
+                                "wf-line current"
                             } else {
-                                "workflow-connector"
+                                "wf-line"
                             }
                         }) {}
                 }
                 @let step_class = if terminal {
-                    "workflow-step"
+                    "wf-step"
                 } else if i < current_idx {
-                    "workflow-step completed"
+                    "wf-step completed"
                 } else if i == current_idx {
-                    "workflow-step active"
+                    "wf-step current"
                 } else {
-                    "workflow-step"
+                    "wf-step"
                 };
                 div class=(step_class) {
-                    div class="step-dot" {}
-                    span class="step-label" { (label) }
+                    div class="wf-dot" {}
+                    (label)
                 }
             }
             @if is_cancelled {
-                div class="workflow-step cancelled" {
-                    div class="step-dot" {}
-                    span class="step-label" { "已取消" }
+                div class="wf-step cancelled danger" {
+                    div class="wf-dot" {}
+                    "已取消"
                 }
             }
             @if is_rejected {
-                div class="workflow-step rejected" {
-                    div class="step-dot" {}
-                    span class="step-label" { "已驳回" }
+                div class="wf-step cancelled danger" {
+                    div class="wf-dot" {}
+                    "已驳回"
                 }
             }
         }
@@ -365,13 +365,11 @@ fn return_detail_page(
                         h1 class="detail-no font-mono" { (r.doc_number) }
                         span class=(format!("status-pill {status_class}")) { (status_text) }
                     }
-                    div style="margin-top:var(--space-2);font-size:13px;color:var(--muted)" {
+                    div class="detail-source" {
                         "来源发货："
-                        a   href=(shipping_detail.to_string())
-                            style="color:var(--info);font-weight:500"
-                        { (shipping_number) }
+                        a href=(shipping_detail.to_string()) { (shipping_number) }
                         "　来源订单："
-                        a href=(order_detail.to_string()) style="color:var(--info);font-weight:500" {
+                        a href=(order_detail.to_string()) {
                             (order_number)
                         }
                     }
@@ -459,8 +457,7 @@ fn return_detail_page(
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td  colspan="8"
-                                        style="text-align:center;padding:var(--space-8);color:var(--muted)"
+                                    td  colspan="8" class="td-empty"
                                     { "暂无明细" }
                                 }
                             }
@@ -470,7 +467,7 @@ fn return_detail_page(
                 div class="amount-summary" {
                     div class="amount-row" {
                         span { "退货总额" }
-                        span class="mono" style="font-size:var(--text-lg);font-weight:600" {
+                        span class="mono stat-value-lg" {
                             "¥ "
                             (format!("{:.2}", r.total_amount))
                         }
@@ -479,7 +476,7 @@ fn return_detail_page(
             }
             // ── Remarks ──
             @if !r.remark.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
+                div class="info-card mt-6" {
                     div class="info-card-title" { "备注" }
                     p class="text-muted" { (r.remark.as_str()) }
                 }

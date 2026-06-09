@@ -190,7 +190,7 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
             }
             @if is_cancelled {
                 div class="wf-line" {}
-                div class="wf-step" style="color:var(--danger)" {
+                div class="wf-step danger" {
                     span class="wf-dot" {}
                     "已取消"
                 }
@@ -331,7 +331,7 @@ fn order_detail_page(
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="11" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="11" class="td-empty" {
                                         "暂无明细"
                                     }
                                 }
@@ -353,7 +353,7 @@ fn order_detail_page(
 
             // ── Remarks ──
             @if !o.remark.is_empty() {
-                div class="info-card" style="margin-top:var(--space-6)" {
+                div class="info-card mt-6" {
                     div class="info-card-title" { "备注" }
                     p class="text-muted" { (o.remark.as_str()) }
                 }

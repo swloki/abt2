@@ -59,7 +59,7 @@ fn status_label(s: ReturnStatus) -> (&'static str, &'static str) {
         ReturnStatus::Draft => ("草稿", "status-draft"),
         ReturnStatus::Confirmed => ("已确认", "status-confirmed"),
         ReturnStatus::Received => ("已收货", "status-progress"),
-        ReturnStatus::Inspecting => ("质检中", "status-progress"),
+        ReturnStatus::Inspecting => ("质检中", "status-inspecting"),
         ReturnStatus::Completed => ("已完成", "status-completed"),
         ReturnStatus::Cancelled => ("已取消", "status-cancelled"),
         ReturnStatus::Rejected => ("已驳回", "status-rejected"),
@@ -343,7 +343,7 @@ fn return_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="9" class="td-empty" {
                                         "暂无退货数据"
                                     }
                                 }
@@ -376,13 +376,13 @@ fn return_row(
     let order_detail = OrderDetailPath { id: r.order_id };
 
     html! {
-        tr style="cursor:pointer" {
+        tr {
             td class="link-cell mono" onclick=(&onclick) { (r.doc_number) }
             td onclick=(&onclick) {
-                a href=(shipping_detail.to_string()) style="color:var(--info)" onclick="event.stopPropagation()" { (shipping_num) }
+                a href=(shipping_detail.to_string()) class="text-accent" onclick="event.stopPropagation()" { (shipping_num) }
             }
             td onclick=(&onclick) {
-                a href=(order_detail.to_string()) style="color:var(--info)" onclick="event.stopPropagation()" { (order_num) }
+                a href=(order_detail.to_string()) class="text-accent" onclick="event.stopPropagation()" { (order_num) }
             }
             td onclick=(&onclick) { (customer_name) }
             td onclick=(&onclick) {

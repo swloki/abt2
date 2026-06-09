@@ -276,168 +276,388 @@ pub async fn create_return(
 // ── Components ──
 
 fn return_create_page(customers: &[abt_core::master_data::customer::model::Customer]) -> Markup {
+    let customers_json = serde_json::to_string(&customers.iter().map(|c| serde_json::json!({"id":c.id,"name":c.name})).collect::<Vec<_>>()).unwrap_or_default();
+
     html! {
-        div id="return-app" {
+        div id="return-app" class="padded-section" {
+            // ── Page Header ──
             div class="page-header" {
                 a class="back-link" href=(ReturnListPath::PATH) {
-                    (icon::chevron_left_icon("w-4 h-4"))
+                    (icon::arrow_left_icon("w-4 h-4"))
                     "返回退货列表"
                 }
                 h1 class="page-title" { "新建退货单" }
+                div class="page-actions" {
+                    span class="loading-placeholder" {
+                        (icon::clock_icon("w-3.5 h-3.5"))
+                        "自动保存草稿"
+                    }
+                }
             }
 
             form id="return-form"
                   hx-post=(ReturnCreatePath::PATH)
                   hx-swap="none" {
                 input type="hidden" name="items_json";
-                input type="hidden" name="customer_id";
-                input type="hidden" name="order_id";
-                input type="hidden" name="shipping_request_id";
+                input type="hidden" name="customer_id" id="f-customer-id";
+                input type="hidden" name="order_id" id="f-order-id";
+                input type="hidden" name="shipping_request_id" id="f-shipping-id";
+                input type="hidden" name="return_reason" id="f-reason";
 
-                // ── Customer ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "客户信息" }
+                // ── 关联单据 ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::clipboard_document_icon("w-[18px] h-[18px]"))
+                        "关联单据"
+                    }
                     div class="form-grid" {
                         div class="form-field" {
-                            label { "客户名称" span style="color:var(--danger)" { "*" } }
-                            select id="return-customer-select" {
-                                option value="0" { "请选择客户" }
+                            label class="form-label" { "客户 " span class="required" { "*" } }
+                            select class="form-select" id="customer-select" {
+                                option value="" { "请选择客户" }
                                 @for c in customers {
                                     option value=(c.id) { (c.name) }
                                 }
                             }
                         }
+                        div class="form-field" {
+                            label class="form-label" { "来源订单 " span class="required" { "*" } }
+                            select class="form-select" id="order-select" disabled {
+                                option value="" { "请先选择客户" }
+                            }
+                        }
+                        div class="form-field span-2" {
+                            div class="linked-info-bar hidden-initial" id="linked-info" {
+                                span { span class="label" { "客户：" } span id="li-customer" { "—" } }
+                                span { span class="label" { "订单金额：" } span id="li-amount" { "—" } }
+                                span { span class="label" { "订单日期：" } span id="li-date" { "—" } }
+                            }
+                        }
                     }
                 }
 
-                // ── Order Picker ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "关联单据" }
+                // ── 退货信息 ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::clipboard_document_icon("w-[18px] h-[18px]"))
+                        "退货信息"
+                    }
                     div class="form-grid" {
                         div class="form-field" {
-                            label { "选择订单" span style="color:var(--danger)" { "*" } }
-                            div style="display:flex;gap:var(--space-2)" {
-                                input type="text" readonly
-                                input type="text" readonly
-                                    id="return-order-number"
-                                    placeholder="选择客户后可选择订单"
-                                    style="flex:1;cursor:pointer" {}
-                                button type="button" class="btn btn-sm btn-default"
-                                // TODO: Rewrite conditional display with vanilla JS
-                                button type="button" class="btn btn-sm btn-default" style="display:none"
-                                    id="return-clear-order-btn" title="清除" {
-                                    (icon::x_icon("w-3.5 h-3.5"))
-                                }
-                                button type="button" class="btn btn-sm btn-primary"
-                                button type="button" class="btn btn-sm btn-primary"
-                                    onclick="hsAdd(null,'#order-modal','is-open')" {
-                                    "选择订单"
-                                }
+                            label class="form-label" { "退货原因 " span class="required" { "*" } }
+                            select class="form-select" id="reason-select" {
+                                option value="" { "请选择退货原因" }
+                                option value="quality" { "质量缺陷" }
+                                option value="wrong_spec" { "规格不符" }
+                                option value="excess" { "数量多余" }
+                                option value="damage" { "运输损坏" }
+                                option value="cancel" { "客户取消" }
+                                option value="other" { "其他原因" }
                             }
                         }
                         div class="form-field" {
-                            label { "退货原因" span style="color:var(--danger)" { "*" } }
-                            select id="return-reason-select" {
-                                option value="" { "请选择" }
-                                option value="质量问题" { "质量问题" }
-                                option value="数量不符" { "数量不符" }
-                                option value="规格错误" { "规格错误" }
-                                option value="客户取消" { "客户取消" }
-                                option value="其他" { "其他" }
+                            label class="form-label" { "处理方式" }
+                            select class="form-select" id="disposition-select" {
+                                option value="restock" { "退回入库" }
+                                option value="replace" { "换货处理" }
+                                option value="scrap" { "报废处理" }
                             }
-                        }
-                        // TODO: Rewrite conditional display with vanilla JS
-                        div class="form-field" style="display:none" {
-                            label { "具体原因" span style="color:var(--danger)" { "*" } }
-                            input type="text" id="return-reason-detail"
-                                placeholder="请输入具体退货原因"
-                                maxlength="200" {}
                         }
                     }
                 }
-                // TODO: Rewrite computed return_reason hidden input with vanilla JS
-                input type="hidden" name="return_reason";
 
-                // ── Return Items ──
-                // TODO: Rewrite conditional display with vanilla JS
-                div class="data-card" style="display:none;padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
-                    div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                        span class="form-section-title" style="margin:0;padding:0;border:none" { "退货明细" }
+                // ── 退货产品明细 ──
+                div class="form-section-card flush hidden-initial" id="items-section" {
+                    div class="flush-header" {
+                        div class="form-section-title" {
+                            (icon::package_icon("w-[18px] h-[18px]"))
+                            "退货产品明细"
+                        }
                     }
-                    div style="overflow-x:auto" {
-                        table class="data-table" style="min-width:700px" {
+                    div class="data-card-scroll" {
+                        table class="line-items-table" {
                             thead {
                                 tr {
+                                    th class="col-num" { "#" }
                                     th { "产品编码" }
                                     th { "产品名称" }
-                                    th { "单位" }
-                                    th class="num-right" { "订单数量" }
-                                    th class="num-right" { "单价" }
-                                    th style="width:100px;text-align:right" { "退货数量" }
-                                    th style="width:120px" { "处理方式" }
-                                    th style="width:36px" { }
+                                    th class="col-unit" { "单位" }
+                                    th class="col-price" { "原单价 (¥)" }
+                                    th class="col-qty" { "已发数量" }
+                                    th class="col-qty" { "退货数量 " span class="required" { "*" } }
+                                    th class="col-subtotal" { "退货金额 (¥)" }
+                                    th class="col-action" { }
                                 }
                             }
-                            tbody {
-                        tbody {
-                            // TODO: Rewrite x-for loop with vanilla JS rendering
-                        }
+                            tbody id="line-items-body" {
+                                // Populated by JS when order is selected
                             }
+                        }
+                    }
+                    div class="add-row-bar" {
+                        button type="button" class="btn-add-row" onclick="addReturnRow()" {
+                            (icon::plus_icon("w-3.5 h-3.5"))
+                            "添加产品行"
+                        }
+                    }
+                    div class="totals-bar" {
+                        div class="totals-item" {
+                            span class="totals-label" { "退货总数量" }
+                            span class="totals-value" id="total-qty" { "0" }
+                        }
+                        div class="totals-item" {
+                            span class="totals-label" { "退货总额" }
+                            span class="totals-value grand" id="grand-total" { "¥ 0.00" }
                         }
                     }
                 }
 
-                // ── Remark ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "备注" }
-                    textarea name="remark" placeholder="输入退货备注…"
-                        style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
+                // ── 备注 ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::file_text_icon("w-[18px] h-[18px]"))
+                        "备注"
+                    }
+                    textarea class="form-textarea" name="remark" placeholder="输入退货相关备注，如质量问题详细描述、客户诉求、处理要求等…" {}
                 }
 
-                // ── Action Bar ──
-                div class="create-action-bar" {
-                    a class="btn btn-default" href=(ReturnListPath::PATH) { "取消" }
-                    button type="submit" class="btn btn-primary" {
+                // ── 附件 ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::upload_icon("w-[18px] h-[18px]"))
+                        "附件"
+                    }
+                    div class="upload-area" id="upload-area" {
+                        (icon::upload_icon("w-8 h-8"))
+                        p class="upload-title" { "点击或拖拽文件到此处上传" }
+                        p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
+                        input type="file" id="file-input" multiple name="attachments" class="hidden-initial" {}
+                    }
+                    div id="file-list" class="mt-3" {}
+                }
+            }
+
+            // ── Action Bar ──
+            div class="create-action-bar" {
+                a class="btn btn-default" href=(ReturnListPath::PATH) { "取消" }
+                div class="flex gap-3" {
+                    button type="button" class="btn btn-default" onclick="handleSaveDraft()" {
+                        (icon::save_icon("w-4 h-4"))
+                        "保存草稿"
+                    }
+                    button type="button" class="btn btn-primary" {
+                        (maud::PreEscaped(r#"<script>me().on('click',function(){if(handleSubmit()){htmx.trigger(document.getElementById('return-form'),'submit')}})</script>"#))
+                        (icon::send_icon("w-4 h-4"))
                         "提交退货"
                     }
                 }
             }
 
-            // ── Order Picker Modal ──
-            div class="modal-overlay" id="order-modal"
-                onclick="hsRemove(null,'#order-modal','is-open')" {
-                div class="modal modal-lg" onclick="event.stopPropagation()" {
-                    div class="modal-head" {
-                        h2 { "选择来源订单" }
-                        button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            onclick="hsRemove(null,'#order-modal','is-open')" { "x" }
-                    }
-                    div class="modal-body" style="padding:0" {
-                        div class="product-search-bar" {
-                            input type="hidden" name="customer_id" {}
-                            div class="product-search-field" {
-                                label class="product-search-label" { "搜索订单" }
-                                input class="product-search-input" type="text" name="keyword" placeholder="输入订单号…"
-                                    hx-get=(ReturnOrdersPath::PATH)
-                                    hx-trigger="keyup changed delay:300ms"
-                                    hx-target="#return-order-results"
-                                    hx-swap="innerHTML"
-                                    hx-include=".product-search-bar input" {}
-                            }
-                        }
-                        div id="return-order-results" style="max-height:360px;overflow-y:auto"
-                            hx-get=(ReturnOrdersPath::PATH)
-                            hx-trigger="intersect once"
-                            hx-include=".product-search-bar input"
-                            hx-swap="innerHTML" {
-                            div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--muted)" {
-                                "加载中..."
-                            }
-                        }
-                    }
-                }
-            }
+            // ── Inline JS ──
+            (maud::PreEscaped(format!(r#"<script>
+(function(){{
+const customersJson = {customers_json};
+let selectedOrder = null;
+let orderCache = {{}};
 
+// Customer select → load orders
+document.getElementById('customer-select').addEventListener('change', function() {{
+    const cid = this.value;
+    document.getElementById('f-customer-id').value = cid;
+    const oSel = document.getElementById('order-select');
+    oSel.innerHTML = '<option value="">加载中...</option>';
+    oSel.disabled = true;
+    if (!cid) {{ oSel.innerHTML = '<option value="">请先选择客户</option>'; return; }}
+    fetch('{orders_path}?customer_id=' + cid)
+        .then(r => r.text())
+        .then(html => {{
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            const items = div.querySelectorAll('.product-select-item');
+            oSel.innerHTML = '<option value="">请选择销售订单</option>';
+            items.forEach(el => {{
+                const btn = el.querySelector('[data-order]');
+                if (btn) {{
+                    const data = JSON.parse(btn.dataset.order);
+                    const opt = document.createElement('option');
+                    opt.value = data.id;
+                    opt.textContent = data.doc_number;
+                    opt.dataset.order = btn.dataset.order;
+                    oSel.appendChild(opt);
+                    orderCache[data.id] = data;
+                }}
+            }});
+            oSel.disabled = false;
+            if (items.length === 0) oSel.innerHTML = '<option value="">无可用订单</option>';
+        }});
+}}),
+
+// Order select → show info + populate items
+document.getElementById('order-select').addEventListener('change', function() {{
+    const opt = this.options[this.selectedIndex];
+    const info = document.getElementById('linked-info');
+    const section = document.getElementById('items-section');
+    if (!opt || !opt.value) {{
+        info.classList.add('hidden-initial');
+        section.classList.add('hidden-initial');
+        document.getElementById('f-order-id').value = '';
+        return;
+    }}
+    const data = JSON.parse(opt.dataset.order);
+    selectedOrder = data;
+    document.getElementById('f-order-id').value = data.id;
+    document.getElementById('f-shipping-id').value = data.shipping_id || 0;
+    document.getElementById('li-customer').textContent = document.getElementById('customer-select').selectedOptions[0].text;
+    document.getElementById('li-amount').textContent = '¥ ' + data.items.reduce((s,i) => s + parseFloat(i.order_qty||0) * parseFloat(i.unit_price||0), 0).toLocaleString('zh-CN', {{minimumFractionDigits:2}});
+    document.getElementById('li-date').textContent = data.doc_number;
+    info.classList.remove('hidden-initial');
+    section.classList.remove('hidden-initial');
+    populateItems(data.items);
+}});
+
+function populateItems(items) {{
+    const tbody = document.getElementById('line-items-body');
+    tbody.innerHTML = '';
+    items.forEach((item, i) => {{
+        tbody.appendChild(createItemRow(i+1, item));
+    }});
+    recalcTotals();
+}}
+
+function createItemRow(num, item) {{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td class="line-num">${{num}}</td>
+        <td><input class="form-input input-readonly-bg" type="text" value="${{item.product_code||''}}" readonly tabindex="-1"></td>
+        <td><input class="form-input input-readonly-bg" type="text" value="${{item.product_name||''}}" readonly tabindex="-1"></td>
+        <td><input class="form-input input-readonly-bg-center" type="text" value="${{item.unit||''}}" readonly tabindex="-1"></td>
+        <td><input class="form-input num-input input-readonly-bg" type="text" value="${{parseFloat(item.unit_price||0).toLocaleString('zh-CN',{{minimumFractionDigits:2}})}}" readonly tabindex="-1"></td>
+        <td><input class="form-input num-input input-readonly-bg" type="text" value="${{item.order_qty||''}}" readonly tabindex="-1"></td>
+        <td><input class="form-input num-input" type="number" data-field="qty" data-order-item-id="${{item.order_item_id}}" data-price="${{item.unit_price||0}}" value="" placeholder="0" min="1" oninput="calcRow(this)"></td>
+        <td class="line-total" data-field="subtotal">—</td>
+        <td><button type="button" class="btn-remove-row" onclick="removeRow(this)" title="删除行">{chevron}</button></td>
+    `;
+    return tr;
+}}
+
+function calcRow(input) {{
+    const row = input.closest('tr');
+    const qty = parseFloat(input.value) || 0;
+    const price = parseFloat(input.dataset.price) || 0;
+    const subtotal = qty * price;
+    row.querySelector('[data-field="subtotal"]').textContent = subtotal > 0 ? '¥ ' + subtotal.toLocaleString('zh-CN', {{minimumFractionDigits:2}}) : '—';
+    const shipped = parseFloat(row.querySelectorAll('.form-input')[4].value) || 0;
+    if (qty > shipped && shipped > 0) {{
+        input.style.borderColor = 'var(--danger)';
+        input.style.boxShadow = '0 0 0 2px color-mix(in srgb, var(--danger) 12%, transparent)';
+    }} else {{
+        input.style.borderColor = '';
+        input.style.boxShadow = '';
+    }}
+    recalcTotals();
+}}
+
+function recalcTotals() {{
+    let total = 0, totalQty = 0;
+    document.querySelectorAll('#line-items-body tr').forEach(r => {{
+        const qty = parseFloat(r.querySelector('[data-field="qty"]')?.value) || 0;
+        const price = parseFloat(r.querySelector('[data-field="qty"]')?.dataset.price) || 0;
+        total += qty * price;
+        totalQty += qty;
+    }});
+    document.getElementById('total-qty').textContent = totalQty;
+    document.getElementById('grand-total').textContent = '¥ ' + total.toLocaleString('zh-CN', {{minimumFractionDigits:2}});
+}}
+
+function addReturnRow() {{
+    if (!selectedOrder || !selectedOrder.items) return;
+    const tbody = document.getElementById('line-items-body');
+    const num = tbody.rows.length + 1;
+    tbody.appendChild(createItemRow(num, {{order_item_id:0, product_code:'', product_name:'', unit:'', unit_price:'0', order_qty:''}}));
+}}
+
+function removeRow(btn) {{
+    const tbody = document.getElementById('line-items-body');
+    if (tbody.rows.length <= 1) return;
+    btn.closest('tr').remove();
+    Array.from(tbody.rows).forEach((r,i) => r.querySelector('.line-num').textContent = i+1);
+    recalcTotals();
+}}
+
+function handleSubmit() {{
+    const order = document.getElementById('f-order-id').value;
+    const reason = document.getElementById('reason-select').value;
+    if (!order) {{ showToast('请选择来源订单', 'error'); return false; }}
+    if (!reason) {{ showToast('请选择退货原因', 'error'); return false; }}
+    const rows = document.querySelectorAll('#line-items-body tr');
+    const items = [];
+    let hasQty = false;
+    rows.forEach(r => {{
+        const qtyInput = r.querySelector('[data-field="qty"]');
+        const qty = parseFloat(qtyInput?.value) || 0;
+        if (qty > 0) {{
+            hasQty = true;
+            items.push({{
+                order_item_id: parseInt(qtyInput.dataset.orderItemId),
+                product_id: 0,
+                returned_qty: qty.toString(),
+                disposition: parseInt(document.getElementById('disposition-select').value === 'restock' ? 1 : document.getElementById('disposition-select').value === 'replace' ? 2 : 3)
+            }});
+        }}
+    }});
+    if (!hasQty) {{ showToast('请至少填写一行退货数量', 'error'); return false; }}
+    document.getElementById('f-reason').value = document.getElementById('reason-select').selectedOptions[0].text;
+    document.querySelector('[name="items_json"]').value = JSON.stringify(items);
+    return true;
+}}
+
+function handleSaveDraft() {{
+    showToast('草稿功能开发中', 'info');
+}}
+
+// Expose to global scope for inline event handlers
+window.calcRow = calcRow;
+window.recalcTotals = recalcTotals;
+window.addReturnRow = addReturnRow;
+window.removeRow = removeRow;
+window.handleSubmit = handleSubmit;
+window.handleSaveDraft = handleSaveDraft;
+
+function showToast(msg, type) {{
+    const existing = document.querySelector('.feedback-toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.className = 'feedback-toast';
+    const bg = type === 'error' ? 'var(--danger)' : type === 'info' ? 'var(--accent)' : 'var(--success)';
+    t.style.cssText = `position:fixed;top:72px;right:32px;padding:12px 20px;border-radius:var(--radius-md);background:${{bg}};color:#fff;font-size:var(--text-sm);font-weight:500;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12)`;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2500);
+}}
+
+// File upload
+(function(){{
+    const area = document.getElementById('upload-area');
+    const input = document.getElementById('file-input');
+    const list = document.getElementById('file-list');
+    if (!area || !input) return;
+    area.addEventListener('click', () => input.click());
+    area.addEventListener('dragover', e => {{ e.preventDefault(); area.style.borderColor = 'var(--accent)'; }});
+    area.addEventListener('dragleave', () => {{ area.style.borderColor = 'var(--border)'; }});
+    area.addEventListener('drop', e => {{ e.preventDefault(); area.style.borderColor = 'var(--border)'; input.files = e.dataTransfer.files; onFiles(); }});
+    input.addEventListener('change', onFiles);
+    function onFiles() {{
+        list.innerHTML = '';
+        Array.from(input.files).forEach(f => {{
+            const d = document.createElement('div');
+            d.className = 'file-item';
+            d.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg><span class="file-item-name">'+f.name+'</span><span class="file-item-size">'+(f.size/1024).toFixed(0)+' KB</span>';
+            list.appendChild(d);
+        }});
+    }}
+}})();
+}})();
+</script>"#, customers_json = customers_json, orders_path = ReturnOrdersPath::PATH, chevron = r#"<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>"#)))
         }
     }
 }
@@ -497,9 +717,9 @@ fn order_search_results(
 
 fn order_search_empty() -> Markup {
     html! {
-        div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+        div class="loading-placeholder" {
             (icon::package_icon("w-8 h-8"))
-            p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "请先选择客户，或未找到匹配的订单" }
+            p class="mt-2 text-sm" { "请先选择客户，或未找到匹配的订单" }
         }
     }
 }

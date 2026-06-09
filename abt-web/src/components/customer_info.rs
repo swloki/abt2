@@ -20,16 +20,18 @@ pub fn customer_info_panel(
     let phone_value = contacts.first().and_then(|c| c.phone.as_deref()).unwrap_or("");
 
     html! {
-        div class="data-card" style="margin-bottom:var(--space-4)" {
-
-            div class="form-section-title" { "客户信息" }
+        div class="form-section-card" {
+            div class="form-section-title" {
+                (crate::components::icon::users_icon("w-[18px] h-[18px]"))
+                "客户信息"
+            }
             div class="form-grid" {
-                div class="form-field" {
-                    label { "客户名称" span style="color:var(--danger)" { "*" } }
-                    select name="customer_id" id="f-customer-id"
+                div class="form-field span-2" {
+                    label class="form-label" { "客户名称" span class="required" { "*" } }
+                    select class="form-select" name="customer_id" id="f-customer-id"
                         hx-get=(contacts_endpoint)
                         hx-trigger="change"
-                        hx-target="closest .data-card"
+                        hx-target="closest .form-section-card"
                         hx-swap="outerHTML"
                         hx-include="this" {
                         option value="0" { "请选择客户" }
@@ -39,8 +41,8 @@ pub fn customer_info_panel(
                     }
                 }
                 div class="form-field" {
-                    label { "联系人" }
-                    select name="contact_id" id="f-contact-id" {
+                    label class="form-label" { "联系人" }
+                    select class="form-select" name="contact_id" id="f-contact-id" {
                         option value="0" { "请选择联系人" }
                         @for ct in contacts {
                             option value=(ct.id) { (ct.name) }
@@ -48,8 +50,8 @@ pub fn customer_info_panel(
                     }
                 }
                 div class="form-field" {
-                    label { "联系电话" }
-                    input type="text" id="f-contact-phone"
+                    label class="form-label" { "联系电话" }
+                    input class="form-input" type="text" id="f-contact-phone"
                         value=(phone_value)
                         placeholder="自动填充" readonly {}
                 }

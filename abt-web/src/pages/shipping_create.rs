@@ -301,13 +301,13 @@ fn shipping_create_page(
     ).unwrap_or_default();
 
     html! {
-        div id="shipping-app" data-warehouses=(warehouses_json) {
+        div id="shipping-app" class="padded-section" data-warehouses=(warehouses_json) {
             // ── Page Header ──
+            a class="back-link" href=(ShippingListPath::PATH) {
+                (icon::arrow_left_icon("w-4 h-4"))
+                "返回发货申请列表"
+            }
             div class="page-header" {
-                a class="back-link" href=(ShippingListPath::PATH) {
-                    (icon::chevron_left_icon("w-4 h-4"))
-                    "返回发货申请列表"
-                }
                 h1 class="page-title" { "新建发货申请" }
             }
 
@@ -317,116 +317,181 @@ fn shipping_create_page(
                 input type="hidden" name="items_json";
                 input type="hidden" name="order_id";
 
-                // ── Customer Info ──
-                (customer_info_card(customers, None, "", "", ""))
-
-                // ── Order Picker ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "来源订单" }
+                // ── 客户信息 ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::clipboard_document_icon("w-[18px] h-[18px]"))
+                        "客户信息"
+                    }
                     div class="form-grid" {
                         div class="form-field" {
-                            label { "选择订单" span style="color:var(--danger)" { "*" } }
-                            div style="display:flex;gap:var(--space-2)" {
-                                input type="text" readonly
-                                input type="text" readonly
-                                    id="shipping-order-number"
-                                    placeholder="选择客户后可选择订单"
-                                    style="flex:1;cursor:pointer" {}
-                                button type="button" class="btn btn-sm btn-default"
-                                // TODO: Rewrite conditional display with vanilla JS
-                                button type="button" class="btn btn-sm btn-default" style="display:none"
-                                    id="shipping-clear-order-btn" title="清除" {
-                                    (icon::x_icon("w-3.5 h-3.5"))
-                                }
-                                button type="button" class="btn btn-sm btn-primary"
-                                    onclick="hsAdd(null,'#order-modal','is-open')" {
-                                    "选择订单"
+                            label class="form-label" { "客户名称 " span class="required" { "*" } }
+                            select class="form-select" name="customer_id" id="shipping-customer-select"
+                                onchange="onCustomerChange()" {
+                                option value="" { "请选择客户" }
+                                @for c in customers {
+                                    option value=(c.id) { (c.name) }
                                 }
                             }
                         }
+                        div class="form-field" {
+                            label class="form-label" { "联系人" }
+                            input class="form-input" type="text" id="shipping-contact" readonly tabindex="-1" placeholder="自动填充";
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "联系电话" }
+                            input class="form-input" type="text" id="shipping-phone" readonly tabindex="-1" placeholder="自动填充";
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "来源订单 " span class="required" { "*" } }
+                            div class="order-picker-wrap" id="orderPickerWrap" {
+                                input class="order-picker-input" id="orderPickerInput" type="text" readonly placeholder="请先选择客户" onclick="openOrderModal()" disabled;
+                                span class="order-picker-suffix" {
+                                    button type="button" class="clear-btn" onclick="clearOrder(event)" title="清除" { "×" }
+                                    (icon::grid_icon("w-3.5 h-3.5"))
+                                }
+                            }
+                        }
+                        div class="form-field span-2" {
+                            label class="form-label" { "收货地址 " span class="required" { "*" } }
+                            input class="form-input" type="text" name="shipping_address" id="shipping-address" placeholder="请输入收货地址";
+                        }
+                    }
+                    // Customer info bar
+                    div class="linked-info-bar hidden-initial" id="customerInfoBar" {
+                        span { span class="label" { "联系人：" } span id="infoContact" { "—" } }
+                        span { span class="label" { "电话：" } span id="infoPhone" { "—" } }
+                        span { span class="label" { "地址：" } span id="infoAddress" { "—" } }
+                    }
+                    // Selected order detail
+                    div class="linked-info-bar info-bar-order-highlight" id="selectedOrderDetail" {
+                        span { span class="label" { "订单日期：" } span id="detailOrderDate" { "—" } }
+                        span { span class="label" { "状态：" } span id="detailOrderStatus" { "—" } }
+                        span { span class="label" { "订单金额：" } span id="detailOrderAmount" { "—" } }
+                        span { span class="label" { "产品数量：" } span id="detailOrderProducts" { "—" } }
                     }
                 }
 
-                // ── Shipping Info ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "发货信息" }
+                // ── 发货信息 ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::truck_icon("w-[18px] h-[18px]"))
+                        "发货信息"
+                    }
                     div class="form-grid" {
                         div class="form-field" {
-                            label { "预计发货日期" }
-                            input type="date" name="expected_ship_date" {}
+                            label class="form-label" { "预计发货日期 " span class="required" { "*" } }
+                            input class="form-input" type="date" name="expected_ship_date" id="ship-date";
                         }
                         div class="form-field" {
-                            label { "承运商" }
-                            select name="carrier" {
+                            label class="form-label" { "承运商" }
+                            select class="form-select" name="carrier" id="carrier-select" {
                                 option value="" { "请选择承运商" }
                                 option value="顺丰速运" { "顺丰速运" }
-                                option value="中通快递" { "中通快递" }
-                                option value="圆通速递" { "圆通速递" }
-                                option value="韵达快递" { "韵达快递" }
-                                option value="申通快递" { "申通快递" }
-                                option value="京东物流" { "京东物流" }
                                 option value="德邦物流" { "德邦物流" }
-                                option value="自提" { "自提" }
-                                option value="其他" { "其他" }
+                                option value="中通快运" { "中通快运" }
+                                option value="京东物流" { "京东物流" }
+                                option value="自提" { "自提 / 自送" }
+                            }
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "默认发货仓库" }
+                            select class="form-select" id="warehouse-default" {
+                                @for w in warehouses {
+                                    option value=(w.id) { (w.name) }
+                                }
+                            }
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "优先级" }
+                            select class="form-select" id="priority-select" {
+                                option value="normal" { "普通" }
+                                option value="urgent" { "紧急" }
+                                option value="critical" { "特急" }
                             }
                         }
                     }
                 }
 
-                // ── Line Items ──
-                div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
-                    div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                        span class="form-section-title" style="margin:0;padding:0;border:none" { "发货产品明细" }
+                // ── 备注 ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::file_text_icon("w-[18px] h-[18px]"))
+                        "备注"
                     }
-                    div style="overflow-x:auto" {
-                        table class="data-table" style="min-width:900px" {
+                    textarea class="form-textarea" name="remark" placeholder="输入发货相关备注，如包装要求、送货时间偏好、特殊说明等…" {}
+                }
+
+                // ── 附件 ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::upload_icon("w-[18px] h-[18px]"))
+                        "附件"
+                    }
+                    div class="upload-area" {
+                        (icon::upload_icon("w-8 h-8"))
+                        p class="upload-title" { "点击或拖拽文件到此处上传" }
+                        p class="upload-hint" { "支持 PDF、Word、Excel、图片，单个文件不超过 10MB" }
+                    }
+                }
+
+                // ── 发货产品明细 ──
+                div class="form-section-card" {
+                    div class="form-section-title" {
+                        (icon::package_icon("w-[18px] h-[18px]"))
+                        "发货产品明细"
+                    }
+                    div class="data-card-scroll" {
+                        table class="line-items-table" id="lineItemsTable" {
                             thead {
                                 tr {
-                                    th style="width:36px;text-align:center" { "#" }
+                                    th class="col-num" { "行号" }
                                     th { "产品编码" }
                                     th { "产品名称" }
                                     th { "规格描述" }
-                                    th style="width:56px" { "单位" }
-                                    th style="width:80px;text-align:right" { "订单数量" }
-                                    th style="width:80px;text-align:right" { "已发货" }
-                                    th style="width:90px;text-align:right" { "发货数量" }
-                                    th style="width:140px" { "发货仓库" }
-                                    th style="width:36px" { }
+                                    th class="col-unit" { "单位" }
+                                    th class="col-qty" { "订单数量" }
+                                    th class="col-qty" { "已发货" }
+                                    th class="col-qty" { "本次发货 " span class="required" { "*" } }
+                                    th class="col-action" { "发货仓库" }
+                                    th class="col-action" { }
                                 }
                             }
-                            tbody {
-                        tbody {
-                            // TODO: Rewrite x-for loop with vanilla JS rendering
-                        }
+                            tbody id="lineItemsBody" {
+                                // Populated by JS when order is selected
                             }
+                        }
+                    }
+                    div class="add-row-bar" {
+                        button type="button" class="btn-add-row" onclick="addRow()" {
+                            (icon::plus_icon("w-3.5 h-3.5"))
+                            "添加产品"
                         }
                     }
                     div class="totals-bar" {
                         div class="totals-item" {
-                            span class="totals-label" { "产品数" }
-                        span class="totals-value" { "0 项" }
+                            span class="totals-label" { "发货项目" }
+                            span class="totals-value" id="totalItems" { "0 项" }
                         }
                         div class="totals-item" {
-                            span class="totals-label" { "发货总数" }
-                        span class="totals-value" { "0" }
+                            span class="totals-label" { "本次发货合计" }
+                            span class="totals-value grand" id="totalQty" { "0" }
                         }
                     }
                 }
+            }
 
-                // ── Remark ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
-                    div class="form-section-title" { "备注" }
-                    textarea name="remark" placeholder="输入发货相关备注信息…"
-                        style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" {}
-                }
-
-                // ── Action Bar ──
-                div class="create-action-bar" {
-                    a class="btn btn-default" href=(ShippingListPath::PATH) { "取消" }
-                    div style="display:flex;gap:var(--space-3)" {
-                        button type="submit" class="btn btn-primary" {
-                            "提交发货申请"
-                        }
+            // ── Action Bar ──
+            div class="create-action-bar" {
+                a class="btn btn-default" href=(ShippingListPath::PATH) { "取消" }
+                div class="flex gap-3" {
+                    button type="button" class="btn btn-default" onclick="handleSaveDraft()" {
+                        (icon::save_icon("w-4 h-4"))
+                        "保存草稿"
+                    }
+                    button type="button" class="btn btn-primary" onclick="handleSubmit()" {
+                        (icon::send_icon("w-4 h-4"))
+                        "提交"
                     }
                 }
             }
@@ -437,10 +502,12 @@ fn shipping_create_page(
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择来源订单" }
-                        button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            onclick="hsRemove(null,'#order-modal','is-open')" { "×" }
+                        button class="modal-close-btn"
+                            onclick="hsRemove(null,'#order-modal','is-open')" {
+                            "×"
+                        }
                     }
-                    div class="modal-body" style="padding:0" {
+                    div class="modal-body p-0" {
                         div class="product-search-bar" {
                             input type="hidden" name="customer_id" {}
                             div class="product-search-field" {
@@ -453,12 +520,12 @@ fn shipping_create_page(
                                     hx-include=".product-search-bar input" {}
                             }
                         }
-                        div id="shipping-order-results" style="max-height:360px;overflow-y:auto"
+                        div id="shipping-order-results" class="product-search-scroll"
                             hx-get=(ShippingOrderSearchPath::PATH)
                             hx-trigger="intersect once"
                             hx-include=".product-search-bar input"
                             hx-swap="innerHTML" {
-                            div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--muted)" {
+                            div class="loading-placeholder" {
                                 "加载中…"
                             }
                         }
@@ -466,7 +533,7 @@ fn shipping_create_page(
                 }
             }
 
-            // ── Submit script ──
+            // ── External script ──
             script src="/shipping-create.js" {}
         }
     }
@@ -482,15 +549,18 @@ fn customer_info_card(
     let selected = selected_customer_id.map(|id| id.to_string()).unwrap_or_default();
 
     html! {
-        div class="data-card" style="margin-bottom:var(--space-4)" {
-            div class="form-section-title" { "客户信息" }
+        div class="form-section-card mb-4" {
+            div class="form-section-title" {
+                (icon::clipboard_document_icon("w-[18px] h-[18px]"))
+                "客户信息"
+            }
             div class="form-grid" {
                 div class="form-field" {
-                    label { "客户名称" span style="color:var(--danger)" { "*" } }
-                    select name="customer_id"
+                    label class="form-label" { "客户名称 " span class="required" { "*" } }
+                    select class="form-select" name="customer_id"
                         hx-get=(ShippingCustomerContactsPath::PATH)
                         hx-trigger="change"
-                        hx-target="closest .data-card"
+                        hx-target="closest .form-section-card"
                         hx-swap="outerHTML"
                         hx-include="this" {
                         option value="" { "请选择客户" }
@@ -500,18 +570,18 @@ fn customer_info_card(
                     }
                 }
                 div class="form-field" {
-                    label { "联系人" }
-                    input type="text" value=(contact_name) placeholder="自动填充" readonly {}
+                    label class="form-label" { "联系人" }
+                    input class="form-input" type="text" value=(contact_name) placeholder="自动填充" readonly {}
                 }
                 div class="form-field" {
-                    label { "联系电话" }
-                    input type="text" value=(contact_phone) placeholder="自动填充" readonly {}
+                    label class="form-label" { "联系电话" }
+                    input class="form-input" type="text" value=(contact_phone) placeholder="自动填充" readonly {}
                 }
             }
-            div class="form-grid" style="margin-top:var(--space-3)" {
-                div class="form-field" {
-                    label { "收货地址" }
-                    input type="text" name="shipping_address" value=(shipping_address) placeholder="选择客户后自动填充" {}
+            div class="form-grid mt-3" {
+                div class="form-field span-2" {
+                    label class="form-label" { "收货地址" }
+                    input class="form-input" type="text" name="shipping_address" value=(shipping_address) placeholder="选择客户后自动填充" {}
                 }
             }
         }
@@ -569,9 +639,9 @@ fn order_search_results(
 
 fn order_search_empty() -> Markup {
     html! {
-        div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+        div class="loading-placeholder" {
             (icon::package_icon("w-8 h-8"))
-            p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "请先选择客户，或未找到匹配的订单" }
+            p class="mt-2 text-sm" { "请先选择客户，或未找到匹配的订单" }
         }
     }
 }

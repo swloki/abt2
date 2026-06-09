@@ -56,7 +56,7 @@ fn status_label(s: ShippingStatus) -> (&'static str, &'static str) {
     match s {
         ShippingStatus::Draft => ("草稿", "status-draft"),
         ShippingStatus::Confirmed => ("已确认", "status-confirmed"),
-        ShippingStatus::Picking => ("拣货中", "status-progress"),
+        ShippingStatus::Picking => ("拣货中", "status-picking"),
         ShippingStatus::Shipped => ("已发货", "status-shipped"),
         ShippingStatus::Cancelled => ("已取消", "status-cancelled"),
     }
@@ -304,7 +304,7 @@ fn shipping_table_fragment(
                             }
                             @if result.items.is_empty() {
                                 tr {
-                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="9" class="td-empty" {
                                         "暂无发货数据"
                                     }
                                 }
@@ -335,10 +335,10 @@ fn shipping_row(
     let order_detail = OrderDetailPath { id: s.order_id };
 
     html! {
-        tr style="cursor:pointer" {
+        tr {
             td class="link-cell mono" onclick=(&onclick) { (s.doc_number) }
             td onclick=(&onclick) {
-                a href=(order_detail.to_string()) style="color:var(--info)" onclick="event.stopPropagation()" { (order_num) }
+                a href=(order_detail.to_string()) class="text-accent" onclick="event.stopPropagation()" { (order_num) }
             }
             td onclick=(&onclick) { (customer_name) }
             td onclick=(&onclick) {

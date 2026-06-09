@@ -185,7 +185,7 @@ fn order_edit_page(
             (customer_info_panel(customers, contacts, Some(order.customer_id), OrderCustomerContactsPath::PATH))
 
             // ── Order Info ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="data-card mb-4" {
                 div class="form-section-title" { "订单信息" }
                 div class="form-grid" {
                     div class="form-field" {
@@ -219,28 +219,28 @@ fn order_edit_page(
             }
 
             // ── Line Items ──
-            div class="data-card" style="padding:0;overflow:hidden;margin-bottom:var(--space-4)" {
-                div style="padding:var(--space-5) var(--space-5) var(--space-3);display:flex;justify-content:space-between;align-items:center" {
-                    span class="form-section-title" style="margin:0;padding:0;border:none" { "产品明细" }
+            div class="form-section-card flush mb-4" {
+                div class="flush-header" {
+                    span class="form-section-title" { "产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
                         onclick="hsAdd(null,'#product-modal','is-open')" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品"
                     }
                 }
-                div style="overflow-x:auto" {
-                    table class="data-table" style="min-width:1000px" {
+                div class="flush-scroll" {
+                    table class="data-table" {
                         thead {
                             tr {
-                                th style="width:36px;text-align:center" { "#" }
+                                th style="width:36px" { "#" }
                                 th { "产品编码" }
                                 th { "产品名称" }
                                 th { "规格描述" }
                                 th style="width:56px" { "单位" }
-                                th style="width:90px;text-align:right" { "数量" }
-                                th style="width:110px;text-align:right" { "单价 (¥)" }
-                                th style="width:76px;text-align:right" { "折扣%" }
-                                th style="width:110px;text-align:right" { "小计 (¥)" }
+                                th style="width:90px" { "数量" }
+                                th style="width:110px" { "单价 (¥)" }
+                                th style="width:76px" { "折扣%" }
+                                th style="width:110px" { "小计 (¥)" }
                                 th style="width:110px" { "交货日期" }
                                 th style="width:36px" { }
                             }
@@ -252,13 +252,13 @@ fn order_edit_page(
                                     td class="line-num" { }
                                     td class="mono" { (code) }
                                     td { (name) }
-                                    td { input class="form-input" type="text" name="description" value=(&item.description) style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input" type="text" name="unit" readonly value=(&item.unit) style="width:56px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
-                                    td { input class="form-input num-input" type="number" min="1" step="1" name="quantity" value=(item.quantity.to_string()) placeholder="0" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input num-input" type="number" step="0.01" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td { input class="form-input num-input" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) style="width:64px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
-                                    td class="line-total" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
-                                    td { input class="form-input" type="date" name="item_delivery_date" value=(item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default()) style="width:110px;padding:5px 6px;font-size:12px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+                                    td { input class="li-input" type="text" name="description" value=(&item.description) {} }
+                                    td { input class="li-input-center" type="text" name="unit" readonly value=(&item.unit) {} }
+                                    td { input class="li-input-num" type="number" min="1" step="1" name="quantity" value=(item.quantity.to_string()) placeholder="0" {} }
+                                    td { input class="li-input-price" type="number" step="0.01" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" {} }
+                                    td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) {} }
+                                    td class="line-total" { "—" }
+                                    td { input class="li-input-date" type="date" name="item_delivery_date" value=(item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default()) {} }
                                     td { button type="button" class="btn-remove-row" title="删除行"
                                         onclick="hsRemoveClosestEl(this,'tr')" {
                                         (icon::x_icon("w-3.5 h-3.5"))
@@ -293,15 +293,15 @@ fn order_edit_page(
             }
 
             // ── Remark ──
-            div class="data-card" style="margin-bottom:var(--space-4)" {
+            div class="data-card mb-4" {
                 div class="form-section-title" { "备注" }
-                textarea name="remark" placeholder="输入订单相关备注信息…" style="width:100%;min-height:80px;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:var(--text-sm);resize:vertical;font-family:inherit" { (rm) }
+                textarea class="form-textarea" name="remark" placeholder="输入订单相关备注信息…" { (rm) }
             }
 
             // ── Action Bar ──
             div class="create-action-bar" {
                 a class="btn btn-default" href=(detail_path.to_string()) { "取消" }
-                div style="display:flex;gap:var(--space-3)" {
+                div class="flex gap-3" {
                     button type="submit" class="btn btn-primary" {
                         "保存修改"
                     }
@@ -315,10 +315,10 @@ fn order_edit_page(
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
-                        button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                        button class="modal-close-plain"
                             onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
                     }
-                    div class="modal-body" style="padding:0" {
+                    div class="modal-body p-0" {
                         div class="product-search-bar" {
                             div class="product-search-field" {
                                 label class="product-search-label" { "产品名称" }
@@ -346,11 +346,11 @@ fn order_edit_page(
                                 "清除"
                             }
                         }
-                        div id="product-search-results" style="max-height:320px;overflow-y:auto"
+                        div id="product-search-results" class="product-search-scroll"
                         hx-get=(OrderProductsPath::PATH)
                         hx-trigger="intersect once"
                         hx-swap="innerHTML" {
-                            div style="display:flex;align-items:center;justify-content:center;padding:var(--space-8);color:var(--muted)" {
+                            div class="flex-center" style="padding:var(--space-8)" {
                                 "加载中…"
                             }
                         }

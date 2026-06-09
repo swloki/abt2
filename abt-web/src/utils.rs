@@ -145,3 +145,25 @@ pub fn fmt_qty(v: impl Into<rust_decimal::Decimal>) -> String {
         s
     }
 }
+
+/// Format a Decimal as currency with 2 decimal places and ¥ prefix (e.g. ¥ 128,500.00)
+pub fn fmt_amount(v: impl Into<rust_decimal::Decimal>) -> String {
+    let d = v.into();
+    let abs = d.abs();
+    let formatted = format!("{:.2}", abs);
+    // Add thousands separator
+    let parts: Vec<&str> = formatted.split('.').collect();
+    let int_part = parts[0];
+    let dec_part = parts.get(1).unwrap_or(&"00");
+    let int_with_sep = int_part.as_bytes()
+        .rchunks(3)
+        .rev()
+        .map(|chunk| std::str::from_utf8(chunk).unwrap_or(""))
+        .collect::<Vec<_>>()
+        .join(",");
+    if d.is_sign_negative() {
+        format!("-¥ {}.{}", int_with_sep, dec_part)
+    } else {
+        format!("¥ {}.{}", int_with_sep, dec_part)
+    }
+}

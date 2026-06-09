@@ -80,10 +80,10 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
                     h2 class="section-title" { "快捷入口" }
                 }
                 div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)" {
-                    (quick_link_card("#", &icon::file_text_icon("w-[28px] h-[28px]"), "报价单", "24 份"))
-                    (quick_link_card("#", &icon::box_icon("w-[28px] h-[28px]"), "销售订单", "31 笔"))
-                    (quick_link_card("#", &icon::truck_icon("w-[28px] h-[28px]"), "发货申请", "18 单"))
-                    (quick_link_card("#", &icon::clipboard_list_icon("w-[28px] h-[28px]"), "月对账单", "14 份"))
+                    (quick_link_card("/admin/quotations", &icon::file_text_icon("w-[28px] h-[28px]"), "报价单", "24 份"))
+                    (quick_link_card("/admin/orders", &icon::box_icon("w-[28px] h-[28px]"), "销售订单", "31 笔"))
+                    (quick_link_card("/admin/shipping", &icon::truck_icon("w-[28px] h-[28px]"), "发货申请", "18 单"))
+                    (quick_link_card("/admin/reconciliations", &icon::clipboard_list_icon("w-[28px] h-[28px]"), "月对账单", "14 份"))
                 }
             }
         }
@@ -109,10 +109,10 @@ fn dashboard_content(claims: &abt_core::shared::identity::model::Claims) -> Mark
             h2 class="section-title" style="margin-bottom:var(--space-4)" { "最近活动" }
             div class="data-card" {
                 (activity_item("status-progress", "订单", "SO-2026-0038 状态变更为 ", "生产中", "10 分钟前"))
-                (activity_item("status-progress", "发货", "发货申请 SR-2026-0018 开始拣货", "", "2 小时前"))
-                (activity_item("status-progress", "退货", "退货单 RT-2026-0009 进入质检阶段", "", "昨天"))
-                (activity_item("status-info", "对账", "对账单 RC-2026-005 已发送给客户", "", "昨天"))
-                (activity_item_last("status-success", "报价", "报价单 QT-2026-0042 客户已接受，已转订单", "", "3 天前"))
+                (activity_item("status-picking", "发货", "发货申请 SR-2026-0018 开始拣货", "", "2 小时前"))
+                (activity_item("status-inspecting", "退货", "退货单 RT-2026-0009 进入质检阶段", "", "昨天"))
+                (activity_item("status-sent", "对账", "对账单 RC-2026-005 已发送给客户", "", "昨天"))
+                (activity_item_last("status-accepted", "报价", "报价单 QT-2026-0042 客户已接受，已转订单", "", "3 天前"))
             }
         }
     }
@@ -167,7 +167,7 @@ fn stat_card_accent(label: &str, value: &str, trend: &str, trend_color: &str) ->
 fn todo_item(status_class: &str, status_text: &str, desc: &str, time: &str) -> Markup {
     html! {
         div class="activity-row" {
-            span class=(status_class) style="font-size:11px" { (status_text) }
+            span class={"status-pill " (status_class)} style="font-size:11px" { (status_text) }
             span style="flex:1" { (desc) }
             span class="text-muted" style="font-size:12px" { (time) }
         }
@@ -177,7 +177,7 @@ fn todo_item(status_class: &str, status_text: &str, desc: &str, time: &str) -> M
 fn todo_item_last(status_class: &str, status_text: &str, desc: &str, time: &str) -> Markup {
     html! {
         div style="padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-3);cursor:pointer" {
-            span class=(status_class) style="font-size:11px" { (status_text) }
+            span class={"status-pill " (status_class)} style="font-size:11px" { (status_text) }
             span style="flex:1" { (desc) }
             span class="text-muted" style="font-size:12px" { (time) }
         }
@@ -223,7 +223,7 @@ fn activity_item(
 ) -> Markup {
     html! {
         div style="padding:var(--space-4) var(--space-5);border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:var(--space-4)" {
-            span class=(status_class) style="font-size:11px;min-width:56px;justify-content:center" { (status_text) }
+            span class={"status-pill " (status_class)} style="font-size:11px;min-width:56px;justify-content:center" { (status_text) }
             span style="flex:1" {
                 (desc)
                 @if !highlight.is_empty() {
@@ -244,7 +244,7 @@ fn activity_item_last(
 ) -> Markup {
     html! {
         div style="padding:var(--space-4) var(--space-5);display:flex;align-items:center;gap:var(--space-4)" {
-            span class=(status_class) style="font-size:11px;min-width:56px;justify-content:center" { (status_text) }
+            span class={"status-pill " (status_class)} style="font-size:11px;min-width:56px;justify-content:center" { (status_text) }
             span style="flex:1" {
                 (desc)
                 @if !highlight.is_empty() {

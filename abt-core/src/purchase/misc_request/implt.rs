@@ -22,6 +22,7 @@ use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use crate::shared::types::Result;
 
 const ENTITY_TYPE: &str = "MiscellaneousRequest";
+const ENTITY_DISPLAY: &str = "零星请购";
 
 pub struct MiscellaneousRequestServiceImpl {
     pool: PgPool,
@@ -101,7 +102,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         MiscRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))
     }
 
     async fn approve(
@@ -120,7 +121,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         let request = MiscRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         // 2. 状态转换 Draft -> Approved
         new_state_machine_service(self.pool.clone())
@@ -206,7 +207,7 @@ impl MiscellaneousRequestService for MiscellaneousRequestServiceImpl {
         let request = MiscRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         // 2. 状态转换 Draft -> Cancelled
         new_state_machine_service(self.pool.clone())

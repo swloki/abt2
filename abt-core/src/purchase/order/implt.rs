@@ -30,6 +30,7 @@ use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 const ENTITY_TYPE: &str = "PurchaseOrder";
+const ENTITY_DISPLAY: &str = "采购订单";
 
 pub struct PurchaseOrderServiceImpl {
     pool: PgPool,
@@ -217,7 +218,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         PurchaseOrderRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))
     }
 
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64, idempotency_key: Option<String>) -> Result<()> {
@@ -231,7 +232,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         let order = PurchaseOrderRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         let items = PurchaseOrderItemRepo::list_by_order_id(&mut *db, id)
             .await
@@ -356,7 +357,7 @@ impl PurchaseOrderService for PurchaseOrderServiceImpl {
         let order = PurchaseOrderRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         if order.status != PurchaseOrderStatus::Draft {
             return Err(DomainError::validation(format!(

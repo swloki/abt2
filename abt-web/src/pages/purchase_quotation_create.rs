@@ -284,7 +284,8 @@ fn pq_create_page(
 
             form id="pq-form"
                   hx-post=(PQCreatePath::PATH)
-                  hx-swap="none" {
+                  hx-swap="none"
+                  onsubmit="var items=[];any('#pq-item-tbody tr').forEach(function(row){var vals={};row.querySelectorAll('input,select').forEach(function(el){if(el.name&&el.name.startsWith('item_'))vals[el.name.replace('item_','')]=el.value});items.push(vals)});document.getElementById('items-json').value=JSON.stringify(items)" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
                 input type="hidden" id="form-action" name="action" value="submit";
 
@@ -413,17 +414,6 @@ fn pq_create_page(
                     }
                 }
             }
-            script {
-                (maud::PreEscaped("me().on('submit', ev => {
-                    var items=[];
-                    any('#pq-item-tbody tr').forEach(function(row){
-                        var vals={};
-                        row.querySelectorAll('input,select').forEach(function(el){if(el.name)vals[el.name]=el.value});
-                        items.push(vals)
-                    });
-                    me('#items-json').value=JSON.stringify(items)
-                })"))
-            }
             }
 
             // ── Product Selection Modal ──
@@ -535,16 +525,16 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td class="line-num" { }
             td class="mono" { (product.product_code) }
             td { (product.pdt_name) }
-            td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" name="unit_price" {} }
-            td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" name="min_order_qty" {} }
-            td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" name="lead_time_days" {} }
-            td { input class="form-input" type="text" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" name="currency" value="CNY" {} }
-            td style="text-align:center" { input type="checkbox" name="is_preferred" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)" {} }
+            td { input class="form-input num-input" type="number" step="0.01" placeholder="0.00" style="width:110px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" name="item_unit_price" {} }
+            td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" name="item_min_order_qty" {} }
+            td { input class="form-input num-input" type="number" step="1" min="0" placeholder="—" style="width:80px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" name="item_lead_time_days" {} }
+            td { input class="form-input" type="text" style="width:70px;text-align:center;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" name="item_currency" value="CNY" {} }
+            td style="text-align:center" { input type="checkbox" name="item_is_preferred" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
                 onclick="hsRemoveClosestEl(this,'tr')" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
-            input type="hidden" name="product_id" value=(product.product_id) {}
+            input type="hidden" name="item_product_id" value=(product.product_id) {}
         }
     }
 }

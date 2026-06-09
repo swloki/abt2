@@ -25,6 +25,7 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 
 const ENTITY_TYPE: &str = "PaymentRequest";
+const ENTITY_DISPLAY: &str = "付款申请";
 
 /// 三单匹配容差率 ±0.5%
 const TOLERANCE_RATE: Decimal = Decimal::from_parts(5, 0, 0, false, 3); // 0.005
@@ -131,7 +132,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         PaymentRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))
     }
 
     async fn list(
@@ -158,7 +159,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         let payment = PaymentRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         // 2. 状态转换 Draft -> Approved
         new_state_machine_service(self.pool.clone())
@@ -212,7 +213,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         let payment = PaymentRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         if payment.status != PaymentStatus::Draft {
             return Err(DomainError::validation(format!(
@@ -274,7 +275,7 @@ impl PaymentRequestService for PaymentRequestServiceImpl {
         let payment = PaymentRequestRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         // 2. 状态转换 Approved -> Paid
         new_state_machine_service(self.pool.clone())

@@ -361,7 +361,7 @@ fn misc_row(
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
-            td class="num-right" onclick=(&onclick) { (r.total_amount.to_string()) }
+            td class="num-right mono" onclick=(&onclick) { (format!("{:.2}", r.total_amount)) }
             td onclick=(&onclick) { (operator_name) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {

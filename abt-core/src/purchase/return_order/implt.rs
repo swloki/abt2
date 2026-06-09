@@ -26,6 +26,7 @@ use crate::shared::types::pagination::{PageParams, PaginatedResult};
 use crate::shared::types::Result;
 
 const ENTITY_TYPE: &str = "PurchaseReturn";
+const ENTITY_DISPLAY: &str = "采购退货单";
 
 pub struct PurchaseReturnServiceImpl {
     pool: PgPool,
@@ -141,7 +142,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         PurchaseReturnRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))
     }
 
     async fn list(
@@ -174,7 +175,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         let ret = PurchaseReturnRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         // 2. 状态转换 Draft -> Confirmed
         new_state_machine_service(self.pool.clone())
@@ -227,7 +228,7 @@ impl PurchaseReturnService for PurchaseReturnServiceImpl {
         let ret = PurchaseReturnRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         // 2. 状态转换 Draft -> Cancelled
         new_state_machine_service(self.pool.clone())

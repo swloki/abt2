@@ -26,6 +26,7 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 
 const ENTITY_TYPE: &str = "PurchaseReconciliation";
+const ENTITY_DISPLAY: &str = "采购对账单";
 
 pub struct PurchaseReconciliationServiceImpl {
     pool: PgPool,
@@ -137,7 +138,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         PurchaseReconciliationRepo::get_by_id(db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))
     }
 
     async fn list(
@@ -174,7 +175,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         let recon = PurchaseReconciliationRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         let recon_items = PurchaseReconItemRepo::list_by_reconciliation_id(&mut *db, id)
             .await
@@ -205,7 +206,7 @@ impl PurchaseReconciliationService for PurchaseReconciliationServiceImpl {
         let recon = PurchaseReconciliationRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         // 4. 更新确认标识（逐行标记 confirmed = true）
         for item in &recon_items {

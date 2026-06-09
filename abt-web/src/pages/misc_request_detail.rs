@@ -284,7 +284,7 @@ fn item_row(item: &MiscRequestItem) -> Markup {
             td class="mono" { (item.line_no) }
             td { (item.item_name) }
             td { (spec) }
-            td class="num-right" { (item.quantity) }
+            td class="num-right mono" { (format!("{:.2}", item.quantity)) }
             td { (item.unit) }
             td class="num-right" { (price) }
             td class="num-right" { (subtotal) }

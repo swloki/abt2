@@ -303,6 +303,10 @@ fn po_create_page(
     quotations: &[abt_core::purchase::quotation::model::PurchaseQuotation],
 ) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let default_delivery = chrono::Local::now()
+        .checked_add_days(chrono::Days::new(15))
+        .map(|d| d.format("%Y-%m-%d").to_string())
+        .unwrap_or_default();
 
     html! {
         div id="po-app" {
@@ -365,7 +369,7 @@ fn po_create_page(
                     }
                     div class="form-field" {
                         label { "预期交货日期" }
-                        input type="date" name="expected_delivery_date" {}
+                        input type="date" name="expected_delivery_date" value=(default_delivery) {}
                     }
                     div class="form-field" {
                         label { "付款条件" }

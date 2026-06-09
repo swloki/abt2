@@ -338,9 +338,9 @@ fn item_row(
             td class="num-right" { (format!("{:.2}", item.quantity)) }
             td class="num-right" { (format!("{:.2}", item.unit_price)) }
             td class="num-right" { (format!("{:.2}", item.amount)) }
-            td class="num-right" { (format!("{:.2}", item.received_qty)) }
-            td class="num-right" { (format!("{:.2}", item.inspected_qty)) }
-            td class="num-right" { (format!("{:.2}", item.returned_qty)) }
+            td class="num-right" { (if item.received_qty > Decimal::ZERO { format!("{:.2}", item.received_qty) } else { "—".into() }) }
+            td class="num-right" { (if item.inspected_qty > Decimal::ZERO { format!("{:.2}", item.inspected_qty) } else { "—".into() }) }
+            td class="num-right" { (if item.returned_qty > Decimal::ZERO { format!("{:.2}", item.returned_qty) } else { "—".into() }) }
             td { (expected_delivery) }
         }
     }

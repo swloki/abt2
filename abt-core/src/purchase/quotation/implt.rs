@@ -22,6 +22,7 @@ use crate::shared::types::Result;
 use crate::shared::types::pagination::{PageParams, PaginatedResult};
 
 const ENTITY_TYPE: &str = "PurchaseQuotation";
+const ENTITY_DISPLAY: &str = "采购报价单";
 
 pub struct PurchaseQuotationServiceImpl {
     pool: PgPool,
@@ -93,7 +94,7 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         PurchaseQuotationRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))
     }
 
     async fn activate(
@@ -112,7 +113,7 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         let quotation = PurchaseQuotationRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
 
         // 2. 状态转换 Draft -> Active
         new_state_machine_service(self.pool.clone())
@@ -201,7 +202,7 @@ impl PurchaseQuotationService for PurchaseQuotationServiceImpl {
         let quotation = PurchaseQuotationRepo::get_by_id(&mut *db, id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
-            .ok_or_else(|| DomainError::not_found(ENTITY_TYPE))?;
+            .ok_or_else(|| DomainError::not_found(ENTITY_DISPLAY))?;
         // 2. State transition Draft -> Cancelled
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, ENTITY_TYPE, id, "Cancelled", None)

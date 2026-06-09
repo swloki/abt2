@@ -345,7 +345,7 @@ fn po_row(
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
-            td class="num-right" onclick=(&onclick) { (o.total_amount) }
+            td class="num-right mono" onclick=(&onclick) { (format!("{:.2}", o.total_amount)) }
             td onclick=(&onclick) { (buyer_name) }
             td onclick="event.stopPropagation()" {
                 @if is_draft {

@@ -8,3 +8,4 @@ pub mod category_select;
 pub mod detail;
 pub mod drawer;
 pub mod export_button;
+pub mod import_modal;

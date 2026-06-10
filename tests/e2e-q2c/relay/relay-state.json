@@ -1,9 +1,17 @@
 {
-  "run_id": "",
-  "phase": "init",
-  "status": "pending",
-  "started_at": "",
-  "updated_at": "",
-  "artifacts": {},
-  "snapshots": {}
+  "run_id": "debug3-20260611005159",
+  "phase": "S3",
+  "status": "completed",
+  "started_at": "2026-06-10T16:51:59Z",
+  "updated_at": "2026-06-10T17:16:26Z",
+  "artifacts": {
+    "quotation_id": "39",
+    "quotation_url": "D:/soft/Git/admin/quotations/39",
+    "quotation_doc_number": "\"QUO-2026-06-000011\"",
+    "quotation_status": "accepted"
+  },
+  "snapshots": {
+    "SNAP-S1-S2": "2026-06-10T17:16:05Z",
+    "SNAP-S3": "2026-06-10T17:16:26Z"
+  }
 }

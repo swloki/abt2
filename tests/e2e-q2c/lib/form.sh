@@ -216,3 +216,33 @@ abt_scroll_to() {
 
     _ab "$session" scrollintoview "$selector" > /dev/null 2>&1
 }
+
+# --- HTMX 按钮/操作触发 ---
+# 用法: abt_htmx_post <session> <post_path>
+# 直接调用 htmx.ajax POST，绕过 JS click() 不触发 HTMX 的问题
+# 例: abt_htmx_post q2c_sales "/admin/quotations/37/submit"
+abt_htmx_post() {
+    local session="$1"
+    local path="$2"
+
+    abt_eval "$session" "
+        htmx.ajax('POST', '$path', {target: 'body', swap: 'none'});
+        'htmx_post_done';
+    " > /dev/null 2>&1 || true
+}
+
+# --- HTMX 表单提交 ---
+# 用法: abt_htmx_submit_form <session> <form_selector> <submit_fn_name>
+# 先调用 submit 函数收集 items_json，再 htmx.trigger 提交表单
+# 例: abt_htmx_submit_form q2c_sales "#quotation-form" "quotationSubmit"
+abt_htmx_submit_form() {
+    local session="$1"
+    local form_selector="$2"
+    local submit_fn="$3"
+
+    abt_eval "$session" "
+        if (typeof $submit_fn === 'function') { $submit_fn(); }
+        htmx.trigger(document.querySelector('$form_selector'), 'submit');
+        'form_submitted';
+    " > /dev/null 2>&1 || true
+}

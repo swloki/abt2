@@ -204,13 +204,16 @@ fn warehouse_list_page(
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
             (warehouse_table_fragment(result, params, manager_map, can_delete))
-        }
-        (import_modal::import_modal(&ImportModalConfig {
-            import_type: "warehouse-location",
-            title: "导入仓库库位",
-            template_columns: "仓库编码, 仓库名称, 库位编码, 库位名称, 容量",
-        }))
-        div id="export-result" {}
+
+            // ── Import Modal ──
+            (import_modal::import_modal(&ImportModalConfig {
+                import_type: "warehouse-location",
+                title: "导入仓库库位",
+                template_columns: "仓库编码, 仓库名称, 库位编码, 库位名称, 容量",
+            }))
+
+            // ── Export Result ──
+            div id="export-result" {}
         }
     }
 }

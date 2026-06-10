@@ -146,14 +146,18 @@ fn routing_list_page(
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
             (routing_table_fragment(result, params, can_delete))
-        }
-    }
+
+            // ── Import Modal ──
             (import_modal::import_modal(&ImportModalConfig {
                 import_type: "labor-process",
                 title: "导入工艺路线",
                 template_columns: "产品编码, 工序编码, 工序名称, 单价, 数量, 排序, 备注",
             }))
+
+            // ── Export Result ──
             div id="export-result" {}
+        }
+    }
 }
 
 fn routing_table_fragment(

@@ -208,9 +208,11 @@ fn process_dict_list_page(
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
             (process_dict_table_fragment(result, params, can_delete))
+
+            // ── Export Result ──
+            div id="export-result" {}
         }
     }
-            div id="export-result" {}
 }
 
 fn process_dict_table_fragment(

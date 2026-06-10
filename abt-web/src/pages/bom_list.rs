@@ -250,8 +250,7 @@ fn bom_list_page(
             }
         }
         script src="/cost-drawer.js?v=20260602" {}
-            div id="export-result" {}
-        }
+        div id="export-result" {}
     }
 }
 fn bom_table_fragment(

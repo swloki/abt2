@@ -65,10 +65,11 @@ pub struct ExcelTemplatePath {
 }
 
 // ── 路径常量（供前端组件生成 URL） ──
-
+#[allow(dead_code)]
 pub const IMPORT_UPLOAD_PATH: &str = "/excel/import";
 pub const EXPORT_START_PATH: &str = "/excel/export";
 pub const EXPORT_DOWNLOAD_PATH: &str = "/excel/export/download";
+#[allow(dead_code)]
 pub const TEMPLATE_PATH: &str = "/excel/template";
 
 // ── 路由注册 ──

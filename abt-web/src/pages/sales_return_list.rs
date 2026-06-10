@@ -389,7 +389,7 @@ fn return_row(
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td class="num-right" onclick=(&onclick) {
-                span class="mono" { "¥ " (format!("{:.2}", r.total_amount)) }
+                span class="mono" { (crate::utils::fmt_amount(r.total_amount)) }
             }
             td onclick=(&onclick) { (r.return_reason.as_str()) }
             td onclick=(&onclick) { (created) }

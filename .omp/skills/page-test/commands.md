@@ -22,29 +22,6 @@ agent-browser select @e<ref> "option"   # 选择下拉选项
 agent-browser wait 2000                 # 等待毫秒
 ```
 
-## 多 Session 命令（并行测试）
-
-```bash
-# 创建独立浏览器实例
-agent-browser --session s1 open http://localhost:8000/admin/orders
-agent-browser --session s2 open http://localhost:8000/admin/shipping/create
-
-# 查看活跃 session
-agent-browser session list
-
-# 所有命令都要带 --session
-agent-browser --session s1 snapshot -i
-agent-browser --session s1 fill @e9 "admin"
-agent-browser --session s1 eval "document.URL"
-
-# 保存/恢复登录状态（避免每个 session 重复登录）
-agent-browser --session s1 state save /tmp/abt-auth.json
-agent-browser --session s2 state load /tmp/abt-auth.json
-
-# 关闭指定 session
-agent-browser --session s1 close
-```
-
 ## eval 技巧
 
 ### onclick 不触发的解决方案

@@ -5,6 +5,8 @@ use maud::{html, Markup};
 use abt_core::wms::inventory_transaction::repo::InventoryTransactionRepo;
 use abt_core::wms::inventory_transaction::model::InventoryTransaction;
 use abt_core::wms::warehouse::WarehouseService;
+use abt_core::master_data::product::ProductService;
+use abt_core::shared::identity::UserService;
 
 use crate::components::icon;
 use crate::errors::Result;
@@ -54,7 +56,39 @@ pub async fn get_stock_in_detail(
         .map(|w| w.name)
         .unwrap_or_else(|_| "—".into());
 
-    let content = stock_in_detail_page(&txn, &wh_name);
+    let product_name = state.product_service()
+        .get(&service_ctx, &mut conn, txn.product_id)
+        .await
+        .map(|p| format!("{} ({})", p.pdt_name, p.product_code))
+        .unwrap_or_else(|_| format!("产品 #{}", txn.product_id));
+
+    let operator_name = state.user_service()
+        .get_user(&service_ctx, &mut conn, txn.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| format!("用户 #{}", txn.operator_id));
+
+    let zone_name = if let Some(zid) = txn.zone_id {
+        state.warehouse_service()
+            .get_zone(&service_ctx, &mut conn, zid)
+            .await
+            .map(|z| z.name)
+            .unwrap_or_else(|_| format!("库区 #{}", zid))
+    } else {
+        "—".into()
+    };
+
+    let bin_name = if let Some(bid) = txn.bin_id {
+        state.warehouse_service()
+            .get_bin_with_warehouse(&service_ctx, &mut conn, bid)
+            .await
+            .map(|b| format!("{} ({})", b.bin.name, b.bin.code))
+            .unwrap_or_else(|_| format!("储位 #{}", bid))
+    } else {
+        "—".into()
+    };
+
+    let content = stock_in_detail_page(&txn, &wh_name, &product_name, &zone_name, &bin_name, &operator_name);
     let detail_path = StockInDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         is_htmx,
@@ -72,7 +106,14 @@ pub async fn get_stock_in_detail(
 
 // ── Components ──
 
-fn stock_in_detail_page(txn: &InventoryTransaction, wh_name: &str) -> Markup {
+fn stock_in_detail_page(
+    txn: &InventoryTransaction,
+    wh_name: &str,
+    product_name: &str,
+    zone_name: &str,
+    bin_name: &str,
+    operator_name: &str,
+) -> Markup {
     let type_label = transaction_type_label(&txn.transaction_type);
 
     html! {
@@ -105,7 +146,7 @@ fn stock_in_detail_page(txn: &InventoryTransaction, wh_name: &str) -> Markup {
                     }
                     div class="info-item" {
                         span class="info-label" { "产品" }
-                        span class="info-value mono" { "产品 #" (txn.product_id) }
+                        span class="info-value" { (product_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "目标仓库" }
@@ -113,15 +154,11 @@ fn stock_in_detail_page(txn: &InventoryTransaction, wh_name: &str) -> Markup {
                     }
                     div class="info-item" {
                         span class="info-label" { "库区" }
-                        span class="info-value mono" {
-                            (txn.zone_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
-                        }
+                        span class="info-value" { (zone_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "储位" }
-                        span class="info-value mono" {
-                            (txn.bin_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
-                        }
+                        span class="info-value" { (bin_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "批次号" }
@@ -129,12 +166,12 @@ fn stock_in_detail_page(txn: &InventoryTransaction, wh_name: &str) -> Markup {
                     }
                     div class="info-item" {
                         span class="info-label" { "数量" }
-                        span class="info-value mono" { (txn.quantity) }
+                        span class="info-value mono" { (format!("{:.2}", txn.quantity)) }
                     }
                     div class="info-item" {
                         span class="info-label" { "单位成本" }
                         span class="info-value mono" {
-                            (txn.unit_cost.map(|c| format!("¥{c}")).unwrap_or_else(|| "—".into()))
+                            (txn.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into()))
                         }
                     }
                     div class="info-item" {
@@ -151,7 +188,7 @@ fn stock_in_detail_page(txn: &InventoryTransaction, wh_name: &str) -> Markup {
                     }
                     div class="info-item" {
                         span class="info-label" { "操作员" }
-                        span class="info-value mono" { "用户 #" (txn.operator_id) }
+                        span class="info-value" { (operator_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "创建时间" }

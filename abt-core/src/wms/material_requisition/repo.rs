@@ -161,6 +161,10 @@ impl MaterialRequisitionRepo {
         let mut where_clauses = vec!["deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
+        if filter.doc_number.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("doc_number ILIKE ${param_idx}"));
+        }
         if filter.status.is_some() {
             param_idx += 1;
             where_clauses.push(format!("status = ${param_idx}"));
@@ -189,6 +193,11 @@ impl MaterialRequisitionRepo {
         let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
         let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
 
+        if let Some(ref v) = filter.doc_number {
+            let pattern = format!("%{v}%");
+            count_q = count_q.bind(pattern.clone());
+            data_q = data_q.bind(pattern);
+        }
         if let Some(v) = filter.status {
             count_q = count_q.bind(v);
             data_q = data_q.bind(v);

@@ -8,6 +8,10 @@ use abt_core::wms::arrival_notice::model::{
 use abt_core::wms::arrival_notice::repo::ArrivalNoticeRepo;
 use abt_core::wms::arrival_notice::ArrivalNoticeService;
 use abt_core::wms::enums::ArrivalStatus;
+use abt_core::master_data::product::ProductService;
+use abt_core::master_data::supplier::SupplierService;
+use abt_core::wms::warehouse::WarehouseService;
+use abt_core::shared::identity::UserService;
 
 use crate::components::icon;
 use crate::errors::Result;
@@ -110,8 +114,36 @@ pub async fn get_arrival_detail(
         .await
         .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
 
+    let wh_name = state.warehouse_service()
+        .get(&service_ctx, &mut conn, notice.warehouse_id)
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+
+    let supplier_name = state.supplier_service()
+        .get(&service_ctx, &mut conn, notice.supplier_id)
+        .await
+        .map(|s| s.name)
+        .unwrap_or_else(|_| "—".into());
+
+    let operator_name = state.user_service()
+        .get_user(&service_ctx, &mut conn, notice.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+
+    let product_svc = state.product_service();
+    let mut product_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for item in &items {
+        if !product_names.contains_key(&item.product_id) {
+            if let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.product_id).await {
+                product_names.insert(item.product_id, format!("{} ({})", p.pdt_name, p.product_code));
+            }
+        }
+    }
+
     let detail_path = ArrivalDetailPath { id: path.id }.to_string();
-    let content = arrival_detail_page(&notice, &items, &detail_path);
+    let content = arrival_detail_page(&notice, &items, &detail_path, &wh_name, &supplier_name, &operator_name, &product_names);
     let page_html = admin_page(
         is_htmx,
         &format!("{} - 来料通知详情", notice.doc_number),
@@ -191,6 +223,10 @@ fn arrival_detail_page(
     notice: &ArrivalNotice,
     items: &[abt_core::wms::arrival_notice::model::ArrivalNoticeItem],
     detail_path: &str,
+    wh_name: &str,
+    supplier_name: &str,
+    operator_name: &str,
+    product_names: &std::collections::HashMap<i64, String>,
 ) -> Markup {
     let (status_text, status_class) = status_label(notice.status);
     let is_inspecting = notice.status == ArrivalStatus::Inspecting;
@@ -226,19 +262,23 @@ fn arrival_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "来源采购单" }
-                        span class="info-value mono" { "—" }
+                        span class="info-value mono" {
+                            (notice.purchase_order_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
+                        }
                     }
                     div class="info-item" {
                         span class="info-label" { "供应商" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (supplier_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "到货仓库" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (wh_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "到货库区" }
-                        span class="info-value" { "—" }
+                        span class="info-value" {
+                            (notice.zone_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into()))
+                        }
                     }
                     div class="info-item" {
                         span class="info-label" { "到货日期" }
@@ -251,6 +291,10 @@ fn arrival_detail_page(
                     div class="info-item" {
                         span class="info-label" { "备注" }
                         span class="info-value" { (if notice.remark.is_empty() { "—" } else { &notice.remark }) }
+                    }
+                    div class="info-item" {
+                        span class="info-label" { "操作员" }
+                        span class="info-value" { (operator_name) }
                     }
                 }
             }
@@ -273,10 +317,10 @@ fn arrival_detail_page(
                             @for (i, item) in items.iter().enumerate() {
                                 tr {
                                     td class="mono" { (i + 1) }
-                                    td { "产品 #" (item.product_id) }
-                                    td class="num-right" { (item.declared_qty) }
-                                    td class="num-right" { (item.received_qty) }
-                                    td class="num-right" { (item.accepted_qty) }
+                                    td { (product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
+                                    td class="num-right" { (format!("{:.2}", item.declared_qty)) }
+                                    td class="num-right" { (format!("{:.2}", item.received_qty)) }
+                                    td class="num-right" { (format!("{:.2}", item.accepted_qty)) }
                                     td class="mono" { (item.batch_no.as_deref().unwrap_or("—")) }
                                 }
                             }

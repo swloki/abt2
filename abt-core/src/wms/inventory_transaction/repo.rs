@@ -103,6 +103,11 @@ impl InventoryTransactionRepo {
         if filter.warehouse_id.is_some() { param_idx += 1; conditions.push(format!("warehouse_id = ${param_idx}")); }
         if filter.source_type.is_some() { param_idx += 1; conditions.push(format!("source_type = ${param_idx}")); }
         if filter.source_id.is_some() { param_idx += 1; conditions.push(format!("source_id = ${param_idx}")); }
+        if filter.doc_number.is_some() { param_idx += 1; conditions.push(format!("doc_number ILIKE ${param_idx}")); }
+        if filter.product_code.is_some() {
+            param_idx += 1;
+            conditions.push(format!("product_id IN (SELECT product_id FROM products WHERE product_code ILIKE ${param_idx})"));
+        }
 
         let where_sql = if conditions.is_empty() { "1=1".to_string() } else { conditions.join(" AND ") };
         let limit_idx = param_idx + 1;
@@ -123,6 +128,8 @@ impl InventoryTransactionRepo {
         if let Some(v) = filter.warehouse_id { count_q = count_q.bind(v); }
         if let Some(ref v) = filter.source_type { count_q = count_q.bind(v); }
         if let Some(v) = filter.source_id { count_q = count_q.bind(v); }
+        if let Some(ref v) = filter.doc_number { count_q = count_q.bind(format!("%{v}%")); }
+        if let Some(ref v) = filter.product_code { count_q = count_q.bind(format!("%{v}%")); }
 
         let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
         if let Some(v) = filter.transaction_type { data_q = data_q.bind(v); }
@@ -130,6 +137,8 @@ impl InventoryTransactionRepo {
         if let Some(v) = filter.warehouse_id { data_q = data_q.bind(v); }
         if let Some(ref v) = filter.source_type { data_q = data_q.bind(v); }
         if let Some(v) = filter.source_id { data_q = data_q.bind(v); }
+        if let Some(ref v) = filter.doc_number { data_q = data_q.bind(format!("%{v}%")); }
+        if let Some(ref v) = filter.product_code { data_q = data_q.bind(format!("%{v}%")); }
         data_q = data_q.bind(page_size as i64).bind(offset as i64);
 
         let total: i64 = count_q.fetch_one(&mut *executor).await?;

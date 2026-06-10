@@ -360,7 +360,7 @@ fn item_row(
     let product_code = codes.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let spec = specs.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let unit = units.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
-    let min_qty = item.min_order_qty.map(|q| q.to_string()).unwrap_or_else(|| "—".into());
+    let min_qty = item.min_order_qty.map(|q| format!("{:.2}", q)).unwrap_or_else(|| "—".into());
     let lead_time = item.lead_time_days.map(|d| d.to_string()).unwrap_or_else(|| "—".into());
     let preferred = if item.is_preferred { "✓" } else { "—" };
 

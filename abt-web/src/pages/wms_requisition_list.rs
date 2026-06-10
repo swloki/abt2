@@ -40,6 +40,7 @@ pub struct RequisitionQueryParams {
 
 fn build_filter(params: &RequisitionQueryParams) -> RequisitionFilter {
     RequisitionFilter {
+        doc_number: params.doc_number.clone(),
         status: params.status.and_then(RequisitionStatus::from_i16),
         work_order_id: None,
         warehouse_id: params.warehouse_id,
@@ -231,15 +232,28 @@ fn requisition_table_fragment(
                     input class="search-input" type="text" name="doc_number"
                         style="width:180px"
                         placeholder="单据编号"
-                        value=(params.doc_number.as_deref().unwrap_or(""));
+                        value=(params.doc_number.as_deref().unwrap_or(""))
+                        hx-get=(RequisitionTablePath::PATH)
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#requisition-data-card"
+                        hx-swap="outerHTML";
                 }
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="work_order"
                         placeholder="关联工单"
-                        value=(params.work_order.as_deref().unwrap_or(""));
+                        value=(params.work_order.as_deref().unwrap_or(""))
+                        hx-get=(RequisitionTablePath::PATH)
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#requisition-data-card"
+                        hx-swap="outerHTML";
                 }
-                select class="filter-select" name="warehouse_id" {
+                select class="filter-select" name="warehouse_id"
+                    hx-get=(RequisitionTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="#requisition-data-card"
+                    hx-swap="outerHTML"
+                    hx-include=".filter-bar input, .filter-bar select" {
                     option value="" { "全部仓库" }
                     @for w in warehouses {
                         option value=(w.id) selected[selected_warehouse == w.id.to_string()] { (w.name) }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use axum::response::Html;
 use maud::{html, Markup};
 
@@ -9,7 +11,26 @@ use crate::layout::page::admin_page;
 
 use abt_core::wms::enums::{ConversionDir, ConversionStatus};
 use abt_core::wms::form_conversion::{ConversionItem, FormConversionService};
+use abt_core::master_data::product::ProductService;
+use abt_core::wms::warehouse::WarehouseService;
+use abt_core::shared::identity::UserService;
 use crate::components::icon;
+
+// ── Resolved Product Info ──
+
+struct ProductInfo {
+    codes: HashMap<i64, String>,
+    names: HashMap<i64, String>,
+    specs: HashMap<i64, String>,
+    units: HashMap<i64, String>,
+}
+
+impl ProductInfo {
+    fn code(&self, id: &i64) -> &str { self.codes.get(id).map(|s| s.as_str()).unwrap_or("—") }
+    fn name(&self, id: &i64) -> &str { self.names.get(id).map(|s| s.as_str()).unwrap_or("—") }
+    fn spec(&self, id: &i64) -> &str { self.specs.get(id).map(|s| s.as_str()).unwrap_or("—") }
+    fn unit(&self, id: &i64) -> &str { self.units.get(id).map(|s| s.as_str()).unwrap_or("—") }
+}
 
 // ── Form Data ──
 
@@ -32,8 +53,44 @@ pub async fn get_conversion_detail(
     let conversion = svc.get(&service_ctx, &mut conn, path.id).await?;
     let items = svc.get_items(&service_ctx, &mut conn, path.id).await?;
 
+    // Resolve warehouse name
+    let wh_name = state.warehouse_service()
+        .get(&service_ctx, &mut conn, conversion.warehouse_id)
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+
+    // Resolve operator name
+    let operator_name = state.user_service()
+        .get_user(&service_ctx, &mut conn, conversion.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+
+    // Resolve product names for all items
+    let product_svc = state.product_service();
+    let mut product_names: HashMap<i64, String> = HashMap::new();
+    let mut product_specs: HashMap<i64, String> = HashMap::new();
+    let mut product_units: HashMap<i64, String> = HashMap::new();
+    let mut product_codes: HashMap<i64, String> = HashMap::new();
+    for item in &items {
+        if product_names.contains_key(&item.product_id) {
+            continue;
+        }
+        if let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.product_id).await {
+            product_codes.insert(item.product_id, p.product_code.clone());
+            product_names.insert(item.product_id, p.pdt_name.clone());
+            product_specs.insert(item.product_id, p.meta.specification.clone());
+            product_units.insert(item.product_id, p.unit.clone());
+        }
+    }
+
     let detail_path = ConversionDetailPath { id: path.id }.to_string();
-    let content = conversion_detail_page(&conversion, &items, &detail_path);
+    let product_info = ProductInfo { codes: product_codes, names: product_names, specs: product_specs, units: product_units };
+    let content = conversion_detail_page(
+        &conversion, &items, &detail_path,
+        &wh_name, &operator_name, &product_info,
+    );
     let page_html = admin_page(
         is_htmx,
         "形态转换详情",
@@ -78,6 +135,9 @@ fn conversion_detail_page(
     conversion: &abt_core::wms::form_conversion::FormConversion,
     items: &[ConversionItem],
     detail_path: &str,
+    wh_name: &str,
+    operator_name: &str,
+    product_info: &ProductInfo,
 ) -> Markup {
     let (status_label, status_class) = match conversion.status {
         ConversionStatus::Draft => ("草稿", "status-draft"),
@@ -120,7 +180,7 @@ fn conversion_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "转换仓库" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (wh_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "转换日期" }
@@ -128,16 +188,16 @@ fn conversion_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "操作员" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (operator_name) }
                     }
                 }
             }
 
             // ── Consume Items ──
             div class="info-card" {
-                div style="display:inline-flex;align-items:center;gap:var(--space-2);font-size:var(--text-base);font-weight:600;color:var(--fg);margin-bottom:var(--space-4)" {
+                div class="info-card-title" {
                     "消耗物料 "
-                    span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:12px;font-weight:600;background:#fff2f0;color:var(--danger)" { "消耗" }
+                    span class="status-pill status-cancelled" { "消耗" }
                 }
                 table class="data-table" {
                     thead {
@@ -156,12 +216,12 @@ fn conversion_detail_page(
                         @for (i, item) in consume_items.iter().enumerate() {
                             tr {
                                 td class="mono" { (i + 1) }
-                                td class="mono" { "—" }
-                                td { "—" }
-                                td { "—" }
-                                td { "—" }
-                                td class="num-right" { (item.quantity.to_string()) }
-                                td class="num-right" { (item.unit_cost.to_string()) }
+                                td class="mono" { (product_info.code(&item.product_id)) }
+                                td { (product_info.name(&item.product_id)) }
+                                td { (product_info.spec(&item.product_id)) }
+                                td { (product_info.unit(&item.product_id)) }
+                                td class="num-right" { (format!("{:.2}", item.quantity)) }
+                                td class="num-right" { (format!("{:.2}", item.unit_cost)) }
                                 td class="mono" {
                                     @if let Some(ref batch) = item.batch_no {
                                         (batch)
@@ -173,7 +233,7 @@ fn conversion_detail_page(
                         }
                         @if consume_items.is_empty() {
                             tr {
-                                td colspan="8" style="text-align:center;padding:var(--space-6);color:var(--muted)" {
+                                td colspan="8" class="empty-cell" {
                                     "暂无消耗物料"
                                 }
                             }
@@ -184,9 +244,9 @@ fn conversion_detail_page(
 
             // ── Produce Items ──
             div class="info-card" {
-                div style="display:inline-flex;align-items:center;gap:var(--space-2);font-size:var(--text-base);font-weight:600;color:var(--fg);margin-bottom:var(--space-4)" {
+                div class="info-card-title" {
                     "产出物料 "
-                    span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:12px;font-weight:600;background:#f0fff0;color:var(--success)" { "产出" }
+                    span class="status-pill status-completed" { "产出" }
                 }
                 table class="data-table" {
                     thead {
@@ -205,12 +265,12 @@ fn conversion_detail_page(
                         @for (i, item) in produce_items.iter().enumerate() {
                             tr {
                                 td class="mono" { (i + 1) }
-                                td class="mono" { "—" }
-                                td { "—" }
-                                td { "—" }
-                                td { "—" }
-                                td class="num-right" { (item.quantity.to_string()) }
-                                td class="num-right" { (item.unit_cost.to_string()) }
+                                td class="mono" { (product_info.code(&item.product_id)) }
+                                td { (product_info.name(&item.product_id)) }
+                                td { (product_info.spec(&item.product_id)) }
+                                td { (product_info.unit(&item.product_id)) }
+                                td class="num-right" { (format!("{:.2}", item.quantity)) }
+                                td class="num-right" { (format!("{:.2}", item.unit_cost)) }
                                 td class="mono" {
                                     @if let Some(ref batch) = item.batch_no {
                                         (batch)
@@ -222,7 +282,7 @@ fn conversion_detail_page(
                         }
                         @if produce_items.is_empty() {
                             tr {
-                                td colspan="8" style="text-align:center;padding:var(--space-6);color:var(--muted)" {
+                                td colspan="8" class="empty-cell" {
                                     "暂无产出物料"
                                 }
                             }

@@ -7,6 +7,7 @@ use serde::Deserialize;
 use abt_core::wms::warehouse::model::*;
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::enums::{WarehouseStatus, WarehouseType};
+use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -54,7 +55,28 @@ pub async fn get_warehouse_list(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    let content = warehouse_list_page(&result, &params);
+    // 解析管理员名称
+    let manager_ids: Vec<i64> = result.items.iter()
+        .filter_map(|w| w.manager_id)
+        .collect();
+    let manager_map = if manager_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        state.user_service()
+            .get_users_by_ids(&service_ctx, &mut conn, manager_ids)
+            .await
+            .map(|users| {
+                users.into_iter()
+                    .filter_map(|u| {
+                        let name = u.user.display_name.unwrap_or(u.user.username);
+                        Some((u.user.user_id, name))
+                    })
+                    .collect::<std::collections::HashMap<i64, String>>()
+            })
+            .unwrap_or_default()
+    };
+
+    let content = warehouse_list_page(&result, &params, &manager_map);
     let page_html = admin_page(
         is_htmx,
         "仓库管理",
@@ -82,7 +104,28 @@ pub async fn get_warehouse_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    Ok(Html(warehouse_data_card(&result, &build_query_string(&params)).into_string()))
+    // 解析管理员名称
+    let manager_ids: Vec<i64> = result.items.iter()
+        .filter_map(|w| w.manager_id)
+        .collect();
+    let manager_map = if manager_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        state.user_service()
+            .get_users_by_ids(&service_ctx, &mut conn, manager_ids)
+            .await
+            .map(|users| {
+                users.into_iter()
+                    .filter_map(|u| {
+                        let name = u.user.display_name.unwrap_or(u.user.username);
+                        Some((u.user.user_id, name))
+                    })
+                    .collect::<std::collections::HashMap<i64, String>>()
+            })
+            .unwrap_or_default()
+    };
+
+    Ok(Html(warehouse_table_fragment(&result, &params, &manager_map).into_string()))
 }
 
 // ── Helpers ──
@@ -130,6 +173,7 @@ fn warehouse_status_class(s: &WarehouseStatus) -> &'static str {
 fn warehouse_list_page(
     result: &abt_core::shared::types::PaginatedResult<Warehouse>,
     params: &WarehouseQueryParams,
+    manager_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
     html! {
         div {
@@ -145,7 +189,7 @@ fn warehouse_list_page(
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (warehouse_table_fragment(result, params))
+            (warehouse_table_fragment(result, params, manager_map))
         }
     }
 }
@@ -153,6 +197,7 @@ fn warehouse_list_page(
 fn warehouse_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<Warehouse>,
     params: &WarehouseQueryParams,
+    manager_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -199,7 +244,7 @@ fn warehouse_table_fragment(
                 }
             }
 
-            (warehouse_data_card(result, &query))
+            (warehouse_data_card(result, &query, manager_map))
         }
     }
 }
@@ -207,6 +252,7 @@ fn warehouse_table_fragment(
 fn warehouse_data_card(
     result: &abt_core::shared::types::PaginatedResult<Warehouse>,
     query: &str,
+    manager_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
     html! {
         div id="warehouse-data-card" class="data-card" {
@@ -227,7 +273,7 @@ fn warehouse_data_card(
                     }
                     tbody {
                         @for w in &result.items {
-                            (warehouse_row(w))
+                            (warehouse_row(w, manager_map))
                         }
                         @if result.items.is_empty() {
                             tr {
@@ -244,7 +290,7 @@ fn warehouse_data_card(
     }
 }
 
-fn warehouse_row(w: &Warehouse) -> Markup {
+fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, String>) -> Markup {
     let detail_path = WarehouseDetailPath { id: w.id }.to_string();
     let edit_path = WarehouseEditPath { id: w.id }.to_string();
     let delete_path = WarehouseDeletePath { id: w.id };
@@ -273,13 +319,29 @@ fn warehouse_row(w: &Warehouse) -> Markup {
                 }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
-                span style="color:var(--muted)" { "—" }
+                @if let Some(mid) = w.manager_id {
+                    @if let Some(name) = manager_map.get(&mid) {
+                        (name)
+                    } @else {
+                        span style="color:var(--muted)" { "—" }
+                    }
+                } @else {
+                    span style="color:var(--muted)" { "—" }
+                }
             }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
-                span style="color:var(--muted)" { "—" }
+                @if w.zone_count > 0 {
+                    (w.zone_count)
+                } @else {
+                    span style="color:var(--muted)" { "0" }
+                }
             }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
-                span style="color:var(--muted)" { "—" }
+                @if w.bin_count > 0 {
+                    (w.bin_count)
+                } @else {
+                    span style="color:var(--muted)" { "0" }
+                }
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {

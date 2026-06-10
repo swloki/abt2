@@ -360,7 +360,7 @@ All shared enums are `#[repr(i16)]` stored as PostgreSQL `smallint`. They implem
 - **Session storage**: File-based via `tower-sessions` + `file-store`
 - **Linting**: `cargo clippy` — primary verification
 - **Environment** (`.env` file): `DATABASE_URL` (required, points to `abt_v2`), `JWT_SECRET` (required), `WEB_PORT` (default `3000`), `WEB_HOST` (default `0.0.0.0`), `MAX_CONNECTION` (default `20`)
-- **Local auth**: username `admin`, password `123456`
+- **Local auth**: username `admin`, password `admin123`
 
 ## Testing & QA
 

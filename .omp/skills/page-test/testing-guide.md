@@ -3,11 +3,11 @@
 ## 整体流程：测完→收集→统一修→回归验证
 
 ```
-阶段 A：并行测试（subagent 各自独立 session）
-  每个页面/表单分配一个 subagent → 用 --session 隔离 → 并行执行 → 收集问题
+阶段 A：逐页串行测试
+  一个页面测完再测下一个 → 用默认 session → 发现问题记录到临时文档
 
 阶段 B：统一修复
-  所有 subagent 完成 → 读取临时文档 → 按优先级批量修复 → 一次编译重启
+  所有页面测完 → 读取临时文档 → 按优先级批量修复 → 一次编译重启
 
 阶段 C：回归验证
   逐页验证所有修复项 → 确认通过 → 更新测试报告
@@ -15,102 +15,30 @@
 
 ---
 
-## 并行测试（阶段 A）
-
-agent-browser 支持 `--session <name>` 创建独立的浏览器实例，每个 subagent 使用不同的 session 可以并行测试。
+## 阶段 A：逐页串行测试收集问题
 
 ### 登录准备
 
-每个新 session 需要单独登录。启动 subagent 前先准备好已登录的 session：
+开始测试前先登录，使用默认 session：
 
 ```bash
-# 为每个 subagent 预登录
-for s in s1 s2 s3 s4 s5; do
-  agent-browser --session $s open http://localhost:8000/login
-  agent-browser --session $s snapshot -i
-  agent-browser --session $s fill @e9 "admin"
-  agent-browser --session $s fill @e10 "admin123"
-  agent-browser --session $s click @e8
-  sleep 2
-done
+agent-browser open http://localhost:8000/login
+agent-browser snapshot -i
+agent-browser fill @e1 "admin"
+agent-browser fill @e2 "admin123"
+agent-browser click @e3
+sleep 2
 ```
-
-或者使用 `--profile` 复用已有登录状态避免重复登录：
-
-```bash
-# 复用已有 session 的登录状态
-agent-browser --session s1 state save /tmp/abt-auth.json
-for s in s2 s3 s4 s5; do
-  agent-browser --session $s state load /tmp/abt-auth.json
-done
-```
-
-### Subagent 并行调度
-
-主 agent 为每个页面/表单分配一个 subagent，每个 subagent 使用独立的 `--session`：
-
-```
-subagent 1 (--session s1): 测试销售订单新建
-subagent 2 (--session s2): 测试发货申请新建
-subagent 3 (--session s3): 测试退货单新建
-subagent 4 (--session s4): 测试对账单新建
-subagent 5 (--session s5): 测试列表页（报价单/订单/发货/退货/对账）
-```
-
-每个 subagent 的 prompt 格式：
-
-```
-你是 ABT 页面测试 agent。使用 --session <name> 的独立浏览器实例。
-
-任务：测试 <页面名称> (<URL>)
-测试层级：<Smoke/Full>
-
-测试项：
-1. 页面加载 — agent-browser --session <name> open <url>
-2. <具体测试项...>
-...
-
-发现问题记录到独立文件 docs/plans/<date>-<module>-issues-<session_name>.md
-格式：| # | 页面 | 测试项 | 问题描述 | 涉及文件 | 优先级 | 状态 |
-
-禁止写入其他 session 的问题文件。
-所有 agent-browser 命令必须带 --session <name>。
-```
-
-### 问题汇总
-
-**阶段 A 结束后，主 agent 合并所有 subagent 的独立问题文件：**
-
-```bash
-# 读取所有 issues-s*.md，合并去重，生成最终 issues.md
-# 主 agent 自动执行，无需手动操作
-```
-
-### 关键注意事项
-
-- **每个 subagent 所有 agent-browser 命令必须带 `--session <name>`**，否则会操作错误的浏览器实例
-- **snapshot 后再 fill/click**：不同 session 的 element ref 不通用
-- **每个 subagent 只写自己的独立问题文件**：`issues-<session_name>.md`，禁止并发写同一个文件
-- **不要并行超过 5 个 session**：Chrome 实例消耗资源，太多会卡顿
 
 ### 环境重置
 
-每个 session 登录后、测试前，清理可能影响测试的缓存状态：
+登录后、测试前，清理可能影响测试的缓存状态：
 
 ```bash
-agent-browser --session <name> eval "
+agent-browser eval "
   localStorage.clear();
   sessionStorage.clear();
 "
-```
-
-### 串行回退
-
-如果不适合并行（只有 1-2 个页面、测试依赖数据状态），可以回退到串行模式，用默认 session 逐页测试。
-
----
-
-## 阶段 A：逐页测试收集问题
 
 ### 对每个页面：先计划后执行
 

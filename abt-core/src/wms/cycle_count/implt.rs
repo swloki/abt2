@@ -4,6 +4,7 @@ use sqlx::postgres::PgPool;
 
 use super::model::{
     CountCycleCountReq, CreateCycleCountReq, CycleCount, CycleCountFilter,
+    CycleCountItem,
 };
 use super::repo::CycleCountRepo;
 use super::service::CycleCountService;
@@ -73,6 +74,16 @@ impl CycleCountService for CycleCountServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("盘点单"))
+    }
+
+    async fn get_items(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        count_id: i64,
+    ) -> Result<Vec<CycleCountItem>> {
+        CycleCountRepo::get_items(&mut *db, count_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
     }
 
     async fn list(

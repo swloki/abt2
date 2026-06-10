@@ -9,6 +9,9 @@ use crate::layout::page::admin_page;
 
 use abt_core::wms::enums::TransferStatus;
 use abt_core::wms::transfer::{TransferItem, TransferService};
+use abt_core::master_data::product::ProductService;
+use abt_core::wms::warehouse::WarehouseService;
+use abt_core::shared::identity::UserService;
 use crate::components::icon;
 
 // ── Form Data ──
@@ -32,8 +35,45 @@ pub async fn get_transfer_detail(
     let transfer = svc.get(&service_ctx, &mut conn, path.id).await?;
     let items = svc.get_items(&service_ctx, &mut conn, path.id).await?;
 
+    let from_wh_name = state.warehouse_service()
+        .get(&service_ctx, &mut conn, transfer.from_warehouse_id)
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+
+    let to_wh_name = state.warehouse_service()
+        .get(&service_ctx, &mut conn, transfer.to_warehouse_id)
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+
+    let operator_name = state.user_service()
+        .get_user(&service_ctx, &mut conn, transfer.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+
+    let product_svc = state.product_service();
+    let mut product_codes: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    let mut product_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    let mut product_specs: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    let mut product_units: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for item in &items {
+        if !product_names.contains_key(&item.product_id) {
+            if let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.product_id).await {
+                product_codes.insert(item.product_id, p.product_code.clone());
+                product_names.insert(item.product_id, p.pdt_name.clone());
+                let spec = p.meta.specification.trim().to_string();
+                if !spec.is_empty() {
+                    product_specs.insert(item.product_id, spec);
+                }
+                product_units.insert(item.product_id, p.unit.clone());
+            }
+        }
+    }
+
     let detail_path = TransferDetailPath { id: path.id }.to_string();
-    let content = transfer_detail_page(&transfer, &items, &detail_path);
+    let content = transfer_detail_page(&transfer, &items, &detail_path, &from_wh_name, &to_wh_name, &operator_name, &product_codes, &product_names, &product_specs, &product_units);
     let page_html = admin_page(
         is_htmx,
         "调拨单详情",
@@ -79,6 +119,13 @@ fn transfer_detail_page(
     transfer: &abt_core::wms::transfer::InventoryTransfer,
     items: &[TransferItem],
     detail_path: &str,
+    from_wh_name: &str,
+    to_wh_name: &str,
+    operator_name: &str,
+    product_codes: &std::collections::HashMap<i64, String>,
+    product_names: &std::collections::HashMap<i64, String>,
+    product_specs: &std::collections::HashMap<i64, String>,
+    product_units: &std::collections::HashMap<i64, String>,
 ) -> Markup {
     let (status_label, status_class) = match transfer.status {
         TransferStatus::Draft => ("草稿", "status-draft"),
@@ -119,11 +166,11 @@ fn transfer_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "调出仓库" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (from_wh_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "调入仓库" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (to_wh_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "调拨日期" }
@@ -131,7 +178,7 @@ fn transfer_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "操作员" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (operator_name) }
                     }
                 }
             }
@@ -157,11 +204,11 @@ fn transfer_detail_page(
                         @for (i, item) in items.iter().enumerate() {
                             tr {
                                 td class="mono" { (i + 1) }
-                                td class="mono" { "—" }
-                                td { "—" }
-                                td { "—" }
-                                td { "—" }
-                                td class="num-right" { (item.quantity.to_string()) }
+                                td class="mono" { (product_codes.get(&item.product_id).map(|c| c.as_str()).unwrap_or("—")) }
+                                td { (product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
+                                td { (product_specs.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                td { (product_units.get(&item.product_id).map(|u| u.as_str()).unwrap_or("—")) }
+                                td class="num-right" { (format!("{:.2}", item.quantity)) }
                                 td class="mono" {
                                     @if let Some(ref batch) = item.batch_no {
                                         (batch)

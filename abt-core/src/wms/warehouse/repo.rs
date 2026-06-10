@@ -111,10 +111,13 @@ impl WarehouseRepo {
 
         let count_sql = format!("SELECT COUNT(*) as total FROM warehouses WHERE {where_sql}");
         let data_sql = format!(
-            "SELECT id, code, name, warehouse_type, status, address, manager_id, \
-             is_virtual, remark, operator_id, created_at, updated_at, deleted_at \
-             FROM warehouses WHERE {where_sql} \
-             ORDER BY created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
+            "SELECT w.id, w.code, w.name, w.warehouse_type, w.status, w.address, w.manager_id, \
+             w.is_virtual, w.remark, w.operator_id, w.created_at, w.updated_at, w.deleted_at, \
+             (SELECT COUNT(*) FROM zones WHERE warehouse_id = w.id AND deleted_at IS NULL) AS zone_count, \
+             (SELECT COUNT(*) FROM bins b JOIN zones z ON b.zone_id = z.id \
+              WHERE z.warehouse_id = w.id AND b.deleted_at IS NULL AND z.deleted_at IS NULL) AS bin_count \
+             FROM warehouses w WHERE {where_sql} \
+             ORDER BY w.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
         let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
@@ -462,7 +465,7 @@ impl WarehouseRepo {
         let offset = (page.saturating_sub(1)) * page_size;
 
         let mut where_clauses = vec!["zone_id = $1".to_string(), "deleted_at IS NULL".to_string()];
-        let mut param_idx = 0u32;
+        let mut param_idx = 1u32; // $1 is zone_id, start counting additional params from $2
 
         if filter.status.is_some() {
             param_idx += 1;

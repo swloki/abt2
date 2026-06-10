@@ -17,6 +17,9 @@ pub struct CycleCount {
     pub operator_id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// 列表查询时通过子查询填充的物料项数
+    #[sqlx(default)]
+    pub item_count: Option<i64>,
 }
 
 /// 盘点单明细实体

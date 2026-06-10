@@ -7,7 +7,7 @@ use abt_core::wms::warehouse::model::*;
 use abt_core::wms::warehouse::WarehouseService;
 
 use crate::components::icon;
-use crate::errors::Result;
+use crate::errors::{Result, error_page};
 use crate::layout::page::admin_page;
 use crate::pages::wms_bin_list::{bin_status_class, bin_status_label};
 use crate::routes::wms_bin::{BinDetailPath, BinListPath};
@@ -26,7 +26,26 @@ pub async fn get_bin_detail(
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.warehouse_service();
 
-    let bww = svc.get_bin_with_warehouse(&service_ctx, &mut conn, path.id).await?;
+    let bww = match svc.get_bin_with_warehouse(&service_ctx, &mut conn, path.id).await {
+        Ok(bww) => bww,
+        Err(e) => {
+            if matches!(e, abt_core::shared::types::DomainError::NotFound(_)) {
+                let content = error_page("储位未找到", &format!("储位 ID {} 不存在或已被删除", path.id));
+                let page_html = admin_page(
+                    is_htmx,
+                    "储位未找到",
+                    &claims,
+                    "inventory",
+                    &BinListPath.to_string(),
+                    "库存管理",
+                    Some("储位未找到"),
+                    content,
+                );
+                return Ok(Html(page_html.into_string()));
+            }
+            return Err(e.into());
+        }
+    };
     let zones = svc.list_zones(&service_ctx, &mut conn, bww.warehouse_id).await?;
     let zone = zones.iter().find(|z| z.id == bww.bin.zone_id);
     let stats = svc.get_bin_inventory_stats(&service_ctx, &mut conn, path.id).await.ok();
@@ -103,7 +122,7 @@ fn bin_detail_page(
     let (used_qty, capacity_pct) = match stats {
         Some(s) => {
             let pct = capacity_percent(s, bin.capacity_limit);
-            (format!("{}", s.total_quantity), pct)
+            (format!("{:.2}", s.total_quantity), pct)
         }
         None => ("—".to_string(), None),
     };
@@ -170,7 +189,7 @@ fn bin_detail_page(
                             span class="info-label" { "容量上限" }
                             span class="info-value" style="font-family:var(--font-mono)" {
                                 @if let Some(cap) = &bin.capacity_limit {
-                                    (cap)
+                                    (format!("{:.2}", cap))
                                 } @else {
                                     "—"
                                 }

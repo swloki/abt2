@@ -293,19 +293,19 @@ fn reconciliation_detail_page(
                 div class="data-card stat-mini" {
                     div class="info-label" { "总金额" }
                     div class="mono stat-mini-value" {
-                        "¥ " (format!("{:.2}", rec.total_amount))
+                        (crate::utils::fmt_amount(rec.total_amount))
                     }
                 }
                 div class="data-card stat-mini" {
                     div class="info-label" { "确认金额" }
                     div class="mono stat-mini-value text-success" {
-                        "¥ " (format!("{:.2}", rec.confirmed_amount))
+                        (crate::utils::fmt_amount(rec.confirmed_amount))
                     }
                 }
                 div class="data-card stat-mini" {
                     div class="info-label" { "差额" }
                     div class="mono stat-mini-value text-danger" {
-                        "¥ " (format!("{:.2}", rec.difference))
+                        (crate::utils::fmt_amount(rec.difference))
                     }
                 }
             }
@@ -370,19 +370,19 @@ fn reconciliation_detail_page(
                 div class="amount-row" {
                     span class="amount-label" { "确认金额" }
                     span class="amount-value text-success" {
-                        "¥ " (format!("{:.2}", rec.confirmed_amount))
+                        (crate::utils::fmt_amount(rec.confirmed_amount))
                     }
                 }
                 div class="amount-row" {
                     span class="amount-label" { "差异金额" }
                     span class="amount-value" {
-                        "¥ " (format!("{:.2}", rec.difference))
+                        (crate::utils::fmt_amount(rec.difference))
                     }
                 }
                 div class="amount-row" {
                     span class="amount-label" { "对账净额" }
                     span class="amount-value accent" {
-                        "¥ " (format!("{:.2}", rec.total_amount))
+                        (crate::utils::fmt_amount(rec.total_amount))
                     }
                 }
             }

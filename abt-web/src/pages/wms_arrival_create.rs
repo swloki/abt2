@@ -1,6 +1,7 @@
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
+use chrono::Local;
 use maud::{html, Markup};
 use serde::Deserialize;
 use rust_decimal::Decimal;
@@ -261,7 +262,7 @@ fn arrival_create_page(
                         }
                         div class="form-group" {
                             label class="form-label" { "到货日期 " span class="required" { "*" } }
-                            input class="form-input" type="date" name="arrival_date" required;
+                            input class="form-input" type="date" name="arrival_date" required value=(Local::now().format("%Y-%m-%d"));
                         }
                         div class="form-group" {
                             label class="form-label" { "送货单号" }

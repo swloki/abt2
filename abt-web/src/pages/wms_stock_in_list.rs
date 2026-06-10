@@ -136,6 +136,8 @@ pub async fn get_stock_in_list(
         warehouse_id: params.warehouse_id,
         source_type: None,
         source_id: None,
+        doc_number: params.doc_number.clone(),
+        product_code: params.product_code.clone(),
     };
     let page_num = params.page.unwrap_or(1);
     let result = svc.query(&service_ctx, &mut conn, filter, page_num, 20).await?;
@@ -169,6 +171,8 @@ pub async fn get_stock_in_table(
         warehouse_id: params.warehouse_id,
         source_type: None,
         source_id: None,
+        doc_number: params.doc_number.clone(),
+        product_code: params.product_code.clone(),
     };
     let page_num = params.page.unwrap_or(1);
     let result = svc.query(&service_ctx, &mut conn, filter, page_num, 20).await?;
@@ -376,8 +380,8 @@ fn stock_in_data_card(
                                 td class="mono" style="color:var(--fg-2);font-size:12px" { (format!("{}-{}", item.source_type, item.source_id)) }
                                 td { (wh_name) }
                                 td { "1 种" }
-                                td class="num-right mono" { (item.quantity) }
-                                td class="num-right mono" { (item.unit_cost.map(|c| format!("¥{c}")).unwrap_or_else(|| "—".into())) }
+                                td class="num-right mono" { (format!("{:.2}", item.quantity)) }
+                                td class="num-right mono" { (item.unit_cost.map(|c| format!("¥{:.2}", c)).unwrap_or_else(|| "—".into())) }
                                 td {
                                     span class="status-pill status-completed" { "已入库" }
                                 }

@@ -48,4 +48,6 @@ pub struct TransactionFilter {
     pub warehouse_id: Option<i64>,
     pub source_type: Option<String>,
     pub source_id: Option<i64>,
+    pub doc_number: Option<String>,
+    pub product_code: Option<String>,
 }

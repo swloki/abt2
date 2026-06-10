@@ -25,7 +25,8 @@ use abt_macros::require_permission;
 pub struct ZoneForm {
     pub code: String,
     pub name: String,
-    pub zone_type: i16,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
+    pub zone_type: Option<i16>,
     #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub sort_order: Option<i32>,
     pub remark: Option<String>,
@@ -159,8 +160,9 @@ pub async fn create_zone(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.warehouse_service();
 
-    let zone_type = ZoneType::from_i16(form.zone_type)
-        .ok_or_else(|| abt_core::shared::types::DomainError::validation("无效的库区类型"))?;
+    let zone_type = form.zone_type
+        .and_then(ZoneType::from_i16)
+        .ok_or_else(|| abt_core::shared::types::DomainError::validation("请选择库区类型"))?;
 
     let req = CreateZoneReq {
         code: form.code,
@@ -201,8 +203,9 @@ pub async fn update_zone(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.warehouse_service();
 
-    let zone_type = ZoneType::from_i16(form.zone_type)
-        .ok_or_else(|| abt_core::shared::types::DomainError::validation("无效的库区类型"))?;
+    let zone_type = form.zone_type
+        .and_then(ZoneType::from_i16)
+        .ok_or_else(|| abt_core::shared::types::DomainError::validation("请选择库区类型"))?;
 
     let req = UpdateZoneReq {
         name: Some(form.name),
@@ -676,7 +679,7 @@ fn bin_row(b: &Bin) -> Markup {
             td class="mono" { (row_col) }
             td class="num-right" {
                 @if let Some(cap) = b.capacity_limit {
-                    (cap)
+                    (format!("{:.2}", cap))
                 } @else {
                     "—"
                 }

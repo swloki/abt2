@@ -7,6 +7,9 @@ use abt_core::wms::enums::RequisitionStatus;
 use abt_core::wms::material_requisition::model::{IssueItemReq, IssueMaterialReq, MaterialRequisition};
 use abt_core::wms::material_requisition::repo::MaterialRequisitionRepo;
 use abt_core::wms::material_requisition::MaterialRequisitionService;
+use abt_core::master_data::product::ProductService;
+use abt_core::wms::warehouse::WarehouseService;
+use abt_core::shared::identity::UserService;
 
 use crate::components::icon;
 use crate::errors::Result;
@@ -73,13 +76,13 @@ fn workflow_steps(status: RequisitionStatus) -> Markup {
 
 // ── Variance Color ──
 
-fn variance_style(v: Decimal) -> (String, &'static str) {
+fn variance_color_class(v: Decimal) -> (String, &'static str) {
     if v == Decimal::ZERO {
-        ("0".into(), "color:var(--success)")
+        ("0".into(), "text-success")
     } else if v < Decimal::ZERO {
-        (v.to_string(), "color:var(--danger)")
+        (format!("{:.2}", v), "text-danger")
     } else {
-        (format!("+{v}"), "color:var(--warn)")
+        (format!("+{:.2}", v), "text-warn")
     }
 }
 
@@ -99,8 +102,30 @@ pub async fn get_requisition_detail(
         .await
         .map_err(|e| abt_core::shared::types::DomainError::Internal(e.into()))?;
 
+    let wh_name = state.warehouse_service()
+        .get(&service_ctx, &mut conn, requisition.warehouse_id)
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| "—".into());
+
+    let operator_name = state.user_service()
+        .get_user(&service_ctx, &mut conn, requisition.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+
+    let product_svc = state.product_service();
+    let mut product_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for item in &items {
+        if !product_names.contains_key(&item.product_id) {
+            if let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.product_id).await {
+                product_names.insert(item.product_id, format!("{} ({})", p.pdt_name, p.product_code));
+            }
+        }
+    }
+
     let detail_path = RequisitionDetailPath { id: path.id }.to_string();
-    let content = requisition_detail_page(&requisition, &items, &detail_path);
+    let content = requisition_detail_page(&requisition, &items, &detail_path, &wh_name, &operator_name, &product_names);
     let page_html = admin_page(
         is_htmx,
         &format!("{} - 领料单详情", requisition.doc_number),
@@ -163,6 +188,9 @@ fn requisition_detail_page(
     requisition: &MaterialRequisition,
     items: &[abt_core::wms::material_requisition::model::MaterialReqItem],
     detail_path: &str,
+    wh_name: &str,
+    operator_name: &str,
+    product_names: &std::collections::HashMap<i64, String>,
 ) -> Markup {
     let (status_text, status_class) = status_label(requisition.status);
 
@@ -201,7 +229,7 @@ fn requisition_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "领料仓库" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (wh_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "领料日期" }
@@ -209,7 +237,7 @@ fn requisition_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "操作员" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (operator_name) }
                     }
                 }
             }
@@ -230,14 +258,14 @@ fn requisition_detail_page(
                         }
                         tbody {
                             @for (i, item) in items.iter().enumerate() {
-                                @let (variance_text, variance_style) = variance_style(item.variance_qty);
+                                @let (variance_text, variance_class) = variance_color_class(item.variance_qty);
                                 tr {
                                     td class="mono" { (i + 1) }
-                                    td { "产品 #" (item.product_id) }
-                                    td class="num-right" { (item.requested_qty) }
-                                    td class="num-right" { (item.issued_qty) }
-                                    td class="num-right" style=(variance_style) { (variance_text) }
-                                    td { "—" }
+                                    td { (product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
+                                    td class="num-right" { (format!("{:.2}", item.requested_qty)) }
+                                    td class="num-right" { (format!("{:.2}", item.issued_qty)) }
+                                    td class=(format!("num-right {}", variance_class)) { (variance_text) }
+                                    td { (item.bin_id.map(|id| id.to_string()).unwrap_or_else(|| "—".into())) }
                                 }
                             }
                             @if items.is_empty() {

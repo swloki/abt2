@@ -222,6 +222,37 @@ fn avatar_gradient(ch: char) -> (String, String) {
     }
 }
 
+/// Build a depth-sorted list from flat roles: top-level roles first, then their children recursively.
+fn sort_roles_by_hierarchy<'a>(roles: &[&'a Role]) -> Vec<(&'a Role, usize)> {
+    // Collect top-level roles (no parent or parent not in current list)
+    let role_ids: std::collections::HashSet<i64> =
+        roles.iter().map(|r| r.role_id).collect();
+
+    let top_level: Vec<&'a Role> = roles
+        .iter()
+        .copied()
+        .filter(|r| r.parent_role_id.is_none_or(|pid| !role_ids.contains(&pid)))
+        .collect();
+
+    let mut result = Vec::with_capacity(roles.len());
+    for role in top_level {
+        collect_hierarchy(role, roles, 0, &mut result);
+    }
+    result
+}
+
+fn collect_hierarchy<'a>(
+    role: &'a Role,
+    all: &[&'a Role],
+    depth: usize,
+    result: &mut Vec<(&'a Role, usize)>,
+) {
+    result.push((role, depth));
+    for &child in all.iter().filter(|r| r.parent_role_id == Some(role.role_id)) {
+        collect_hierarchy(child, all, depth + 1, result);
+    }
+}
+
 // ── Components ──
 
 fn role_list_page(
@@ -335,8 +366,8 @@ fn role_table_fragment(
                             }
                         }
                         tbody {
-                            @for role in roles {
-                                (role_row(role, perm_counts, total_perms, user_map))
+                            @for (role, depth) in &sort_roles_by_hierarchy(roles) {
+                                (role_row(role, *depth, perm_counts, total_perms, user_map))
                             }
                             @if roles.is_empty() {
                                 tr {
@@ -362,6 +393,7 @@ fn role_table_fragment(
 
 fn role_row(
     role: &Role,
+    depth: usize,
     perm_counts: &HashMap<i64, usize>,
     total_perms: usize,
     user_map: &HashMap<i64, Vec<UserBrief>>,
@@ -382,9 +414,14 @@ fn role_row(
 
     html! {
         tr {
-            // Role Name
+            // Role Name (with hierarchy indentation)
             td {
-                a href=(detail_path) class="role-name-link" { strong { (role.role_name) } }
+                div style=(format!("padding-left:{}px", depth * 24)) {
+                    @if depth > 0 {
+                        span class="text-muted mr-1" { "└ " }
+                    }
+                    a href=(detail_path) class="role-name-link" { strong { (role.role_name) } }
+                }
             }
             // Role Code
             td class="mono text-xs" {

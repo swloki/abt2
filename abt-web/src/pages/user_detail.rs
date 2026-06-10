@@ -182,11 +182,17 @@ pub async fn post_change_password(
     } = ctx;
     let svc = state.user_service();
 
-    svc.change_password(
+    // Validate password confirmation
+    if form.new_password != form.confirm_password {
+        return Err(abt_core::shared::types::DomainError::validation(
+            "新密码与确认密码不匹配".to_string(),
+        ).into());
+    }
+
+    svc.admin_reset_password(
         &service_ctx,
         &mut conn,
         path.id,
-        &form.old_password,
         &form.new_password,
     )
     .await?;
@@ -209,8 +215,8 @@ pub(crate) struct DeptAssignForm {
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct ChangePasswordForm {
-    pub old_password: String,
     pub new_password: String,
+    pub confirm_password: String,
 }
 
 // ── Helpers ──
@@ -344,6 +350,7 @@ fn user_detail_page(
     let list_path = UserListPath.to_string();
     let role_assign_path = UserRoleAssignPath { id: user_id }.to_string();
     let dept_assign_path = UserDeptAssignPath { id: user_id }.to_string();
+    let password_path = UserChangePasswordPath { id: user_id }.to_string();
 
     let current_role_ids: Vec<i64> = user.roles.iter().map(|r| r.role_id).collect();
     let current_dept_ids: Vec<i64> = user_depts.iter().map(|d| d.department_id).collect();
@@ -396,10 +403,10 @@ fn user_detail_page(
                         (icon::edit_icon("w-3.5 h-3.5"))
                         " 编辑"
                     }
-                    button.btn.btn-default.btn-sm type="button"
-                        onclick="showToast('密码重置功能开发中','warning')" {
+                    button.btn.btn-default.btn-sm type="button" {
                         (icon::lock_icon("w-3.5 h-3.5"))
                         " 重置密码"
+                        script { (maud::PreEscaped("me().on('click',function(){me('#reset-pw-modal').classAdd('is-open')})")) }
                     }
                 }
             }
@@ -602,6 +609,7 @@ fn user_detail_page(
             // ── Modals ──
             (role_assign_modal(&role_assign_path, all_roles, &current_role_ids))
             (dept_assign_modal(&dept_assign_path, all_depts, &current_dept_ids))
+            (reset_password_modal(&password_path))
         }
     }
 }
@@ -691,6 +699,43 @@ fn dept_assign_modal(
                     button type="submit" class="btn btn-primary" {
                         "保存"
                         script { (maud::PreEscaped("me().on('click', () => { me('#dept-ids-input').value=Array.from(any('.dept-checkbox:checked')).map(c=>c.value).join(',') })")) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn reset_password_modal(action: &str) -> Markup {
+    html! {
+        div id="reset-pw-modal" class="modal-overlay"
+            onclick="hsBackdropClose(this,event,'is-open')" {
+            form id="reset-pw-form" class="modal" hx-post=(action) hx-swap="none"
+                onsubmit="hsRemoveClosest(this,'.modal-overlay','is-open');this.reset()" {
+                div class="modal-head" {
+                    h2 { "重置密码" }
+                    button type="button" class="modal-close-btn"
+                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open');me('#reset-pw-form').reset()" { "×" }
+                }
+                div class="modal-body" {
+                    p style="margin-bottom:16px;color:#6b7280;font-size:14px" { "为该用户设置新密码，重置后立即生效。" }
+                    div class="form-group" {
+                        label class="form-label" { "新密码 " span class="required" { "*" } }
+                        input class="form-input" type="password" name="new_password" required
+                            minlength="8" placeholder="至少 8 位，含字母和数字" {}
+                    }
+                    div class="form-group" {
+                        label class="form-label" { "确认密码 " span class="required" { "*" } }
+                        input class="form-input" type="password" name="confirm_password" required
+                            minlength="8" placeholder="再次输入新密码" {}
+                    }
+                }
+                div class="modal-foot" {
+                    button type="button" class="btn btn-default"
+                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open');me('#reset-pw-form').reset()" { "取消" }
+                    button type="submit" class="btn btn-primary" {
+                        (icon::check_circle_icon("w-4 h-4"))
+                        "确认重置"
                     }
                 }
             }

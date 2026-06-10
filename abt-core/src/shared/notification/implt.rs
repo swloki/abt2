@@ -1,8 +1,10 @@
 ﻿use async_trait::async_trait;
+use sqlx::postgres::PgPool;
 
 use super::model::*;
 use super::repo::NotificationRepo;
 use super::service::NotificationService;
+use crate::shared::identity::repo::IdentityRepo;
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::error::DomainError;
@@ -11,11 +13,15 @@ use crate::shared::types::pagination::PaginatedResult;
 
 pub struct NotificationServiceImpl {
     repo: NotificationRepo,
+    pool: PgPool,
 }
 
 impl NotificationServiceImpl {
-    pub fn new(repo: NotificationRepo) -> Self {
-        Self { repo }
+    pub fn new(pool: PgPool) -> Self {
+        Self {
+            repo: NotificationRepo,
+            pool,
+        }
     }
 }
 
@@ -71,6 +77,57 @@ impl NotificationService for NotificationServiceImpl {
     ) -> Result<PaginatedResult<Notification>> {
         self.repo
             .query(db, ctx.operator_id, &query)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn batch_create_notifications(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        user_ids: &[i64],
+        req: BatchNotificationReq,
+    ) -> Result<u64> {
+        if user_ids.is_empty() {
+            return Ok(0);
+        }
+        self.repo
+            .batch_create(db, user_ids, &req)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn notify_by_role(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        role_id: i64,
+        req: BatchNotificationReq,
+    ) -> Result<u64> {
+        let user_ids = IdentityRepo::get_user_ids_by_role(&mut *db, role_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        if user_ids.is_empty() {
+            return Ok(0);
+        }
+        self.repo
+            .batch_create(db, &user_ids, &req)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn notify_by_department(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        department_id: i64,
+        req: BatchNotificationReq,
+    ) -> Result<u64> {
+        let user_ids = IdentityRepo::get_user_ids_by_department(&mut *db, department_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        if user_ids.is_empty() {
+            return Ok(0);
+        }
+        self.repo
+            .batch_create(db, &user_ids, &req)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

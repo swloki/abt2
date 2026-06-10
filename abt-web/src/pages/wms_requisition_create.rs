@@ -1,6 +1,7 @@
 use axum::extract::Query;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
+use chrono::Local;
 use maud::{html, Markup};
 use serde::Deserialize;
 use rust_decimal::Decimal;
@@ -130,7 +131,14 @@ pub async fn create_requisition(
     // If work_order_id provided, use create_for_work_order
     if let Some(wo_id) = form.work_order_id {
         if wo_id > 0 {
-            let _id = svc.create_for_work_order(&service_ctx, &mut conn, wo_id).await?;
+            let _id = svc.create_for_work_order(&service_ctx, &mut conn, wo_id).await
+                .map_err(|e| {
+                    if matches!(e, DomainError::NotFound(_)) {
+                        DomainError::validation(format!("工单 {} 不存在", wo_id))
+                    } else {
+                        e
+                    }
+                })?;
             let redirect = RequisitionListPath.to_string();
             return Ok(([("HX-Redirect", redirect)], Html(String::new())));
         }
@@ -203,7 +211,7 @@ fn requisition_create_page(
                         }
                         div class="form-group" {
                             label class="form-label" { "领料日期 " span class="required" { "*" } }
-                            input class="form-input" type="date" name="requisition_date" required {}
+                            input class="form-input" type="date" name="requisition_date" required value=(Local::now().format("%Y-%m-%d")) {}
                         }
                         div class="form-group" {
                             label class="form-label" { "关联工单（可选）" }

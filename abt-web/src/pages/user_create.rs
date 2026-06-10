@@ -79,6 +79,13 @@ pub async fn post_user_create(
         ..
     } = ctx;
 
+    // Validate password confirmation
+    if form.password != form.confirm_password {
+        return Err(abt_core::shared::types::DomainError::validation(
+            "密码与确认密码不匹配".to_string(),
+        ).into());
+    }
+
     let user_svc = state.user_service();
     let dept_svc = state.department_service();
 

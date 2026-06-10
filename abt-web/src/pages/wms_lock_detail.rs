@@ -4,6 +4,10 @@ use maud::{html, Markup};
 
 use abt_core::wms::inventory_lock::InventoryLockService;
 use abt_core::wms::enums::LockStatus;
+use abt_core::master_data::product::ProductService;
+use abt_core::wms::warehouse::WarehouseService;
+use abt_core::shared::identity::UserService;
+use abt_core::master_data::customer::CustomerService;
 
 use crate::layout::page::admin_page;
 use crate::routes::wms_inventory_lock::{LockDetailPath, LockListPath};
@@ -31,7 +35,39 @@ pub async fn get_lock_detail(
 
     let lock = svc.get(&service_ctx, &mut conn, path.id).await?;
 
-    let content = lock_detail_page(&lock);
+    // resolve IDs
+    let product_svc = state.product_service();
+    let (product_code, product_name_val) = product_svc
+        .get(&service_ctx, &mut conn, lock.product_id)
+        .await
+        .map(|p| (p.product_code, p.pdt_name))
+        .unwrap_or_else(|_| (format!("产品#{}", lock.product_id), "—".into()));
+
+    let wh_name = state.warehouse_service()
+        .get(&service_ctx, &mut conn, lock.warehouse_id)
+        .await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| format!("仓库#{}", lock.warehouse_id));
+
+    let operator_name = state.user_service()
+        .get_user(&service_ctx, &mut conn, lock.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| format!("操作员#{}", lock.operator_id));
+
+    let customer_name = if let Some(cid) = lock.customer_id {
+        state.customer_service()
+            .get(&service_ctx, &mut conn, cid)
+            .await
+            .map(|c| c.name)
+            .unwrap_or_else(|_| format!("客户#{}", cid))
+    } else {
+        "—".into()
+    };
+
+    let locked_qty_fmt = format!("{:.2}", lock.locked_qty);
+
+    let content = lock_detail_page(&lock, &product_code, &product_name_val, &wh_name, &operator_name, &customer_name, &locked_qty_fmt);
     let page_html = admin_page(
         is_htmx,
         &format!("{} · 锁库详情", lock.doc_number),
@@ -91,7 +127,15 @@ fn status_class(s: &LockStatus) -> &'static str {
 
 // ── Components ──
 
-fn lock_detail_page(lock: &abt_core::wms::inventory_lock::model::InventoryLock) -> Markup {
+fn lock_detail_page(
+    lock: &abt_core::wms::inventory_lock::model::InventoryLock,
+    product_code: &str,
+    product_name_val: &str,
+    wh_name: &str,
+    operator_name: &str,
+    customer_name: &str,
+    locked_qty_fmt: &str,
+) -> Markup {
     let sl = status_label(&lock.status);
     let sc = status_class(&lock.status);
     let detail_path = LockDetailPath { id: lock.id }.to_string();
@@ -142,21 +186,19 @@ fn lock_detail_page(lock: &abt_core::wms::inventory_lock::model::InventoryLock) 
                     }
                     div class="info-item" {
                         span class="info-label" { "产品编码" }
-                        span class="info-value mono" { "产品#" (lock.product_id) }
+                        span class="info-value mono" { (product_code) }
                     }
                     div class="info-item" {
                         span class="info-label" { "产品名称" }
-                        span class="info-value" {
-                            span style="color:var(--muted)" { "—" }
-                        }
+                        span class="info-value" { (product_name_val) }
                     }
                     div class="info-item" {
                         span class="info-label" { "锁定仓库" }
-                        span class="info-value" { "仓库#" (lock.warehouse_id) }
+                        span class="info-value" { (wh_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "锁定数量" }
-                        span class="info-value mono" { (lock.locked_qty) }
+                        span class="info-value mono" { (locked_qty_fmt) }
                     }
                     div class="info-item" {
                         span class="info-label" { "锁定原因" }
@@ -164,17 +206,11 @@ fn lock_detail_page(lock: &abt_core::wms::inventory_lock::model::InventoryLock) 
                     }
                     div class="info-item" {
                         span class="info-label" { "关联客户" }
-                        span class="info-value" {
-                            @if let Some(cid) = lock.customer_id {
-                                "客户#" (cid)
-                            } @else {
-                                span style="color:var(--muted)" { "—" }
-                            }
-                        }
+                        span class="info-value" { (customer_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "操作员" }
-                        span class="info-value" { "操作员#" (lock.operator_id) }
+                        span class="info-value" { (operator_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "创建时间" }

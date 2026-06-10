@@ -462,6 +462,7 @@ p { margin: 0; }
 .data-table tbody tr { counter-increment: line-item; transition: all var(--motion-fast) var(--ease-standard); cursor: pointer; }
 .data-table tbody tr:hover { background: var(--accent-bg); }
 .data-table tbody tr:last-child td { border-bottom: none; }
+.data-table .empty-cell { text-align: center; padding: var(--space-6); color: var(--muted); }
 .data-table .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .data-table .link-cell {
   color: var(--accent); font-weight: 600; font-family: var(--font-mono);
@@ -1114,6 +1115,7 @@ p { margin: 0; }
 .form-input-mono { font-family: var(--font-mono); text-transform: uppercase; }
 .empty-state-text { text-align: center; color: var(--muted); font-size: 13px; padding: var(--space-6); }
 .num-right { text-align: right; }
+.num-danger { text-align: right; color: var(--danger); }
 
 /* ─── BOM Table (blue primary header matching legacy) ─── */
 .bom-table { width: 100%; min-width: 860px; font-size: 13px; border-collapse: collapse; }

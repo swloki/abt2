@@ -134,15 +134,18 @@ pub async fn get_role_detail(
 
     let rwp = role_svc.get_role_with_permissions(&service_ctx, &mut conn, path.id).await?;
 
+    // Load all roles once for parent/child resolution
+    let all_roles = role_svc.list_roles(&service_ctx, &mut conn).await?;
+
     // Resolve parent role name
-    let parent_role_name = if rwp.role.parent_role_id.is_some() {
-        let all_roles = role_svc.list_roles(&service_ctx, &mut conn).await?;
-        rwp.role.parent_role_id
-            .and_then(|pid| all_roles.iter().find(|r| r.role_id == pid))
-            .map(|r| r.role_name.clone())
-    } else {
-        None
-    };
+    let parent_role_name = rwp.role.parent_role_id
+        .and_then(|pid| all_roles.iter().find(|r| r.role_id == pid))
+        .map(|r| r.role_name.clone());
+
+    // Find child roles (roles whose parent_role_id == current role_id)
+    let child_roles: Vec<_> = all_roles.iter()
+        .filter(|r| r.parent_role_id == Some(path.id))
+        .collect();
 
     // Count users assigned to this role
     let all_users = user_svc.list_users_with_roles(&service_ctx, &mut conn).await?;
@@ -165,6 +168,7 @@ pub async fn get_role_detail(
     let content = role_detail_page(
         &rwp,
         parent_role_name.as_deref(),
+        &child_roles,
         user_count,
         &groups,
         total_perms,
@@ -274,6 +278,7 @@ fn group_icon_svg(cls: &str) -> Markup {
 fn role_detail_page(
     rwp: &abt_core::shared::identity::model::RoleWithPermissions,
     parent_role_name: Option<&str>,
+    child_roles: &[&abt_core::shared::identity::model::Role],
     user_count: usize,
     groups: &[GroupData],
     total_perms: usize,
@@ -402,6 +407,29 @@ fn role_detail_page(
                             }
                         } @else {
                             span.info-val.info-muted { "—" }
+                        }
+                    }
+                }
+            }
+
+            // ── Child Roles Card ──
+            @if !child_roles.is_empty() {
+                div.info-card {
+                    div.info-card-title {
+                        (icon::grid_icon("w-[18px] h-[18px] text-accent"))
+                        "下级角色"
+                        span.d-card-count { (child_roles.len()) }
+                    }
+                    div.info-card-rows {
+                        @for child in child_roles {
+                            div.info-row {
+                                span.info-label {
+                                    a href=(RoleDetailPath { id: child.role_id }.to_string()) style="color:var(--accent)" {
+                                        (child.role_name)
+                                    }
+                                }
+                                span.info-val.info-mono { (child.role_code) }
+                            }
                         }
                     }
                 }

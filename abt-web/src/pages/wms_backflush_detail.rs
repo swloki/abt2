@@ -1,5 +1,6 @@
+use std::collections::HashMap;
+
 use axum::response::Html;
-use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use rust_decimal::Decimal;
 
@@ -11,7 +12,23 @@ use crate::layout::page::admin_page;
 
 use abt_core::wms::backflush::{BackflushItem, BackflushService};
 use abt_core::wms::enums::BackflushStatus;
+use abt_core::master_data::product::ProductService;
+use abt_core::shared::identity::UserService;
 use crate::components::icon;
+
+// ── Resolved Component Info ──
+
+struct ComponentInfo {
+    codes: HashMap<i64, String>,
+    names: HashMap<i64, String>,
+    units: HashMap<i64, String>,
+}
+
+impl ComponentInfo {
+    fn code(&self, id: &i64) -> &str { self.codes.get(id).map(|s| s.as_str()).unwrap_or("—") }
+    fn name(&self, id: &i64) -> &str { self.names.get(id).map(|s| s.as_str()).unwrap_or("—") }
+    fn unit(&self, id: &i64) -> &str { self.units.get(id).map(|s| s.as_str()).unwrap_or("—") }
+}
 
 #[require_permission("WMS", "read")]
 pub async fn get_backflush_detail(
@@ -25,7 +42,41 @@ pub async fn get_backflush_detail(
     let record = svc.get(&service_ctx, &mut conn, path.id).await?;
     let items = svc.get_items(&service_ctx, &mut conn, path.id).await?;
 
-    let content = backflush_detail_page(&record, &items);
+    // Resolve operator name
+    let operator_name = state.user_service()
+        .get_user(&service_ctx, &mut conn, record.operator_id)
+        .await
+        .map(|u| u.display_name.unwrap_or(u.username))
+        .unwrap_or_else(|_| "—".into());
+
+    // Resolve finished product name
+    let product_name = state.product_service()
+        .get(&service_ctx, &mut conn, record.product_id)
+        .await
+        .map(|p| format!("{} ({})", p.pdt_name, p.product_code))
+        .unwrap_or_else(|_| "—".into());
+
+    // Resolve component product names for items
+    let product_svc = state.product_service();
+    let mut item_product_codes: HashMap<i64, String> = HashMap::new();
+    let mut item_product_names: HashMap<i64, String> = HashMap::new();
+    let mut item_product_units: HashMap<i64, String> = HashMap::new();
+    for item in &items {
+        if item_product_codes.contains_key(&item.component_id) {
+            continue;
+        }
+        if let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.component_id).await {
+            item_product_codes.insert(item.component_id, p.product_code.clone());
+            item_product_names.insert(item.component_id, p.pdt_name.clone());
+            item_product_units.insert(item.component_id, p.unit.clone());
+        }
+    }
+
+    let component_info = ComponentInfo { codes: item_product_codes, names: item_product_names, units: item_product_units };
+    let content = backflush_detail_page(
+        &record, &items,
+        &operator_name, &product_name, &component_info,
+    );
     let page_html = admin_page(
         is_htmx,
         "倒冲记录详情",
@@ -42,6 +93,9 @@ pub async fn get_backflush_detail(
 fn backflush_detail_page(
     record: &abt_core::wms::backflush::BackflushRecord,
     items: &[BackflushItem],
+    operator_name: &str,
+    product_name: &str,
+    component_info: &ComponentInfo,
 ) -> Markup {
     let (status_label, status_class) = match record.status {
         BackflushStatus::Draft => ("草稿", "status-draft"),
@@ -101,11 +155,11 @@ fn backflush_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "完工产品" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (product_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "完工数量" }
-                        span class="info-value mono" { (record.completed_qty.to_string()) }
+                        span class="info-value mono" { (format!("{:.2}", record.completed_qty)) }
                     }
                     div class="info-item" {
                         span class="info-label" { "倒冲日期" }
@@ -113,7 +167,7 @@ fn backflush_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "差异阈值" }
-                        span class="info-value mono" { (format!("{}%", record.variance_threshold)) }
+                        span class="info-value mono" { (format!("{:.2}%", record.variance_threshold)) }
                     }
                     div class="info-item" {
                         span class="info-label" { "状态" }
@@ -123,7 +177,7 @@ fn backflush_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "操作员" }
-                        span class="info-value" { "—" }
+                        span class="info-value" { (operator_name) }
                     }
                 }
             }
@@ -148,11 +202,11 @@ fn backflush_detail_page(
                         }
                         tbody {
                             @for (i, item) in items.iter().enumerate() {
-                                (backflush_item_row(i + 1, item))
+                                (backflush_item_row(i + 1, item, component_info))
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                    td colspan="9" class="empty-cell" {
                                         "暂无明细数据"
                                     }
                                 }
@@ -175,7 +229,7 @@ fn backflush_detail_page(
                         div class="summary-item" {
                             div class=(if max_rate > Decimal::ZERO { "summary-value danger" } else { "summary-value" }) {
                                 @if max_rate > Decimal::ZERO {
-                                    "+" (max_rate.to_string()) "%"
+                                    "+" (format!("{:.2}", max_rate)) "%"
                                 } @else {
                                     "0%"
                                 }
@@ -189,7 +243,11 @@ fn backflush_detail_page(
     }
 }
 
-fn backflush_item_row(idx: usize, item: &BackflushItem) -> Markup {
+fn backflush_item_row(
+    idx: usize,
+    item: &BackflushItem,
+    component_info: &ComponentInfo,
+) -> Markup {
     let variance_sign = if item.variance_qty >= Decimal::ZERO { "+" } else { "" };
     let rate_sign = if item.variance_rate >= Decimal::ZERO { "+" } else { "" };
     let has_variance = item.variance_qty != Decimal::ZERO;
@@ -197,22 +255,22 @@ fn backflush_item_row(idx: usize, item: &BackflushItem) -> Markup {
     html! {
         tr {
             td class="mono" { (idx) }
-            td class="mono" { "—" }
-            td { "—" }
-            td { "—" }
-            td class="num-right" { (item.theoretical_qty.to_string()) }
-            td class="num-right" { (item.actual_qty.to_string()) }
-            td class="num-right" style=(if has_variance { "color:var(--danger)" } else { "" }) {
-                (variance_sign) (item.variance_qty.to_string())
+            td class="mono" { (component_info.code(&item.component_id)) }
+            td { (component_info.name(&item.component_id)) }
+            td { (component_info.unit(&item.component_id)) }
+            td class="num-right" { (format!("{:.2}", item.theoretical_qty)) }
+            td class="num-right" { (format!("{:.2}", item.actual_qty)) }
+            td class="num-right" class=(if has_variance { "num-danger" } else { "" }) {
+                (variance_sign) (format!("{:.2}", item.variance_qty))
             }
-            td class="num-right" style=(if has_variance { "color:var(--danger)" } else { "" }) {
-                (rate_sign) (item.variance_rate.to_string()) "%"
+            td class="num-right" class=(if has_variance { "num-danger" } else { "" }) {
+                (rate_sign) (format!("{:.2}", item.variance_rate)) "%"
             }
             td class="num-right" {
                 @if item.is_over_threshold {
                     span class="exceed-cell" { "✓" }
                 } @else {
-                    span style="color:var(--muted)" { "✗" }
+                    span class="muted-text" { "✗" }
                 }
             }
         }

@@ -48,6 +48,9 @@ impl RoleService for RoleServiceImpl {
             _ => e,
         })?;
 
+        // Reload cache: new role affects hierarchy tree for DFS permission resolution
+        self.cache.reload(&self.pool).await?;
+
         Ok(role)
     }
 

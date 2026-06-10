@@ -269,8 +269,8 @@ fn bom_table_fragment(
         ".filter-bar input, .filter-bar select",
     );
     html! {
-        div class="customer-list-panel" {
-            (status_tabs(BomTablePath::PATH, "closest .customer-list-panel", &hx_attrs, tabs, &active_value))
+        div class="bom-list-panel" {
+            (status_tabs(BomTablePath::PATH, "closest .bom-list-panel", &hx_attrs, tabs, &active_value))
             // ── Filter Bar ──
             div class="filter-bar" {
                 div class="search-wrap" {
@@ -280,13 +280,13 @@ fn bom_table_fragment(
                         value=(params.keyword.as_deref().unwrap_or(""))
                         hx-get=(BomTablePath::PATH)
                         hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .customer-list-panel"
+                        hx-target="closest .bom-list-panel"
                         hx-swap="outerHTML";
                 }
                 select class="filter-select" name="status"
                     hx-get=(BomTablePath::PATH)
                     hx-trigger="change"
-                    hx-target="closest .customer-list-panel"
+                    hx-target="closest .bom-list-panel"
                     hx-swap="outerHTML" {
                     option value="" { "全部状态" }
                     option value="1" selected[params.status == Some(1)] { "草稿" }
@@ -295,7 +295,7 @@ fn bom_table_fragment(
                 select class="filter-select" name="category_id"
                     hx-get=(BomTablePath::PATH)
                     hx-trigger="change"
-                    hx-target="closest .customer-list-panel"
+                    hx-target="closest .bom-list-panel"
                     hx-swap="outerHTML" {
                     option value="" { "全部分类" }
                     @for cat in cat_list {
@@ -306,7 +306,7 @@ fn bom_table_fragment(
                     value=(params.date_from.as_deref().unwrap_or(""))
                     hx-get=(BomTablePath::PATH)
                     hx-trigger="change"
-                    hx-target="closest .customer-list-panel"
+                    hx-target="closest .bom-list-panel"
                     hx-swap="outerHTML"
                     title="开始日期" {}
                 span style="color:var(--muted);font-size:var(--text-sm)" { "—" }
@@ -314,7 +314,7 @@ fn bom_table_fragment(
                     value=(params.date_to.as_deref().unwrap_or(""))
                     hx-get=(BomTablePath::PATH)
                     hx-trigger="change"
-                    hx-target="closest .customer-list-panel"
+                    hx-target="closest .bom-list-panel"
                     hx-swap="outerHTML"
                     title="结束日期" {}
             }

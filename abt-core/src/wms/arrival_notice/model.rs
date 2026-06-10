@@ -89,6 +89,7 @@ pub struct InspectItemReq {
 /// 来料通知查询过滤
 #[derive(Debug, Clone, Default)]
 pub struct ArrivalNoticeFilter {
+    pub doc_number: Option<String>,
     pub status: Option<ArrivalStatus>,
     pub supplier_id: Option<i64>,
     pub warehouse_id: Option<i64>,

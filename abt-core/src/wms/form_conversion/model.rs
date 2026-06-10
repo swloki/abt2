@@ -14,6 +14,12 @@ pub struct FormConversion {
     pub remark: String,
     pub operator_id: i64,
     pub created_at: DateTime<Utc>,
+    /// 列表查询时通过子查询填充的消耗项数
+    #[sqlx(default)]
+    pub consume_count: Option<i64>,
+    /// 列表查询时通过子查询填充的产出项数
+    #[sqlx(default)]
+    pub produce_count: Option<i64>,
 }
 
 /// 形态转换单行项目

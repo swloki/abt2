@@ -151,11 +151,11 @@ impl FormConversionRepo {
 
         if filter.status.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("status = ${param_idx}"));
+            where_clauses.push(format!("fc.status = ${param_idx}"));
         }
         if filter.warehouse_id.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("warehouse_id = ${param_idx}"));
+            where_clauses.push(format!("fc.warehouse_id = ${param_idx}"));
         }
 
         let where_sql = where_clauses.join(" AND ");
@@ -164,10 +164,12 @@ impl FormConversionRepo {
 
         let count_sql = format!("SELECT COUNT(*) as total FROM form_conversions WHERE {where_sql}");
         let data_sql = format!(
-            "SELECT id, doc_number, warehouse_id, conversion_date, status, \
-             remark, operator_id, created_at \
-             FROM form_conversions WHERE {where_sql} \
-             ORDER BY created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
+            "SELECT fc.id, fc.doc_number, fc.warehouse_id, fc.conversion_date, fc.status, \
+             fc.remark, fc.operator_id, fc.created_at, \
+             (SELECT COUNT(*) FROM conversion_items ci WHERE ci.conversion_id = fc.id AND ci.direction = 1) AS consume_count, \
+             (SELECT COUNT(*) FROM conversion_items ci WHERE ci.conversion_id = fc.id AND ci.direction = 2) AS produce_count \
+             FROM form_conversions fc WHERE {where_sql} \
+             ORDER BY fc.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
         let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));

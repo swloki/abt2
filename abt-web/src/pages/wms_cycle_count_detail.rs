@@ -1,9 +1,12 @@
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
+use std::collections::HashMap;
 
 use abt_core::wms::cycle_count::CycleCountService;
+use abt_core::wms::cycle_count::model::CycleCountItem;
 use abt_core::wms::enums::CycleCountStatus;
+use abt_core::wms::warehouse::WarehouseService;
 
 use crate::layout::page::admin_page;
 use crate::routes::wms_cycle_count::{CycleCountDetailPath, CycleCountListPath};
@@ -28,10 +31,37 @@ pub async fn get_cycle_count_detail(
     let is_htmx = ctx.is_htmx();
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.cycle_count_service();
+    let wh_svc = state.warehouse_service();
 
     let cc = svc.get(&service_ctx, &mut conn, path.id).await?;
+    let items = svc.get_items(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
 
-    let content = cycle_count_detail_page(&cc);
+    // resolve warehouse name
+    let wh_name = wh_svc.get(&service_ctx, &mut conn, cc.warehouse_id).await
+        .map(|w| w.name)
+        .unwrap_or_else(|_| format!("仓库#{}", cc.warehouse_id));
+
+    // resolve zone name
+    let zone_name = if let Some(zid) = cc.zone_id {
+        wh_svc.list_zones(&service_ctx, &mut conn, cc.warehouse_id).await
+            .ok()
+            .and_then(|zs| zs.into_iter().find(|z| z.id == zid).map(|z| z.name))
+            .unwrap_or_else(|| format!("库区#{}", zid))
+    } else {
+        "—".to_string()
+    };
+
+    // resolve bin codes
+    let mut bin_codes: HashMap<i64, String> = HashMap::new();
+    for item in &items {
+        if !bin_codes.contains_key(&item.bin_id) {
+            if let Ok(bww) = wh_svc.get_bin_with_warehouse(&service_ctx, &mut conn, item.bin_id).await {
+                bin_codes.insert(item.bin_id, bww.bin.code);
+            }
+        }
+    }
+
+    let content = cycle_count_detail_page(&cc, &items, &wh_name, &zone_name, &bin_codes);
     let page_html = admin_page(
         is_htmx,
         &format!("{} · 循环盘点详情", cc.doc_number),
@@ -97,10 +127,22 @@ fn status_class(s: &CycleCountStatus) -> &'static str {
 
 // ── Components ──
 
-fn cycle_count_detail_page(cc: &abt_core::wms::cycle_count::model::CycleCount) -> Markup {
+fn cycle_count_detail_page(
+    cc: &abt_core::wms::cycle_count::model::CycleCount,
+    items: &[CycleCountItem],
+    wh_name: &str,
+    zone_name: &str,
+    bin_codes: &HashMap<i64, String>,
+) -> Markup {
     let sl = status_label(&cc.status);
     let sc = status_class(&cc.status);
     let detail_path = CycleCountDetailPath { id: cc.id }.to_string();
+
+    // compute summary stats
+    let total_items = items.len();
+    let matching_items = items.iter().filter(|i| i.variance_qty == rust_decimal::Decimal::ZERO).count();
+    let variance_items = items.iter().filter(|i| i.variance_qty != rust_decimal::Decimal::ZERO).count();
+    let adjusted_items = items.iter().filter(|i| i.is_adjusted).count();
 
     html! {
         div {
@@ -132,17 +174,11 @@ fn cycle_count_detail_page(cc: &abt_core::wms::cycle_count::model::CycleCount) -
                     }
                     div class="info-item" {
                         span class="info-label" { "仓库" }
-                        span class="info-value" { "仓库#" (cc.warehouse_id) }
+                        span class="info-value" { (wh_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "库区" }
-                        span class="info-value" {
-                            @if let Some(zid) = cc.zone_id {
-                                "库区#" (zid)
-                            } @else {
-                                "—"
-                            }
-                        }
+                        span class="info-value" { (zone_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "盘点日期" }
@@ -162,10 +198,10 @@ fn cycle_count_detail_page(cc: &abt_core::wms::cycle_count::model::CycleCount) -
             }
 
             div class="summary-stats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4);margin-bottom:var(--space-6)" {
-                (summary_card("总项数", "—", "blue"))
-                (summary_card("一致项", "—", "green"))
-                (summary_card("差异项", "—", "orange"))
-                (summary_card("已调整项", "—", "purple"))
+                (summary_card("总项数", &total_items.to_string(), "blue"))
+                (summary_card("一致项", &matching_items.to_string(), "green"))
+                (summary_card("差异项", &variance_items.to_string(), "orange"))
+                (summary_card("已调整项", &adjusted_items.to_string(), "purple"))
             }
 
             div class="data-card" {
@@ -178,8 +214,7 @@ fn cycle_count_detail_page(cc: &abt_core::wms::cycle_count::model::CycleCount) -
                             tr {
                                 th { "行号" }
                                 th { "储位" }
-                                th { "产品编码" }
-                                th { "产品名称" }
+                                th { "产品ID" }
                                 th { "批次号" }
                                 th class="num-right" { "系统数量" }
                                 th class="num-right" { "实盘数量" }
@@ -189,9 +224,42 @@ fn cycle_count_detail_page(cc: &abt_core::wms::cycle_count::model::CycleCount) -
                             }
                         }
                         tbody {
-                            tr {
-                                td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                    "盘点明细将通过后续版本加载"
+                            @for (i, item) in items.iter().enumerate() {
+                                tr {
+                                    td { (i + 1) }
+                                    td class="mono" {
+                                        (bin_codes.get(&item.bin_id).map(|s| s.as_str()).unwrap_or("—"))
+                                    }
+                                    td { "产品#" (item.product_id) }
+                                    td class="mono" {
+                                        (item.batch_no.as_deref().unwrap_or("—"))
+                                    }
+                                    td class="num-right" { (format!("{:.2}", item.system_qty)) }
+                                    td class="num-right" { (format!("{:.2}", item.counted_qty)) }
+                                    td class="num-right" {
+                                        @if item.variance_qty != rust_decimal::Decimal::ZERO {
+                                            span style="color:var(--warning);font-weight:600" {
+                                                (format!("{:.2}", item.variance_qty))
+                                            }
+                                        } @else {
+                                            span style="color:var(--muted)" { "0.00" }
+                                        }
+                                    }
+                                    td { (item.variance_reason.as_deref().unwrap_or("—")) }
+                                    td {
+                                        @if item.is_adjusted {
+                                            span class="status-pill status-completed" { "已调整" }
+                                        } @else {
+                                            span style="color:var(--muted)" { "—" }
+                                        }
+                                    }
+                                }
+                            }
+                            @if items.is_empty() {
+                                tr {
+                                    td colspan="9" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                        "暂无盘点明细"
+                                    }
                                 }
                             }
                         }

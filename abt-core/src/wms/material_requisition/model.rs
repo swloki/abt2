@@ -48,6 +48,7 @@ pub struct IssueItemReq {
 /// 领料单查询过滤
 #[derive(Debug, Clone, Default)]
 pub struct RequisitionFilter {
+    pub doc_number: Option<String>,
     pub status: Option<RequisitionStatus>,
     pub work_order_id: Option<i64>,
     pub warehouse_id: Option<i64>,

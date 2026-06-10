@@ -523,7 +523,7 @@ fn permission_panel(
                         "，角色权限取并集后存入 RolePermissionCache。"
                     }
 
-                    form id=(form_id) action=(save_action) method="POST" {
+                    form id=(form_id) action=(save_action) method="POST" hx-post=(save_action) hx-swap="none" {
                         input type="hidden" name="role_id" value=(role_id);
 
                         div.perm-toolbar {

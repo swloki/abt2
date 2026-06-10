@@ -173,11 +173,11 @@ impl CycleCountRepo {
 
         if filter.status.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("status = ${param_idx}"));
+            where_clauses.push(format!("cc.status = ${param_idx}"));
         }
         if filter.warehouse_id.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("warehouse_id = ${param_idx}"));
+            where_clauses.push(format!("cc.warehouse_id = ${param_idx}"));
         }
 
         let where_sql = where_clauses.join(" AND ");
@@ -186,10 +186,11 @@ impl CycleCountRepo {
 
         let count_sql = format!("SELECT COUNT(*) as total FROM cycle_counts WHERE {where_sql}");
         let data_sql = format!(
-            "SELECT id, doc_number, warehouse_id, zone_id, count_date, status, is_blind, \
-             remark, operator_id, created_at, updated_at \
-             FROM cycle_counts WHERE {where_sql} \
-             ORDER BY created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
+            "SELECT cc.id, cc.doc_number, cc.warehouse_id, cc.zone_id, cc.count_date, cc.status, cc.is_blind, \
+             cc.remark, cc.operator_id, cc.created_at, cc.updated_at, \
+             (SELECT COUNT(*) FROM cycle_count_items cci WHERE cci.count_id = cc.id) AS item_count \
+             FROM cycle_counts cc WHERE {where_sql} \
+             ORDER BY cc.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
         let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));

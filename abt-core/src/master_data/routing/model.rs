@@ -22,6 +22,8 @@ pub struct RoutingStep {
     pub is_required: bool,
     pub remark: Option<String>,
     pub created_at: Option<DateTime<Utc>>,
+    #[sqlx(default)]
+    pub process_name: Option<String>,
 }
 
 /// BOM-工艺路线关联

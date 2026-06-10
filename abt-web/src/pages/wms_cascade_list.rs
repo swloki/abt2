@@ -149,7 +149,7 @@ fn cascade_results(result: &CascadeInventoryResult) -> Markup {
                 div class="cascade-product-stock" style="text-align:right" {
                     div style="font-size:12px;color:var(--muted)" { "当前库存总量" }
                     div style="font-size:var(--text-2xl);font-weight:700;color:var(--fg);font-family:var(--font-mono)" {
-                        "—"
+                        (format!("{:.2}", result.total_quantity))
                     }
                 }
             }

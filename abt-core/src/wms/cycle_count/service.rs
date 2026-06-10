@@ -7,6 +7,7 @@ use crate::shared::types::pagination::PaginatedResult;
 
 use super::model::{
     CountCycleCountReq, CreateCycleCountReq, CycleCount, CycleCountFilter,
+    CycleCountItem,
 };
 
 #[async_trait]
@@ -24,6 +25,13 @@ pub trait CycleCountService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         id: i64,
     ) -> Result<CycleCount>;
+
+    /// 查询盘点单明细项
+    async fn get_items(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        count_id: i64,
+    ) -> Result<Vec<CycleCountItem>>;
 
     /// 分页查询盘点单
     async fn list(

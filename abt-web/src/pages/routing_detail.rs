@@ -4,6 +4,7 @@ use maud::{Markup, html};
 
 use abt_core::master_data::routing::RoutingService;
 use abt_core::master_data::routing::model::*;
+use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
 
 use abt_macros::require_permission;
@@ -36,7 +37,19 @@ pub async fn get_routing_detail(
     let detail = svc.get_detail(&service_ctx, &mut conn, path.id).await?;
     let bom_page = PageParams::new(qp.page.unwrap_or(1), 10);
     let boms = svc.paginate_boms_by_routing(&service_ctx, &mut conn, path.id, bom_page).await?;
-    let content = routing_detail_page(&detail, &boms);
+
+    let creator_name = if let Some(uid) = detail.routing.operator_id {
+        state.user_service()
+            .get_users_by_ids(&service_ctx, &mut conn, vec![uid])
+            .await
+            .ok()
+            .and_then(|users| users.into_iter().next())
+            .map(|u| u.user.display_name.unwrap_or(u.user.username))
+    } else {
+        None
+    };
+
+    let content = routing_detail_page(&detail, &boms, &creator_name);
     let detail_path_str = RoutingDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         is_htmx,
@@ -66,6 +79,7 @@ pub async fn update_routing(
 fn routing_detail_page(
     detail: &RoutingDetail,
     boms: &abt_core::shared::types::PaginatedResult<BomRouting>,
+    creator_name: &Option<String>,
 ) -> Markup {
     let routing = &detail.routing;
     let steps = &detail.steps;
@@ -129,9 +143,10 @@ fn routing_detail_page(
                     (detail_row("名称", html! { (routing.name) }))
                     (detail_row("描述", html! { (routing.description.as_deref().unwrap_or("—")) }))
                     (detail_row("创建人", html! {
-                        @match routing.operator_id {
-                            Some(uid) => { "ID: " (uid) }
-                            None => { "—" }
+                        @if let Some(name) = creator_name {
+                            (name)
+                        } @else {
+                            "—"
                         }
                     }))
                     @if let Some(dt) = routing.created_at {
@@ -173,7 +188,7 @@ fn routing_detail_page(
                                 tr {
                                     td class="mono" { (step.step_order) }
                                     td class="mono" { (step.process_code) }
-                                    td { (step.process_code) }
+                                    td { (step.process_name.as_deref().unwrap_or(&step.process_code)) }
                                     td {
                                         @if step.is_required {
                                             span class="status-pill status-accepted" { "必经" }

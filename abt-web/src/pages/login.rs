@@ -6,9 +6,10 @@ use maud::{html, Markup};
 use tower_sessions::Session;
 
 use crate::auth::session::CURRENT_USER_KEY;
+use abt_core::shared::identity::AuthService;
 use crate::components::icon::*;
 use crate::layout::page::standalone_page;
-use crate::routes::auth::{LoginPath, LogoutPath};
+use crate::routes::auth::{LoginPath, LogoutPath, RefreshTokenPath};
 use crate::routes::dashboard::DashboardPath;
 use crate::state::AppState;
 
@@ -61,6 +62,29 @@ pub async fn post_logout(
 ) -> impl IntoResponse {
     let _ = session.remove::<abt_core::shared::identity::model::Claims>(CURRENT_USER_KEY).await;
     Redirect::to(LoginPath::PATH)
+}
+
+// ── Refresh Token (API endpoint, no session required) ──
+
+#[derive(Debug, serde::Deserialize)]
+pub(crate) struct RefreshTokenForm {
+    pub token: String,
+}
+
+pub async fn post_refresh_token(
+    _path: RefreshTokenPath,
+    State(state): State<AppState>,
+    axum::Form(form): axum::Form<RefreshTokenForm>,
+) -> impl IntoResponse {
+    match state.auth_service().refresh_token(&form.token).await {
+        Ok(new_token) => (
+            StatusCode::OK,
+            [("Content-Type", "application/json")],
+            format!("{{\"token\":\"{new_token}\"}}"),
+        )
+            .into_response(),
+        Err(_) => (StatusCode::UNAUTHORIZED, "Token refresh failed").into_response(),
+    }
 }
 
 // ── Components ──

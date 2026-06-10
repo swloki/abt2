@@ -233,7 +233,7 @@ fn backflush_row(r: &BackflushRecord) -> Markup {
             td class="link-cell mono" onclick=(format!("location.href='{}'", detail_path)) { (r.doc_number) }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) { "—" }
             td onclick=(format!("location.href='{}'", detail_path)) { "—" }
-            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) { (r.completed_qty.to_string()) }
+            td class="num-right" onclick=(format!("location.href='{}'", detail_path)) { (format!("{:.2}", r.completed_qty)) }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) { (r.backflush_date.to_string()) }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class=(format!("status-pill {status_class}")) { (status_label) }

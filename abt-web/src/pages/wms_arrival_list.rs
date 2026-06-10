@@ -42,6 +42,7 @@ pub struct ArrivalQueryParams {
 
 fn build_filter(params: &ArrivalQueryParams) -> ArrivalNoticeFilter {
     ArrivalNoticeFilter {
+        doc_number: params.doc_number.clone(),
         status: params.status.and_then(ArrivalStatus::from_i16),
         supplier_id: None,
         warehouse_id: params.warehouse_id,
@@ -238,15 +239,28 @@ fn arrival_table_fragment(
                     input class="search-input" type="text" name="doc_number"
                         style="width:180px"
                         placeholder="单据编号"
-                        value=(params.doc_number.as_deref().unwrap_or(""));
+                        value=(params.doc_number.as_deref().unwrap_or(""))
+                        hx-get=(ArrivalTablePath::PATH)
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#arrival-data-card"
+                        hx-swap="outerHTML";
                 }
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="supplier"
                         placeholder="供应商"
-                        value=(params.supplier.as_deref().unwrap_or(""));
+                        value=(params.supplier.as_deref().unwrap_or(""))
+                        hx-get=(ArrivalTablePath::PATH)
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#arrival-data-card"
+                        hx-swap="outerHTML";
                 }
-                select class="filter-select" name="warehouse_id" {
+                select class="filter-select" name="warehouse_id"
+                    hx-get=(ArrivalTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="#arrival-data-card"
+                    hx-swap="outerHTML"
+                    hx-include=".filter-bar input, .filter-bar select" {
                     option value="" { "全部仓库" }
                     @for w in warehouses {
                         option value=(w.id) selected[selected_warehouse == w.id.to_string()] { (w.name) }

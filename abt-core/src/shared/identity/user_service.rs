@@ -24,6 +24,13 @@ pub trait UserService: Send + Sync {
         display_name: Option<&str>,
     ) -> Result<User>;
 
+    async fn update_user_super_admin(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        user_id: i64,
+        is_super_admin: bool,
+    ) -> Result<User>;
+
     /// Soft delete: sets is_active = false
     async fn delete_user(
         &self,
@@ -87,6 +94,13 @@ pub trait UserService: Send + Sync {
         ctx: &ServiceContext, db: PgExecutor<'_>,
         user_id: i64,
         old_password: &str,
+        new_password: &str,
+    ) -> Result<()>;
+
+    async fn admin_reset_password(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        user_id: i64,
         new_password: &str,
     ) -> Result<()>;
 

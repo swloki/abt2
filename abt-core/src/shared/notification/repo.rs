@@ -116,4 +116,29 @@ impl NotificationRepo {
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
     }
+
+    pub async fn batch_create(
+        &self,
+        executor: PgExecutor<'_>,
+        user_ids: &[i64],
+        req: &BatchNotificationReq,
+    ) -> Result<u64> {
+        let mut count = 0u64;
+        for &user_id in user_ids {
+            sqlx::query(
+                r#"INSERT INTO notifications (user_id, notification_type, title, content, related_type, related_id)
+                   VALUES ($1, $2, $3, $4, $5, $6)"#,
+            )
+            .bind(user_id)
+            .bind(req.notification_type.as_i16())
+            .bind(&req.title)
+            .bind(&req.content)
+            .bind(&req.related_type)
+            .bind(req.related_id)
+            .execute(&mut *executor)
+            .await?;
+            count += 1;
+        }
+        Ok(count)
+    }
 }

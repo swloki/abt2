@@ -25,6 +25,7 @@ pub struct BinQueryParams {
     pub code: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub name: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
     pub warehouse_id: Option<i64>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub status: Option<i16>,
@@ -292,7 +293,7 @@ fn bin_row(item: &BinWithWarehouse, zones: &HashMap<i64, Zone>) -> Markup {
             }
             td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
                 @if let Some(cap) = &bin.capacity_limit {
-                    (cap)
+                    (format!("{:.2}", cap))
                 } @else {
                     "—"
                 }

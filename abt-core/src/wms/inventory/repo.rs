@@ -187,12 +187,13 @@ impl InventoryRepo {
              t.warehouse_id, w.name as warehouse_name, \
              t.bin_id as bin_id, COALESCE(b.code, '') as bin_code, \
              t.transaction_type, t.quantity, t.source_type, t.source_id, \
-             t.remark, t.operator_id, t.created_at";
+             t.remark, t.operator_id, COALESCE(u.username, '') as operator_name, t.created_at";
 
         let from_clause = "inventory_transactions t \
              JOIN products p ON t.product_id = p.product_id \
              JOIN warehouses w ON t.warehouse_id = w.id \
-             LEFT JOIN bins b ON t.bin_id = b.id";
+             LEFT JOIN bins b ON t.bin_id = b.id \
+             LEFT JOIN users u ON t.operator_id = u.user_id";
 
         let count_sql = format!("SELECT COUNT(*) as total FROM {from_clause} WHERE 1=1 {where_sql}");
         let data_sql = format!(
@@ -310,11 +311,12 @@ impl InventoryRepo {
                    t.warehouse_id, w.name as warehouse_name,
                    t.bin_id, COALESCE(b.code, '') as bin_code,
                    t.transaction_type, t.quantity, t.source_type, t.source_id,
-                   t.remark, t.operator_id, t.created_at
+                   t.remark, t.operator_id, COALESCE(u.username, '') as operator_name, t.created_at
             FROM inventory_transactions t
             JOIN products p ON t.product_id = p.product_id
             JOIN warehouses w ON t.warehouse_id = w.id
             LEFT JOIN bins b ON t.bin_id = b.id
+            LEFT JOIN users u ON t.operator_id = u.user_id
             WHERE 1=1 {where_sql}
             ORDER BY t.created_at DESC
             "#

@@ -342,11 +342,11 @@ fn order_detail_page(
                 div class="amount-summary" {
                     div class="amount-row" {
                         span class="amount-label" { "成本合计" }
-                        span class="amount-value" { "¥ " (format!("{:.2}", o.total_cost)) }
+                        span class="amount-value" { (crate::utils::fmt_amount(o.total_cost)) }
                     }
                     div class="amount-row" {
                         span class="amount-label" { "订单总额" }
-                        span class="amount-value accent" { "¥ " (format!("{:.2}", o.total_amount)) }
+                        span class="amount-value accent" { (crate::utils::fmt_amount(o.total_amount)) }
                     }
                 }
             }
@@ -383,9 +383,9 @@ fn item_row(
             td { (product_name) }
             td { (item.unit.as_str()) }
             td class="num-right" { (fmt_qty(item.quantity)) }
-            td class="num-right" { "¥ " (format!("{:.2}", item.unit_price)) }
+            td class="num-right" { (crate::utils::fmt_amount(item.unit_price)) }
             td class="num-right" { (discount) }
-            td class="num-right" { "¥ " (format!("{:.2}", item.amount)) }
+            td class="num-right" { (crate::utils::fmt_amount(item.amount)) }
             td class="num-right" { (fmt_qty(item.shipped_qty)) }
             td class="num-right" { (fmt_qty(item.returned_qty)) }
             td class="mono" { (delivery) }

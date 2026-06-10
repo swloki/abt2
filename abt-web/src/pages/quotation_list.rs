@@ -314,7 +314,7 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>) -> Markup {
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
-                span class="mono" { "¥ " (format!("{:.2}", q.total_amount)) }
+                span class="mono" { (crate::utils::fmt_amount(q.total_amount)) }
             }
             td onclick=(format!("location.href='{}'", detail_path)) { (q.quotation_date.format("%Y-%m-%d")) }
             td onclick=(format!("location.href='{}'", detail_path)) { (q.valid_until.format("%Y-%m-%d")) }

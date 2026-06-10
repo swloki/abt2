@@ -345,7 +345,7 @@ fn order_row(
                 span class=(format!("status-pill {status_class}")) { (status_text) }
             }
             td class="num-right" onclick=(&onclick) {
-                span class="mono" { "¥ " (format!("{:.2}", o.total_amount)) }
+                span class="mono" { (crate::utils::fmt_amount(o.total_amount)) }
             }
             td class="mono" onclick=(&onclick) { (o.order_date.format("%Y-%m-%d")) }
             td onclick=(&onclick) { (sales_rep) }

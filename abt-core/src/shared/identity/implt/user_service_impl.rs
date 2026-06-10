@@ -115,6 +115,35 @@ impl UserService for UserServiceImpl {
         Ok(user)
     }
 
+    async fn update_user_super_admin(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        user_id: i64,
+        is_super_admin: bool,
+    ) -> Result<User> {
+        let user = IdentityRepo::update_user_super_admin(&mut *db, user_id, is_super_admin)
+            .await
+            .map_err(|e| match &e { DomainError::Internal(inner) if is_no_row(inner) => DomainError::not_found("User"), _ => e })?;
+
+        new_audit_log_service(self.pool.clone())
+            .record(
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "user",
+                        entity_id: user_id,
+                        action: AuditAction::Update,
+                        changes: Some(json!({
+                    "is_super_admin": { "new": is_super_admin }
+                })),
+                        context: None,
+                    },
+                )
+            .await?;
+
+        Ok(user)
+    }
+
     async fn delete_user(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -370,6 +399,44 @@ impl UserService for UserServiceImpl {
                         entity_id: user_id,
                         action: AuditAction::Update,
                         changes: Some(json!({ "password_changed": true })),
+                        context: None,
+                    },
+                )
+            .await?;
+
+        Ok(())
+    }
+
+    async fn admin_reset_password(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        user_id: i64,
+        new_password: &str,
+    ) -> Result<()> {
+        if new_password.len() < 8 {
+            return Err(DomainError::Validation(
+                "新密码至少需要 8 个字符".to_string(),
+            ));
+        }
+
+        let salt = SaltString::generate(&mut rand::rngs::OsRng);
+        let hash = Argon2::default()
+            .hash_password(new_password.as_bytes(), &salt)
+            .map_err(|e| DomainError::Internal(anyhow::anyhow!("argon2 hash error: {e}")))?
+            .to_string();
+
+        IdentityRepo::update_user_password(&mut *db, user_id, &hash)
+            .await?;
+
+        new_audit_log_service(self.pool.clone())
+            .record(
+                    ctx,
+                    db,
+                    RecordAuditLogReq {
+                        entity_type: "user",
+                        entity_id: user_id,
+                        action: AuditAction::Update,
+                        changes: Some(json!({ "admin_password_reset": true })),
                         context: None,
                     },
                 )

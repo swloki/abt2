@@ -431,7 +431,7 @@ fn preview_table(
         div class="amount-summary-card" {
             div class="amount-summary-row" {
                 span class="label" { "发货总额" }
-                span class="value" { "¥ " (format!("{:.2}", total_amount)) }
+                span class="value" { (crate::utils::fmt_amount(total_amount)) }
             }
             div class="amount-summary-row" {
                 span class="label" { "退货总额" }
@@ -443,7 +443,7 @@ fn preview_table(
             }
             div class="amount-summary-row total" {
                 span class="label" { "净额（应收）" }
-                span class="value" { "¥ " (format!("{:.2}", total_amount)) }
+                span class="value" { (crate::utils::fmt_amount(total_amount)) }
             }
         }
     }

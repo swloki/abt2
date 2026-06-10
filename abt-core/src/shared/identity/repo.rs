@@ -55,6 +55,27 @@ impl IdentityRepo {
         Self::row_to_user(&row)
     }
 
+    pub async fn update_user_super_admin(
+        executor: &mut sqlx::postgres::PgConnection,
+        user_id: i64,
+        is_super_admin: bool,
+    ) -> Result<User> {
+        let row = sqlx::query(
+            r#"
+            UPDATE users
+            SET is_super_admin = $2, updated_at = NOW()
+            WHERE user_id = $1
+            RETURNING user_id, username, password_hash, display_name, is_active, is_super_admin, created_at, updated_at
+            "#,
+        )
+        .bind(user_id)
+        .bind(is_super_admin)
+        .fetch_one(&mut *executor)
+        .await?;
+
+        Self::row_to_user(&row)
+    }
+
     pub async fn deactivate_user(
         executor: &mut sqlx::postgres::PgConnection,
         user_id: i64,
@@ -74,7 +95,7 @@ impl IdentityRepo {
     ) -> Result<User> {
         let row = sqlx::query(
             "SELECT user_id, username, password_hash, display_name, is_active, is_super_admin, created_at, updated_at \
-             FROM users WHERE user_id = $1 AND is_active = true"
+             FROM users WHERE user_id = $1"
         )
         .bind(user_id)
         .fetch_one(&mut *executor)
@@ -103,14 +124,14 @@ impl IdentityRepo {
         limit: i64,
         offset: i64,
     ) -> Result<(Vec<User>, i64)> {
-        let count_row = sqlx::query("SELECT COUNT(*) AS cnt FROM users WHERE is_active = true")
+        let count_row = sqlx::query("SELECT COUNT(*) AS cnt FROM users")
             .fetch_one(&mut *executor)
             .await?;
         let total: i64 = count_row.try_get("cnt")?;
 
         let rows = sqlx::query(
             "SELECT user_id, username, password_hash, display_name, is_active, is_super_admin, created_at, updated_at \
-             FROM users WHERE is_active = true \
+             FROM users \
              ORDER BY user_id \
              LIMIT $1 OFFSET $2"
         )
@@ -465,6 +486,18 @@ impl IdentityRepo {
         executor: &mut sqlx::postgres::PgConnection,
         dept_id: i64,
     ) -> Result<()> {
+        // Protect default department from being deactivated
+        let row = sqlx::query("SELECT is_default FROM departments WHERE department_id = $1")
+            .bind(dept_id)
+            .fetch_one(&mut *executor)
+            .await?;
+        let is_default: bool = row.try_get("is_default")?;
+        if is_default {
+            return Err(crate::shared::types::DomainError::business_rule(
+                "默认部门不可停用".to_string(),
+            ));
+        }
+
         sqlx::query(
             "UPDATE departments SET is_active = false, updated_at = NOW() WHERE department_id = $1"
         )
@@ -665,6 +698,44 @@ impl IdentityRepo {
                 .await?;
         }
         Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // User ID lookups by role / department (for batch notification)
+    // -----------------------------------------------------------------------
+
+    pub async fn get_user_ids_by_role(
+        executor: &mut sqlx::postgres::PgConnection,
+        role_id: i64,
+    ) -> Result<Vec<i64>> {
+        let rows = sqlx::query(
+            "SELECT u.user_id FROM users u \
+             INNER JOIN user_roles ur ON ur.user_id = u.user_id \
+             WHERE ur.role_id = $1 AND u.is_active = true"
+        )
+        .bind(role_id)
+        .fetch_all(&mut *executor)
+        .await?;
+        rows.iter()
+            .map(|r| r.try_get("user_id").map_err(Into::into))
+            .collect()
+    }
+
+    pub async fn get_user_ids_by_department(
+        executor: &mut sqlx::postgres::PgConnection,
+        department_id: i64,
+    ) -> Result<Vec<i64>> {
+        let rows = sqlx::query(
+            "SELECT u.user_id FROM users u \
+             INNER JOIN user_departments ud ON ud.user_id = u.user_id \
+             WHERE ud.department_id = $1 AND u.is_active = true"
+        )
+        .bind(department_id)
+        .fetch_all(&mut *executor)
+        .await?;
+        rows.iter()
+            .map(|r| r.try_get("user_id").map_err(Into::into))
+            .collect()
     }
 
     // -----------------------------------------------------------------------

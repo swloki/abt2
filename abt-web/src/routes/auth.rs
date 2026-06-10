@@ -16,10 +16,15 @@ pub struct LoginPath;
 #[typed_path("/logout")]
 pub struct LogoutPath;
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/api/auth/refresh")]
+pub struct RefreshTokenPath;
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(LoginPath::PATH, get(login::get_login).post(login::post_login))
         .route(LogoutPath::PATH, post(login::post_logout))
+        .route(RefreshTokenPath::PATH, post(login::post_refresh_token))
 }

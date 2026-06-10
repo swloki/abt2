@@ -347,13 +347,13 @@ fn reconciliation_row(
             td onclick=(&onclick) { (customer_name) }
             td onclick=(&onclick) { (r.period.as_str()) }
             td class="num-right" onclick=(&onclick) {
-                span class="mono" { "¥ " (format!("{:.2}", r.total_amount)) }
+                span class="mono" { (crate::utils::fmt_amount(r.total_amount)) }
             }
             td class="num-right" onclick=(&onclick) {
-                span class="mono" { "¥ " (format!("{:.2}", r.confirmed_amount)) }
+                span class="mono" { (crate::utils::fmt_amount(r.confirmed_amount)) }
             }
             td class="num-right" onclick=(&onclick) {
-                span class="mono font-semibold" { "¥ " (format!("{:.2}", r.difference)) }
+                span class="mono font-semibold" { (crate::utils::fmt_amount(r.difference)) }
             }
             td onclick=(&onclick) {
                 span class=(format!("status-pill {status_class}")) { (status_text) }

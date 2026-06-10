@@ -19,6 +19,12 @@ pub struct Warehouse {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub deleted_at: Option<DateTime<Utc>>,
+    /// 关联统计：库区数（仅在 list 查询时填充）
+    #[sqlx(default)]
+    pub zone_count: i64,
+    /// 关联统计：储位数（仅在 list 查询时填充）
+    #[sqlx(default)]
+    pub bin_count: i64,
 }
 
 /// 库区实体 — 映射 zones 表

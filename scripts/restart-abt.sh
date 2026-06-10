@@ -12,6 +12,7 @@ cd "$(dirname "$0")/.."
 echo "⏹  停止旧进程..."
 powershell -Command "Stop-Process -Name abt-web -Force -ErrorAction SilentlyContinue" 2>/dev/null || true
 sleep 1
+bunx kill-port 8000
 
 # 可选 clippy
 if [[ "${1:-}" == "--clippy" ]]; then

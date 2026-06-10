@@ -86,7 +86,7 @@ impl RoutingRepo {
 
     pub async fn find_steps(&self, executor: PgExecutor<'_>, routing_id: i64) -> Result<Vec<RoutingStep>> {
         let steps = sqlx::query_as::<sqlx::Postgres, RoutingStep>(
-            "SELECT id, routing_id, process_code, step_order, is_required, remark, created_at FROM routing_steps WHERE routing_id = $1 ORDER BY step_order",
+            "SELECT rs.id, rs.routing_id, rs.process_code, rs.step_order, rs.is_required, rs.remark, rs.created_at, lpd.name AS process_name FROM routing_steps rs LEFT JOIN labor_process_dicts lpd ON rs.process_code = lpd.code WHERE rs.routing_id = $1 ORDER BY rs.step_order",
         )
         .bind(routing_id)
         .fetch_all(executor)
@@ -100,8 +100,8 @@ impl RoutingRepo {
         let mut param_idx = 0u32;
 
         let keyword_param = if let Some(ref kw) = filter.keyword {
-            conditions.push(format!("name ILIKE ${param_idx}"));
             param_idx += 1;
+            conditions.push(format!("name ILIKE ${param_idx}"));
             Some(format!("%{kw}%"))
         } else {
             None

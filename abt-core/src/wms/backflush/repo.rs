@@ -149,11 +149,11 @@ impl BackflushRepo {
 
         if filter.status.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("status = ${param_idx}"));
+            where_clauses.push(format!("br.status = ${param_idx}"));
         }
         if filter.work_order_id.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("work_order_id = ${param_idx}"));
+            where_clauses.push(format!("br.work_order_id = ${param_idx}"));
         }
 
         let where_sql = where_clauses.join(" AND ");
@@ -162,11 +162,12 @@ impl BackflushRepo {
 
         let count_sql = format!("SELECT COUNT(*) as total FROM backflush_records WHERE {where_sql}");
         let data_sql = format!(
-            "SELECT id, doc_number, work_order_id, product_id, completed_qty, \
-             backflush_date, status, variance_threshold, operator_id, \
-             created_at, updated_at \
-             FROM backflush_records WHERE {where_sql} \
-             ORDER BY created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
+            "SELECT br.id, br.doc_number, br.work_order_id, br.product_id, br.completed_qty, \
+             br.backflush_date, br.status, br.variance_threshold, br.operator_id, \
+             br.created_at, br.updated_at, \
+             (SELECT EXISTS(SELECT 1 FROM backflush_items bi WHERE bi.record_id = br.id AND bi.is_over_threshold = true)) AS has_variance_warning \
+             FROM backflush_records br WHERE {where_sql} \
+             ORDER BY br.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
         let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));

@@ -80,3 +80,13 @@ pub struct NotificationQuery {
     pub page: u32,
     pub page_size: u32,
 }
+
+/// 批量通知请求（用于 notify_by_role / notify_by_department）
+#[derive(Debug, Clone)]
+pub struct BatchNotificationReq {
+    pub notification_type: NotificationType,
+    pub title: String,
+    pub content: Option<String>,
+    pub related_type: Option<String>,
+    pub related_id: Option<i64>,
+}

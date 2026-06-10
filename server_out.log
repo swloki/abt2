@@ -1,5 +1,5 @@
-2026-06-09T08:10:07.517894Z  INFO abt_web::state: Database pool initialized (max 20 connections)
-2026-06-09T08:10:07.518214Z  INFO abt_web::state: File session store initialized at: sessions
-2026-06-09T08:10:07.521931Z  INFO abt_core::shared::identity::permission_cache: RolePermissionCache loaded count=3
-2026-06-09T08:10:07.522143Z  INFO abt_web::state: Permission cache loaded
-2026-06-09T08:10:07.522246Z  INFO abt_web: Starting abt-web2 on http://0.0.0.0:8000
+[2m2026-06-09T16:55:23.184324Z[0m [32m INFO[0m [2mabt_web::state[0m[2m:[0m Database pool initialized (max 20 connections)
+[2m2026-06-09T16:55:23.184457Z[0m [32m INFO[0m [2mabt_web::state[0m[2m:[0m File session store initialized at: sessions
+[2m2026-06-09T16:55:23.189451Z[0m [32m INFO[0m [2mabt_core::shared::identity::permission_cache[0m[2m:[0m RolePermissionCache loaded [3mcount[0m[2m=[0m3
+[2m2026-06-09T16:55:23.189483Z[0m [32m INFO[0m [2mabt_web::state[0m[2m:[0m Permission cache loaded
+[2m2026-06-09T16:55:23.189494Z[0m [32m INFO[0m [2mabt_web[0m[2m:[0m Starting abt-web2 on http://0.0.0.0:8000

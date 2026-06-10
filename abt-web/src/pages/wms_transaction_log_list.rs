@@ -257,6 +257,8 @@ fn transaction_row(txn: &abt_core::wms::inventory::model::TransactionDetailView)
     let css_class = txn_type_class(&txn.transaction_type);
     let qty = txn.quantity;
     let is_positive = qty > rust_decimal::Decimal::ZERO;
+    let qty_fmt = format!("{:.2}", qty.abs());
+    let source_label = source_type_label(&txn.source_type);
 
     html! {
         tr {
@@ -272,15 +274,15 @@ fn transaction_row(txn: &abt_core::wms::inventory::model::TransactionDetailView)
             td class="num-right" {
                 @if is_positive {
                     span class="qty-positive" style="color:var(--success);font-weight:600" {
-                        "+" (qty)
+                        "+" (qty_fmt)
                     }
                 } @else {
                     span class="qty-negative" style="color:var(--danger);font-weight:600" {
-                        (qty)
+                        "-" (qty_fmt)
                     }
                 }
             }
-            td { (txn.source_type) }
+            td { (source_label) }
             td class="mono" {
                 @if txn.source_id > 0 {
                     "#" (txn.source_id)
@@ -288,9 +290,28 @@ fn transaction_row(txn: &abt_core::wms::inventory::model::TransactionDetailView)
                     span style="color:var(--muted)" { "—" }
                 }
             }
-            td { "操作员#" (txn.operator_id) }
+            td { (txn.operator_name) }
             td class="mono" { (txn.created_at.format("%Y-%m-%d %H:%M")) }
         }
+    }
+}
+
+fn source_type_label(s: &str) -> &str {
+    match s {
+        "manual" => "手工录入",
+        "purchase" => "采购",
+        "sales" => "销售",
+        "production" => "生产",
+        "transfer" | "inventory_transfer" => "调拨",
+        "conversion" | "form_conversion" => "形态转换",
+        "cycle_count" | "adjustment" => "盘点调整",
+        "lock" => "锁库",
+        "unlock" => "解锁",
+        "backflush" => "倒冲",
+        "requisition" => "领料",
+        "arrival" => "来料",
+        "scrap" => "报废",
+        _ => s,
     }
 }
 

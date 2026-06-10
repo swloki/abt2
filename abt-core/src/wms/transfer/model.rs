@@ -18,6 +18,9 @@ pub struct InventoryTransfer {
     pub status: TransferStatus,
     pub operator_id: i64,
     pub created_at: DateTime<Utc>,
+    /// 列表查询时通过子查询填充的物料项数
+    #[sqlx(default)]
+    pub item_count: Option<i64>,
 }
 
 /// 调拨单明细实体 — 映射 transfer_items 表
@@ -54,6 +57,7 @@ pub struct CreateTransferItemReq {
 /// 调拨单查询过滤
 #[derive(Debug, Clone, Default)]
 pub struct TransferFilter {
+    pub doc_number: Option<String>,
     pub status: Option<TransferStatus>,
     pub from_warehouse_id: Option<i64>,
     pub to_warehouse_id: Option<i64>,

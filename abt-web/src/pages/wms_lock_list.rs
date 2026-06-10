@@ -7,6 +7,10 @@ use serde::Deserialize;
 use abt_core::wms::inventory_lock::model::*;
 use abt_core::wms::inventory_lock::InventoryLockService;
 use abt_core::wms::enums::LockStatus;
+use abt_core::master_data::product::ProductService;
+use abt_core::wms::warehouse::WarehouseService;
+use abt_core::shared::identity::UserService;
+use abt_core::master_data::customer::CustomerService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
@@ -52,7 +56,47 @@ pub async fn get_lock_list(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    let content = lock_list_page(&result, &params);
+    // batch resolve IDs
+    let product_svc = state.product_service();
+    let mut product_map: std::collections::HashMap<i64, (String, String)> = std::collections::HashMap::new();
+    for lock in &result.items {
+        if !product_map.contains_key(&lock.product_id) {
+            if let Ok(p) = product_svc.get(&service_ctx, &mut conn, lock.product_id).await {
+                product_map.insert(lock.product_id, (p.product_code, p.pdt_name));
+            }
+        }
+    }
+
+    let wh_svc = state.warehouse_service();
+    let mut wh_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for lock in &result.items {
+        if !wh_names.contains_key(&lock.warehouse_id) {
+            if let Ok(w) = wh_svc.get(&service_ctx, &mut conn, lock.warehouse_id).await {
+                wh_names.insert(lock.warehouse_id, w.name);
+            }
+        }
+    }
+
+    let user_svc = state.user_service();
+    let operator_ids: Vec<i64> = result.items.iter().map(|l| l.operator_id).collect();
+    let operator_map = user_svc.get_users_by_ids(&service_ctx, &mut conn, operator_ids)
+        .await
+        .map(|users| users.into_iter().map(|u| (u.user.user_id, u.user.display_name.unwrap_or(u.user.username))).collect::<std::collections::HashMap<i64, String>>())
+        .unwrap_or_default();
+
+    let customer_svc = state.customer_service();
+    let mut customer_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for lock in &result.items {
+        if let Some(cid) = lock.customer_id {
+            if !customer_map.contains_key(&cid) {
+                if let Ok(c) = customer_svc.get(&service_ctx, &mut conn, cid).await {
+                    customer_map.insert(cid, c.name);
+                }
+            }
+        }
+    }
+
+    let content = lock_list_page(&result, &params, &product_map, &wh_names, &operator_map, &customer_map);
     let page_html = admin_page(
         is_htmx,
         "库存锁定",
@@ -81,7 +125,47 @@ pub async fn get_lock_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    let fragment = lock_data_card_fragment(&result, &params);
+    // batch resolve IDs
+    let product_svc = state.product_service();
+    let mut product_map: std::collections::HashMap<i64, (String, String)> = std::collections::HashMap::new();
+    for lock in &result.items {
+        if !product_map.contains_key(&lock.product_id) {
+            if let Ok(p) = product_svc.get(&service_ctx, &mut conn, lock.product_id).await {
+                product_map.insert(lock.product_id, (p.product_code, p.pdt_name));
+            }
+        }
+    }
+
+    let wh_svc = state.warehouse_service();
+    let mut wh_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for lock in &result.items {
+        if !wh_names.contains_key(&lock.warehouse_id) {
+            if let Ok(w) = wh_svc.get(&service_ctx, &mut conn, lock.warehouse_id).await {
+                wh_names.insert(lock.warehouse_id, w.name);
+            }
+        }
+    }
+
+    let user_svc = state.user_service();
+    let operator_ids: Vec<i64> = result.items.iter().map(|l| l.operator_id).collect();
+    let operator_map = user_svc.get_users_by_ids(&service_ctx, &mut conn, operator_ids)
+        .await
+        .map(|users| users.into_iter().map(|u| (u.user.user_id, u.user.display_name.unwrap_or(u.user.username))).collect::<std::collections::HashMap<i64, String>>())
+        .unwrap_or_default();
+
+    let customer_svc = state.customer_service();
+    let mut customer_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    for lock in &result.items {
+        if let Some(cid) = lock.customer_id {
+            if !customer_map.contains_key(&cid) {
+                if let Ok(c) = customer_svc.get(&service_ctx, &mut conn, cid).await {
+                    customer_map.insert(cid, c.name);
+                }
+            }
+        }
+    }
+
+    let fragment = lock_data_card_fragment(&result, &params, &product_map, &wh_names, &operator_map, &customer_map);
     Ok(Html(fragment.into_string()))
 }
 
@@ -117,6 +201,10 @@ fn status_class(s: &LockStatus) -> &'static str {
 fn lock_list_page(
     result: &abt_core::shared::types::PaginatedResult<InventoryLock>,
     params: &LockQueryParams,
+    product_map: &std::collections::HashMap<i64, (String, String)>,
+    wh_names: &std::collections::HashMap<i64, String>,
+    operator_map: &std::collections::HashMap<i64, String>,
+    customer_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
     html! {
         div {
@@ -130,7 +218,7 @@ fn lock_list_page(
                 }
             }
 
-            (lock_table_fragment(result, params))
+            (lock_table_fragment(result, params, product_map, wh_names, operator_map, customer_map))
         }
     }
 }
@@ -138,6 +226,10 @@ fn lock_list_page(
 fn lock_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<InventoryLock>,
     params: &LockQueryParams,
+    product_map: &std::collections::HashMap<i64, (String, String)>,
+    wh_names: &std::collections::HashMap<i64, String>,
+    operator_map: &std::collections::HashMap<i64, String>,
+    customer_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -166,20 +258,33 @@ fn lock_table_fragment(
                     input class="search-input" type="text" name="doc_number"
                         style="width:180px"
                         placeholder="锁库单号"
-                        value=(params.doc_number.as_deref().unwrap_or(""));
+                        value=(params.doc_number.as_deref().unwrap_or(""))
+                        hx-get=(LockTablePath::PATH)
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#lock-data-card"
+                        hx-swap="outerHTML";
                 }
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="product"
                         placeholder="产品编码/名称"
-                        value=(params.product.as_deref().unwrap_or(""));
+                        value=(params.product.as_deref().unwrap_or(""))
+                        hx-get=(LockTablePath::PATH)
+                        hx-trigger="keyup changed delay:300ms"
+                        hx-target="#lock-data-card"
+                        hx-swap="outerHTML";
                 }
-                select class="filter-select" name="warehouse_id" {
+                select class="filter-select" name="warehouse_id"
+                    hx-get=(LockTablePath::PATH)
+                    hx-trigger="change"
+                    hx-target="#lock-data-card"
+                    hx-swap="outerHTML"
+                    hx-include=".filter-bar input, .filter-bar select" {
                     option value="" { "全部仓库" }
                 }
             }
 
-            (lock_data_card_fragment(result, params))
+            (lock_data_card_fragment(result, params, product_map, wh_names, operator_map, customer_map))
         }
     }
 }
@@ -187,6 +292,10 @@ fn lock_table_fragment(
 fn lock_data_card_fragment(
     result: &abt_core::shared::types::PaginatedResult<InventoryLock>,
     params: &LockQueryParams,
+    product_map: &std::collections::HashMap<i64, (String, String)>,
+    wh_names: &std::collections::HashMap<i64, String>,
+    operator_map: &std::collections::HashMap<i64, String>,
+    customer_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
     let query = build_query_string(params);
 
@@ -210,11 +319,11 @@ fn lock_data_card_fragment(
                     }
                     tbody {
                         @for lock in &result.items {
-                            (lock_row(lock))
+                            (lock_row(lock, product_map, wh_names, operator_map, customer_map))
                         }
                         @if result.items.is_empty() {
                             tr {
-                                td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                td colspan="10" class="text-muted" style="text-align:center;padding:var(--space-8)" {
                                     "暂无锁库数据"
                                 }
                             }
@@ -227,10 +336,17 @@ fn lock_data_card_fragment(
     }
 }
 
-fn lock_row(lock: &InventoryLock) -> Markup {
+fn lock_row(
+    lock: &InventoryLock,
+    product_map: &std::collections::HashMap<i64, (String, String)>,
+    wh_names: &std::collections::HashMap<i64, String>,
+    operator_map: &std::collections::HashMap<i64, String>,
+    customer_map: &std::collections::HashMap<i64, String>,
+) -> Markup {
     let detail_path = LockDetailPath { id: lock.id }.to_string();
     let sl = status_label(&lock.status);
     let sc = status_class(&lock.status);
+    let locked_qty_fmt = format!("{:.2}", lock.locked_qty);
 
     html! {
         tr style="cursor:pointer" {
@@ -238,32 +354,32 @@ fn lock_row(lock: &InventoryLock) -> Markup {
                 (lock.doc_number)
             }
             td class="mono" onclick=(format!("location.href='{}'", detail_path)) {
-                "产品#" (lock.product_id)
+                (product_map.get(&lock.product_id).map(|(c,_)| c.as_str()).unwrap_or("—"))
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
-                span style="color:var(--muted)" { "—" }
+                (product_map.get(&lock.product_id).map(|(_,n)| n.as_str()).unwrap_or("—"))
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
-                "仓库#" (lock.warehouse_id)
+                (wh_names.get(&lock.warehouse_id).map(|s| s.as_str()).unwrap_or("—"))
             }
             td class="num-right" onclick=(format!("location.href='{}'", detail_path)) {
-                (lock.locked_qty)
+                (locked_qty_fmt)
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 (lock.lock_reason)
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 @if let Some(cid) = lock.customer_id {
-                    "客户#" (cid)
+                    (customer_map.get(&cid).map(|s| s.as_str()).unwrap_or("—"))
                 } @else {
-                    span style="color:var(--muted)" { "—" }
+                    span class="text-muted" { "—" }
                 }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
                 span class=(format!("status-pill {sc}")) { (sl) }
             }
             td onclick=(format!("location.href='{}'", detail_path)) {
-                "操作员#" (lock.operator_id)
+                (operator_map.get(&lock.operator_id).map(|s| s.as_str()).unwrap_or("—"))
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {

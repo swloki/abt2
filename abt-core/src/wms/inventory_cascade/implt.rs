@@ -60,10 +60,17 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
         let bom_refs = InventoryCascadeRepo::find_bom_refs(db, product.product_id, MAX_BOM_REFS).await?;
 
         if bom_refs.is_empty() {
+            // 即使没有 BOM，也查一下主产品库存
+            let main_stock = InventoryCascadeRepo::query_stock_summary(db, &[product.product_id]).await
+                .ok()
+                .and_then(|s| s.into_iter().next())
+                .map(|s| s.total_stock)
+                .unwrap_or(Decimal::ZERO);
             return Ok(CascadeInventoryResult {
                 product_id: product.product_id,
                 product_code: product.product_code,
                 product_name: product.pdt_name,
+                total_quantity: main_stock,
                 bom_groups: vec![],
             });
         }
@@ -136,20 +143,23 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
             });
         }
 
-        // 6. 批量查询库存（从 stock_ledger）
-        let descendant_product_ids: Vec<i64> = bom_groups
+        // 6. 批量查询库存（从 stock_ledger），包含主产品自身
+        let mut all_query_ids: Vec<i64> = bom_groups
             .iter()
             .flat_map(|g| g.children.iter().map(|c| c.product_id))
             .collect::<HashSet<_>>()
             .into_iter()
             .collect();
+        all_query_ids.push(product.product_id);
 
-        let stock_map: HashMap<i64, Decimal> = if descendant_product_ids.is_empty() {
+        let stock_map: HashMap<i64, Decimal> = if all_query_ids.is_empty() {
             HashMap::new()
         } else {
-            let stocks = InventoryCascadeRepo::query_stock_summary(db, &descendant_product_ids).await?;
+            let stocks = InventoryCascadeRepo::query_stock_summary(db, &all_query_ids).await?;
             stocks.into_iter().map(|s| (s.product_id, s.total_stock)).collect()
         };
+
+        let total_quantity = stock_map.get(&product.product_id).copied().unwrap_or(Decimal::ZERO);
 
         // 7. 填充库存
         for group in &mut bom_groups {
@@ -158,10 +168,14 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
             }
         }
 
+        // 计算产品总库存量
+        let total_quantity: Decimal = stock_map.values().copied().sum();
+
         Ok(CascadeInventoryResult {
             product_id: product.product_id,
             product_code: product.product_code,
             product_name: product.pdt_name,
+            total_quantity,
             bom_groups,
         })
     }

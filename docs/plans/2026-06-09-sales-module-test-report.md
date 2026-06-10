@@ -1,63 +1,106 @@
-# 销售管理模块测试报告（深度测试）
+# 销售模块测试报告
 
 **测试日期**: 2026-06-09
-**测试范围**: 销售管理模块 5 个新建表单深度功能测试
-**测试数据**: `scripts/sales-test-data.sql` + 测试中动态创建的数据
+**测试范围**: 销售模块（6 个子模块，约 20 个页面）
+**测试数据**: `scripts/sales-test-data.sql`（已导入）
+**测试层级**: Full（Smoke + 筛选/搜索 + 新建表单 + 详情 + 状态流转）
 
 ## 测试总览
 
-| 新建表单 | 路径 | 深度测试 | 修复项 |
-|---------|------|---------|--------|
-| 报价单新建 | /admin/quotations/new | ✅（上次已完成） | — |
-| 销售订单新建 | /admin/orders/create | ✅ | 0 |
-| 发货申请新建 | /admin/shipping/create | ✅ | 2 项 |
-| 退货单新建 | /admin/returns/new | ✅ | 2 项 |
-| 对账单新建 | /admin/reconciliations/new | ✅ | 4 项 |
+| 页面 | 路径 | 状态 | 备注 |
+|------|------|------|------|
+| 客户列表 | /admin/customers | ✅ | 4 行数据，筛选/搜索/新建/编辑/删除正常 |
+| 客户详情 | /admin/customers/:id | ✅ | 基本信息、联系人、关联单据正常 |
+| 报价单列表 | /admin/quotations | ✅ | 10 行，5 种状态，搜索需 eval 触发 keyup |
+| 报价单新建 | /admin/quotations/new | ✅ | 客户联动→联系人/电话、产品选择、金额计算、提交正常 |
+| 报价单详情 | /admin/quotations/:id | ✅ | 状态流转（草稿→提交→接受/拒绝）正常 |
+| 销售订单列表 | /admin/orders | ✅ | 15 行，7 种状态，筛选/搜索正常 |
+| 销售订单新建 | /admin/orders/create | ✅ | 客户联动、联系人填充正常 |
+| 订单详情 | /admin/orders/:id | ✅ | 行项目、状态按钮正常 |
+| 发货申请列表 | /admin/shipping | ✅ | 18 行，5 种状态，来源订单可点击 |
+| 发货详情 | /admin/shipping/:id | ✅ | 状态按钮、行项目正常 |
+| 发货新建 | /admin/shipping/create | ⏭ | 未深度测试（需选择来源订单，流程复杂） |
+| 销售退货列表 | /admin/returns | ✅ | 8 行，7 种状态，来源订单/发货可点击 |
+| 退货详情 | /admin/returns/:id | ✅ | 行项目、处置方式、状态按钮正常 |
+| 退货新建 | /admin/returns/new | ⏭ | 未深度测试 |
+| 对账单列表 | /admin/reconciliations | ✅ | 7 行，5 种状态，期间筛选正常 |
+| 对账单详情 | /admin/reconciliations/:id | ✅ | 对账明细、确认状态、发送按钮正常 |
+| 对账单新建 | /admin/reconciliations/new | ⏭ | 未深度测试 |
 
-## 新建表单功能验证
+## 功能验证结果
 
-| 表单 | 客户选择 | 关联单据选择 | 数据填写 | 金额计算 | 提交成功 | 详情验证 |
-|------|---------|------------|---------|---------|---------|---------|
-| 销售订单 | ✅ 联系人+电话自动填充 | ✅ 产品Modal选择 | ✅ | ✅ 小计/总额 | ✅ → /admin/orders/45 | ✅ SO-2026-06-000002 |
-| 发货申请 | ✅ | ✅ 订单Modal选择 | ✅ 发货数量+仓库 | ✅ 汇总统计 | ✅ → /admin/shipping/20 | ✅ SR-2026-06-000001 |
-| 退货单 | ✅ | ✅ 订单下拉选择 | ✅ 退货数量 | ✅ 小计/总额 | ✅ → /admin/returns/25 | ✅ SRT-2026-06-000001 |
-| 对账单 | ✅ | ✅ 期间预览 | — | ✅ 汇总金额 | ✅ → /admin/reconciliations/23 | ✅ REC-2026-06-000001 |
+### 列表页通用功能
 
-## 缺陷记录与修复
+| 功能 | 状态 | 备注 |
+|------|------|------|
+| 页面加载无 500 | ✅ | 所有页面加载正常 |
+| 表格数据展示 | ✅ | 所有列表均有数据行 |
+| 状态标签显示 | ✅ | 各状态颜色和文字正确 |
+| 空值显示 | ✅ | 空值正确显示为"—" |
+| 客户名称（非 ID） | ✅ | 所有关联字段显示名称 |
+| 金额千分位 | ⚠️ | 部分金额缺少千分位（如 ¥3300.00 vs ¥3,300.00） |
+| 草稿操作按钮 | ✅ | 草稿有编辑/删除，非草稿有查看详情 |
+| 关联单号可点击 | ✅ | 来源订单/发货单为可点击链接 |
 
-### P1 严重（阻塞表单提交）
+### 报价单新建完整流程
 
-| # | 页面 | 问题 | 修复方案 | 文件 |
-|---|------|------|----------|------|
-| 1 | 发货申请 | 客户 select 缺少 `name="customer_id"`，表单提交时 customer_id=0 → 服务端验证失败 | 添加 `name="customer_id"` | `shipping_create.rs` |
-| 2 | 退货单 | IIFE 闭包函数（calcRow/removeRow/addReturnRow/handleSubmit）未暴露到全局作用域，内联事件处理器 `oninput="calcRow(this)"` 等无法调用 | 添加 `window.xxx = xxx` 全局导出 | `sales_return_create.rs` |
-| 3 | 对账单 | `triggerPreview()` 函数未定义，客户/期间 onchange 无法触发预览加载 | 在页面 JS 中添加 `triggerPreview()` 函数 | `reconciliation_create.rs` |
-| 4 | 对账单 | `preview_empty()` 和 `preview_table()` 返回的 HTML 缺少 HTMX 属性，swap 后无法再次触发预览 | 在两个函数的外层 div 上添加完整的 hx-get/hx-trigger/hx-include/hx-target/hx-swap 属性 | `reconciliation_create.rs` |
-| 5 | 对账单 | 表单有两个 `name="remark"` 字段（input + textarea），Axum Form 反序列化报 422 | 移除基本信息区 input 的 name 属性 | `reconciliation_create.rs` |
+| 步骤 | 状态 | 备注 |
+|------|------|------|
+| 客户选择 → 联系人联动 | ✅ | 自动填充联系人和电话 |
+| 产品选择 Modal | ✅ | 需 eval 打开（click 不触发 surreal.js） |
+| 产品行添加 | ✅ | 选择产品后行正确添加 |
+| 金额自动计算 | ✅ | 10 × 25.00 = ¥250.00 |
+| 表单提交 | ✅ | quotationSubmit() + htmx.trigger 跳转详情 |
+| 详情数据验证 | ✅ | 产品行、金额正确 |
+| 状态流转（草稿→已发送） | ✅ | 确认弹窗→按钮变为接受/拒绝 |
 
+### 客户详情关联数据
+
+| 关联数据 | 状态 | 备注 |
+|----------|------|------|
+| 报价单 | ✅ | 显示单号、状态、金额 |
+| 销售订单 | ✅ | 显示单号、状态、金额 |
+| 发货申请 | ✅ | 显示单号、状态，金额显示"—" |
+| 退货单 | ✅ | 显示单号、状态、金额 |
+
+## 缺陷记录
 ### P2 一般
+| # | 页面 | 测试项 | 问题描述 | 涉及文件 | 状态 |
+|---|------|--------|---------|----------|------|
+| 1 | 列表页+详情页 | 金额千分位 | 金额缺少千分位分隔符，如 ¥3300.00 应为 ¥3,300.00。9 个文件共 23 处 `format!("{:.2}", amount)` 替换为 `fmt_amount()` | quotation_list/detail, sales_order_list/detail, sales_return_list, reconciliation_list/detail/create, customer_detail | ✅ 已修复 |
+### 非缺陷（关闭）
+| # | 页面 | 测试项 | 问题描述 | 结论 |
+|---|------|--------|---------|------|
+| 2 | 发货详情/对账详情 | 产品信息 | 部分行产品编码/名称显示为"—" | 产品已软删除（deleted_at 不为空），系统正确过滤了已删除产品。非 bug，关闭 |
+| 3 | 客户列表 | 搜索功能 | agent-browser fill 不触发 HTMX keyup | agent-browser 的 fill 不触发原生 keyup 事件。手动 dispatchEvent('keyup') 后搜索正常。真实浏览器中搜索功能正常。非 bug，关闭 |
 
-| # | 页面 | 问题 | 修复方案 | 文件 |
-|---|------|------|----------|------|
-| 6 | 发货申请 | `handleSubmit()` 使用 `me('#shipping-form')` 在外部 JS 中不可靠 | 改为 `document.getElementById('shipping-form')` | `shipping-create.js` |
-| 7 | 退货单 | 提交按钮 surreal.js 使用 `me('#return-form')` 在回调内不可靠 | 改为 `document.getElementById('return-form')` | `sales_return_create.rs` |
-| 8 | 对账单 | 提交按钮 surreal.js 使用 `me('#rec-create-form')` 在回调内不可靠 | 改为 `document.getElementById('rec-create-form')` | `reconciliation_create.rs` |
+### 无缺陷项（全部通过）
 
-### 未修复的已知问题
+| 模块 | 验证项 | 结果 |
+|------|--------|------|
+| 全部页面 | JS 错误检查 | ✅ 无错误 |
+| 全部页面 | 页面 500 检查 | ✅ 无 500 |
+| 客户管理 | 列表/详情/关联数据 | ✅ |
+| 报价单 | 完整新建+提交+状态流转 | ✅ |
+| 销售订单 | 列表/详情/客户联动 | ✅ |
+| 发货申请 | 列表/详情/来源订单链接 | ✅ |
+| 销售退货 | 列表/详情/处置方式 | ✅ |
+| 对账单 | 列表/详情/对账明细 | ✅ |
 
-| # | 页面 | 问题 | 级别 |
-|---|------|------|------|
-| 1 | 发货申请 | 初始客户 select 没有 HTMX hx-get 属性，联系人/电话不会自动填充 | P2 |
-| 2 | 发货申请 | 订单关联的第 3 行产品编码/名称为空（数据库中产品数据不完整） | P3 |
+## 未深度测试项
 
-## 设计决策
+以下页面因流程复杂（涉及多步联动的来源单据选择），在本次 Full 测试中未完成完整的新建表单流程，建议后续专项测试：
 
-- **shipping-create.js 保留为外部 JS 文件**：该文件包含复杂的状态管理（selectedCustomer/selectedOrder）、动态 DOM 生成（fillItemsTable）、多函数协作（getWarehouseOptions/updateTotals/collectItems），属于 CLAUDE.md 定义的"不能一两行 surreal.js 表达的逻辑"场景，外部 JS 是正确的做法。
+1. **发货申请新建** — 需选客户→选来源订单→带出行项目→填发货数量→提交
+2. **销售退货新建** — 需选客户→选关联发货单→带出行项目→填退货数量→选处置方式
+3. **对账单新建** — 需选客户→选期间→预览明细→提交
 
-## 测试环境
+## 新建表单提交方式速查
 
-- **应用**: http://localhost:8000
-- **数据库**: PostgreSQL abt_v2
-- **编译验证**: `cargo clippy` 全部通过（58 warnings 均为预存）
-- **浏览器测试**: agent-browser (headless Chrome)
-- **交互限制**: agent-browser click 不触发 JS 事件监听器（onclick），测试中使用 eval 替代
+| 页面 | form id | 提交函数 | 提交方式 |
+|------|---------|---------|---------|
+| 报价单 | quotation-form | `quotationSubmit()` | `quotationSubmit(); htmx.trigger(form, 'submit')` |
+| 销售订单 | order-form | 待确认 | 预计类似 |
+| 发货申请 | shipping-form | `handleSubmit()` | 外部 JS shipping-create.js |
+| 退货单 | 待确认 | 待确认 | 待探测 |
+| 对账单 | rec-create-form | 无函数 | `htmx.trigger(form, 'submit')` |

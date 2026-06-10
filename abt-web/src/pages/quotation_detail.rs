@@ -254,7 +254,7 @@ fn quotation_detail_page(
                     div class="amount-row" {
                         span class="amount-label" { "成本合计" }
                         span class="amount-value" {
-                            "¥ " (format!("{:.2}", q.total_cost))
+                            (crate::utils::fmt_amount(q.total_cost))
                         }
                     }
                     div class="amount-row" {
@@ -266,7 +266,7 @@ fn quotation_detail_page(
                     div class="amount-row" {
                         span class="amount-label" { "报价总额" }
                         span class="amount-value accent" {
-                            "¥ " (format!("{:.2}", q.total_amount))
+                            (crate::utils::fmt_amount(q.total_amount))
                         }
                     }
                 }
@@ -302,9 +302,9 @@ fn item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &HashMap<
             td { (item.description.as_str()) }
             td { (item.unit.as_str()) }
             td class="num-right" { (fmt_qty(item.quantity)) }
-            td class="num-right" { "¥ " (format!("{:.2}", item.unit_price)) }
+            td class="num-right" { (crate::utils::fmt_amount(item.unit_price)) }
             td class="num-right" { (discount) }
-            td class="num-right" { "¥ " (format!("{:.2}", item.amount)) }
+            td class="num-right" { (crate::utils::fmt_amount(item.amount)) }
             td class="mono" { (delivery) }
         }
     }

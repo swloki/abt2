@@ -6,6 +6,7 @@ pub struct CascadeInventoryResult {
     pub product_id: i64,
     pub product_code: String,
     pub product_name: String,
+    pub total_quantity: Decimal,
     pub bom_groups: Vec<BomCascadeGroup>,
 }
 

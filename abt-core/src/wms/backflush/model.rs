@@ -17,6 +17,9 @@ pub struct BackflushRecord {
     pub operator_id: i64,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// 列表查询时通过子查询判断是否有差异预警
+    #[sqlx(default)]
+    pub has_variance_warning: Option<bool>,
 }
 
 /// 冲扣明细实体

@@ -93,19 +93,26 @@ pub async fn post_user_edit(
         .update_user(&service_ctx, &mut conn, path.id, display_name.as_deref())
         .await?;
 
-    // 2. Update status if changed
-    let want_active = form.is_active.is_some();
-    // Fetch current user to check if status changed
+    // 2. Update is_super_admin if changed
+    let want_super_admin = form.is_super_admin.is_some();
     let current = user_svc
         .get_user_with_roles(&service_ctx, &mut conn, path.id)
         .await?;
+    if current.user.is_super_admin != want_super_admin {
+        user_svc
+            .update_user_super_admin(&service_ctx, &mut conn, path.id, want_super_admin)
+            .await?;
+    }
+
+    // 3. Update status if changed
+    let want_active = form.is_active.is_some();
     if current.user.is_active != want_active {
         user_svc
             .update_user_status(&service_ctx, &mut conn, path.id, want_active)
             .await?;
     }
 
-    // 3. Sync roles
+    // 4. Sync roles
     let role_ids: Vec<i64> = form
         .role_ids
         .as_deref()
@@ -119,7 +126,7 @@ pub async fn post_user_edit(
         .batch_assign_roles(&service_ctx, &mut conn, path.id, role_ids)
         .await?;
 
-    // 4. Sync departments
+    // 5. Sync departments
     let dept_ids: Vec<i64> = form
         .dept_ids
         .as_deref()

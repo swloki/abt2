@@ -552,7 +552,7 @@ fn credit_display(credit_limit: Option<rust_decimal::Decimal>) -> Markup {
                 }
                 div class="credit-limit-label" { "总额度" }
                 div class="credit-limit-value" {
-                    "¥ " (format!("{:.2}", limit))
+                    (crate::utils::fmt_amount(limit))
                 }
             } @else {
                 div class="credit-ring" {

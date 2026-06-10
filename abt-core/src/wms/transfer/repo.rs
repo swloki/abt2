@@ -156,17 +156,21 @@ impl TransferRepo {
         let mut where_clauses = vec!["1=1".to_string()];
         let mut param_idx = 0u32;
 
+        if filter.doc_number.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("t.doc_number ILIKE ${param_idx}"));
+        }
         if filter.status.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("status = ${param_idx}"));
+            where_clauses.push(format!("t.status = ${param_idx}"));
         }
         if filter.from_warehouse_id.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("from_warehouse_id = ${param_idx}"));
+            where_clauses.push(format!("t.from_warehouse_id = ${param_idx}"));
         }
         if filter.to_warehouse_id.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("to_warehouse_id = ${param_idx}"));
+            where_clauses.push(format!("t.to_warehouse_id = ${param_idx}"));
         }
 
         let where_sql = where_clauses.join(" AND ");
@@ -175,16 +179,22 @@ impl TransferRepo {
 
         let count_sql = format!("SELECT COUNT(*) as total FROM inventory_transfers WHERE {where_sql}");
         let data_sql = format!(
-            "SELECT id, doc_number, from_warehouse_id, from_zone_id, from_bin_id, \
-             to_warehouse_id, to_zone_id, to_bin_id, \
-             transfer_date, status, operator_id, created_at \
-             FROM inventory_transfers WHERE {where_sql} \
-             ORDER BY created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
+            "SELECT t.id, t.doc_number, t.from_warehouse_id, t.from_zone_id, t.from_bin_id, \
+             t.to_warehouse_id, t.to_zone_id, t.to_bin_id, \
+             t.transfer_date, t.status, t.operator_id, t.created_at, \
+             (SELECT COUNT(*) FROM transfer_items ti WHERE ti.transfer_id = t.id) AS item_count \
+             FROM inventory_transfers t WHERE {where_sql} \
+             ORDER BY t.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
         let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
         let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
 
+        if let Some(ref v) = filter.doc_number {
+            let pattern = format!("%{v}%");
+            count_q = count_q.bind(pattern.clone());
+            data_q = data_q.bind(pattern);
+        }
         if let Some(v) = filter.status {
             count_q = count_q.bind(v);
             data_q = data_q.bind(v);

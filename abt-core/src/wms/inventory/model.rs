@@ -52,6 +52,7 @@ pub struct TransactionDetailView {
     pub source_id: i64,
     pub remark: Option<String>,
     pub operator_id: i64,
+    pub operator_name: String,
     pub created_at: DateTime<Utc>,
 }
 

@@ -26,7 +26,7 @@ RELAY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../relay" && pwd)"
 FIXTURE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../fixtures" && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../scripts" && pwd)"
 LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../lib" && pwd)"
-TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../tests" && pwd)"
+TEST_DIR="${TEST_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../tests" && pwd)}"
 
 # --- agent-browser 配置 ---
 AB_CMD="agent-browser"
@@ -51,9 +51,9 @@ ASSERT_PASS=0
 ASSERT_FAIL=0
 ASSERT_SKIP=0
 
-assert_pass() { ((ASSERT_PASS++)); log_pass "$*"; }
-assert_fail() { ((ASSERT_FAIL++)); log_fail "$*"; }
-assert_skip() { ((ASSERT_SKIP++)); log_warn "SKIP: $*"; }
+assert_pass() { ((ASSERT_PASS++)) || true; log_pass "$*"; }
+assert_fail() { ((ASSERT_FAIL++)) || true; log_fail "$*"; }
+assert_skip() { ((ASSERT_SKIP++)) || true; log_warn "SKIP: $*"; }
 
 # 汇总报告
 print_summary() {

@@ -33,12 +33,19 @@ abt_login() {
     _ab "$session" open "${ABT_URL}/login" > /dev/null 2>&1
     sleep 0.5
 
+    # 1a. 检查是否已登录（已登录时 /login 会重定向到 /admin）
+    local pre_url
+    pre_url=$(_ab "$session" get url 2>/dev/null || echo "")
+    if [[ "$pre_url" != *"/login"* ]]; then
+        log_pass "Login OK: $username (session=$session, already logged in)"
+        return 0
+    fi
+
     # 2. 填写用户名和密码（使用 CSS 选择器）
     _ab "$session" fill "input[name='username']" "$username" > /dev/null 2>&1
     _ab "$session" fill "input[name='password']" "$password" > /dev/null 2>&1
 
     # 3. 点击登录按钮
-    _ab "$session" find role button click --name "登录" > /dev/null 2>&1 || \
     _ab "$session" click "button[type='submit']" > /dev/null 2>&1
 
     # 4. 等待页面跳转
@@ -81,8 +88,15 @@ abt_navigate() {
     local url="${ABT_URL}${path}"
 
     log_step "Navigate session=$session → $path"
-    _ab "$session" open "$url" > /dev/null 2>&1
+    _ab "$session" open "$url" > /dev/null 2>&1 || {
+        sleep 1
+        _ab "$session" open "$url" > /dev/null 2>&1 || true
+    }
     sleep "$((PAGE_LOAD_WAIT / 1000))"
+
+    # 验证 URL 包含目标路径
+    local current_url
+    current_url=$(_ab "$session" get url 2>/dev/null || echo "")
 
     # 验证 URL 包含目标路径
     local current_url

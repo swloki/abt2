@@ -17,6 +17,8 @@ use abt_core::shared::types::PageParams;
 use crate::components::icon;
 use crate::components::category_select::category_tree_select;
 use crate::components::pagination::pagination;
+use crate::components::import_modal::{self, ImportModalConfig};
+use crate::components::export_button::{self, ExportItem};
 use crate::layout::page::admin_page;
 use crate::routes::product::{
     ProductCopyPath, ProductCreatePath, ProductDeletePath, ProductDetailPath, ProductEditPath,
@@ -316,6 +318,15 @@ fn product_list_page(
             div class="page-header" {
                 h1 class="page-title" { "产品管理" span style="font-size:var(--text-sm);font-weight:400;color:var(--muted);margin-left:var(--space-2)" { "(" (result.total) ")" } }
                 div class="page-actions" {
+                    button type="button" class="btn btn-default"
+                        onclick=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "product-inventory", title: "", template_columns: "" })) {
+                        (icon::upload_icon("w-4 h-4"))
+                        "导入"
+                    }
+                    (export_button::export_dropdown(&[
+                        ExportItem { label: "含库存产品", export_type: "product-all" },
+                        ExportItem { label: "不含价格产品", export_type: "product-without-price" },
+                    ]))
                     @if can_create {
                         a href=(ProductCreatePath::PATH) class="btn btn-primary" {
                             (icon::plus_icon("w-4 h-4"))
@@ -359,6 +370,16 @@ fn product_list_page(
                     }
                 },
             ))
+
+            // ── Import Modal ──
+            (import_modal::import_modal(&ImportModalConfig {
+                import_type: "product-inventory",
+                title: "导入产品库存",
+                template_columns: "新编码, 旧编码, 物料名称, 库位编码, 库存数量, 价格, 安全库存, 分类ID",
+            }))
+
+            // ── Export Result ──
+            div id="export-result" {}
         }
     }
 }

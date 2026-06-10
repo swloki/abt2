@@ -1686,7 +1686,49 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
       </p>
     </div>
 
-    <!-- Scheduled Task -->
+    <!-- Excel Web Handler Layer -->
+    <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05); margin-bottom: 20px;">
+      <h3 style="color: #56b6c2; margin: 0 0 6px 0;">Excel Web Handler Layer — 导入导出 HTTP 接口</h3>
+      <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">abt-web/src/routes/excel.rs — 集中式路由模块，HTMX 原生方案。导入用 tokio::spawn 后台执行 + 内存 DashMap 跟踪进度；导出同步执行直接返回下载链接</p>
+      <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+        <span style="color:#888;">// ── TypedPath 路由定义 ──</span><br><br>
+        POST /excel/import/:import_type <span style="color:#888;">// 上传文件，启动导入，返回进度 HTML</span><br>
+        GET&nbsp; /excel/import/:import_type/progress/:task_id <span style="color:#888;">// 轮询导入进度</span><br>
+        POST /excel/export/:export_type <span style="color:#888;">// 同步导出，返回下载链接 HTML</span><br>
+        GET&nbsp; /excel/export/download/:task_id <span style="color:#888;">// 下载导出文件</span><br>
+        GET&nbsp; /excel/template/:import_type <span style="color:#888;">// 下载导入模板</span><br><br>
+        <span style="color:#888;">// ── 导入类型（import_type） ──</span><br>
+        product-inventory <span style="color:#888;">// 产品库存导入</span><br>
+        labor-process <span style="color:#888;">// 工艺路线导入</span><br>
+        warehouse-location <span style="color:#888;">// 仓库库位导入</span><br><br>
+        <span style="color:#888;">// ── 导出类型（export_type） ──</span><br>
+        product-all <span style="color:#888;">// 含库存产品</span><br>
+        product-without-price <span style="color:#888;">// 不含价格产品</span><br>
+        bom <span style="color:#888;">// 单条 BOM（需 bom_id 参数）</span><br>
+        bom-no-labor-cost <span style="color:#888;">// 缺少人工成本 BOM</span><br>
+        category <span style="color:#888;">// 分类</span><br>
+        labor-process-dict <span style="color:#888;">// 工序字典</span><br>
+        labor-process <span style="color:#888;">// 工艺路线（需 product_code 参数）</span><br>
+        warehouse-location <span style="color:#888;">// 仓库库位</span><br><br>
+        <span style="color:#888;">// ── 进度跟踪（内存 DashMap） ──</span><br>
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ImportTaskState</span> {<br>
+        &nbsp;&nbsp;status: TaskStatus <span style="color:#888;">// Running | Completed | Failed</span><br>
+        &nbsp;&nbsp;current, total: usize<br>
+        &nbsp;&nbsp;result: Option&lt;ImportResult&gt;<br>
+        }<br><br>
+        <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ExportFileInfo</span> {<br>
+        &nbsp;&nbsp;filename: String<br>
+        &nbsp;&nbsp;bytes: Vec&lt;u8&gt;<br>
+        &nbsp;&nbsp;created_at: DateTime&lt;Utc&gt;<br>
+        }
+      </div>
+      <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+        <strong>前端组件：</strong>import_modal（通用导入 Modal，文件选择→进度条→结果展示）+ export_button / export_dropdown（导出按钮/下拉菜单）<br>
+        <strong>集成页面：</strong>product_list | bom_list + bom_detail | labor_process_dict_list + routing_list | wms_warehouse_list<br>
+        <strong>交互模式：</strong>导入 Modal 通过 Surreal.js hsAdd/hsRemove 控制 is-open；导出 HTMX POST 直接触发；进度轮询 hx-trigger="every 1s"<br>
+        <strong>文件限制：</strong>仅支持 .xlsx/.xls，最大 10MB
+      </p>
+    </div>
     <div style="border: 2px solid #e5a655; border-radius: 8px; padding: 14px; background: rgba(229,166,85,0.05); margin-bottom: 20px;">
       <h3 style="color: #e5a655; margin: 0 0 6px 0;">ScheduledTask / TaskSchedulerService 定时任务框架</h3>
       <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">通用后台定时任务 trait，每个任务独立实现。TaskSchedulerService 持久化任务定义到 DB，支持手动触发和历史查询。pg_try_advisory_xact_lock 防止多副本重复执行</p>

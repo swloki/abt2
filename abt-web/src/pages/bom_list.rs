@@ -10,6 +10,7 @@ use abt_core::master_data::bom::{BomCategoryService, BomCommandService, BomQuery
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
+use crate::components::export_button::{self, ExportItem};
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
 use crate::layout::page::admin_page;
@@ -190,6 +191,9 @@ fn bom_list_page(
             div class="page-header" {
                 h1 class="page-title" { "BOM管理" }
                 div class="page-actions" {
+                    (export_button::export_dropdown(&[
+                        ExportItem { label: "缺少人工成本BOM", export_type: "boms-no-labor-cost" },
+                    ]))
                     @if can_create {
                         a href=(BomCreatePath::PATH) class="btn btn-primary" {
                             (icon::plus_icon("w-4 h-4"))
@@ -246,6 +250,7 @@ fn bom_list_page(
             }
         }
         script src="/cost-drawer.js?v=20260602" {}
+        div id="export-result" {}
     }
 }
 fn bom_table_fragment(

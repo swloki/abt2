@@ -3,7 +3,42 @@ use std::sync::Arc;
 use crate::config::Config;
 use abt_core::shared::identity::RolePermissionCache;
 use abt_core::shared::types::{PgPool, PgPoolOptions};
+use abt_core::shared::excel::ImportResult;
+use chrono::{DateTime, Utc};
 use tower_sessions_file_store::FileSessionStorage;
+use dashmap::DashMap;
+use std::sync::atomic::AtomicI64;
+use tokio::sync::Semaphore;
+
+/// 任务数据保留时长（秒）
+const TASK_TTL_SECS: i64 = 1800; // 30 分钟
+
+/// 导入任务状态（内存存储）
+#[derive(Debug)]
+pub struct ImportTaskState {
+    pub status: TaskStatus,
+    pub current: usize,
+    pub total: usize,
+    pub result: Option<ImportResult>,
+    pub user_id: i64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TaskStatus {
+    Running,
+    Completed,
+    Failed,
+}
+
+/// 导出文件信息（内存存储）
+#[derive(Debug, Clone)]
+pub struct ExportFileInfo {
+    pub filename: String,
+    pub bytes: Vec<u8>,
+    pub user_id: i64,
+    pub created_at: DateTime<Utc>,
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -12,6 +47,11 @@ pub struct AppState {
     pub jwt_expiration_hours: u64,
     pub session_store: FileSessionStorage,
     pub permission_cache: Arc<RolePermissionCache>,
+    pub import_progress: Arc<DashMap<i64, ImportTaskState>>,
+    pub export_files: Arc<DashMap<i64, ExportFileInfo>>,
+    next_task_id: Arc<AtomicI64>,
+    /// 导入并发信号量（限制同时运行的导入任务数）
+    pub import_semaphore: Arc<Semaphore>,
 }
 
 impl AppState {
@@ -35,12 +75,33 @@ impl AppState {
         permission_cache.load(&pool).await?;
         tracing::info!("Permission cache loaded");
 
+        let import_progress: Arc<DashMap<i64, ImportTaskState>> = Arc::new(DashMap::new());
+        let export_files: Arc<DashMap<i64, ExportFileInfo>> = Arc::new(DashMap::new());
+
+        // 启动后台清理任务，定期淘汰过期数据
+        {
+            let import_progress = import_progress.clone();
+            let export_files = export_files.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(300)).await;
+                    let cutoff = Utc::now() - chrono::Duration::seconds(TASK_TTL_SECS);
+                    import_progress.retain(|_, v| v.created_at > cutoff);
+                    export_files.retain(|_, v| v.created_at > cutoff);
+                }
+            });
+        }
+
         Ok(Self {
             pool,
             jwt_secret: config.jwt_secret.clone(),
             jwt_expiration_hours: config.jwt_expiration_hours,
             session_store,
             permission_cache,
+            import_progress,
+            export_files,
+            next_task_id: Arc::new(AtomicI64::new(1)),
+            import_semaphore: Arc::new(Semaphore::new(5)),
         })
     }
 
@@ -354,5 +415,29 @@ impl AppState {
         &self,
     ) -> impl abt_core::fms::cost_accounting::CostAccountingService {
         abt_core::fms::cost_accounting::new_cost_accounting_service()
+    }
+
+    /// 生成下一个 task_id
+    pub fn next_task_id(&self) -> i64 {
+        self.next_task_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// 存储导出文件，返回 task_id
+    pub fn store_export_file(&self, bytes: Vec<u8>, filename: &str, user_id: i64) -> i64 {
+        let id = self.next_task_id();
+        self.export_files.insert(id, ExportFileInfo {
+            filename: filename.to_string(),
+            bytes,
+            user_id,
+            created_at: Utc::now(),
+        });
+        id
+    }
+
+    /// 获取导出文件（验证 user_id 归属）
+    pub fn get_export_file(&self, task_id: i64, user_id: i64) -> Option<ExportFileInfo> {
+        self.export_files.get(&task_id)
+            .filter(|r| r.value().user_id == user_id)
+            .map(|r| r.value().clone())
     }
 }

@@ -65,6 +65,7 @@ pub async fn get_quotation_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext {
         mut conn,
         state,
@@ -97,8 +98,7 @@ pub async fn get_quotation_create(
         QuotationCreatePath::PATH,
         "销售管理",
         Some("新建报价单"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

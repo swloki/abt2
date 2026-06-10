@@ -33,6 +33,8 @@ pub async fn get_precon_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_delete = ctx.has_permission("PURCHASE_RECON", "delete").await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_reconciliation_service();
     let supplier_svc = state.supplier_service();
@@ -53,11 +55,11 @@ pub async fn get_precon_detail(
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| "—".into());
 
-    let content = precon_detail_page(&recon, &items, &supplier_name, &operator_name);
+    let content = precon_detail_page(&recon, &items, &supplier_name, &operator_name, can_delete);
     let page_html = admin_page(
         is_htmx, "对账详情", &claims, "purchase",
         &format!("{}/{}", PreconListPath::PATH, path.id),
-        "采购管理", Some("对账详情"), content,
+        "采购管理", Some("对账详情"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -117,6 +119,7 @@ fn precon_detail_page(
     items: &[PurchaseReconItem],
     supplier_name: &str,
     operator_name: &str,
+    can_delete: bool,
 ) -> Markup {
     let (status_text, status_class) = status_label(recon.status);
 
@@ -145,7 +148,7 @@ fn precon_detail_page(
                             "确认对账"
                         }
                     }
-                    @if recon.status == PurchaseReconStatus::Draft {
+                    @if recon.status == PurchaseReconStatus::Draft && can_delete {
                         button class="btn btn-danger-ghost"
                             hx-post=(format!("/purchase/reconciliation/{}", recon.id))
                             hx-confirm="确认删除此对账单？删除后不可恢复。" {

@@ -1,39 +1,21 @@
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
-use tower_sessions::Session;
 
-use crate::auth::session::CURRENT_USER_KEY;
 use crate::components::icon;
 use crate::layout::page::admin_page;
 use crate::routes::dashboard::DashboardPath;
+use crate::utils::RequestContext;
 
 // ── Handler ──
 
 pub async fn get_dashboard(
     _path: DashboardPath,
-    session: Session,
+    ctx: RequestContext,
 ) -> axum::response::Html<String> {
-    let claims = session
-        .get::<abt_core::shared::identity::model::Claims>(CURRENT_USER_KEY)
-        .await
-        .ok()
-        .flatten()
-        .unwrap_or_else(|| abt_core::shared::identity::model::Claims {
-            sub: 0,
-            username: "未知用户".into(),
-            display_name: "未知用户".into(),
-            system_role: "user".into(),
-            role_ids: vec![],
-            role_codes: vec![],
-            department_ids: vec![],
-            iss: String::new(),
-            exp: 0,
-            iat: 0,
-        });
-
-    let content = dashboard_content(&claims);
+    let content = dashboard_content(&ctx.claims);
+    let nav_filter = ctx.nav_filter().await;
     let page = admin_page(
-        false, "销售总览", &claims, "sales", DashboardPath::PATH, "销售管理", None, content,
+        false, "销售总览", &ctx.claims, "sales", DashboardPath::PATH, "销售管理", None, content, &nav_filter,
     );
     axum::response::Html(page.into_string())
 }

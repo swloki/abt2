@@ -43,6 +43,7 @@ pub async fn get_misc_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, .. } = ctx;
 
     let content = misc_create_page();
@@ -54,8 +55,7 @@ pub async fn get_misc_create(
         MiscCreatePath::PATH,
         "采购管理",
         Some("新建零星请购"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

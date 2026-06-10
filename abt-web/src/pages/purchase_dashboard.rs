@@ -31,6 +31,7 @@ pub async fn get_purchase_dashboard(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext {
         mut conn,
         state,
@@ -273,8 +274,7 @@ pub async fn get_purchase_dashboard(
         PurchaseDashboardPath::PATH,
         "采购管理",
         None,
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

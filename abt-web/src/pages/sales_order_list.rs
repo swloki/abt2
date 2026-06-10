@@ -125,6 +125,9 @@ pub async fn get_order_list(
     Query(params): Query<OrderQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("SALES_ORDER", "create").await;
+    let can_delete = ctx.has_permission("SALES_ORDER", "delete").await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
@@ -141,9 +144,9 @@ pub async fn get_order_list(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = order_list_page(&result, &customer_names, &sales_rep_names, &customers.items, &params);
+    let content = order_list_page(&result, &customer_names, &sales_rep_names, &customers.items, &params, can_create, can_delete);
     let page_html = admin_page(
-        is_htmx, "销售订单", &claims, "sales", OrderListPath::PATH, "销售管理", Some("销售订单"), content,
+        is_htmx, "销售订单", &claims, "sales", OrderListPath::PATH, "销售管理", Some("销售订单"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -154,6 +157,7 @@ pub async fn get_order_table(
     ctx: RequestContext,
     Query(params): Query<OrderQueryParams>,
 ) -> Result<Html<String>> {
+    let can_delete = ctx.has_permission("SALES_ORDER", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
@@ -170,7 +174,7 @@ pub async fn get_order_table(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    Ok(Html(order_table_fragment(&result, &customer_names, &sales_rep_names, &customers.items, &params).into_string()))
+    Ok(Html(order_table_fragment(&result, &customer_names, &sales_rep_names, &customers.items, &params, can_delete).into_string()))
 }
 
 // ── Edit / Delete Handlers ──
@@ -195,6 +199,8 @@ fn order_list_page(
     sales_rep_names: &HashMap<i64, String>,
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &OrderQueryParams,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
@@ -206,15 +212,17 @@ fn order_list_page(
                         (icon::download_icon("w-4 h-4"))
                         "导出"
                     }
-                    a class="btn btn-primary" href=(OrderCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建订单"
+                    @if can_create {
+                        a class="btn btn-primary" href=(OrderCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建订单"
+                        }
                     }
                 }
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (order_table_fragment(result, customer_names, sales_rep_names, customers, params))
+            (order_table_fragment(result, customer_names, sales_rep_names, customers, params, can_delete))
         }
     }
 }
@@ -225,6 +233,7 @@ fn order_table_fragment(
     sales_rep_names: &HashMap<i64, String>,
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &OrderQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -303,7 +312,7 @@ fn order_table_fragment(
                         }
                         tbody {
                             @for o in &result.items {
-                                (order_row(o, customer_names, sales_rep_names))
+                                (order_row(o, customer_names, sales_rep_names, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -325,6 +334,7 @@ fn order_row(
     o: &SalesOrder,
     customer_names: &HashMap<i64, String>,
     sales_rep_names: &HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     let detail_path = OrderDetailPath { id: o.id };
     let edit_form_path = OrderEditFormPath { id: o.id };
@@ -356,12 +366,14 @@ fn order_row(
                         a class="row-action-btn" href=(edit_form_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
-                        button type="button" class="row-action-btn text-danger" title="删除"
-                            hx-confirm="确认删除该订单吗？"
-                            hx-post=(delete_path)
-                            hx-target="closest tr"
-                            hx-swap="outerHTML swap:0.5s" {
-                            (icon::trash_icon("w-4 h-4"))
+                        @if can_delete {
+                            button type="button" class="row-action-btn text-danger" title="删除"
+                                hx-confirm="确认删除该订单吗？"
+                                hx-post=(delete_path)
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:0.5s" {
+                                (icon::trash_icon("w-4 h-4"))
+                            }
                         }
                     }
                 }

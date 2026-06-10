@@ -41,6 +41,10 @@ pub async fn get_supplier_list(
     Query(params): Query<SupplierQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("SUPPLIER", "create").await;
+    let can_delete = ctx.has_permission("SUPPLIER", "delete").await;
+    let can_edit = ctx.has_permission("SUPPLIER", "update").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.supplier_service();
 
@@ -50,7 +54,7 @@ pub async fn get_supplier_list(
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
 
-    let content = supplier_list_page(&result, &params);
+    let content = supplier_list_page(&result, &params, can_create, can_delete, can_edit);
     let page_html = admin_page(
         is_htmx,
         "供应商管理",
@@ -59,8 +63,7 @@ pub async fn get_supplier_list(
         SupplierListPath::PATH,
         "主数据管理",
         Some("供应商管理"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -70,6 +73,8 @@ pub async fn get_supplier_table(
     ctx: RequestContext,
     Query(params): Query<SupplierQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_delete = ctx.has_permission("SUPPLIER", "delete").await;
+    let can_edit = ctx.has_permission("SUPPLIER", "update").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.supplier_service();
 
@@ -78,7 +83,7 @@ pub async fn get_supplier_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    Ok(Html(supplier_table_fragment(&result, &params).into_string()))
+    Ok(Html(supplier_table_fragment(&result, &params, can_delete, can_edit).into_string()))
 }
 
 #[require_permission("SUPPLIER", "delete")]
@@ -109,6 +114,9 @@ fn build_filter(params: &SupplierQueryParams) -> SupplierQuery {
 fn supplier_list_page(
     result: &abt_core::shared::types::PaginatedResult<Supplier>,
     params: &SupplierQueryParams,
+    can_create: bool,
+    can_delete: bool,
+    can_edit: bool,
 ) -> Markup {
     html! {
         div {
@@ -116,16 +124,18 @@ fn supplier_list_page(
             div class="page-header" {
                 h1 class="page-title" { "供应商管理" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(SupplierCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建供应商"
+                    @if can_create {
+                        a class="btn btn-primary" href=(SupplierCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建供应商"
+                        }
                     }
                 }
             }
 
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (supplier_table_fragment(result, params))
+            (supplier_table_fragment(result, params, can_delete, can_edit))
         }
     }
 }
@@ -133,6 +143,8 @@ fn supplier_list_page(
 fn supplier_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<Supplier>,
     params: &SupplierQueryParams,
+    can_delete: bool,
+    can_edit: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -207,7 +219,7 @@ fn supplier_table_fragment(
                         }
                         tbody {
                             @for s in &result.items {
-                                (supplier_row(s))
+                                (supplier_row(s, can_delete, can_edit))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -225,7 +237,7 @@ fn supplier_table_fragment(
     }
 }
 
-fn supplier_row(s: &Supplier) -> Markup {
+fn supplier_row(s: &Supplier, can_delete: bool, can_edit: bool) -> Markup {
     let detail_path = SupplierDetailPath { id: s.id };
     let delete_path = SupplierDeletePath { id: s.id };
 
@@ -270,16 +282,20 @@ fn supplier_row(s: &Supplier) -> Markup {
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    a class="row-action-btn" title="编辑"
-                        href=(SupplierDetailPath { id: s.id }.to_string()) {
-                        (icon::edit_icon("w-4 h-4"))
+                    @if can_edit {
+                        a class="row-action-btn" title="编辑"
+                            href=(SupplierDetailPath { id: s.id }.to_string()) {
+                            (icon::edit_icon("w-4 h-4"))
+                        }
                     }
-                    button type="button" class="row-action-btn text-danger" title="删除"
-                        hx-post=(delete_path)
-                        hx-confirm=(format!("删除后无法恢复，确定要删除供应商 <strong>{}</strong> 吗？", s.name))
-                        hx-target="closest tr"
-                        hx-swap="outerHTML swap:0.5s" {
-                        (icon::trash_icon("w-4 h-4"))
+                    @if can_delete {
+                        button type="button" class="row-action-btn text-danger" title="删除"
+                            hx-post=(delete_path)
+                            hx-confirm=(format!("删除后无法恢复，确定要删除供应商 <strong>{}</strong> 吗？", s.name))
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s" {
+                            (icon::trash_icon("w-4 h-4"))
+                        }
                     }
                 }
             }

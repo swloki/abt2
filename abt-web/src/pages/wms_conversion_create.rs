@@ -42,6 +42,7 @@ pub async fn get_conversion_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let warehouse_svc = state.warehouse_service();
 
@@ -60,8 +61,7 @@ pub async fn get_conversion_create(
         ConversionCreatePath::PATH,
         "库存管理",
         None,
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 

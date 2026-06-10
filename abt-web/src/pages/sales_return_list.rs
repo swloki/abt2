@@ -148,6 +148,9 @@ pub async fn get_return_list(
     Query(params): Query<ReturnQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("SHIPPING", "create").await;
+    let can_delete = ctx.has_permission("SHIPPING", "delete").await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let return_svc = state.sales_return_service();
@@ -174,9 +177,9 @@ pub async fn get_return_list(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = return_list_page(&claims, &result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params, &status_counts);
+    let content = return_list_page(&claims, &result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params, &status_counts, can_create, can_delete);
     let page_html = admin_page(
-        is_htmx, "销售退货", &claims, "sales", ReturnListPath::PATH, "销售管理", Some("销售退货"), content,
+        is_htmx, "销售退货", &claims, "sales", ReturnListPath::PATH, "销售管理", Some("销售退货"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -187,6 +190,7 @@ pub async fn get_return_table(
     ctx: RequestContext,
     Query(params): Query<ReturnQueryParams>,
 ) -> Result<Html<String>> {
+    let can_delete = ctx.has_permission("SHIPPING", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     let return_svc = state.sales_return_service();
@@ -213,7 +217,7 @@ pub async fn get_return_table(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    Ok(Html(return_table_fragment(&result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params, &status_counts).into_string()))
+    Ok(Html(return_table_fragment(&result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params, &status_counts, can_delete).into_string()))
 }
 
 #[require_permission("SALES_ORDER", "delete")]
@@ -242,19 +246,23 @@ fn return_list_page(
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &ReturnQueryParams,
     status_counts: &HashMap<i16, u64>,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "销售退货" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(ReturnCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建退货单"
+                    @if can_create {
+                        a class="btn btn-primary" href=(ReturnCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建退货单"
+                        }
                     }
                 }
             }
-            (return_table_fragment(result, customer_names, shipping_numbers, order_numbers, customers, params, status_counts))
+            (return_table_fragment(result, customer_names, shipping_numbers, order_numbers, customers, params, status_counts, can_delete))
         }
     }
 }
@@ -267,6 +275,7 @@ fn return_table_fragment(
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &ReturnQueryParams,
     status_counts: &HashMap<i16, u64>,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -339,7 +348,7 @@ fn return_table_fragment(
                         }
                         tbody {
                             @for r in &result.items {
-                                (return_row(r, customer_names, shipping_numbers, order_numbers))
+                                (return_row(r, customer_names, shipping_numbers, order_numbers, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -362,6 +371,7 @@ fn return_row(
     customer_names: &std::collections::HashMap<i64, String>,
     shipping_numbers: &std::collections::HashMap<i64, String>,
     order_numbers: &std::collections::HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     let detail_path = ReturnDetailPath { id: r.id };
     let (status_text, status_class) = status_label(r.status);
@@ -399,12 +409,14 @@ fn return_row(
                         a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
-                        button type="button" class="row-action-btn text-danger" title="删除"
-                            hx-confirm=(format!("确认删除退货单 {}？", r.doc_number))
-                            hx-post=(delete_path.to_string())
-                            hx-target="closest tr"
-                            hx-swap="outerHTML swap:0.5s" {
-                            (icon::trash_icon("w-4 h-4"))
+                        @if can_delete {
+                            button type="button" class="row-action-btn text-danger" title="删除"
+                                hx-confirm=(format!("确认删除退货单 {}？", r.doc_number))
+                                hx-post=(delete_path.to_string())
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:0.5s" {
+                                (icon::trash_icon("w-4 h-4"))
+                            }
                         }
                     } @else {
                         a class="row-action-btn" href=(detail_path.to_string()) title="查看详情" {

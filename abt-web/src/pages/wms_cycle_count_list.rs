@@ -41,7 +41,9 @@ pub async fn get_cycle_count_list(
     ctx: RequestContext,
     Query(params): Query<CycleCountQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_create = ctx.has_permission("INVENTORY", "create").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.cycle_count_service();
 
@@ -50,7 +52,7 @@ pub async fn get_cycle_count_list(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    let content = cycle_count_list_page(&result, &params);
+    let content = cycle_count_list_page(&result, &params, can_create);
     let page_html = admin_page(
         is_htmx,
         "循环盘点",
@@ -59,8 +61,7 @@ pub async fn get_cycle_count_list(
         CycleCountListPath::PATH,
         "库存管理",
         Some("循环盘点"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -116,15 +117,18 @@ fn status_class(s: &CycleCountStatus) -> &'static str {
 fn cycle_count_list_page(
     result: &abt_core::shared::types::PaginatedResult<CycleCount>,
     params: &CycleCountQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "循环盘点" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(CycleCountCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建盘点"
+                    @if can_create {
+                        a class="btn btn-primary" href=(CycleCountCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建盘点"
+                        }
                     }
                 }
             }

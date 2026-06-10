@@ -27,6 +27,7 @@ pub async fn get_wage_list(
     axum::extract::Query(query): axum::extract::Query<WageListQuery>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let report_svc = state.work_report_service();
@@ -90,7 +91,7 @@ pub async fn get_wage_list(
         date_from, date_to,
         total_wage, worker_count, total_completed, total_defect, total_operator_defect,
     );
-    Ok(Html(admin_page(is_htmx, "计件工资汇总", &claims, "production", WageListPath::PATH, "生产管理", None, content).into_string()))
+    Ok(Html(admin_page(is_htmx, "计件工资汇总", &claims, "production", WageListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 fn wage_list_page(

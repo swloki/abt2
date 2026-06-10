@@ -55,6 +55,7 @@ pub async fn get_return_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext {
         claims,
         mut conn,
@@ -128,8 +129,7 @@ pub async fn get_return_detail(
         &format!("{}/{}", ReturnListPath::PATH, path.id),
         "销售管理",
         Some("退货详情"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

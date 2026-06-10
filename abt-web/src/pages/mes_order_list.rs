@@ -64,6 +64,8 @@ pub async fn get_order_list(
     _path: OrderListPath, ctx: RequestContext, Query(params): Query<OrderQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("WORK_ORDER", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.work_order_service();
     let user_svc = state.user_service();
@@ -80,8 +82,8 @@ pub async fn get_order_list(
             .map(|ps| ps.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect())
             .unwrap_or_default()
     };
-    let content = order_list_page(&result, &op_names, &product_names, &params);
-    Ok(Html(admin_page(is_htmx, "工单管理", &claims, "production", OrderListPath::PATH, "生产管理", None, content).into_string()))
+    let content = order_list_page(&result, &op_names, &product_names, &params, can_create);
+    Ok(Html(admin_page(is_htmx, "工单管理", &claims, "production", OrderListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 #[require_permission("MES", "read")]
@@ -110,10 +112,13 @@ pub async fn get_order_table(
 fn order_list_page(
     result: &abt_core::shared::types::PaginatedResult<abt_core::mes::work_order::WorkOrder>,
     op_names: &HashMap<i64, String>, product_names: &HashMap<i64, String>, params: &OrderQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! { div {
         div class="page-header" { h1 class="page-title" { "工单管理" } div class="page-actions" {
-            a class="btn btn-primary" href=(OrderCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建工单" }
+            @if can_create {
+                a class="btn btn-primary" href=(OrderCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建工单" }
+            }
         }}
         (order_table_fragment(result, op_names, product_names, params))
     }}

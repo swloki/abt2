@@ -146,6 +146,7 @@ pub async fn get_list(
     Query(params): Query<TrackingQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let (result, order_map, supplier_map, product_map) =
@@ -160,8 +161,7 @@ pub async fn get_list(
         OmTrackingListPath::PATH,
         "委外管理",
         Some("/admin/om"),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 

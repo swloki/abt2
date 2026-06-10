@@ -47,7 +47,9 @@ pub async fn get_lock_list(
     ctx: RequestContext,
     Query(params): Query<LockQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_create = ctx.has_permission("INVENTORY", "create").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.inventory_lock_service();
 
@@ -96,7 +98,7 @@ pub async fn get_lock_list(
         }
     }
 
-    let content = lock_list_page(&result, &params, &product_map, &wh_names, &operator_map, &customer_map);
+    let content = lock_list_page(&result, &params, &product_map, &wh_names, &operator_map, &customer_map, can_create);
     let page_html = admin_page(
         is_htmx,
         "库存锁定",
@@ -105,8 +107,7 @@ pub async fn get_lock_list(
         LockListPath::PATH,
         "库存管理",
         Some("库存锁定"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -205,15 +206,18 @@ fn lock_list_page(
     wh_names: &std::collections::HashMap<i64, String>,
     operator_map: &std::collections::HashMap<i64, String>,
     customer_map: &std::collections::HashMap<i64, String>,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "库存锁定" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(LockCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建锁库"
+                    @if can_create {
+                        a class="btn btn-primary" href=(LockCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建锁库"
+                        }
                     }
                 }
             }

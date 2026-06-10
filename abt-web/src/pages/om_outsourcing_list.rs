@@ -242,7 +242,9 @@ pub async fn get_list(
     ctx: RequestContext,
     Query(params): Query<OutsourcingQueryParams>,
 ) -> Result<Html<String>> {
+    let can_create = ctx.has_permission("PURCHASE_ORDER", "create").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.outsourcing_order_service();
     let supplier_svc = state.supplier_service();
@@ -267,6 +269,7 @@ pub async fn get_list(
         &product_names,
         &latest_tracking,
         &params,
+        can_create,
     );
     let page_html = admin_page(
         is_htmx,
@@ -276,8 +279,7 @@ pub async fn get_list(
         OmOutsourcingListPath::PATH,
         "委外管理",
         None,
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 
@@ -319,15 +321,18 @@ fn list_page(
     product_names: &HashMap<i64, String>,
     latest_tracking: &HashMap<i64, String>,
     params: &OutsourcingQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "委外单管理" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(OmOutsourcingCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建委外单"
+                    @if can_create {
+                        a class="btn btn-primary" href=(OmOutsourcingCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建委外单"
+                        }
                     }
                 }
             }

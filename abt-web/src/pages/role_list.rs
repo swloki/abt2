@@ -34,6 +34,9 @@ pub async fn get_role_list(
     Query(params): Query<RoleQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("ROLE", "create").await;
+    let can_delete = ctx.has_permission("ROLE", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -52,6 +55,8 @@ pub async fn get_role_list(
         &perm_counts,
         total_perms,
         &user_map,
+        can_create,
+        can_delete,
     );
     let page_html = admin_page(
         is_htmx,
@@ -61,8 +66,7 @@ pub async fn get_role_list(
         RoleListPath::PATH,
         "系统管理",
         Some("角色管理"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -72,6 +76,8 @@ pub async fn get_role_table(
     ctx: RequestContext,
     Query(params): Query<RoleQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_create = ctx.has_permission("ROLE", "create").await;
+    let can_delete = ctx.has_permission("ROLE", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -84,7 +90,7 @@ pub async fn get_role_table(
     let filtered = filter_roles(&roles, &params);
 
     Ok(Html(
-        role_table_fragment(&filtered, &params, &perm_counts, total_perms, &user_map)
+        role_table_fragment(&filtered, &params, &perm_counts, total_perms, &user_map, can_create, can_delete)
             .into_string(),
     ))
 }
@@ -261,6 +267,8 @@ fn role_list_page(
     perm_counts: &HashMap<i64, usize>,
     total_perms: usize,
     user_map: &HashMap<i64, Vec<UserBrief>>,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     let system_count = roles.iter().filter(|r| r.is_system_role).count();
     let custom_count = roles.len() - system_count;
@@ -272,9 +280,11 @@ fn role_list_page(
             div class="page-header" {
                 h1 class="page-title" { "角色管理" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(RoleCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建角色"
+                    @if can_create {
+                        a class="btn btn-primary" href=(RoleCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建角色"
+                        }
                     }
                 }
             }
@@ -311,7 +321,7 @@ fn role_list_page(
             }
 
             // ── Filter + Data Table (HTMX panel) ──
-            (role_table_fragment(roles, params, perm_counts, total_perms, user_map))
+            (role_table_fragment(roles, params, perm_counts, total_perms, user_map, can_create, can_delete))
         }
     }
 }
@@ -322,6 +332,8 @@ fn role_table_fragment(
     perm_counts: &HashMap<i64, usize>,
     total_perms: usize,
     user_map: &HashMap<i64, Vec<UserBrief>>,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div class="role-list-panel" {
@@ -367,7 +379,7 @@ fn role_table_fragment(
                         }
                         tbody {
                             @for (role, depth) in &sort_roles_by_hierarchy(roles) {
-                                (role_row(role, *depth, perm_counts, total_perms, user_map))
+                                (role_row(role, *depth, perm_counts, total_perms, user_map, can_create, can_delete))
                             }
                             @if roles.is_empty() {
                                 tr {
@@ -397,6 +409,8 @@ fn role_row(
     perm_counts: &HashMap<i64, usize>,
     total_perms: usize,
     user_map: &HashMap<i64, Vec<UserBrief>>,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     let edit_path = RoleEditPath { id: role.role_id }.to_string();
     let detail_path = RoleDetailPath { id: role.role_id }.to_string();
@@ -479,10 +493,12 @@ fn role_row(
             // Actions
             td {
                 div class="row-actions" {
-                    a class="row-action-btn" title="编辑" href=(edit_path) {
-                        (icon::edit_icon("w-3.5 h-3.5"))
+                    @if can_create {
+                        a class="row-action-btn" title="编辑" href=(edit_path) {
+                            (icon::edit_icon("w-3.5 h-3.5"))
+                        }
                     }
-                    @if !role.is_system_role {
+                    @if can_delete && !role.is_system_role {
                         button type="button" class="row-action-btn text-danger" title="删除"
                             hx-post=(delete_path)
                             hx-confirm=(format!("删除后无法恢复，确定要删除角色「{}」吗？", role.role_name)) {

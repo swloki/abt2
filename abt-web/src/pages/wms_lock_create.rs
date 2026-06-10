@@ -35,6 +35,7 @@ pub async fn get_lock_create(
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let claims = ctx.claims;
 
     let content = lock_create_form();
@@ -46,8 +47,7 @@ pub async fn get_lock_create(
         LockListPath::PATH,
         "库存管理",
         Some("新建锁库"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

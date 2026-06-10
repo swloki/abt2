@@ -141,6 +141,8 @@ pub async fn get_list(
     Query(params): Query<RmaQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("INSPECTION", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.rma_service();
     let customer_svc = state.customer_service();
@@ -152,9 +154,9 @@ pub async fn get_list(
     let (customer_names, product_names) =
         resolve_names(&customer_svc, &product_svc, &service_ctx, &mut conn, &result.items).await;
 
-    let content = rma_list_page(&result, &customer_names, &product_names, &params);
+    let content = rma_list_page(&result, &customer_names, &product_names, &params, can_create);
     let page_html = admin_page(
-        is_htmx, "RMA 客诉追溯", &claims, "quality", RmaListPath::PATH, "质量管理", None, content,
+        is_htmx, "RMA 客诉追溯", &claims, "quality", RmaListPath::PATH, "质量管理", None, content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
 }
@@ -186,15 +188,18 @@ fn rma_list_page(
     customer_names: &HashMap<i64, String>,
     product_names: &HashMap<i64, String>,
     params: &RmaQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "RMA 客诉追溯" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(RmaCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建RMA"
+                    @if can_create {
+                        a class="btn btn-primary" href=(RmaCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建RMA"
+                        }
                     }
                 }
             }

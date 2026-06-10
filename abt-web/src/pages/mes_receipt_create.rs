@@ -27,6 +27,7 @@ pub struct ReceiptCreateForm {
 #[require_permission("MES", "write")]
 pub async fn get_receipt_create(_path: ReceiptCreatePath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, .. } = ctx;
     let content = html! { div {
         div class="page-header" {
@@ -52,7 +53,7 @@ pub async fn get_receipt_create(_path: ReceiptCreatePath, ctx: RequestContext) -
             }
         }
     }};
-    Ok(Html(admin_page(is_htmx, "新建入库", &claims, "production", ReceiptCreatePath::PATH, "生产管理", Some(ReceiptListPath::PATH), content).into_string()))
+    Ok(Html(admin_page(is_htmx, "新建入库", &claims, "production", ReceiptCreatePath::PATH, "生产管理", Some(ReceiptListPath::PATH), content, &nav_filter).into_string()))
 }
 
 #[require_permission("MES", "write")]

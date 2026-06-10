@@ -36,6 +36,9 @@ pub async fn get_routing_list(
     Query(params): Query<RoutingQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("ROUTING", "create").await;
+    let can_delete = ctx.has_permission("ROUTING", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -51,7 +54,7 @@ pub async fn get_routing_list(
     let page = PageParams::new(params.page.unwrap_or(1), 20);
 
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-    let content = routing_list_page(&result, &params);
+    let content = routing_list_page(&result, &params, can_create, can_delete);
     let page_html = admin_page(
         is_htmx,
         "工艺路线管理",
@@ -60,8 +63,7 @@ pub async fn get_routing_list(
         RoutingListPath::PATH,
         "主数据管理",
         Some("工艺路线管理"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -71,6 +73,7 @@ pub async fn get_routing_table(
     ctx: RequestContext,
     Query(params): Query<RoutingQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_delete = ctx.has_permission("ROUTING", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -86,7 +89,7 @@ pub async fn get_routing_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    Ok(Html(routing_table_fragment(&result, &params).into_string()))
+    Ok(Html(routing_table_fragment(&result, &params, can_delete).into_string()))
 }
 
 #[require_permission("ROUTING", "delete")]
@@ -115,6 +118,8 @@ pub async fn delete_routing(
 fn routing_list_page(
     result: &abt_core::shared::types::PaginatedResult<Routing>,
     params: &RoutingQueryParams,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
@@ -122,15 +127,17 @@ fn routing_list_page(
             div class="page-header" {
                 h1 class="page-title" { "工艺路线管理" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(RoutingCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建工艺路线"
+                    @if can_create {
+                        a class="btn btn-primary" href=(RoutingCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建工艺路线"
+                        }
                     }
                 }
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (routing_table_fragment(result, params))
+            (routing_table_fragment(result, params, can_delete))
         }
     }
 }
@@ -138,6 +145,7 @@ fn routing_list_page(
 fn routing_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<Routing>,
     params: &RoutingQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let total_count = result.total;
@@ -173,7 +181,7 @@ fn routing_table_fragment(
                         }
                         tbody {
                             @for r in &result.items {
-                                (routing_row(r))
+                                (routing_row(r, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -191,7 +199,7 @@ fn routing_table_fragment(
     }
 }
 
-fn routing_row(r: &Routing) -> Markup {
+fn routing_row(r: &Routing, can_delete: bool) -> Markup {
     let detail_path = RoutingDetailPath { id: r.id };
     let delete_path = RoutingDeletePath { id: r.id };
 
@@ -220,12 +228,14 @@ fn routing_row(r: &Routing) -> Markup {
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
                     }
-                    button type="button" class="row-action-btn text-danger" title="删除"
-                        hx-confirm=(format!("确认删除工艺路线 {}？", r.name))
-                        hx-post=(delete_path)
-                        hx-target="closest tr"
-                        hx-swap="outerHTML swap:0.5s" {
-                        (icon::trash_icon("w-4 h-4"))
+                    @if can_delete {
+                        button type="button" class="row-action-btn text-danger" title="删除"
+                            hx-confirm=(format!("确认删除工艺路线 {}？", r.name))
+                            hx-post=(delete_path)
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s" {
+                            (icon::trash_icon("w-4 h-4"))
+                        }
                     }
                 }
             }

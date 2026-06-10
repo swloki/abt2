@@ -49,6 +49,7 @@ pub async fn get_supplier_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, .. } = ctx;
 
 
@@ -61,8 +62,7 @@ pub async fn get_supplier_create(
         SupplierCreatePath::PATH,
         "主数据管理",
         Some("新建供应商"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

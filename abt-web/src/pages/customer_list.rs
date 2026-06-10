@@ -39,7 +39,10 @@ pub async fn get_customer_list(
 
     Query(params): Query<CustomerQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_create = ctx.has_permission("CUSTOMER", "create").await;
+    let can_delete = ctx.has_permission("CUSTOMER", "delete").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.customer_service();
 
@@ -48,9 +51,9 @@ pub async fn get_customer_list(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    let content = customer_list_page(&claims, &result, &params);
+    let content = customer_list_page(&claims, &result, &params, can_create, can_delete);
     let page_html = admin_page(
-        is_htmx, "客户管理", &claims, "sales", CustomerListPath::PATH, "销售管理", Some("客户管理"), content,
+        is_htmx, "客户管理", &claims, "sales", CustomerListPath::PATH, "销售管理", Some("客户管理"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -61,6 +64,7 @@ pub async fn get_customer_table(
     ctx: RequestContext,
     Query(params): Query<CustomerQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_delete = ctx.has_permission("CUSTOMER", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.customer_service();
 
@@ -69,7 +73,7 @@ pub async fn get_customer_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    Ok(Html(customer_table_fragment(&result, &params).into_string()))
+    Ok(Html(customer_table_fragment(&result, &params, can_delete).into_string()))
 }
 
 #[require_permission("CUSTOMER", "delete")]
@@ -102,6 +106,8 @@ fn customer_list_page(
     _claims: &abt_core::shared::identity::model::Claims,
     result: &abt_core::shared::types::PaginatedResult<Customer>,
     params: &CustomerQueryParams,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     let total_count = result.total;
 
@@ -115,9 +121,11 @@ fn customer_list_page(
                         (icon::download_icon("w-4 h-4"))
                         "导出"
                     }
-                    a class="btn btn-primary" href="/admin/customers/new" {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建客户"
+                    @if can_create {
+                        a class="btn btn-primary" href="/admin/customers/new" {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建客户"
+                        }
                     }
                 }
             }
@@ -163,7 +171,7 @@ fn customer_list_page(
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (customer_table_fragment(result, params))
+            (customer_table_fragment(result, params, can_delete))
         }
     }
 }
@@ -171,6 +179,7 @@ fn customer_list_page(
 fn customer_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<Customer>,
     params: &CustomerQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -230,7 +239,7 @@ fn customer_table_fragment(
                         }
                         tbody {
                             @for c in &result.items {
-                                (customer_row(c))
+                                (customer_row(c, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -262,7 +271,7 @@ fn build_query_string(params: &CustomerQueryParams) -> String {
     q.join("&")
 }
 
-fn customer_row(c: &Customer) -> Markup {
+fn customer_row(c: &Customer, can_delete: bool) -> Markup {
     let detail_path = CustomerDetailPath { id: c.id };
     let edit_path = EditCustomerPath { id: c.id };
     let delete_path = DeleteCustomerPath { id: c.id };
@@ -303,12 +312,14 @@ fn customer_row(c: &Customer) -> Markup {
                     a class="row-action-btn" title="编辑" href=(edit_path) {
                         (icon::edit_icon("w-4 h-4"))
                     }
-                    button type="button" class="row-action-btn text-danger" title="删除"
-                        hx-post=(delete_path)
-                        hx-confirm=(format!("删除后无法恢复，确定要删除客户 <strong>{}</strong> 吗？", c.name))
-                        hx-target="closest tr"
-                        hx-swap="outerHTML swap:0.5s" {
-                        (icon::trash_icon("w-4 h-4"))
+                    @if can_delete {
+                        button type="button" class="row-action-btn text-danger" title="删除"
+                            hx-post=(delete_path)
+                            hx-confirm=(format!("删除后无法恢复，确定要删除客户 <strong>{}</strong> 吗？", c.name))
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s" {
+                            (icon::trash_icon("w-4 h-4"))
+                        }
                     }
                 }
             }

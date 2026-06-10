@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use abt_core::shared::identity::model::Claims;
 use maud::{Markup, html};
 
@@ -39,16 +41,59 @@ enum NavIcon {
     DollarSign,
     AlertTriangle,
 }
+
 struct NavItem {
     name: &'static str,
     path: &'static str,
     icon: NavIcon,
+    /// (resource_code, action) — None means always visible
+    permission: Option<(&'static str, &'static str)>,
 }
 
 struct NavModule {
     id: &'static str,
     name: &'static str,
     items: Vec<NavItem>,
+}
+
+// ── NavFilter ──
+
+/// Pre-computed permission filter for sidebar rendering.
+/// `None` inner means super admin — show everything.
+pub struct NavFilter {
+    permissions: Option<HashSet<String>>,
+}
+
+impl NavFilter {
+    pub fn new(is_super_admin: bool, permissions: HashSet<String>) -> Self {
+        if is_super_admin {
+            Self { permissions: None }
+        } else {
+            Self {
+                permissions: Some(permissions),
+            }
+        }
+    }
+
+    fn is_item_visible(&self, item: &NavItem) -> bool {
+        match (&self.permissions, &item.permission) {
+            (None, _) => true,
+            (_, None) => true,
+            (Some(perms), Some((r, a))) => perms.contains(&format!("{r}:{a}")),
+        }
+    }
+
+    fn visible_items<'a>(&self, module: &'a NavModule) -> Vec<&'a NavItem> {
+        module
+            .items
+            .iter()
+            .filter(|i| self.is_item_visible(i))
+            .collect()
+    }
+
+    fn has_visible_items(&self, module: &NavModule) -> bool {
+        module.items.iter().any(|i| self.is_item_visible(i))
+    }
 }
 
 fn modules() -> Vec<NavModule> {
@@ -61,36 +106,43 @@ fn modules() -> Vec<NavModule> {
                     name: "销售总览",
                     path: "/admin",
                     icon: NavIcon::Home,
+                    permission: Some(("SALES_ORDER", "read")),
                 },
                 NavItem {
                     name: "客户管理",
                     path: "/admin/customers",
                     icon: NavIcon::Users,
+                    permission: Some(("CUSTOMER", "read")),
                 },
                 NavItem {
                     name: "报价单",
                     path: "/admin/quotations",
                     icon: NavIcon::File,
+                    permission: Some(("SALES_ORDER", "read")),
                 },
                 NavItem {
                     name: "销售订单",
                     path: "/admin/orders",
                     icon: NavIcon::Package,
+                    permission: Some(("SALES_ORDER", "read")),
                 },
                 NavItem {
                     name: "发货申请",
                     path: "/admin/shipping",
                     icon: NavIcon::Truck,
+                    permission: Some(("SHIPPING", "read")),
                 },
                 NavItem {
                     name: "销售退货",
                     path: "/admin/returns",
                     icon: NavIcon::Return,
+                    permission: Some(("SHIPPING", "read")),
                 },
                 NavItem {
                     name: "月对账单",
                     path: "/admin/reconciliations",
                     icon: NavIcon::Check,
+                    permission: Some(("SALES_ORDER", "read")),
                 },
             ],
         },
@@ -102,36 +154,43 @@ fn modules() -> Vec<NavModule> {
                     name: "采购总览",
                     path: "/admin/purchase",
                     icon: NavIcon::Home,
+                    permission: Some(("PURCHASE_ORDER", "read")),
                 },
                 NavItem {
                     name: "采购报价",
                     path: "/admin/purchase/quotations",
                     icon: NavIcon::File,
+                    permission: Some(("PURCHASE_ORDER", "read")),
                 },
                 NavItem {
                     name: "采购订单",
                     path: "/admin/purchase/orders",
                     icon: NavIcon::ClipboardDoc,
+                    permission: Some(("PURCHASE_ORDER", "read")),
                 },
                 NavItem {
                     name: "采购退货",
                     path: "/admin/purchase/returns",
                     icon: NavIcon::Return,
+                    permission: Some(("PURCHASE_ORDER", "read")),
                 },
                 NavItem {
                     name: "采购对账",
                     path: "/admin/purchase/reconciliations",
                     icon: NavIcon::Check,
+                    permission: Some(("PURCHASE_ORDER", "read")),
                 },
                 NavItem {
                     name: "付款申请",
                     path: "/admin/purchase/payments",
                     icon: NavIcon::Payment,
+                    permission: Some(("PURCHASE_ORDER", "read")),
                 },
                 NavItem {
                     name: "零星请购",
                     path: "/admin/purchase/misc-requests",
                     icon: NavIcon::Sliders,
+                    permission: Some(("PURCHASE_ORDER", "read")),
                 },
             ],
         },
@@ -139,71 +198,71 @@ fn modules() -> Vec<NavModule> {
             id: "inventory",
             name: "库存管理",
             items: vec![
-                NavItem { name: "库存总览", path: "/admin/wms", icon: NavIcon::Home },
-                NavItem { name: "仓库管理", path: "/admin/wms/warehouses", icon: NavIcon::Building },
-                NavItem { name: "储位管理", path: "/admin/wms/bins", icon: NavIcon::Database },
-                NavItem { name: "库存查询", path: "/admin/wms/stock", icon: NavIcon::Search },
-                NavItem { name: "入库管理", path: "/admin/wms/stock-in", icon: NavIcon::ArrowDown },
-                NavItem { name: "出库管理", path: "/admin/wms/stock-out", icon: NavIcon::ArrowUp },
-                NavItem { name: "来料通知", path: "/admin/wms/arrivals", icon: NavIcon::Truck },
-                NavItem { name: "库存调拨", path: "/admin/wms/transfers", icon: NavIcon::Switch },
-                NavItem { name: "领料单", path: "/admin/wms/requisitions", icon: NavIcon::ClipboardDoc },
-                NavItem { name: "形态转换", path: "/admin/wms/conversions", icon: NavIcon::Refresh },
-                NavItem { name: "倒冲记录", path: "/admin/wms/backflushes", icon: NavIcon::Lightning },
-                NavItem { name: "循环盘点", path: "/admin/wms/cycle-counts", icon: NavIcon::Check },
-                NavItem { name: "库存锁定", path: "/admin/wms/locks", icon: NavIcon::Lock },
-                NavItem { name: "策略管理", path: "/admin/wms/strategies", icon: NavIcon::Sliders },
-                NavItem { name: "事务日志", path: "/admin/wms/transactions", icon: NavIcon::File },
-                NavItem { name: "级联查询", path: "/admin/wms/cascade", icon: NavIcon::Search },
+                NavItem { name: "库存总览", path: "/admin/wms", icon: NavIcon::Home, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "仓库管理", path: "/admin/wms/warehouses", icon: NavIcon::Building, permission: Some(("WAREHOUSE", "read")) },
+                NavItem { name: "储位管理", path: "/admin/wms/bins", icon: NavIcon::Database, permission: Some(("LOCATION", "read")) },
+                NavItem { name: "库存查询", path: "/admin/wms/stock", icon: NavIcon::Search, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "入库管理", path: "/admin/wms/stock-in", icon: NavIcon::ArrowDown, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "出库管理", path: "/admin/wms/stock-out", icon: NavIcon::ArrowUp, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "来料通知", path: "/admin/wms/arrivals", icon: NavIcon::Truck, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "库存调拨", path: "/admin/wms/transfers", icon: NavIcon::Switch, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "领料单", path: "/admin/wms/requisitions", icon: NavIcon::ClipboardDoc, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "形态转换", path: "/admin/wms/conversions", icon: NavIcon::Refresh, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "倒冲记录", path: "/admin/wms/backflushes", icon: NavIcon::Lightning, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "循环盘点", path: "/admin/wms/cycle-counts", icon: NavIcon::Check, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "库存锁定", path: "/admin/wms/locks", icon: NavIcon::Lock, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "策略管理", path: "/admin/wms/strategies", icon: NavIcon::Sliders, permission: Some(("WAREHOUSE", "read")) },
+                NavItem { name: "事务日志", path: "/admin/wms/transactions", icon: NavIcon::File, permission: Some(("INVENTORY", "read")) },
+                NavItem { name: "级联查询", path: "/admin/wms/cascade", icon: NavIcon::Search, permission: Some(("INVENTORY", "read")) },
             ],
         },
         NavModule {
             id: "production",
             name: "生产管理",
             items: vec![
-                NavItem { name: "生产总览", path: "/admin/mes", icon: NavIcon::Home },
-                NavItem { name: "生产计划", path: "/admin/mes/plans", icon: NavIcon::Calendar },
-                NavItem { name: "工单管理", path: "/admin/mes/orders", icon: NavIcon::ClipboardDoc },
-                NavItem { name: "生产批次", path: "/admin/mes/batches", icon: NavIcon::Layers },
-                NavItem { name: "流转卡查询", path: "/admin/mes/cards", icon: NavIcon::Search },
-                NavItem { name: "排程看板", path: "/admin/mes/schedule", icon: NavIcon::Grid },
-                NavItem { name: "报工记录", path: "/admin/mes/reports", icon: NavIcon::Hammer },
-                NavItem { name: "计件工资", path: "/admin/mes/wages", icon: NavIcon::DollarSign },
-                NavItem { name: "生产报检", path: "/admin/mes/inspections", icon: NavIcon::Eye },
-                NavItem { name: "完工入库", path: "/admin/mes/receipts", icon: NavIcon::ArrowDown },
-                NavItem { name: "物料消耗", path: "/admin/mes/material-usage", icon: NavIcon::Package },
-                NavItem { name: "生产异常", path: "/admin/mes/exceptions", icon: NavIcon::AlertTriangle },
+                NavItem { name: "生产总览", path: "/admin/mes", icon: NavIcon::Home, permission: Some(("WORK_ORDER", "read")) },
+                NavItem { name: "生产计划", path: "/admin/mes/plans", icon: NavIcon::Calendar, permission: Some(("WORK_ORDER", "read")) },
+                NavItem { name: "工单管理", path: "/admin/mes/orders", icon: NavIcon::ClipboardDoc, permission: Some(("WORK_ORDER", "read")) },
+                NavItem { name: "生产批次", path: "/admin/mes/batches", icon: NavIcon::Layers, permission: Some(("WORK_ORDER", "read")) },
+                NavItem { name: "流转卡查询", path: "/admin/mes/cards", icon: NavIcon::Search, permission: Some(("WORK_ORDER", "read")) },
+                NavItem { name: "排程看板", path: "/admin/mes/schedule", icon: NavIcon::Grid, permission: Some(("WORK_ORDER", "read")) },
+                NavItem { name: "报工记录", path: "/admin/mes/reports", icon: NavIcon::Hammer, permission: Some(("WORK_ORDER", "read")) },
+                NavItem { name: "计件工资", path: "/admin/mes/wages", icon: NavIcon::DollarSign, permission: Some(("LABOR_COST", "read")) },
+                NavItem { name: "生产报检", path: "/admin/mes/inspections", icon: NavIcon::Eye, permission: Some(("INSPECTION", "read")) },
+                NavItem { name: "完工入库", path: "/admin/mes/receipts", icon: NavIcon::ArrowDown, permission: Some(("WORK_ORDER", "read")) },
+                NavItem { name: "物料消耗", path: "/admin/mes/material-usage", icon: NavIcon::Package, permission: Some(("WORK_ORDER", "read")) },
+                NavItem { name: "生产异常", path: "/admin/mes/exceptions", icon: NavIcon::AlertTriangle, permission: Some(("WORK_ORDER", "read")) },
             ],
         },
         NavModule {
             id: "outsourcing",
             name: "委外管理",
             items: vec![
-                NavItem { name: "委外总览", path: "/admin/om", icon: NavIcon::Home },
-                NavItem { name: "委外单管理", path: "/admin/om/outsourcing", icon: NavIcon::ClipboardDoc },
-                NavItem { name: "追踪管理", path: "/admin/om/tracking", icon: NavIcon::Search },
+                NavItem { name: "委外总览", path: "/admin/om", icon: NavIcon::Home, permission: Some(("PURCHASE_ORDER", "read")) },
+                NavItem { name: "委外单管理", path: "/admin/om/outsourcing", icon: NavIcon::ClipboardDoc, permission: Some(("PURCHASE_ORDER", "read")) },
+                NavItem { name: "追踪管理", path: "/admin/om/tracking", icon: NavIcon::Search, permission: Some(("PURCHASE_ORDER", "read")) },
             ],
         },
         NavModule {
             id: "quality",
             name: "质量管理",
             items: vec![
-                NavItem { name: "质量总览", path: "/admin/qms", icon: NavIcon::Home },
-                NavItem { name: "检验规格", path: "/admin/qms/specs", icon: NavIcon::File },
-                NavItem { name: "检验结果", path: "/admin/qms/results", icon: NavIcon::Check },
-                NavItem { name: "MRB评审", path: "/admin/qms/mrb", icon: NavIcon::AlertTriangle },
-                NavItem { name: "RMA客诉", path: "/admin/qms/rma", icon: NavIcon::Return },
+                NavItem { name: "质量总览", path: "/admin/qms", icon: NavIcon::Home, permission: Some(("INSPECTION", "read")) },
+                NavItem { name: "检验规格", path: "/admin/qms/specs", icon: NavIcon::File, permission: Some(("INSPECTION", "read")) },
+                NavItem { name: "检验结果", path: "/admin/qms/results", icon: NavIcon::Check, permission: Some(("INSPECTION", "read")) },
+                NavItem { name: "MRB评审", path: "/admin/qms/mrb", icon: NavIcon::AlertTriangle, permission: Some(("INSPECTION", "read")) },
+                NavItem { name: "RMA客诉", path: "/admin/qms/rma", icon: NavIcon::Return, permission: Some(("INSPECTION", "read")) },
             ],
         },
         NavModule {
             id: "finance",
             name: "财务管理",
             items: vec![
-                NavItem { name: "财务总览", path: "/admin/fms", icon: NavIcon::Home },
-                NavItem { name: "出纳日记账", path: "/admin/fms/journals", icon: NavIcon::File },
-                NavItem { name: "费用报销", path: "/admin/fms/expenses", icon: NavIcon::Payment },
-                NavItem { name: "核销管理", path: "/admin/fms/writeoffs", icon: NavIcon::Check },
-                NavItem { name: "成本核算", path: "/admin/fms/cost-analysis", icon: NavIcon::DollarSign },
+                NavItem { name: "财务总览", path: "/admin/fms", icon: NavIcon::Home, permission: Some(("FMS", "read")) },
+                NavItem { name: "出纳日记账", path: "/admin/fms/journals", icon: NavIcon::File, permission: Some(("FMS", "read")) },
+                NavItem { name: "费用报销", path: "/admin/fms/expenses", icon: NavIcon::Payment, permission: Some(("FMS", "read")) },
+                NavItem { name: "核销管理", path: "/admin/fms/writeoffs", icon: NavIcon::Check, permission: Some(("FMS", "read")) },
+                NavItem { name: "成本核算", path: "/admin/fms/cost-analysis", icon: NavIcon::DollarSign, permission: Some(("COST", "read")) },
             ],
         },
         NavModule {
@@ -214,46 +273,55 @@ fn modules() -> Vec<NavModule> {
                     name: "主数据总览",
                     path: "/admin/md",
                     icon: NavIcon::Home,
+                    permission: Some(("PRODUCT", "read")),
                 },
                 NavItem {
                     name: "产品管理",
                     path: "/admin/md/products",
                     icon: NavIcon::Package,
+                    permission: Some(("PRODUCT", "read")),
                 },
                 NavItem {
                     name: "产品分类",
                     path: "/admin/md/categories",
                     icon: NavIcon::Tag,
+                    permission: Some(("CATEGORY", "read")),
                 },
                 NavItem {
                     name: "BOM管理",
                     path: "/admin/md/boms",
                     icon: NavIcon::ClipboardDoc,
+                    permission: Some(("BOM", "read")),
                 },
                 NavItem {
                     name: "电源BOM",
                     path: "/admin/md/boms?category_name=电源",
                     icon: NavIcon::ClipboardDoc,
+                    permission: Some(("BOM", "read")),
                 },
                 NavItem {
                     name: "模组BOM",
                     path: "/admin/md/boms?category_name=模组",
                     icon: NavIcon::ClipboardDoc,
+                    permission: Some(("BOM", "read")),
                 },
                 NavItem {
                     name: "工序字典",
                     path: "/admin/md/process-dicts",
                     icon: NavIcon::Database,
+                    permission: Some(("BOM", "read")),
                 },
                 NavItem {
                     name: "工艺路线",
                     path: "/admin/md/routings",
                     icon: NavIcon::Wrench,
+                    permission: Some(("BOM", "read")),
                 },
                 NavItem {
                     name: "供应商管理",
                     path: "/admin/md/suppliers",
                     icon: NavIcon::Building,
+                    permission: Some(("PURCHASE_ORDER", "read")),
                 },
             ],
         },
@@ -265,23 +333,26 @@ fn modules() -> Vec<NavModule> {
                     name: "用户管理",
                     path: "/admin/system/users",
                     icon: NavIcon::Users,
+                    permission: Some(("USER", "read")),
                 },
                 NavItem {
                     name: "角色管理",
                     path: "/admin/system/roles",
                     icon: NavIcon::Lock,
+                    permission: Some(("ROLE", "read")),
                 },
                 NavItem {
                     name: "部门管理",
                     path: "/admin/system/departments",
                     icon: NavIcon::Building,
+                    permission: Some(("DEPARTMENT", "read")),
                 },
                 NavItem {
                     name: "权限配置",
                     path: "/admin/system/permissions",
                     icon: NavIcon::Sliders,
+                    permission: Some(("ROLE", "read")),
                 },
-
             ],
         },
     ]
@@ -374,9 +445,12 @@ fn find_module(id: &str) -> Option<usize> {
 
 // ── Sidebar Body Fragment (used by HTMX endpoint) ──
 
-pub fn sidebar_body_fragment(claims: &Claims, active_module: &str) -> Markup {
+pub fn sidebar_body_fragment(claims: &Claims, active_module: &str, filter: &NavFilter) -> Markup {
     let mods = modules();
-    let active_mod = &mods[find_module(active_module).unwrap_or(0)];
+    let Some(active_mod) = mods.iter().find(|m| m.id == active_module) else {
+        return html! {};
+    };
+    let visible_items = filter.visible_items(active_mod);
 
     html! {
         div class="sidebar-module-header" {
@@ -384,7 +458,7 @@ pub fn sidebar_body_fragment(claims: &Claims, active_module: &str) -> Markup {
             span class="module-header-name" { (active_mod.name) }
         }
         div class="sidebar-nav" {
-            @for item in &active_mod.items {
+            @for item in &visible_items {
                 a href=(item.path) class=(item_class(false)) {
                     (render_item_icon(item.icon))
                     span class="sidebar-item-text" { (item.name) }
@@ -403,9 +477,9 @@ pub fn sidebar_body_fragment(claims: &Claims, active_module: &str) -> Markup {
 
 // ── Full Sidebar (initial page load) ──
 
-pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str) -> Markup {
+pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter: &NavFilter) -> Markup {
     let mods = modules();
-    let active_mod = &mods[find_module(active_module).unwrap_or(0)];
+    let active_mod = mods.iter().find(|m| m.id == active_module);
 
     html! {
         nav id="sidebar" {
@@ -416,16 +490,18 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str) -> Mark
                 }
                 div class="rail-modules" {
                     @for m in &mods {
-                        @let is_initial_active = m.id == active_mod.id;
-                        @let hx_url = format!("/sidebar/body/{}", m.id);
-                        button class=(if is_initial_active { "rail-item active" } else { "rail-item" })
-                           hx-get=(hx_url)
-                           hx-target=".sidebar-body"
-                           hx-swap="innerHTML"
-                           onclick="hsTake(this,'.rail-item','active')"
-                           title=(m.name) {
-                            span class="rail-icon" { (render_module_icon(m.id)) }
-                            span class="rail-label" { (m.name.replace("管理", "")) }
+                        @if filter.has_visible_items(m) {
+                            @let is_initial_active = active_mod.map_or(false, |am| m.id == am.id);
+                            @let hx_url = format!("/sidebar/body/{}", m.id);
+                            button class=(if is_initial_active { "rail-item active" } else { "rail-item" })
+                               hx-get=(hx_url)
+                               hx-target=".sidebar-body"
+                               hx-swap="innerHTML"
+                               onclick="hsTake(this,'.rail-item','active')"
+                               title=(m.name) {
+                                span class="rail-icon" { (render_module_icon(m.id)) }
+                                span class="rail-label" { (m.name.replace("管理", "")) }
+                            }
                         }
                     }
                 }
@@ -441,7 +517,9 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str) -> Mark
 
             // ── Sidebar Body ──
             div class="sidebar-body" {
-                (sidebar_body_fragment_inner(active_mod, current_path))
+                @if let Some(active_mod) = active_mod {
+                    (sidebar_body_fragment_inner(active_mod, current_path, filter))
+                }
                 div class="sidebar-user" {
                     div class="sidebar-user-avatar" { (avatar_initials(&claims.display_name)) }
                     div class="sidebar-user-info" {
@@ -468,7 +546,7 @@ fn is_active(item_path: &str, current_path: &str) -> bool {
 }
 
 /// Find the best matching nav item path: exact match preferred, then longest prefix.
-fn find_active_path<'a>(items: &'a [NavItem], current_path: &str) -> Option<&'a str> {
+fn find_active_path<'a>(items: &[&'a NavItem], current_path: &str) -> Option<&'a str> {
     let mut best: Option<(&'a str, bool)> = None;
     for item in items {
         let exact = item.path == current_path;
@@ -492,15 +570,16 @@ fn find_active_path<'a>(items: &'a [NavItem], current_path: &str) -> Option<&'a 
 }
 
 /// Renders module header + nav items (for initial page load, with active item highlight).
-fn sidebar_body_fragment_inner(active_mod: &NavModule, current_path: &str) -> Markup {
-    let active_path = find_active_path(&active_mod.items, current_path);
+fn sidebar_body_fragment_inner(active_mod: &NavModule, current_path: &str, filter: &NavFilter) -> Markup {
+    let visible_items = filter.visible_items(active_mod);
+    let active_path = find_active_path(&visible_items, current_path);
     html! {
         div class="sidebar-module-header" {
             span class="module-header-icon" { (render_module_icon(active_mod.id)) }
             span class="module-header-name" { (active_mod.name) }
         }
         div class="sidebar-nav" {
-            @for item in &active_mod.items {
+            @for item in &visible_items {
                 a href=(item.path) class=(item_class(active_path == Some(item.path))) {
                     (render_item_icon(item.icon))
                     span class="sidebar-item-text" { (item.name) }
@@ -512,16 +591,19 @@ fn sidebar_body_fragment_inner(active_mod: &NavModule, current_path: &str) -> Ma
 
 // ── Mobile Nav ──
 
-pub fn mobile_nav(active_module: &str, current_path: &str) -> Markup {
+pub fn mobile_nav(active_module: &str, current_path: &str, filter: &NavFilter) -> Markup {
     let mods = modules();
-    let active_mod = &mods[find_module(active_module).unwrap_or(0)];
-    let active_path = find_active_path(&active_mod.items, current_path);
+    let Some(active_mod) = mods.iter().find(|m| m.id == active_module) else {
+        return html! {};
+    };
+    let visible_items = filter.visible_items(active_mod);
+    let active_path = find_active_path(&visible_items, current_path);
 
     html! {
         nav class="mobile-nav" {
             div class="mobile-nav-scroll" {
                 div class="mobile-nav-inner" {
-                    @for item in &active_mod.items {
+                    @for item in &visible_items {
                         a href=(item.path) class=(mobile_class(active_path == Some(item.path))) {
                             (render_item_icon(item.icon))
                             span { (item.name) }

@@ -61,6 +61,7 @@ pub async fn get_plan_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.production_plan_service();
     let user_svc = state.user_service();
@@ -96,8 +97,7 @@ pub async fn get_plan_detail(
         &format!("/admin/mes/plans/{}", path.id),
         "生产管理",
         Some("生产计划"),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 

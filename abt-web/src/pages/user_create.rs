@@ -35,6 +35,7 @@ pub async fn get_user_create(
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext {
         mut conn,
         state,
@@ -60,8 +61,7 @@ pub async fn get_user_create(
         UserCreatePath::PATH,
         "系统管理",
         Some("新建用户"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

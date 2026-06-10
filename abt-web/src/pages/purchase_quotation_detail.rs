@@ -37,6 +37,8 @@ pub async fn get_pq_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_delete = ctx.has_permission("PURCHASE_QUOTATION", "delete").await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_quotation_service();
     let supplier_svc = state.supplier_service();
@@ -93,11 +95,12 @@ pub async fn get_pq_detail(
         supplier_name, &supplier_contact, &supplier_phone,
         &buyer_name,
         &product_names, &product_codes, &product_specs, &product_units,
+        can_delete,
     );
     let page_html = admin_page(
         is_htmx, "报价详情", &claims, "purchase",
         &format!("{}/{}", PQListPath::PATH, path.id),
-        "采购管理", Some("报价详情"), content,
+        "采购管理", Some("报价详情"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -207,6 +210,7 @@ fn pq_detail_page(
     product_codes: &HashMap<i64, String>,
     product_specs: &HashMap<i64, String>,
     product_units: &HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     let (status_text, status_class) = status_label(pq.status);
     let currency = items.first().map(|i| i.currency.as_str()).unwrap_or("CNY");
@@ -244,7 +248,7 @@ fn pq_detail_page(
                             "取消"
                         }
                     }
-                    @if pq.status != PurchaseQuotationStatus::Active {
+                    @if pq.status != PurchaseQuotationStatus::Active && can_delete {
                         button class="btn btn-danger-ghost"
                             hx-post=(PQDeletePath { id: pq.id }.to_string())
                             hx-confirm="确认删除此报价？删除后不可恢复。" {

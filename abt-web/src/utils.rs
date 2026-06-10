@@ -133,6 +133,12 @@ impl RequestContext {
     pub fn is_htmx(&self) -> bool {
         self.headers.get("HX-Request").is_some()
     }
+    pub async fn nav_filter(&self) -> crate::layout::sidebar::NavFilter {
+        let perms = self.state.permission_cache
+            .get_merged_permissions(&self.claims.role_ids)
+            .await;
+        crate::layout::sidebar::NavFilter::new(self.claims.is_super_admin(), perms)
+    }
 }
 
 /// Format a Decimal value by trimming trailing zeros (100.000000 → 100, 1.50 → 1.5)

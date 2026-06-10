@@ -21,6 +21,7 @@ fn receipt_status_label(s: &abt_core::mes::enums::ReceiptStatus) -> (&'static st
 #[require_permission("MES", "read")]
 pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.production_receipt_service();
     let receipt = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
@@ -61,7 +62,7 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
             }
         }
     }};
-    Ok(Html(admin_page(is_htmx, "入库详情", &claims, "production", &format!("/admin/mes/receipts/{}", path.id), "生产管理", Some(ReceiptListPath::PATH), content).into_string()))
+    Ok(Html(admin_page(is_htmx, "入库详情", &claims, "production", &format!("/admin/mes/receipts/{}", path.id), "生产管理", Some(ReceiptListPath::PATH), content, &nav_filter).into_string()))
 }
 
 #[require_permission("MES", "write")]

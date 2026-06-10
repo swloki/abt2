@@ -173,6 +173,8 @@ pub async fn get_list(
     Query(params): Query<JournalQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("FMS", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.cash_journal_service();
 
@@ -183,7 +185,7 @@ pub async fn get_list(
         .await?;
 
     let counterparty_names = resolve_counterparty_names(&state, &service_ctx, &mut conn, &result.items).await;
-    let content = journal_list_page(&result, &params, &counterparty_names);
+    let content = journal_list_page(&result, &params, &counterparty_names, can_create);
     let page_html = admin_page(
         is_htmx,
         "出纳日记账",
@@ -192,8 +194,7 @@ pub async fn get_list(
         JournalListPath::PATH,
         "财务管理",
         None,
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 
@@ -235,16 +236,18 @@ fn build_filter(params: &JournalQueryParams) -> CashJournalFilter {
 
 // ── Components ──
 
-fn journal_list_page(result: &PaginatedResult<CashJournal>, params: &JournalQueryParams, counterparty_names: &HashMap<(CounterpartyType, i64), String>) -> Markup {
+fn journal_list_page(result: &PaginatedResult<CashJournal>, params: &JournalQueryParams, counterparty_names: &HashMap<(CounterpartyType, i64), String>, can_create: bool) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "出纳日记账" }
                 div class="page-actions" {
                     button class="btn btn-default" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
-                    a class="btn btn-primary" href=(JournalCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建日记账"
+                    @if can_create {
+                        a class="btn btn-primary" href=(JournalCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建日记账"
+                        }
                     }
                 }
             }

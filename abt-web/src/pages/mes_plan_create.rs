@@ -30,11 +30,12 @@ pub async fn get_plan_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, .. } = ctx;
 
     let content = plan_create_page();
     let page_html = admin_page(
-        is_htmx, "新建生产计划", &claims, "production", PlanCreatePath::PATH, "生产管理", Some(PlanListPath::PATH), content,
+        is_htmx, "新建生产计划", &claims, "production", PlanCreatePath::PATH, "生产管理", Some(PlanListPath::PATH), content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
 }

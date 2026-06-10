@@ -31,6 +31,7 @@ pub async fn get_routing_detail(
     Query(qp): Query<BomPageParams>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.routing_service();
 
@@ -59,8 +60,7 @@ pub async fn get_routing_detail(
         &detail_path_str,
         "主数据管理",
         Some(&detail.routing.name),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

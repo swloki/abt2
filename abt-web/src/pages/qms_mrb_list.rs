@@ -156,6 +156,8 @@ pub async fn get_list(
     Query(params): Query<MrbQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("INSPECTION", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.mrb_service();
     let product_svc = state.product_service();
@@ -178,9 +180,9 @@ pub async fn get_list(
     let result_ids: Vec<i64> = result.items.iter().map(|m| m.inspection_result_id).collect();
     let result_doc_numbers = resolve_result_doc_numbers(&result_svc, &service_ctx, &mut conn, &result_ids).await;
 
-    let content = mrb_list_page(&result, &product_names, &result_doc_numbers, &params);
+    let content = mrb_list_page(&result, &product_names, &result_doc_numbers, &params, can_create);
     let page_html = admin_page(
-        is_htmx, "MRB 不良评审", &claims, "quality", MrbListPath::PATH, "质量管理", None, content,
+        is_htmx, "MRB 不良评审", &claims, "quality", MrbListPath::PATH, "质量管理", None, content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
 }
@@ -223,15 +225,18 @@ fn mrb_list_page(
     product_names: &HashMap<i64, String>,
     result_doc_numbers: &HashMap<i64, String>,
     params: &MrbQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "MRB 不良评审" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(MrbCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建MRB"
+                    @if can_create {
+                        a class="btn btn-primary" href=(MrbCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建MRB"
+                        }
                     }
                 }
             }

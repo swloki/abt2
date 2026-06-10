@@ -35,6 +35,7 @@ pub async fn get_supplier_edit(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.supplier_service();
     let supplier = svc.get(&service_ctx, &mut conn, path.id).await?;
@@ -49,8 +50,7 @@ pub async fn get_supplier_edit(
         &edit_path_str,
         "主数据管理",
         Some(&format!("编辑 {}", supplier.name)),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

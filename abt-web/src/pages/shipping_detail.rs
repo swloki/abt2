@@ -47,6 +47,7 @@ pub async fn get_shipping_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let shipping_svc = state.shipping_service();
@@ -98,7 +99,7 @@ pub async fn get_shipping_detail(
     let page_html = admin_page(
         is_htmx, "发货详情", &claims, "sales",
         &format!("{}/{}", ShippingListPath::PATH, path.id),
-        "销售管理", Some("发货详情"), content,
+        "销售管理", Some("发货详情"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))

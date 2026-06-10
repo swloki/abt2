@@ -40,6 +40,7 @@ pub async fn get_po_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_order_service();
     let supplier_svc = state.supplier_service();
@@ -78,7 +79,7 @@ pub async fn get_po_detail(
     let page_html = admin_page(
         is_htmx, "订单详情", &claims, "purchase",
         &format!("{}/{}", POListPath::PATH, path.id),
-        "采购管理", Some("订单详情"), content,
+        "采购管理", Some("订单详情"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))

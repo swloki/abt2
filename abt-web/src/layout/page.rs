@@ -2,7 +2,7 @@ use abt_core::shared::identity::model::Claims;
 use maud::{DOCTYPE, Markup, PreEscaped, html};
 
 use super::header;
-use super::sidebar;
+use super::sidebar::{self, NavFilter};
 
 // ── Page Shell ──
 
@@ -39,11 +39,12 @@ fn admin_shell(
     module_name: &str,
     page_name: Option<&str>,
     content: Markup,
+    nav_filter: &NavFilter,
 ) -> Markup {
     html! {
         div id="app-wrapper" {
             div class="app-shell" {
-                (sidebar::sidebar(claims, active_module, current_path))
+                (sidebar::sidebar(claims, active_module, current_path, nav_filter))
                 div class="main-content" {
                     (header::header(claims, module_name, page_name))
                     div class="page-content" {
@@ -54,7 +55,7 @@ fn admin_shell(
             (PreEscaped("<script>if(localStorage.getItem('sidebar-collapsed')==='true')me('.app-shell').classAdd('sidebar-collapsed')</script>"))
             div class="mobile-sidebar-overlay"
                 onclick="hsRemove(this,null,'open')" {}
-            (sidebar::mobile_nav(active_module, current_path))
+            (sidebar::mobile_nav(active_module, current_path, nav_filter))
         }
     }
 }
@@ -72,6 +73,7 @@ pub fn admin_page(
     module_name: &str,
     page_name: Option<&str>,
     content: Markup,
+    nav_filter: &NavFilter,
 ) -> Markup {
     if is_htmx {
         content
@@ -85,6 +87,7 @@ pub fn admin_page(
                 module_name,
                 page_name,
                 content,
+                nav_filter,
             ),
         )
     }

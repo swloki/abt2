@@ -52,6 +52,7 @@ pub async fn get_order_edit(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
@@ -78,7 +79,7 @@ pub async fn get_order_edit(
 
     let content = order_edit_page(&order, &items, &customers.items, &contacts, &product_codes);
     let page_html = admin_page(
-        is_htmx, "编辑订单", &claims, "sales", OrderEditFormPath::PATH, "销售管理", Some("编辑订单"), content,
+        is_htmx, "编辑订单", &claims, "sales", OrderEditFormPath::PATH, "销售管理", Some("编辑订单"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))

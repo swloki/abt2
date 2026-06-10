@@ -123,7 +123,10 @@ pub async fn get_pr_list(
     ctx: RequestContext,
     Query(params): Query<PRQueryParams>,
 ) -> Result<Html<String>> {
+    let can_create = ctx.has_permission("PURCHASE_RETURN", "create").await;
+    let can_delete = ctx.has_permission("PURCHASE_RETURN", "delete").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_return_service();
     let supplier_svc = state.supplier_service();
@@ -138,9 +141,9 @@ pub async fn get_pr_list(
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = pr_list_page(&result, &supplier_names, &suppliers.items, &params);
+    let content = pr_list_page(&result, &supplier_names, &suppliers.items, &params, can_create, can_delete);
     let page_html = admin_page(
-        is_htmx, "采购退货", &claims, "purchase", PRListPath::PATH, "采购管理", Some("采购退货"), content,
+        is_htmx, "采购退货", &claims, "purchase", PRListPath::PATH, "采购管理", Some("采购退货"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -151,6 +154,7 @@ pub async fn get_pr_table(
     ctx: RequestContext,
     Query(params): Query<PRQueryParams>,
 ) -> Result<Html<String>> {
+    let can_delete = ctx.has_permission("PURCHASE_RETURN", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_return_service();
     let supplier_svc = state.supplier_service();
@@ -165,7 +169,7 @@ pub async fn get_pr_table(
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
 
-    Ok(Html(pr_table_fragment(&result, &supplier_names, &suppliers.items, &params).into_string()))
+    Ok(Html(pr_table_fragment(&result, &supplier_names, &suppliers.items, &params, can_delete).into_string()))
 }
 
 // ── Components ──
@@ -175,6 +179,8 @@ fn pr_list_page(
     supplier_names: &HashMap<i64, String>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PRQueryParams,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
@@ -182,15 +188,17 @@ fn pr_list_page(
             div class="page-header" {
                 h1 class="page-title" { "采购退货" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(PRCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建采购退货"
+                    @if can_create {
+                        a class="btn btn-primary" href=(PRCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建采购退货"
+                        }
                     }
                 }
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (pr_table_fragment(result, supplier_names, suppliers, params))
+            (pr_table_fragment(result, supplier_names, suppliers, params, can_delete))
         }
     }
 }
@@ -200,6 +208,7 @@ fn pr_table_fragment(
     supplier_names: &HashMap<i64, String>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PRQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -276,7 +285,7 @@ fn pr_table_fragment(
                         }
                         tbody {
                             @for r in &result.items {
-                                (pr_row(r, supplier_names))
+                                (pr_row(r, supplier_names, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -297,6 +306,7 @@ fn pr_table_fragment(
 fn pr_row(
     r: &PurchaseReturn,
     supplier_names: &HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     let detail_path = PRDetailPath { id: r.id };
     let delete_path = format!("{}/delete", detail_path);
@@ -324,12 +334,14 @@ fn pr_row(
                         a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
-                        button type="button" class="row-action-btn text-danger" title="删除"
-                            hx-confirm="确认删除该退货单吗？"
-                            hx-post=(delete_path)
-                            hx-target="closest tr"
-                            hx-swap="outerHTML swap:0.5s" {
-                            (icon::trash_icon("w-4 h-4"))
+                        @if can_delete {
+                            button type="button" class="row-action-btn text-danger" title="删除"
+                                hx-confirm="确认删除该退货单吗？"
+                                hx-post=(delete_path)
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:0.5s" {
+                                (icon::trash_icon("w-4 h-4"))
+                            }
                         }
                     }
                 }

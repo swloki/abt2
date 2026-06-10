@@ -57,6 +57,10 @@ pub async fn get_category_list(
     Query(query): Query<ListQuery>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("CATEGORY", "create").await;
+    let can_update = ctx.has_permission("CATEGORY", "update").await;
+    let can_delete = ctx.has_permission("CATEGORY", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -96,7 +100,7 @@ pub async fn get_category_list(
             let page = abt_core::shared::types::PageParams::new(query.page, 5);
             let products = svc.list_products(&service_ctx, &mut conn, cat_id, page).await
                 .unwrap_or_else(|_| abt_core::shared::types::PaginatedResult::empty(query.page, 5));
-            Some((detail_panel(&cat, &parent_name, &update_url, &delete_url, &child_tree, &products, cat_id), cat_id))
+            Some((detail_panel(&cat, &parent_name, &update_url, &delete_url, &child_tree, &products, cat_id, can_update, can_delete), cat_id))
         } else {
             None
         }
@@ -104,7 +108,7 @@ pub async fn get_category_list(
         None
     };
 
-    let content = category_page(&tree, first_panel.as_ref().map(|(p, _)| p), first_panel.as_ref().map(|(_, id)| *id));
+    let content = category_page(&tree, first_panel.as_ref().map(|(p, _)| p), first_panel.as_ref().map(|(_, id)| *id), can_create);
     let page_html = admin_page(
         is_htmx,
         "产品分类",
@@ -113,8 +117,7 @@ pub async fn get_category_list(
         CategoryListPath::PATH,
         "主数据管理",
         Some("产品分类"),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 
@@ -141,6 +144,8 @@ pub async fn get_category_detail_panel(
     ctx: RequestContext,
     Query(query): Query<PanelQuery>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_update = ctx.has_permission("CATEGORY", "update").await;
+    let can_delete = ctx.has_permission("CATEGORY", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -187,7 +192,7 @@ pub async fn get_category_detail_panel(
         .unwrap_or_else(|_| abt_core::shared::types::PaginatedResult::empty(query.page, 5));
 
     Ok(Html(
-        detail_panel(&category, &parent_name, &update_url, &delete_url, &child_tree, &products, path.id).into_string(),
+        detail_panel(&category, &parent_name, &update_url, &delete_url, &child_tree, &products, path.id, can_update, can_delete).into_string(),
     ))
 }
 
@@ -602,7 +607,7 @@ fn split_view_style() -> Markup {
 
 // ── Page Component ──
 
-fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id: Option<i64>) -> Markup {
+fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id: Option<i64>, can_create: bool) -> Markup {
 
     html! {
         div {
@@ -635,11 +640,13 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                     div class="tree-scroll" id="category-tree" {
                         (tree_fragment(tree, first_id))
                     }
-                    div class="tree-footer" {
-                        button class="btn btn-primary" style="width: 100%; justify-content: center;"
-                            onclick="hsAdd(null,'#create-modal','is-open')" {
-                            (icon::plus_icon("w-4 h-4"))
-                            "新建分类"
+                    @if can_create {
+                        div class="tree-footer" {
+                            button class="btn btn-primary" style="width: 100%; justify-content: center;"
+                                onclick="hsAdd(null,'#create-modal','is-open')" {
+                                (icon::plus_icon("w-4 h-4"))
+                                "新建分类"
+                            }
                         }
                     }
                 }
@@ -661,7 +668,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
             }
 
             // ── Create Modal ──
-            (create_category_modal(tree))
+            (create_category_modal(tree, can_create))
         }
     }
 }
@@ -797,6 +804,8 @@ fn detail_panel(
     child_tree: &[CategoryTree],
     products: &abt_core::shared::types::PaginatedResult<abt_core::master_data::category::ProductSummary>,
     category_id: i64,
+    can_update: bool,
+    can_delete: bool,
 ) -> Markup {
     use abt_core::master_data::product::ProductStatus;
 
@@ -817,17 +826,21 @@ fn detail_panel(
                         }
                     }
                     div class="cat-info-actions" {
-                        button class="btn btn-default btn-sm"
-                            onclick="hsAdd(null,'#edit-category-modal','is-open')" {
-                            (icon::edit_icon("w-4 h-4"))
-                            "编辑"
+                        @if can_update {
+                            button class="btn btn-default btn-sm"
+                                onclick="hsAdd(null,'#edit-category-modal','is-open')" {
+                                (icon::edit_icon("w-4 h-4"))
+                                "编辑"
+                            }
                         }
-                        button class="btn btn-default btn-sm" style="color: var(--danger); border-color: var(--border);"
-                            hx-post=(delete_url)
-                            hx-confirm="确定要删除此分类吗？此操作不可撤销。"
-                            hx-swap="none" {
-                            (icon::trash_icon("w-4 h-4"))
-                            "删除"
+                        @if can_delete {
+                            button class="btn btn-default btn-sm" style="color: var(--danger); border-color: var(--border);"
+                                hx-post=(delete_url)
+                                hx-confirm="确定要删除此分类吗？此操作不可撤销。"
+                                hx-swap="none" {
+                                (icon::trash_icon("w-4 h-4"))
+                                "删除"
+                            }
                         }
                     }
                 }
@@ -953,7 +966,10 @@ fn detail_panel(
 
 // ── Create Category Modal ──
 
-fn create_category_modal(tree: &[CategoryTree]) -> Markup {
+fn create_category_modal(tree: &[CategoryTree], can_create: bool) -> Markup {
+    if !can_create {
+        return html! {};
+    }
     // TODO: Surreal.js migration - modal tied to Alpine categorySplitView component
     modal::modal(
         "create-modal",

@@ -129,6 +129,8 @@ pub async fn get_list(
     Query(params): Query<ExpenseQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("FMS", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.expense_service();
 
@@ -144,7 +146,7 @@ pub async fn get_list(
     let all_depts = state.department_service().list_departments(&service_ctx, &mut conn).await.unwrap_or_default();
     let all_users = UserService::list_users_with_roles(&state.user_service(), &service_ctx, &mut conn).await.unwrap_or_default();
 
-    let content = expense_list_page(&result, &params, &applicant_names, &dept_names, &all_depts, &all_users);
+    let content = expense_list_page(&result, &params, &applicant_names, &dept_names, &all_depts, &all_users, can_create);
     let page_html = admin_page(
         is_htmx,
         "费用报销",
@@ -153,8 +155,7 @@ pub async fn get_list(
         ExpenseListPath::PATH,
         "财务管理",
         None,
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 
@@ -205,6 +206,7 @@ fn expense_list_page(
     dept_names: &HashMap<i64, String>,
     all_depts: &[abt_core::shared::identity::Department],
     all_users: &[abt_core::shared::identity::UserWithRoles],
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
@@ -212,9 +214,11 @@ fn expense_list_page(
                 h1 class="page-title" { "费用报销" }
                 div class="page-actions" {
                     button class="btn btn-default" type="button" { (icon::download_icon("w-4 h-4")) "导出" }
-                    a class="btn btn-primary" href=(ExpenseCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建报销"
+                    @if can_create {
+                        a class="btn btn-primary" href=(ExpenseCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建报销"
+                        }
                     }
                 }
             }

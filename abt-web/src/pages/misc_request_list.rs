@@ -159,7 +159,9 @@ pub async fn get_misc_list(
     ctx: RequestContext,
     Query(params): Query<MiscQueryParams>,
 ) -> Result<Html<String>> {
+    let can_create = ctx.has_permission("PURCHASE_ORDER", "create").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.misc_request_service();
     let user_svc = state.user_service();
@@ -173,7 +175,7 @@ pub async fn get_misc_list(
     let operator_map = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
     let dept_name_map = resolve_department_names(&dept_svc, &service_ctx, &mut conn).await;
 
-    let content = misc_list_page(&result, &params, &operator_map, &dept_name_map);
+    let content = misc_list_page(&result, &params, &operator_map, &dept_name_map, can_create);
     let page_html = admin_page(
         is_htmx,
         "零星请购",
@@ -182,8 +184,7 @@ pub async fn get_misc_list(
         MiscListPath::PATH,
         "采购管理",
         Some("零星请购"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -216,6 +217,7 @@ fn misc_list_page(
     params: &MiscQueryParams,
     operator_map: &HashMap<i64, String>,
     dept_name_map: &HashMap<i64, String>,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
@@ -223,9 +225,11 @@ fn misc_list_page(
             div class="page-header" {
                 h1 class="page-title" { "零星请购" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(MiscCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建零星请购"
+                    @if can_create {
+                        a class="btn btn-primary" href=(MiscCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建零星请购"
+                        }
                     }
                 }
             }

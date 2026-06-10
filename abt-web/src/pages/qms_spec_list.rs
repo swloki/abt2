@@ -120,6 +120,8 @@ pub async fn get_list(
     Query(params): Query<SpecQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("INSPECTION", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.inspection_specification_service();
     let product_svc = state.product_service();
@@ -138,7 +140,7 @@ pub async fn get_list(
     let product_ids: Vec<i64> = result.items.iter().map(|s| s.product_id).collect();
     let product_names = resolve_product_names(&product_svc, &service_ctx, &mut conn, &product_ids).await;
 
-    let content = spec_list_page(&result, &product_names, &params);
+    let content = spec_list_page(&result, &product_names, &params, can_create);
     let page_html = admin_page(
         is_htmx,
         "检验规格",
@@ -147,8 +149,7 @@ pub async fn get_list(
         SpecListPath::PATH,
         "质量管理",
         None,
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 
@@ -187,15 +188,18 @@ fn spec_list_page(
     result: &PaginatedResult<InspectionSpecification>,
     product_names: &HashMap<i64, String>,
     params: &SpecQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "检验规格" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(SpecCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建规格"
+                    @if can_create {
+                        a class="btn btn-primary" href=(SpecCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建规格"
+                        }
                     }
                 }
             }

@@ -123,7 +123,9 @@ pub async fn get_stock_out_list(
     ctx: RequestContext,
     Query(params): Query<StockOutQueryParams>,
 ) -> Result<Html<String>> {
+    let can_create = ctx.has_permission("INVENTORY", "create").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.inventory_transaction_service();
     let user_svc = state.user_service();
@@ -146,9 +148,9 @@ pub async fn get_stock_out_list(
     let wh_names = resolve_wh_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let warehouses = warehouse_svc.list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200).await.map(|r| r.items).unwrap_or_default();
 
-    let content = stock_out_list_page(&result, &operator_names, &wh_names, &warehouses, &params);
+    let content = stock_out_list_page(&result, &operator_names, &wh_names, &warehouses, &params, can_create);
     let page_html = admin_page(
-        is_htmx, "出库管理", &claims, "inventory", StockOutListPath::PATH, "库存管理", None, content,
+        is_htmx, "出库管理", &claims, "inventory", StockOutListPath::PATH, "库存管理", None, content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
 }
@@ -192,6 +194,7 @@ fn stock_out_list_page(
     wh_names: &HashMap<i64, String>,
     warehouses: &[abt_core::wms::warehouse::model::Warehouse],
     params: &StockOutQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
@@ -203,9 +206,11 @@ fn stock_out_list_page(
                         (icon::download_icon("w-4 h-4"))
                         "导出"
                     }
-                    a class="btn btn-primary" href=(StockOutCreatePath::PATH) style="background:var(--danger);border-color:var(--danger)" {
-                        (icon::upload_icon("w-4 h-4"))
-                        "新建出库单"
+                    @if can_create {
+                        a class="btn btn-primary" href=(StockOutCreatePath::PATH) style="background:var(--danger);border-color:var(--danger)" {
+                            (icon::upload_icon("w-4 h-4"))
+                            "新建出库单"
+                        }
                     }
                 }
             }

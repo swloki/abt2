@@ -68,6 +68,7 @@ pub async fn get_batch_list(
     _path: BatchListPath, ctx: RequestContext, Query(params): Query<BatchQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let filter = BatchListFilter {
         status: params.status.as_deref().and_then(parse_batch_status),
@@ -77,7 +78,7 @@ pub async fn get_batch_list(
     let result = state.production_batch_service()
         .list_batches(&service_ctx, &mut conn, filter, page, 20).await?;
     let content = batch_list_page(&result, &params);
-    Ok(Html(admin_page(is_htmx, "生产批次", &claims, "production", BatchListPath::PATH, "生产管理", None, content).into_string()))
+    Ok(Html(admin_page(is_htmx, "生产批次", &claims, "production", BatchListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 #[require_permission("MES", "read")]

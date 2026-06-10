@@ -43,6 +43,7 @@ pub async fn get_order_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext {
         claims,
         mut conn,
@@ -67,8 +68,7 @@ pub async fn get_order_detail(
         &format!("/admin/mes/orders/{}", path.id),
         "生产管理",
         Some(OrderListPath::PATH),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 

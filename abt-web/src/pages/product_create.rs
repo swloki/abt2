@@ -44,6 +44,7 @@ pub async fn get_product_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let copy_source = if let Some(id) = params.copy_from {
@@ -63,8 +64,7 @@ pub async fn get_product_create(
         ProductCreatePath::PATH,
         "主数据管理",
         Some(title),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

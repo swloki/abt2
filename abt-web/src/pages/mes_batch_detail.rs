@@ -28,6 +28,7 @@ fn batch_status_label(s: &abt_core::mes::enums::BatchStatus) -> (&'static str, &
 #[require_permission("MES", "read")]
 pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.production_batch_service();
     let wo_svc = state.work_order_service();
@@ -58,7 +59,7 @@ pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Res
         .collect();
 
     let content = batch_detail_page(&batch, &product_name, &wo, &routings, &reports, &routing_map, &user_map, &creator_name);
-    Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", Some(BatchListPath::PATH), content).into_string()))
+    Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", Some(BatchListPath::PATH), content, &nav_filter).into_string()))
 }
 
 #[require_permission("MES", "write")]

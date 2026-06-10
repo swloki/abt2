@@ -42,6 +42,7 @@ pub async fn get_bin_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.warehouse_service();
 
@@ -64,8 +65,7 @@ pub async fn get_bin_create(
         BinCreatePath::PATH,
         "库存管理",
         Some("新建储位"),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 

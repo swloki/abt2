@@ -192,6 +192,8 @@ pub async fn get_list(
     Query(params): Query<ResultQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("INSPECTION", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.inspection_result_service();
     let spec_svc = state.inspection_specification_service();
@@ -212,7 +214,7 @@ pub async fn get_list(
         resolve_product_names(&spec_svc, &product_svc, &service_ctx, &mut conn, &result.items)
             .await;
 
-    let content = result_list_page(&result, &product_names, &params);
+    let content = result_list_page(&result, &product_names, &params, can_create);
     let page_html = admin_page(
         is_htmx,
         "检验结果",
@@ -221,8 +223,7 @@ pub async fn get_list(
         ResultListPath::PATH,
         "质量管理",
         None,
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 
@@ -263,15 +264,18 @@ fn result_list_page(
     result: &PaginatedResult<InspectionResult>,
     product_names: &HashMap<i64, String>,
     params: &ResultQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "检验结果" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(ResultCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "记录检验"
+                    @if can_create {
+                        a class="btn btn-primary" href=(ResultCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "记录检验"
+                        }
                     }
                 }
             }

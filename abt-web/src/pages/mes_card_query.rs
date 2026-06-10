@@ -18,6 +18,7 @@ use abt_macros::require_permission;
 #[require_permission("MES", "read")]
 pub async fn get_card_query(_path: CardQueryPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     // 加载最近批次用于"最近查询"区域
@@ -34,7 +35,7 @@ pub async fn get_card_query(_path: CardQueryPath, ctx: RequestContext) -> Result
         });
 
     let content = card_query_page(&recent_result.items);
-    Ok(Html(admin_page(is_htmx, "流转卡查询", &claims, "production", CardQueryPath::PATH, "生产管理", None, content).into_string()))
+    Ok(Html(admin_page(is_htmx, "流转卡查询", &claims, "production", CardQueryPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 #[derive(Debug, Deserialize)]

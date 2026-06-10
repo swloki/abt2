@@ -39,6 +39,7 @@ pub async fn get_warehouse_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, .. } = ctx;
 
     let content = warehouse_create_page(None);
@@ -50,8 +51,7 @@ pub async fn get_warehouse_create(
         WarehouseCreatePath::PATH,
         "库存管理",
         Some("新建仓库"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

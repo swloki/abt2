@@ -30,6 +30,7 @@ pub async fn get_user_edit(
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext {
         mut conn,
         state,
@@ -65,8 +66,7 @@ pub async fn get_user_edit(
         &detail_path,
         "系统管理",
         Some(&user.user.username),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

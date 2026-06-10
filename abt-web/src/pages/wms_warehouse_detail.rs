@@ -41,6 +41,9 @@ pub async fn get_warehouse_detail(
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_delete = ctx.has_permission("WAREHOUSE", "delete").await;
+    let can_edit = ctx.has_permission("WAREHOUSE", "update").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.warehouse_service();
 
@@ -48,7 +51,7 @@ pub async fn get_warehouse_detail(
     let zones = svc.list_zones(&service_ctx, &mut conn, path.id).await?;
     let stats = svc.get_warehouse_inventory_stats(&service_ctx, &mut conn, path.id).await.ok();
 
-    let content = warehouse_detail_page(&warehouse, &zones, stats.as_ref());
+    let content = warehouse_detail_page(&warehouse, &zones, stats.as_ref(), can_delete, can_edit);
     let detail_path_str = WarehouseDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         is_htmx,
@@ -58,8 +61,7 @@ pub async fn get_warehouse_detail(
         &detail_path_str,
         "库存管理",
         Some(&warehouse.name),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -70,6 +72,7 @@ pub async fn get_warehouse_edit(
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.warehouse_service();
 
@@ -85,8 +88,7 @@ pub async fn get_warehouse_edit(
         &edit_path_str,
         "库存管理",
         Some(&format!("编辑 - {}", warehouse.name)),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -307,6 +309,8 @@ fn warehouse_detail_page(
     warehouse: &Warehouse,
     zones: &[Zone],
     stats: Option<&WarehouseInventoryStats>,
+    can_delete: bool,
+    can_edit: bool,
 ) -> Markup {
     let detail_path = WarehouseDetailPath { id: warehouse.id };
     let edit_path = WarehouseEditPath { id: warehouse.id };
@@ -335,17 +339,21 @@ fn warehouse_detail_page(
                     (icon::arrow_left_icon("w-4 h-4"))
                     " 返回列表"
                 }
-                a class="btn btn-primary" href=(edit_path) {
-                    (icon::edit_icon("w-4 h-4"))
-                    " 编辑"
+                @if can_edit {
+                    a class="btn btn-primary" href=(edit_path) {
+                        (icon::edit_icon("w-4 h-4"))
+                        " 编辑"
+                    }
                 }
-                button type="button" class="btn btn-danger" style="margin-left:var(--space-2)"
-                    hx-post=(delete_path)
-                    hx-confirm=(format!("删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？", warehouse.name))
-                    hx-target="body"
-                    hx-swap="none" {
-                    (icon::trash_icon("w-4 h-4"))
-                    " 删除"
+                @if can_delete {
+                    button type="button" class="btn btn-danger" style="margin-left:var(--space-2)"
+                        hx-post=(delete_path)
+                        hx-confirm=(format!("删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？", warehouse.name))
+                        hx-target="body"
+                        hx-swap="none" {
+                        (icon::trash_icon("w-4 h-4"))
+                        " 删除"
+                    }
                 }
             }
         }
@@ -730,4 +738,3 @@ fn stats_section(stats: Option<&WarehouseInventoryStats>) -> Markup {
         }
     }
 }
-

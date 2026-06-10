@@ -46,7 +46,10 @@ pub async fn get_warehouse_list(
     ctx: RequestContext,
     Query(params): Query<WarehouseQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_create = ctx.has_permission("WAREHOUSE", "create").await;
+    let can_delete = ctx.has_permission("WAREHOUSE", "delete").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.warehouse_service();
 
@@ -76,7 +79,7 @@ pub async fn get_warehouse_list(
             .unwrap_or_default()
     };
 
-    let content = warehouse_list_page(&result, &params, &manager_map);
+    let content = warehouse_list_page(&result, &params, &manager_map, can_create, can_delete);
     let page_html = admin_page(
         is_htmx,
         "仓库管理",
@@ -85,8 +88,7 @@ pub async fn get_warehouse_list(
         WarehouseListPath::PATH,
         "库存管理",
         Some("仓库管理"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -125,7 +127,7 @@ pub async fn get_warehouse_table(
             .unwrap_or_default()
     };
 
-    Ok(Html(warehouse_table_fragment(&result, &params, &manager_map).into_string()))
+    Ok(Html(warehouse_table_fragment(&result, &params, &manager_map, false).into_string()))
 }
 
 // ── Helpers ──
@@ -174,6 +176,8 @@ fn warehouse_list_page(
     result: &abt_core::shared::types::PaginatedResult<Warehouse>,
     params: &WarehouseQueryParams,
     manager_map: &std::collections::HashMap<i64, String>,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
@@ -181,15 +185,17 @@ fn warehouse_list_page(
             div class="page-header" {
                 h1 class="page-title" { "仓库管理" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(WarehouseCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建仓库"
+                    @if can_create {
+                        a class="btn btn-primary" href=(WarehouseCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建仓库"
+                        }
                     }
                 }
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (warehouse_table_fragment(result, params, manager_map))
+            (warehouse_table_fragment(result, params, manager_map, can_delete))
         }
     }
 }
@@ -198,6 +204,7 @@ fn warehouse_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<Warehouse>,
     params: &WarehouseQueryParams,
     manager_map: &std::collections::HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -244,7 +251,7 @@ fn warehouse_table_fragment(
                 }
             }
 
-            (warehouse_data_card(result, &query, manager_map))
+            (warehouse_data_card(result, &query, manager_map, can_delete))
         }
     }
 }
@@ -253,6 +260,7 @@ fn warehouse_data_card(
     result: &abt_core::shared::types::PaginatedResult<Warehouse>,
     query: &str,
     manager_map: &std::collections::HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div id="warehouse-data-card" class="data-card" {
@@ -273,7 +281,7 @@ fn warehouse_data_card(
                     }
                     tbody {
                         @for w in &result.items {
-                            (warehouse_row(w, manager_map))
+                            (warehouse_row(w, manager_map, can_delete))
                         }
                         @if result.items.is_empty() {
                             tr {
@@ -290,7 +298,7 @@ fn warehouse_data_card(
     }
 }
 
-fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, String>) -> Markup {
+fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, String>, can_delete: bool) -> Markup {
     let detail_path = WarehouseDetailPath { id: w.id }.to_string();
     let edit_path = WarehouseEditPath { id: w.id }.to_string();
     let delete_path = WarehouseDeletePath { id: w.id };
@@ -348,12 +356,14 @@ fn warehouse_row(w: &Warehouse, manager_map: &std::collections::HashMap<i64, Str
                     a class="row-action-btn" title="编辑" href=(edit_path) {
                         (icon::edit_icon("w-4 h-4"))
                     }
-                    button type="button" class="row-action-btn text-danger" title="删除"
-                        hx-post=(delete_path)
-                        hx-confirm=(format!("删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？", w.name))
-                        hx-target="closest tr"
-                        hx-swap="outerHTML swap:0.5s" {
-                        (icon::trash_icon("w-4 h-4"))
+                    @if can_delete {
+                        button type="button" class="row-action-btn text-danger" title="删除"
+                            hx-post=(delete_path)
+                            hx-confirm=(format!("删除后无法恢复，确定要删除仓库 <strong>{}</strong> 吗？", w.name))
+                            hx-target="closest tr"
+                            hx-swap="outerHTML swap:0.5s" {
+                            (icon::trash_icon("w-4 h-4"))
+                        }
                     }
                 }
             }

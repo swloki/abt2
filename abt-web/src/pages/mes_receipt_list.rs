@@ -37,13 +37,15 @@ pub async fn get_receipt_list(
     _path: ReceiptListPath, ctx: RequestContext, Query(params): Query<ReceiptQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("WORK_ORDER", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.production_receipt_service();
     let page = params.page.unwrap_or(1);
     let filter = ReceiptListFilter { keyword: params.keyword.clone() };
     let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
-    let content = receipt_list_page(&result, &params);
-    Ok(Html(admin_page(is_htmx, "完工入库", &claims, "production", ReceiptListPath::PATH, "生产管理", None, content).into_string()))
+    let content = receipt_list_page(&result, &params, can_create);
+    Ok(Html(admin_page(is_htmx, "完工入库", &claims, "production", ReceiptListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 #[require_permission("MES", "read")]
@@ -61,10 +63,13 @@ pub async fn get_receipt_table(
 fn receipt_list_page(
     result: &PaginatedResult<ReceiptListItem>,
     params: &ReceiptQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! { div {
         div class="page-header" { h1 class="page-title" { "完工入库" } div class="page-actions" {
-            a class="btn btn-primary" href=(ReceiptCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建入库" }
+            @if can_create {
+                a class="btn btn-primary" href=(ReceiptCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建入库" }
+            }
         }}
         (receipt_table_fragment(result, params))
     }}

@@ -38,6 +38,7 @@ pub async fn get_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, .. } = ctx;
 
     let content = journal_create_page();
@@ -49,8 +50,7 @@ pub async fn get_create(
         JournalCreatePath::PATH,
         "财务管理",
         Some(JournalListPath::PATH),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 

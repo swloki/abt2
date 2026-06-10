@@ -29,6 +29,7 @@ pub async fn get_transfer_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.transfer_service();
 
@@ -82,8 +83,7 @@ pub async fn get_transfer_detail(
         "/admin/wms/transfers",
         "库存管理",
         None,
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 

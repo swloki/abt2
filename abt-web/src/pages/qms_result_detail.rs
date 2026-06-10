@@ -56,6 +56,7 @@ fn status_label(s: &InspectionStatus) -> (&'static str, &'static str) {
 #[require_permission("QMS", "read")]
 pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let svc = state.inspection_result_service();
@@ -194,7 +195,6 @@ pub async fn get_detail(path: ResultDetailPath, ctx: RequestContext) -> Result<H
         &current_path,
         "质量管理",
         Some(ResultListPath::PATH),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(html.into_string()))
 }

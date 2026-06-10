@@ -15,6 +15,7 @@ use abt_macros::require_permission;
 #[require_permission("MES", "read")]
 pub async fn get_schedule_board(_path: ScheduleBoardPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let svc = state.mes_dashboard_service();
@@ -22,7 +23,7 @@ pub async fn get_schedule_board(_path: ScheduleBoardPath, ctx: RequestContext) -
     let cards = svc.get_schedule_cards(&service_ctx, &mut conn).await?;
 
     let content = schedule_board_page(&stats, &cards);
-    Ok(Html(admin_page(is_htmx, "排程看板", &claims, "production", ScheduleBoardPath::PATH, "生产管理", None, content).into_string()))
+    Ok(Html(admin_page(is_htmx, "排程看板", &claims, "production", ScheduleBoardPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 fn schedule_board_page(

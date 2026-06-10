@@ -41,6 +41,7 @@ pub async fn get_stock_out_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let warehouse_svc = state.warehouse_service();
 
@@ -52,7 +53,7 @@ pub async fn get_stock_out_create(
 
     let content = stock_out_create_content(&warehouses, &claims.display_name);
     let page_html = admin_page(
-        is_htmx, "新建出库单", &claims, "inventory", StockOutCreatePath::PATH, "库存管理", None, content,
+        is_htmx, "新建出库单", &claims, "inventory", StockOutCreatePath::PATH, "库存管理", None, content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
 }

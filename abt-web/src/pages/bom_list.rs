@@ -49,6 +49,7 @@ pub async fn get_bom_list(
     let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
     let can_create = ctx.has_permission("BOM", "create").await;
     let can_delete = ctx.has_permission("BOM", "delete").await;
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     resolve_category_name(&state, &service_ctx, &mut conn, &mut params).await;
     let svc = state.bom_query_service();
@@ -65,7 +66,7 @@ pub async fn get_bom_list(
     let page_name = params.category_name.as_deref().unwrap_or("BOM管理");
     let page_html = admin_page(
         is_htmx, "BOM管理", &claims, "md", &current_path,
-        "主数据管理", Some(page_name), content,
+        "主数据管理", Some(page_name), content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
 }

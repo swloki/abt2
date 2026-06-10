@@ -36,7 +36,9 @@ pub async fn get_conversion_list(
     ctx: RequestContext,
     Query(params): Query<ConversionQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_create = ctx.has_permission("INVENTORY", "create").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.form_conversion_service();
 
@@ -46,7 +48,7 @@ pub async fn get_conversion_list(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page, page_size).await?;
 
-    let content = conversion_list_page(&result, &params);
+    let content = conversion_list_page(&result, &params, can_create);
     let page_html = admin_page(
         is_htmx,
         "形态转换",
@@ -55,8 +57,7 @@ pub async fn get_conversion_list(
         ConversionListPath::PATH,
         "库存管理",
         Some("形态转换"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -134,15 +135,18 @@ fn conversion_data_card(
 fn conversion_list_page(
     result: &abt_core::shared::types::pagination::PaginatedResult<FormConversion>,
     params: &ConversionQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "形态转换" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(ConversionCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建转换"
+                    @if can_create {
+                        a class="btn btn-primary" href=(ConversionCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建转换"
+                        }
                     }
                 }
             }

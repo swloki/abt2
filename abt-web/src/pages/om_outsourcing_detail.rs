@@ -92,6 +92,7 @@ pub async fn get_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let svc = state.outsourcing_order_service();
@@ -143,8 +144,7 @@ pub async fn get_detail(
         is_htmx, "委外单详情", &claims, "outsourcing",
         &OmOutsourcingDetailPath { id: path.id }.to_string(),
         "委外管理", Some(OmOutsourcingListPath::PATH),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 

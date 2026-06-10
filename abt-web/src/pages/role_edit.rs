@@ -116,6 +116,7 @@ pub async fn get_role_edit(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.role_service();
 
@@ -162,8 +163,7 @@ pub async fn get_role_edit(
         &edit_path_str,
         "系统管理",
         Some(&format!("编辑 {}", rwp.role.role_name)),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

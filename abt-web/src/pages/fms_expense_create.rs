@@ -37,6 +37,7 @@ pub async fn get_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let claims = ctx.claims.clone();
     let content = expense_create_page();
     let page_html = admin_page(
@@ -47,8 +48,7 @@ pub async fn get_create(
         ExpenseCreatePath::PATH,
         "费用报销",
         Some("新建"),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 

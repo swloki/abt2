@@ -36,6 +36,7 @@ pub async fn get_misc_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.misc_request_service();
     let user_svc = state.user_service();
@@ -64,7 +65,7 @@ pub async fn get_misc_detail(
     let page_html = admin_page(
         is_htmx, "零星请购详情", &claims, "purchase",
         &format!("{}/{}", MiscListPath::PATH, path.id),
-        "采购管理", Some("零星请购详情"), content,
+        "采购管理", Some("零星请购详情"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))

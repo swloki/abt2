@@ -56,6 +56,7 @@ pub async fn get_customer_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, state, service_ctx, mut conn, .. } = ctx;
 
     // 获取活跃用户列表（负责业务员下拉）
@@ -77,8 +78,7 @@ pub async fn get_customer_create(
         CreateCustomerPath::PATH,
         "销售管理",
         Some(CustomerListPath::PATH),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

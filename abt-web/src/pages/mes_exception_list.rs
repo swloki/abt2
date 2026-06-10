@@ -17,6 +17,7 @@ use abt_macros::require_permission;
 #[require_permission("MES", "read")]
 pub async fn get_exception_list(_path: ExceptionListPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let svc = state.production_exception_service();
@@ -25,7 +26,7 @@ pub async fn get_exception_list(_path: ExceptionListPath, ctx: RequestContext) -
     let result = svc.list(&service_ctx, &mut conn, filter, 1, 20).await?;
 
     let content = exception_list_page(&stats, &result);
-    Ok(Html(admin_page(is_htmx, "生产异常", &claims, "production", ExceptionListPath::PATH, "生产管理", None, content).into_string()))
+    Ok(Html(admin_page(is_htmx, "生产异常", &claims, "production", ExceptionListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 #[derive(Debug, Deserialize, Default)]

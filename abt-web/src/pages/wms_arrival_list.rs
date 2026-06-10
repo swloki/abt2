@@ -128,7 +128,10 @@ pub async fn get_arrival_list(
     ctx: RequestContext,
     Query(params): Query<ArrivalQueryParams>,
 ) -> Result<Html<String>> {
+    let can_create = ctx.has_permission("INVENTORY", "create").await;
+    let can_delete = ctx.has_permission("INVENTORY", "delete").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.arrival_notice_service();
     let warehouse_svc = state.warehouse_service();
@@ -145,9 +148,9 @@ pub async fn get_arrival_list(
         .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
         .await?;
 
-    let content = arrival_list_page(&result, &warehouse_names, &supplier_names, &warehouses.items, &params);
+    let content = arrival_list_page(&result, &warehouse_names, &supplier_names, &warehouses.items, &params, can_create, can_delete);
     let page_html = admin_page(
-        is_htmx, "来料通知", &claims, "inventory", ArrivalListPath::PATH, "库存管理", Some("来料通知"), content,
+        is_htmx, "来料通知", &claims, "inventory", ArrivalListPath::PATH, "库存管理", Some("来料通知"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -171,7 +174,7 @@ pub async fn get_arrival_table(
     let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
 
-    Ok(Html(arrival_data_card(&result, &warehouse_names, &supplier_names, &params).into_string()))
+    Ok(Html(arrival_data_card(&result, &warehouse_names, &supplier_names, &params, false).into_string()))
 }
 
 // ── Components ──
@@ -182,19 +185,23 @@ fn arrival_list_page(
     supplier_names: &HashMap<i64, String>,
     warehouses: &[abt_core::wms::warehouse::model::Warehouse],
     params: &ArrivalQueryParams,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "来料通知" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(ArrivalCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建来料通知"
+                    @if can_create {
+                        a class="btn btn-primary" href=(ArrivalCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建来料通知"
+                        }
                     }
                 }
             }
-            (arrival_table_fragment(result, warehouse_names, supplier_names, warehouses, params))
+            (arrival_table_fragment(result, warehouse_names, supplier_names, warehouses, params, can_delete))
         }
     }
 }
@@ -205,6 +212,7 @@ fn arrival_table_fragment(
     supplier_names: &HashMap<i64, String>,
     warehouses: &[abt_core::wms::warehouse::model::Warehouse],
     params: &ArrivalQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -268,7 +276,7 @@ fn arrival_table_fragment(
                 }
             }
 
-            (arrival_data_card(result, warehouse_names, supplier_names, params))
+            (arrival_data_card(result, warehouse_names, supplier_names, params, can_delete))
         }
     }
 }
@@ -278,6 +286,7 @@ fn arrival_data_card(
     warehouse_names: &HashMap<i64, String>,
     supplier_names: &HashMap<i64, String>,
     params: &ArrivalQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     html! {
@@ -297,7 +306,7 @@ fn arrival_data_card(
                     }
                     tbody {
                         @for n in &result.items {
-                            (arrival_row(n, warehouse_names, supplier_names))
+                            (arrival_row(n, warehouse_names, supplier_names, can_delete))
                         }
                         @if result.items.is_empty() {
                             tr {
@@ -318,6 +327,7 @@ fn arrival_row(
     n: &abt_core::wms::arrival_notice::model::ArrivalNotice,
     warehouse_names: &HashMap<i64, String>,
     supplier_names: &HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     let detail_path = ArrivalDetailPath { id: n.id };
     let onclick = format!("location.href='{}'", detail_path);
@@ -342,8 +352,10 @@ fn arrival_row(
                         a class="row-action-btn" href=(ArrivalCreatePath::PATH) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
-                        button type="button" class="row-action-btn text-danger" title="删除" {
-                            (icon::trash_icon("w-4 h-4"))
+                        @if can_delete {
+                            button type="button" class="row-action-btn text-danger" title="删除" {
+                                (icon::trash_icon("w-4 h-4"))
+                            }
                         }
                     }
                 } @else {
@@ -351,8 +363,10 @@ fn arrival_row(
                         a class="row-action-btn" href=(detail_path.to_string()) title="查看" {
                             (icon::eye_icon("w-4 h-4"))
                         }
-                        button type="button" class="row-action-btn text-danger" title="删除" {
-                            (icon::trash_icon("w-4 h-4"))
+                        @if can_delete {
+                            button type="button" class="row-action-btn text-danger" title="删除" {
+                                (icon::trash_icon("w-4 h-4"))
+                            }
                         }
                     }
                 }

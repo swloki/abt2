@@ -101,6 +101,9 @@ pub async fn get_quotation_list(
     Query(params): Query<QuotationQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("SALES_ORDER", "create").await;
+    let can_delete = ctx.has_permission("SALES_ORDER", "delete").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.quotation_service();
     let customer_svc = state.customer_service();
@@ -122,9 +125,9 @@ pub async fn get_quotation_list(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = quotation_list_page(&claims, &result, &names, &customers.items, &params);
+    let content = quotation_list_page(&claims, &result, &names, &customers.items, &params, can_create, can_delete);
     let page_html = admin_page(
-        is_htmx, "报价单", &claims, "sales", QuotationListPath::PATH, "销售管理", Some("报价单"), content,
+        is_htmx, "报价单", &claims, "sales", QuotationListPath::PATH, "销售管理", Some("报价单"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -135,6 +138,7 @@ pub async fn get_quotation_table(
     ctx: RequestContext,
     Query(params): Query<QuotationQueryParams>,
 ) -> Result<Html<String>> {
+    let can_delete = ctx.has_permission("SALES_ORDER", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.quotation_service();
     let customer_svc = state.customer_service();
@@ -156,7 +160,7 @@ pub async fn get_quotation_table(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    Ok(Html(quotation_table_fragment(&result, &names, &customers.items, &params).into_string()))
+    Ok(Html(quotation_table_fragment(&result, &names, &customers.items, &params, can_delete).into_string()))
 }
 
 
@@ -181,6 +185,8 @@ fn quotation_list_page(
     names: &HashMap<i64, String>,
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &QuotationQueryParams,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
@@ -188,15 +194,17 @@ fn quotation_list_page(
             div class="page-header" {
                 h1 class="page-title" { "报价单" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(QuotationCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建报价单"
+                    @if can_create {
+                        a class="btn btn-primary" href=(QuotationCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建报价单"
+                        }
                     }
                 }
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (quotation_table_fragment(result, names, customers, params))
+            (quotation_table_fragment(result, names, customers, params, can_delete))
         }
     }
 }
@@ -206,6 +214,7 @@ fn quotation_table_fragment(
     names: &HashMap<i64, String>,
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &QuotationQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -280,7 +289,7 @@ fn quotation_table_fragment(
                         }
                         tbody {
                             @for q in &result.items {
-                                (quotation_row(q, names))
+                                (quotation_row(q, names, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -298,7 +307,7 @@ fn quotation_table_fragment(
     }
 }
 
-fn quotation_row(q: &Quotation, names: &HashMap<i64, String>) -> Markup {
+fn quotation_row(q: &Quotation, names: &HashMap<i64, String>, can_delete: bool) -> Markup {
     let detail_path = QuotationDetailPath { id: q.id };
     let (status_text, status_class) = status_label(q.status);
     let edit_form_path = EditQuotationFormPath { id: q.id };
@@ -324,12 +333,14 @@ fn quotation_row(q: &Quotation, names: &HashMap<i64, String>) -> Markup {
                         a class="row-action-btn" title="编辑" href=(edit_form_path) {
                             (icon::edit_icon("w-4 h-4"))
                         }
-                        button type="button" class="row-action-btn text-danger" title="删除"
-                            hx-confirm="确认删除该报价单吗？"
-                            hx-post=(delete_path)
-                            hx-target="closest tr"
-                            hx-swap="outerHTML swap:0.5s" {
-                            (icon::trash_icon("w-4 h-4"))
+                        @if can_delete {
+                            button type="button" class="row-action-btn text-danger" title="删除"
+                                hx-confirm="确认删除该报价单吗？"
+                                hx-post=(delete_path)
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:0.5s" {
+                                (icon::trash_icon("w-4 h-4"))
+                            }
                         }
                     }
                 }

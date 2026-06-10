@@ -27,6 +27,7 @@ pub async fn get_dashboard(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let db = &mut *conn;
 
@@ -86,7 +87,7 @@ pub async fn get_dashboard(
     drop(rma_svc);
 
     let content = qms_dashboard_page(pending, pass_rate, fail_count, mrb_pending, rma_active, &recent_results, &recent_mrbs);
-    let page_html = admin_page(is_htmx, "质量管理总览", &claims, "quality", QmsDashboardPath::PATH, "质量管理", None, content);
+    let page_html = admin_page(is_htmx, "质量管理总览", &claims, "quality", QmsDashboardPath::PATH, "质量管理", None, content, &nav_filter);
     Ok(Html(page_html.into_string()))
 }
 

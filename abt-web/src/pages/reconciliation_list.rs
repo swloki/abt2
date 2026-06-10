@@ -109,7 +109,10 @@ pub async fn get_reconciliation_list(
     ctx: RequestContext,
     Query(params): Query<ReconciliationQueryParams>,
 ) -> Result<Html<String>> {
+    let can_create = ctx.has_permission("SALES_ORDER", "create").await;
+    let can_delete = ctx.has_permission("SALES_ORDER", "delete").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let reconciliation_svc = state.reconciliation_service();
@@ -131,9 +134,9 @@ pub async fn get_reconciliation_list(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = reconciliation_list_page(&claims, &result, &customer_names, &customers.items, &params, &status_counts);
+    let content = reconciliation_list_page(&claims, &result, &customer_names, &customers.items, &params, &status_counts, can_create, can_delete);
     let page_html = admin_page(
-        is_htmx, "月对账单", &claims, "sales", ReconciliationListPath::PATH, "销售管理", Some("月对账单"), content,
+        is_htmx, "月对账单", &claims, "sales", ReconciliationListPath::PATH, "销售管理", Some("月对账单"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -144,6 +147,7 @@ pub async fn get_reconciliation_table(
     ctx: RequestContext,
     Query(params): Query<ReconciliationQueryParams>,
 ) -> Result<Html<String>> {
+    let can_delete = ctx.has_permission("SALES_ORDER", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     let reconciliation_svc = state.reconciliation_service();
@@ -165,7 +169,7 @@ pub async fn get_reconciliation_table(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    Ok(Html(reconciliation_table_fragment(&result, &customer_names, &customers.items, &params, &status_counts).into_string()))
+    Ok(Html(reconciliation_table_fragment(&result, &customer_names, &customers.items, &params, &status_counts, can_delete).into_string()))
 }
 
 #[require_permission("SALES_ORDER", "delete")]
@@ -191,19 +195,23 @@ fn reconciliation_list_page(
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &ReconciliationQueryParams,
     status_counts: &HashMap<i16, u64>,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "月对账单" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(ReconciliationCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建对账单"
+                    @if can_create {
+                        a class="btn btn-primary" href=(ReconciliationCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建对账单"
+                        }
                     }
                 }
             }
-            (reconciliation_table_fragment(result, customer_names, customers, params, status_counts))
+            (reconciliation_table_fragment(result, customer_names, customers, params, status_counts, can_delete))
         }
     }
 }
@@ -214,6 +222,7 @@ fn reconciliation_table_fragment(
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &ReconciliationQueryParams,
     status_counts: &HashMap<i16, u64>,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -293,7 +302,7 @@ fn reconciliation_table_fragment(
                         }
                         tbody {
                             @for r in &result.items {
-                                (reconciliation_row(r, customer_names))
+                                (reconciliation_row(r, customer_names, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -333,6 +342,7 @@ fn generate_periods() -> Vec<PeriodOption> {
 fn reconciliation_row(
     r: &Reconciliation,
     customer_names: &std::collections::HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     let detail_path = ReconciliationDetailPath { id: r.id };
     let (status_text, status_class) = status_label(r.status);
@@ -364,12 +374,14 @@ fn reconciliation_row(
                         a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
-                        button type="button" class="row-action-btn text-danger" title="删除"
-                            hx-confirm=(format!("确认删除对账单 {}？", r.doc_number))
-                            hx-post=(delete_path.to_string())
-                            hx-target="closest tr"
-                            hx-swap="outerHTML swap:0.5s" {
-                            (icon::trash_icon("w-4 h-4"))
+                        @if can_delete {
+                            button type="button" class="row-action-btn text-danger" title="删除"
+                                hx-confirm=(format!("确认删除对账单 {}？", r.doc_number))
+                                hx-post=(delete_path.to_string())
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:0.5s" {
+                                (icon::trash_icon("w-4 h-4"))
+                            }
                         }
                     } @else {
                         a class="row-action-btn" href=(detail_path.to_string()) title="查看详情" {

@@ -39,6 +39,9 @@ pub async fn get_user_list(
     Query(params): Query<UserQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("USER", "create").await;
+    let can_delete = ctx.has_permission("USER", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -59,7 +62,7 @@ pub async fn get_user_list(
 
     let user_depts = load_user_departments(&dept_svc, &service_ctx, &mut conn, &users).await;
 
-    let content = user_list_page(&users, &all_roles, &all_depts, &user_depts, &params);
+    let content = user_list_page(&users, &all_roles, &all_depts, &user_depts, &params, can_create, can_delete);
     let page_html = admin_page(
         is_htmx,
         "用户管理",
@@ -68,8 +71,7 @@ pub async fn get_user_list(
         UserListPath::PATH,
         "系统管理",
         Some("用户管理"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -79,6 +81,7 @@ pub async fn get_user_table(
     ctx: RequestContext,
     Query(params): Query<UserQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_delete = ctx.has_permission("USER", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -99,7 +102,7 @@ pub async fn get_user_table(
     let user_depts = load_user_departments(&dept_svc, &service_ctx, &mut conn, &users).await;
 
     Ok(Html(
-        user_table_fragment(&users, &all_roles, &all_depts, &user_depts, &params)
+        user_table_fragment(&users, &all_roles, &all_depts, &user_depts, &params, can_delete)
             .into_string(),
     ))
 }
@@ -258,19 +261,23 @@ fn user_list_page(
     all_depts: &[Department],
     user_depts: &HashMap<i64, Vec<Department>>,
     params: &UserQueryParams,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "用户管理" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(UserCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建用户"
+                    @if can_create {
+                        a class="btn btn-primary" href=(UserCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建用户"
+                        }
                     }
                 }
             }
-            (user_table_fragment(users, all_roles, all_depts, user_depts, params))
+            (user_table_fragment(users, all_roles, all_depts, user_depts, params, can_delete))
         }
     }
 }
@@ -281,6 +288,7 @@ fn user_table_fragment(
     all_depts: &[Department],
     user_depts: &HashMap<i64, Vec<Department>>,
     params: &UserQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let keyword = params.keyword.as_deref().unwrap_or("");
     let role_filter = params.role_id;
@@ -456,7 +464,7 @@ fn user_table_fragment(
                         }
                         tbody {
                             @for u in &page_users {
-                                (user_row(u, user_depts))
+                                (user_row(u, user_depts, can_delete))
                             }
                             @if page_users.is_empty() {
                                 tr {
@@ -484,6 +492,7 @@ fn user_table_fragment(
 fn user_row(
     u: &UserWithRoles,
     user_depts: &HashMap<i64, Vec<Department>>,
+    can_delete: bool,
 ) -> Markup {
     let detail_path = UserDetailPath { id: u.user.user_id };
     let edit_path = UserEditPath { id: u.user.user_id };
@@ -582,7 +591,7 @@ fn user_row(
                         href=(edit_path.to_string()) {
                         (icon::edit_icon("w-3.5 h-3.5"))
                     }
-                    @if !u.user.is_super_admin {
+                    @if can_delete && !u.user.is_super_admin {
                         button type="button" class="row-action-btn" title=(toggle_title)
                             hx-post=(toggle_path.to_string())
                             hx-confirm=(format!(

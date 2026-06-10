@@ -158,7 +158,10 @@ pub async fn get_pay_list(
     ctx: RequestContext,
     Query(params): Query<PayQueryParams>,
 ) -> Result<Html<String>> {
+    let can_create = ctx.has_permission("PURCHASE_ORDER", "create").await;
+    let can_delete = ctx.has_permission("PURCHASE_ORDER", "delete").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.payment_request_service();
     let supplier_svc = state.supplier_service();
@@ -175,9 +178,9 @@ pub async fn get_pay_list(
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = pay_list_page(&result, &supplier_names, &recon_doc_numbers, &suppliers.items, &params);
+    let content = pay_list_page(&result, &supplier_names, &recon_doc_numbers, &suppliers.items, &params, can_create, can_delete);
     let page_html = admin_page(
-        is_htmx, "付款申请", &claims, "purchase", PayListPath::PATH, "采购管理", Some("付款申请"), content,
+        is_htmx, "付款申请", &claims, "purchase", PayListPath::PATH, "采购管理", Some("付款申请"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -188,6 +191,7 @@ pub async fn get_pay_table(
     ctx: RequestContext,
     Query(params): Query<PayQueryParams>,
 ) -> Result<Html<String>> {
+    let can_delete = ctx.has_permission("PURCHASE_ORDER", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.payment_request_service();
     let supplier_svc = state.supplier_service();
@@ -204,7 +208,7 @@ pub async fn get_pay_table(
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
 
-    Ok(Html(pay_table_fragment(&result, &supplier_names, &recon_doc_numbers, &suppliers.items, &params).into_string()))
+    Ok(Html(pay_table_fragment(&result, &supplier_names, &recon_doc_numbers, &suppliers.items, &params, can_delete).into_string()))
 }
 
 // ── Components ──
@@ -215,6 +219,8 @@ fn pay_list_page(
     recon_doc_numbers: &HashMap<i64, String>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PayQueryParams,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
@@ -222,15 +228,17 @@ fn pay_list_page(
             div class="page-header" {
                 h1 class="page-title" { "付款申请" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(PayCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建付款申请"
+                    @if can_create {
+                        a class="btn btn-primary" href=(PayCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建付款申请"
+                        }
                     }
                 }
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (pay_table_fragment(result, supplier_names, recon_doc_numbers, suppliers, params))
+            (pay_table_fragment(result, supplier_names, recon_doc_numbers, suppliers, params, can_delete))
         }
     }
 }
@@ -241,6 +249,7 @@ fn pay_table_fragment(
     recon_doc_numbers: &HashMap<i64, String>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PayQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -329,7 +338,7 @@ fn pay_table_fragment(
                         }
                         tbody {
                             @for r in &result.items {
-                                (pay_row(r, supplier_names, recon_doc_numbers))
+                                (pay_row(r, supplier_names, recon_doc_numbers, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -351,6 +360,7 @@ fn pay_row(
     r: &PaymentRequest,
     supplier_names: &HashMap<i64, String>,
     recon_doc_numbers: &HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     let detail_path = PayDetailPath { id: r.id };
     let cancel_path = PayCancelPath { id: r.id };
@@ -381,12 +391,14 @@ fn pay_row(
                         a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
-                        button type="button" class="row-action-btn text-danger" title="取消"
-                            hx-confirm="确认取消该付款申请吗？"
-                            hx-post=(cancel_path)
-                            hx-target="closest tr"
-                            hx-swap="outerHTML swap:0.5s" {
-                            (icon::trash_icon("w-4 h-4"))
+                        @if can_delete {
+                            button type="button" class="row-action-btn text-danger" title="取消"
+                                hx-confirm="确认取消该付款申请吗？"
+                                hx-post=(cancel_path)
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:0.5s" {
+                                (icon::trash_icon("w-4 h-4"))
+                            }
                         }
                     }
                 }

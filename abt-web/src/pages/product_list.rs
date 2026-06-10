@@ -58,6 +58,10 @@ pub async fn get_product_list(
     Query(params): Query<ProductQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("PRODUCT", "create").await;
+    let can_delete = ctx.has_permission("PRODUCT", "delete").await;
+    let can_edit = ctx.has_permission("PRODUCT", "update").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.product_service();
     let cat_svc = state.category_service();
@@ -73,9 +77,9 @@ pub async fn get_product_list(
     let watched = watcher_svc.list_watched_products(&service_ctx, &mut conn, 1, 1000).await?;
     let watched_ids: Vec<i64> = watched.items.iter().map(|w| w.product_id).collect();
 
-    let content = product_list_page(&result, &params, &categories, &watched_ids);
+    let content = product_list_page(&result, &params, &categories, &watched_ids, can_create, can_delete, can_edit);
     let page_html = admin_page(
-        is_htmx, "产品管理", &claims, "md", ProductListPath::PATH, "主数据管理", Some("产品管理"), content,
+        is_htmx, "产品管理", &claims, "md", ProductListPath::PATH, "主数据管理", Some("产品管理"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -86,6 +90,8 @@ pub async fn get_product_table(
     ctx: RequestContext,
     Query(params): Query<ProductQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_delete = ctx.has_permission("PRODUCT", "delete").await;
+    let can_edit = ctx.has_permission("PRODUCT", "update").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.product_service();
     let cat_svc = state.category_service();
@@ -100,7 +106,7 @@ pub async fn get_product_table(
     let watched = watcher_svc.list_watched_products(&service_ctx, &mut conn, 1, 1000).await?;
     let watched_ids: Vec<i64> = watched.items.iter().map(|w| w.product_id).collect();
 
-    Ok(Html(product_table_fragment(&result, &params, &categories, &watched_ids).into_string()))
+    Ok(Html(product_table_fragment(&result, &params, &categories, &watched_ids, can_delete, can_edit).into_string()))
 }
 
 #[require_permission("PRODUCT", "read")]
@@ -299,6 +305,9 @@ fn product_list_page(
     params: &ProductQueryParams,
     categories: &[CategoryTree],
     watched_ids: &[i64],
+    can_create: bool,
+    can_delete: bool,
+    can_edit: bool,
 ) -> Markup {
 
     html! {
@@ -307,15 +316,17 @@ fn product_list_page(
             div class="page-header" {
                 h1 class="page-title" { "产品管理" span style="font-size:var(--text-sm);font-weight:400;color:var(--muted);margin-left:var(--space-2)" { "(" (result.total) ")" } }
                 div class="page-actions" {
-                    a href=(ProductCreatePath::PATH) class="btn btn-primary" {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建产品"
+                    @if can_create {
+                        a href=(ProductCreatePath::PATH) class="btn btn-primary" {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建产品"
+                        }
                     }
                 }
             }
 
             // ── Filter + Data Table (HTMX panel) ──
-            (product_table_fragment(result, params, categories, watched_ids))
+            (product_table_fragment(result, params, categories, watched_ids, can_delete, can_edit))
 
             // ── Price Drawer (shared) ──
             (crate::components::drawer::drawer(
@@ -357,6 +368,8 @@ fn product_table_fragment(
     params: &ProductQueryParams,
     categories: &[CategoryTree],
     watched_ids: &[i64],
+    can_delete: bool,
+    can_edit: bool,
 ) -> Markup {
     let query = build_query_string(params);
 
@@ -412,7 +425,7 @@ fn product_table_fragment(
                         }
                         tbody {
                             @for p in &result.items {
-                                (product_row(p, watched_ids))
+                                (product_row(p, watched_ids, can_delete, can_edit))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -430,7 +443,7 @@ fn product_table_fragment(
     }
 }
 
-fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
+fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: bool) -> Markup {
     let detail_path = ProductDetailPath { id: p.product_id };
     let delete_path = ProductDeletePath { id: p.product_id };
     let usage_path = ProductUsagePath { id: p.product_id };
@@ -480,13 +493,15 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                         onclick="hsRemoveClosest(this,'.row-actions-menu','is-open');this.style.display='none'" {}
                     // Dropdown menu
                     div class="row-actions-menu" onclick="event.stopPropagation()" {
-                        a href=(edit_path) {
-                            (icon::edit_icon("w-4 h-4"))
-                            "编辑"
-                        }
-                        a href=(copy_path.to_string()) {
-                            (icon::copy_icon("w-4 h-4"))
-                            "复制"
+                        @if can_edit {
+                            a href=(edit_path) {
+                                (icon::edit_icon("w-4 h-4"))
+                                "编辑"
+                            }
+                            a href=(copy_path.to_string()) {
+                                (icon::copy_icon("w-4 h-4"))
+                                "复制"
+                            }
                         }
                         button type="button"
                             hx-get=(drawer_path)
@@ -513,14 +528,16 @@ fn product_row(p: &Product, watched_ids: &[i64]) -> Markup {
                                 "关注"
                             }
                         }
-                        button type="button" class="danger"
-                            hx-post=(delete_path)
-                            hx-confirm=(format!("删除后无法恢复，确定要删除产品「{}」吗？", p.pdt_name))
-                            hx-target=(format!("#product-row-{}", p.product_id))
-                            hx-swap="outerHTML swap:0.5s"
-                            onclick="hsRemoveClosest(this,'.row-actions-menu','is-open')" {
-                            (icon::trash_icon("w-4 h-4"))
-                            "删除"
+                        @if can_delete {
+                            button type="button" class="danger"
+                                hx-post=(delete_path)
+                                hx-confirm=(format!("删除后无法恢复，确定要删除产品「{}」吗？", p.pdt_name))
+                                hx-target=(format!("#product-row-{}", p.product_id))
+                                hx-swap="outerHTML swap:0.5s"
+                                onclick="hsRemoveClosest(this,'.row-actions-menu','is-open')" {
+                                (icon::trash_icon("w-4 h-4"))
+                                "删除"
+                            }
                         }
                     }
                 }

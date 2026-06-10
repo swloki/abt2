@@ -46,6 +46,9 @@ pub async fn get_process_dict_list(
     Query(params): Query<ProcessDictQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("LABOR_PROCESS_DICT", "create").await;
+    let can_delete = ctx.has_permission("LABOR_PROCESS_DICT", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -63,7 +66,7 @@ pub async fn get_process_dict_list(
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
 
-    let content = process_dict_list_page(&result, &params);
+    let content = process_dict_list_page(&result, &params, can_create, can_delete);
     let page_html = admin_page(
         is_htmx,
         "工序字典管理",
@@ -72,8 +75,7 @@ pub async fn get_process_dict_list(
         ProcessDictListPath::PATH,
         "主数据管理",
         Some("工序字典管理"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -83,6 +85,7 @@ pub async fn get_process_dict_table(
     ctx: RequestContext,
     Query(params): Query<ProcessDictQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_delete = ctx.has_permission("LABOR_PROCESS_DICT", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -98,7 +101,7 @@ pub async fn get_process_dict_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
 
-    Ok(Html(process_dict_table_fragment(&result, &params).into_string()))
+    Ok(Html(process_dict_table_fragment(&result, &params, can_delete).into_string()))
 }
 
 #[require_permission("LABOR_PROCESS_DICT", "create")]
@@ -107,6 +110,7 @@ pub async fn get_process_dict_create(
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, .. } = ctx;
 
 
@@ -119,8 +123,7 @@ pub async fn get_process_dict_create(
         ProcessDictCreatePath::PATH,
         "主数据管理",
         Some("新建工序"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -183,6 +186,8 @@ pub async fn delete_process_dict(
 fn process_dict_list_page(
     result: &abt_core::shared::types::PaginatedResult<LaborProcessDict>,
     params: &ProcessDictQueryParams,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
@@ -190,15 +195,17 @@ fn process_dict_list_page(
             div class="page-header" {
                 h1 class="page-title" { "工序字典管理" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(ProcessDictCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建工序"
+                    @if can_create {
+                        a class="btn btn-primary" href=(ProcessDictCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建工序"
+                        }
                     }
                 }
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (process_dict_table_fragment(result, params))
+            (process_dict_table_fragment(result, params, can_delete))
         }
     }
 }
@@ -206,6 +213,7 @@ fn process_dict_list_page(
 fn process_dict_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<LaborProcessDict>,
     params: &ProcessDictQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let total_count = result.total;
@@ -244,7 +252,7 @@ fn process_dict_table_fragment(
                         }
                         tbody {
                             @for item in &result.items {
-                                (process_dict_row(item))
+                                (process_dict_row(item, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -262,7 +270,7 @@ fn process_dict_table_fragment(
     }
 }
 
-fn process_dict_row(item: &LaborProcessDict) -> Markup {
+fn process_dict_row(item: &LaborProcessDict, can_delete: bool) -> Markup {
     let delete_path = ProcessDictDeletePath { id: item.id };
 
     html! {
@@ -298,11 +306,13 @@ fn process_dict_row(item: &LaborProcessDict) -> Markup {
             }
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
-                    button type="button" class="row-action-btn text-danger" title="删除"
-                        hx-post=(delete_path)
-                        hx-confirm=(format!("删除后无法恢复，确定要删除工序「{}」（{}）吗？", item.name, item.code))
-                        hx-swap="none" {
-                        (icon::trash_icon("w-4 h-4"))
+                    @if can_delete {
+                        button type="button" class="row-action-btn text-danger" title="删除"
+                            hx-post=(delete_path)
+                            hx-confirm=(format!("删除后无法恢复，确定要删除工序「{}」（{}）吗？", item.name, item.code))
+                            hx-swap="none" {
+                            (icon::trash_icon("w-4 h-4"))
+                        }
                     }
                 }
             }

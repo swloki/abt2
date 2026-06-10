@@ -58,6 +58,7 @@ pub async fn get_customer_edit(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext {
         claims,
         state,
@@ -94,8 +95,7 @@ pub async fn get_customer_edit(
         EditCustomerPath::PATH,
         "销售管理",
         Some(CustomerListPath::PATH),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

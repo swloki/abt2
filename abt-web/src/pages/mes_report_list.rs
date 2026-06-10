@@ -49,13 +49,15 @@ pub async fn get_report_list(
     _path: ReportListPath, ctx: RequestContext, Query(params): Query<ReportQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("WORK_ORDER", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.work_report_service();
     let filter = build_filter(&params);
     let page = params.page.unwrap_or(1).max(1);
     let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
-    let content = report_list_page(&result, &params);
-    Ok(Html(admin_page(is_htmx, "报工记录", &claims, "production", ReportListPath::PATH, "生产管理", None, content).into_string()))
+    let content = report_list_page(&result, &params, can_create);
+    Ok(Html(admin_page(is_htmx, "报工记录", &claims, "production", ReportListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 #[require_permission("MES", "read")]
@@ -73,10 +75,13 @@ pub async fn get_report_table(
 fn report_list_page(
     result: &PaginatedResult<ReportListItem>,
     params: &ReportQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! { div {
         div class="page-header" { h1 class="page-title" { "报工记录" } div class="page-actions" {
-            a class="btn btn-primary" href=(ReportCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建报工" }
+            @if can_create {
+                a class="btn btn-primary" href=(ReportCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建报工" }
+            }
         }}
         (report_table_fragment(result, params))
     }}

@@ -175,7 +175,10 @@ pub async fn get_pq_list(
     ctx: RequestContext,
     Query(params): Query<PQQueryParams>,
 ) -> Result<Html<String>> {
+    let can_create = ctx.has_permission("PURCHASE_QUOTATION", "create").await;
+    let can_delete = ctx.has_permission("PURCHASE_QUOTATION", "delete").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_quotation_service();
     let supplier_svc = state.supplier_service();
@@ -192,9 +195,9 @@ pub async fn get_pq_list(
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = pq_list_page(&result, &supplier_names, &supplier_contacts, &supplier_currencies, &suppliers.items, &params);
+    let content = pq_list_page(&result, &supplier_names, &supplier_contacts, &supplier_currencies, &suppliers.items, &params, can_create, can_delete);
     let page_html = admin_page(
-        is_htmx, "采购报价", &claims, "purchase", PQListPath::PATH, "采购管理", Some("采购报价"), content,
+        is_htmx, "采购报价", &claims, "purchase", PQListPath::PATH, "采购管理", Some("采购报价"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -205,6 +208,7 @@ pub async fn get_pq_table(
     ctx: RequestContext,
     Query(params): Query<PQQueryParams>,
 ) -> Result<Html<String>> {
+    let can_delete = ctx.has_permission("PURCHASE_QUOTATION", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_quotation_service();
     let supplier_svc = state.supplier_service();
@@ -221,7 +225,7 @@ pub async fn get_pq_table(
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
 
-    Ok(Html(pq_table_fragment(&result, &supplier_names, &supplier_contacts, &supplier_currencies, &suppliers.items, &params).into_string()))
+    Ok(Html(pq_table_fragment(&result, &supplier_names, &supplier_contacts, &supplier_currencies, &suppliers.items, &params, can_delete).into_string()))
 }
 
 // ── Components ──
@@ -233,6 +237,8 @@ fn pq_list_page(
     supplier_currencies: &HashMap<i64, String>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PQQueryParams,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
@@ -240,15 +246,17 @@ fn pq_list_page(
             div class="page-header" {
                 h1 class="page-title" { "采购报价" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(PQCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建采购报价"
+                    @if can_create {
+                        a class="btn btn-primary" href=(PQCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建采购报价"
+                        }
                     }
                 }
             }
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (pq_table_fragment(result, supplier_names, supplier_contacts, supplier_currencies, suppliers, params))
+            (pq_table_fragment(result, supplier_names, supplier_contacts, supplier_currencies, suppliers, params, can_delete))
         }
     }
 }
@@ -260,6 +268,7 @@ fn pq_table_fragment(
     supplier_currencies: &HashMap<i64, String>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PQQueryParams,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -334,7 +343,7 @@ fn pq_table_fragment(
                         }
                         tbody {
                             @for q in &result.items {
-                                (pq_row(q, supplier_names, supplier_contacts, supplier_currencies))
+                                (pq_row(q, supplier_names, supplier_contacts, supplier_currencies, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -357,6 +366,7 @@ fn pq_row(
     supplier_names: &HashMap<i64, String>,
     supplier_contacts: &HashMap<i64, String>,
     supplier_currencies: &HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     let detail_path = PQDetailPath { id: q.id };
     let (status_text, status_class) = status_label(q.status);
@@ -365,7 +375,7 @@ fn pq_row(
     let currency = supplier_currencies.get(&q.supplier_id).map(|s| s.as_str()).unwrap_or("CNY");
     let onclick = format!("location.href='{}'", detail_path);
         let is_draft = q.status == PurchaseQuotationStatus::Draft;
-        let can_delete = q.status != PurchaseQuotationStatus::Active;
+        let status_allows_delete = q.status != PurchaseQuotationStatus::Active;
         html! {
         tr style="cursor:pointer" {
             td class="link-cell mono" onclick=(&onclick) { (q.doc_number) }
@@ -378,14 +388,14 @@ fn pq_row(
             td class="mono" onclick=(&onclick) { (q.valid_until.format("%Y-%m-%d")) }
             td onclick=(&onclick) { (currency) }
             td onclick="event.stopPropagation()" {
-                @if is_draft || can_delete {
+                @if is_draft || (can_delete && status_allows_delete) {
                     div class="row-actions" {
                         @if is_draft {
                             a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
                                 (icon::edit_icon("w-4 h-4"))
                             }
                         }
-                        @if can_delete {
+                        @if can_delete && status_allows_delete {
                             button class="row-action-btn row-action-danger"
                                 title="删除"
                                 hx-post=(PQDeletePath { id: q.id }.to_string())

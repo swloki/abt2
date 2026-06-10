@@ -43,6 +43,7 @@ pub async fn get_stock_in_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let txn = InventoryTransactionRepo::get_by_id(&mut conn, path.id)
@@ -98,8 +99,7 @@ pub async fn get_stock_in_detail(
         &detail_path,
         "库存管理",
         txn.doc_number.as_deref(),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

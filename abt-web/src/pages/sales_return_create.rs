@@ -76,6 +76,7 @@ pub async fn get_return_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let customer_svc = state.customer_service();
@@ -102,8 +103,7 @@ pub async fn get_return_create(
         ReturnCreatePath::PATH,
         "销售管理",
         Some("新建退货单"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

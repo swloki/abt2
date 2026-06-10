@@ -116,6 +116,8 @@ pub async fn get_plan_list(
     Query(params): Query<PlanQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("WORK_ORDER", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.production_plan_service();
     let user_svc = state.user_service();
@@ -136,9 +138,9 @@ pub async fn get_plan_list(
     let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
     let plan_ids: Vec<i64> = result.items.iter().map(|p| p.id).collect();
     let plan_stats = svc.get_plan_stats(&service_ctx, &mut conn, &plan_ids).await?;
-    let content = plan_list_page(&result, &operator_names, &plan_stats, &params);
+    let content = plan_list_page(&result, &operator_names, &plan_stats, &params, can_create);
     let page_html = admin_page(
-        is_htmx, "生产计划", &claims, "production", PlanListPath::PATH, "生产管理", None, content,
+        is_htmx, "生产计划", &claims, "production", PlanListPath::PATH, "生产管理", None, content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
 }
@@ -179,15 +181,18 @@ fn plan_list_page(
     operator_names: &HashMap<i64, String>,
     plan_stats: &HashMap<i64, PlanExtraStats>,
     params: &PlanQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "生产计划" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(PlanCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建计划"
+                    @if can_create {
+                        a class="btn btn-primary" href=(PlanCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建计划"
+                        }
                     }
                 }
             }

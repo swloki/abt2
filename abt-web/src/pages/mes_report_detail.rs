@@ -13,6 +13,7 @@ use abt_macros::require_permission;
 #[require_permission("MES", "read")]
 pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.work_report_service();
     let report = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
@@ -53,5 +54,5 @@ pub async fn get_report_detail(path: ReportDetailPath, ctx: RequestContext) -> R
             }
         }
     }};
-    Ok(Html(admin_page(is_htmx, "报工详情", &claims, "production", &format!("/admin/mes/reports/{}", path.id), "生产管理", Some(ReportListPath::PATH), content).into_string()))
+    Ok(Html(admin_page(is_htmx, "报工详情", &claims, "production", &format!("/admin/mes/reports/{}", path.id), "生产管理", Some(ReportListPath::PATH), content, &nav_filter).into_string()))
 }

@@ -32,6 +32,7 @@ pub async fn get_cascade_list(
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let claims = ctx.claims;
 
     let content = cascade_page(None);
@@ -43,8 +44,7 @@ pub async fn get_cascade_list(
         CascadeListPath::PATH,
         "库存管理",
         Some("级联库存查询"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

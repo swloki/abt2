@@ -38,6 +38,7 @@ pub async fn get_quotation_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.quotation_service();
     let customer_svc = state.customer_service();
@@ -75,7 +76,7 @@ pub async fn get_quotation_detail(
     let page_html = admin_page(
         is_htmx, "报价单详情", &claims, "sales",
         &format!("{}/{}", QuotationListPath::PATH, path.id),
-        "销售管理", Some("报价单详情"), content,
+        "销售管理", Some("报价单详情"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))

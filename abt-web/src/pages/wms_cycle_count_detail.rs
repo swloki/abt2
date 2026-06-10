@@ -29,6 +29,7 @@ pub async fn get_cycle_count_detail(
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.cycle_count_service();
     let wh_svc = state.warehouse_service();
@@ -70,8 +71,7 @@ pub async fn get_cycle_count_detail(
         CycleCountListPath::PATH,
         "库存管理",
         Some("循环盘点详情"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

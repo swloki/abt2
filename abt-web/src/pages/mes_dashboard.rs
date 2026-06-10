@@ -18,6 +18,7 @@ pub async fn get_mes_dashboard(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.mes_dashboard_service();
     let stats = svc.get_stats(&service_ctx, &mut conn).await?;
@@ -26,7 +27,7 @@ pub async fn get_mes_dashboard(
     let content = mes_dashboard_page(&stats, &qs, &recent);
     let page_html = admin_page(
         is_htmx, "生产管理", &claims, "production",
-        MesDashboardPath::PATH, "生产管理", None, content,
+        MesDashboardPath::PATH, "生产管理", None, content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
 }

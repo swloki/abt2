@@ -57,6 +57,7 @@ fn amount_color(d: &CashDirection) -> &'static str {
 #[require_permission("FMS", "read")]
 pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let svc = state.cash_journal_service();
@@ -107,7 +108,6 @@ pub async fn get_detail(path: JournalDetailPath, ctx: RequestContext) -> Result<
         &current_path,
         "财务管理",
         Some(JournalListPath::PATH),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(html.into_string()))
 }

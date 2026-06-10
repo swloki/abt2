@@ -249,6 +249,7 @@ pub async fn get_stock_list(
     Query(params): Query<StockQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.stock_ledger_service();
     let product_svc = state.product_service();
@@ -283,7 +284,7 @@ pub async fn get_stock_list(
     };
     let content = stock_list_page(&result, &product_names, &warehouse_names, &zone_codes, &bin_codes, &warehouses, &zones, &params);
     let page_html = admin_page(
-        is_htmx, "库存查询", &claims, "inventory", StockListPath::PATH, "库存管理", None, content,
+        is_htmx, "库存查询", &claims, "inventory", StockListPath::PATH, "库存管理", None, content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
 }

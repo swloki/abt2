@@ -45,6 +45,7 @@ pub async fn get_order_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.sales_order_service();
     let customer_svc = state.customer_service();
@@ -91,7 +92,7 @@ pub async fn get_order_detail(
     let page_html = admin_page(
         is_htmx, "订单详情", &claims, "sales",
         &format!("{}/{}", OrderListPath::PATH, path.id),
-        "销售管理", Some("订单详情"), content,
+        "销售管理", Some("订单详情"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))

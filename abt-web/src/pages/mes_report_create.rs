@@ -38,6 +38,7 @@ pub async fn get_report_create(
     axum::extract::Query(query): axum::extract::Query<ReportCreateQuery>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let batch_svc = state.production_batch_service();
     let wo_svc = state.work_order_service();
@@ -76,7 +77,7 @@ pub async fn get_report_create(
     let doc_number = format!("WR-{}", chrono::Local::now().format("%Y-%m-%d"));
 
     let content = report_create_page(&active_wos, &wo_product_names, batch.as_ref(), &routings, wo.as_ref(), &workers, &doc_number);
-    Ok(Html(admin_page(is_htmx, "新建报工", &claims, "production", ReportCreatePath::PATH, "生产管理", Some(ReportListPath::PATH), content).into_string()))
+    Ok(Html(admin_page(is_htmx, "新建报工", &claims, "production", ReportCreatePath::PATH, "生产管理", Some(ReportListPath::PATH), content, &nav_filter).into_string()))
 
 }
 

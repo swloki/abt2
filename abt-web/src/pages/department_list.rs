@@ -21,6 +21,9 @@ pub async fn get_department_list(
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("DEPARTMENT", "create").await;
+    let can_delete = ctx.has_permission("DEPARTMENT", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -56,7 +59,7 @@ pub async fn get_department_list(
                     }
                 }
             }
-            Some(detail_content_fragment(&dept, &members))
+            Some(detail_content_fragment(&dept, &members, can_create, can_delete))
         } else {
             None
         }
@@ -64,7 +67,7 @@ pub async fn get_department_list(
         None
     };
 
-    let content = department_list_page(&departments, first_id, initial_detail.as_ref());
+    let content = department_list_page(&departments, first_id, initial_detail.as_ref(), can_create);
 
     let page_html = admin_page(
         is_htmx,
@@ -74,8 +77,7 @@ pub async fn get_department_list(
         DepartmentListPath::PATH,
         "部门管理",
         Some("组织架构"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -86,6 +88,8 @@ pub async fn get_department_detail_fragment(
     path: DepartmentDetailPath,
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
+    let can_create = ctx.has_permission("DEPARTMENT", "create").await;
+    let can_delete = ctx.has_permission("DEPARTMENT", "delete").await;
     let RequestContext {
         mut conn,
         state,
@@ -111,7 +115,7 @@ pub async fn get_department_detail_fragment(
         }
     }
 
-    let fragment = detail_content_fragment(&dept, &members);
+    let fragment = detail_content_fragment(&dept, &members, can_create, can_delete);
     Ok(Html(fragment.into_string()))
 }
 
@@ -253,11 +257,12 @@ fn department_list_page(
     departments: &[Department],
     selected_id: Option<i64>,
     initial_detail: Option<&Markup>,
+    can_create: bool,
 ) -> Markup {
     html! {
         div class="dept-layout" {
             // ── Left: Tree Panel ──
-            (tree_panel(departments, selected_id))
+            (tree_panel(departments, selected_id, can_create))
 
             // ── Right: Detail Panel ──
             div class="dept-detail" id="deptDetail" {
@@ -287,7 +292,7 @@ fn department_list_page(
     }
 }
 
-fn tree_panel(departments: &[Department], selected_id: Option<i64>) -> Markup {
+fn tree_panel(departments: &[Department], selected_id: Option<i64>, can_create: bool) -> Markup {
     let count = departments.len();
     html! {
         div class="dept-tree-panel" {
@@ -297,12 +302,14 @@ fn tree_panel(departments: &[Department], selected_id: Option<i64>) -> Markup {
                     (icon::building_icon("w-[15px] h-[15px]"))
                     "组织架构"
                 }
-                button class="tree-add-btn" title="新建部门"
-                    hx-get=(DepartmentCreateDrawerPath::PATH)
-                    hx-target="#drawerPanel"
-                    hx-swap="innerHTML"
-                    hx-on::after-request="hsAdd(null,'#deptDrawer','open')" {
-                    (icon::plus_icon("w-[13px] h-[13px]"))
+                @if can_create {
+                    button class="tree-add-btn" title="新建部门"
+                        hx-get=(DepartmentCreateDrawerPath::PATH)
+                        hx-target="#drawerPanel"
+                        hx-swap="innerHTML"
+                        hx-on::after-request="hsAdd(null,'#deptDrawer','open')" {
+                        (icon::plus_icon("w-[13px] h-[13px]"))
+                    }
                 }
             }
 
@@ -379,7 +386,7 @@ fn tree_item(dept: &Department, is_active: bool) -> Markup {
     }
 }
 
-fn detail_content_fragment(dept: &Department, members: &[UserWithRoles]) -> Markup {
+fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_create: bool, can_delete: bool) -> Markup {
     let code_color = dept_code_color_class(&dept.department_code);
     let member_count = members.len();
     let edit_path = DepartmentEditPath {
@@ -427,15 +434,17 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles]) -> Mark
                 }
             }
             div class="d-hero-actions" {
-                button class="btn btn-default btn-sm"
-                    hx-get=(edit_path)
-                    hx-target="#drawerPanel"
-                    hx-swap="innerHTML"
-                    hx-on::after-request="hsAdd(null,'#deptDrawer','open')" {
-                    (icon::edit_icon("w-[13px] h-[13px]"))
-                    "编辑"
+                @if can_create {
+                    button class="btn btn-default btn-sm"
+                        hx-get=(edit_path)
+                        hx-target="#drawerPanel"
+                        hx-swap="innerHTML"
+                        hx-on::after-request="hsAdd(null,'#deptDrawer','open')" {
+                        (icon::edit_icon("w-[13px] h-[13px]"))
+                        "编辑"
+                    }
                 }
-                @if !dept.is_default {
+                @if can_delete && !dept.is_default {
                     button class="btn btn-default btn-sm text-danger"
                         hx-confirm=(format!("确认删除部门「{}」？该操作不可恢复。", dept.department_name))
                         hx-post=(delete_path)

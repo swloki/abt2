@@ -81,6 +81,7 @@ pub async fn get_order_create(
     Query(params): Query<OrderCreateQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let customer_svc = state.customer_service();
 
@@ -120,7 +121,7 @@ pub async fn get_order_create(
 
     let content = order_create_page(&customers.items, &prefill);
     let page_html = admin_page(
-        is_htmx, "新建订单", &claims, "sales", OrderCreatePath::PATH, "销售管理", Some("新建订单"), content,
+        is_htmx, "新建订单", &claims, "sales", OrderCreatePath::PATH, "销售管理", Some("新建订单"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))

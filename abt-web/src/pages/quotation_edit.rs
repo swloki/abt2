@@ -51,6 +51,7 @@ pub async fn get_quotation_edit(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.quotation_service();
     let customer_svc = state.customer_service();
@@ -78,7 +79,7 @@ pub async fn get_quotation_edit(
     let page_html = admin_page(
         is_htmx, "编辑报价单", &claims, "sales",
         &format!("{}/{}", QuotationListPath::PATH, path.id),
-        "销售管理", Some("编辑报价单"), content,
+        "销售管理", Some("编辑报价单"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))

@@ -22,6 +22,7 @@ use abt_macros::require_permission;
 #[require_permission("MES", "read")]
 pub async fn get_material_usage(_path: MaterialUsagePath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let wo_svc = state.work_order_service();
@@ -48,7 +49,7 @@ pub async fn get_material_usage(_path: MaterialUsagePath, ctx: RequestContext) -
         .collect();
 
     let content = material_usage_page(&work_orders, &product_map);
-    Ok(Html(admin_page(is_htmx, "物料消耗追踪", &claims, "production", MaterialUsagePath::PATH, "生产管理", None, content).into_string()))
+    Ok(Html(admin_page(is_htmx, "物料消耗追踪", &claims, "production", MaterialUsagePath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 #[derive(Debug, Deserialize)]

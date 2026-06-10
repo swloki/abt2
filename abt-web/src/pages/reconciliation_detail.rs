@@ -48,6 +48,7 @@ pub async fn get_reconciliation_detail(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let reconciliation_svc = state.reconciliation_service();
@@ -129,7 +130,7 @@ pub async fn get_reconciliation_detail(
     let page_html = admin_page(
         is_htmx, "对账详情", &claims, "sales",
         &format!("{}/{}", ReconciliationListPath::PATH, path.id),
-        "销售管理", Some("对账详情"), content,
+        "销售管理", Some("对账详情"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))

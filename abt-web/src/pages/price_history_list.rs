@@ -58,6 +58,7 @@ pub async fn get_price_history_list(
     Query(params): Query<PriceHistoryQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let (rows, total, page, total_pages) = fetch_enriched_rows(&state, &service_ctx, &mut conn, &params).await?;
@@ -72,8 +73,7 @@ pub async fn get_price_history_list(
         PriceHistoryListPath::PATH,
         "主数据管理",
         Some("价格变更记录"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

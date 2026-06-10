@@ -124,6 +124,9 @@ pub async fn get_shipping_list(
     Query(params): Query<ShippingQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("SHIPPING", "create").await;
+    let can_delete = ctx.has_permission("SHIPPING", "delete").await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
 
     let shipping_svc = state.shipping_service();
@@ -146,9 +149,9 @@ pub async fn get_shipping_list(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    let content = shipping_list_page(&claims, &result, &customer_names, &order_numbers, &customers.items, &params, &status_counts);
+    let content = shipping_list_page(&claims, &result, &customer_names, &order_numbers, &customers.items, &params, &status_counts, can_create, can_delete);
     let page_html = admin_page(
-        is_htmx, "发货申请", &claims, "sales", ShippingListPath::PATH, "销售管理", Some("发货申请"), content,
+        is_htmx, "发货申请", &claims, "sales", ShippingListPath::PATH, "销售管理", Some("发货申请"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -159,6 +162,7 @@ pub async fn get_shipping_table(
     ctx: RequestContext,
     Query(params): Query<ShippingQueryParams>,
 ) -> Result<Html<String>> {
+    let can_delete = ctx.has_permission("SHIPPING", "delete").await;
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
 
     let shipping_svc = state.shipping_service();
@@ -181,7 +185,7 @@ pub async fn get_shipping_table(
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
 
-    Ok(Html(shipping_table_fragment(&result, &customer_names, &order_numbers, &customers.items, &params, &status_counts).into_string()))
+    Ok(Html(shipping_table_fragment(&result, &customer_names, &order_numbers, &customers.items, &params, &status_counts, can_delete).into_string()))
 }
 
 #[require_permission("SHIPPING", "delete")]
@@ -208,19 +212,23 @@ fn shipping_list_page(
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &ShippingQueryParams,
     status_counts: &HashMap<i16, u64>,
+    can_create: bool,
+    can_delete: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "发货申请" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(ShippingCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建发货申请"
+                    @if can_create {
+                        a class="btn btn-primary" href=(ShippingCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建发货申请"
+                        }
                     }
                 }
             }
-            (shipping_table_fragment(result, customer_names, order_numbers, customers, params, status_counts))
+            (shipping_table_fragment(result, customer_names, order_numbers, customers, params, status_counts, can_delete))
         }
     }
 }
@@ -232,6 +240,7 @@ fn shipping_table_fragment(
     customers: &[abt_core::master_data::customer::model::Customer],
     params: &ShippingQueryParams,
     status_counts: &HashMap<i16, u64>,
+    can_delete: bool,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -300,7 +309,7 @@ fn shipping_table_fragment(
                         }
                         tbody {
                             @for s in &result.items {
-                                (shipping_row(s, customer_names, order_numbers))
+                                (shipping_row(s, customer_names, order_numbers, can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {
@@ -322,6 +331,7 @@ fn shipping_row(
     s: &ShippingRequest,
     customer_names: &HashMap<i64, String>,
     order_numbers: &HashMap<i64, String>,
+    can_delete: bool,
 ) -> Markup {
     let detail_path = ShippingDetailPath { id: s.id };
     let (status_text, status_class) = status_label(s.status);
@@ -354,12 +364,14 @@ fn shipping_row(
                         a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
-                        button type="button" class="row-action-btn text-danger" title="删除"
-                            hx-confirm=(format!("确认删除发货申请 {}？", s.doc_number))
-                            hx-post=(delete_path.to_string())
-                            hx-target="closest tr"
-                            hx-swap="outerHTML swap:0.5s" {
-                            (icon::trash_icon("w-4 h-4"))
+                        @if can_delete {
+                            button type="button" class="row-action-btn text-danger" title="删除"
+                                hx-confirm=(format!("确认删除发货申请 {}？", s.doc_number))
+                                hx-post=(delete_path.to_string())
+                                hx-target="closest tr"
+                                hx-swap="outerHTML swap:0.5s" {
+                                (icon::trash_icon("w-4 h-4"))
+                            }
                         }
                     } @else {
                         a class="row-action-btn" href=(detail_path.to_string()) title="查看详情" {

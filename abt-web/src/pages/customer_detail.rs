@@ -194,6 +194,8 @@ pub async fn get_customer_detail(
 
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_delete = ctx.has_permission("CUSTOMER", "delete").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.customer_service();
     let cid = path.id;
@@ -206,7 +208,7 @@ pub async fn get_customer_detail(
     let txns = fetch_transactions(&state, &service_ctx, &mut conn, cid).await;
     let txn_html = transaction_table_fragment(&txns, 1, TXN_PAGE_SIZE, cid);
 
-    let content = customer_detail_page(&customer, &contacts, &addresses, txn_html);
+    let content = customer_detail_page(&customer, &contacts, &addresses, txn_html, can_delete);
     let detail_path_str = CustomerDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         is_htmx,
@@ -216,8 +218,7 @@ pub async fn get_customer_detail(
         &detail_path_str,
         "销售管理",
         Some(&customer.name),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -360,6 +361,7 @@ fn customer_detail_page(
     contacts: &[CustomerContact],
     addresses: &[CustomerAddress],
     txn_html: Markup,
+    can_delete: bool,
 ) -> Markup {
     let detail_path = CustomerDetailPath { id: customer.id };
     let list_path = CustomerListPath;
@@ -469,7 +471,7 @@ fn customer_detail_page(
                     div class="empty-state" { "暂无联系人" }
                 } @else {
                     @for c in contacts {
-                        (contact_card(c, &detail_path))
+                        (contact_card(c, &detail_path, can_delete))
                     }
                 }
             }
@@ -508,7 +510,7 @@ fn customer_detail_page(
             } @else {
                 div class="address-grid" {
                     @for a in addresses {
-                        (address_card(a, &detail_path))
+                        (address_card(a, &detail_path, can_delete))
                     }
                 }
             }
@@ -640,7 +642,7 @@ fn credit_display(credit_limit: Option<rust_decimal::Decimal>) -> Markup {
     }
 }
 
-fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath) -> Markup {
+fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath, can_delete: bool) -> Markup {
     let delete_path = DeleteContactPath {
         cid: detail_path.id,
         contact_id: contact.id,
@@ -672,18 +674,20 @@ fn contact_card(contact: &CustomerContact, detail_path: &CustomerDetailPath) -> 
                 }
             }
             div class="contact-card-actions" {
-                button type="button" class="row-action-btn text-danger" title="删除"
-                    hx-post=(delete_path)
-                    hx-confirm=(format!("删除后无法恢复，确定要删除联系人 <strong>{}</strong> 吗？", contact.name))
-                    hx-swap="none" {
-                    (icon::trash_icon("w-4 h-4"))
+                @if can_delete {
+                    button type="button" class="row-action-btn text-danger" title="删除"
+                        hx-post=(delete_path)
+                        hx-confirm=(format!("删除后无法恢复，确定要删除联系人 <strong>{}</strong> 吗？", contact.name))
+                        hx-swap="none" {
+                        (icon::trash_icon("w-4 h-4"))
+                    }
                 }
             }
         }
     }
 }
 
-fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath) -> Markup {
+fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath, can_delete: bool) -> Markup {
     let delete_path = DeleteAddressPath {
         cid: detail_path.id,
         address_id: addr.id,
@@ -722,11 +726,13 @@ fn address_card(addr: &CustomerAddress, detail_path: &CustomerDetailPath) -> Mar
                 }
             }
             div class="address-card-actions" {
-                button type="button" class="row-action-btn text-danger" title="删除"
-                    hx-post=(delete_path)
-                    hx-confirm="删除后无法恢复，确定要删除该地址吗？"
-                    hx-swap="none" {
-                    (icon::trash_icon("w-4 h-4"))
+                @if can_delete {
+                    button type="button" class="row-action-btn text-danger" title="删除"
+                        hx-post=(delete_path)
+                        hx-confirm="删除后无法恢复，确定要删除该地址吗？"
+                        hx-swap="none" {
+                        (icon::trash_icon("w-4 h-4"))
+                    }
                 }
             }
         }

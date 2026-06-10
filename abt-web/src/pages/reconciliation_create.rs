@@ -66,6 +66,7 @@ pub async fn get_reconciliation_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let username = claims.display_name.as_str();
 
@@ -77,7 +78,7 @@ pub async fn get_reconciliation_create(
     let content = reconciliation_create_page(&customers.items, username);
     let page_html = admin_page(
         is_htmx, "新建对账单", &claims, "sales",
-        ReconciliationCreatePath::PATH, "销售管理", Some("新建对账单"), content,
+        ReconciliationCreatePath::PATH, "销售管理", Some("新建对账单"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))

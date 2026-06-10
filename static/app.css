@@ -3582,10 +3582,10 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 --spacing-3: var(--space-3);
 --default-transition-timingFunction: cubic-bezier(0.4, 0, 0.2, 1);
 --default-transition-duration: 150ms;
---spacing-6: var(--space-6);
---fontWeight-semibold: 600;
 --text-xs-fontSize: 0.75rem;
 --text-xs-lineHeight: 1rem;
+--spacing-6: var(--space-6);
+--fontWeight-semibold: 600;
 --text-sm-fontSize: 0.875rem;
 --text-sm-lineHeight: 1.25rem;
 --spacing-10: var(--space-10);
@@ -3608,10 +3608,6 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 --font-sans: ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";
 --default-font-family: var(--font-sans);
 --default-monoFont-family: var(--font-mono);
---text-xl-fontSize: 1.25rem;
---text-xl-lineHeight: 1.75rem;
---text-lg-fontSize: 1.125rem;
---text-lg-lineHeight: 1.75rem;
 }
 /* layer: base */
 /*
@@ -4130,7 +4126,6 @@ input:where([type='button'], [type='reset'], [type='submit']),
 .mb-7{margin-bottom:calc(var(--spacing) * 7);}
 .mb-9{margin-bottom:calc(var(--spacing) * 9);}
 .ml-auto{margin-left:auto;}
-.mr-1{margin-right:calc(var(--spacing) * 1);}
 .mt-1{margin-top:calc(var(--spacing) * 1);}
 .mt-10{margin-top:calc(var(--spacing) * 10);}
 .mt-2{margin-top:calc(var(--spacing) * 2);}
@@ -4225,6 +4220,7 @@ input:where([type='button'], [type='reset'], [type='submit']),
 .block{display:block;}
 .inline-block{display:inline-block;}
 .hidden{display:none;}
+.visible{visibility:visible;}
 .collapse{visibility:collapse;}
 .cursor-pointer{cursor:pointer;}
 .select-all{-webkit-user-select:all;user-select:all;}

@@ -23,6 +23,7 @@ pub async fn get_md_dashboard(
     ctx: RequestContext,
 ) -> crate::errors::Result<axum::response::Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let db = &mut conn;
     let svc_ctx = &service_ctx;
@@ -80,8 +81,7 @@ pub async fn get_md_dashboard(
         MdDashboardPath::PATH,
         "主数据管理",
         None,
-        content,
-    );
+        content, &nav_filter,    );
     Ok(axum::response::Html(page_html.into_string()))
 }
 

@@ -54,6 +54,7 @@ pub async fn get_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext {
         mut conn,
         state,
@@ -140,8 +141,7 @@ pub async fn get_create(
         OmOutsourcingCreatePath::PATH,
         "委外管理",
         Some(OmOutsourcingListPath::PATH),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

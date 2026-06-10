@@ -13,6 +13,7 @@ use abt_macros::require_permission;
 #[require_permission("MES", "read")]
 pub async fn get_exception_detail(path: ExceptionDetailPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let svc = state.production_exception_service();
@@ -25,8 +26,7 @@ pub async fn get_exception_detail(path: ExceptionDetailPath, ctx: RequestContext
         is_htmx, "异常详情", &claims, "production",
         &format!("/admin/mes/exceptions/{}", path.id),
         "生产管理", Some(ExceptionListPath::PATH),
-        content,
-    ).into_string()))
+        content, &nav_filter,    ).into_string()))
 }
 
 fn exception_detail_page(

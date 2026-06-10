@@ -41,7 +41,9 @@ pub async fn get_bin_list(
     ctx: RequestContext,
     Query(params): Query<BinQueryParams>,
 ) -> crate::errors::Result<Html<String>> {
+    let can_create = ctx.has_permission("LOCATION", "create").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.warehouse_service();
 
@@ -62,7 +64,7 @@ pub async fn get_bin_list(
         }
     }
 
-    let content = bin_list_page(&result, &params, &warehouses.items, &zone_map);
+    let content = bin_list_page(&result, &params, &warehouses.items, &zone_map, can_create);
     let page_html = admin_page(
         is_htmx,
         "储位管理",
@@ -71,8 +73,7 @@ pub async fn get_bin_list(
         BinListPath::PATH,
         "库存管理",
         Some("储位管理"),
-        content,
-    );
+        content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
 }
 
@@ -152,15 +153,18 @@ fn bin_list_page(
     params: &BinQueryParams,
     warehouses: &[Warehouse],
     zones: &HashMap<i64, Zone>,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "储位管理" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(BinCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建储位"
+                    @if can_create {
+                        a class="btn btn-primary" href=(BinCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建储位"
+                        }
                     }
                 }
             }

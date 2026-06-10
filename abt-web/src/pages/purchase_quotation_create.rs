@@ -65,6 +65,7 @@ pub async fn get_pq_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext {
         mut conn,
         state,
@@ -103,8 +104,7 @@ pub async fn get_pq_create(
         PQCreatePath::PATH,
         "采购管理",
         Some("新建采购报价"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

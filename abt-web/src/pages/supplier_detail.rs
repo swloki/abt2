@@ -25,6 +25,8 @@ pub async fn get_supplier_detail(
     ctx: RequestContext,
 ) -> crate::errors::Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_delete = ctx.has_permission("SUPPLIER", "delete").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.supplier_service();
 
@@ -32,7 +34,7 @@ pub async fn get_supplier_detail(
     let contacts = svc.list_contacts(&service_ctx, &mut conn, path.id).await?;
     let bank_accounts = svc.list_bank_accounts(&service_ctx, &mut conn, path.id).await?;
 
-    let content = supplier_detail_page(&supplier, &contacts, &bank_accounts);
+    let content = supplier_detail_page(&supplier, &contacts, &bank_accounts, can_delete);
     let detail_path_str = SupplierDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         is_htmx,
@@ -42,8 +44,7 @@ pub async fn get_supplier_detail(
         &detail_path_str,
         "主数据管理",
         Some(&supplier.name),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }
@@ -140,6 +141,7 @@ fn supplier_detail_page(
     supplier: &Supplier,
     contacts: &[SupplierContact],
     bank_accounts: &[SupplierBankAccount],
+    can_delete: bool,
 ) -> Markup {
     let detail_path = SupplierDetailPath { id: supplier.id };
     let list_path = SupplierListPath;
@@ -261,8 +263,8 @@ fn supplier_detail_page(
         // ── 2-Column Grid: Contacts + Bank Accounts ──
         div style="display:grid;grid-template-columns:1fr;gap:var(--space-5)" {
             // ── Contacts Card ──
-            (contacts_card(contacts, &detail_path))
-            (bank_accounts_card(bank_accounts, &detail_path))
+            (contacts_card(contacts, &detail_path, can_delete))
+            (bank_accounts_card(bank_accounts, &detail_path, can_delete))
         }
 
         // ── Purchase History Section (placeholder) ──
@@ -339,7 +341,7 @@ fn supplier_detail_page(
     }
 }
 
-fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath) -> Markup {
+fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath, can_delete: bool) -> Markup {
     html! {
         div class="detail-card" id="contacts-card"
             hx-get=(detail_path.to_string())
@@ -371,7 +373,7 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath)
                     }
                     tbody {
                         @for c in contacts {
-                            (contact_row(c, detail_path))
+                            (contact_row(c, detail_path, can_delete))
                         }
                     }
                 }
@@ -380,7 +382,7 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath)
     }
 }
 
-fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &SupplierDetailPath) -> Markup {
+fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &SupplierDetailPath, can_delete: bool) -> Markup {
     html! {
         div class="detail-card" id="bank-accounts-card"
             hx-get=(detail_path.to_string())
@@ -411,7 +413,7 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
                     }
                     tbody {
                         @for ba in bank_accounts {
-                            (bank_account_row(ba, detail_path))
+                            (bank_account_row(ba, detail_path, can_delete))
                         }
                     }
                 }
@@ -420,7 +422,7 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
     }
 }
 
-fn contact_row(contact: &SupplierContact, detail_path: &SupplierDetailPath) -> Markup {
+fn contact_row(contact: &SupplierContact, detail_path: &SupplierDetailPath, can_delete: bool) -> Markup {
     let delete_path = SupplierDeleteContactPath {
         sid: detail_path.id,
         contact_id: contact.id,
@@ -439,18 +441,20 @@ fn contact_row(contact: &SupplierContact, detail_path: &SupplierDetailPath) -> M
                 }
             }
             td {
-                button type="button" class="row-action-btn text-danger" title="删除"
-                    hx-post=(delete_path)
-                    hx-confirm=(confirm_msg)
-                    hx-swap="none" {
-                    (icon::trash_icon("w-4 h-4"))
+                @if can_delete {
+                    button type="button" class="row-action-btn text-danger" title="删除"
+                        hx-post=(delete_path)
+                        hx-confirm=(confirm_msg)
+                        hx-swap="none" {
+                        (icon::trash_icon("w-4 h-4"))
+                    }
                 }
             }
         }
     }
 }
 
-fn bank_account_row(account: &SupplierBankAccount, detail_path: &SupplierDetailPath) -> Markup {
+fn bank_account_row(account: &SupplierBankAccount, detail_path: &SupplierDetailPath, can_delete: bool) -> Markup {
     let delete_path = SupplierDeleteBankAccountPath {
         sid: detail_path.id,
         account_id: account.id,
@@ -468,11 +472,13 @@ fn bank_account_row(account: &SupplierBankAccount, detail_path: &SupplierDetailP
                 }
             }
             td {
-                button type="button" class="row-action-btn text-danger" title="删除"
-                    hx-post=(delete_path)
-                    hx-confirm=(confirm_msg)
-                    hx-swap="none" {
-                    (icon::trash_icon("w-4 h-4"))
+                @if can_delete {
+                    button type="button" class="row-action-btn text-danger" title="删除"
+                        hx-post=(delete_path)
+                        hx-confirm=(confirm_msg)
+                        hx-swap="none" {
+                        (icon::trash_icon("w-4 h-4"))
+                    }
                 }
             }
         }

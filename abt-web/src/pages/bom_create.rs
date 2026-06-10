@@ -32,6 +32,7 @@ pub async fn get_bom_create(
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext {
         mut conn,
         state,
@@ -59,8 +60,7 @@ pub async fn get_bom_create(
         BomCreatePath::PATH,
         "主数据管理",
         Some("新建物料清单"),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

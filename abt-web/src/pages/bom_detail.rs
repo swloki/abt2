@@ -28,6 +28,7 @@ pub async fn get_bom_detail(
     let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
     let can_edit = ctx.has_permission("BOM", "update").await;
     let can_delete = ctx.has_permission("BOM", "delete").await;
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
 
     let bom_svc = state.bom_query_service();
@@ -58,8 +59,7 @@ pub async fn get_bom_detail(
         &detail_path_str,
         "主数据管理",
         Some(&bom.bom_name),
-        content,
-    );
+        content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
 }

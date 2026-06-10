@@ -61,13 +61,15 @@ pub async fn get_inspection_list(
     _path: InspectionListPath, ctx: RequestContext, Query(params): Query<InspectionQueryParams>,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
+    let can_create = ctx.has_permission("INSPECTION", "create").await;
     let RequestContext { mut conn, claims, state, service_ctx, .. } = ctx;
     let filter = params.to_filter();
     let page = params.page.unwrap_or(1);
     let svc = state.production_inspection_service();
     let result = svc.list_inspections(&service_ctx, &mut conn, filter, page, 20).await?;
-    let content = inspection_list_page(&result, &params);
-    Ok(Html(admin_page(is_htmx, "生产报检", &claims, "production", InspectionListPath::PATH, "生产管理", None, content).into_string()))
+    let content = inspection_list_page(&result, &params, can_create);
+    Ok(Html(admin_page(is_htmx, "生产报检", &claims, "production", InspectionListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 #[require_permission("MES", "read")]
@@ -85,10 +87,13 @@ pub async fn get_inspection_table(
 fn inspection_list_page(
     result: &PaginatedResult<InspectionListItem>,
     params: &InspectionQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! { div {
         div class="page-header" { h1 class="page-title" { "生产报检" } div class="page-actions" {
-            a class="btn btn-primary" href=(InspectionCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建检验" }
+            @if can_create {
+                a class="btn btn-primary" href=(InspectionCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建检验" }
+            }
         }}
         (inspection_table_fragment(result, params))
     }}

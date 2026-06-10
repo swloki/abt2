@@ -124,7 +124,9 @@ pub async fn get_requisition_list(
     ctx: RequestContext,
     Query(params): Query<RequisitionQueryParams>,
 ) -> Result<Html<String>> {
+    let can_create = ctx.has_permission("INVENTORY", "create").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.material_requisition_service();
     let warehouse_svc = state.warehouse_service();
@@ -141,9 +143,9 @@ pub async fn get_requisition_list(
         .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
         .await?;
 
-    let content = requisition_list_page(&result, &warehouse_names, &operator_names, &warehouses.items, &params);
+    let content = requisition_list_page(&result, &warehouse_names, &operator_names, &warehouses.items, &params, can_create);
     let page_html = admin_page(
-        is_htmx, "领料单", &claims, "inventory", RequisitionListPath::PATH, "库存管理", Some("领料单"), content,
+        is_htmx, "领料单", &claims, "inventory", RequisitionListPath::PATH, "库存管理", Some("领料单"), content, &nav_filter,
     );
 
     Ok(Html(page_html.into_string()))
@@ -178,15 +180,18 @@ fn requisition_list_page(
     operator_names: &HashMap<i64, String>,
     warehouses: &[abt_core::wms::warehouse::model::Warehouse],
     params: &RequisitionQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
             div class="page-header" {
                 h1 class="page-title" { "领料单" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(RequisitionCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建领料单"
+                    @if can_create {
+                        a class="btn btn-primary" href=(RequisitionCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建领料单"
+                        }
                     }
                 }
             }

@@ -132,7 +132,9 @@ pub async fn get_precon_list(
     ctx: RequestContext,
     Query(params): Query<PreconQueryParams>,
 ) -> Result<Html<String>> {
+    let can_create = ctx.has_permission("PURCHASE_RECON", "create").await;
     let is_htmx = ctx.is_htmx();
+    let nav_filter = ctx.nav_filter().await;
     let RequestContext { claims, mut conn, state, service_ctx, .. } = ctx;
     let svc = state.purchase_reconciliation_service();
     let supplier_svc = state.supplier_service();
@@ -144,9 +146,9 @@ pub async fn get_precon_list(
     let suppliers = supplier_svc
         .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
         .await?;
-    let content = precon_list_page(&result, &supplier_names, &item_counts, &suppliers.items, &params);
+    let content = precon_list_page(&result, &supplier_names, &item_counts, &suppliers.items, &params, can_create);
     let page_html = admin_page(
-        is_htmx, "采购对账", &claims, "purchase", PreconListPath::PATH, "采购管理", Some("采购对账"), content,
+        is_htmx, "采购对账", &claims, "purchase", PreconListPath::PATH, "采购管理", Some("采购对账"), content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
 }
@@ -178,6 +180,7 @@ fn precon_list_page(
     item_counts: &HashMap<i64, usize>,
     suppliers: &[abt_core::master_data::supplier::model::Supplier],
     params: &PreconQueryParams,
+    can_create: bool,
 ) -> Markup {
     html! {
         div {
@@ -185,9 +188,11 @@ fn precon_list_page(
             div class="page-header" {
                 h1 class="page-title" { "采购对账" }
                 div class="page-actions" {
-                    a class="btn btn-primary" href=(PreconCreatePath::PATH) {
-                        (icon::plus_icon("w-4 h-4"))
-                        "新建对账单"
+                    @if can_create {
+                        a class="btn btn-primary" href=(PreconCreatePath::PATH) {
+                            (icon::plus_icon("w-4 h-4"))
+                            "新建对账单"
+                        }
                     }
                 }
             }

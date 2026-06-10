@@ -36,7 +36,7 @@ pub struct BinCreateForm {
 
 // ── Handlers ──
 
-#[require_permission("WAREHOUSE", "read")]
+#[require_permission("LOCATION", "read")]
 pub async fn get_bin_create(
     _path: BinCreatePath,
     ctx: RequestContext,
@@ -69,7 +69,7 @@ pub async fn get_bin_create(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WAREHOUSE", "write")]
+#[require_permission("LOCATION", "create")]
 pub async fn create_bin(
     _path: BinCreatePath,
     ctx: RequestContext,

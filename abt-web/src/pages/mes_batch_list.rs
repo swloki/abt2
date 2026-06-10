@@ -63,7 +63,7 @@ fn fmt_current_step(current: i32, step_name: Option<&str>, total: Option<i32>) -
     }
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_batch_list(
     _path: BatchListPath, ctx: RequestContext, Query(params): Query<BatchQueryParams>,
 ) -> Result<Html<String>> {
@@ -81,7 +81,7 @@ pub async fn get_batch_list(
     Ok(Html(admin_page(is_htmx, "生产批次", &claims, "production", BatchListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_batch_table(
     _path: BatchTablePath, ctx: RequestContext, Query(params): Query<BatchQueryParams>,
 ) -> Result<Html<String>> {

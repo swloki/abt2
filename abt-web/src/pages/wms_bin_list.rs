@@ -35,7 +35,7 @@ pub struct BinQueryParams {
 
 // ── Handlers ──
 
-#[require_permission("WAREHOUSE", "read")]
+#[require_permission("LOCATION", "read")]
 pub async fn get_bin_list(
     _path: BinListPath,
     ctx: RequestContext,
@@ -77,7 +77,7 @@ pub async fn get_bin_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WAREHOUSE", "read")]
+#[require_permission("LOCATION", "read")]
 pub async fn get_bin_table(
     ctx: RequestContext,
     Query(params): Query<BinQueryParams>,

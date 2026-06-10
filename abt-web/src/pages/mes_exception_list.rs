@@ -14,7 +14,7 @@ use crate::routes::mes_exception::{ExceptionListPath, ExceptionTablePath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_exception_list(_path: ExceptionListPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
@@ -38,7 +38,7 @@ pub struct ExceptionQueryParams {
     pub keyword: Option<String>,
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_exception_table(
     _path: ExceptionTablePath,
     ctx: RequestContext,

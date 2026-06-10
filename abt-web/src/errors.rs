@@ -1,7 +1,21 @@
 use abt_core::shared::types::DomainError;
 use axum::http::StatusCode;
-use axum::response::{IntoResponse, Response};
+use axum::response::{Html, IntoResponse, Response};
 use maud::{html, Markup};
+
+/// Inline error card for rendering inside admin_page layout (e.g., "储位未找到").
+#[allow(dead_code)]
+pub fn error_page(title: &str, message: &str) -> Markup {
+    html! {
+        div class="flex items-center justify-center min-h-[60vh]" {
+            div class="text-center" {
+                h1 class="text-2xl font-bold" style="color:var(--fg)" { (title) }
+                p class="mt-2" style="color:var(--muted)" { (message) }
+                a href="/admin" class="mt-4 inline-block" style="color:var(--accent)" { "返回首页" }
+            }
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct WebError(DomainError);
@@ -35,23 +49,55 @@ impl IntoResponse for WebError {
             }
         };
 
-        // Return plain text error message — the frontend toast handler consumes this.
-        // The full-page HTML error rendering is no longer needed here because
-        // HTMX requests expect a parseable error string, and full-page navigation
-        // to error states is handled by the browser displaying the plain text.
-        (status, message).into_response()
-    }
-}
-
-#[allow(dead_code)]
-pub fn error_page(title: &str, message: &str) -> Markup {
-    html! {
-        div class="flex items-center justify-center min-h-[60vh]" {
-            div class="text-center" {
-                h1 class="text-2xl font-bold text-slate-700" { (title) }
-                p class="mt-2 text-slate-500" { (message) }
-                a href="/admin" class="mt-4 inline-block text-primary-500 hover:text-primary-600" { "返回首页" }
-            }
+        // For 403/404 errors, return a styled HTML error page so the user sees
+        // a proper page with navigation instead of raw text.
+        if status == StatusCode::FORBIDDEN || status == StatusCode::NOT_FOUND {
+            let (title, icon_svg) = if status == StatusCode::FORBIDDEN {
+                ("无权访问", r#"<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>"#)
+            } else {
+                ("页面未找到", r#"<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>"#)
+            };
+            let html_page = format!(r#"<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{title}</title>
+    <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg, #f8f9fb); color: var(--fg, #1e293b); display: flex; align-items: center; justify-content: center; min-height: 100vh; }}
+        :root {{ --bg: #f8f9fb; --fg: #1e293b; --muted: #64748b; --accent: #4f46e5; --border: #e2e8f0; }}
+        .error-card {{ text-align: center; padding: 3rem 2rem; max-width: 420px; }}
+        .error-icon {{ color: var(--muted); margin-bottom: 1.5rem; }}
+        .error-code {{ font-size: 4rem; font-weight: 800; color: var(--border); line-height: 1; margin-bottom: 0.75rem; }}
+        .error-title {{ font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }}
+        .error-msg {{ font-size: 0.875rem; color: var(--muted); margin-bottom: 2rem; word-break: break-all; }}
+        .error-actions {{ display: flex; gap: 0.75rem; justify-content: center; }}
+        .btn {{ display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1.25rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; text-decoration: none; cursor: pointer; border: none; }}
+        .btn-primary {{ background: var(--accent); color: #fff; }}
+        .btn-primary:hover {{ opacity: 0.9; }}
+        .btn-default {{ background: transparent; color: var(--fg); border: 1px solid var(--border); }}
+        .btn-default:hover {{ background: var(--border); }}
+    </style>
+</head>
+<body>
+    <div class="error-card">
+        <div class="error-icon">{icon_svg}</div>
+        <div class="error-code">{status_code}</div>
+        <div class="error-title">{title}</div>
+        <div class="error-msg">{message}</div>
+        <div class="error-actions">
+            <a href="/admin" class="btn btn-primary">返回首页</a>
+            <button onclick="history.back()" class="btn btn-default">返回上页</button>
+        </div>
+    </div>
+</body>
+</html>"#, status_code = status.as_u16(), title = title, message = message, icon_svg = icon_svg);
+            return (status, Html(html_page)).into_response();
         }
+
+        // For other errors (400, 401, 500), return plain text —
+        // the frontend toast handler consumes this.
+        (status, message).into_response()
     }
 }

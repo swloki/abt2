@@ -16,7 +16,7 @@ use crate::utils::RequestContext;
 use abt_macros::require_permission;
 // ── Handler ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_wms_dashboard(
     _path: WmsDashboardPath,
     ctx: RequestContext,

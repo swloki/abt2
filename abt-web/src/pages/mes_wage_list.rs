@@ -21,7 +21,7 @@ pub struct WageListQuery {
     pub date_to: Option<String>,
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("LABOR_COST", "read")]
 pub async fn get_wage_list(
     _path: WageListPath, ctx: RequestContext,
     axum::extract::Query(query): axum::extract::Query<WageListQuery>,

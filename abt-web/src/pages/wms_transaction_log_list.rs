@@ -34,7 +34,7 @@ pub struct TransactionLogQueryParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_transaction_list(
     _path: TransactionListPath,
     ctx: RequestContext,
@@ -64,7 +64,7 @@ pub async fn get_transaction_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_transaction_table(
     _path: TransactionTablePath,
     ctx: RequestContext,

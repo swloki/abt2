@@ -35,7 +35,7 @@ pub struct ItemRowParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_requisition_create(
     _path: RequisitionCreatePath,
     ctx: RequestContext,
@@ -84,7 +84,7 @@ pub async fn get_products(
 }
 
 /// HTMX: return a single item row fragment
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_item_row(
     ctx: RequestContext,
     Query(params): Query<ItemRowParams>,
@@ -113,7 +113,7 @@ pub struct RequisitionCreateForm {
     pub items_json: String,
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn create_requisition(
     _path: RequisitionCreatePath,
     ctx: RequestContext,

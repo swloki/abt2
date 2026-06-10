@@ -32,7 +32,7 @@ pub struct ReportCreateQuery {
     pub batch_id: Option<i64>,
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "create")]
 pub async fn get_report_create(
     _path: ReportCreatePath, ctx: RequestContext,
     axum::extract::Query(query): axum::extract::Query<ReportCreateQuery>,
@@ -81,7 +81,7 @@ pub async fn get_report_create(
 
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "create")]
 pub async fn create_report(
     _path: ReportCreatePath, ctx: RequestContext, axum::Form(form): axum::Form<ReportCreateForm>,
 ) -> Result<impl IntoResponse> {

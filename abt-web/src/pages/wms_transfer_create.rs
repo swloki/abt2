@@ -35,7 +35,7 @@ pub struct ItemRowParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_transfer_create(
     _path: TransferCreatePath,
     ctx: RequestContext,
@@ -79,7 +79,7 @@ pub async fn get_products(
 }
 
 /// HTMX: return a single item row
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_item_row(
     ctx: RequestContext,
     Query(params): Query<ItemRowParams>,
@@ -118,7 +118,7 @@ pub struct TransferCreateForm {
     pub items_json: String,
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn create_transfer(
     _path: TransferCreatePath,
     ctx: RequestContext,

@@ -58,7 +58,7 @@ pub struct CreateCycleCountForm {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_cycle_count_create(
     _path: CycleCountCreatePath,
     ctx: RequestContext,
@@ -110,7 +110,7 @@ pub async fn get_products(
 }
 
 /// HTMX: return a single item row fragment
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_item_row(
     ctx: RequestContext,
     Query(params): Query<ItemRowParams>,
@@ -121,7 +121,7 @@ pub async fn get_item_row(
     Ok(Html(item_row_fragment(&product).into_string()))
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn create_cycle_count(
     _path: CycleCountCreatePath,
     ctx: RequestContext,

@@ -17,7 +17,7 @@ use abt_macros::require_permission;
 
 // ── Handlers ──
 
-#[require_permission("WAREHOUSE", "read")]
+#[require_permission("LOCATION", "read")]
 pub async fn get_bin_detail(
     path: BinDetailPath,
     ctx: RequestContext,

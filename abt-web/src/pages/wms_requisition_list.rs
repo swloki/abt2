@@ -118,7 +118,7 @@ async fn resolve_operator_names<S: UserService>(
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_requisition_list(
     _path: RequisitionListPath,
     ctx: RequestContext,
@@ -151,7 +151,7 @@ pub async fn get_requisition_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_requisition_table(
     _path: RequisitionTablePath,
     ctx: RequestContext,

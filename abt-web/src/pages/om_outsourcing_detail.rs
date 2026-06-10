@@ -148,7 +148,7 @@ pub async fn get_detail(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("OM", "write")]
+#[require_permission("OM", "update")]
 pub async fn send_order(
     path: OmOutsourcingSendPath,
     ctx: RequestContext,
@@ -168,7 +168,7 @@ pub async fn send_order(
         .unwrap())
 }
 
-#[require_permission("OM", "write")]
+#[require_permission("OM", "update")]
 pub async fn receive_order(
     path: OmOutsourcingReceivePath,
     ctx: RequestContext,
@@ -193,7 +193,7 @@ pub async fn receive_order(
         .unwrap())
 }
 
-#[require_permission("OM", "write")]
+#[require_permission("OM", "update")]
 pub async fn convert_to_internal(
     path: OmOutsourcingConvertPath,
     ctx: RequestContext,
@@ -213,7 +213,7 @@ pub async fn convert_to_internal(
         .unwrap())
 }
 
-#[require_permission("OM", "write")]
+#[require_permission("OM", "update")]
 pub async fn cancel_order(
     path: OmOutsourcingCancelPath,
     ctx: RequestContext,
@@ -233,7 +233,7 @@ pub async fn cancel_order(
         .unwrap())
 }
 
-#[require_permission("OM", "write")]
+#[require_permission("OM", "update")]
 pub async fn record_node(
     path: OmRecordNodePath,
     ctx: RequestContext,

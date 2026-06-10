@@ -24,7 +24,7 @@ pub struct RecordResultForm {
     pub result: i16,
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("INSPECTION", "read")]
 pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
@@ -75,7 +75,7 @@ pub async fn get_inspection_detail(path: InspectionDetailPath, ctx: RequestConte
     Ok(Html(admin_page(is_htmx, "检验详情", &claims, "production", &format!("/admin/mes/inspections/{}", path.id), "生产管理", Some(InspectionListPath::PATH), content, &nav_filter).into_string()))
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("INSPECTION", "update")]
 pub async fn record_result(
     path: InspectionRecordResultPath, ctx: RequestContext, axum::Form(form): axum::Form<RecordResultForm>,
 ) -> Result<impl IntoResponse> {

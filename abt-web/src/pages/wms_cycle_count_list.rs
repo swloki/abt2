@@ -35,7 +35,7 @@ pub struct CycleCountQueryParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_cycle_count_list(
     _path: CycleCountListPath,
     ctx: RequestContext,
@@ -66,7 +66,7 @@ pub async fn get_cycle_count_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_cycle_count_table(
     _path: CycleCountTablePath,
     ctx: RequestContext,

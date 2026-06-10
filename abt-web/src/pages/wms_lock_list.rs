@@ -41,7 +41,7 @@ pub struct LockQueryParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_lock_list(
     _path: LockListPath,
     ctx: RequestContext,
@@ -112,7 +112,7 @@ pub async fn get_lock_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_lock_table(
     _path: LockTablePath,
     ctx: RequestContext,

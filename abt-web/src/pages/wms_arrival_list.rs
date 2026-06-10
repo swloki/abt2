@@ -122,7 +122,7 @@ async fn resolve_supplier_names<S: SupplierService>(
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_arrival_list(
     _path: ArrivalListPath,
     ctx: RequestContext,
@@ -156,7 +156,7 @@ pub async fn get_arrival_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_arrival_table(
     _path: ArrivalTablePath,
     ctx: RequestContext,

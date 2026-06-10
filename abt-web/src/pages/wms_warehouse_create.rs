@@ -56,7 +56,7 @@ pub async fn get_warehouse_create(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WAREHOUSE", "write")]
+#[require_permission("WAREHOUSE", "create")]
 pub async fn create_warehouse(
     _path: WarehouseCreatePath,
     ctx: RequestContext,

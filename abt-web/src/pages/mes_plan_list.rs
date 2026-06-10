@@ -109,7 +109,7 @@ fn build_query_string(params: &PlanQueryParams) -> String {
 
 // ── Handlers ──
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_plan_list(
     _path: PlanListPath,
     ctx: RequestContext,
@@ -145,7 +145,7 @@ pub async fn get_plan_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_plan_table(
     _path: PlanTablePath,
     ctx: RequestContext,

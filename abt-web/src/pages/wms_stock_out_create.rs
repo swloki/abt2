@@ -35,7 +35,7 @@ pub struct ItemRowParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_stock_out_create(
     _path: StockOutCreatePath,
     ctx: RequestContext,
@@ -80,7 +80,7 @@ pub async fn get_products(
 }
 
 /// HTMX: return a single item row fragment for a given product_id
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_item_row(
     ctx: RequestContext,
     Query(params): Query<ItemRowParams>,
@@ -114,7 +114,7 @@ struct StockOutItemWeb {
     unit_cost: Option<String>,
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn create_stock_out(
     _path: StockOutCreatePath,
     ctx: RequestContext,

@@ -23,7 +23,7 @@ pub struct InspectionCreateForm {
     pub remark: Option<String>,
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("INSPECTION", "create")]
 pub async fn get_inspection_create(_path: InspectionCreatePath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
@@ -56,7 +56,7 @@ pub async fn get_inspection_create(_path: InspectionCreatePath, ctx: RequestCont
     Ok(Html(admin_page(is_htmx, "新建检验", &claims, "production", InspectionCreatePath::PATH, "生产管理", Some(InspectionListPath::PATH), content, &nav_filter).into_string()))
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("INSPECTION", "create")]
 pub async fn create_inspection(
     _path: InspectionCreatePath, ctx: RequestContext, axum::Form(form): axum::Form<InspectionCreateForm>,
 ) -> Result<impl IntoResponse> {

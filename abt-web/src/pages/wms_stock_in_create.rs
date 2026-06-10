@@ -34,7 +34,7 @@ pub struct ItemRowParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_stock_in_create(
     _path: StockInCreatePath,
     ctx: RequestContext,
@@ -97,7 +97,7 @@ pub async fn get_products(
 }
 
 /// HTMX: return a single item row fragment for a given product_id
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_item_row(
     ctx: RequestContext,
     Query(params): Query<ItemRowParams>,
@@ -134,7 +134,7 @@ struct StockInItemWeb {
     bin_id: Option<String>,
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn create_stock_in(
     _path: StockInCreatePath,
     ctx: RequestContext,

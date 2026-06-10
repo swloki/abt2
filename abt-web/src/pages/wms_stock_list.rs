@@ -242,7 +242,7 @@ fn zone_select_fragment(
     }
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_stock_list(
     _path: StockListPath,
     ctx: RequestContext,
@@ -289,7 +289,7 @@ pub async fn get_stock_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_stock_table(
     _path: StockTablePath,
     ctx: RequestContext,

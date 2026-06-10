@@ -38,7 +38,7 @@ pub struct ItemRowParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_arrival_create(
     _path: ArrivalCreatePath,
     ctx: RequestContext,
@@ -92,7 +92,7 @@ pub async fn get_products(
 }
 
 /// HTMX: return a single item row fragment
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_item_row(
     ctx: RequestContext,
     Query(params): Query<ItemRowParams>,
@@ -128,7 +128,7 @@ struct ArrivalItemWeb {
     batch_no: Option<String>,
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn create_arrival(
     _path: ArrivalCreatePath,
     ctx: RequestContext,

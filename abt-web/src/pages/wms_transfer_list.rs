@@ -30,7 +30,7 @@ pub struct TransferQueryParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_transfer_list(
     _path: TransferListPath,
     ctx: RequestContext,
@@ -62,7 +62,7 @@ pub async fn get_transfer_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_transfer_table(
     _path: TransferTablePath,
     ctx: RequestContext,

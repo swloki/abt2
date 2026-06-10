@@ -117,7 +117,7 @@ fn build_query_string(params: &StockOutQueryParams) -> String {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_stock_out_list(
     _path: StockOutListPath,
     ctx: RequestContext,
@@ -155,7 +155,7 @@ pub async fn get_stock_out_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_stock_out_table(
     _path: StockOutTablePath,
     ctx: RequestContext,

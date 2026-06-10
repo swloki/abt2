@@ -24,7 +24,7 @@ pub struct ReceiptCreateForm {
     pub remark: Option<String>,
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "create")]
 pub async fn get_receipt_create(_path: ReceiptCreatePath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
@@ -56,7 +56,7 @@ pub async fn get_receipt_create(_path: ReceiptCreatePath, ctx: RequestContext) -
     Ok(Html(admin_page(is_htmx, "新建入库", &claims, "production", ReceiptCreatePath::PATH, "生产管理", Some(ReceiptListPath::PATH), content, &nav_filter).into_string()))
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "create")]
 pub async fn create_receipt(
     _path: ReceiptCreatePath, ctx: RequestContext, axum::Form(form): axum::Form<ReceiptCreateForm>,
 ) -> Result<impl IntoResponse> {

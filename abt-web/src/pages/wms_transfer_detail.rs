@@ -23,7 +23,7 @@ pub struct TransferActionForm {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_transfer_detail(
     path: TransferDetailPath,
     ctx: RequestContext,
@@ -87,7 +87,7 @@ pub async fn get_transfer_detail(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "update")]
 pub async fn post_transfer_action(
     path: TransferDetailPath,
     ctx: RequestContext,

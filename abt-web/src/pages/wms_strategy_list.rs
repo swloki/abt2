@@ -14,7 +14,7 @@ use abt_macros::require_permission;
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_strategy_list(
     _path: StrategyListPath,
     ctx: RequestContext,
@@ -41,7 +41,7 @@ pub async fn get_strategy_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_strategy_table(
     _path: StrategyTablePath,
     ctx: RequestContext,

@@ -59,7 +59,7 @@ fn parse_wo_status(s: &str) -> Option<abt_core::mes::enums::WorkOrderStatus> {
     match s { "Draft" => Some(Draft), "Planned" => Some(Planned), "Released" => Some(Released), "Closed" => Some(Closed), "Cancelled" => Some(Cancelled), _ => None }
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_order_list(
     _path: OrderListPath, ctx: RequestContext, Query(params): Query<OrderQueryParams>,
 ) -> Result<Html<String>> {
@@ -86,7 +86,7 @@ pub async fn get_order_list(
     Ok(Html(admin_page(is_htmx, "工单管理", &claims, "production", OrderListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_order_table(
     _path: OrderTablePath, ctx: RequestContext, Query(params): Query<OrderQueryParams>,
 ) -> Result<Html<String>> {

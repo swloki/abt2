@@ -1,0 +1,1 @@
+{"id":120195413797211222826364583886095382993,"data":{"auth.current_user":{"department_ids":[],"display_name":"测试-只读访客","exp":1781181131,"iat":1781094731,"iss":"abt-core","role_codes":["readonly_guest"],"role_ids":[16],"sub":18,"system_role":"user","username":"test_guest"}},"expiry_date":[2026,164,12,32,11,572501600,0,0,0]}

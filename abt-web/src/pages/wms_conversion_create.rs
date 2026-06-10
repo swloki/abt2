@@ -36,7 +36,7 @@ pub struct ItemRowParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_conversion_create(
     _path: ConversionCreatePath,
     ctx: RequestContext,
@@ -87,7 +87,7 @@ pub async fn get_products(
 }
 
 /// HTMX: return a single item row fragment
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn get_item_row(
     ctx: RequestContext,
     Query(params): Query<ItemRowParams>,
@@ -118,7 +118,7 @@ pub struct ConversionCreateForm {
     pub produce_json: String,
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn create_conversion(
     _path: ConversionCreatePath,
     ctx: RequestContext,

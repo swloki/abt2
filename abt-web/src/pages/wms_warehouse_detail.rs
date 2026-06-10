@@ -93,7 +93,7 @@ pub async fn get_warehouse_edit(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WAREHOUSE", "write")]
+#[require_permission("WAREHOUSE", "update")]
 pub async fn update_warehouse(
     path: WarehouseEditPath,
     ctx: RequestContext,
@@ -127,7 +127,7 @@ pub async fn update_warehouse(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
-#[require_permission("WAREHOUSE", "write")]
+#[require_permission("WAREHOUSE", "delete")]
 pub async fn delete_warehouse(
     path: WarehouseDeletePath,
     ctx: RequestContext,
@@ -153,7 +153,7 @@ pub async fn get_zones(
     Ok(Html(zones_table_fragment(&zones, path.id).into_string()))
 }
 
-#[require_permission("WAREHOUSE", "write")]
+#[require_permission("WAREHOUSE", "create")]
 pub async fn create_zone(
     path: WarehouseZoneCreatePath,
     ctx: RequestContext,
@@ -196,7 +196,7 @@ pub async fn get_zone_edit_form(
     Ok(Html(zone_edit_form_fragment(&zone).into_string()))
 }
 
-#[require_permission("WAREHOUSE", "write")]
+#[require_permission("WAREHOUSE", "update")]
 pub async fn update_zone(
     path: WarehouseZonePath,
     ctx: RequestContext,
@@ -221,7 +221,7 @@ pub async fn update_zone(
     Ok((StatusCode::OK, [("HX-Trigger", "zoneChanged")], Html(String::new())))
 }
 
-#[require_permission("WAREHOUSE", "write")]
+#[require_permission("WAREHOUSE", "delete")]
 pub async fn delete_zone(
     path: WarehouseZonePath,
     ctx: RequestContext,

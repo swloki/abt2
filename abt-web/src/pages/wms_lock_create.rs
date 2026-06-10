@@ -29,7 +29,7 @@ pub struct CreateLockForm {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_lock_create(
     _path: LockCreatePath,
     ctx: RequestContext,
@@ -52,7 +52,7 @@ pub async fn get_lock_create(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "create")]
 pub async fn create_lock(
     _path: LockCreatePath,
     ctx: RequestContext,

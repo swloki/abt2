@@ -24,7 +24,7 @@ pub struct PlanCreateForm {
 
 // ── Handlers ──
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "create")]
 pub async fn get_plan_create(
     _path: PlanCreatePath,
     ctx: RequestContext,
@@ -40,7 +40,7 @@ pub async fn get_plan_create(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "create")]
 pub async fn create_plan(
     _path: PlanCreatePath,
     ctx: RequestContext,

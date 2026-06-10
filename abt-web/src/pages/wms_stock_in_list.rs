@@ -117,7 +117,7 @@ fn build_query_string(params: &StockInQueryParams) -> String {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_stock_in_list(
     _path: StockInListPath,
     ctx: RequestContext,
@@ -155,7 +155,7 @@ pub async fn get_stock_in_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_stock_in_table(
     _path: StockInTablePath,
     ctx: RequestContext,

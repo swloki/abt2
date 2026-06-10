@@ -19,7 +19,7 @@ use crate::routes::mes_receipt::{MaterialUsageDataPath, MaterialUsagePath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_material_usage(_path: MaterialUsagePath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
@@ -57,7 +57,7 @@ pub struct UsageDataParams {
     pub wo_id: Option<i64>,
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn load_usage_data(
     _path: MaterialUsageDataPath,
     ctx: RequestContext,

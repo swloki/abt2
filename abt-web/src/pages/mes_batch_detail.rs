@@ -25,7 +25,7 @@ fn batch_status_label(s: &abt_core::mes::enums::BatchStatus) -> (&'static str, &
     }
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
@@ -62,7 +62,7 @@ pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Res
     Ok(Html(admin_page(is_htmx, "批次详情", &claims, "production", &format!("/admin/mes/batches/{}", path.id), "生产管理", Some(BatchListPath::PATH), content, &nav_filter).into_string()))
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "update")]
 pub async fn confirm_step(path: BatchConfirmStepPath, ctx: RequestContext, axum::Form(form): axum::Form<ConfirmStepForm>) -> Result<impl IntoResponse> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.production_batch_service();
@@ -81,28 +81,28 @@ pub async fn confirm_step(path: BatchConfirmStepPath, ctx: RequestContext, axum:
     Ok(axum::response::Response::builder().header("HX-Redirect", &format!("/admin/mes/batches/{}", path.batch_id)).body(axum::body::Body::empty()).unwrap())
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "update")]
 pub async fn advance_to_receipt(path: BatchAdvancePath, ctx: RequestContext) -> Result<impl IntoResponse> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     state.production_batch_service().advance_to_receipt(&service_ctx, &mut conn, path.batch_id).await?;
     Ok(axum::response::Response::builder().header("HX-Redirect", &format!("/admin/mes/batches/{}", path.batch_id)).body(axum::body::Body::empty()).unwrap())
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "update")]
 pub async fn suspend_batch(path: BatchSuspendPath, ctx: RequestContext, axum::Form(form): axum::Form<SuspendForm>) -> Result<impl IntoResponse> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     state.production_batch_service().suspend(&service_ctx, &mut conn, path.batch_id, form.reason).await?;
     Ok(axum::response::Response::builder().header("HX-Redirect", &format!("/admin/mes/batches/{}", path.batch_id)).body(axum::body::Body::empty()).unwrap())
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "update")]
 pub async fn resume_batch(path: BatchResumePath, ctx: RequestContext) -> Result<impl IntoResponse> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     state.production_batch_service().resume(&service_ctx, &mut conn, path.batch_id).await?;
     Ok(axum::response::Response::builder().header("HX-Redirect", &format!("/admin/mes/batches/{}", path.batch_id)).body(axum::body::Body::empty()).unwrap())
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "update")]
 pub async fn scrap_batch(path: BatchScrapPath, ctx: RequestContext, axum::Form(form): axum::Form<SuspendForm>) -> Result<impl IntoResponse> {
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     state.production_batch_service().scrap(&service_ctx, &mut conn, path.batch_id, form.reason).await?;

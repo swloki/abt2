@@ -37,7 +37,7 @@ fn transaction_type_label(t: &abt_core::wms::enums::TransactionType) -> &'static
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_stock_in_detail(
     path: StockInDetailPath,
     ctx: RequestContext,

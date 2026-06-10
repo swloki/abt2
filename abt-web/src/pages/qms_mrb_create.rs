@@ -36,7 +36,7 @@ pub struct MrbCreateForm {
 
 // ── Handlers ──
 
-#[require_permission("QMS", "write")]
+#[require_permission("QMS", "create")]
 pub async fn get_create(
     _path: MrbCreatePath,
     ctx: RequestContext,
@@ -82,7 +82,7 @@ pub async fn get_create(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("QMS", "write")]
+#[require_permission("QMS", "create")]
 pub async fn create(
     _path: MrbCreatePath,
     ctx: RequestContext,

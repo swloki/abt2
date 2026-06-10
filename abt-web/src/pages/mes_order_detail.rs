@@ -37,7 +37,7 @@ fn status_pill(label: &str, bg: &str, color: &str) -> Markup {
 
 // ── Handlers ──
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_order_detail(
     path: OrderDetailPath,
     ctx: RequestContext,
@@ -72,7 +72,7 @@ pub async fn get_order_detail(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "update")]
 pub async fn release_order(
     path: OrderReleasePath,
     ctx: RequestContext,
@@ -94,7 +94,7 @@ pub async fn release_order(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "update")]
 pub async fn close_order(
     path: OrderClosePath,
     ctx: RequestContext,
@@ -116,7 +116,7 @@ pub async fn close_order(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "update")]
 pub async fn cancel_order(
     path: OrderCancelPath,
     ctx: RequestContext,

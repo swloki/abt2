@@ -1,6 +1,8 @@
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 
+use abt_macros::require_permission;
+
 use crate::components::icon;
 use crate::layout::page::admin_page;
 use crate::routes::dashboard::DashboardPath;
@@ -8,16 +10,17 @@ use crate::utils::RequestContext;
 
 // ── Handler ──
 
+#[require_permission("SALES_ORDER", "read")]
 pub async fn get_dashboard(
     _path: DashboardPath,
     ctx: RequestContext,
-) -> axum::response::Html<String> {
+) -> crate::errors::Result<axum::response::Html<String>> {
     let content = dashboard_content(&ctx.claims);
     let nav_filter = ctx.nav_filter().await;
     let page = admin_page(
         false, "销售总览", &ctx.claims, "sales", DashboardPath::PATH, "销售管理", None, content, &nav_filter,
     );
-    axum::response::Html(page.into_string())
+    Ok(axum::response::Html(page.into_string()))
 }
 
 // ── Component ──

@@ -41,7 +41,7 @@ pub struct ConversionActionForm {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_conversion_detail(
     path: ConversionDetailPath,
     ctx: RequestContext,
@@ -104,7 +104,7 @@ pub async fn get_conversion_detail(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "update")]
 pub async fn post_conversion_action(
     path: ConversionDetailPath,
     ctx: RequestContext,

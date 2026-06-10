@@ -21,7 +21,7 @@ pub struct OrderCreateForm {
     pub remark: Option<String>,
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "create")]
 pub async fn get_order_create(
     _path: OrderCreatePath, ctx: RequestContext,
 ) -> Result<Html<String>> {
@@ -32,7 +32,7 @@ pub async fn get_order_create(
     Ok(Html(admin_page(is_htmx, "新建工单", &claims, "production", OrderCreatePath::PATH, "生产管理", Some(OrderListPath::PATH), content, &nav_filter).into_string()))
 }
 
-#[require_permission("MES", "write")]
+#[require_permission("WORK_ORDER", "create")]
 pub async fn create_order(
     _path: OrderCreatePath, ctx: RequestContext,
     axum::Form(form): axum::Form<OrderCreateForm>,

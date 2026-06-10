@@ -100,7 +100,7 @@ fn workflow_steps(status: ArrivalStatus) -> Markup {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_arrival_detail(
     path: ArrivalDetailPath,
     ctx: RequestContext,
@@ -158,7 +158,7 @@ pub async fn get_arrival_detail(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "update")]
 pub async fn post_arrival_action(
     path: ArrivalDetailPath,
     ctx: RequestContext,

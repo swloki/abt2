@@ -23,7 +23,7 @@ pub struct CycleCountActionForm {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_cycle_count_detail(
     path: crate::routes::wms_cycle_count::CycleCountDetailPath,
     ctx: RequestContext,
@@ -76,7 +76,7 @@ pub async fn get_cycle_count_detail(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "update")]
 pub async fn post_cycle_count_action(
     path: crate::routes::wms_cycle_count::CycleCountDetailPath,
     ctx: RequestContext,

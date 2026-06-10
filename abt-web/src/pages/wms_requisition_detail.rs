@@ -88,7 +88,7 @@ fn variance_color_class(v: Decimal) -> (String, &'static str) {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_requisition_detail(
     path: RequisitionDetailPath,
     ctx: RequestContext,
@@ -140,7 +140,7 @@ pub async fn get_requisition_detail(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "write")]
+#[require_permission("INVENTORY", "update")]
 pub async fn post_requisition_action(
     path: RequisitionDetailPath,
     ctx: RequestContext,

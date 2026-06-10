@@ -52,7 +52,7 @@ pub async fn get_create(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("FMS", "write")]
+#[require_permission("FMS", "create")]
 pub async fn create(
     _path: ExpenseCreatePath,
     ctx: RequestContext,

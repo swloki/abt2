@@ -26,7 +26,7 @@ pub struct CascadeQueryParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_cascade_list(
     _path: CascadeListPath,
     ctx: RequestContext,
@@ -49,7 +49,7 @@ pub async fn get_cascade_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_cascade_table(
     _path: CascadeTablePath,
     ctx: RequestContext,

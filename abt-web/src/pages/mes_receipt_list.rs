@@ -32,7 +32,7 @@ pub struct ReceiptQueryParams {
     pub page: Option<u32>,
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_receipt_list(
     _path: ReceiptListPath, ctx: RequestContext, Query(params): Query<ReceiptQueryParams>,
 ) -> Result<Html<String>> {
@@ -48,7 +48,7 @@ pub async fn get_receipt_list(
     Ok(Html(admin_page(is_htmx, "完工入库", &claims, "production", ReceiptListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_receipt_table(
     _path: ReceiptTablePath, ctx: RequestContext, Query(params): Query<ReceiptQueryParams>,
 ) -> Result<Html<String>> {

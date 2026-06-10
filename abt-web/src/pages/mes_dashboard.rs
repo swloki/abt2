@@ -12,7 +12,7 @@ use abt_core::mes::dashboard::MesDashboardService;
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes")]
 pub struct _MesPath;
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_mes_dashboard(
     _path: MesDashboardPath,
     ctx: RequestContext,

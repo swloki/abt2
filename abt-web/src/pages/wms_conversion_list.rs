@@ -30,7 +30,7 @@ pub struct ConversionQueryParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_conversion_list(
     _path: ConversionListPath,
     ctx: RequestContext,
@@ -62,7 +62,7 @@ pub async fn get_conversion_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_conversion_table(
     _path: ConversionTablePath,
     ctx: RequestContext,

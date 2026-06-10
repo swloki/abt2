@@ -44,7 +44,7 @@ fn build_filter(params: &ReportQueryParams) -> ReportListFilter {
     }
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_report_list(
     _path: ReportListPath, ctx: RequestContext, Query(params): Query<ReportQueryParams>,
 ) -> Result<Html<String>> {
@@ -60,7 +60,7 @@ pub async fn get_report_list(
     Ok(Html(admin_page(is_htmx, "报工记录", &claims, "production", ReportListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_report_table(
     _path: ReportTablePath, ctx: RequestContext, Query(params): Query<ReportQueryParams>,
 ) -> Result<Html<String>> {

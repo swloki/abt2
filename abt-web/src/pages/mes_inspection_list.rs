@@ -56,7 +56,7 @@ impl InspectionQueryParams {
     }
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("INSPECTION", "read")]
 pub async fn get_inspection_list(
     _path: InspectionListPath, ctx: RequestContext, Query(params): Query<InspectionQueryParams>,
 ) -> Result<Html<String>> {
@@ -72,7 +72,7 @@ pub async fn get_inspection_list(
     Ok(Html(admin_page(is_htmx, "生产报检", &claims, "production", InspectionListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("INSPECTION", "read")]
 pub async fn get_inspection_table(
     _path: InspectionTablePath, ctx: RequestContext, Query(params): Query<InspectionQueryParams>,
 ) -> Result<Html<String>> {

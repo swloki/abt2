@@ -15,7 +15,7 @@ use crate::routes::mes_batch::{CardQueryPath, CardQuerySearchPath};
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn get_card_query(_path: CardQueryPath, ctx: RequestContext) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
@@ -43,7 +43,7 @@ pub struct CardSearchParams {
     pub q: Option<String>,
 }
 
-#[require_permission("MES", "read")]
+#[require_permission("WORK_ORDER", "read")]
 pub async fn search_card(
     _path: CardQuerySearchPath,
     ctx: RequestContext,

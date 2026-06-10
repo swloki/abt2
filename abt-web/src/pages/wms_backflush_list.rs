@@ -31,7 +31,7 @@ pub struct BackflushQueryParams {
 
 // ── Handlers ──
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_backflush_list(
     _path: BackflushListPath,
     ctx: RequestContext,
@@ -62,7 +62,7 @@ pub async fn get_backflush_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_backflush_table(
     _path: BackflushTablePath,
     ctx: RequestContext,

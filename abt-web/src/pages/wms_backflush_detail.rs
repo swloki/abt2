@@ -30,7 +30,7 @@ impl ComponentInfo {
     fn unit(&self, id: &i64) -> &str { self.units.get(id).map(|s| s.as_str()).unwrap_or("—") }
 }
 
-#[require_permission("WMS", "read")]
+#[require_permission("INVENTORY", "read")]
 pub async fn get_backflush_detail(
     path: BackflushDetailPath,
     ctx: RequestContext,

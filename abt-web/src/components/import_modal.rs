@@ -9,8 +9,6 @@ pub struct ImportModalConfig {
 
 /// 渲染导入 Modal（页面底部声明，Surreal.js 控制 is-open）
 pub fn import_modal(config: &ImportModalConfig) -> Markup {
-    let template_path = format!("/excel/template/{}", config.import_type);
-
     html! {
         div id="import-modal" class="modal-overlay" onclick="hsBackdropClose(this,event,'is-open')" {
             div class="modal" style="max-width:560px" {

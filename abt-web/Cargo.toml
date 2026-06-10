@@ -41,3 +41,4 @@ tracing-subscriber = { workspace = true }
 chrono = { workspace = true }
 rust_decimal = { workspace = true }
 thiserror = "2"
+dashmap = "6"

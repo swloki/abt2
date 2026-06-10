@@ -3,7 +3,35 @@ use std::sync::Arc;
 use crate::config::Config;
 use abt_core::shared::identity::RolePermissionCache;
 use abt_core::shared::types::{PgPool, PgPoolOptions};
+use abt_core::shared::excel::ImportResult;
+use chrono::{DateTime, Utc};
 use tower_sessions_file_store::FileSessionStorage;
+use dashmap::DashMap;
+use std::sync::atomic::AtomicI64;
+
+/// 导入任务状态（内存存储）
+#[derive(Debug)]
+pub struct ImportTaskState {
+    pub status: TaskStatus,
+    pub current: usize,
+    pub total: usize,
+    pub result: Option<ImportResult>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum TaskStatus {
+    Running,
+    Completed,
+    Failed,
+}
+
+/// 导出文件信息（内存存储）
+#[derive(Debug, Clone)]
+pub struct ExportFileInfo {
+    pub filename: String,
+    pub bytes: Vec<u8>,
+    pub created_at: DateTime<Utc>,
+}
 
 #[derive(Clone)]
 pub struct AppState {
@@ -12,6 +40,9 @@ pub struct AppState {
     pub jwt_expiration_hours: u64,
     pub session_store: FileSessionStorage,
     pub permission_cache: Arc<RolePermissionCache>,
+    pub import_progress: Arc<DashMap<i64, ImportTaskState>>,
+    pub export_files: Arc<DashMap<i64, ExportFileInfo>>,
+    next_task_id: Arc<AtomicI64>,
 }
 
 impl AppState {
@@ -41,6 +72,9 @@ impl AppState {
             jwt_expiration_hours: config.jwt_expiration_hours,
             session_store,
             permission_cache,
+            import_progress: Arc::new(DashMap::new()),
+            export_files: Arc::new(DashMap::new()),
+            next_task_id: Arc::new(AtomicI64::new(1)),
         })
     }
 
@@ -354,5 +388,26 @@ impl AppState {
         &self,
     ) -> impl abt_core::fms::cost_accounting::CostAccountingService {
         abt_core::fms::cost_accounting::new_cost_accounting_service()
+    }
+
+    /// 生成下一个 task_id
+    pub fn next_task_id(&self) -> i64 {
+        self.next_task_id.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// 存储导出文件，返回 task_id
+    pub fn store_export_file(&self, bytes: Vec<u8>, filename: &str) -> i64 {
+        let id = self.next_task_id();
+        self.export_files.insert(id, ExportFileInfo {
+            filename: filename.to_string(),
+            bytes,
+            created_at: Utc::now(),
+        });
+        id
+    }
+
+    /// 获取导出文件
+    pub fn get_export_file(&self, task_id: i64) -> Option<ExportFileInfo> {
+        self.export_files.get(&task_id).map(|r| r.value().clone())
     }
 }

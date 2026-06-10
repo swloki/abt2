@@ -20,6 +20,7 @@ use abt_macros::require_permission;
 
 const PERM_CONFIG_PATH: &str = "/admin/system/permissions";
 const PERM_TOGGLE_PATH: &str = "/admin/system/permissions/toggle";
+const PERM_BATCH_PATH: &str = "/admin/system/permissions/toggle-batch";
 
 // ── Query Params ──
 
@@ -36,6 +37,13 @@ pub struct ToggleForm {
     pub role_id: i64,
     pub resource_code: String,
     pub action: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BatchToggleForm {
+    pub role_id: i64,
+    pub mode: String, // "add" or "remove"
+    pub group_idx: usize,
 }
 
 // ── Resource groupings (业务域分组) ──
@@ -246,6 +254,81 @@ pub async fn post_permission_toggle(
     Ok(([("HX-Trigger", "permUpdated")], Html(String::new())))
 }
 
+/// Batch toggle: assign or remove all permissions in a group.
+#[require_permission("ROLE", "update")]
+pub async fn post_permission_toggle_batch(
+    ctx: RequestContext,
+    Form(form): Form<BatchToggleForm>,
+) -> crate::errors::Result<impl IntoResponse> {
+    let RequestContext {
+        mut conn,
+        state,
+        service_ctx,
+        ..
+    } = ctx;
+    let svc = state.role_service();
+
+    // Safety check: system roles cannot be modified
+    let all_roles = svc.list_roles(&service_ctx, &mut conn).await?;
+    let role = all_roles
+        .into_iter()
+        .find(|r| r.role_id == form.role_id)
+        .ok_or_else(|| {
+            crate::errors::WebError::from(
+                abt_core::shared::types::DomainError::not_found("角色不存在")
+            )
+        })?;
+    if role.is_system_role {
+        return Err(
+            crate::errors::WebError::from(
+                abt_core::shared::types::DomainError::validation("内置角色权限不可修改")
+            )
+        );
+    }
+
+    // Build permission list from the group
+    let permissions = get_group_permissions(form.group_idx);
+    if permissions.is_empty() {
+        return Ok(([("HX-Trigger", "permUpdated")], Html(String::new())));
+    }
+
+    match form.mode.as_str() {
+        "add" => {
+            svc.assign_permissions(&service_ctx, &mut conn, form.role_id, permissions)
+                .await?;
+        }
+        "remove" => {
+            svc.remove_permissions(&service_ctx, &mut conn, form.role_id, permissions)
+                .await?;
+        }
+        _ => {
+            return Err(
+                crate::errors::WebError::from(
+                    abt_core::shared::types::DomainError::validation("无效的批量操作模式")
+                )
+            );
+        }
+    }
+
+    Ok(([("HX-Trigger", "permUpdated")], Html(String::new())))
+}
+
+/// Collect all (resource_code, action) pairs for a group by index.
+fn get_group_permissions(group_idx: usize) -> Vec<(String, String)> {
+    let Some(group) = RESOURCE_GROUPS.get(group_idx) else {
+        return Vec::new();
+    };
+    let mut perms = Vec::new();
+    for &res in group.resources {
+        for def in RESOURCE_ACTION_DEFS.iter() {
+            if def.resource_code == res {
+                perms.push((res.to_string(), def.action.to_string()));
+            }
+        }
+    }
+    perms
+}
+
 // ── Helpers ──
 
 fn avatar_gradient(name: &str) -> &'static str {
@@ -360,8 +443,6 @@ fn perm_page_content(
                 }
             }
         }
-
-        (perm_script())
     }
 }
 
@@ -430,6 +511,7 @@ fn permission_panel(
     let gradient = avatar_gradient(&role.role_name);
     let perm_count = perms.len();
     let refresh_url = format!("{}?role_id={}", PERM_CONFIG_PATH, role_id);
+    let hx_vals = "js:{scroll_top: Math.round(document.querySelector('.perm-body')?.scrollTop || 0)}".to_string();
 
     html! {
         div class="perm-panel"
@@ -438,7 +520,7 @@ fn permission_panel(
             hx-select=".perm-panel"
             hx-swap="outerHTML"
             hx-select-oob="#stats-bar"
-            hx-on::config-request="let b=document.querySelector('.perm-body'); if(b) event.detail.parameters.scroll_top=Math.round(b.scrollTop);" {
+            hx-vals=(hx_vals) {
 
             // ── Role header ──
             div class="perm-role-head" {
@@ -514,10 +596,14 @@ fn perm_group(
                     span class="perm-group-badge" { (resource_count) }
                 }
                 @if !is_read_only {
+                    @let add_vals = format!("{{\"role_id\":\"{}\",\"mode\":\"add\",\"group_idx\":\"{}\"}}", role_id, gi);
+                    @let rm_vals = format!("{{\"role_id\":\"{}\",\"mode\":\"remove\",\"group_idx\":\"{}\"}}", role_id, gi);
                     div class="perm-group-ops" {
-                        button type="button" class="perm-group-select-all" data-group-idx=(gi) { "全选" }
+                        button type="button" class="perm-group-select-all"
+                            hx-post=(PERM_BATCH_PATH) hx-vals=(add_vals) hx-swap="none" { "全选" }
                         span class="sep" { "|" }
-                        button type="button" class="danger perm-group-clear-all" data-group-idx=(gi) { "清空" }
+                        button type="button" class="danger perm-group-clear-all"
+                            hx-post=(PERM_BATCH_PATH) hx-vals=(rm_vals) hx-swap="none" { "清空" }
                     }
                 }
             }
@@ -582,56 +668,4 @@ fn perm_resource_row(
             }
         }
     }
-}
-
-// ── Inline script: 全选/清空 ──
-
-fn perm_script() -> maud::PreEscaped<String> {
-    let script = r#"<script>
-if (!window._permInit) {
-    window._permInit = true;
-
-    // ── 全选/清空: sequential toggle via htmx.ajax ──
-    function seqToggle(btns, i) {
-        if (i >= btns.length) return;
-        htmx.ajax('POST', '/admin/system/permissions/toggle', {
-            swap: 'none',
-            values: {
-                role_id: btns[i].rid,
-                resource_code: btns[i].rc,
-                action: btns[i].act
-            }
-        });
-        setTimeout(function() { seqToggle(btns, i + 1); }, 300);
-    }
-
-    function collectBtns(groupEl, checked) {
-        var sel = checked ? '.perm-btn.checked' : '.perm-btn.unchecked';
-        var btns = [];
-        groupEl.querySelectorAll(sel).forEach(function(b) {
-            btns.push({ rid: b.getAttribute('data-role-id'), rc: b.getAttribute('data-resource'), act: b.getAttribute('data-action') });
-        });
-        return btns;
-    }
-
-    any('.perm-group-select-all').forEach(function(btn) {
-        me(btn).on('click', function() {
-            var gi = parseInt(btn.getAttribute('data-group-idx'));
-            var groups = document.querySelectorAll('.perm-group');
-            if (gi >= groups.length) return;
-            seqToggle(collectBtns(groups[gi], false), 0);
-        });
-    });
-
-    any('.perm-group-clear-all').forEach(function(btn) {
-        me(btn).on('click', function() {
-            var gi = parseInt(btn.getAttribute('data-group-idx'));
-            var groups = document.querySelectorAll('.perm-group');
-            if (gi >= groups.length) return;
-            seqToggle(collectBtns(groups[gi], true), 0);
-        });
-    });
-}
-</script>"#;
-    maud::PreEscaped(script.to_string())
 }

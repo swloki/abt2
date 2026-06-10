@@ -51,6 +51,10 @@ pub struct PermissionConfigPath;
 #[typed_path("/admin/system/permissions/toggle")]
 pub struct PermissionTogglePath;
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/system/permissions/toggle-batch")]
+pub struct PermissionToggleBatchPath;
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -64,4 +68,5 @@ pub fn router() -> Router<AppState> {
         .route(RolePermissionPath::PATH, post(role_detail::post_permission_assign))
         .route(PermissionConfigPath::PATH, get(permission_config::get_permission_config))
         .route(PermissionTogglePath::PATH, post(permission_config::post_permission_toggle))
+        .route(PermissionToggleBatchPath::PATH, post(permission_config::post_permission_toggle_batch))
 }

@@ -87,7 +87,7 @@ impl RolePermissionCache {
         // 5. Write cache
         let count = resolved.len();
         *self.state.write().await = CacheState::new(resolved);
-        tracing::info!(count, "RolePermissionCache loaded");
+        tracing::debug!(count, "RolePermissionCache loaded");
         Ok(())
     }
 

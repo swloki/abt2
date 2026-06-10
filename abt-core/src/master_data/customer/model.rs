@@ -133,6 +133,65 @@ impl<'de> Deserialize<'de> for CustomerStatus {
     }
 }
 
+/// 客户等级
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(i16)]
+pub enum CustomerLevel {
+    Normal = 1,
+    Key = 2,
+    Potential = 3,
+}
+
+impl CustomerLevel {
+    pub fn from_i16(v: i16) -> Option<Self> {
+        match v {
+            1 => Some(Self::Normal),
+            2 => Some(Self::Key),
+            3 => Some(Self::Potential),
+            _ => None,
+        }
+    }
+
+    pub fn as_i16(self) -> i16 {
+        self as i16
+    }
+}
+
+impl sqlx::Type<sqlx::Postgres> for CustomerLevel {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        <i16 as sqlx::Type<sqlx::Postgres>>::type_info()
+    }
+}
+
+impl sqlx::Encode<'_, sqlx::Postgres> for CustomerLevel {
+    fn encode_by_ref(
+        &self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
+        <i16 as sqlx::Encode<'_, sqlx::Postgres>>::encode_by_ref(&self.as_i16(), buf)
+    }
+}
+
+impl sqlx::Decode<'_, sqlx::Postgres> for CustomerLevel {
+    fn decode(value: sqlx::postgres::PgValueRef<'_>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let v = <i16 as sqlx::Decode<'_, sqlx::Postgres>>::decode(value)?;
+        Self::from_i16(v).ok_or_else(|| format!("unknown CustomerLevel: {v}").into())
+    }
+}
+
+impl Serialize for CustomerLevel {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_i16(self.as_i16())
+    }
+}
+
+impl<'de> Deserialize<'de> for CustomerLevel {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let v = i16::deserialize(d)?;
+        Self::from_i16(v).ok_or_else(|| serde::de::Error::custom(format!("unknown CustomerLevel: {v}")))
+    }
+}
+
 /// 客户实体
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct Customer {
@@ -145,11 +204,16 @@ pub struct Customer {
     pub short_name: Option<String>,
     pub category: CustomerCategory,
     pub status: CustomerStatus,
+    pub industry: Option<String>,
+    pub customer_level: Option<CustomerLevel>,
+    pub region: Option<String>,
     pub tax_number: Option<String>,
     pub invoice_title: Option<String>,
     pub credit_limit: Option<Decimal>,
     pub payment_terms: Option<String>,
+    pub currency: Option<String>,
     pub receivable_account: Option<String>,
+    pub source: Option<String>,
     pub owner_id: Option<i64>,
     pub department_id: Option<i64>,
     pub remark: String,
@@ -170,6 +234,8 @@ pub struct CustomerContact {
     pub position: Option<String>,
     pub phone: Option<String>,
     pub email: Option<String>,
+    pub fax: Option<String>,
+    pub fixed_phone: Option<String>,
     pub is_primary: bool,
 }
 
@@ -195,11 +261,17 @@ pub struct CreateCustomerReq {
     pub customer_name: String,
     pub short_name: Option<String>,
     pub category: CustomerCategory,
+    pub industry: Option<String>,
+    pub customer_level: Option<CustomerLevel>,
+    pub region: Option<String>,
     pub tax_number: Option<String>,
     pub invoice_title: Option<String>,
     pub credit_limit: Option<Decimal>,
     pub payment_terms: Option<String>,
+    pub currency: Option<String>,
     pub receivable_account: Option<String>,
+    pub source: Option<String>,
+    pub owner_id: Option<i64>,
     pub remark: Option<String>,
 }
 
@@ -209,12 +281,18 @@ pub struct UpdateCustomerReq {
     pub customer_name: Option<String>,
     pub short_name: Option<String>,
     pub category: Option<CustomerCategory>,
+    pub industry: Option<String>,
+    pub customer_level: Option<CustomerLevel>,
+    pub region: Option<String>,
     pub status: Option<CustomerStatus>,
     pub tax_number: Option<String>,
     pub invoice_title: Option<String>,
     pub credit_limit: Option<Decimal>,
     pub payment_terms: Option<String>,
+    pub currency: Option<String>,
     pub receivable_account: Option<String>,
+    pub source: Option<String>,
+    pub owner_id: Option<i64>,
     pub remark: Option<String>,
 }
 
@@ -234,6 +312,8 @@ pub struct CreateContactReq {
     pub phone: Option<String>,
     pub email: Option<String>,
     pub position: Option<String>,
+    pub fax: Option<String>,
+    pub fixed_phone: Option<String>,
     pub is_primary: bool,
 }
 
@@ -244,6 +324,8 @@ pub struct UpdateContactReq {
     pub phone: Option<String>,
     pub email: Option<String>,
     pub position: Option<String>,
+    pub fax: Option<String>,
+    pub fixed_phone: Option<String>,
     pub is_primary: Option<bool>,
 }
 

@@ -5,7 +5,7 @@ Rust 全栈前端，Axum + Maud + HTMX + Surreal.js + UnoCSS，直接调用 `abt
 ## Commands
 
 ```bash
-cargo run                     # 启动服务器 (port 3000)
+cargo run                     # 启动服务器 (port 8000)
 cargo check                   # 快速编译检查
 cargo clippy                  # Lint 检查
 ```
@@ -118,7 +118,7 @@ src/
 
 - `DATABASE_URL`（必须，PostgreSQL 连接串）
 - `JWT_SECRET`（必须）
-- `WEB_PORT`（默认 3000）
+- `WEB_PORT`（默认 8000）
 - `WEB_HOST`（默认 0.0.0.0）
 - `MAX_CONNECTION`（默认 20）
 

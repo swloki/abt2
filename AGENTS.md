@@ -98,7 +98,7 @@ cargo test -p abt-core         # Test core library only
 cargo test -p abt-core -- test_name  # Single test
 
 # Web frontend
-cargo run -p abt-web           # Start server (default port 3000) — DO NOT use if server is already running
+cargo run -p abt-web           # Start server (default port 8000) — DO NOT use if server is already running
 
 # CSS build (static/ 目录位于项目根级)
 cd abt-web && npm run build:css   # Build UnoCSS → static/app.css
@@ -359,7 +359,7 @@ All shared enums are `#[repr(i16)]` stored as PostgreSQL `smallint`. They implem
 - **Frontend interactivity**: HTMX 2.x (server-state) + Surreal.js (pure UI)
 - **Session storage**: File-based via `tower-sessions` + `file-store`
 - **Linting**: `cargo clippy` — primary verification
-- **Environment** (`.env` file): `DATABASE_URL` (required, points to `abt_v2`), `JWT_SECRET` (required), `WEB_PORT` (default `3000`), `WEB_HOST` (default `0.0.0.0`), `MAX_CONNECTION` (default `20`)
+- **Environment** (`.env` file): `DATABASE_URL` (required, points to `abt_v2`), `JWT_SECRET` (required), `WEB_PORT` (default `8000`), `WEB_HOST` (default `0.0.0.0`), `MAX_CONNECTION` (default `20`)
 - **Local auth**: username `admin`, password `admin123`
 
 ## Testing & QA
@@ -404,10 +404,10 @@ Use `agent-browser` CLI for end-to-end page testing. **Never use `curl`** for pa
 
 ```bash
 # First-time login — save auth profile
-agent-browser auth save abt --url http://localhost:3000/login --username admin --password admin123
+agent-browser auth save abt --url http://localhost:8000/login --username admin --password admin123
 
 # Start browser and login
-agent-browser --session-name abt open http://localhost:3000/login
+agent-browser --session-name abt open http://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "admin123"
@@ -421,7 +421,7 @@ The `--session-name abt` flag auto-saves/restores cookies so subsequent opens re
 
 ```bash
 # Navigate to target page
-agent-browser open http://localhost:3000/admin/md/products
+agent-browser open http://localhost:8000/admin/md/products
 agent-browser snapshot -i              # Get interactive elements with @eN refs
 agent-browser screenshot --full        # Full page screenshot for visual verification
 
@@ -470,7 +470,7 @@ agent-browser errors
 Add `--headed` flag to watch the browser in real time during debugging:
 
 ```bash
-agent-browser --headed open http://localhost:3000/admin/md/products
+agent-browser --headed open http://localhost:8000/admin/md/products
 agent-browser --headed snapshot -i
 ```
 

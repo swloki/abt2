@@ -5,6 +5,8 @@ use serde::Deserialize;
 
 use crate::pages::customer_list;
 use crate::pages::customer_detail;
+use crate::pages::customer_create;
+use crate::pages::customer_edit;
 use crate::state::AppState;
 
 // ── Typed Paths ──
@@ -22,14 +24,8 @@ pub struct CreateCustomerPath;
 pub struct CustomerTablePath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/customers/{id}/edit-form")]
-pub struct EditCustomerFormPath {
-    pub id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/customers/{id}")]
-pub struct UpdateCustomerPath {
+#[typed_path("/admin/customers/{id}/edit")]
+pub struct EditCustomerPath {
     pub id: i64,
 }
 
@@ -71,19 +67,25 @@ pub struct DeleteAddressPath {
     pub address_id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/customers/{id}/transactions")]
+pub struct CustomerTransactionsPath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(CustomerListPath::PATH, get(customer_list::get_customer_list))
         .route(CustomerTablePath::PATH, get(customer_list::get_customer_table))
-        .route(CreateCustomerPath::PATH, post(customer_list::create_customer))
-        .route(EditCustomerFormPath::PATH, get(customer_list::get_edit_customer_form))
+        .route(CreateCustomerPath::PATH, get(customer_create::get_customer_create).post(customer_create::post_customer_create))
+        .route(EditCustomerPath::PATH, get(customer_edit::get_customer_edit).post(customer_edit::post_customer_edit))
         .route(CustomerDetailPath::PATH, get(customer_detail::get_customer_detail))
         .route(CreateContactPath::PATH, post(customer_detail::create_contact))
         .route(DeleteContactPath::PATH, post(customer_detail::delete_contact))
         .route(CreateAddressPath::PATH, post(customer_detail::create_address))
         .route(DeleteAddressPath::PATH, post(customer_detail::delete_address))
-        .route(UpdateCustomerPath::PATH, post(customer_list::update_customer))
+        .route(CustomerTransactionsPath::PATH, get(customer_detail::get_customer_transactions))
         .route(DeleteCustomerPath::PATH, post(customer_list::delete_customer))
 }

@@ -14,7 +14,7 @@ ABT 是 BOM（物料清单）和库存管理系统，基于 Rust 构建。底层
 **环境变量**（`.env` 文件）：
 - `DATABASE_URL`（必须，PostgreSQL 连接串，指向 `abt_v2` 数据库）
 - `JWT_SECRET`（必须）
-- `WEB_PORT`（默认 `3000`）、`WEB_HOST`（默认 `0.0.0.0`）、`MAX_CONNECTION`（默认 `20`）
+- `WEB_PORT`（默认 `8000`）、`WEB_HOST`（默认 `0.0.0.0`）、`MAX_CONNECTION`（默认 `20`）
 
 **本地登录凭据**：用户名 `admin`，密码 `admin123`
 

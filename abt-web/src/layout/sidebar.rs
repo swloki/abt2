@@ -276,6 +276,11 @@ fn modules() -> Vec<NavModule> {
                     path: "/admin/system/departments",
                     icon: NavIcon::Building,
                 },
+                NavItem {
+                    name: "权限配置",
+                    path: "/admin/system/permissions",
+                    icon: NavIcon::Sliders,
+                },
 
             ],
         },

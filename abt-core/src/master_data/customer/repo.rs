@@ -4,7 +4,7 @@ use crate::shared::types::Result;
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
 
-const CUSTOMER_COLUMNS: &str = "customer_id, customer_code, customer_name, short_name, category, status, tax_number, invoice_title, credit_limit, payment_terms, receivable_account, owner_id, department_id, remark, operator_id, created_at, updated_at, deleted_at";
+const CUSTOMER_COLUMNS: &str = "customer_id, customer_code, customer_name, short_name, category, status, industry, customer_level, region, tax_number, invoice_title, credit_limit, payment_terms, currency, receivable_account, source, owner_id, department_id, remark, operator_id, created_at, updated_at, deleted_at";
 
 // ---------------------------------------------------------------------------
 // CustomerRepo
@@ -21,8 +21,8 @@ impl CustomerRepo {
         operator_id: i64,
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            r#"INSERT INTO customers (customer_code, customer_name, short_name, category, status, tax_number, invoice_title, credit_limit, payment_terms, receivable_account, remark, operator_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            r#"INSERT INTO customers (customer_code, customer_name, short_name, category, status, industry, customer_level, region, tax_number, invoice_title, credit_limit, payment_terms, currency, receivable_account, source, owner_id, remark, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
                RETURNING customer_id"#,
         )
         .bind(customer_code)
@@ -30,11 +30,17 @@ impl CustomerRepo {
         .bind(&req.short_name)
         .bind(req.category.as_i16())
         .bind(CustomerStatus::Prospective.as_i16())
+        .bind(&req.industry)
+        .bind(req.customer_level.map(|l| l.as_i16()))
+        .bind(&req.region)
         .bind(&req.tax_number)
         .bind(&req.invoice_title)
         .bind(req.credit_limit)
         .bind(&req.payment_terms)
+        .bind(&req.currency)
         .bind(&req.receivable_account)
+        .bind(&req.source)
+        .bind(req.owner_id)
         .bind(req.remark.as_deref().unwrap_or(""))
         .bind(operator_id)
         .fetch_one(executor)
@@ -64,6 +70,18 @@ impl CustomerRepo {
             sets.push(format!("category = ${param_idx}"));
             param_idx += 1;
         }
+        if req.industry.is_some() {
+            sets.push(format!("industry = ${param_idx}"));
+            param_idx += 1;
+        }
+        if req.customer_level.is_some() {
+            sets.push(format!("customer_level = ${param_idx}"));
+            param_idx += 1;
+        }
+        if req.region.is_some() {
+            sets.push(format!("region = ${param_idx}"));
+            param_idx += 1;
+        }
         if req.status.is_some() {
             sets.push(format!("status = ${param_idx}"));
             param_idx += 1;
@@ -84,12 +102,24 @@ impl CustomerRepo {
             sets.push(format!("payment_terms = ${param_idx}"));
             param_idx += 1;
         }
+        if req.currency.is_some() {
+            sets.push(format!("currency = ${param_idx}"));
+            param_idx += 1;
+        }
         if req.receivable_account.is_some() {
             sets.push(format!("receivable_account = ${param_idx}"));
             param_idx += 1;
         }
         if req.remark.is_some() {
             sets.push(format!("remark = ${param_idx}"));
+            param_idx += 1;
+        }
+        if req.source.is_some() {
+            sets.push(format!("source = ${param_idx}"));
+            param_idx += 1;
+        }
+        if req.owner_id.is_some() {
+            sets.push(format!("owner_id = ${param_idx}"));
             param_idx += 1;
         }
 
@@ -113,6 +143,15 @@ impl CustomerRepo {
         if let Some(v) = req.category {
             q = q.bind(v.as_i16());
         }
+        if let Some(ref v) = req.industry {
+            q = q.bind(v);
+        }
+        if let Some(v) = req.customer_level {
+            q = q.bind(v.as_i16());
+        }
+        if let Some(ref v) = req.region {
+            q = q.bind(v);
+        }
         if let Some(v) = req.status {
             q = q.bind(v.as_i16());
         }
@@ -128,10 +167,19 @@ impl CustomerRepo {
         if let Some(ref v) = req.payment_terms {
             q = q.bind(v);
         }
+        if let Some(ref v) = req.currency {
+            q = q.bind(v);
+        }
         if let Some(ref v) = req.receivable_account {
             q = q.bind(v);
         }
         if let Some(ref v) = req.remark {
+            q = q.bind(v);
+        }
+        if let Some(ref v) = req.source {
+            q = q.bind(v);
+        }
+        if let Some(v) = req.owner_id {
             q = q.bind(v);
         }
 
@@ -341,7 +389,7 @@ impl CustomerRepo {
 // CustomerContactRepo
 // ---------------------------------------------------------------------------
 
-const CONTACT_COLUMNS: &str = "contact_id, customer_id, contact_name, position, phone, email, is_primary";
+const CONTACT_COLUMNS: &str = "contact_id, customer_id, contact_name, position, phone, email, fax, fixed_phone, is_primary";
 
 pub struct CustomerContactRepo;
 
@@ -353,8 +401,8 @@ impl CustomerContactRepo {
         req: &CreateContactReq,
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            r#"INSERT INTO customer_contacts (customer_id, contact_name, phone, email, position, is_primary)
-               VALUES ($1, $2, $3, $4, $5, $6)
+            r#"INSERT INTO customer_contacts (customer_id, contact_name, phone, email, position, fax, fixed_phone, is_primary)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                RETURNING contact_id"#,
         )
         .bind(customer_id)
@@ -362,6 +410,8 @@ impl CustomerContactRepo {
         .bind(&req.phone)
         .bind(&req.email)
         .bind(&req.position)
+        .bind(&req.fax)
+        .bind(&req.fixed_phone)
         .bind(req.is_primary)
         .fetch_one(executor)
         .await?;
@@ -398,6 +448,14 @@ impl CustomerContactRepo {
             sets.push(format!("is_primary = ${param_idx}"));
             param_idx += 1;
         }
+        if req.fax.is_some() {
+            sets.push(format!("fax = ${param_idx}"));
+            param_idx += 1;
+        }
+        if req.fixed_phone.is_some() {
+            sets.push(format!("fixed_phone = ${param_idx}"));
+            param_idx += 1;
+        }
 
         if sets.is_empty() {
             return Ok(());
@@ -422,6 +480,12 @@ impl CustomerContactRepo {
             q = q.bind(v);
         }
         if let Some(v) = req.is_primary {
+            q = q.bind(v);
+        }
+        if let Some(ref v) = req.fax {
+            q = q.bind(v);
+        }
+        if let Some(ref v) = req.fixed_phone {
             q = q.bind(v);
         }
 

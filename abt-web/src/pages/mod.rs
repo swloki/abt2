@@ -1,4 +1,6 @@
+pub mod customer_create;
 pub mod customer_detail;
+pub mod customer_edit;
 pub mod customer_list;
 pub mod dashboard;
 pub mod department_list;

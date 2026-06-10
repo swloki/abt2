@@ -48,8 +48,8 @@ pub struct RoleEditPath {
 pub struct PermissionConfigPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/system/permissions/save")]
-pub struct PermissionSavePath;
+#[typed_path("/admin/system/permissions/toggle")]
+pub struct PermissionTogglePath;
 
 // ── Router ──
 
@@ -63,5 +63,5 @@ pub fn router() -> Router<AppState> {
         .route(RoleEditPath::PATH, get(role_edit::get_role_edit).post(role_edit::post_role_edit))
         .route(RolePermissionPath::PATH, post(role_detail::post_permission_assign))
         .route(PermissionConfigPath::PATH, get(permission_config::get_permission_config))
-        .route(PermissionSavePath::PATH, post(permission_config::post_permission_save))
+        .route(PermissionTogglePath::PATH, post(permission_config::post_permission_toggle))
 }

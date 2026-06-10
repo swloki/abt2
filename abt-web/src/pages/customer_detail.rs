@@ -1,3 +1,4 @@
+use axum::extract::Query;
 use axum::Form;
 use axum::response::{Html, IntoResponse};
 use maud::{Markup, html};
@@ -9,18 +10,22 @@ use abt_core::sales::quotation::{QuotationService, model::{QuotationQuery, Quota
 use abt_core::sales::sales_order::{SalesOrderService, model::{SalesOrderQuery, SalesOrderStatus}};
 use abt_core::sales::shipping_request::{ShippingRequestService, model::{ShippingQuery, ShippingStatus}};
 use abt_core::sales::sales_return::{SalesReturnService, model::{ReturnQuery, ReturnStatus}};
-use abt_core::shared::types::PageParams;
+use abt_core::shared::types::{PageParams, PgExecutor};
 
 use crate::components::icon;
+use crate::components::pagination::htmx_pagination;
 use crate::layout::page::admin_page;
 use crate::routes::customer::{
-    CreateAddressPath, CreateContactPath, CustomerDetailPath, CustomerListPath, DeleteAddressPath,
-    DeleteContactPath,
+    CreateAddressPath, CreateContactPath, CustomerDetailPath, CustomerListPath, CustomerTransactionsPath,
+    DeleteAddressPath, DeleteContactPath,
 };
+use crate::state::AppState;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
 // ── Transaction Record (unified view across sales sub-modules) ──
+
+const TXN_PAGE_SIZE: u32 = 10;
 
 enum TxType { Quotation, Order, Shipping, Return }
 
@@ -31,6 +36,153 @@ struct TransactionRecord {
     status_class: &'static str,
     amount: Option<rust_decimal::Decimal>,
     date: chrono::NaiveDate,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct TransactionQueryParams {
+    page: Option<u32>,
+}
+
+// ── Transaction Data Fetching ──
+
+async fn fetch_transactions(
+    state: &AppState,
+    service_ctx: &abt_core::shared::types::ServiceContext,
+    db: PgExecutor<'_>,
+    customer_id: i64,
+) -> Vec<TransactionRecord> {
+    let mut txns: Vec<TransactionRecord> = Vec::new();
+
+    // Quotations
+    let q_svc = state.quotation_service();
+    if let Ok(page) = q_svc.list(service_ctx, db, QuotationQuery { customer_id: Some(customer_id), ..Default::default() }, PageParams::new(1, 200)).await {
+        for q in &page.items {
+            txns.push(TransactionRecord {
+                doc_number: q.doc_number.clone(),
+                tx_type: TxType::Quotation,
+                status_label: match q.status { QuotationStatus::Draft => "草稿", QuotationStatus::Sent => "已发送", QuotationStatus::Accepted => "已接受", QuotationStatus::Rejected => "已拒绝", QuotationStatus::Expired => "已过期" },
+                status_class: match q.status { QuotationStatus::Draft => "status-draft", QuotationStatus::Sent => "status-sent", QuotationStatus::Accepted => "status-accepted", QuotationStatus::Rejected => "status-rejected", QuotationStatus::Expired => "status-expired" },
+                amount: Some(q.total_amount),
+                date: q.created_at.date_naive(),
+            });
+        }
+    }
+
+    // Sales Orders
+    let o_svc = state.sales_order_service();
+    if let Ok(page) = o_svc.list(service_ctx, db, SalesOrderQuery { customer_id: Some(customer_id), ..Default::default() }, PageParams::new(1, 200)).await {
+        for o in &page.items {
+            txns.push(TransactionRecord {
+                doc_number: o.doc_number.clone(),
+                tx_type: TxType::Order,
+                status_label: match o.status { SalesOrderStatus::Draft => "草稿", SalesOrderStatus::Confirmed => "已确认", SalesOrderStatus::InProduction => "生产中", SalesOrderStatus::PartiallyShipped => "部分发货", SalesOrderStatus::Shipped => "已发货", SalesOrderStatus::Completed => "已完成", SalesOrderStatus::Cancelled => "已取消" },
+                status_class: match o.status { SalesOrderStatus::Draft => "status-draft", SalesOrderStatus::Confirmed => "status-confirmed", SalesOrderStatus::InProduction => "status-progress", SalesOrderStatus::PartiallyShipped => "status-partial", SalesOrderStatus::Shipped => "status-shipped", SalesOrderStatus::Completed => "status-completed", SalesOrderStatus::Cancelled => "status-cancelled" },
+                amount: Some(o.total_amount),
+                date: o.created_at.date_naive(),
+            });
+        }
+    }
+
+    // Shipping Requests
+    let s_svc = state.shipping_service();
+    if let Ok(page) = s_svc.list(service_ctx, db, ShippingQuery { customer_id: Some(customer_id), ..Default::default() }, PageParams::new(1, 200)).await {
+        for s in &page.items {
+            txns.push(TransactionRecord {
+                doc_number: s.doc_number.clone(),
+                tx_type: TxType::Shipping,
+                status_label: match s.status { ShippingStatus::Draft => "草稿", ShippingStatus::Confirmed => "已确认", ShippingStatus::Picking => "拣货中", ShippingStatus::Shipped => "已发出", ShippingStatus::Cancelled => "已取消" },
+                status_class: match s.status { ShippingStatus::Draft => "status-draft", ShippingStatus::Confirmed => "status-confirmed", ShippingStatus::Picking => "status-picking", ShippingStatus::Shipped => "status-shipped", ShippingStatus::Cancelled => "status-cancelled" },
+                amount: None,
+                date: s.created_at.date_naive(),
+            });
+        }
+    }
+
+    // Returns
+    let r_svc = state.sales_return_service();
+    if let Ok(page) = r_svc.list(service_ctx, db, ReturnQuery { customer_id: Some(customer_id), ..Default::default() }, PageParams::new(1, 200)).await {
+        for r in &page.items {
+            txns.push(TransactionRecord {
+                doc_number: r.doc_number.clone(),
+                tx_type: TxType::Return,
+                status_label: match r.status { ReturnStatus::Draft => "草稿", ReturnStatus::Confirmed => "已确认", ReturnStatus::Received => "已收货", ReturnStatus::Inspecting => "质检中", ReturnStatus::Completed => "已完成", ReturnStatus::Cancelled => "已取消", ReturnStatus::Rejected => "已驳回" },
+                status_class: match r.status { ReturnStatus::Draft => "status-draft", ReturnStatus::Confirmed => "status-confirmed", ReturnStatus::Received => "status-received", ReturnStatus::Inspecting => "status-inspecting", ReturnStatus::Completed => "status-completed", ReturnStatus::Cancelled => "status-cancelled", ReturnStatus::Rejected => "status-rejected" },
+                amount: Some(r.total_amount),
+                date: r.created_at.date_naive(),
+            });
+        }
+    }
+
+    // Sort by date descending
+    txns.sort_by(|a, b| b.date.cmp(&a.date));
+    txns
+}
+
+// ── Transaction Table Fragment (reused by detail page & HTMX endpoint) ──
+
+fn transaction_table_fragment(
+    all_txns: &[TransactionRecord],
+    page: u32,
+    page_size: u32,
+    customer_id: i64,
+) -> Markup {
+    let total = all_txns.len() as u64;
+    let total_pages = ((total as f64) / page_size as f64).ceil() as u32;
+    let total_pages = total_pages.max(1);
+    let page = page.min(total_pages);
+
+    let offset = ((page - 1) * page_size) as usize;
+    let page_txns: Vec<&TransactionRecord> = all_txns.iter().skip(offset).take(page_size as usize).collect();
+
+    let txn_path = CustomerTransactionsPath { id: customer_id };
+
+    html! {
+        div class="detail-card mt-5 transaction-panel" {
+            div class="detail-card-title" {
+                span { "交易记录" }
+            }
+            @if page_txns.is_empty() {
+                div class="empty-state" { "暂无交易记录" }
+            } @else {
+                table class="history-table" {
+                    thead {
+                        tr {
+                            th { "单据编号" }
+                            th { "类型" }
+                            th { "状态" }
+                            th class="num-right" { "金额" }
+                            th { "日期" }
+                        }
+                    }
+                    tbody {
+                        @for tx in &page_txns {
+                            tr {
+                                td.mono { (tx.doc_number) }
+                                td { (match tx.tx_type { TxType::Quotation => "报价单", TxType::Order => "销售订单", TxType::Shipping => "发货申请", TxType::Return => "退货单" }) }
+                                td { span class=(format!("status-pill {}", tx.status_class)) { (tx.status_label) } }
+                                td.mono.num-right {
+                                    @if let Some(amt) = tx.amount {
+                                        (crate::utils::fmt_amount(amt))
+                                    } @else {
+                                        "—"
+                                    }
+                                }
+                                td { (tx.date) }
+                            }
+                        }
+                    }
+                }
+                (htmx_pagination(
+                    txn_path.to_string().as_str(),
+                    total,
+                    page,
+                    total_pages,
+                    "closest .transaction-panel",
+                    "outerHTML",
+                ))
+            }
+        }
+    }
 }
 
 // ── Handlers ──
@@ -50,75 +202,11 @@ pub async fn get_customer_detail(
     let contacts = svc.list_contacts(&service_ctx, &mut conn, cid).await?;
     let addresses = svc.list_addresses(&service_ctx, &mut conn, cid).await?;
 
-    // ── Fetch transaction history (latest 10 across all sales sub-modules) ──
-    let mut txns: Vec<TransactionRecord> = Vec::new();
-    let db = &mut conn;
+    // ── Fetch transaction history (paginated across all sales sub-modules) ──
+    let txns = fetch_transactions(&state, &service_ctx, &mut conn, cid).await;
+    let txn_html = transaction_table_fragment(&txns, 1, TXN_PAGE_SIZE, cid);
 
-    // Quotations
-    let q_svc = state.quotation_service();
-    if let Ok(page) = q_svc.list(&service_ctx, db, QuotationQuery { customer_id: Some(cid), ..Default::default() }, PageParams::new(1, 50)).await {
-        for q in &page.items {
-            txns.push(TransactionRecord {
-                doc_number: q.doc_number.clone(),
-                tx_type: TxType::Quotation,
-                status_label: match q.status { QuotationStatus::Draft => "草稿", QuotationStatus::Sent => "已发送", QuotationStatus::Accepted => "已接受", QuotationStatus::Rejected => "已拒绝", QuotationStatus::Expired => "已过期" },
-                status_class: match q.status { QuotationStatus::Draft => "status-draft", QuotationStatus::Sent => "status-sent", QuotationStatus::Accepted => "status-accepted", QuotationStatus::Rejected => "status-rejected", QuotationStatus::Expired => "status-expired" },
-                amount: Some(q.total_amount),
-                date: q.created_at.date_naive(),
-            });
-        }
-    }
-
-    // Sales Orders
-    let o_svc = state.sales_order_service();
-    if let Ok(page) = o_svc.list(&service_ctx, db, SalesOrderQuery { customer_id: Some(cid), ..Default::default() }, PageParams::new(1, 50)).await {
-        for o in &page.items {
-            txns.push(TransactionRecord {
-                doc_number: o.doc_number.clone(),
-                tx_type: TxType::Order,
-                status_label: match o.status { SalesOrderStatus::Draft => "草稿", SalesOrderStatus::Confirmed => "已确认", SalesOrderStatus::InProduction => "生产中", SalesOrderStatus::PartiallyShipped => "部分发货", SalesOrderStatus::Shipped => "已发货", SalesOrderStatus::Completed => "已完成", SalesOrderStatus::Cancelled => "已取消" },
-                status_class: match o.status { SalesOrderStatus::Draft => "status-draft", SalesOrderStatus::Confirmed => "status-confirmed", SalesOrderStatus::InProduction => "status-progress", SalesOrderStatus::PartiallyShipped => "status-partial", SalesOrderStatus::Shipped => "status-shipped", SalesOrderStatus::Completed => "status-completed", SalesOrderStatus::Cancelled => "status-cancelled" },
-                amount: Some(o.total_amount),
-                date: o.created_at.date_naive(),
-            });
-        }
-    }
-
-    // Shipping Requests
-    let s_svc = state.shipping_service();
-    if let Ok(page) = s_svc.list(&service_ctx, db, ShippingQuery { customer_id: Some(cid), ..Default::default() }, PageParams::new(1, 50)).await {
-        for s in &page.items {
-            txns.push(TransactionRecord {
-                doc_number: s.doc_number.clone(),
-                tx_type: TxType::Shipping,
-                status_label: match s.status { ShippingStatus::Draft => "草稿", ShippingStatus::Confirmed => "已确认", ShippingStatus::Picking => "拣货中", ShippingStatus::Shipped => "已发出", ShippingStatus::Cancelled => "已取消" },
-                status_class: match s.status { ShippingStatus::Draft => "status-draft", ShippingStatus::Confirmed => "status-confirmed", ShippingStatus::Picking => "status-picking", ShippingStatus::Shipped => "status-shipped", ShippingStatus::Cancelled => "status-cancelled" },
-                amount: None,
-                date: s.created_at.date_naive(),
-            });
-        }
-    }
-
-    // Returns
-    let r_svc = state.sales_return_service();
-    if let Ok(page) = r_svc.list(&service_ctx, db, ReturnQuery { customer_id: Some(cid), ..Default::default() }, PageParams::new(1, 50)).await {
-        for r in &page.items {
-            txns.push(TransactionRecord {
-                doc_number: r.doc_number.clone(),
-                tx_type: TxType::Return,
-                status_label: match r.status { ReturnStatus::Draft => "草稿", ReturnStatus::Confirmed => "已确认", ReturnStatus::Received => "已收货", ReturnStatus::Inspecting => "质检中", ReturnStatus::Completed => "已完成", ReturnStatus::Cancelled => "已取消", ReturnStatus::Rejected => "已驳回" },
-                status_class: match r.status { ReturnStatus::Draft => "status-draft", ReturnStatus::Confirmed => "status-confirmed", ReturnStatus::Received => "status-received", ReturnStatus::Inspecting => "status-inspecting", ReturnStatus::Completed => "status-completed", ReturnStatus::Cancelled => "status-cancelled", ReturnStatus::Rejected => "status-rejected" },
-                amount: Some(r.total_amount),
-                date: r.created_at.date_naive(),
-            });
-        }
-    }
-
-    // Sort by date desc, take top 10
-    txns.sort_by(|a, b| b.date.cmp(&a.date));
-    txns.truncate(10);
-
-    let content = customer_detail_page(&customer, &contacts, &addresses, &txns);
+    let content = customer_detail_page(&customer, &contacts, &addresses, txn_html);
     let detail_path_str = CustomerDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         is_htmx,
@@ -132,6 +220,22 @@ pub async fn get_customer_detail(
     );
 
     Ok(Html(page_html.into_string()))
+}
+
+#[require_permission("CUSTOMER", "read")]
+pub async fn get_customer_transactions(
+    path: CustomerTransactionsPath,
+    ctx: RequestContext,
+    Query(params): Query<TransactionQueryParams>,
+) -> crate::errors::Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let cid = path.id;
+    let page = params.page.unwrap_or(1);
+
+    let txns = fetch_transactions(&state, &service_ctx, &mut conn, cid).await;
+    let html = transaction_table_fragment(&txns, page, TXN_PAGE_SIZE, cid);
+
+    Ok(Html(html.into_string()))
 }
 
 #[require_permission("CUSTOMER", "create")]
@@ -148,6 +252,8 @@ pub async fn create_contact(
         phone: form.phone,
         email: form.email,
         position: form.position,
+        fax: None,
+        fixed_phone: None,
         is_primary: form.is_primary.unwrap_or(false),
     };
 
@@ -253,7 +359,7 @@ fn customer_detail_page(
     customer: &Customer,
     contacts: &[CustomerContact],
     addresses: &[CustomerAddress],
-    txns: &[TransactionRecord],
+    txn_html: Markup,
 ) -> Markup {
     let detail_path = CustomerDetailPath { id: customer.id };
     let list_path = CustomerListPath;
@@ -298,7 +404,7 @@ fn customer_detail_page(
                 }
             }
             div class="page-actions" {
-                a class="btn btn-primary" href="#" { "新建报价单" }
+                a class="btn btn-primary" href=(format!("/admin/quotations/new")) { "新建报价单" }
             }
         }
 
@@ -409,43 +515,7 @@ fn customer_detail_page(
         }
 
         // ── Transaction History ──
-        div class="detail-card mt-5" {
-            div class="detail-card-title" {
-                span { "交易记录" }
-            }
-            @if txns.is_empty() {
-                div class="empty-state" { "暂无交易记录" }
-            } @else {
-                table class="history-table" {
-                    thead {
-                        tr {
-                            th { "单据编号" }
-                            th { "类型" }
-                            th { "状态" }
-                            th class="num-right" { "金额" }
-                            th { "日期" }
-                        }
-                    }
-                    tbody {
-                        @for tx in txns {
-                            tr {
-                                td.mono { (tx.doc_number) }
-                                td { (match tx.tx_type { TxType::Quotation => "报价单", TxType::Order => "销售订单", TxType::Shipping => "发货申请", TxType::Return => "退货单" }) }
-                                td { span class=(format!("status-pill {}", tx.status_class)) { (tx.status_label) } }
-                                td.mono.num-right {
-                                    @if let Some(amt) = tx.amount {
-                                        (crate::utils::fmt_amount(amt))
-                                    } @else {
-                                        "—"
-                                    }
-                                }
-                                td { (tx.date) }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        (txn_html)
 
         // ── Modals ──
             (crate::components::modal::modal(

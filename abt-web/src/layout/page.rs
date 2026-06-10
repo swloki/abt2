@@ -18,7 +18,7 @@ fn document(title: &str, body: Markup) -> Markup {
                 link rel="icon" type="image/svg+xml" href="/favicon.svg";
                 link rel="stylesheet" href=(cache_url("/app.css")) {}
                 script src="/htmx.min.js" {}
-                script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" {}
+                script src="/Sortable.min.js" {}
                 script src="/surreal.js" {}
                 script src=(cache_url("/app.js")) {}
             }

@@ -19,47 +19,59 @@ use abt_macros::require_permission;
 // ── Paths ──
 
 const PERM_CONFIG_PATH: &str = "/admin/system/permissions";
-const PERM_SAVE_PATH: &str = "/admin/system/permissions/save";
+const PERM_TOGGLE_PATH: &str = "/admin/system/permissions/toggle";
 
 // ── Query Params ──
 
 #[derive(Debug, Deserialize, Clone, Default)]
 pub struct PermConfigParams {
     pub role_id: Option<i64>,
+    pub scroll_top: Option<i64>,
+}
+
+// ── Toggle Form ──
+
+#[derive(Debug, Deserialize)]
+pub struct ToggleForm {
+    pub role_id: i64,
+    pub resource_code: String,
+    pub action: String,
 }
 
 // ── Resource groupings (业务域分组) ──
 
 struct ResourceGroupDef {
     name: &'static str,
-    icon_cls: &'static str,
     resources: &'static [&'static str],
 }
 
 const RESOURCE_GROUPS: &[ResourceGroupDef] = &[
     ResourceGroupDef {
         name: "基础数据",
-        icon_cls: "g1",
         resources: &["CUSTOMER", "PRODUCT", "CATEGORY", "BOM", "BOM_CATEGORY"],
     },
     ResourceGroupDef {
-        name: "仓储库存",
-        icon_cls: "g2",
+        name: "库存管理",
         resources: &["WAREHOUSE", "LOCATION", "INVENTORY", "PRICE"],
     },
     ResourceGroupDef {
-        name: "业务单据",
-        icon_cls: "g3",
-        resources: &["SALES_ORDER", "PURCHASE_ORDER"],
+        name: "销售管理",
+        resources: &["SALES_ORDER", "SHIPPING"],
     },
     ResourceGroupDef {
-        name: "生产质检",
-        icon_cls: "g4",
+        name: "采购管理",
+        resources: &["PURCHASE_ORDER"],
+    },
+    ResourceGroupDef {
+        name: "生产管理",
         resources: &["WORK_ORDER", "INSPECTION", "COST", "LABOR_COST"],
     },
     ResourceGroupDef {
+        name: "系统工具",
+        resources: &["EXCEL"],
+    },
+    ResourceGroupDef {
         name: "系统管理",
-        icon_cls: "g5",
         resources: &["USER", "ROLE", "DEPARTMENT"],
     },
 ];
@@ -69,7 +81,6 @@ const ACTION_LABELS: &[&str] = &["创建", "查看", "编辑", "删除"];
 
 struct GroupData {
     name: &'static str,
-    icon_cls: &'static str,
     resources: Vec<GroupResource>,
 }
 
@@ -79,8 +90,6 @@ struct GroupResource {
     defs: Vec<&'static ResourceActionDef>,
 }
 
-/// Build the display groups: for each business group, collect resources in declared order,
-/// and for each resource, collect its 4 action defs (filtered from RESOURCE_ACTION_DEFS).
 fn build_groups() -> Vec<GroupData> {
     let mut out: Vec<GroupData> = Vec::new();
     for group in RESOURCE_GROUPS {
@@ -107,19 +116,11 @@ fn build_groups() -> Vec<GroupData> {
         if !resources.is_empty() {
             out.push(GroupData {
                 name: group.name,
-                icon_cls: group.icon_cls,
                 resources,
             });
         }
     }
     out
-}
-
-fn total_perm_count(groups: &[GroupData]) -> usize {
-    groups
-        .iter()
-        .map(|g| g.resources.iter().map(|r| r.defs.len()).sum::<usize>())
-        .sum()
 }
 
 fn count_unique_resources() -> usize {
@@ -167,30 +168,15 @@ pub async fn get_permission_config(
         .filter(|id| roles.iter().any(|r| r.role_id == *id));
 
     let groups = build_groups();
+    let scroll_top = params.scroll_top;
 
-    // HTMX partial: swap the two-panel layout
+    // HTMX partial: swap the entire perm-page content
     if is_htmx && selected_id.is_some() {
-        let content = html! {
-            div.perm-layout {
-                div.perm-role-list {
-                    (role_list_panel(&roles, &perms_by_role, selected_id))
-                }
-                @if let Some(sid) = selected_id {
-                    @if let Some(role) = roles.iter().find(|r| r.role_id == sid) {
-                        @let perms = perms_by_role.get(&sid).cloned().unwrap_or_default();
-                        (permission_panel(sid, role, &perms, &groups))
-                    } @else {
-                        (empty_right_panel())
-                    }
-                } @else {
-                    (empty_right_panel())
-                }
-            }
-        };
+        let content = perm_page_content(&roles, &perms_by_role, selected_id, &groups, scroll_top);
         return Ok(Html(content.into_string()));
     }
 
-    let content = permission_config_page(&roles, &perms_by_role, selected_id, &groups);
+    let page_content = perm_page_content(&roles, &perms_by_role, selected_id, &groups, scroll_top);
 
     let page_html = admin_page(
         is_htmx,
@@ -200,16 +186,18 @@ pub async fn get_permission_config(
         PERM_CONFIG_PATH,
         "系统管理",
         Some("权限配置"),
-        content,
+        page_content,
     );
 
     Ok(Html(page_html.into_string()))
 }
 
+/// Toggle a single permission: add if missing, remove if present.
+/// Fires `permUpdated` event to trigger panel refresh.
 #[require_permission("ROLE", "update")]
-pub async fn post_permission_save(
+pub async fn post_permission_toggle(
     ctx: RequestContext,
-    Form(form): Form<HashMap<String, String>>,
+    Form(form): Form<ToggleForm>,
 ) -> crate::errors::Result<impl IntoResponse> {
     let RequestContext {
         mut conn,
@@ -219,128 +207,76 @@ pub async fn post_permission_save(
     } = ctx;
     let svc = state.role_service();
 
-    let role_id: i64 = form
-        .get("role_id")
-        .and_then(|s| s.parse().ok())
+    // Safety check: system roles cannot be modified
+    let all_roles = svc.list_roles(&service_ctx, &mut conn).await?;
+    let role = all_roles
+        .into_iter()
+        .find(|r| r.role_id == form.role_id)
         .ok_or_else(|| {
-            abt_core::shared::types::DomainError::validation("missing role_id in form".to_string())
+            crate::errors::WebError::from(
+                abt_core::shared::types::DomainError::not_found("角色不存在")
+            )
         })?;
+    if role.is_system_role {
+        return Err(
+            crate::errors::WebError::from(
+                abt_core::shared::types::DomainError::validation("内置角色权限不可修改")
+            )
+        );
+    }
 
-    let assigned: HashSet<String> = form
-        .iter()
-        .filter(|(k, _)| k.starts_with("perm_"))
-        .map(|(k, _)| k[5..].to_string())
-        .filter_map(|s| {
-            let underscore = s.find('_')?;
-            let (rid_str, rest) = s.split_at(underscore);
-            let rid: i64 = rid_str.parse().ok()?;
-            if rid != role_id {
-                return None;
-            }
-            Some(rest[1..].to_string())
-        })
-        .collect();
+    let key = format!("{}:{}", form.resource_code, form.action);
+    let permission = (form.resource_code.clone(), form.action.clone());
 
+    // Get current permissions and toggle
     let rwp = svc
-        .get_role_with_permissions(&service_ctx, &mut conn, role_id)
+        .get_role_with_permissions(&service_ctx, &mut conn, form.role_id)
         .await?;
     let current: HashSet<String> = rwp.permissions.into_iter().collect();
 
-    let to_add: Vec<(String, String)> = assigned
-        .difference(&current)
-        .filter_map(|p| parse_permission(p))
-        .collect();
-    let to_remove: Vec<(String, String)> = current
-        .difference(&assigned)
-        .filter_map(|p| parse_permission(p))
-        .collect();
-
-    if !to_add.is_empty() {
-        svc.assign_permissions(&service_ctx, &mut conn, role_id, to_add)
+    if current.contains(&key) {
+        svc.remove_permissions(&service_ctx, &mut conn, form.role_id, vec![permission])
             .await?;
-    }
-    if !to_remove.is_empty() {
-        svc.remove_permissions(&service_ctx, &mut conn, role_id, to_remove)
+    } else {
+        svc.assign_permissions(&service_ctx, &mut conn, form.role_id, vec![permission])
             .await?;
     }
 
-    let target = format!("{}?role_id={}", PERM_CONFIG_PATH, role_id);
-    Ok(([("HX-Redirect", target)], Html(String::new())))
+    // Return empty body with event trigger — panel refreshes via hx-select-oob
+    Ok(([("HX-Trigger", "permUpdated")], Html(String::new())))
 }
 
 // ── Helpers ──
 
-fn parse_permission(perm: &str) -> Option<(String, String)> {
-    let (resource, action) = perm.split_once(':')?;
-    Some((resource.to_string(), action.to_string()))
-}
-
-fn avatar_gradient(ch: char) -> (&'static str, &'static str) {
-    match ch {
-        'A'..='F' => ("#667eea", "#764ba2"),
-        'G'..='L' => ("#f093fb", "#f5576c"),
-        'M'..='R' => ("#4facfe", "#00f2fe"),
-        'S'..='Z' => ("#43e97b", "#38f9d7"),
-        _ => ("#a18cd1", "#fbc2eb"),
+fn avatar_gradient(name: &str) -> &'static str {
+    let gradients = [
+        "linear-gradient(135deg,#a78bfa,#7c3aed)",
+        "linear-gradient(135deg,#22d3ee,#0e7490)",
+        "linear-gradient(135deg,#34d399,#047857)",
+        "linear-gradient(135deg,#fbbf24,#b45309)",
+        "linear-gradient(135deg,#fb7185,#be123c)",
+        "linear-gradient(135deg,#38bdf8,#0369a1)",
+        "linear-gradient(135deg,#e879f9,#9333ea)",
+        "linear-gradient(135deg,#a3e635,#047857)",
+    ];
+    let mut h: usize = 0;
+    for b in name.bytes() {
+        h = h.wrapping_mul(31).wrapping_add(b as usize);
     }
+    gradients[h % gradients.len()]
 }
 
-// ── Components ──
+// ── Page Components ──
 
-fn permission_config_page(
+fn perm_page_content(
     roles: &[Role],
     perms_by_role: &HashMap<i64, HashSet<String>>,
     selected_id: Option<i64>,
     groups: &[GroupData],
-) -> Markup {
-    html! {
-        div.perm-config-page {
-            // ── Page Header ──
-            div.page-header {
-                h1.page-title {
-                    (icon::lock_icon("icon-sm"))
-                    "权限配置"
-                }
-                div.page-actions {
-                    a.btn.btn-default href="/admin/system/roles" {
-                        (icon::return_arrow_icon("icon-sm"))
-                        "返回角色列表"
-                    }
-                }
-            }
-
-            // ── Stats bar ──
-            (stats_bar(roles, perms_by_role))
-
-            // ── Two-panel layout ──
-            div.perm-layout {
-                div.perm-role-list {
-                    (role_list_panel(roles, perms_by_role, selected_id))
-                }
-                @if let Some(sid) = selected_id {
-                    @if let Some(role) = roles.iter().find(|r| r.role_id == sid) {
-                        @let perms = perms_by_role.get(&sid).cloned().unwrap_or_default();
-                        (permission_panel(sid, role, &perms, groups))
-                    } @else {
-                        (empty_right_panel())
-                    }
-                } @else {
-                    (empty_right_panel())
-                }
-            }
-        }
-
-        script { (raw_perm_script()) }
-    }
-}
-
-fn stats_bar(
-    roles: &[Role],
-    perms_by_role: &HashMap<i64, HashSet<String>>,
+    scroll_top: Option<i64>,
 ) -> Markup {
     let total_resources = count_unique_resources();
     let total_actions = RESOURCE_ACTION_DEFS.len();
-    let editable_roles = roles.iter().filter(|r| !r.is_system_role).count();
     let total_roles = roles.len();
     let configured: usize = perms_by_role.values().map(|s| s.len()).sum();
     let total_possible = total_actions * total_roles;
@@ -351,62 +287,81 @@ fn stats_bar(
     };
 
     html! {
-        div.data-card {
-            div.perm-stat-grid {
-                div {
-                    div.perm-stat-label { "资源总数" }
-                    div.perm-stat-value { (total_resources) }
-                }
-                div {
-                    div.perm-stat-label { "角色总数 / 可编辑" }
-                    div.perm-stat-value {
-                        (total_roles)
-                        " / " (editable_roles)
+        div class="perm-page" {
+            // ── Stats Header ──
+            div class="stats-panel" {
+                div class="stats-main" {
+                    div class="stats-main-left" {
+                        div class="stats-icon" {
+                            (icon::lock_icon("w-5 h-5"))
+                        }
+                        div {
+                            div class="stats-title" { "权限配置" }
+                            div class="stats-desc" { "管理角色与资源的访问权限" }
+                        }
                     }
                 }
-                div {
-                    div.perm-stat-label { "已配置权限" }
-                    div.perm-stat-value { (configured) }
-                }
-                div {
-                    div.perm-stat-label { "覆盖率" }
-                    div.perm-stat-value { (format!("{:.1}%", coverage_pct)) }
+                div class="stats-bar" id="stats-bar" {
+                    div class="stat-item" {
+                        span class="stat-label" { "资源" }
+                        span class="stat-value" { (total_resources) }
+                    }
+                    div class="stat-item" {
+                        span class="stat-label" { "角色" }
+                        span class="stat-value" { (total_roles) }
+                    }
+                    div class="stat-item" {
+                        span class="stat-label" { "已配置" }
+                        span class="stat-value" { (configured) }
+                    }
+                    div class="stat-item" {
+                        span class="stat-label" { "配置率" }
+                        span class="stat-value accent" { (format!("{:.0}%", coverage_pct)) }
+                        div class="stat-progress" {
+                            div class="stat-progress-bar" style=(format!("width:{}%", coverage_pct.min(100.0))) {}
+                        }
+                    }
                 }
             }
-            div.perm-coverage-bar {
-                div.perm-coverage-fill style=(format!("width:{}%", coverage_pct.min(100.0))) {}
-            }
-        }
-    }
-}
 
-fn role_list_panel(
-    roles: &[Role],
-    perms_by_role: &HashMap<i64, HashSet<String>>,
-    selected_id: Option<i64>,
-) -> Markup {
-    html! {
-        div.data-card.perm-role-list-card {
-            div.perm-panel-head {
-                div.perm-panel-title {
-                    (icon::users_icon("icon-sm"))
-                    "角色列表"
-                }
-                span.perm-group-count {
-                    "(" (roles.len()) ")"
-                }
-            }
-            div.data-card-scroll.perm-role-scroll {
-                @for role in roles {
-                    (role_item(role, perms_by_role, selected_id))
-                }
-                @if roles.is_empty() {
-                    div.perm-empty-state {
-                        "暂无可配置角色"
+            // ── Main Split ──
+            div class="perm-layout" {
+                // ── Left: Role List ──
+                div class="role-panel" {
+                    div class="role-panel-head" {
+                        div class="role-panel-title" {
+                            (icon::users_icon("w-3.5 h-3.5"))
+                            "角色列表"
+                            span class="count" { (roles.len()) }
+                        }
                     }
+                    div class="role-list" {
+                        @for role in roles {
+                            (role_item(role, perms_by_role, selected_id))
+                        }
+                        @if roles.is_empty() {
+                            div class="perm-empty" style="padding:20px" {
+                                p { "暂无可配置角色" }
+                            }
+                        }
+                    }
+                }
+
+                // ── Right: Permission Config ──
+                @if let Some(sid) = selected_id {
+                    @if let Some(role) = roles.iter().find(|r| r.role_id == sid) {
+                        @let perms = perms_by_role.get(&sid).cloned().unwrap_or_default();
+                        (permission_panel(sid, role, &perms, groups, scroll_top))
+                    } @else {
+                        (empty_right_panel())
+                    }
+                } @else {
+                    (empty_right_panel())
                 }
             }
         }
+
+        (perm_script())
     }
 }
 
@@ -421,43 +376,29 @@ fn role_item(
         .map(|s| s.len())
         .unwrap_or(0);
     let first_char = role.role_name.chars().next().unwrap_or('?');
-    let (from, to) = avatar_gradient(first_char);
+    let gradient = avatar_gradient(&role.role_name);
     let target_url = format!("{}?role_id={}", PERM_CONFIG_PATH, role.role_id);
 
     let item_cls = if is_selected {
-        "perm-role-item active"
+        "role-item active"
     } else {
-        "perm-role-item"
-    };
-
-    let badge_cls = if count > 0 {
-        "perm-role-badge has-perms"
-    } else {
-        "perm-role-badge no-perms"
+        "role-item"
     };
 
     html! {
-        div
+        button
+            type="button"
             class=(item_cls)
             hx-get=(target_url)
-            hx-target=".perm-layout"
+            hx-target=".perm-page"
             hx-swap="outerHTML" {
 
-            div.perm-role-avatar
-                style=(format!("background:linear-gradient(135deg,{from},{to})")) {
+            div class="role-avatar" style=(format!("background:{}", gradient)) {
                 (first_char.to_uppercase())
             }
-            div.perm-role-info {
-                div.perm-role-name {
-                    (role.role_name)
-                    @if role.is_system_role {
-                        span.perm-role-sys-tag { "系统" }
-                    }
-                }
-                div.perm-role-code { (role.role_code) }
-            }
-            div {
-                span class=(badge_cls) { (count) }
+            div class="role-item-info" {
+                span class="role-item-name" { (role.role_name) }
+                span class="role-item-meta" { "已授权 " (count) " 项" }
             }
         }
     }
@@ -465,89 +406,87 @@ fn role_item(
 
 fn empty_right_panel() -> Markup {
     html! {
-        div id="perm-right-panel" class="perm-right-panel" {
-            div.data-card.perm-full-card {
-                div.perm-empty-state {
-                    div.perm-empty-icon {
-                        (icon::lock_icon(""))
-                    }
-                    div.perm-empty-text { "请从左侧选择一个角色" }
+        div class="perm-panel" {
+            div class="perm-empty" {
+                div class="perm-empty-icon" {
+                    (icon::users_icon("w-7 h-7"))
                 }
+                h4 { "选择一个角色" }
+                p { "在左侧角色列表中选择一个角色，查看并配置其权限" }
             }
         }
     }
 }
 
-/// Right-side panel: permission matrix for one role, wrapped in a form.
 fn permission_panel(
     role_id: i64,
     role: &Role,
     perms: &HashSet<String>,
     groups: &[GroupData],
+    scroll_top: Option<i64>,
 ) -> Markup {
     let is_read_only = role.is_system_role;
-    let save_action = PERM_SAVE_PATH.to_string();
-    let form_id = format!("perm-form-{}", role_id);
-    let total = total_perm_count(groups);
+    let first_char = role.role_name.chars().next().unwrap_or('?');
+    let gradient = avatar_gradient(&role.role_name);
+    let perm_count = perms.len();
+    let refresh_url = format!("{}?role_id={}", PERM_CONFIG_PATH, role_id);
 
     html! {
-        div id="perm-right-panel" class="perm-right-panel" {
-            div.data-card.perm-full-card.perm-flex-col {
-                div.perm-panel-head {
-                    div.perm-panel-title {
-                        (icon::sliders_icon("icon-sm"))
-                        (role.role_name)
-                        span.perm-subtitle {
-                            "权限配置"
+        div class="perm-panel"
+            hx-trigger="permUpdated from:body"
+            hx-get=(refresh_url)
+            hx-select=".perm-panel"
+            hx-swap="outerHTML"
+            hx-select-oob="#stats-bar"
+            hx-on::config-request="let b=document.querySelector('.perm-body'); if(b) event.detail.parameters.scroll_top=Math.round(b.scrollTop);" {
+
+            // ── Role header ──
+            div class="perm-role-head" {
+                div class="perm-role-head-inner" {
+                    div class="perm-role-head-left" {
+                        div class="perm-role-avatar-lg" style=(format!("background:{}", gradient)) {
+                            (first_char.to_uppercase())
+                        }
+                        div {
+                            div class="perm-role-name-lg" { (role.role_name) }
+                            div class="perm-role-sub" {
+                                "已授权 "
+                                span class="hl" { (perm_count) }
+                                " 项权限"
+                            }
                         }
                     }
-                    div {
-                        @if is_read_only {
-                            span.perm-notice {
-                                (icon::lock_icon("icon-xs"))
-                                " 系统角色不可修改"
-                            }
-                        } @else {
-                            button.btn.btn-primary.btn-sm type="submit" form=(form_id) {
-                                (icon::check_circle_icon("icon-sm"))
-                                "保存权限"
-                            }
+                    div class="perm-legend" {
+                        span class="perm-legend-item" {
+                            span class="perm-legend-dot on" {}
+                            "已授权"
+                        }
+                        span class="perm-legend-item" {
+                            span class="perm-legend-dot off" {}
+                            "未授权"
                         }
                     }
                 }
+            }
 
-                div.data-card-scroll.perm-body-scroll {
-                    p.perm-hint {
-                        "为该角色分配资源操作权限。格式："
-                        code { "RESOURCE:ACTION" }
-                        "，角色权限取并集后存入 RolePermissionCache。"
+            // ── System role read-only hint ──
+            @if is_read_only {
+                div class="perm-readonly-hint" {
+                    (icon::info_icon("w-4 h-4"))
+                    span { "内置角色的权限由系统预设，不可修改。如需自定义权限，请新建角色。" }
+                }
+            }
+
+            // ── Permission body ──
+            div class="perm-body" {
+                div class="perm-groups" {
+                    @for (gi, group) in groups.iter().enumerate() {
+                        (perm_group(gi, group, perms, is_read_only, role_id))
                     }
-
-                    form id=(form_id) action=(save_action) method="POST" hx-post=(save_action) hx-swap="none" {
-                        input type="hidden" name="role_id" value=(role_id);
-
-                        div.perm-toolbar {
-                            div.perm-toolbar-left {
-                                "已选择 "
-                                span.perm-count id="permCount" { "0" }
-                                " / "
-                                span id="permTotal" { (total) }
-                                " 项权限"
-                            }
-                            @if !is_read_only {
-                                div.perm-actions {
-                                    button.perm-action-btn type="button" data-action="select-all" { "全选" }
-                                    button.perm-action-btn type="button" data-action="clear-all" { "清空" }
-                                }
-                            }
-                        }
-
-                        div.perm-groups id="permGroups" {
-                            @for (gi, group) in groups.iter().enumerate() {
-                                (perm_group(gi, group, perms, is_read_only, role_id))
-                            }
-                        }
-                    }
+                }
+                // Restore scroll position immediately during swap (no flicker)
+                @if let Some(st) = scroll_top {
+                    (maud::PreEscaped(format!("<script>document.querySelector('.perm-body').scrollTop={st};</script>")))
                 }
             }
         }
@@ -564,42 +503,25 @@ fn perm_group(
     let resource_count = group.resources.len();
 
     html! {
-        div.perm-group data-group=(gi) {
-            div.perm-group-head onclick={ "toggleGroup(" (gi) ")" } {
-                div.perm-group-head-left {
-                    span.perm-group-icon class=(format!("perm-group-icon {}", group.icon_cls)) {
-                        (group_icon_svg(group.icon_cls))
+        div class="perm-group" {
+            div class="perm-group-head" {
+                div class="perm-group-head-left" {
+                    svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" {
+                        path d="M13 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V9z" {}
+                        polyline points="13 2 13 9 20 9" {}
                     }
-                    span.perm-group-name { (group.name) }
-                    span.perm-group-count { "(" (resource_count) ")" }
+                    span class="perm-group-name" { (group.name) }
+                    span class="perm-group-badge" { (resource_count) }
                 }
-                div.perm-group-actions {
-                    @for (ai, action) in ACTIONS.iter().enumerate() {
-                        span.perm-group-toggle {
-                            label onclick="event.stopPropagation()" {
-                                input type="checkbox"
-                                      data-group-action=(action)
-                                      data-group-idx=(gi)
-                                      onchange={ "toggleGroupAction(" (gi) ",'" (action) "',this.checked)" }
-                                      disabled[is_read_only] {}
-                                " " (ACTION_LABELS[ai])
-                            }
-                        }
-                    }
-                    svg.perm-group-arrow.open width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" {
-                        path d="M6 9l6 6 6-6" {}
+                @if !is_read_only {
+                    div class="perm-group-ops" {
+                        button type="button" class="perm-group-select-all" data-group-idx=(gi) { "全选" }
+                        span class="sep" { "|" }
+                        button type="button" class="danger perm-group-clear-all" data-group-idx=(gi) { "清空" }
                     }
                 }
             }
-            div.perm-group-body id={ "groupBody" (gi) } {
-                // Column headers
-                div.perm-row.perm-row-header {
-                    div { "资源" }
-                    @for label in ACTION_LABELS {
-                        div.perm-cell-header { (label) }
-                    }
-                }
-                // Resource rows
+            div class="perm-res-list" {
                 @for res in &group.resources {
                     (perm_resource_row(res, perms, is_read_only, role_id))
                 }
@@ -614,128 +536,102 @@ fn perm_resource_row(
     is_read_only: bool,
     role_id: i64,
 ) -> Markup {
-    let disabled_cls = if is_read_only { " disabled" } else { "" };
+    let mut checked_count = 0;
+    for action in ACTIONS {
+        let key = format!("{}:{}", res.resource_code, action);
+        if perms.contains(&key) {
+            checked_count += 1;
+        }
+    }
+    let total = res.defs.len();
+    let count_cls = if checked_count == total && total > 0 {
+        "perm-res-count done"
+    } else {
+        "perm-res-count"
+    };
 
     html! {
-        div class={ "perm-row" (disabled_cls) } {
-            div.perm-resource {
-                (res.resource_name)
-                " "
-                span.perm-code { (res.resource_code) }
-            }
-            @for action in ACTIONS {
-                div.perm-cell {
+        div class="perm-res-row" {
+            span class="perm-res-name" title=(res.resource_name) { (res.resource_name) }
+            div class="perm-res-btns" {
+                @for (ai, action) in ACTIONS.iter().enumerate() {
                     @if let Some(_def) = res.defs.iter().find(|d| d.action == *action) {
-                        @let key = format!("{}:{}", res.resource_code, action);
-                        @let field_name = format!("perm_{}_{}:{}", role_id, res.resource_code, action);
-                        @let is_checked = perms.contains(&key);
-                        input type="checkbox"
-                              name=(field_name)
-                              value="on"
-                              checked[is_checked]
-                              disabled[is_read_only]
-                              data-action=(action)
-                              data-resource=(res.resource_code)
-                              onchange="updateCount()" {}
+                        @let is_checked = perms.contains(&format!("{}:{}", res.resource_code, action));
+                        @let btn_cls = if is_checked { "perm-btn checked" } else { "perm-btn unchecked" };
+                        @let hx_vals = format!(
+                            "{{\"role_id\":\"{}\",\"resource_code\":\"{}\",\"action\":\"{}\"}}",
+                            role_id, res.resource_code, action
+                        );
+                        button
+                            type="button"
+                            class=(btn_cls)
+                            hx-post=(PERM_TOGGLE_PATH)
+                            hx-vals=(hx_vals)
+                            hx-swap="none"
+                            data-role-id=(role_id)
+                            data-resource=(res.resource_code)
+                            data-action=(action)
+                            disabled[is_read_only] {
+                            (ACTION_LABELS[ai])
+                        }
                     }
                 }
             }
-        }
-    }
-}
-
-fn group_icon_svg(cls: &str) -> Markup {
-    match cls {
-        "g1" => html! {
-            svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
-                path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" {}
-            }
-        },
-        "g2" => html! {
-            svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
-                path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1" {}
-            }
-        },
-        "g3" => html! {
-            svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
-                path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" {}
-            }
-        },
-        "g4" => html! {
-            svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
-                path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" {}
-            }
-        },
-        "g5" => html! {
-            svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
-                path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" {}
-                circle cx="12" cy="12" r="3" {}
-            }
-        },
-        _ => html! {},
-    }
-}
-
-// ── Inline script for permission matrix interactivity ──
-
-fn raw_perm_script() -> &'static str {
-    r#"
-function toggleGroup(g) {
-    var body = me('#groupBody' + g);
-    var group = body.parentElement;
-    var arrow = group.querySelector('.perm-group-arrow');
-    body.classList.toggle('collapsed');
-    arrow.classList.toggle('open');
-}
-
-function toggleGroupAction(g, action, checked) {
-    var body = me('#groupBody' + g);
-    var cbs = body.querySelectorAll('input[data-action="' + action + '"]');
-    for (var i = 0; i < cbs.length; i++) { cbs[i].checked = checked; }
-    updateCount();
-}
-
-function setAll(checked) {
-    var cbs = any('#permGroups input[data-resource]');
-    for (var i = 0; i < cbs.length; i++) { if (!cbs[i].disabled) cbs[i].checked = checked; }
-    var gToggles = any('input[data-group-action]');
-    for (var i = 0; i < gToggles.length; i++) { if (!gToggles[i].disabled) gToggles[i].checked = checked; }
-    updateCount();
-}
-
-function updateCount() {
-    var total = any('#permGroups input[data-resource]').length;
-    var checked = any('#permGroups input[data-resource]:checked').length;
-    var el = me('#permCount');
-    if (el) el.textContent = checked;
-    var tot = me('#permTotal');
-    if (tot) tot.textContent = total;
-    var groupCount = any('.perm-group').length;
-    var ACTIONS = ['create','read','update','delete'];
-    for (var g = 0; g < groupCount; g++) {
-        for (var a = 0; a < ACTIONS.length; a++) {
-            var allCbs = any('#groupBody' + g + ' input[data-action="' + ACTIONS[a] + '"]');
-            var allChecked = true;
-            var anyChecked = false;
-            for (var i = 0; i < allCbs.length; i++) {
-                if (!allCbs[i].checked) allChecked = false;
-                if (allCbs[i].checked) anyChecked = true;
-            }
-            var toggle = me('input[data-group-action="' + ACTIONS[a] + '"][data-group-idx="' + g + '"]');
-            if (toggle) {
-                toggle.checked = allChecked && allCbs.length > 0;
-                toggle.indeterminate = anyChecked && !allChecked;
+            span class=(count_cls) {
+                (format!("{}/{}", checked_count, total))
             }
         }
     }
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    updateCount();
-    var selectAllBtn = me('[data-action="select-all"]');
-    var clearAllBtn = me('[data-action="clear-all"]');
-    if (selectAllBtn) selectAllBtn.addEventListener('click', function() { setAll(true); });
-    if (clearAllBtn) clearAllBtn.addEventListener('click', function() { setAll(false); });
-});
-"#
+// ── Inline script: 全选/清空 ──
+
+fn perm_script() -> maud::PreEscaped<String> {
+    let script = r#"<script>
+if (!window._permInit) {
+    window._permInit = true;
+
+    // ── 全选/清空: sequential toggle via htmx.ajax ──
+    function seqToggle(btns, i) {
+        if (i >= btns.length) return;
+        htmx.ajax('POST', '/admin/system/permissions/toggle', {
+            swap: 'none',
+            values: {
+                role_id: btns[i].rid,
+                resource_code: btns[i].rc,
+                action: btns[i].act
+            }
+        });
+        setTimeout(function() { seqToggle(btns, i + 1); }, 300);
+    }
+
+    function collectBtns(groupEl, checked) {
+        var sel = checked ? '.perm-btn.checked' : '.perm-btn.unchecked';
+        var btns = [];
+        groupEl.querySelectorAll(sel).forEach(function(b) {
+            btns.push({ rid: b.getAttribute('data-role-id'), rc: b.getAttribute('data-resource'), act: b.getAttribute('data-action') });
+        });
+        return btns;
+    }
+
+    any('.perm-group-select-all').forEach(function(btn) {
+        me(btn).on('click', function() {
+            var gi = parseInt(btn.getAttribute('data-group-idx'));
+            var groups = document.querySelectorAll('.perm-group');
+            if (gi >= groups.length) return;
+            seqToggle(collectBtns(groups[gi], false), 0);
+        });
+    });
+
+    any('.perm-group-clear-all').forEach(function(btn) {
+        me(btn).on('click', function() {
+            var gi = parseInt(btn.getAttribute('data-group-idx'));
+            var groups = document.querySelectorAll('.perm-group');
+            if (gi >= groups.length) return;
+            seqToggle(collectBtns(groups[gi], true), 0);
+        });
+    });
+}
+</script>"#;
+    maud::PreEscaped(script.to_string())
 }

@@ -52,6 +52,7 @@ pub mod mes_exception;
 pub mod om;
 pub mod qms;
 pub mod fms;
+pub mod excel;
 use axum::{Router, middleware};
 
 use crate::auth::middleware::auth_middleware;
@@ -121,6 +122,8 @@ pub fn router(state: AppState) -> Router {
                 .merge(user::router())
                 .merge(role::router())
                 .merge(department::router())
+                // ── Excel Import/Export ──
+                .merge(excel::router())
                 .layer(middleware::from_fn_with_state(
                     state.clone(),
                     auth_middleware,

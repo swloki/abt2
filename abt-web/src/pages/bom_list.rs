@@ -192,7 +192,7 @@ fn bom_list_page(
                 h1 class="page-title" { "BOM管理" }
                 div class="page-actions" {
                     (export_button::export_dropdown(&[
-                        ExportItem { label: "缺少人工成本BOM", export_type: "bom-no-labor-cost" },
+                        ExportItem { label: "缺少人工成本BOM", export_type: "boms-no-labor-cost" },
                     ]))
                     @if can_create {
                         a href=(BomCreatePath::PATH) class="btn btn-primary" {

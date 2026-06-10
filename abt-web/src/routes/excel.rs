@@ -18,6 +18,22 @@ use abt_core::shared::excel::types::{ImportResult, ImportSource, RowError};
 use abt_core::shared::excel::helpers::write_headers;
 use abt_core::shared::types::PgPool;
 
+/// 构建 Excel 文件下载的 HTTP 响应头
+fn excel_download_headers(filename: &str) -> HeaderMap {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            .parse()
+            .unwrap(),
+    );
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        format!("attachment; filename=\"{}\"", filename).parse().unwrap(),
+    );
+    headers
+}
+
 // ── 导出表单 ──
 
 #[derive(serde::Deserialize)]
@@ -50,30 +66,21 @@ pub async fn post_import_upload(
         .await
         .map_err(|e| WebError::from(abt_core::shared::types::DomainError::Internal(e)))?;
 
-    // 生成 task_id 并初始化进度
+    // 生成 task_id
     let task_id = state.next_task_id();
-    state.import_progress.insert(
-        task_id,
-        crate::state::ImportTaskState {
-            status: crate::state::TaskStatus::Running,
-            current: 0,
-            total: 0,
-            result: None,
-        },
-    );
 
     let pool = state.pool.clone();
     let import_progress = state.import_progress.clone();
     let import_type_for_spawn = import_type.clone();
 
-    // 异步执行导入
+    // 异步执行导入（spawn 内统一管理状态写入）
     tokio::spawn(async move {
         let tracker = abt_core::shared::excel::helpers::ProgressTracker::new();
 
         // 设置总行数（预估，实际由 importer 调整）
         tracker.set_total(100);
 
-        // 更新进度 tracker 引用
+        // 初始化进度状态
         import_progress.insert(
             task_id,
             crate::state::ImportTaskState {
@@ -86,16 +93,28 @@ pub async fn post_import_upload(
 
         let result = execute_import(&pool, &import_type_for_spawn, ImportSource::Bytes(bytes), tracker.clone()).await;
 
-        // 更新最终状态
-        let final_state = crate::state::ImportTaskState {
-            status: if result.is_ok() {
-                crate::state::TaskStatus::Completed
-            } else {
-                crate::state::TaskStatus::Failed
+        // 更新最终状态（失败时构造包含错误信息的 ImportResult，避免 result=None 导致二次 500）
+        let final_state = match result {
+            Ok(import_result) => crate::state::ImportTaskState {
+                status: crate::state::TaskStatus::Completed,
+                current: tracker.snapshot().current,
+                total: tracker.snapshot().total,
+                result: Some(import_result),
             },
-            current: tracker.snapshot().current,
-            total: tracker.snapshot().total,
-            result: result.ok(),
+            Err(e) => {
+                tracing::error!("Import task {} failed: {}", task_id, e);
+                crate::state::ImportTaskState {
+                    status: crate::state::TaskStatus::Failed,
+                    current: tracker.snapshot().current,
+                    total: tracker.snapshot().total,
+                    result: Some(ImportResult {
+                        success_count: 0,
+                        failed_count: 0,
+                        errors: vec![e.to_string()],
+                        row_errors: vec![],
+                    }),
+                }
+            }
         };
         import_progress.insert(task_id, final_state);
     });
@@ -167,19 +186,7 @@ pub async fn get_export_download(
             format!("导出文件 {} 不存在或已过期", task_id),
         )))?;
 
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        header::CONTENT_TYPE,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            .parse()
-            .unwrap(),
-    );
-    headers.insert(
-        header::CONTENT_DISPOSITION,
-        format!("attachment; filename=\"{}\"", file_info.filename).parse().unwrap(),
-    );
-
-    Ok((headers, file_info.bytes).into_response())
+    Ok((excel_download_headers(&file_info.filename), file_info.bytes).into_response())
 }
 
 // ── Handler: 模板下载 ──
@@ -193,19 +200,7 @@ pub async fn get_template(
 
     let filename = format!("{}_template.xlsx", import_type);
 
-    let mut headers = HeaderMap::new();
-    headers.insert(
-        header::CONTENT_TYPE,
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            .parse()
-            .unwrap(),
-    );
-    headers.insert(
-        header::CONTENT_DISPOSITION,
-        format!("attachment; filename=\"{}\"", filename).parse().unwrap(),
-    );
-
-    Ok((headers, bytes).into_response())
+    Ok((excel_download_headers(&filename), bytes).into_response())
 }
 
 // ── Helper: 执行导入（分发到不同 importer）──
@@ -235,26 +230,26 @@ async fn execute_import(
 }
 
 fn convert_labor_process_result(lp_result: abt_core::shared::excel::labor_process_import::LaborProcessImportResult) -> ImportResult {
-    ImportResult {
-        success_count: lp_result.success_count as usize,
-        failed_count: lp_result.failure_count as usize,
-        errors: lp_result
-            .results
-            .iter()
-            .filter(|r| !r.error_message.is_empty())
-            .map(|r| format!("第{}行 {}: {}", r.row_number, r.process_name, r.error_message))
-            .collect(),
-        row_errors: lp_result
-            .results
-            .iter()
-            .filter(|r| !r.error_message.is_empty())
-            .map(|r| RowError {
+    let mut errors = Vec::new();
+    let mut row_errors = Vec::new();
+
+    for r in &lp_result.results {
+        if !r.error_message.is_empty() {
+            errors.push(format!("第{}行 {}: {}", r.row_number, r.process_name, r.error_message));
+            row_errors.push(RowError {
                 row_index: r.row_number as usize,
                 column_name: r.process_name.clone(),
                 reason: r.error_message.clone(),
                 raw_value: None,
-            })
-            .collect(),
+            });
+        }
+    }
+
+    ImportResult {
+        success_count: lp_result.success_count as usize,
+        failed_count: lp_result.failure_count as usize,
+        errors,
+        row_errors,
     }
 }
 
@@ -354,9 +349,9 @@ fn generate_template(import_type: &str) -> anyhow::Result<Vec<u8>> {
     let worksheet = workbook.add_worksheet();
 
     let headers = match import_type {
-        "product-inventory" => vec!["产品编码", "产品名称", "规格型号", "单位", "库存数量"],
+        "product-inventory" => vec!["新编码", "旧编码", "物料名称", "库位编码", "库存数量", "价格", "安全库存", "分类ID"],
         "labor-process" => vec!["产品编码", "工序编码", "工序名称", "单价", "数量", "排序", "备注"],
-        "warehouse-location" => vec!["仓库编码", "库位编码", "库位名称", "容量", "描述"],
+        "warehouse-location" => vec!["仓库编码", "仓库名称", "库位编码", "库位名称", "容量"],
         _ => anyhow::bail!("未知的导入类型: {}", import_type),
     };
 

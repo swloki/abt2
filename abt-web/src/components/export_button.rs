@@ -23,20 +23,6 @@ pub fn export_button(label: &str, export_type: &str) -> Markup {
 
 /// 导出下拉菜单（多种导出类型）
 pub fn export_dropdown(items: &[ExportItem]) -> Markup {
-    let menu_buttons: Vec<Markup> = items.iter().map(|item| {
-        let path = format!("/excel/export/{}", item.export_type);
-        html! {
-            button type="button"
-                hx-post=(path)
-                hx-target="#export-result"
-                hx-swap="innerHTML"
-                hx-indicator="#export-result"
-                onclick="hsRemoveClosest(this,'.export-dropdown-menu','is-open')" {
-                (item.label)
-            }
-        }
-    }).collect();
-
     html! {
         div class="export-dropdown" {
             button type="button" class="btn btn-default" {
@@ -45,10 +31,25 @@ pub fn export_dropdown(items: &[ExportItem]) -> Markup {
                 " 导出"
             }
             div class="export-dropdown-menu" {
-                @for btn in menu_buttons {
-                    (btn)
+                @for item in items {
+                    (export_menu_item(item))
                 }
             }
+        }
+    }
+}
+
+/// 导出菜单项
+fn export_menu_item(item: &ExportItem) -> Markup {
+    let path = format!("/excel/export/{}", item.export_type);
+    html! {
+        button type="button"
+            hx-post=(path)
+            hx-target="#export-result"
+            hx-swap="innerHTML"
+            hx-indicator="#export-result"
+            onclick="hsRemoveClosest(this,'.export-dropdown-menu','is-open')" {
+            (item.label)
         }
     }
 }

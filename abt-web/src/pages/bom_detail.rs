@@ -12,6 +12,7 @@ use abt_core::master_data::product::ProductService;
 use abt_macros::require_permission;
 
 use crate::components::icon;
+use crate::components::export_button;
 use crate::layout::page::admin_page;
 use crate::routes::bom::{BomCostDrawerPath, BomCostTempPricePath, BomCostClearTempPath, BomDeletePath, BomDetailPath, BomEditPath, BomLaborCostDrawerPath, BomListPath, BomPublishPath};
 use crate::utils::RequestContext;
@@ -274,6 +275,15 @@ fn bom_detail_page(
                             " 删除"
                         }
                     }
+                    button type="button" class="btn btn-default"
+                        hx-post="/excel/export/bom"
+                        hx-vals=(format!("{{\"bom_id\": {}}}", bom.bom_id))
+                        hx-target="#export-result"
+                        hx-swap="innerHTML"
+                        hx-indicator="#export-result" {
+                        (icon::download_icon("w-4 h-4"))
+                        "导出 BOM"
+                    }
                 }
             }
 
@@ -314,6 +324,7 @@ fn bom_detail_page(
                     }
                 }
             }
+            div id="export-result" {}
 
             @if can_view_cost {
                 // ── Cost Drawer (wider: 1000px) ──

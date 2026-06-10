@@ -11,6 +11,8 @@ use abt_core::shared::identity::UserService;
 use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
+use crate::components::import_modal::{self, ImportModalConfig};
+use crate::components::export_button;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
 use crate::layout::page::admin_page;
@@ -185,6 +187,12 @@ fn warehouse_list_page(
             div class="page-header" {
                 h1 class="page-title" { "仓库管理" }
                 div class="page-actions" {
+                    button type="button" class="btn btn-default"
+                        onclick="hsAdd(null,'#import-modal','is-open')" {
+                        (icon::upload_icon("w-4 h-4"))
+                        "导入"
+                    }
+                    (export_button::export_button("导出库位", "warehouse-location"))
                     @if can_create {
                         a class="btn btn-primary" href=(WarehouseCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
@@ -196,6 +204,13 @@ fn warehouse_list_page(
 
             // ── Tabs + Filter + Data Table (HTMX panel) ──
             (warehouse_table_fragment(result, params, manager_map, can_delete))
+        }
+        (import_modal::import_modal(&ImportModalConfig {
+            import_type: "warehouse-location",
+            title: "导入仓库库位",
+            template_columns: "仓库编码, 仓库名称, 库位编码, 库位名称, 容量",
+        }))
+        div id="export-result" {}
         }
     }
 }

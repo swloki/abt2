@@ -9,6 +9,7 @@ use abt_core::master_data::labor_process_dict::LaborProcessDictService;
 use abt_core::shared::types::{DomainError, PageParams};
 
 use crate::components::icon;
+use crate::components::export_button;
 use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
 use crate::routes::labor_process_dict::{
@@ -195,6 +196,7 @@ fn process_dict_list_page(
             div class="page-header" {
                 h1 class="page-title" { "工序字典管理" }
                 div class="page-actions" {
+                    (export_button::export_button("导出工序字典", "labor-process-dict"))
                     @if can_create {
                         a class="btn btn-primary" href=(ProcessDictCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
@@ -208,6 +210,7 @@ fn process_dict_list_page(
             (process_dict_table_fragment(result, params, can_delete))
         }
     }
+            div id="export-result" {}
 }
 
 fn process_dict_table_fragment(

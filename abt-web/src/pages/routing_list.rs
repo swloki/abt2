@@ -10,6 +10,8 @@ use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::layout::page::admin_page;
+use crate::components::import_modal::{self, ImportModalConfig};
+use crate::components::export_button;
 use crate::components::pagination::pagination;
 use crate::routes::routing::{
     RoutingDeletePath, RoutingDetailPath, RoutingListPath, RoutingTablePath,
@@ -127,6 +129,12 @@ fn routing_list_page(
             div class="page-header" {
                 h1 class="page-title" { "工艺路线管理" }
                 div class="page-actions" {
+                    button type="button" class="btn btn-default"
+                        onclick="hsAdd(null,'#import-modal','is-open')" {
+                        (icon::upload_icon("w-4 h-4"))
+                        "导入"
+                    }
+                    (export_button::export_button("导出工艺路线", "labor-process"))
                     @if can_create {
                         a class="btn btn-primary" href=(RoutingCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))
@@ -140,6 +148,12 @@ fn routing_list_page(
             (routing_table_fragment(result, params, can_delete))
         }
     }
+            (import_modal::import_modal(&ImportModalConfig {
+                import_type: "labor-process",
+                title: "导入工艺路线",
+                template_columns: "产品编码, 工序编码, 工序名称, 单价, 数量, 排序, 备注",
+            }))
+            div id="export-result" {}
 }
 
 fn routing_table_fragment(

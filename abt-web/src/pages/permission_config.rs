@@ -46,6 +46,20 @@ pub struct BatchToggleForm {
     pub group_idx: usize,
 }
 
+// ── Permission data per role (direct + inherited) ──
+
+struct RolePermData {
+    direct: HashSet<String>,
+    inherited: HashSet<String>,
+}
+
+impl RolePermData {
+    /// Total effective permissions (direct + inherited union).
+    fn effective_count(&self) -> usize {
+        self.direct.union(&self.inherited).count()
+    }
+}
+
 // ── Resource groupings (业务域分组) ──
 
 struct ResourceGroupDef {
@@ -162,12 +176,21 @@ pub async fn get_permission_config(
         .filter(|r| r.role_code != "super_admin")
         .collect();
 
-    let mut perms_by_role: HashMap<i64, HashSet<String>> = HashMap::new();
+    // Build role_id → role_name map for parent name lookup
+    let role_name_map: HashMap<i64, String> = roles
+        .iter()
+        .map(|r| (r.role_id, r.role_name.clone()))
+        .collect();
+
+    let mut perm_data_by_role: HashMap<i64, RolePermData> = HashMap::new();
     for r in &roles {
         let rwp = svc
             .get_role_with_permissions(&service_ctx, &mut conn, r.role_id)
             .await?;
-        perms_by_role.insert(r.role_id, rwp.permissions.into_iter().collect());
+        perm_data_by_role.insert(r.role_id, RolePermData {
+            direct: rwp.permissions.into_iter().collect(),
+            inherited: rwp.inherited_permissions.into_iter().collect(),
+        });
     }
 
     let selected_id = params
@@ -180,11 +203,15 @@ pub async fn get_permission_config(
 
     // HTMX partial: swap the entire perm-page content
     if is_htmx && selected_id.is_some() {
-        let content = perm_page_content(&roles, &perms_by_role, selected_id, &groups, scroll_top);
+        let content = perm_page_content(
+            &roles, &perm_data_by_role, &role_name_map, selected_id, &groups, scroll_top,
+        );
         return Ok(Html(content.into_string()));
     }
 
-    let page_content = perm_page_content(&roles, &perms_by_role, selected_id, &groups, scroll_top);
+    let page_content = perm_page_content(
+        &roles, &perm_data_by_role, &role_name_map, selected_id, &groups, scroll_top,
+    );
 
     let page_html = admin_page(
         is_htmx,
@@ -353,7 +380,8 @@ fn avatar_gradient(name: &str) -> &'static str {
 
 fn perm_page_content(
     roles: &[Role],
-    perms_by_role: &HashMap<i64, HashSet<String>>,
+    perm_data_by_role: &HashMap<i64, RolePermData>,
+    role_name_map: &HashMap<i64, String>,
     selected_id: Option<i64>,
     groups: &[GroupData],
     scroll_top: Option<i64>,
@@ -361,7 +389,8 @@ fn perm_page_content(
     let total_resources = count_unique_resources();
     let total_actions = RESOURCE_ACTION_DEFS.len();
     let total_roles = roles.len();
-    let configured: usize = perms_by_role.values().map(|s| s.len()).sum();
+    // "已配置" counts effective permissions (direct + inherited) across all roles
+    let configured: usize = perm_data_by_role.values().map(|d| d.effective_count()).sum();
     let total_possible = total_actions * total_roles;
     let coverage_pct = if total_possible == 0 {
         0.0
@@ -420,7 +449,7 @@ fn perm_page_content(
                     }
                     div class="role-list" {
                         @for role in roles {
-                            (role_item(role, perms_by_role, selected_id))
+                            (role_item(role, perm_data_by_role, selected_id))
                         }
                         @if roles.is_empty() {
                             div class="perm-empty" style="padding:20px" {
@@ -433,8 +462,9 @@ fn perm_page_content(
                 // ── Right: Permission Config ──
                 @if let Some(sid) = selected_id {
                     @if let Some(role) = roles.iter().find(|r| r.role_id == sid) {
-                        @let perms = perms_by_role.get(&sid).cloned().unwrap_or_default();
-                        (permission_panel(sid, role, &perms, groups, scroll_top))
+                        @let pd = perm_data_by_role.get(&sid).unwrap();
+                        @let parent_name = role.parent_role_id.and_then(|pid| role_name_map.get(&pid)).map(|s| s.as_str());
+                        (permission_panel(sid, role, pd, parent_name, groups, scroll_top))
                     } @else {
                         (empty_right_panel())
                     }
@@ -448,13 +478,13 @@ fn perm_page_content(
 
 fn role_item(
     role: &Role,
-    perms_by_role: &HashMap<i64, HashSet<String>>,
+    perm_data_by_role: &HashMap<i64, RolePermData>,
     selected_id: Option<i64>,
 ) -> Markup {
     let is_selected = selected_id == Some(role.role_id);
-    let count = perms_by_role
+    let count = perm_data_by_role
         .get(&role.role_id)
-        .map(|s| s.len())
+        .map(|d| d.effective_count())
         .unwrap_or(0);
     let first_char = role.role_name.chars().next().unwrap_or('?');
     let gradient = avatar_gradient(&role.role_name);
@@ -502,14 +532,16 @@ fn empty_right_panel() -> Markup {
 fn permission_panel(
     role_id: i64,
     role: &Role,
-    perms: &HashSet<String>,
+    pd: &RolePermData,
+    parent_name: Option<&str>,
     groups: &[GroupData],
     scroll_top: Option<i64>,
 ) -> Markup {
     let is_read_only = role.is_system_role;
     let first_char = role.role_name.chars().next().unwrap_or('?');
     let gradient = avatar_gradient(&role.role_name);
-    let perm_count = perms.len();
+    let effective_count = pd.effective_count();
+    let inherited_count = pd.inherited.len();
     let refresh_url = format!("{}?role_id={}", PERM_CONFIG_PATH, role_id);
     let hx_vals = "js:{scroll_top: Math.round(document.querySelector('.perm-body')?.scrollTop || 0)}".to_string();
 
@@ -532,9 +564,17 @@ fn permission_panel(
                         div {
                             div class="perm-role-name-lg" { (role.role_name) }
                             div class="perm-role-sub" {
-                                "已授权 "
-                                span class="hl" { (perm_count) }
-                                " 项权限"
+                                @if inherited_count > 0 {
+                                    "已授权 "
+                                    span class="hl" { (effective_count) }
+                                    " 项（含 "
+                                    span class="hl" { (inherited_count) }
+                                    " 项继承）"
+                                } @else {
+                                    "已授权 "
+                                    span class="hl" { (effective_count) }
+                                    " 项权限"
+                                }
                             }
                         }
                     }
@@ -542,6 +582,10 @@ fn permission_panel(
                         span class="perm-legend-item" {
                             span class="perm-legend-dot on" {}
                             "已授权"
+                        }
+                        span class="perm-legend-item" {
+                            span class="perm-legend-dot inherited" {}
+                            "继承"
                         }
                         span class="perm-legend-item" {
                             span class="perm-legend-dot off" {}
@@ -559,11 +603,25 @@ fn permission_panel(
                 }
             }
 
+            // ── Inherited permission hint ──
+            @if inherited_count > 0 && !is_read_only {
+                div class="perm-inherit-hint" {
+                    (icon::info_icon("w-4 h-4"))
+                    span {
+                        "以下灰色标记的权限继承自上级角色「"
+                        @if let Some(pn) = parent_name {
+                            (pn)
+                        }
+                        "」，不可在当前角色中修改。"
+                    }
+                }
+            }
+
             // ── Permission body ──
             div class="perm-body" {
                 div class="perm-groups" {
                     @for (gi, group) in groups.iter().enumerate() {
-                        (perm_group(gi, group, perms, is_read_only, role_id))
+                        (perm_group(gi, group, pd, is_read_only, role_id))
                     }
                 }
                 // Restore scroll position immediately during swap (no flicker)
@@ -578,7 +636,7 @@ fn permission_panel(
 fn perm_group(
     gi: usize,
     group: &GroupData,
-    perms: &HashSet<String>,
+    pd: &RolePermData,
     is_read_only: bool,
     role_id: i64,
 ) -> Markup {
@@ -609,7 +667,7 @@ fn perm_group(
             }
             div class="perm-res-list" {
                 @for res in &group.resources {
-                    (perm_resource_row(res, perms, is_read_only, role_id))
+                    (perm_resource_row(res, pd, is_read_only, role_id))
                 }
             }
         }
@@ -618,19 +676,20 @@ fn perm_group(
 
 fn perm_resource_row(
     res: &GroupResource,
-    perms: &HashSet<String>,
+    pd: &RolePermData,
     is_read_only: bool,
     role_id: i64,
 ) -> Markup {
-    let mut checked_count = 0;
+    // Count effective (direct + inherited) for the display counter
+    let mut effective_count = 0;
     for action in ACTIONS {
         let key = format!("{}:{}", res.resource_code, action);
-        if perms.contains(&key) {
-            checked_count += 1;
+        if pd.direct.contains(&key) || pd.inherited.contains(&key) {
+            effective_count += 1;
         }
     }
     let total = res.defs.len();
-    let count_cls = if checked_count == total && total > 0 {
+    let count_cls = if effective_count == total && total > 0 {
         "perm-res-count done"
     } else {
         "perm-res-count"
@@ -642,8 +701,16 @@ fn perm_resource_row(
             div class="perm-res-btns" {
                 @for (ai, action) in ACTIONS.iter().enumerate() {
                     @if let Some(_def) = res.defs.iter().find(|d| d.action == *action) {
-                        @let is_checked = perms.contains(&format!("{}:{}", res.resource_code, action));
-                        @let btn_cls = if is_checked { "perm-btn checked" } else { "perm-btn unchecked" };
+                        @let key = format!("{}:{}", res.resource_code, action);
+                        @let is_inherited = pd.inherited.contains(&key);
+                        @let is_direct = pd.direct.contains(&key);
+                        @let (btn_cls, disabled) = if is_inherited {
+                            ("perm-btn inherited", true)
+                        } else if is_direct {
+                            ("perm-btn checked", false)
+                        } else {
+                            ("perm-btn unchecked", false)
+                        };
                         @let hx_vals = format!(
                             "{{\"role_id\":\"{}\",\"resource_code\":\"{}\",\"action\":\"{}\"}}",
                             role_id, res.resource_code, action
@@ -657,14 +724,14 @@ fn perm_resource_row(
                             data-role-id=(role_id)
                             data-resource=(res.resource_code)
                             data-action=(action)
-                            disabled[is_read_only] {
+                            disabled[is_read_only || disabled] {
                             (ACTION_LABELS[ai])
                         }
                     }
                 }
             }
             span class=(count_cls) {
-                (format!("{}/{}", checked_count, total))
+                (format!("{}/{}", effective_count, total))
             }
         }
     }

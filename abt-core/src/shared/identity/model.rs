@@ -140,6 +140,7 @@ pub struct UserWithRoles {
 pub struct RoleWithPermissions {
     pub role: Role,
     pub permissions: Vec<String>,
+    pub inherited_permissions: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------

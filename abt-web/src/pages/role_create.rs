@@ -261,7 +261,7 @@ fn role_create_page(roles: &[Role], groups: &[GroupData], total: usize) -> Marku
                                 }
                             }
                         }
-                        span.form-hint { "层级关系（预留），权限支持继承 + 环检测" }
+                        span.form-hint { "选择上级角色后，该角色将自动继承上级角色的全部权限。继承的权限在权限配置页面以灰色标记，不可移除。" }
                     }
                     div.form-field {
                         label { "角色类型" }

@@ -130,7 +130,24 @@ impl RoleService for RoleServiceImpl {
         let permissions =
             IdentityRepo::get_permissions_for_role(&mut *db, role_id).await?;
 
-        Ok(RoleWithPermissions { role, permissions })
+        // Compute inherited permissions from parent chain via cache
+        let inherited_permissions = if let Some(parent_id) = role.parent_role_id {
+            let direct_set: std::collections::HashSet<String> =
+                permissions.iter().cloned().collect();
+            let parent_resolved = self.cache.get_merged_permissions(&[parent_id]).await;
+            parent_resolved
+                .into_iter()
+                .filter(|p| !direct_set.contains(p))
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        Ok(RoleWithPermissions {
+            role,
+            permissions,
+            inherited_permissions,
+        })
     }
 }
 

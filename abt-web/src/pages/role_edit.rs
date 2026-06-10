@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use axum::response::{Html, IntoResponse};
 use axum::Form;
@@ -133,10 +133,26 @@ pub async fn get_role_edit(
     let groups = build_groups();
     let total = total_perm_count(&groups);
 
-    let current_perms: Vec<String> = rwp.permissions.iter().map(|p| { let (r, a) = p.split_once(':').unwrap_or((p, "")); format!("{}:{}", r.to_uppercase(), a.to_lowercase()) }).collect();
-    let checked_count = current_perms.len();
+    // Normalize current direct permissions to uppercase:lowercase format
+    let direct_perms: HashSet<String> = rwp.permissions.iter().map(|p| {
+        let (r, a) = p.split_once(':').unwrap_or((p, ""));
+        format!("{}:{}", r.to_uppercase(), a.to_lowercase())
+    }).collect();
 
-    let content = role_edit_page(&rwp, parent_role_name.as_deref(), &groups, total, &current_perms, checked_count);
+    // Normalize inherited permissions
+    let inherited_perms: HashSet<String> = rwp.inherited_permissions.iter().map(|p| {
+        let (r, a) = p.split_once(':').unwrap_or((p, ""));
+        format!("{}:{}", r.to_uppercase(), a.to_lowercase())
+    }).collect();
+
+    let content = role_edit_page(
+        &rwp,
+        parent_role_name.as_deref(),
+        &groups,
+        total,
+        &direct_perms,
+        &inherited_perms,
+    );
     let edit_path_str = RoleEditPath { id: path.id }.to_string();
     let page_html = admin_page(
         is_htmx,
@@ -228,12 +244,14 @@ fn role_edit_page(
     parent_role_name: Option<&str>,
     groups: &[GroupData],
     total: usize,
-    current_perms: &[String],
-    checked_count: usize,
+    direct_perms: &HashSet<String>,
+    inherited_perms: &HashSet<String>,
 ) -> Markup {
     let role = &rwp.role;
     let detail_path = RoleDetailPath { id: role.role_id }.to_string();
     let edit_path = RoleEditPath { id: role.role_id }.to_string();
+    let effective_count = direct_perms.union(inherited_perms).count();
+    let inherited_count = inherited_perms.len();
 
     html! {
         form id="role-form"
@@ -298,13 +316,37 @@ fn role_edit_page(
                     "，角色权限取并集后存入 RolePermissionCache。"
                 }
 
+                // Inherited permission hint
+                @if inherited_count > 0 {
+                    div class="perm-inherit-hint" style="margin-bottom:12px" {
+                        (icon::info_icon("w-4 h-4"))
+                        span {
+                            "以下灰色标记的权限继承自上级角色「"
+                            @if let Some(pn) = parent_role_name {
+                                (pn)
+                            }
+                            "」，不可修改。"
+                        }
+                    }
+                }
+
                 div.perm-toolbar {
                     div.perm-toolbar-left {
-                        "已选择 "
-                        span.perm-count id="permCount" { (checked_count) }
-                        " / "
-                        span id="permTotal" { (total) }
-                        " 项权限"
+                        @if inherited_count > 0 {
+                            "已选择 "
+                            span.perm-count id="permCount" { (effective_count) }
+                            " / "
+                            span id="permTotal" { (total) }
+                            " 项（含 "
+                            span { (inherited_count) }
+                            " 项继承）"
+                        } @else {
+                            "已选择 "
+                            span.perm-count id="permCount" { (effective_count) }
+                            " / "
+                            span id="permTotal" { (total) }
+                            " 项权限"
+                        }
                     }
                     div.perm-actions {
                         button.perm-action-btn type="button" data-action="select-all" onclick="setAll(true)" { "全选" }
@@ -314,7 +356,7 @@ fn role_edit_page(
 
                 div.perm-groups id="permGroups" data-on-load="updateCount()" {
                     @for (gi, group) in groups.iter().enumerate() {
-                        (perm_group(gi, group, current_perms))
+                        (perm_group(gi, group, direct_perms, inherited_perms))
                     }
                 }
             }
@@ -327,7 +369,12 @@ fn role_edit_page(
     }
 }
 
-fn perm_group(gi: usize, group: &GroupData, current_perms: &[String]) -> Markup {
+fn perm_group(
+    gi: usize,
+    group: &GroupData,
+    direct_perms: &HashSet<String>,
+    inherited_perms: &HashSet<String>,
+) -> Markup {
     let resource_count = group.resources.len();
     html! {
         div.perm-group data-group=(gi) {
@@ -366,14 +413,18 @@ fn perm_group(gi: usize, group: &GroupData, current_perms: &[String]) -> Markup 
                 }
                 // Resource rows
                 @for res in &group.resources {
-                    (perm_resource_row(res, current_perms))
+                    (perm_resource_row(res, direct_perms, inherited_perms))
                 }
             }
         }
     }
 }
 
-fn perm_resource_row(res: &GroupResource, current_perms: &[String]) -> Markup {
+fn perm_resource_row(
+    res: &GroupResource,
+    direct_perms: &HashSet<String>,
+    inherited_perms: &HashSet<String>,
+) -> Markup {
     html! {
         div.perm-row {
             div.perm-resource {
@@ -383,14 +434,16 @@ fn perm_resource_row(res: &GroupResource, current_perms: &[String]) -> Markup {
             }
             @for action in ACTIONS {
                 div.perm-cell {
-                    @let perm_key = format!("{}:{}", res.code, action);
-                    @let checked = current_perms.contains(&perm_key);
+                    @let key = format!("{}:{}", res.code, action);
+                    @let is_inherited = inherited_perms.contains(&key);
+                    @let is_direct = direct_perms.contains(&key);
                     input type="checkbox"
                           name={ "perm_" (res.code) ":" (action) }
                           data-action=(action)
                           data-resource=(res.code)
                           onchange="updateCount()"
-                          checked[checked] {}
+                          checked[is_direct || is_inherited]
+                          disabled[is_inherited] {}
                 }
             }
         }
@@ -442,7 +495,7 @@ function toggleGroup(g) {
 function toggleGroupAction(g, action, checked) {
     var body = me('#groupBody' + g);
     var cbs = body.querySelectorAll('input[data-action="' + action + '"]');
-    for (var i = 0; i < cbs.length; i++) { cbs[i].checked = checked; }
+    for (var i = 0; i < cbs.length; i++) { if (!cbs[i].disabled) cbs[i].checked = checked; }
     updateCount();
 }
 
@@ -457,6 +510,7 @@ function setAll(checked) {
 function updateCount() {
     var total = any('#permGroups input[data-resource]').length;
     var checked = any('#permGroups input[data-resource]:checked').length;
+    var inherited = any('#permGroups input[data-resource]:disabled:checked').length;
     me('#permCount').textContent = checked;
     me('#permTotal').textContent = total;
     var groupCount = any('.perm-group').length;

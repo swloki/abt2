@@ -8,17 +8,19 @@ pub struct ImportModalConfig {
 }
 
 /// 渲染导入 Modal（页面底部声明，Surreal.js 控制 is-open）
+/// modal ID 由 import_type 派生，确保唯一性
 pub fn import_modal(config: &ImportModalConfig) -> Markup {
+    let modal_id = format!("import-modal-{}", config.import_type);
     html! {
-        div id="import-modal" class="modal-overlay" onclick="hsBackdropClose(this,event,'is-open')" {
-            div class="modal" style="max-width:560px" {
+        div id=(modal_id) class="modal-overlay" onclick="hsBackdropClose(this,event,'is-open')" {
+            div class="modal modal-import" {
                 div class="modal-head" {
                     h2 { (config.title) }
-                    button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                    button type="button" class="modal-close-btn"
                         onclick="hsRemoveClosest(this,'.modal-overlay','is-open')" { "×" }
                 }
                 div class="modal-body" {
-                    div id="import-content" {
+                    div id=(format!("import-content-{}", config.import_type)) {
                         (render_import_form(config))
                     }
                 }
@@ -27,10 +29,16 @@ pub fn import_modal(config: &ImportModalConfig) -> Markup {
     }
 }
 
+/// 生成导入按钮的 onclick 属性值（供页面文件使用）
+pub fn import_modal_onclick(config: &ImportModalConfig) -> String {
+    format!("hsAdd(null,'#import-modal-{}','is-open')", config.import_type)
+}
+
 /// 初始状态：文件选择区 + 模板下载
 fn render_import_form(config: &ImportModalConfig) -> Markup {
     let template_path = format!("/excel/template/{}", config.import_type);
     let upload_path = format!("/excel/import/{}", config.import_type);
+    let content_id = format!("import-content-{}", config.import_type);
 
     html! {
         div class="import-file-zone" {
@@ -41,11 +49,11 @@ fn render_import_form(config: &ImportModalConfig) -> Markup {
             }
             form
                 hx-post=(upload_path)
-                hx-target="#import-content"
+                hx-target=(format!("#{}", content_id))
                 hx-swap="innerHTML"
                 hx-encoding="multipart/form-data"
-                hx-indicator="#import-content .htmx-indicator" {
-                input type="file" name="file" accept=".xlsx,.xls" required;
+                hx-indicator=(format!("#{} .htmx-indicator", content_id)) {
+                input type="file" name="file" accept=".xlsx" required;
                 div class="import-actions" {
                     button type="submit" class="btn btn-primary" {
                         "开始导入"
@@ -63,6 +71,7 @@ fn render_import_form(config: &ImportModalConfig) -> Markup {
 pub fn render_import_progress(import_type: &str, task_id: i64, current: usize, total: usize) -> Markup {
     let pct = if total > 0 { (current * 100) / total } else { 0 };
     let progress_path = format!("/excel/import/{}/progress/{}", import_type, task_id);
+    let content_id = format!("import-content-{}", import_type);
 
     html! {
         div class="import-progress" {
@@ -73,7 +82,7 @@ pub fn render_import_progress(import_type: &str, task_id: i64, current: usize, t
         }
         div hx-get=(progress_path)
              hx-trigger="every 1s"
-             hx-target="#import-content"
+             hx-target=(format!("#{}", content_id))
              hx-swap="innerHTML" {}
     }
 }
@@ -94,7 +103,7 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
             }
             @if !result.row_errors.is_empty() {
                 div class="import-errors" {
-                    p style="font-weight:600;margin-bottom:4px" { "错误详情：" }
+                    p class="import-error-title" { "错误详情：" }
                     ul {
                         @for err in &result.row_errors {
                             li {
@@ -109,8 +118,8 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
                 }
             }
             @if !result.errors.is_empty() {
-                div class="import-errors" style="margin-top:8px" {
-                    p style="font-weight:600;margin-bottom:4px" { "其他错误：" }
+                div class="import-errors import-error-extra" {
+                    p class="import-error-title" { "其他错误：" }
                     ul {
                         @for err in &result.errors {
                             li { (err) }
@@ -118,7 +127,7 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
                     }
                 }
             }
-            div style="margin-top:12px;text-align:right" {
+            div class="import-footer-actions" {
                 button type="button" class="btn btn-default"
                     onclick="hsRemoveClosest(this,'.modal-overlay','is-open')" { "关闭" }
             }

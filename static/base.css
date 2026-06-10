@@ -3647,4 +3647,10 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
 .export-result a {
   text-decoration: none;
 }
+/* ── Import Modal Utilities ── */
+.modal-import { max-width: 560px; }
+.modal-close-btn { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--muted); padding: 4px; }
+.import-error-title { font-weight: 600; margin-bottom: 4px; }
+.import-error-extra { margin-top: 8px; }
+.import-footer-actions { margin-top: 12px; text-align: right; }
 .file-item { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); font-size: var(--text-sm); color: var(--fg); }

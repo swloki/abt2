@@ -319,7 +319,7 @@ fn product_list_page(
                 h1 class="page-title" { "产品管理" span style="font-size:var(--text-sm);font-weight:400;color:var(--muted);margin-left:var(--space-2)" { "(" (result.total) ")" } }
                 div class="page-actions" {
                     button type="button" class="btn btn-default"
-                        onclick="hsAdd(null,'#import-modal','is-open')" {
+                        onclick=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "product-inventory", title: "", template_columns: "" })) {
                         (icon::upload_icon("w-4 h-4"))
                         "导入"
                     }

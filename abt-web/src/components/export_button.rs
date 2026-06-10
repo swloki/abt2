@@ -8,7 +8,7 @@ pub struct ExportItem {
 
 /// 单个导出按钮
 pub fn export_button(label: &str, export_type: &str) -> Markup {
-    let path = format!("/excel/export/{}", export_type);
+    let path = format!("{}/{}", crate::routes::excel::EXPORT_START_PATH, export_type);
     html! {
         button type="button" class="btn btn-default"
             hx-post=(path)
@@ -41,7 +41,7 @@ pub fn export_dropdown(items: &[ExportItem]) -> Markup {
 
 /// 导出菜单项
 fn export_menu_item(item: &ExportItem) -> Markup {
-    let path = format!("/excel/export/{}", item.export_type);
+    let path = format!("{}/{}", crate::routes::excel::EXPORT_START_PATH, item.export_type);
     html! {
         button type="button"
             hx-post=(path)
@@ -56,7 +56,7 @@ fn export_menu_item(item: &ExportItem) -> Markup {
 
 /// 导出结果区域 HTML 片段（handler 调用）
 pub fn render_export_result(task_id: i64, filename: &str) -> Markup {
-    let download_path = format!("/excel/export/download/{}", task_id);
+    let download_path = format!("{}/{}", crate::routes::excel::EXPORT_DOWNLOAD_PATH, task_id);
     html! {
         div class="export-result" {
             "✓ 导出完成"

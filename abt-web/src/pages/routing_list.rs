@@ -130,7 +130,7 @@ fn routing_list_page(
                 h1 class="page-title" { "工艺路线管理" }
                 div class="page-actions" {
                     button type="button" class="btn btn-default"
-                        onclick="hsAdd(null,'#import-modal','is-open')" {
+                        onclick=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "labor-process", title: "", template_columns: "" })) {
                         (icon::upload_icon("w-4 h-4"))
                         "导入"
                     }

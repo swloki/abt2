@@ -1,25 +1,92 @@
 //! Excel 导入导出路由
 //!
 //! 提供文件上传、进度轮询、模板下载、导出下载等通用接口。
+//! 使用 TypedPath 强类型路由 + RequestContext 权限校验。
 
 use std::sync::Arc;
 
-use axum::extract::{Multipart, Path, State};
+use axum::extract::{Multipart, State};
 use axum::http::{header, HeaderMap};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::Router;
+use axum_extra::routing::TypedPath;
+use serde::Deserialize;
 
 use crate::components::export_button::render_export_result;
 use crate::components::import_modal::{render_import_progress, render_import_result};
 use crate::errors::{Result as WebResult, WebError};
 use crate::state::AppState;
+use crate::utils::RequestContext;
 use abt_core::shared::excel::types::{ImportResult, ImportSource, RowError};
 use abt_core::shared::excel::helpers::write_headers;
 use abt_core::shared::types::PgPool;
+use abt_macros::require_permission;
 
-/// 构建 Excel 文件下载的 HTTP 响应头
+// ── 导出表单 ──
+
+#[derive(Deserialize)]
+pub struct ExportForm {
+    pub bom_id: Option<i64>,
+    pub product_code: Option<String>,
+}
+
+// ── TypedPath 路由定义 ──
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/excel/import/{import_type}")]
+pub struct ExcelImportUploadPath {
+    pub import_type: String,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/excel/import/{import_type}/progress/{task_id}")]
+pub struct ExcelImportProgressPath {
+    pub import_type: String,
+    pub task_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/excel/export/{export_type}")]
+pub struct ExcelExportStartPath {
+    pub export_type: String,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/excel/export/download/{task_id}")]
+pub struct ExcelExportDownloadPath {
+    pub task_id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/excel/template/{import_type}")]
+pub struct ExcelTemplatePath {
+    pub import_type: String,
+}
+
+// ── 路径常量（供前端组件生成 URL） ──
+
+pub const IMPORT_UPLOAD_PATH: &str = "/excel/import";
+pub const EXPORT_START_PATH: &str = "/excel/export";
+pub const EXPORT_DOWNLOAD_PATH: &str = "/excel/export/download";
+pub const TEMPLATE_PATH: &str = "/excel/template";
+
+// ── 路由注册 ──
+
+pub fn router() -> Router<AppState> {
+    Router::new()
+        .route(ExcelImportUploadPath::PATH, post(post_import_upload))
+        .route(ExcelImportProgressPath::PATH, get(get_import_progress))
+        .route(ExcelExportStartPath::PATH, post(post_export_start))
+        .route(ExcelExportDownloadPath::PATH, get(get_export_download))
+        .route(ExcelTemplatePath::PATH, get(get_template))
+}
+
+// ── Helper: 构建 Excel 下载响应头 ──
+
 fn excel_download_headers(filename: &str) -> HeaderMap {
+    let safe = sanitize_filename(filename);
+    let encoded = percent_encode(&format!("{}.xlsx", safe));
     let mut headers = HeaderMap::new();
     headers.insert(
         header::CONTENT_TYPE,
@@ -29,77 +96,98 @@ fn excel_download_headers(filename: &str) -> HeaderMap {
     );
     headers.insert(
         header::CONTENT_DISPOSITION,
-        format!("attachment; filename=\"{}\"", filename).parse().unwrap(),
+        format!("attachment; filename=\"download.xlsx\"; filename*=UTF-8''{}", encoded)
+            .parse()
+            .unwrap(),
     );
     headers
 }
 
-// ── 导出表单 ──
-
-#[derive(serde::Deserialize)]
-pub struct ExportForm {
-    pub bom_id: Option<i64>,
-    pub product_code: Option<String>,
+/// 清理文件名中的危险字符（防止 header 注入）
+fn sanitize_filename(name: &str) -> String {
+    name.chars()
+        .map(|c| if c == '"' || c == '\r' || c == '\n' || c == '\\' { '_' } else { c })
+        .collect()
 }
 
-// ── 路由注册 ──
-
-pub fn router() -> Router<AppState> {
-    Router::new()
-        .route("/excel/import/:import_type", post(post_import_upload))
-        .route("/excel/import/:import_type/progress/:task_id", get(get_import_progress))
-        .route("/excel/export/:export_type", post(post_export_start))
-        .route("/excel/export/download/:task_id", get(get_export_download))
-        .route("/excel/template/:import_type", get(get_template))
+/// 百分号编码（RFC 3986 unreserved + 允许 UTF-8 percent-encoding）
+fn percent_encode(input: &str) -> String {
+    let mut out = String::with_capacity(input.len() * 3);
+    for b in input.as_bytes() {
+        match *b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(*b as char),
+            _ => {
+                out.push('%');
+                out.push_str(&format!("{:02X}", b));
+            }
+        }
+    }
+    out
 }
 
 // ── Handler: 导入上传 ──
 
+#[require_permission("PRODUCT", "create")]
 pub async fn post_import_upload(
-    Path(import_type): Path<String>,
+    path: ExcelImportUploadPath,
+    ctx: RequestContext,
     State(state): State<AppState>,
     mut multipart: Multipart,
 ) -> WebResult<impl IntoResponse> {
+    let import_type = path.import_type.clone();
+
+    // 并发限制：快速检查是否有余量（非精确，但避免 spawn 后无限等待）
+    let semaphore = state.import_semaphore.clone();
+    if semaphore.available_permits() == 0 {
+        return Err(WebError::from(abt_core::shared::types::DomainError::Validation(
+            "当前导入任务过多，请稍后再试".into(),
+        )));
+    }
 
     // 提取文件
     let bytes = extract_file_bytes(&mut multipart)
         .await
         .map_err(|e| WebError::from(abt_core::shared::types::DomainError::Internal(e)))?;
 
-    // 生成 task_id
     let task_id = state.next_task_id();
-
+    let user_id = ctx.claims.sub;
     let pool = state.pool.clone();
     let import_progress = state.import_progress.clone();
     let import_type_for_spawn = import_type.clone();
+    let now = chrono::Utc::now();
 
-    // 异步执行导入（spawn 内统一管理状态写入）
+    // 异步执行导入
     tokio::spawn(async move {
-        let tracker = abt_core::shared::excel::helpers::ProgressTracker::new();
+        // 在 spawn 内获取信号量，持有直到导入完成
+        let _permit = match semaphore.acquire().await {
+            Ok(p) => p,
+            Err(_) => return, // semaphore 已关闭
+        };
 
-        // 设置总行数（预估，实际由 importer 调整）
+        let tracker = abt_core::shared::excel::helpers::ProgressTracker::new();
         tracker.set_total(100);
 
         // 初始化进度状态
-        import_progress.insert(
-            task_id,
-            crate::state::ImportTaskState {
-                status: crate::state::TaskStatus::Running,
-                current: tracker.snapshot().current,
-                total: tracker.snapshot().total,
-                result: None,
-            },
-        );
+        import_progress.insert(task_id, crate::state::ImportTaskState {
+            status: crate::state::TaskStatus::Running,
+            current: tracker.snapshot().current,
+            total: tracker.snapshot().total,
+            result: None,
+            user_id,
+            created_at: now,
+        });
 
         let result = execute_import(&pool, &import_type_for_spawn, ImportSource::Bytes(bytes), tracker.clone()).await;
 
-        // 更新最终状态（失败时构造包含错误信息的 ImportResult，避免 result=None 导致二次 500）
+        // 更新最终状态
         let final_state = match result {
             Ok(import_result) => crate::state::ImportTaskState {
                 status: crate::state::TaskStatus::Completed,
                 current: tracker.snapshot().current,
                 total: tracker.snapshot().total,
                 result: Some(import_result),
+                user_id,
+                created_at: now,
             },
             Err(e) => {
                 tracing::error!("Import task {} failed: {}", task_id, e);
@@ -113,40 +201,40 @@ pub async fn post_import_upload(
                         errors: vec![e.to_string()],
                         row_errors: vec![],
                     }),
+                    user_id,
+                    created_at: now,
                 }
             }
         };
         import_progress.insert(task_id, final_state);
     });
 
-    // 立即返回进度 HTML
     Ok(render_import_progress(&import_type, task_id, 0, 100))
 }
 
 // ── Handler: 导入进度轮询 ──
 
 pub async fn get_import_progress(
-    Path((import_type, task_id)): Path<(String, i64)>,
+    path: ExcelImportProgressPath,
+    ctx: RequestContext,
     State(state): State<AppState>,
 ) -> WebResult<impl IntoResponse> {
+    let user_id = ctx.claims.sub;
 
     let task_state = state
         .import_progress
-        .get(&task_id)
+        .get(&path.task_id)
+        .filter(|r| r.value().user_id == user_id)
         .ok_or_else(|| WebError::from(abt_core::shared::types::DomainError::NotFound(
-            format!("任务 {} 不存在", task_id),
+            format!("任务 {} 不存在", path.task_id),
         )))?;
 
     match &task_state.status {
         crate::state::TaskStatus::Running => {
-            let current = task_state.current;
-            let total = task_state.total;
-            Ok(render_import_progress(&import_type, task_id, current, total))
+            Ok(render_import_progress(&path.import_type, path.task_id, task_state.current, task_state.total))
         }
         crate::state::TaskStatus::Completed | crate::state::TaskStatus::Failed => {
-            let result = task_state
-                .result
-                .as_ref()
+            let result = task_state.result.as_ref()
                 .ok_or_else(|| WebError::from(abt_core::shared::types::DomainError::Internal(
                     anyhow::anyhow!("任务完成但结果缺失"),
                 )))?;
@@ -157,33 +245,38 @@ pub async fn get_import_progress(
 
 // ── Handler: 导出启动 ──
 
+#[require_permission("PRODUCT", "read")]
 pub async fn post_export_start(
-    Path(export_type): Path<String>,
+    path: ExcelExportStartPath,
+    ctx: RequestContext,
     State(state): State<AppState>,
     form: axum::extract::Form<ExportForm>,
 ) -> WebResult<impl IntoResponse> {
     let pool = state.pool.clone();
+    let user_id = ctx.claims.sub;
 
-    let (bytes, filename) = execute_export(&pool, &export_type, form.0)
+    let (bytes, filename) = execute_export(&pool, &path.export_type, form.0)
         .await
         .map_err(|e| WebError::from(abt_core::shared::types::DomainError::Internal(e)))?;
 
-    let task_id = state.store_export_file(bytes, &filename);
+    let safe_name = sanitize_filename(&filename);
+    let task_id = state.store_export_file(bytes, &safe_name, user_id);
 
-    Ok(render_export_result(task_id, &filename))
+    Ok(render_export_result(task_id, &safe_name))
 }
 
 // ── Handler: 导出下载 ──
 
 pub async fn get_export_download(
-    Path(task_id): Path<i64>,
+    path: ExcelExportDownloadPath,
+    ctx: RequestContext,
     State(state): State<AppState>,
 ) -> WebResult<impl IntoResponse> {
+    let user_id = ctx.claims.sub;
 
-    let file_info = state
-        .get_export_file(task_id)
+    let file_info = state.get_export_file(path.task_id, user_id)
         .ok_or_else(|| WebError::from(abt_core::shared::types::DomainError::NotFound(
-            format!("导出文件 {} 不存在或已过期", task_id),
+            format!("导出文件 {} 不存在或已过期", path.task_id),
         )))?;
 
     Ok((excel_download_headers(&file_info.filename), file_info.bytes).into_response())
@@ -192,18 +285,16 @@ pub async fn get_export_download(
 // ── Handler: 模板下载 ──
 
 pub async fn get_template(
-    Path(import_type): Path<String>,
+    path: ExcelTemplatePath,
 ) -> WebResult<impl IntoResponse> {
-
-    let bytes = generate_template(&import_type)
+    let bytes = generate_template(&path.import_type)
         .map_err(|e| WebError::from(abt_core::shared::types::DomainError::Internal(e)))?;
 
-    let filename = format!("{}_template.xlsx", import_type);
-
+    let filename = sanitize_filename(&format!("{}_template", path.import_type));
     Ok((excel_download_headers(&filename), bytes).into_response())
 }
 
-// ── Helper: 执行导入（分发到不同 importer）──
+// ── Helper: 执行导入 ──
 
 async fn execute_import(
     pool: &PgPool,
@@ -219,7 +310,6 @@ async fn execute_import(
         "labor-process" => {
             let importer = abt_core::shared::excel::labor_process_import::LaborProcessImporter::new(pool.clone(), tracker);
             let lp_result = importer.import(source).await?;
-            // 转换 LaborProcessImportResult → ImportResult
             Ok(convert_labor_process_result(lp_result))
         }
         "warehouse-location" => {
@@ -253,7 +343,7 @@ fn convert_labor_process_result(lp_result: abt_core::shared::excel::labor_proces
     }
 }
 
-// ── Helper: 执行导出（分发到不同 exporter）──
+// ── Helper: 执行导出 ──
 
 async fn execute_export(
     pool: &PgPool,
@@ -326,8 +416,9 @@ async fn extract_file_bytes(multipart: &mut Multipart) -> anyhow::Result<Vec<u8>
             .and_then(|s| s.to_str())
             .unwrap_or("");
 
-        if ext != "xlsx" && ext != "xls" {
-            anyhow::bail!("仅支持 .xlsx 和 .xls 格式");
+        // 只接受 .xlsx（移除 .xls，因为解析器只支持 ZIP-based .xlsx）
+        if !ext.eq_ignore_ascii_case("xlsx") {
+            anyhow::bail!("仅支持 .xlsx 格式");
         }
 
         let bytes = field.bytes().await?;

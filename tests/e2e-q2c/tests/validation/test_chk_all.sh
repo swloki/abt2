@@ -37,7 +37,7 @@ run_chk() {
 
     if [[ -z "$resolved" ]]; then
         echo -e "  ${YELLOW}SKIP${NC} — SQL 文件不存在"
-        ((SKIP_COUNT++))
+        ((SKIP_COUNT++)) || true
         return
     fi
 
@@ -47,19 +47,19 @@ run_chk() {
 
     if [[ -z "$result" ]]; then
         echo -e "  ${GREEN}PASS${NC} — 0 行返回（无差异）"
-        ((PASS_COUNT++))
+        ((PASS_COUNT++)) || true
     else
         local line_count
         line_count=$(echo "$result" | wc -l)
         if [[ "$line_count" -eq 0 ]]; then
             echo -e "  ${GREEN}PASS${NC} — 无差异"
-            ((PASS_COUNT++))
+            ((PASS_COUNT++)) || true
         else
             echo -e "  ${RED}FAIL${NC} — ${line_count} 行差异:"
             echo "$result" | head -10 | while IFS= read -r line; do
                 echo "    $line"
             done
-            ((FAIL_COUNT++))
+            ((FAIL_COUNT++)) || true
         fi
     fi
 }

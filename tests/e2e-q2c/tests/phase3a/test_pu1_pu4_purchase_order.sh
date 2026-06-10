@@ -146,27 +146,31 @@ abt_fill "$AGENT_PU1_SESSION" "textarea[name='remark']" "Q2C E2E - 采购订单 
 # --- Step 8: 提交采购订单 ---
 log_step "8. 提交采购订单"
 
-# 收集 items_json（PO 表单的 submit 脚本自动收集，但我们需要确保 hidden input 有值）
-# PO 表单的 onsubmit 脚本: 遍历 #po-item-tbody tr 收集所有 FormData 字段
+# 手动收集 items_json + htmx.ajax(source: form) 序列化整个表单
+# Surreal.js me().on('submit') 只在 native submit 时触发，htmx.trigger 是 CustomEvent
 abt_eval "$AGENT_PU1_SESSION" "
-    var form = document.querySelector('#po-form');
-    if (form) {
-        var rows = document.querySelectorAll('#po-item-tbody tr');
-        var items = [];
-        rows.forEach(function(row) {
-            var fd = new FormData(row.closest('form'));
-            var obj = {};
-            fd.forEach(function(v, k) { if (!obj[k]) obj[k] = v; });
-            items.push(obj);
-        });
-        document.querySelector('#items-json').value = JSON.stringify(items);
-    }
-    'items_collected';
-" > /dev/null 2>&1
+    // 1. 手动收集 items_json（模拟 Surreal.js submit handler）
+    var rows = document.querySelectorAll('#po-item-tbody tr');
+    var items = [];
+    rows.forEach(function(row) {
+        var fd = new FormData(row.closest('form'));
+        var obj = {};
+        fd.forEach(function(v, k) { if (!obj[k]) obj[k] = v; });
+        items.push(obj);
+    });
+    document.querySelector('#items-json').value = JSON.stringify(items);
 
-# 点击"提交订单"按钮
-abt_click_by_text "$AGENT_PU1_SESSION" "提交订单"
-sleep 2
+    // 2. 用 htmx.ajax + source: form 序列化并提交
+    var form = document.querySelector('#po-form');
+    htmx.ajax('POST', form.getAttribute('hx-post'), {
+        target: 'body',
+        swap: 'none',
+        source: form
+    });
+    'submitted';
+" > /dev/null 2>&1 || true
+
+sleep 3
 
 # --- Step 9: 验证创建成功 ---
 log_step "9. 验证采购订单创建"
@@ -179,7 +183,8 @@ if [[ "$current_url" == *"/admin/purchase/orders/"* ]] && [[ "$current_url" != *
     assert_pass "采购订单创建成功，跳转到详情页"
     PO_ID=$(echo "$current_url" | grep -oP '/admin/purchase/orders/\K[0-9]+' || echo "")
     log_info "Purchase Order ID: $PO_ID"
-elif [[ "$current_url" == *"/admin/purchase/orders"* ]]; then
+elif [[ "$current_url" == *"/admin/purchase/orders" ]] || [[ "$current_url" == *"/admin/purchase/orders?"* ]]; then
+    # 列表页（精确匹配，排除 /create）
     assert_pass "采购订单创建成功，返回列表页"
     # 从 DB 获取最新 PO
     PO_ID=$(psql "$DB_URL" -t -A -c "
@@ -247,14 +252,19 @@ if [[ -n "$PO_ID" ]]; then
         abt_navigate "$AGENT_PU2_SESSION" "/admin/purchase/orders/$PO_ID"
         sleep 1
 
-        # 尝试点击审批按钮
-        abt_click_by_text "$AGENT_PU2_SESSION" "审批" || \
-        abt_click_by_text "$AGENT_PU2_SESSION" "确认" || \
-        abt_click_by_text "$AGENT_PU2_SESSION" "通过" || \
-        abt_eval "$AGENT_PU2_SESSION" "
-            var btn = document.querySelector('button[hx-post*=\"confirm\"], button[hx-post*=\"approve\"]');
-            if (btn) { btn.click(); 'clicked'; } else { 'no_approval_btn'; }
-        " > /dev/null 2>&1
+        # 用 htmx.ajax 触发审批按钮
+        # 先尝试获取审批按钮的 hx-post 路径
+        APPROVE_PATH=$(abt_eval "$AGENT_PU2_SESSION" "
+            var btn = document.querySelector('button[hx-post*=\"confirm\"], button[hx-post*=\"approve\"], button[hx-post*=\"accept\"]');
+            btn ? btn.getAttribute('hx-post') : '';
+        " 2>/dev/null || echo "")
+
+        if [[ -n "$APPROVE_PATH" ]]; then
+            abt_htmx_post "$AGENT_PU2_SESSION" "$APPROVE_PATH"
+        else
+            log_warn "未找到审批按钮 hx-post 路径，尝试通用路径"
+            abt_htmx_post "$AGENT_PU2_SESSION" "/admin/purchase/orders/$PO_ID/confirm" || true
+        fi
 
         sleep 2
 

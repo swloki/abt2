@@ -11,8 +11,8 @@ JOIN products p ON poi.product_id = p.product_id
 LEFT JOIN (
     SELECT ani.product_id, an.purchase_order_id, SUM(ani.declared_qty) AS declared_qty
     FROM arrival_notice_items ani
-    JOIN arrival_notices an ON ani.arrival_notice_id = an.id AND an.deleted_at IS NULL
-    WHERE ani.deleted_at IS NULL
+    JOIN arrival_notices an ON ani.notice_id = an.id AND an.deleted_at IS NULL
+    WHERE 1=1
     GROUP BY ani.product_id, an.purchase_order_id
 ) sri ON sri.product_id = poi.product_id AND sri.purchase_order_id = po.id
 WHERE po.deleted_at IS NULL

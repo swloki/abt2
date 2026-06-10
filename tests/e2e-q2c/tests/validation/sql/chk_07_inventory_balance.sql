@@ -5,6 +5,6 @@ SELECT sl.product_id, p.product_code, sl.warehouse_id, w.code AS wh_code,
 FROM stock_ledger sl
 JOIN products p ON sl.product_id = p.product_id
 JOIN warehouses w ON sl.warehouse_id = w.id
-WHERE sl.deleted_at IS NULL
+WHERE 1=1
   AND sl.quantity < 0;
 -- 预期: 0 行返回（无负库存）

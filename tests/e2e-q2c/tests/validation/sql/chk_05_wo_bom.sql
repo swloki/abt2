@@ -9,13 +9,13 @@ WITH bom_usage AS (
     JOIN work_orders wo ON wo.product_id = (
         SELECT product_id FROM products WHERE product_code = 'PRD-FG-001' LIMIT 1
     )
-    WHERE b.bom_name = '成品A-BOM' AND bn.deleted_at IS NULL
+    WHERE b.bom_name = '成品A-BOM' 
 ),
 actual_usage AS (
     SELECT mr_items.product_id, SUM(mr_items.requested_qty) AS actual_total
     FROM material_requisition_items mr_items
     JOIN material_requisitions mr ON mr_items.requisition_id = mr.id AND mr.deleted_at IS NULL
-    WHERE mr_items.deleted_at IS NULL
+    WHERE 1=1
     GROUP BY mr_items.product_id
 )
 SELECT bu.product_code, bu.expected_total, COALESCE(au.actual_total, 0) AS actual_total,

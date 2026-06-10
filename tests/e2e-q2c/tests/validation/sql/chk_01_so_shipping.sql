@@ -12,7 +12,7 @@ LEFT JOIN (
     SELECT sri.order_item_id, SUM(sri.shipped_qty) AS shipped_qty
     FROM shipping_request_items sri
     JOIN shipping_requests sr ON sri.shipping_request_id = sr.id AND sr.deleted_at IS NULL AND sr.status = 4
-    WHERE sri.deleted_at IS NULL
+    WHERE sr.deleted_at IS NULL
     GROUP BY sri.order_item_id
 ) sri ON sri.order_item_id = soi.id
 WHERE so.deleted_at IS NULL

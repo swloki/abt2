@@ -27,20 +27,27 @@ GL_FOUND=false
 
 for TABLE in "${GL_TABLES[@]}"; do
     COUNT=$(psql "$DB_URL" -t -A -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '$TABLE'" 2>/dev/null || echo "0")
-    if [[ "$COUNT" -gt 0 ]]; then
+    if [[ "${COUNT:-0}" -gt 0 ]]; then
         log_info "找到总账相关表: $TABLE"
         GL_FOUND=true
 
         # 尝试验证借贷平衡
+        # 优先尝试带 deleted_at 的查询，失败则尝试不带
         DEBIT=$(psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(debit),0) FROM $TABLE WHERE deleted_at IS NULL" 2>/dev/null || \
-                psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END),0) FROM $TABLE WHERE deleted_at IS NULL" 2>/dev/null || echo "0")
+                psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(debit),0) FROM $TABLE" 2>/dev/null || \
+                psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END),0) FROM $TABLE WHERE deleted_at IS NULL" 2>/dev/null || \
+                psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END),0) FROM $TABLE" 2>/dev/null || \
+                echo "0")
         CREDIT=$(psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(credit),0) FROM $TABLE WHERE deleted_at IS NULL" 2>/dev/null || \
-                 psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END),0) FROM $TABLE WHERE deleted_at IS NULL" 2>/dev/null || echo "0")
+                 psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(credit),0) FROM $TABLE" 2>/dev/null || \
+                 psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END),0) FROM $TABLE WHERE deleted_at IS NULL" 2>/dev/null || \
+                 psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END),0) FROM $TABLE" 2>/dev/null || \
+                 echo "0")
 
         log_info "借方合计: $DEBIT"
         log_info "贷方合计: $CREDIT"
 
-        if [[ "$DEBIT" == "$CREDIT" ]]; then
+        if [[ "${DEBIT:-0}" == "${CREDIT:-0}" ]]; then
             assert_pass "总账借贷平衡 (借方=$DEBIT = 贷方=$CREDIT)"
         else
             log_warn "借贷不平衡 (借方=$DEBIT, 贷方=$CREDIT, 差额=$(echo "$DEBIT - $CREDIT" | bc 2>/dev/null || echo '?'))"

@@ -192,6 +192,12 @@ fn modules() -> Vec<NavModule> {
                     icon: NavIcon::Sliders,
                     permission: Some(("PURCHASE_ORDER", "read")),
                 },
+                NavItem {
+                    name: "供应商管理",
+                    path: "/admin/md/suppliers",
+                    icon: NavIcon::Building,
+                    permission: Some(("SUPPLIER", "read")),
+                },
             ],
         },
         NavModule {
@@ -267,10 +273,10 @@ fn modules() -> Vec<NavModule> {
         },
         NavModule {
             id: "md",
-            name: "主数据",
+            name: "工程",
             items: vec![
                 NavItem {
-                    name: "主数据总览",
+                    name: "工程总览",
                     path: "/admin/md",
                     icon: NavIcon::Home,
                     permission: Some(("PRODUCT", "read")),
@@ -316,12 +322,6 @@ fn modules() -> Vec<NavModule> {
                     path: "/admin/md/routings",
                     icon: NavIcon::Wrench,
                     permission: Some(("BOM", "read")),
-                },
-                NavItem {
-                    name: "供应商管理",
-                    path: "/admin/md/suppliers",
-                    icon: NavIcon::Building,
-                    permission: Some(("PURCHASE_ORDER", "read")),
                 },
             ],
         },

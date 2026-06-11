@@ -81,7 +81,6 @@ pub async fn get_detail(path: ExpenseDetailPath, ctx: RequestContext) -> Result<
     };
 
     let content = html! {
-        style { (PreEscaped(include_str!("../../static/expense-detail.css"))) }
 
         // 返回链接
         a.back-link href=(ExpenseListPath::PATH) {

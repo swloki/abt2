@@ -323,6 +323,12 @@ fn modules() -> Vec<NavModule> {
                     icon: NavIcon::Wrench,
                     permission: Some(("BOM", "read")),
                 },
+                NavItem {
+                    name: "供应商管理",
+                    path: "/admin/md/suppliers",
+                    icon: NavIcon::Building,
+                    permission: Some(("SUPPLIER", "read")),
+                },
             ],
         },
         NavModule {

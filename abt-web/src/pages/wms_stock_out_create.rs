@@ -215,12 +215,12 @@ fn stock_out_create_content(
 
             // ── Type Switch ──
             div style="display:flex;gap:var(--space-3);margin-bottom:var(--space-6)" {
-                div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-5) var(--space-4);border:2px solid var(--danger);border-radius:var(--radius-lg);background:var(--danger-bg);cursor:pointer" {
+                div id="type-card-sales" onclick="wmsStockOutSelectType('sales')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-5) var(--space-4);border:2px solid var(--danger);border-radius:var(--radius-lg);background:var(--danger-bg);cursor:pointer" {
                     (icon::upload_icon("w-7 h-7"))
                     span style="font-weight:600;font-size:var(--text-base);color:var(--fg)" { "销售出库" }
                     span style="font-size:var(--text-xs);color:var(--muted);text-align:center" { "SALES_SHIPMENT\n关联发货申请 / 销售订单\n消耗 SOFT 预留" }
                 }
-                div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-5) var(--space-4);border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--bg);cursor:pointer" {
+                div id="type-card-material" onclick="wmsStockOutSelectType('material')" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);padding:var(--space-5) var(--space-4);border:2px solid var(--border);border-radius:var(--radius-lg);background:var(--bg);cursor:pointer" {
                     (icon::clipboard_document_icon("w-7 h-7"))
                     span style="font-weight:600;font-size:var(--text-base);color:var(--fg)" { "生产领料" }
                     span style="font-size:var(--text-xs);color:var(--muted);text-align:center" { "MATERIAL_ISSUE\n关联工单 / 领料单\n消耗 HARD 预留" }
@@ -254,7 +254,7 @@ fn stock_out_create_content(
                         }
                         div class="form-group" {
                             label class="form-label" { "预留类型" }
-                            input class="form-input" type="text" value="SOFT 预留（发货消耗）" readonly style="background:var(--surface);color:var(--danger)";
+                            input id="reservation-type-input" class="form-input" type="text" value="SOFT 预留（发货消耗）" readonly style="background:var(--surface);color:var(--danger)";
                         }
                     }
                 }
@@ -350,7 +350,7 @@ fn stock_out_create_content(
                     div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-4)" {
                         div style="text-align:center;padding:var(--space-3);background:var(--bg);border-radius:var(--radius-md)" {
                             div style="font-size:11px;color:var(--muted);margin-bottom:2px" { "预留类型" }
-                            div style="font-size:var(--text-base);font-weight:600;font-family:var(--font-mono);color:var(--danger)" { "SOFT" }
+                            div id="reservation-type-badge" style="font-size:var(--text-base);font-weight:600;font-family:var(--font-mono);color:var(--danger)" { "SOFT" }
                         }
                         div style="text-align:center;padding:var(--space-3);background:var(--bg);border-radius:var(--radius-md)" {
                             div style="font-size:11px;color:var(--muted);margin-bottom:2px" { "已预留量" }
@@ -510,6 +510,32 @@ fn stock_out_create_content(
                 row.querySelector('.line-num').textContent = i + 1;
             });
             wmsStockOutCalcSummary();
+        }
+
+        // Type switch: toggle card visual state and update form fields
+        function wmsStockOutSelectType(type) {
+            var sales = document.getElementById('type-card-sales');
+            var material = document.getElementById('type-card-material');
+            var selectEl = document.querySelector('select[name=source_type]');
+            var resInput = document.getElementById('reservation-type-input');
+            var resBadge = document.getElementById('reservation-type-badge');
+            if (type === 'sales') {
+                sales.style.border = '2px solid var(--danger)';
+                sales.style.background = 'var(--danger-bg)';
+                material.style.border = '2px solid var(--border)';
+                material.style.background = 'var(--bg)';
+                selectEl.value = 'shipping';
+                resInput.value = 'SOFT 预留（发货消耗）';
+                resBadge.textContent = 'SOFT';
+            } else {
+                material.style.border = '2px solid var(--danger)';
+                material.style.background = 'var(--danger-bg)';
+                sales.style.border = '2px solid var(--border)';
+                sales.style.background = 'var(--bg)';
+                selectEl.value = 'requisition';
+                resInput.value = 'HARD 预留（生产领料）';
+                resBadge.textContent = 'HARD';
+            }
         }
         </script>"#))
     }

@@ -8,12 +8,14 @@ use abt_core::master_data::product::ProductService;
 use abt_core::master_data::supplier::SupplierService;
 use abt_core::purchase::enums::PurchaseQuotationStatus;
 use abt_core::purchase::quotation::model::*;
+use abt_core::purchase::order::PurchaseOrderService;
 use abt_core::purchase::quotation::PurchaseQuotationService;
 use abt_core::shared::identity::UserService;
 
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
+use crate::routes::purchase_order::PODetailPath;
 use crate::routes::purchase_quotation::*;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
@@ -152,6 +154,20 @@ pub async fn delete_pq(
     Ok(([("HX-Redirect", PQListPath.to_string())], Html(String::new())))
 }
 
+#[require_permission("PURCHASE_ORDER", "create")]
+pub async fn convert_pq(
+    path: PQConvertPath,
+    ctx: RequestContext,
+) -> Result<impl IntoResponse> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let order_svc = state.purchase_order_service();
+
+    let order_id = order_svc.create_from_quotation(&service_ctx, &mut conn, path.id, None).await?;
+
+    let redirect = PODetailPath { id: order_id }.to_string();
+    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+}
+
 // ── Workflow Steps ──
 
 fn workflow_steps(current: PurchaseQuotationStatus) -> Markup {
@@ -236,7 +252,13 @@ fn pq_detail_page(
                 }
                 div class="page-actions" {
                     button class="btn btn-default" { "打印" }
-                    button class="btn btn-primary" { "转采购订单" }
+                    @if pq.status == PurchaseQuotationStatus::Active {
+                        button class="btn btn-primary"
+                            hx-post=(PQConvertPath { id: pq.id }.to_string())
+                            hx-confirm="确认将此报价单转为采购订单？" {
+                            "转采购订单"
+                        }
+                    }
                     @if pq.status == PurchaseQuotationStatus::Draft {
                         button class="btn btn-primary"
                             hx-post=(PQActivatePath { id: pq.id }.to_string())

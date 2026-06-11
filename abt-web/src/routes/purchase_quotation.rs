@@ -56,6 +56,12 @@ pub struct PQDeletePath {
     pub id: i64,
 }
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/purchase/quotations/{id}/convert")]
+pub struct PQConvertPath {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -70,4 +76,5 @@ pub fn router() -> Router<AppState> {
         .route(PQDeletePath::PATH, post(purchase_quotation_detail::delete_pq))
         .route(PQActivatePath::PATH, post(purchase_quotation_detail::activate_pq))
         .route(PQCancelPath::PATH, post(purchase_quotation_detail::cancel_pq))
+        .route(PQConvertPath::PATH, post(purchase_quotation_detail::convert_pq))
 }

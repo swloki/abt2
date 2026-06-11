@@ -207,7 +207,7 @@ fn requisition_table_fragment(
     warehouses: &[abt_core::wms::warehouse::model::Warehouse],
     params: &RequisitionQueryParams,
 ) -> Markup {
-    let query = build_query_string(params);
+    let _query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
     let total_count = result.total;
 

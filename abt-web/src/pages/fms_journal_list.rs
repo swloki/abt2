@@ -7,7 +7,6 @@ use serde::Deserialize;
 use abt_core::fms::cash_journal::model::{CashJournal, CashJournalFilter};
 use abt_core::fms::cash_journal::CashJournalService;
 use abt_core::fms::enums::{CashDirection, CounterpartyType, JournalStatus, JournalType};
-use abt_core::shared::types::PgExecutor;
 use abt_core::shared::types::PaginatedResult;
 use std::collections::HashMap;
 
@@ -137,11 +136,10 @@ fn build_query_string(params: &JournalQueryParams) -> String {
     if let Some(v) = params.status {
         parts.push(format!("status={v}"));
     }
-    if let Some(v) = params.page {
-        if v > 1 {
+    if let Some(v) = params.page
+        && v > 1 {
             parts.push(format!("page={v}"));
         }
-    }
     if parts.is_empty() {
         String::new()
     } else {

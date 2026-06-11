@@ -147,7 +147,7 @@ pub async fn get_transfer_table(
 fn build_filter(params: &TransferQueryParams) -> abt_core::wms::transfer::TransferFilter {
     abt_core::wms::transfer::TransferFilter {
         doc_number: params.doc_number.clone(),
-        status: params.status.and_then(|s| TransferStatus::from_i16(s)),
+        status: params.status.and_then(TransferStatus::from_i16),
         from_warehouse_id: None,
         to_warehouse_id: None,
     }

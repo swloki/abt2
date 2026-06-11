@@ -317,7 +317,7 @@ fn detail_page(
         TrackingNodeType::IqcInspected,
         TrackingNodeType::Warehoused,
     ];
-    let completed_count = all_node_types.iter().filter(|nt| tracked_nodes.contains_key(nt)).count();
+    let _completed_count = all_node_types.iter().filter(|nt| tracked_nodes.contains_key(nt)).count();
     let active_index = all_node_types.iter().position(|nt| !tracked_nodes.contains_key(nt)).unwrap_or(all_node_types.len());
 
     html! { div {
@@ -470,7 +470,7 @@ fn detail_page(
                         div class=(dot_cls) {}
                         div class=(if is_active { "track-content active-content" } else { "track-content" }) {
                             div class="track-info" {
-                                div class=(if is_active { "track-label" } else if is_completed { "track-label" } else { "track-label muted" }) {
+                                div class=(if is_active || is_completed { "track-label" } else { "track-label muted" }) {
                                     (label)
                                     @if is_active {
                                         span style="font-size:11px;font-weight:500;padding:2px 10px;border-radius:var(--radius-pill);background:rgba(37,99,235,0.1);color:var(--accent)" { "当前" }

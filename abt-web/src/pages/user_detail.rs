@@ -55,7 +55,7 @@ pub async fn get_user_detail(
     // Compute data scope
     let data_scope_label = compute_data_scope(&user, &user_depts);
 
-    let content = user_detail_page(&user, &all_roles, &all_depts, &user_depts, &grouped_perms, &data_scope_label);
+    let content = user_detail_page(&user, &all_roles, &all_depts, &user_depts, &grouped_perms, data_scope_label);
     let detail_path_str = UserDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         is_htmx,

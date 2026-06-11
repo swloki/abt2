@@ -55,11 +55,10 @@ pub async fn get_cycle_count_detail(
     // resolve bin codes
     let mut bin_codes: HashMap<i64, String> = HashMap::new();
     for item in &items {
-        if !bin_codes.contains_key(&item.bin_id) {
-            if let Ok(bww) = wh_svc.get_bin_with_warehouse(&service_ctx, &mut conn, item.bin_id).await {
+        if !bin_codes.contains_key(&item.bin_id)
+            && let Ok(bww) = wh_svc.get_bin_with_warehouse(&service_ctx, &mut conn, item.bin_id).await {
                 bin_codes.insert(item.bin_id, bww.bin.code);
             }
-        }
     }
 
     let content = cycle_count_detail_page(&cc, &items, &wh_name, &zone_name, &bin_codes);

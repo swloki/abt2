@@ -78,11 +78,10 @@ async fn resolve_operator_names<S: UserService>(
 ) -> HashMap<i64, String> {
     let mut map = HashMap::new();
     for item in items {
-        if !map.contains_key(&item.operator_id) {
-            if let Ok(user) = svc.get_user(ctx, db, item.operator_id).await {
+        if !map.contains_key(&item.operator_id)
+            && let Ok(user) = svc.get_user(ctx, db, item.operator_id).await {
                 map.insert(item.operator_id, user.display_name.unwrap_or_default());
             }
-        }
     }
     map
 }

@@ -796,6 +796,7 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
 }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn detail_panel(
     category: &Category,
     parent_name: &str,
@@ -949,7 +950,7 @@ fn detail_panel(
                 "编辑分类",
                 "保存",
                 "edit-category-form",
-                &update_url,
+                update_url,
                 html! {
                     div class="form-field" {
                         label { "分类名称" }

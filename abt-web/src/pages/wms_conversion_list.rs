@@ -86,7 +86,7 @@ pub async fn get_conversion_table(
 
 fn build_filter(params: &ConversionQueryParams) -> abt_core::wms::form_conversion::ConversionFilter {
     abt_core::wms::form_conversion::ConversionFilter {
-        status: params.status.and_then(|s| ConversionStatus::from_i16(s)),
+        status: params.status.and_then(ConversionStatus::from_i16),
         warehouse_id: None,
     }
 }

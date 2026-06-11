@@ -159,7 +159,7 @@ impl InventoryCascadeService for InventoryCascadeServiceImpl {
             stocks.into_iter().map(|s| (s.product_id, s.total_stock)).collect()
         };
 
-        let total_quantity = stock_map.get(&product.product_id).copied().unwrap_or(Decimal::ZERO);
+        let _total_quantity = stock_map.get(&product.product_id).copied().unwrap_or(Decimal::ZERO);
 
         // 7. 填充库存
         for group in &mut bom_groups {

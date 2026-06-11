@@ -62,11 +62,10 @@ async fn resolve_operator_names<S: UserService>(
     }
     let mut map = HashMap::new();
     for id in unique_ids {
-        if !map.contains_key(&id) {
-            if let Ok(user) = svc.get_user(ctx, db, id).await {
+        if !map.contains_key(&id)
+            && let Ok(user) = svc.get_user(ctx, db, id).await {
                 map.insert(id, user.display_name.unwrap_or_default());
             }
-        }
     }
     map
 }
@@ -83,11 +82,10 @@ async fn resolve_wh_names<S: WarehouseService>(
     }
     let mut map = HashMap::new();
     for id in unique_ids {
-        if !map.contains_key(&id) {
-            if let Ok(wh) = svc.get(ctx, db, id).await {
+        if !map.contains_key(&id)
+            && let Ok(wh) = svc.get(ctx, db, id).await {
                 map.insert(id, wh.name);
             }
-        }
     }
     map
 }

@@ -17,7 +17,7 @@ use abt_macros::require_permission;
 
 // ── Form Data ──
 
-#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub(crate) struct CreateCustomerForm {
     // 基本信息
     customer_name: String,
@@ -61,7 +61,7 @@ pub async fn get_customer_create(
 
     // 获取活跃用户列表（负责业务员下拉）
     let user_svc = state.user_service();
-    let users = user_svc.list_users_with_roles(&service_ctx, &mut *conn)
+    let users = user_svc.list_users_with_roles(&service_ctx, &mut conn)
         .await
         .unwrap_or_default()
         .into_iter()

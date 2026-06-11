@@ -174,12 +174,11 @@ impl ProductionBatchRepo {
             param_idx += 1;
             where_clauses.push(format!("pb.status = ${param_idx}"));
         }
-        if let Some(kw) = &filter.keyword {
-            if !kw.is_empty() {
+        if let Some(kw) = &filter.keyword
+            && !kw.is_empty() {
                 param_idx += 1;
                 where_clauses.push(format!("pb.batch_no ILIKE ${param_idx}"));
             }
-        }
 
         let where_sql = where_clauses.join(" AND ");
 
@@ -191,11 +190,10 @@ impl ProductionBatchRepo {
         if let Some(st) = filter.status {
             count_query = count_query.bind(st.as_i16());
         }
-        if let Some(kw) = &filter.keyword {
-            if !kw.is_empty() {
+        if let Some(kw) = &filter.keyword
+            && !kw.is_empty() {
                 count_query = count_query.bind(format!("%{kw}%"));
             }
-        }
         let total: i64 = count_query.fetch_one(&mut *executor).await?;
 
         // Data query
@@ -219,11 +217,10 @@ impl ProductionBatchRepo {
         if let Some(st) = filter.status {
             data_query = data_query.bind(st.as_i16());
         }
-        if let Some(kw) = &filter.keyword {
-            if !kw.is_empty() {
+        if let Some(kw) = &filter.keyword
+            && !kw.is_empty() {
                 data_query = data_query.bind(format!("%{kw}%"));
             }
-        }
         data_query = data_query.bind(page_size as i64).bind(offset as i64);
         let items = data_query.fetch_all(&mut *executor).await?;
 

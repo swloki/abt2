@@ -5,6 +5,7 @@ use sqlx::FromRow;
 pub struct ProductionExceptionRepo;
 
 impl ProductionExceptionRepo {
+#[allow(clippy::too_many_arguments)]
     pub async fn insert(
         executor: &mut sqlx::postgres::PgConnection,
         doc_number: &str,
@@ -95,14 +96,13 @@ impl ProductionExceptionRepo {
             param_idx += 1;
             where_clauses.push(format!("pe.reason_category = ${param_idx}"));
         }
-        if let Some(kw) = &filter.keyword {
-            if !kw.is_empty() {
+        if let Some(kw) = &filter.keyword
+            && !kw.is_empty() {
                 param_idx += 1;
                 where_clauses.push(format!(
                     "(pe.doc_number ILIKE ${param_idx} OR pe.description ILIKE ${param_idx})"
                 ));
             }
-        }
         if filter.date_from.is_some() {
             param_idx += 1;
             where_clauses.push(format!("pe.found_at::date >= ${param_idx}"));
@@ -122,9 +122,8 @@ impl ProductionExceptionRepo {
         if let Some(t) = filter.exception_type { count_q = count_q.bind(t.as_i16()); }
         if let Some(s) = filter.status { count_q = count_q.bind(s.as_i16()); }
         if let Some(r) = filter.reason_category { count_q = count_q.bind(r.as_i16()); }
-        if let Some(kw) = &filter.keyword {
-            if !kw.is_empty() { count_q = count_q.bind(format!("%{kw}%")); }
-        }
+        if let Some(kw) = &filter.keyword
+            && !kw.is_empty() { count_q = count_q.bind(format!("%{kw}%")); }
         if let Some(d) = filter.date_from { count_q = count_q.bind(d); }
         if let Some(d) = filter.date_to { count_q = count_q.bind(d); }
         let total = count_q.fetch_one(&mut *executor).await?;
@@ -151,9 +150,8 @@ impl ProductionExceptionRepo {
         if let Some(t) = filter.exception_type { data_q = data_q.bind(t.as_i16()); }
         if let Some(s) = filter.status { data_q = data_q.bind(s.as_i16()); }
         if let Some(r) = filter.reason_category { data_q = data_q.bind(r.as_i16()); }
-        if let Some(kw) = &filter.keyword {
-            if !kw.is_empty() { data_q = data_q.bind(format!("%{kw}%")); }
-        }
+        if let Some(kw) = &filter.keyword
+            && !kw.is_empty() { data_q = data_q.bind(format!("%{kw}%")); }
         if let Some(d) = filter.date_from { data_q = data_q.bind(d); }
         if let Some(d) = filter.date_to { data_q = data_q.bind(d); }
         data_q = data_q.bind(page_size as i64).bind(offset as i64);

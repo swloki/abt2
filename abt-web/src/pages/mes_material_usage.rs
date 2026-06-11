@@ -148,6 +148,7 @@ fn material_usage_page(
     }}
 }
 
+#[allow(clippy::too_many_arguments)]
 fn usage_data_fragment(
     wo_info: &abt_core::mes::dashboard::model::WoBasicInfo,
     bom_items: &[abt_core::mes::dashboard::model::BomCompareItem],

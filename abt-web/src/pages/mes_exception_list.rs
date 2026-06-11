@@ -160,7 +160,7 @@ fn exception_table_fragment(
                                     (item.description.as_deref().unwrap_or("—"))
                                 }
                                 td class="num-right mono" {
-                                    (item.impact_qty.map(|q| crate::utils::fmt_qty(q)).unwrap_or_else(|| "—".to_string()))
+                                    (item.impact_qty.map(crate::utils::fmt_qty).unwrap_or_else(|| "—".to_string()))
                                 }
                                 td { (item.found_at.format("%Y-%m-%d %H:%M")) }
                                 td { (exception_status_label(&item.status)) }

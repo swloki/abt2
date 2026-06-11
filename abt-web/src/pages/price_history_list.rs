@@ -36,7 +36,7 @@ pub struct PriceHistoryQueryParams {
 
 // ── Enriched Row (owned) ──
 
-pub struct PriceHistoryRow {
+#[allow(dead_code)]
     pub log_id: i64,
     pub product_id: i64,
     pub product_code: String,

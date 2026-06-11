@@ -875,7 +875,7 @@ fn price_history_diff_item(entry: &PriceLogEntry) -> Markup {
         }
         _ => "—".into(),
     };
-    let is_up = entry.old_price.map_or(false, |old| entry.new_price >= old);
+    let is_up = entry.old_price.is_some_and(|old| entry.new_price >= old);
     let badge_class = if is_up { "change-badge up" } else { "change-badge down" };
 
     html! {

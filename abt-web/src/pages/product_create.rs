@@ -49,7 +49,7 @@ pub async fn get_product_create(
 
     let copy_source = if let Some(id) = params.copy_from {
         let svc = state.product_service();
-        Some(svc.get(&service_ctx, &mut *conn, id).await?)
+        Some(svc.get(&service_ctx, &mut conn, id).await?)
     } else {
         None
     };

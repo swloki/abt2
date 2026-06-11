@@ -39,7 +39,7 @@ pub struct SupplierDetailParams {
 
 // ── Form request ──
 
-#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct POCreateForm {
     pub supplier_id: i64,
     pub order_date: String,

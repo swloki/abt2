@@ -60,8 +60,8 @@ pub async fn get_transfer_detail(
     let mut product_specs: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     let mut product_units: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     for item in &items {
-        if !product_names.contains_key(&item.product_id) {
-            if let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.product_id).await {
+        if !product_names.contains_key(&item.product_id)
+            && let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.product_id).await {
                 product_codes.insert(item.product_id, p.product_code.clone());
                 product_names.insert(item.product_id, p.pdt_name.clone());
                 let spec = p.meta.specification.trim().to_string();
@@ -70,7 +70,6 @@ pub async fn get_transfer_detail(
                 }
                 product_units.insert(item.product_id, p.unit.clone());
             }
-        }
     }
 
     let detail_path = TransferDetailPath { id: path.id }.to_string();
@@ -115,6 +114,7 @@ pub async fn post_transfer_action(
 
 // ── Components ──
 
+#[allow(clippy::too_many_arguments)]
 fn transfer_detail_page(
     transfer: &abt_core::wms::transfer::InventoryTransfer,
     items: &[TransferItem],

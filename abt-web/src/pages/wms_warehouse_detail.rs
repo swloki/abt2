@@ -592,7 +592,7 @@ fn zones_table_fragment(zones: &[Zone], warehouse_id: i64) -> Markup {
     }
 }
 
-fn zone_row(z: &Zone, warehouse_id: i64) -> Markup {
+fn zone_row(z: &Zone, _warehouse_id: i64) -> Markup {
     let bins_path = WarehouseZoneBinsPath { zone_id: z.id };
     let delete_path = WarehouseZonePath { zone_id: z.id };
     let type_label = zone_type_label(&z.zone_type);

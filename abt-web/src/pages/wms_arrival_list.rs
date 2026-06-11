@@ -214,7 +214,7 @@ fn arrival_table_fragment(
     params: &ArrivalQueryParams,
     can_delete: bool,
 ) -> Markup {
-    let query = build_query_string(params);
+    let _query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
     let total_count = result.total;
 

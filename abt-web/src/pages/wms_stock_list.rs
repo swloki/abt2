@@ -52,16 +52,14 @@ fn build_filter(params: &StockQueryParams, single_product_id: Option<i64>) -> St
 
 fn build_query_string(params: &StockQueryParams) -> String {
     let mut q = vec![];
-    if let Some(code) = &params.product_code {
-        if !code.is_empty() {
+    if let Some(code) = &params.product_code
+        && !code.is_empty() {
             q.push(format!("product_code={code}"));
         }
-    }
-    if let Some(name) = &params.product_name {
-        if !name.is_empty() {
+    if let Some(name) = &params.product_name
+        && !name.is_empty() {
             q.push(format!("product_name={name}"));
         }
-    }
     if let Some(wid) = params.warehouse_id {
         q.push(format!("warehouse_id={wid}"));
     }
@@ -71,11 +69,10 @@ fn build_query_string(params: &StockQueryParams) -> String {
     if params.low_stock == Some(true) {
         q.push("low_stock=true".into());
     }
-    if let Some(bn) = &params.batch_no {
-        if !bn.is_empty() {
+    if let Some(bn) = &params.batch_no
+        && !bn.is_empty() {
             q.push(format!("batch_no={bn}"));
         }
-    }
     q.join("&")
 }
 
@@ -90,8 +87,8 @@ async fn resolve_product_search(
     db: abt_core::shared::types::PgExecutor<'_>,
     params: &StockQueryParams,
 ) -> Result<(Option<i64>, Vec<i64>)> {
-    let has_code = params.product_code.as_deref().map_or(false, |s| !s.trim().is_empty());
-    let has_name = params.product_name.as_deref().map_or(false, |s| !s.trim().is_empty());
+    let has_code = params.product_code.as_deref().is_some_and(|s| !s.trim().is_empty());
+    let has_name = params.product_name.as_deref().is_some_and(|s| !s.trim().is_empty());
 
     if !has_code && !has_name {
         return Ok((None, vec![]));
@@ -144,11 +141,10 @@ async fn resolve_warehouse_names<S: WarehouseService>(
     }
     let mut map = HashMap::new();
     for id in unique_ids {
-        if !map.contains_key(&id) {
-            if let Ok(wh) = svc.get(ctx, db, id).await {
+        if !map.contains_key(&id)
+            && let Ok(wh) = svc.get(ctx, db, id).await {
                 map.insert(id, wh.name);
             }
-        }
     }
     map
 }
@@ -180,13 +176,12 @@ async fn resolve_bin_codes<S: WarehouseService>(
     let zone_ids: Vec<i64> = items.iter().map(|s| s.zone_id).collect();
     let mut map = HashMap::new();
     for zid in zone_ids {
-        if !map.contains_key(&zid) {
-            if let Ok(result) = svc.list_bins(ctx, db, zid, None, 1, 500).await {
+        if !map.contains_key(&zid)
+            && let Ok(result) = svc.list_bins(ctx, db, zid, None, 1, 500).await {
                 for b in result.items {
                     map.insert(b.id, b.code);
                 }
             }
-        }
     }
     map
 }
@@ -255,8 +250,8 @@ pub async fn get_stock_list(
     let product_svc = state.product_service();
     let warehouse_svc = state.warehouse_service();
 
-    let has_search = params.product_code.as_deref().map_or(false, |s| !s.trim().is_empty())
-        || params.product_name.as_deref().map_or(false, |s| !s.trim().is_empty());
+    let has_search = params.product_code.as_deref().is_some_and(|s| !s.trim().is_empty())
+        || params.product_name.as_deref().is_some_and(|s| !s.trim().is_empty());
     let (single_pid, all_pids) = resolve_product_search(&product_svc, &service_ctx, &mut conn, &params).await.unwrap_or((None, vec![]));
     let filter = build_filter(&params, single_pid);
     let page_num = params.page.unwrap_or(1);
@@ -300,8 +295,8 @@ pub async fn get_stock_table(
     let product_svc = state.product_service();
     let warehouse_svc = state.warehouse_service();
 
-    let has_search = params.product_code.as_deref().map_or(false, |s| !s.trim().is_empty())
-        || params.product_name.as_deref().map_or(false, |s| !s.trim().is_empty());
+    let has_search = params.product_code.as_deref().is_some_and(|s| !s.trim().is_empty())
+        || params.product_name.as_deref().is_some_and(|s| !s.trim().is_empty());
     let (single_pid, all_pids) = resolve_product_search(&product_svc, &service_ctx, &mut conn, &params).await.unwrap_or((None, vec![]));
     let filter = build_filter(&params, single_pid);
     let page_num = params.page.unwrap_or(1);
@@ -327,6 +322,7 @@ pub async fn get_stock_table(
 
 // ── Components ──
 
+#[allow(clippy::too_many_arguments)]
 fn stock_list_page(
     result: &abt_core::shared::types::PaginatedResult<abt_core::wms::stock_ledger::model::StockLedger>,
     product_names: &HashMap<i64, (String, String)>,

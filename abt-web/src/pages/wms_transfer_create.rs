@@ -99,7 +99,7 @@ struct TransferItemWeb {
     batch_no: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct TransferCreateForm {
     #[serde(deserialize_with = "empty_as_none")]
     pub from_warehouse_id: Option<i64>,

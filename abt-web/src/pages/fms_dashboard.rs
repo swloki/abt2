@@ -357,7 +357,7 @@ fn fms_dashboard_page(
                     }
                     div style="padding:var(--space-5)" {
                         div style="display:flex;flex-direction:column;gap:var(--space-5)" {
-                            @for (type_id, label, color, fill_class) in dist_types {
+                            @for (type_id, label, color, _fill_class) in dist_types {
                                 @let amount = distribution.iter().find(|(t, _)| *t == type_id).map(|(_, v)| *v).unwrap_or(Decimal::ZERO);
                                 @let pct = if dist_max > Decimal::ZERO { (amount / dist_max * Decimal::from(100)).round_dp(0) } else { Decimal::ZERO };
                                 (distribution_bar(label, &format!("¥{}万", fmt_wan(amount)), color, &format!("{}%", pct)))

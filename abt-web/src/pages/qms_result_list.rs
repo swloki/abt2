@@ -119,11 +119,10 @@ async fn resolve_product_names<S: InspectionSpecificationService, P: ProductServ
     // spec_id → product_id
     let mut spec_to_product: HashMap<i64, i64> = HashMap::new();
     for item in items {
-        if !spec_to_product.contains_key(&item.spec_id) {
-            if let Ok(spec) = spec_svc.get(ctx, db, item.spec_id).await {
+        if !spec_to_product.contains_key(&item.spec_id)
+            && let Ok(spec) = spec_svc.get(ctx, db, item.spec_id).await {
                 spec_to_product.insert(item.spec_id, spec.product_id);
             }
-        }
     }
     // Batch fetch products
     let product_ids: Vec<i64> = spec_to_product.values().copied().collect();
@@ -157,11 +156,10 @@ fn build_filter(params: &ResultQueryParams) -> InspectionResultFilter {
 
 fn build_query_string(params: &ResultQueryParams) -> String {
     let mut q = vec![];
-    if let Some(ref v) = params.keyword {
-        if !v.is_empty() {
+    if let Some(ref v) = params.keyword
+        && !v.is_empty() {
             q.push(format!("keyword={v}"));
         }
-    }
     if let Some(ref v) = params.inspection_type {
         q.push(format!("inspection_type={v}"));
     }

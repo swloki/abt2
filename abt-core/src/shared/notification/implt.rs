@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use sqlx::postgres::PgPool;
 
 use super::model::*;
@@ -11,6 +11,7 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
+#[allow(dead_code)]
 pub struct NotificationServiceImpl {
     repo: NotificationRepo,
     pool: PgPool,

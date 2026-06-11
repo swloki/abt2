@@ -30,7 +30,7 @@ pub struct PreviewQuery {
     pub period: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 #[allow(dead_code)]
 pub struct ReconciliationCreateForm {
     pub customer_id: i64,
@@ -46,7 +46,7 @@ struct ProductInfo {
     unit: String,
 }
 
-fn generate_periods() -> Vec<(String, String)> {
+#[allow(dead_code)]
     let now = chrono::Local::now();
     let mut periods = vec![];
     for i in 0..12 {
@@ -453,4 +453,3 @@ fn preview_table(
 // ── Referenced paths from other route modules ──
 
 use crate::routes::shipping::ShippingDetailPath;
-use crate::routes::order::OrderDetailPath;

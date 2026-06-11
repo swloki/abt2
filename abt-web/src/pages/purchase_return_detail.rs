@@ -166,6 +166,7 @@ fn workflow_steps(current: PurchaseReturnStatus) -> Markup {
 
 // ── Components ──
 
+#[allow(clippy::too_many_arguments)]
 fn pr_detail_page(
     pr: &PurchaseReturn,
     items: &[PurchaseReturnItem],

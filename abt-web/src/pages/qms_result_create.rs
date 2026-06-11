@@ -58,14 +58,14 @@ pub async fn get_create(
         ..Default::default()
     };
     let specs = spec_svc
-        .list(&service_ctx, &mut *conn, filter, PageParams { page: 1, page_size: 200 })
+        .list(&service_ctx, &mut conn, filter, PageParams { page: 1, page_size: 200 })
         .await
         .map(|p| p.items)
         .unwrap_or_default();
 
     let user_svc = state.user_service();
     let users = user_svc
-        .list_users(&service_ctx, &mut *conn, 1, 200)
+        .list_users(&service_ctx, &mut conn, 1, 200)
         .await
         .map(|p| p.items)
         .unwrap_or_default();

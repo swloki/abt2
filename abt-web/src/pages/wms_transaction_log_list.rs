@@ -7,7 +7,6 @@ use serde::Deserialize;
 use abt_core::wms::inventory::model::TransactionLogFilter;
 use abt_core::wms::inventory::InventoryService;
 use abt_core::wms::enums::TransactionType;
-use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
@@ -317,21 +316,18 @@ fn source_type_label(s: &str) -> &str {
 
 fn build_query_string(params: &TransactionLogQueryParams) -> String {
     let mut q = vec![];
-    if let Some(ref v) = params.doc_number {
-        if !v.is_empty() {
+    if let Some(ref v) = params.doc_number
+        && !v.is_empty() {
             q.push(format!("doc_number={v}"));
         }
-    }
-    if let Some(ref v) = params.product {
-        if !v.is_empty() {
+    if let Some(ref v) = params.product
+        && !v.is_empty() {
             q.push(format!("product={v}"));
         }
-    }
-    if let Some(ref tt) = params.transaction_type {
-        if !tt.is_empty() {
+    if let Some(ref tt) = params.transaction_type
+        && !tt.is_empty() {
             q.push(format!("transaction_type={tt}"));
         }
-    }
     if let Some(w) = params.warehouse_id {
         q.push(format!("warehouse_id={w}"));
     }

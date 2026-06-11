@@ -126,6 +126,7 @@ pub async fn reject_quotation(
 
 // ── Components ──
 
+#[allow(clippy::too_many_arguments)]
 fn quotation_detail_page(
     q: &Quotation,
     items: &[QuotationItem],

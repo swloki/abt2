@@ -28,7 +28,7 @@ pub async fn get_page(
     let RequestContext {
         mut conn,
         state,
-        service_ctx,
+        service_ctx: _,
         claims,
         ..
     } = ctx;
@@ -125,7 +125,7 @@ struct ProfitCenterView {
     profit_rate: Decimal,
 }
 
-struct MarginView {
+#[allow(dead_code)]
     order_id: i64,
     doc_number: String,
     customer_name: String,

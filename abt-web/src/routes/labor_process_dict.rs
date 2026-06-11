@@ -20,7 +20,7 @@ pub struct ProcessDictTablePath;
 #[typed_path("/admin/md/process-dicts/new")]
 pub struct ProcessDictCreatePath;
 
-#[derive(TypedPath, Deserialize, Clone)]
+#[allow(dead_code)]
 #[typed_path("/admin/md/process-dicts/{id}")]
 pub struct ProcessDictDetailPath {
     pub id: i64,

@@ -144,7 +144,7 @@ fn report_create_page(
                         select class="form-select" name="wo_id" required {
                             option value="" { "请选择工单" }
                             @for w in work_orders {
-                                @let sel = wo.map_or(false, |cur| cur.id == w.id);
+                                @let sel = wo.is_some_and(|cur| cur.id == w.id);
                                 @let label = wo_product_names.get(&w.id).map_or(w.doc_number.clone(), |name| format!("{} ({})", w.doc_number, name));
                                 option value=(w.id) selected[sel] { (label) }
                             }
@@ -164,7 +164,7 @@ fn report_create_page(
                             select class="form-select" name="step_no" required {
                                 @for r in routings {
                                     @if r.status != abt_core::mes::enums::RoutingStatus::Completed {
-                                        @let is_cur = batch.map_or(false, |b| b.current_step == r.step_no);
+                                        @let is_cur = batch.is_some_and(|b| b.current_step == r.step_no);
                                         @let cur_tag = if is_cur { " [当前工序]" } else { "" };
                                         option value=(r.step_no) selected[is_cur] { (r.step_no) " - " (r.process_name) (cur_tag) }
                                     }

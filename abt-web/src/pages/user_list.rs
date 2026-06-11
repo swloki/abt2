@@ -183,16 +183,15 @@ fn filter_users<'a>(
                         .user
                         .display_name
                         .as_ref()
-                        .map_or(false, |d| d.to_lowercase().contains(&kw));
+                        .is_some_and(|d| d.to_lowercase().contains(&kw));
                 if !matches {
                     return false;
                 }
             }
-            if let Some(rid) = role_id {
-                if !u.roles.iter().any(|r| r.role_id == rid) {
+            if let Some(rid) = role_id
+                && !u.roles.iter().any(|r| r.role_id == rid) {
                     return false;
                 }
-            }
             if let Some(did) = dept_id {
                 let user_dept_ids = user_depts
                     .get(&u.user.user_id)
@@ -308,7 +307,7 @@ fn user_table_fragment(
     // Pagination
     let total = filtered.len() as u64;
     let total_pages = if page_size > 0 {
-        ((total as u32) + page_size - 1) / page_size
+        (total as u32).div_ceil(page_size)
     } else {
         1
     };

@@ -1,6 +1,6 @@
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
-use maud::{html, Markup};
+use maud::html;
 
 use abt_core::mes::work_report::WorkReportService;
 

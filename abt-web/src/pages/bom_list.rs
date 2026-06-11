@@ -107,11 +107,10 @@ async fn resolve_category_name(state: &AppState, ctx: &ServiceContext, db: PgExe
     if params.category_id.is_none() && params.category_name.is_some() {
         let cats = state.bom_category_service();
         let query = BomCategoryQuery { name: params.category_name.clone() };
-        if let Ok(result) = cats.list(ctx, db, query, PageParams::new(1, 1)).await {
-            if let Some(cat) = result.items.first() {
+        if let Ok(result) = cats.list(ctx, db, query, PageParams::new(1, 1)).await
+            && let Some(cat) = result.items.first() {
                 params.category_id = Some(cat.bom_category_id);
             }
-        }
     }
 }
 async fn load_categories(state: &AppState, ctx: &ServiceContext, db: PgExecutor<'_>) -> (HashMap<i64, String>, Vec<BomCategory>) {
@@ -174,6 +173,7 @@ fn build_query_string(params: &BomQueryParams) -> String {
 
 // ── Components ──
 
+#[allow(clippy::too_many_arguments)]
 fn bom_list_page(
     result: &abt_core::shared::types::PaginatedResult<Bom>,
     params: &BomQueryParams,
@@ -252,6 +252,7 @@ fn bom_list_page(
         script src="/cost-drawer.js?v=20260602" {}
     }
 }
+#[allow(clippy::too_many_arguments)]
 fn bom_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<Bom>,
     params: &BomQueryParams,
@@ -270,9 +271,7 @@ fn bom_table_fragment(
         TabItem { value: "1".into(), label: "草稿", count: if active_value == "1" { Some(total_count) } else { None } },
         TabItem { value: "2".into(), label: "已发布", count: if active_value == "2" { Some(total_count) } else { None } },
     ];
-    let hx_attrs = format!(
-        ".filter-bar input, .filter-bar select",
-    );
+    let hx_attrs = ".filter-bar input, .filter-bar select".to_string();
     html! {
         div class="bom-list-panel" {
             (status_tabs(BomTablePath::PATH, "closest .bom-list-panel", &hx_attrs, tabs, &active_value))

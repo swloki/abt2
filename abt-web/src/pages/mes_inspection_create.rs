@@ -1,6 +1,6 @@
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
-use maud::{html, Markup};
+use maud::html;
 use serde::Deserialize;
 
 use abt_core::mes::production_inspection::ProductionInspectionService;

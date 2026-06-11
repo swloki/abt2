@@ -70,7 +70,7 @@ fn extract_ctx_ident(func: &ItemFn) -> Option<syn::Ident> {
         if let FnArg::Typed(PatType { pat, ty, .. }) = arg {
             if let syn::Type::Path(type_path) = ty.as_ref() {
                 let segments = &type_path.path.segments;
-                if segments.last().map_or(false, |s| s.ident == "RequestContext") {
+                if segments.last().is_some_and(|s| s.ident == "RequestContext") {
                     if let syn::Pat::Ident(pat_ident) = pat.as_ref() {
                         return Some(pat_ident.ident.clone());
                     }

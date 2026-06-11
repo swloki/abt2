@@ -185,18 +185,17 @@ fn filter_roles<'a>(
     }
 
     // Keyword filter
-    if let Some(kw) = &params.keyword {
-        if !kw.is_empty() {
+    if let Some(kw) = &params.keyword
+        && !kw.is_empty() {
             let lower = kw.to_lowercase();
             result.retain(|r| {
                 r.role_name.to_lowercase().contains(&lower)
                     || r.role_code.to_lowercase().contains(&lower)
                     || r.description
                         .as_ref()
-                        .map_or(false, |d| d.to_lowercase().contains(&lower))
+                        .is_some_and(|d| d.to_lowercase().contains(&lower))
             });
         }
-    }
 
     result
 }

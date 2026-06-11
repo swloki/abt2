@@ -267,6 +267,7 @@ fn return_list_page(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn return_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<SalesReturn>,
     customer_names: &std::collections::HashMap<i64, String>,

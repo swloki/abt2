@@ -218,11 +218,10 @@ async fn fetch_tracking_data(
     // Fetch related orders
     let mut order_map: HashMap<i64, abt_core::om::outsourcing_order::OutsourcingOrder> = HashMap::new();
     for &oid in &outsourcing_ids {
-        if !order_map.contains_key(&oid) {
-            if let Ok(order) = order_svc.find_by_id(service_ctx, conn, oid).await {
+        if !order_map.contains_key(&oid)
+            && let Ok(order) = order_svc.find_by_id(service_ctx, conn, oid).await {
                 order_map.insert(oid, order);
             }
-        }
     }
 
     // Keyword filter: if keyword is set, filter orders by doc_number match
@@ -242,13 +241,11 @@ async fn fetch_tracking_data(
     let mut rows: Vec<TrackingRow> = Vec::new();
     for tracking in &tracking_result.items {
         // Skip if keyword doesn't match order doc_number
-        if let Some(ref kw) = keyword_filter {
-            if let Some(order) = order_map.get(&tracking.outsourcing_id) {
-                if !order.doc_number.to_lowercase().contains(kw) {
+        if let Some(ref kw) = keyword_filter
+            && let Some(order) = order_map.get(&tracking.outsourcing_id)
+                && !order.doc_number.to_lowercase().contains(kw) {
                     continue;
                 }
-            }
-        }
 
         // Post-filter by overdue_status
         if let Some(status) = overdue_status_filter {
@@ -257,7 +254,7 @@ async fn fetch_tracking_data(
                 "overdue" => {
                     // planned_at < now AND tracked_at IS NULL
                     let is_overdue = tracking.tracked_at.is_none()
-                        && tracking.planned_at.map_or(false, |p| p < now);
+                        && tracking.planned_at.is_some_and(|p| p < now);
                     if !is_overdue {
                         continue;
                     }
@@ -265,7 +262,7 @@ async fn fetch_tracking_data(
                 "due_soon" => {
                     // planned_at is within 3 days from now
                     let is_due_soon = tracking.tracked_at.is_none()
-                        && tracking.planned_at.map_or(false, |p| {
+                        && tracking.planned_at.is_some_and(|p| {
                             let delta = p - now;
                             delta.num_days() >= 0 && delta.num_days() <= 3
                         });
@@ -314,23 +311,21 @@ async fn fetch_tracking_data(
     let supplier_ids: Vec<i64> = order_map.values().map(|o| o.supplier_id).collect();
     let mut supplier_map: HashMap<i64, String> = HashMap::new();
     for &sid in &supplier_ids {
-        if !supplier_map.contains_key(&sid) {
-            if let Ok(supplier) = supplier_svc.get(service_ctx, conn, sid).await {
+        if !supplier_map.contains_key(&sid)
+            && let Ok(supplier) = supplier_svc.get(service_ctx, conn, sid).await {
                 supplier_map.insert(sid, supplier.name);
             }
-        }
     }
 
     // Resolve product names
     let product_ids: Vec<i64> = order_map.values().map(|o| o.product_id).collect();
     let mut product_map: HashMap<i64, String> = HashMap::new();
-    if !product_ids.is_empty() {
-        if let Ok(products) = product_svc.get_by_ids(service_ctx, conn, product_ids).await {
+    if !product_ids.is_empty()
+        && let Ok(products) = product_svc.get_by_ids(service_ctx, conn, product_ids).await {
             for p in products {
                 product_map.insert(p.product_id, p.pdt_name);
             }
         }
-    }
 
     Ok((result, order_map, supplier_map, product_map))
 }
@@ -496,7 +491,7 @@ fn tracking_data_card(
                             @let next_label = next_node.map(|nt| node_label(*nt)).unwrap_or("—");
 
                             // Status: overdue if planned_at < now and tracked_at is null
-                            @let is_overdue = tracking.planned_at.map_or(false, |p| p < chrono::Utc::now());
+                            @let is_overdue = tracking.planned_at.is_some_and(|p| p < chrono::Utc::now());
                             @let (status_text, status_bg, status_color) = if is_overdue {
                                 ("超期", "rgba(245,63,63,0.08)", "var(--danger)")
                             } else {

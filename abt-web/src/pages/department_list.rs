@@ -53,11 +53,9 @@ pub async fn get_department_list(
                 if let Ok(user_depts) = dept_svc
                     .get_user_departments(&service_ctx, &mut conn, u.user.user_id)
                     .await
-                {
-                    if user_depts.iter().any(|d| d.department_id == id) {
+                    && user_depts.iter().any(|d| d.department_id == id) {
                         members.push(u.clone());
                     }
-                }
             }
             Some(detail_content_fragment(&dept, &members, can_create, can_delete))
         } else {
@@ -562,8 +560,12 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
     } else {
         "新建部门"
     };
-    let subtitle = if is_edit && dept.is_some() {
-        format!("修改「{}」的部门信息", dept.unwrap().department_name)
+    let subtitle = if let Some(d) = dept {
+        if is_edit {
+            format!("修改「{}」的部门信息", d.department_name)
+        } else {
+            "填写部门信息后保存".to_string()
+        }
     } else {
         "填写部门信息后保存".to_string()
     };

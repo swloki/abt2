@@ -16,7 +16,7 @@ use abt_macros::require_permission;
 
 // ── Form ──
 
-#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct JournalCreateForm {
     pub journal_type: i16,
     pub direction: i16,

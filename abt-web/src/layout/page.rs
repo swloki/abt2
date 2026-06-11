@@ -63,7 +63,6 @@ fn admin_shell(
 /// Renders a full admin page or just the content fragment, depending on whether
 /// the request came from HTMX (checks `HX-Request` header).
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 pub fn admin_page(
     is_htmx: bool,
     title: &str,

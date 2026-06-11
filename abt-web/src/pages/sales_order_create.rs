@@ -62,7 +62,7 @@ pub struct OrderCreateQueryParams {
     pub from_quotation: Option<i64>,
 }
 
-struct OrderPrefill {
+#[allow(dead_code)]
     customer_id: i64,
     contact_id: i64,
     payment_terms: Option<String>,
@@ -261,6 +261,7 @@ pub async fn create_order(
 
 // ── Components: Page ──
 
+#[allow(clippy::type_complexity)]
 fn order_create_page(customers: &[abt_core::master_data::customer::model::Customer], prefill: &Option<OrderPrefill>) -> Markup {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
 

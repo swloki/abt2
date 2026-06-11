@@ -55,7 +55,7 @@ pub async fn get_batch_detail(path: BatchDetailPath, ctx: RequestContext) -> Res
 
     // 工序名映射
     let routing_map: std::collections::HashMap<i64, &str> = routings.iter()
-        .map(|r| (r.id as i64, r.process_name.as_str()))
+        .map(|r| (r.id, r.process_name.as_str()))
         .collect();
 
     let content = batch_detail_page(&batch, &product_name, &wo, &routings, &reports, &routing_map, &user_map, &creator_name);
@@ -127,6 +127,7 @@ pub struct SuspendForm {
     pub reason: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn batch_detail_page(
     batch: &abt_core::mes::production_batch::ProductionBatch,
     product_name: &str,

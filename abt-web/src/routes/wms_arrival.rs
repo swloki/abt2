@@ -1,4 +1,4 @@
-use axum::routing::{get, post};
+use axum::routing::get;
 use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;

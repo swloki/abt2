@@ -95,13 +95,10 @@ async fn resolve_product_names<S: ProductService>(
         v.dedup();
         v
     };
-    match svc.get_by_ids(ctx, db, unique_ids).await {
-        Ok(products) => {
-            for p in products {
-                map.insert(p.product_id, p.pdt_name);
-            }
+    if let Ok(products) = svc.get_by_ids(ctx, db, unique_ids).await {
+        for p in products {
+            map.insert(p.product_id, p.pdt_name);
         }
-        Err(_) => {}
     }
     map
 }

@@ -199,6 +199,7 @@ fn workflow_steps(current: PurchaseQuotationStatus) -> Markup {
 
 // ── Components ──
 
+#[allow(clippy::too_many_arguments)]
 fn pq_detail_page(
     pq: &PurchaseQuotation,
     items: &[PurchaseQuotationItem],

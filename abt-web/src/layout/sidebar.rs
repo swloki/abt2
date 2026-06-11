@@ -7,7 +7,7 @@ use crate::components::icon;
 
 // ── Navigation Data ──
 
-#[derive(Clone, Copy)]
+#[allow(dead_code)]
 enum NavIcon {
     Home,
     Users,
@@ -439,7 +439,7 @@ pub fn avatar_initials(name: &str) -> String {
     chars[chars.len() - 2..].iter().collect()
 }
 
-fn find_module(id: &str) -> Option<usize> {
+#[allow(dead_code)]
     modules().iter().position(|m| m.id == id)
 }
 
@@ -491,7 +491,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                 div class="rail-modules" {
                     @for m in &mods {
                         @if filter.has_visible_items(m) {
-                            @let is_initial_active = active_mod.map_or(false, |am| m.id == am.id);
+                            @let is_initial_active = active_mod.is_some_and(|am| m.id == am.id);
                             @let hx_url = format!("/sidebar/body/{}", m.id);
                             button class=(if is_initial_active { "rail-item active" } else { "rail-item" })
                                hx-get=(hx_url)

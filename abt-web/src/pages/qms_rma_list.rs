@@ -118,16 +118,14 @@ async fn resolve_names(
     let mut customer_names = HashMap::new();
     let mut product_names = HashMap::new();
     for item in items {
-        if !customer_names.contains_key(&item.customer_id) {
-            if let Ok(c) = customer_svc.get(ctx, db, item.customer_id).await {
+        if !customer_names.contains_key(&item.customer_id)
+            && let Ok(c) = customer_svc.get(ctx, db, item.customer_id).await {
                 customer_names.insert(item.customer_id, c.name);
             }
-        }
-        if !product_names.contains_key(&item.product_id) {
-            if let Ok(p) = product_svc.get(ctx, db, item.product_id).await {
+        if !product_names.contains_key(&item.product_id)
+            && let Ok(p) = product_svc.get(ctx, db, item.product_id).await {
                 product_names.insert(item.product_id, p.pdt_name);
             }
-        }
     }
     (customer_names, product_names)
 }

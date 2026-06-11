@@ -113,10 +113,10 @@ fn bin_detail_page(
     let bin = &bww.bin;
     let status_label = bin_status_label(&bin.status);
     let status_class = bin_status_class(&bin.status);
-    let detail_path = BinDetailPath { id: bin.id };
+    let _detail_path = BinDetailPath { id: bin.id };
 
     let zone_name = zone.map(|z| z.name.as_str()).unwrap_or("—");
-    let zone_code = zone.map(|z| z.code.as_str()).unwrap_or("—");
+    let _zone_code = zone.map(|z| z.code.as_str()).unwrap_or("—");
 
     let (used_qty, capacity_pct) = match stats {
         Some(s) => {

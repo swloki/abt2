@@ -66,7 +66,7 @@ fn exception_detail_page(
     }).unwrap_or("—");
 
     let impact_display = exc.impact_qty
-        .map(|q| crate::utils::fmt_qty(q))
+        .map(crate::utils::fmt_qty)
         .unwrap_or_else(|| "—".to_string());
 
     html! { div {

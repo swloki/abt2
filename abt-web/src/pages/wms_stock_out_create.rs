@@ -93,7 +93,7 @@ pub async fn get_item_row(
 
 // ── Form Data ──
 
-#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct StockOutCreateForm {
     pub source_type: String,
     pub source_ref: Option<String>,
@@ -139,11 +139,7 @@ pub async fn create_stock_out(
         _ => TransactionType::SalesShipment,
     };
 
-    let source_type = match form.source_type.as_str() {
-        "shipping" => "shipping",
-        "requisition" => "requisition",
-        other => other,
-    };
+    let source_type = form.source_type.as_str();
 
     let remark = form.remark.filter(|s| !s.is_empty());
 
@@ -164,7 +160,7 @@ pub async fn create_stock_out(
         let available = svc.query_available(&service_ctx, &mut conn, product_id, Some(warehouse_id)).await?;
         if quantity > available {
             return Err(DomainError::business_rule(
-                &format!("库存不足：产品ID {} 需要 {}，可用 {}", product_id, quantity, available),
+                format!("库存不足：产品ID {} 需要 {}，可用 {}", product_id, quantity, available),
             ).into());
         }
 

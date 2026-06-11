@@ -160,6 +160,7 @@ fn workflow_steps(current: PurchaseOrderStatus) -> Markup {
 
 // ── Components ──
 
+#[allow(clippy::too_many_arguments)]
 fn po_detail_page(
     order: &PurchaseOrder,
     items: &[PurchaseOrderItem],

@@ -94,6 +94,7 @@ pub async fn get_wage_list(
     Ok(Html(admin_page(is_htmx, "计件工资汇总", &claims, "production", WageListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn wage_list_page(
     summaries: &[abt_core::mes::work_report::WageSummary],
     user_map: &HashMap<i64, String>,

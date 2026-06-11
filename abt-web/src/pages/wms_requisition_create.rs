@@ -129,8 +129,8 @@ pub async fn create_requisition(
         .ok_or_else(|| DomainError::validation("Please select a warehouse"))?;
 
     // If work_order_id provided, use create_for_work_order
-    if let Some(wo_id) = form.work_order_id {
-        if wo_id > 0 {
+    if let Some(wo_id) = form.work_order_id
+        && wo_id > 0 {
             let _id = svc.create_for_work_order(&service_ctx, &mut conn, wo_id).await
                 .map_err(|e| {
                     if matches!(e, DomainError::NotFound(_)) {
@@ -142,7 +142,6 @@ pub async fn create_requisition(
             let redirect = RequisitionListPath.to_string();
             return Ok(([("HX-Redirect", redirect)], Html(String::new())));
         }
-    }
 
     // Otherwise, manual create with items
     let web_items: Vec<RequisitionItemWeb> = serde_json::from_str(&form.items_json)

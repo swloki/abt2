@@ -284,8 +284,7 @@ impl ExpenseReimbursementService for ExpenseReimbursementServiceImpl {
         db: PgExecutor<'_>,
         limit: i64,
     ) -> Result<Vec<ExpenseReimbursement>> {
-        let mut filter = ExpenseFilter::default();
-        filter.status = vec![ExpenseStatus::Submitted];
+        let filter = ExpenseFilter { status: vec![ExpenseStatus::Submitted], ..Default::default() };
         let page = PageParams::new(1, limit as u32);
         let (items, _) = ExpenseReimbursementRepo::query(
             db, &filter, &page, ctx.data_scope, ctx.operator_id, ctx.department_id,

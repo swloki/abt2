@@ -11,7 +11,6 @@ use abt_core::master_data::product::ProductService;
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::shared::identity::UserService;
 use abt_core::master_data::customer::CustomerService;
-use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
@@ -62,21 +61,19 @@ pub async fn get_lock_list(
     let product_svc = state.product_service();
     let mut product_map: std::collections::HashMap<i64, (String, String)> = std::collections::HashMap::new();
     for lock in &result.items {
-        if !product_map.contains_key(&lock.product_id) {
-            if let Ok(p) = product_svc.get(&service_ctx, &mut conn, lock.product_id).await {
+        if !product_map.contains_key(&lock.product_id)
+            && let Ok(p) = product_svc.get(&service_ctx, &mut conn, lock.product_id).await {
                 product_map.insert(lock.product_id, (p.product_code, p.pdt_name));
             }
-        }
     }
 
     let wh_svc = state.warehouse_service();
     let mut wh_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     for lock in &result.items {
-        if !wh_names.contains_key(&lock.warehouse_id) {
-            if let Ok(w) = wh_svc.get(&service_ctx, &mut conn, lock.warehouse_id).await {
+        if !wh_names.contains_key(&lock.warehouse_id)
+            && let Ok(w) = wh_svc.get(&service_ctx, &mut conn, lock.warehouse_id).await {
                 wh_names.insert(lock.warehouse_id, w.name);
             }
-        }
     }
 
     let user_svc = state.user_service();
@@ -89,13 +86,11 @@ pub async fn get_lock_list(
     let customer_svc = state.customer_service();
     let mut customer_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     for lock in &result.items {
-        if let Some(cid) = lock.customer_id {
-            if !customer_map.contains_key(&cid) {
-                if let Ok(c) = customer_svc.get(&service_ctx, &mut conn, cid).await {
+        if let Some(cid) = lock.customer_id
+            && !customer_map.contains_key(&cid)
+                && let Ok(c) = customer_svc.get(&service_ctx, &mut conn, cid).await {
                     customer_map.insert(cid, c.name);
                 }
-            }
-        }
     }
 
     let content = lock_list_page(&result, &params, &product_map, &wh_names, &operator_map, &customer_map, can_create);
@@ -130,21 +125,19 @@ pub async fn get_lock_table(
     let product_svc = state.product_service();
     let mut product_map: std::collections::HashMap<i64, (String, String)> = std::collections::HashMap::new();
     for lock in &result.items {
-        if !product_map.contains_key(&lock.product_id) {
-            if let Ok(p) = product_svc.get(&service_ctx, &mut conn, lock.product_id).await {
+        if !product_map.contains_key(&lock.product_id)
+            && let Ok(p) = product_svc.get(&service_ctx, &mut conn, lock.product_id).await {
                 product_map.insert(lock.product_id, (p.product_code, p.pdt_name));
             }
-        }
     }
 
     let wh_svc = state.warehouse_service();
     let mut wh_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     for lock in &result.items {
-        if !wh_names.contains_key(&lock.warehouse_id) {
-            if let Ok(w) = wh_svc.get(&service_ctx, &mut conn, lock.warehouse_id).await {
+        if !wh_names.contains_key(&lock.warehouse_id)
+            && let Ok(w) = wh_svc.get(&service_ctx, &mut conn, lock.warehouse_id).await {
                 wh_names.insert(lock.warehouse_id, w.name);
             }
-        }
     }
 
     let user_svc = state.user_service();
@@ -157,13 +150,11 @@ pub async fn get_lock_table(
     let customer_svc = state.customer_service();
     let mut customer_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     for lock in &result.items {
-        if let Some(cid) = lock.customer_id {
-            if !customer_map.contains_key(&cid) {
-                if let Ok(c) = customer_svc.get(&service_ctx, &mut conn, cid).await {
+        if let Some(cid) = lock.customer_id
+            && !customer_map.contains_key(&cid)
+                && let Ok(c) = customer_svc.get(&service_ctx, &mut conn, cid).await {
                     customer_map.insert(cid, c.name);
                 }
-            }
-        }
     }
 
     let fragment = lock_data_card_fragment(&result, &params, &product_map, &wh_names, &operator_map, &customer_map);
@@ -235,7 +226,7 @@ fn lock_table_fragment(
     operator_map: &std::collections::HashMap<i64, String>,
     customer_map: &std::collections::HashMap<i64, String>,
 ) -> Markup {
-    let query = build_query_string(params);
+    let _query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
     let total_count = result.total;
 

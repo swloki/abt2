@@ -83,7 +83,7 @@ pub async fn get_backflush_table(
 
 fn build_filter(params: &BackflushQueryParams) -> abt_core::wms::backflush::BackflushFilter {
     abt_core::wms::backflush::BackflushFilter {
-        status: params.status.and_then(|s| BackflushStatus::from_i16(s)),
+        status: params.status.and_then(BackflushStatus::from_i16),
         work_order_id: None,
     }
 }
@@ -256,12 +256,10 @@ fn build_query_string(params: &BackflushQueryParams) -> String {
     if let Some(s) = params.status {
         q.push(format!("status={s}"));
     }
-    if let Some(ref v) = params.doc_number {
-        if !v.is_empty() { q.push(format!("doc_number={v}")); }
-    }
-    if let Some(ref v) = params.work_order {
-        if !v.is_empty() { q.push(format!("work_order={v}")); }
-    }
+    if let Some(ref v) = params.doc_number
+        && !v.is_empty() { q.push(format!("doc_number={v}")); }
+    if let Some(ref v) = params.work_order
+        && !v.is_empty() { q.push(format!("work_order={v}")); }
     if let Some(p) = params.page {
         q.push(format!("page={p}"));
     }

@@ -123,7 +123,7 @@ pub async fn get_detail(path: MrbDetailPath, ctx: RequestContext) -> Result<Html
         // ── 备注 ──
         div class="info-card" {
             h3 { "备注" }
-            p style="white-space: pre-wrap;" { (mrb.remark.as_str().is_empty().then(|| "—").unwrap_or(&mrb.remark)) }
+            p style="white-space: pre-wrap;" { (if mrb.remark.is_empty() { "—" } else { &mrb.remark }) }
         }
 
         // ── 其他信息 ──

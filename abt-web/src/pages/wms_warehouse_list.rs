@@ -1,5 +1,5 @@
 use axum::extract::Query;
-use axum::response::{Html, IntoResponse};
+use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
@@ -8,7 +8,6 @@ use abt_core::wms::warehouse::model::*;
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::enums::{WarehouseStatus, WarehouseType};
 use abt_core::shared::identity::UserService;
-use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::import_modal::{self, ImportModalConfig};
@@ -72,9 +71,9 @@ pub async fn get_warehouse_list(
             .await
             .map(|users| {
                 users.into_iter()
-                    .filter_map(|u| {
+                    .map(|u| {
                         let name = u.user.display_name.unwrap_or(u.user.username);
-                        Some((u.user.user_id, name))
+                        (u.user.user_id, name)
                     })
                     .collect::<std::collections::HashMap<i64, String>>()
             })
@@ -120,9 +119,9 @@ pub async fn get_warehouse_table(
             .await
             .map(|users| {
                 users.into_iter()
-                    .filter_map(|u| {
+                    .map(|u| {
                         let name = u.user.display_name.unwrap_or(u.user.username);
-                        Some((u.user.user_id, name))
+                        (u.user.user_id, name)
                     })
                     .collect::<std::collections::HashMap<i64, String>>()
             })

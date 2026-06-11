@@ -7,7 +7,6 @@ use serde::Deserialize;
 use abt_core::wms::cycle_count::model::*;
 use abt_core::wms::cycle_count::CycleCountService;
 use abt_core::wms::enums::CycleCountStatus;
-use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;

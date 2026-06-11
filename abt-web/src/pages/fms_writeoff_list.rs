@@ -47,11 +47,10 @@ fn build_query_string(params: &WriteoffQueryParams) -> String {
     if let Some(v) = params.writeoff_type {
         parts.push(format!("writeoff_type={v}"));
     }
-    if let Some(v) = params.page {
-        if v > 1 {
+    if let Some(v) = params.page
+        && v > 1 {
             parts.push(format!("page={v}"));
         }
-    }
     if parts.is_empty() { String::new() } else { format!("?{}", parts.join("&")) }
 }
 

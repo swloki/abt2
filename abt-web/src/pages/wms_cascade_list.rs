@@ -17,7 +17,7 @@ use abt_macros::require_permission;
 
 // ── Query Params ──
 
-#[derive(Debug, Deserialize, Clone, Default)]
+#[allow(dead_code)]
 pub struct CascadeQueryParams {
     pub product_code: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
@@ -58,8 +58,8 @@ pub async fn get_cascade_table(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.inventory_cascade_service();
 
-    if let Some(ref code) = params.product_code {
-        if !code.is_empty() {
+    if let Some(ref code) = params.product_code
+        && !code.is_empty() {
             let query = CascadeInventoryQuery {
                 product_id: None,
                 product_code: Some(code.clone()),
@@ -79,7 +79,6 @@ pub async fn get_cascade_table(
                 }
             }
         }
-    }
 
     Ok(Html(html! {
         div style="text-align:center;padding:var(--space-8);color:var(--muted)" {

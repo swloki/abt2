@@ -34,7 +34,7 @@ pub struct ProductSearchParams {
 
 // ── Form request ──
 
-#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct PQCreateForm {
     pub supplier_id: i64,
     pub quotation_date: String,

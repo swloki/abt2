@@ -9,7 +9,7 @@ use abt_core::shared::types::PaginatedResult;
 
 use abt_macros::require_permission;
 
-use crate::components::{confirm_dialog, detail::detail_row, icon};
+use crate::components::{detail::detail_row, icon};
 use crate::components::pagination::htmx_pagination;
 use crate::layout::page::admin_page;
 use crate::routes::bom::BomDetailPath;

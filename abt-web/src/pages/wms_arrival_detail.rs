@@ -136,11 +136,10 @@ pub async fn get_arrival_detail(
     let product_svc = state.product_service();
     let mut product_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
     for item in &items {
-        if !product_names.contains_key(&item.product_id) {
-            if let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.product_id).await {
+        if !product_names.contains_key(&item.product_id)
+            && let Ok(p) = product_svc.get(&service_ctx, &mut conn, item.product_id).await {
                 product_names.insert(item.product_id, format!("{} ({})", p.pdt_name, p.product_code));
             }
-        }
     }
 
     let detail_path = ArrivalDetailPath { id: path.id }.to_string();

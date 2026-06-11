@@ -55,13 +55,11 @@ impl CategoryService for CategoryServiceImpl {
             .ok_or_else(|| DomainError::not_found("Category"))?;
 
         // Check for duplicate name under the same parent (if name is being changed)
-        if let Some(ref name) = req.category_name {
-            if name != &existing.category_name {
-                if self.repo.find_by_name_and_parent(db, name, existing.parent_id).await?.is_some() {
+        if let Some(ref name) = req.category_name
+            && name != &existing.category_name
+                && self.repo.find_by_name_and_parent(db, name, existing.parent_id).await?.is_some() {
                     return Err(DomainError::validation("同级分类下已存在同名分类"));
                 }
-            }
-        }
 
         self.repo.update(db, category_id, &req)
             .await?;

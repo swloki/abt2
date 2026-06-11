@@ -153,11 +153,10 @@ async fn resolve_supplier_names<S: SupplierService>(
 ) -> HashMap<i64, String> {
     let mut map = HashMap::new();
     for item in items {
-        if !map.contains_key(&item.supplier_id) {
-            if let Ok(supplier) = svc.get(ctx, db, item.supplier_id).await {
+        if !map.contains_key(&item.supplier_id)
+            && let Ok(supplier) = svc.get(ctx, db, item.supplier_id).await {
                 map.insert(item.supplier_id, supplier.name);
             }
-        }
     }
     map
 }
@@ -213,7 +212,7 @@ async fn resolve_latest_tracking<S: OutsourcingTrackingService>(
 
 // ── Analytics ──
 
-struct TypeDistEntry {
+#[allow(dead_code)]
     label: &'static str,
     bg: &'static str,
     fg: &'static str,
@@ -295,6 +294,7 @@ fn calc_supplier_ranking(
 
 // ── Page ──
 
+#[allow(clippy::too_many_arguments)]
 fn om_dashboard_page(
     total: u64,
     in_production: u64,

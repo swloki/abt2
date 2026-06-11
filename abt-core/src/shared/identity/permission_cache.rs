@@ -123,11 +123,10 @@ impl RolePermissionCache {
         let state = self.state.read().await;
         let key = format!("{resource}:{action}");
         for &role_id in role_ids {
-            if let Some(perms) = state.permissions.get(&role_id) {
-                if perms.contains(&key) {
+            if let Some(perms) = state.permissions.get(&role_id)
+                && perms.contains(&key) {
                     return true;
                 }
-            }
         }
         false
     }

@@ -175,11 +175,10 @@ async fn resolve_supplier_names<S: SupplierService>(
 ) -> HashMap<i64, String> {
     let mut map = HashMap::new();
     for item in items {
-        if !map.contains_key(&item.supplier_id) {
-            if let Ok(supplier) = svc.get(ctx, db, item.supplier_id).await {
+        if !map.contains_key(&item.supplier_id)
+            && let Ok(supplier) = svc.get(ctx, db, item.supplier_id).await {
                 map.insert(item.supplier_id, supplier.name);
             }
-        }
     }
     map
 }

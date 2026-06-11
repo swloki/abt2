@@ -275,6 +275,7 @@ fn group_icon_svg(cls: &str) -> Markup {
 
 // ── Page Component ──
 
+#[allow(clippy::too_many_arguments)]
 fn role_detail_page(
     rwp: &abt_core::shared::identity::model::RoleWithPermissions,
     parent_role_name: Option<&str>,

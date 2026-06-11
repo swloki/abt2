@@ -55,13 +55,12 @@ pub async fn get_bin_list(
     let mut zone_map: HashMap<i64, Zone> = HashMap::new();
     let mut fetched_wh: HashSet<i64> = HashSet::new();
     for item in &result.items {
-        if fetched_wh.insert(item.warehouse_id) {
-            if let Ok(zs) = svc.list_zones(&service_ctx, &mut conn, item.warehouse_id).await {
+        if fetched_wh.insert(item.warehouse_id)
+            && let Ok(zs) = svc.list_zones(&service_ctx, &mut conn, item.warehouse_id).await {
                 for z in zs {
                     zone_map.insert(z.id, z);
                 }
             }
-        }
     }
 
     let content = bin_list_page(&result, &params, &warehouses.items, &zone_map, can_create);
@@ -87,19 +86,18 @@ pub async fn get_bin_table(
 
     let search_params = build_search_params(&params);
     let result = svc.search_bins_with_warehouse(&service_ctx, &mut conn, search_params).await?;
-    let warehouses = svc.list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200).await?;
+    let _warehouses = svc.list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200).await?;
 
     // Build zone lookup for display
     let mut zone_map: HashMap<i64, Zone> = HashMap::new();
     let mut fetched_wh: HashSet<i64> = HashSet::new();
     for item in &result.items {
-        if fetched_wh.insert(item.warehouse_id) {
-            if let Ok(zs) = svc.list_zones(&service_ctx, &mut conn, item.warehouse_id).await {
+        if fetched_wh.insert(item.warehouse_id)
+            && let Ok(zs) = svc.list_zones(&service_ctx, &mut conn, item.warehouse_id).await {
                 for z in zs {
                     zone_map.insert(z.id, z);
                 }
             }
-        }
     }
 
     // HTMX partial: return only the data-card
@@ -225,7 +223,7 @@ fn bin_table_fragment(
     warehouses: &[Warehouse],
     zones: &HashMap<i64, Zone>,
 ) -> Markup {
-    let query = build_query_string(params);
+    let _query = build_query_string(params);
 
     html! {
         div class="bin-list-panel" {
@@ -318,16 +316,14 @@ fn bin_row(item: &BinWithWarehouse, zones: &HashMap<i64, Zone>) -> Markup {
 
 fn build_query_string(params: &BinQueryParams) -> String {
     let mut q = vec![];
-    if let Some(ref v) = params.code {
-        if !v.trim().is_empty() {
+    if let Some(ref v) = params.code
+        && !v.trim().is_empty() {
             q.push(format!("code={v}"));
         }
-    }
-    if let Some(ref v) = params.name {
-        if !v.trim().is_empty() {
+    if let Some(ref v) = params.name
+        && !v.trim().is_empty() {
             q.push(format!("name={v}"));
         }
-    }
     if let Some(w) = params.warehouse_id {
         q.push(format!("warehouse_id={w}"));
     }

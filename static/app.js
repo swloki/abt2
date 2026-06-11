@@ -59,10 +59,15 @@ document.addEventListener('exportDone', function (e) {
     window.location.href = e.detail.url;
 });
 
-// CSS 动画结束后自动移除 DOM 节点，防止长时间使用后堆积透明元素
+// Toast 生命周期：入场结束 → 3.5s 后离场 → 离场结束移除 DOM
 document.addEventListener('animationend', function (e) {
-    if (e.target.classList.contains('toast')) {
-        e.target.remove();
+    var el = e.target;
+    if (!el.classList || !el.classList.contains('toast')) return;
+    if (e.animationName === 'toast-in') {
+        setTimeout(function () { el.classList.add('toast-dismiss'); }, 3500);
+    }
+    if (e.animationName === 'toast-out') {
+        el.remove();
     }
 });
 

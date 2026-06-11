@@ -149,17 +149,15 @@ fn render_single_toast(msg: &str, toast_type: ToastType) -> Markup {
         div class={"toast toast-" (type_str)} role="alert" {
             span class="toast-icon" { (maud::PreEscaped(icon)) }
             span class="toast-message" { (msg) }
-            button class="toast-close" onclick="this.parentElement.remove()" { "×" }
+            button class="toast-close" onclick="this.closest('.toast').classList.add('toast-dismiss')" { "×" }
         }
     }
 }
 
 fn render_toasts(messages: &[ToastMessage]) -> Markup {
     html! {
-        div hx-swap-oob="innerHTML:.toast-container" {
-            @for m in messages {
-                (render_single_toast(&m.msg, m.r#type))
-            }
+        @for m in messages {
+            (render_single_toast(&m.msg, m.r#type))
         }
     }
 }

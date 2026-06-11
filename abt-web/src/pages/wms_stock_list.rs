@@ -377,16 +377,17 @@ fn stock_list_page(
             (stock_data_card(result, ctx.product_names, ctx.params))
 
             // ── Detail Drawer ──
-            div id="stock-drawer" class="detail-drawer" {
-                div class="detail-drawer-mask" onclick="document.getElementById('stock-drawer').classList.remove('open');document.body.style.overflow=''" {}
-                div class="detail-drawer-body" {
-                    div class="detail-drawer-header" {
-                        h3 { "库存详情" }
-                        button class="detail-drawer-close" onclick="document.getElementById('stock-drawer').classList.remove('open');document.body.style.overflow=''" { "×" }
-                    }
-                    div class="detail-drawer-content" id="stock-drawer-content" {}
-                }
-            }
+            (crate::components::drawer::drawer_with_footer(
+                "stock-drawer",
+                "库存详情",
+                html! {
+                    div id="stock-drawer-content" {}
+                },
+                html! {
+                    button type="button" class="btn btn-default"
+                        onclick="hsRemoveClosest(this,'.drawer-overlay','open')" { "关闭" }
+                },
+            ))
         }
     }
 }
@@ -487,7 +488,7 @@ fn stock_data_card(
                                         hx-get=(format!("{}?id={}", StockDetailPath::PATH, item.id))
                                         hx-target="#stock-drawer-content"
                                         hx-swap="innerHTML"
-                                        hx-on::after-request="document.getElementById('stock-drawer').classList.add('open');document.body.style.overflow='hidden'" {
+                                        hx-on::after-request="hsAdd(null,'#stock-drawer','open')" {
                                         "详情"
                                     }
                                 }
@@ -560,29 +561,29 @@ fn stock_detail_content(
     let is_low = item.available_qty <= Decimal::ZERO;
 
     html! {
-        div class="detail-section" {
-            div class="detail-section-title" { "基本信息" }
-            div class="detail-grid" {
-                div class="detail-item" { span class="label" { "产品编码" } span class="value mono" { (p_code) } }
-                div class="detail-item" { span class="label" { "产品名称" } span class="value" { (p_name) } }
-                div class="detail-item" { span class="label" { "仓库" } span class="value" { (warehouse) } }
-                div class="detail-item" { span class="label" { "库区" } span class="value" { (zone) } }
-                div class="detail-item" { span class="label" { "储位" } span class="value mono" { (bin) } }
-                div class="detail-item" { span class="label" { "批次号" } span class="value mono" { (item.batch_no.as_deref().unwrap_or("—")) } }
+        div class="drawer-section" {
+            div class="drawer-label" { "基本信息" }
+            div class="detail-info-grid" {
+                div class="detail-info-item" { label { "产品编码" } span class="mono" { (p_code) } }
+                div class="detail-info-item" { label { "产品名称" } span { (p_name) } }
+                div class="detail-info-item" { label { "仓库" } span { (warehouse) } }
+                div class="detail-info-item" { label { "库区" } span { (zone) } }
+                div class="detail-info-item" { label { "储位" } span class="mono" { (bin) } }
+                div class="detail-info-item" { label { "批次号" } span class="mono" { (item.batch_no.as_deref().unwrap_or("—")) } }
             }
         }
-        div class="detail-section" {
-            div class="detail-section-title" { "库存数量" }
-            div class="detail-grid" {
-                div class="detail-item" { span class="label" { "现有量" } span class="value mono" { (format_decimal(&item.quantity)) } }
-                div class="detail-item" { span class="label" { "已预留" } span class="value mono" { (format_decimal(&item.reserved_qty)) } }
-                div class="detail-item" {
-                    span class="label" { "可用量" }
-                    span class={"value mono" (if is_low { " danger" } else { "" })} { (format_decimal(&item.available_qty)) }
+        div class="drawer-section" {
+            div class="drawer-label" { "库存数量" }
+            div class="detail-info-grid" {
+                div class="detail-info-item" { label { "现有量" } span class="mono" { (format_decimal(&item.quantity)) } }
+                div class="detail-info-item" { label { "已预留" } span class="mono" { (format_decimal(&item.reserved_qty)) } }
+                div class="detail-info-item" {
+                    label { "可用量" }
+                    span class={"mono" (if is_low { " danger" } else { "" })} { (format_decimal(&item.available_qty)) }
                 }
-                div class="detail-item" {
-                    span class="label" { "安全库存" }
-                    span class={"value mono" (if is_low { " warn" } else { "" })} { (format_decimal(&safe_stock)) }
+                div class="detail-info-item" {
+                    label { "安全库存" }
+                    span class={"mono" (if is_low { " warn" } else { "" })} { (format_decimal(&safe_stock)) }
                 }
             }
             div style="margin-top:12px" {
@@ -595,13 +596,13 @@ fn stock_detail_content(
                 }
             }
         }
-        div class="detail-section" {
-            div class="detail-section-title" { "财务与日期" }
-            div class="detail-grid" {
-                div class="detail-item" { span class="label" { "单位成本" } span class="value mono" { (item.unit_cost.map(|c| format!("¥{}", format_decimal(&c))).unwrap_or_else(|| "—".into())) } }
-                div class="detail-item" { span class="label" { "库存金额" } span class="value mono" { (stock_value.map(|v| format!("¥{}", format_decimal(&v))).unwrap_or_else(|| "—".into())) } }
-                div class="detail-item" { span class="label" { "入库日期" } span class="value mono" { (item.received_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
-                div class="detail-item" { span class="label" { "有效期" } span class="value mono" { (item.expiry_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
+        div class="drawer-section" {
+            div class="drawer-label" { "财务与日期" }
+            div class="detail-info-grid" {
+                div class="detail-info-item" { label { "单位成本" } span class="mono" { (item.unit_cost.map(|c| format!("¥{}", format_decimal(&c))).unwrap_or_else(|| "—".into())) } }
+                div class="detail-info-item" { label { "库存金额" } span class="mono" { (stock_value.map(|v| format!("¥{}", format_decimal(&v))).unwrap_or_else(|| "—".into())) } }
+                div class="detail-info-item" { label { "入库日期" } span class="mono" { (item.received_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
+                div class="detail-info-item" { label { "有效期" } span class="mono" { (item.expiry_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
             }
         }
     }

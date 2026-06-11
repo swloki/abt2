@@ -285,8 +285,7 @@ fn pq_create_page(
 
             form id="pq-form"
                   hx-post=(PQCreatePath::PATH)
-                  hx-swap="none"
-                  onsubmit="var items=[];any('#pq-item-tbody tr').forEach(function(row){var vals={};row.querySelectorAll('input,select').forEach(function(el){if(el.name&&el.name.startsWith('item_'))vals[el.name.replace('item_','')]=el.value});items.push(vals)});if(items.length===0){htmx.ajax('POST','/api/toast',{target:'.toast-container',swap:'innerHTML',values:{msg:'请至少添加一个报价产品明细',type:'error'}});return false}document.getElementById('items-json').value=JSON.stringify(items)" {
+                  hx-swap="none" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
                 input type="hidden" id="form-action" name="action" value="submit";
 
@@ -465,6 +464,26 @@ fn pq_create_page(
                     }
                 }
             }
+
+            // ── Form submit: collect items + validate ──
+            (maud::PreEscaped(r#"<script>
+me('#pq-form').on('submit', function(e) {
+    var items = [];
+    any('#pq-item-tbody tr').forEach(function(row) {
+        var vals = {};
+        row.querySelectorAll('input,select').forEach(function(el) {
+            if (el.name && el.name.startsWith('item_')) vals[el.name.replace('item_','')] = el.value;
+        });
+        items.push(vals);
+    });
+    if (items.length === 0) {
+        e.preventDefault();
+        htmx.ajax('POST', '/api/toast', {target: '.toast-container', swap: 'innerHTML', values: {msg: '请至少添加一个报价产品明细', type: 'error'}});
+        return;
+    }
+    me('#items-json').value = JSON.stringify(items);
+});
+</script>"#))
 
         }
     }

@@ -297,11 +297,6 @@ fn bom_table_fragment(
                         placeholder="搜索BOM名称…"
                         value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="status" {
-                    option value="" { "全部状态" }
-                    option value="1" selected[params.status == Some(1)] { "草稿" }
-                    option value="2" selected[params.status == Some(2)] { "已发布" }
-                }
                 select class="filter-select" name="category_id" {
                     option value="" { "全部分类" }
                     @for cat in ctx.cat_list {

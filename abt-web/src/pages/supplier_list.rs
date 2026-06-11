@@ -185,14 +185,6 @@ fn supplier_table_fragment(
                     option value="4" selected[params.category == Some(4)] { "辅料" }
                     option value="5" selected[params.category == Some(5)] { "服务" }
                 }
-                select class="filter-select" name="status" {
-                    option value="" { "全部状态" }
-                    option value="1" selected[params.status == Some(1)] { "潜在" }
-                    option value="2" selected[params.status == Some(2)] { "合格" }
-                    option value="3" selected[params.status == Some(3)] { "试用期" }
-                    option value="4" selected[params.status == Some(4)] { "不合格" }
-                    option value="5" selected[params.status == Some(5)] { "黑名单" }
-                }
             }
 
             // ── Data Table ──

@@ -162,7 +162,7 @@ impl FormConversionRepo {
         let limit_idx = param_idx + 1;
         let offset_idx = param_idx + 2;
 
-        let count_sql = format!("SELECT COUNT(*) as total FROM form_conversions WHERE {where_sql}");
+        let count_sql = format!("SELECT COUNT(*) as total FROM form_conversions fc WHERE {where_sql}");
         let data_sql = format!(
             "SELECT fc.id, fc.doc_number, fc.warehouse_id, fc.conversion_date, fc.status, \
              fc.remark, fc.operator_id, fc.created_at, \

@@ -174,7 +174,11 @@ pub async fn get_arrival_table(
     let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
 
-    Ok(Html(arrival_data_card(&result, &warehouse_names, &supplier_names, &params, false).into_string()))
+    let warehouses = warehouse_svc
+        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
+        .await?;
+
+    Ok(Html(arrival_table_fragment(&result, &warehouse_names, &supplier_names, &warehouses.items, &params, false).into_string()))
 }
 
 // ── Components ──

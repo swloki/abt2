@@ -77,8 +77,7 @@ pub async fn get_conversion_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page, page_size).await?;
 
-    let query = build_query_string(&params);
-    let fragment = conversion_data_card(&result, &query);
+    let fragment = conversion_table_fragment(&result, &params);
     Ok(Html(fragment.into_string()))
 }
 

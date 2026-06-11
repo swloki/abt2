@@ -184,7 +184,7 @@ impl CycleCountRepo {
         let limit_idx = param_idx + 1;
         let offset_idx = param_idx + 2;
 
-        let count_sql = format!("SELECT COUNT(*) as total FROM cycle_counts WHERE {where_sql}");
+        let count_sql = format!("SELECT COUNT(*) as total FROM cycle_counts cc WHERE {where_sql}");
         let data_sql = format!(
             "SELECT cc.id, cc.doc_number, cc.warehouse_id, cc.zone_id, cc.count_date, cc.status, cc.is_blind, \
              cc.remark, cc.operator_id, cc.created_at, cc.updated_at, \

@@ -179,9 +179,9 @@ pub async fn get_stock_out_table(
 
     let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
     let wh_names = resolve_wh_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
+    let warehouses = warehouse_svc.list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200).await.map(|r| r.items).unwrap_or_default();
 
-    let query = build_query_string(&params);
-    Ok(Html(stock_out_data_card(&result, &operator_names, &wh_names, &query).into_string()))
+    Ok(Html(stock_out_table_fragment(&result, &operator_names, &wh_names, &warehouses, &params).into_string()))
 }
 
 // ── Components ──
@@ -373,11 +373,6 @@ fn stock_out_table_fragment(
                     input class="search-input" type="text" name="product_code"
                         placeholder="物料编码"
                         value=(params.product_code.as_deref().unwrap_or(""));
-                }
-                select class="filter-select" name="transaction_type" {
-                    option value="" selected[selected_type.is_empty()] { "出库类型" }
-                    option value="SalesShipment" selected[selected_type == "SalesShipment"] { "销售出库" }
-                    option value="MaterialIssue" selected[selected_type == "MaterialIssue"] { "生产领料" }
                 }
                 select class="filter-select" name="warehouse_id" {
                     option value="" selected[params.warehouse_id.is_none()] { "全部仓库" }

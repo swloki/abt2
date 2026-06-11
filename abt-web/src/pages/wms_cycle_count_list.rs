@@ -79,7 +79,7 @@ pub async fn get_cycle_count_table(
 
     let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
-    Ok(Html(cycle_count_data_card(&result, &params).into_string()))
+    Ok(Html(cycle_count_table_fragment(&result, &params).into_string()))
 }
 
 // ── Helpers ──

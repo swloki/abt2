@@ -157,7 +157,7 @@ pub async fn get_lock_table(
                 }
     }
 
-    let fragment = lock_data_card_fragment(&result, &params, &product_map, &wh_names, &operator_map, &customer_map);
+    let fragment = lock_table_fragment(&result, &params, &product_map, &wh_names, &operator_map, &customer_map);
     Ok(Html(fragment.into_string()))
 }
 

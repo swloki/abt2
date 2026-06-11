@@ -169,7 +169,11 @@ pub async fn get_requisition_table(
     let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
 
-    Ok(Html(requisition_data_card(&result, &warehouse_names, &operator_names, &params).into_string()))
+    let warehouses = warehouse_svc
+        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
+        .await?;
+
+    Ok(Html(requisition_table_fragment(&result, &warehouse_names, &operator_names, &warehouses.items, &params).into_string()))
 }
 
 // ── Components ──

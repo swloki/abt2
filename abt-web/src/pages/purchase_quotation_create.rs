@@ -42,6 +42,7 @@ pub struct PQCreateForm {
     pub valid_from: String,
     pub valid_until: String,
     pub currency: Option<String>,
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub buyer_id: Option<i64>,
     pub remark: Option<String>,
     pub items_json: String,
@@ -409,8 +410,24 @@ fn pq_create_page(
                         "保存草稿"
                         script { (maud::PreEscaped("me().on('click', ev => { me('#form-action').value='draft'; me('#pq-form').requestSubmit() })")) }
                     }
-                    button type="submit" class="btn btn-primary" {
+                    button type="button" class="btn btn-primary" {
                         "提交报价"
+                        (maud::PreEscaped(r#"<script>me().on('click', function() {
+    var items = [];
+    any('#pq-item-tbody tr').forEach(function(row) {
+        var vals = {};
+        row.querySelectorAll('input,select').forEach(function(el) {
+            if (el.name && el.name.startsWith('item_')) vals[el.name.replace('item_','')] = el.value;
+        });
+        items.push(vals);
+    });
+    if (items.length === 0) {
+        show_error_toast('请至少添加一个报价产品明细');
+        return;
+    }
+    me('#items-json').value = JSON.stringify(items);
+    me('#pq-form').requestSubmit();
+})</script>"#))
                     }
                 }
             }
@@ -464,26 +481,6 @@ fn pq_create_page(
                     }
                 }
             }
-
-            // ── Form submit: collect items + validate ──
-            (maud::PreEscaped(r#"<script>
-me('#pq-form').on('submit', function(e) {
-    var items = [];
-    any('#pq-item-tbody tr').forEach(function(row) {
-        var vals = {};
-        row.querySelectorAll('input,select').forEach(function(el) {
-            if (el.name && el.name.startsWith('item_')) vals[el.name.replace('item_','')] = el.value;
-        });
-        items.push(vals);
-    });
-    if (items.length === 0) {
-        e.preventDefault();
-        show_error_toast('请至少添加一个报价产品明细');
-        return;
-    }
-    me('#items-json').value = JSON.stringify(items);
-});
-</script>"#))
 
         }
     }

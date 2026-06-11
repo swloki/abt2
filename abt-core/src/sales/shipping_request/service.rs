@@ -11,6 +11,19 @@ pub trait ShippingRequestService: Send + Sync {
         req: CreateFromOrderReq,
     ) -> Result<i64>;
 
+    async fn save_draft(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        req: CreateDraftReq,
+    ) -> Result<i64>;
+
+    async fn update_draft(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+        req: UpdateDraftReq,
+    ) -> Result<()>;
+
     async fn find_by_id(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

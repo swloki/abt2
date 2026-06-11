@@ -214,12 +214,71 @@ function collectItems() {
   if (hiddenItems) hiddenItems.value = JSON.stringify(items);
 }
 
-function handleSubmit() {
+
+function handleSave() {
   collectItems();
-  htmx.trigger(document.getElementById('shipping-form'), 'submit');
+
+  // 校验：至少有一条明细行且填写了发货数量
+  var tbody = document.getElementById('lineItemsBody');
+  var rows = tbody ? tbody.querySelectorAll('tr') : [];
+  var hasValidItem = false;
+  rows.forEach(function(row) {
+    var qtyInput = row.querySelector('input[name="requested_qty"]');
+    if (qtyInput && qtyInput.value && parseFloat(qtyInput.value) > 0) {
+      hasValidItem = true;
+    }
+  });
+
+  if (!hasValidItem) {
+    show_error_toast('请至少添加一条发货产品明细');
+    return;
+  }
+
+  var form = document.getElementById('shipping-form');
+  if (!form) return;
+
+  // 添加/设置 draft_id（编辑已有记录时存在）
+  var app = document.getElementById('shipping-app');
+  var draftId = app ? app.getAttribute('data-draft-id') : null;
+  var existingDraftInput = form.querySelector('input[name="draft_id"]');
+  if (!existingDraftInput) {
+    var draftInput = document.createElement('input');
+    draftInput.type = 'hidden';
+    draftInput.name = 'draft_id';
+    draftInput.value = draftId || '';
+    form.appendChild(draftInput);
+  } else {
+    existingDraftInput.value = draftId || '';
+  }
+
+  htmx.ajax('POST', '/admin/shipping/draft', { source: form, swap: 'none' });
 }
 
-function handleSaveDraft() {
-  // TODO: implement save draft
-  alert('保存草稿功能暂未实现');
+// ── Restore items from draft data (called by edit page) ──
+function fillItemsFromDraft(items) {
+  var tbody = document.getElementById('lineItemsBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  var warehouseSelect = document.getElementById('warehouse-default');
+  var defaultWarehouse = warehouseSelect ? warehouseSelect.value : '';
+
+  items.forEach(function(item, idx) {
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td class="line-num">' + (idx + 1) + '</td>' +
+      '<td class="mono"></td>' +
+      '<td></td>' +
+      '<td>' + (item.description || '') + '</td>' +
+      '<td></td>' +
+      '<td class="num-right">0</td>' +
+      '<td class="num-right">0</td>' +
+      '<td><input class="form-input num-input" type="number" name="requested_qty" min="1" value="' + (item.requested_qty || '') + '" placeholder="0" oninput="updateTotals()"></td>' +
+      '<td><select class="form-select" name="warehouse_id" style="width:120px;padding:5px 8px;font-size:13px">' + getWarehouseOptions(item.warehouse_id || defaultWarehouse) + '</select></td>' +
+      '<td><button type="button" class="btn-remove-row" title="删除行" onclick="this.closest(\'tr\').remove();updateTotals()">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+      '</button></td>' +
+      '<input type="hidden" name="order_item_id" value="' + (item.order_item_id || 0) + '">';
+    tbody.appendChild(tr);
+  });
 }

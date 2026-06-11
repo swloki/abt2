@@ -54,7 +54,7 @@ fn build_query_string(params: &ShippingQueryParams) -> String {
 
 fn status_label(s: ShippingStatus) -> (&'static str, &'static str) {
     match s {
-        ShippingStatus::Draft => ("草稿", "status-draft"),
+        ShippingStatus::Draft => ("待审核", "status-draft"),
         ShippingStatus::Confirmed => ("已确认", "status-confirmed"),
         ShippingStatus::Picking => ("拣货中", "status-picking"),
         ShippingStatus::Shipped => ("已发货", "status-shipped"),
@@ -107,10 +107,12 @@ async fn resolve_order_numbers<S: SalesOrderService>(
     let mut map = HashMap::new();
     let mut seen = HashSet::new();
     for item in items {
-        if seen.insert(item.order_id)
-            && let Ok(order) = svc.find_by_id(ctx, db, item.order_id).await {
-                map.insert(item.order_id, order.doc_number);
-            }
+        if let Some(oid) = item.order_id {
+            if seen.insert(oid)
+                && let Ok(order) = svc.find_by_id(ctx, db, oid).await {
+                    map.insert(oid, order.doc_number);
+                }
+        }
     }
     map
 }
@@ -254,7 +256,7 @@ fn shipping_table_fragment(
 
     let tabs = &[
         TabItem { value: String::new(), label: "全部", count: Some(total_count) },
-        TabItem { value: "1".into(), label: "草稿", count: draft_count },
+        TabItem { value: "1".into(), label: "待审核", count: draft_count },
         TabItem { value: "2".into(), label: "已确认", count: confirmed_count },
         TabItem { value: "3".into(), label: "拣货中", count: picking_count },
         TabItem { value: "4".into(), label: "已发货", count: shipped_count },
@@ -336,19 +338,23 @@ fn shipping_row(
     let detail_path = ShippingDetailPath { id: s.id };
     let (status_text, status_class) = status_label(s.status);
     let customer_name = customer_names.get(&s.customer_id).map(|n| n.as_str()).unwrap_or("—");
-    let order_num = order_numbers.get(&s.order_id).map(|n| n.as_str()).unwrap_or("—");
+    let order_num = s.order_id.and_then(|oid| order_numbers.get(&oid).map(|n| n.as_str())).unwrap_or("—");
     let ship_date = s.expected_ship_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into());
     let created = s.created_at.format("%Y-%m-%d %H:%M").to_string();
     let onclick = format!("location.href='{}'", detail_path);
     let is_draft = s.status == ShippingStatus::Draft;
     let delete_path = ShippingDeletePath { id: s.id };
-    let order_detail = OrderDetailPath { id: s.order_id };
+    let order_detail_path = s.order_id.map(|oid| OrderDetailPath { id: oid });
 
     html! {
         tr {
             td class="link-cell mono" onclick=(&onclick) { (s.doc_number) }
             td onclick=(&onclick) {
-                a href=(order_detail.to_string()) class="text-accent" onclick="event.stopPropagation()" { (order_num) }
+                @if let Some(odp) = order_detail_path {
+                    a href=(odp.to_string()) class="text-accent" onclick="event.stopPropagation()" { (order_num) }
+                } @else {
+                    (order_num)
+                }
             }
             td onclick=(&onclick) { (customer_name) }
             td onclick=(&onclick) {
@@ -361,7 +367,7 @@ fn shipping_row(
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
                     @if is_draft {
-                        a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
+                        a class="row-action-btn" href=(ShippingEditPath { id: s.id }.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         @if can_delete {

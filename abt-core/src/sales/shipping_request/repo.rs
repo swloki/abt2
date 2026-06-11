@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use crate::shared::types::PgExecutor;
 use crate::shared::types::Result;
 
@@ -21,8 +22,8 @@ impl ShippingRequestRepo {
         params: &CreateShippingRequestParams<'_>,
     ) -> Result<i64> {
         let row = sqlx::query_scalar::<sqlx::Postgres, i64>(
-            r#"INSERT INTO shipping_requests (doc_number, order_id, customer_id, expected_ship_date, shipping_address, remark, operator_id)
-               VALUES ($1, $2, $3, $4, $5, $6, $7)
+            r#"INSERT INTO shipping_requests (doc_number, order_id, customer_id, expected_ship_date, shipping_address, carrier, remark, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                RETURNING id"#,
         )
         .bind(params.doc_number)
@@ -30,6 +31,7 @@ impl ShippingRequestRepo {
         .bind(params.customer_id)
         .bind(params.expected_ship_date)
         .bind(params.shipping_address)
+        .bind(params.carrier)
         .bind(params.remark)
         .bind(params.operator_id)
         .fetch_one(executor)
@@ -126,6 +128,38 @@ impl ShippingRequestRepo {
         }
 
         q.execute(executor).await?;
+        Ok(())
+    }
+
+    /// 草稿专用：全量更新主表字段（order_id、customer_id 等）
+    pub async fn update_draft_fields(
+        &self,
+        executor: PgExecutor<'_>,
+        id: i64,
+        order_id: Option<i64>,
+        customer_id: Option<i64>,
+        expected_ship_date: Option<NaiveDate>,
+        shipping_address: Option<&str>,
+        carrier: Option<&str>,
+        remark: Option<&str>,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE shipping_requests
+               SET order_id = $2, customer_id = COALESCE($3, customer_id),
+                   expected_ship_date = $4, shipping_address = COALESCE($5, shipping_address),
+                   carrier = COALESCE($6, carrier), remark = COALESCE($7, remark),
+                   updated_at = NOW()
+               WHERE id = $1 AND deleted_at IS NULL"#,
+        )
+        .bind(id)
+        .bind(order_id)
+        .bind(customer_id)
+        .bind(expected_ship_date)
+        .bind(shipping_address)
+        .bind(carrier)
+        .bind(remark)
+        .execute(executor)
+        .await?;
         Ok(())
     }
 
@@ -280,6 +314,20 @@ impl ShippingRequestItemRepo {
         )
         .bind(id)
         .bind(shipped_qty)
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn delete_by_shipping_request_id(
+        &self,
+        executor: PgExecutor<'_>,
+        shipping_request_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            "DELETE FROM shipping_request_items WHERE shipping_request_id = $1",
+        )
+        .bind(shipping_request_id)
         .execute(executor)
         .await?;
         Ok(())

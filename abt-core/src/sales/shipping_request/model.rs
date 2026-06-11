@@ -80,7 +80,7 @@ impl<'de> Deserialize<'de> for ShippingStatus {
 pub struct ShippingRequest {
     pub id: i64,
     pub doc_number: String,
-    pub order_id: i64,
+    pub order_id: Option<i64>,
     pub customer_id: i64,
     pub request_date: NaiveDate,
     pub expected_ship_date: Option<NaiveDate>,
@@ -109,7 +109,7 @@ pub struct ShippingRequestItem {
     pub description: String,
 }
 
-/// 从订单创建发货请求
+/// 从订单创建发货请求（正式创建，要求 order_id）
 #[derive(Debug, Clone)]
 pub struct CreateFromOrderReq {
     pub order_id: i64,
@@ -118,7 +118,41 @@ pub struct CreateFromOrderReq {
     pub items: Vec<CreateShippingItemReq>,
 }
 
-/// 创建发货明细请求
+/// 草稿创建请求（宽松校验，仅要求 customer_id）
+#[derive(Debug, Clone)]
+pub struct CreateDraftReq {
+    pub customer_id: i64,
+    pub order_id: Option<i64>,
+    pub expected_ship_date: Option<NaiveDate>,
+    pub shipping_address: Option<String>,
+    pub carrier: Option<String>,
+    pub remark: Option<String>,
+    pub items: Vec<CreateDraftItemReq>,
+}
+
+/// 草稿明细行（order_item_id 可选，支持手动添加的行）
+#[derive(Debug, Clone)]
+pub struct CreateDraftItemReq {
+    pub order_item_id: Option<i64>,
+    pub product_id: Option<i64>,
+    pub warehouse_id: i64,
+    pub requested_qty: Decimal,
+    pub description: String,
+}
+
+/// 草稿更新请求（全量替换语义）
+#[derive(Debug, Clone, Default)]
+pub struct UpdateDraftReq {
+    pub customer_id: Option<i64>,
+    pub order_id: Option<i64>,
+    pub expected_ship_date: Option<NaiveDate>,
+    pub shipping_address: Option<String>,
+    pub carrier: Option<String>,
+    pub remark: Option<String>,
+    pub items: Option<Vec<CreateDraftItemReq>>,
+}
+
+/// 创建发货明细请求（正式创建，从订单关联）
 #[derive(Debug, Clone)]
 pub struct CreateShippingItemReq {
     pub order_item_id: i64,
@@ -126,7 +160,7 @@ pub struct CreateShippingItemReq {
     pub requested_qty: Decimal,
 }
 
-/// 更新发货申请请求
+/// 更新发货申请请求（非草稿状态，仅改基础字段）
 #[derive(Debug, Clone, Default)]
 pub struct UpdateShippingReq {
     pub expected_ship_date: Option<NaiveDate>,
@@ -148,10 +182,11 @@ pub struct ShippingQuery {
 /// 发货申请创建参数（repo 层使用）
 pub struct CreateShippingRequestParams<'a> {
     pub doc_number: &'a str,
-    pub order_id: i64,
+    pub order_id: Option<i64>,
     pub customer_id: i64,
     pub expected_ship_date: Option<NaiveDate>,
     pub shipping_address: &'a str,
+    pub carrier: &'a str,
     pub remark: &'a str,
     pub operator_id: i64,
 }

@@ -286,7 +286,7 @@ CREATE TABLE role_permissions (
 -- 10. Seed Data — 超级管理员 + 基础角色
 -- ============================================================================
 
--- Default password: "admin123" — argon2 hash will be set on first run
+-- Default password: "chenxi0514" — argon2 hash will be set on first run
 -- Insert placeholder; real password set via application
 INSERT INTO users (username, password_hash, display_name, is_super_admin)
 VALUES ('admin', '$argon2id$v=19$m=19456,t=2,p=1$placeholder', 'Super Admin', TRUE);

@@ -25,7 +25,7 @@
 agent-browser open http://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e1 "admin"
-agent-browser fill @e2 "admin123"
+agent-browser fill @e2 "chenxi0514"
 agent-browser click @e3
 sleep 2
 ```

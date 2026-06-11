@@ -111,6 +111,6 @@
 
 ## 环境信息
 - 服务地址: http://localhost:8000
-- 测试账号: admin / admin123
+- 测试账号: admin / chenxi0514
 - 数据库: PostgreSQL abt_v2
 - 编译验证: cargo clippy 0 errors

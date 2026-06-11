@@ -16,7 +16,7 @@ ABT 是 BOM（物料清单）和库存管理系统，基于 Rust 构建。底层
 - `JWT_SECRET`（必须）
 - `WEB_PORT`（默认 `8000`）、`WEB_HOST`（默认 `0.0.0.0`）、`MAX_CONNECTION`（默认 `20`）
 
-**本地登录凭据**：用户名 `admin`，密码 `admin123`
+**本地登录凭据**：用户名 `admin`，密码 `chenxi0514`
 
 ## Design Principle: Interface & Model First（接口与模型先行）
 

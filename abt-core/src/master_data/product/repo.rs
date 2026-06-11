@@ -123,7 +123,7 @@ impl ProductRepo {
         let code_param = if let Some(ref code) = filter.code {
             param_idx += 1;
             conditions.push(format!("product_code ILIKE ${param_idx}"));
-            Some(code.clone())
+            Some(format!("%{code}%"))
         } else { None };
 
         let status_param = if let Some(status) = filter.status {

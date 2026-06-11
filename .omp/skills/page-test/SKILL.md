@@ -17,7 +17,7 @@ allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*), Bash(psql:*), B
 ## 环境信息
 
 - **应用地址**: `http://localhost:8000`
-- **测试账号**: `admin` / `admin123`
+- **测试账号**: `admin` / `chenxi0514`
 - **项目约束**: 使用中文沟通，不要用 `curl` 测试页面
 - **数据库**: PostgreSQL `abt_v2`，连接串在 `.env` 的 `DATABASE_URL`
 
@@ -50,7 +50,7 @@ psql "$DATABASE_URL" -f scripts/sales-test-data.sql
 
 # 2. 登录
 agent-browser open http://localhost:8000/login
-agent-browser fill @e1 "admin" && agent-browser fill @e2 "admin123"
+agent-browser fill @e1 "admin" && agent-browser fill @e2 "chenxi0514"
 agent-browser click @e3 && sleep 2
 
 # 3. 测试页面

@@ -35,6 +35,7 @@ pub struct UpsertStockReq {
 #[derive(Debug, Clone, Default)]
 pub struct StockFilter {
     pub product_id: Option<i64>,
+    pub product_ids: Option<Vec<i64>>,
     pub warehouse_id: Option<i64>,
     pub zone_id: Option<i64>,
     pub bin_id: Option<i64>,

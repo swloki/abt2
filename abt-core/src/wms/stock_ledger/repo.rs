@@ -115,6 +115,9 @@ impl StockLedgerRepo {
         let mut param_idx = 0u32;
 
         if filter.product_id.is_some() { param_idx += 1; conditions.push(format!("product_id = ${param_idx}")); }
+        if filter.product_ids.as_ref().is_some_and(|ids| !ids.is_empty()) {
+            param_idx += 1; conditions.push(format!("product_id = ANY(${param_idx})"));
+        }
         if filter.warehouse_id.is_some() { param_idx += 1; conditions.push(format!("warehouse_id = ${param_idx}")); }
         if filter.zone_id.is_some() { param_idx += 1; conditions.push(format!("zone_id = ${param_idx}")); }
         if filter.bin_id.is_some() { param_idx += 1; conditions.push(format!("bin_id = ${param_idx}")); }
@@ -135,6 +138,7 @@ impl StockLedgerRepo {
         // 构建并执行 count 查询
         let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
         if let Some(v) = filter.product_id { count_q = count_q.bind(v); }
+        if let Some(ref v) = filter.product_ids { count_q = count_q.bind(v); }
         if let Some(v) = filter.warehouse_id { count_q = count_q.bind(v); }
         if let Some(v) = filter.zone_id { count_q = count_q.bind(v); }
         if let Some(v) = filter.bin_id { count_q = count_q.bind(v); }
@@ -143,6 +147,7 @@ impl StockLedgerRepo {
         // 构建并执行 data 查询
         let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
         if let Some(v) = filter.product_id { data_q = data_q.bind(v); }
+        if let Some(ref v) = filter.product_ids { data_q = data_q.bind(v); }
         if let Some(v) = filter.warehouse_id { data_q = data_q.bind(v); }
         if let Some(v) = filter.zone_id { data_q = data_q.bind(v); }
         if let Some(v) = filter.bin_id { data_q = data_q.bind(v); }

@@ -360,7 +360,7 @@ All shared enums are `#[repr(i16)]` stored as PostgreSQL `smallint`. They implem
 - **Session storage**: File-based via `tower-sessions` + `file-store`
 - **Linting**: `cargo clippy` — primary verification
 - **Environment** (`.env` file): `DATABASE_URL` (required, points to `abt_v2`), `JWT_SECRET` (required), `WEB_PORT` (default `8000`), `WEB_HOST` (default `0.0.0.0`), `MAX_CONNECTION` (default `20`)
-- **Local auth**: username `admin`, password `admin123`
+- **Local auth**: username `admin`, password `chenxi0514`
 
 ## Testing & QA
 
@@ -404,13 +404,13 @@ Use `agent-browser` CLI for end-to-end page testing. **Never use `curl`** for pa
 
 ```bash
 # First-time login — save auth profile
-agent-browser auth save abt --url http://localhost:8000/login --username admin --password admin123
+agent-browser auth save abt --url http://localhost:8000/login --username admin --password chenxi0514
 
 # Start browser and login
 agent-browser --session-name abt open http://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
-agent-browser fill @e<password_input> "admin123"
+agent-browser fill @e<password_input> "chenxi0514"
 agent-browser click @e<login_button>
 agent-browser wait 2000
 ```

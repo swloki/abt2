@@ -40,13 +40,14 @@ pub struct StockQueryParams {
 
 // ── Helpers ──
 
-fn build_filter(params: &StockQueryParams, single_product_id: Option<i64>) -> StockFilter {
+fn build_filter(params: &StockQueryParams, single_product_id: Option<i64>, product_ids: Vec<i64>) -> StockFilter {
     StockFilter {
         product_id: single_product_id,
+        product_ids: if !product_ids.is_empty() && single_product_id.is_none() { Some(product_ids) } else { None },
         warehouse_id: params.warehouse_id,
         zone_id: params.zone_id,
         bin_id: None,
-        batch_no: params.batch_no.clone(),
+        batch_no: params.batch_no.as_deref().filter(|s| !s.is_empty()).map(String::from),
     }
 }
 
@@ -99,9 +100,9 @@ async fn resolve_product_search(
         name: if has_name { params.product_name.clone() } else { None },
         ..Default::default()
     };
-
     let result = product_svc.list(ctx, db, query, PageParams { page: 1, page_size: 200 }).await?;
     let ids: Vec<i64> = result.items.iter().map(|p| p.product_id).collect();
+
 
     if ids.len() == 1 {
         Ok((Some(ids[0]), ids))
@@ -253,18 +254,13 @@ pub async fn get_stock_list(
     let has_search = params.product_code.as_deref().is_some_and(|s| !s.trim().is_empty())
         || params.product_name.as_deref().is_some_and(|s| !s.trim().is_empty());
     let (single_pid, all_pids) = resolve_product_search(&product_svc, &service_ctx, &mut conn, &params).await.unwrap_or((None, vec![]));
-    let filter = build_filter(&params, single_pid);
+    let filter = build_filter(&params, single_pid, all_pids.clone());
     let page_num = params.page.unwrap_or(1);
     let mut result = svc.query(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
     // 搜索了但没找到匹配产品 → 清空结果
     if has_search && all_pids.is_empty() && single_pid.is_none() {
         result.items.clear();
-    }
-    // 多个产品匹配 → post-filter
-    else if !all_pids.is_empty() && all_pids.len() > 1 {
-        let id_set: HashSet<i64> = all_pids.into_iter().collect();
-        result.items.retain(|item| id_set.contains(&item.product_id));
     }
 
     let product_names = resolve_product_names(&product_svc, &service_ctx, &mut conn, &result.items).await;
@@ -299,18 +295,13 @@ pub async fn get_stock_table(
     let has_search = params.product_code.as_deref().is_some_and(|s| !s.trim().is_empty())
         || params.product_name.as_deref().is_some_and(|s| !s.trim().is_empty());
     let (single_pid, all_pids) = resolve_product_search(&product_svc, &service_ctx, &mut conn, &params).await.unwrap_or((None, vec![]));
-    let filter = build_filter(&params, single_pid);
+    let filter = build_filter(&params, single_pid, all_pids.clone());
     let page_num = params.page.unwrap_or(1);
     let mut result = svc.query(&service_ctx, &mut conn, filter, page_num, 20).await?;
 
     // 搜索了但没找到匹配产品 → 清空结果
     if has_search && all_pids.is_empty() && single_pid.is_none() {
         result.items.clear();
-    }
-    // 多个产品匹配 → post-filter
-    else if !all_pids.is_empty() && all_pids.len() > 1 {
-        let id_set: HashSet<i64> = all_pids.into_iter().collect();
-        result.items.retain(|item| id_set.contains(&item.product_id));
     }
 
     let product_names = resolve_product_names(&product_svc, &service_ctx, &mut conn, &result.items).await;

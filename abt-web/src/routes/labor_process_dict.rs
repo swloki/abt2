@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct ProcessDictListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/process-dicts/table")]
-pub struct ProcessDictTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/process-dicts/new")]
 pub struct ProcessDictCreatePath;
 
@@ -39,10 +35,6 @@ pub fn router() -> Router<AppState> {
         .route(
             ProcessDictListPath::PATH,
             get(labor_process_dict_list::get_process_dict_list),
-        )
-        .route(
-            ProcessDictTablePath::PATH,
-            get(labor_process_dict_list::get_process_dict_table),
         )
         .route(
             ProcessDictCreatePath::PATH,

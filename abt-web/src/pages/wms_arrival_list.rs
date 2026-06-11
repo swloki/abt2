@@ -17,7 +17,7 @@ use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::wms_arrival::*;
@@ -156,27 +156,6 @@ pub async fn get_arrival_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "read")]
-pub async fn get_arrival_table(
-    _path: ArrivalTablePath,
-    ctx: RequestContext,
-    Query(params): Query<ArrivalQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.arrival_notice_service();
-    let warehouse_svc = state.warehouse_service();
-    let supplier_svc = state.supplier_service();
-
-    let filter = build_filter(&params);
-    let page = params.page.unwrap_or(1);
-    let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
-
-    let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-    let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-
-    Ok(Html(arrival_data_card(&result, &warehouse_names, &supplier_names, &params, false).into_string()))
-}
-
 // ── Components ──
 
 fn arrival_list_page(
@@ -233,42 +212,30 @@ fn arrival_table_fragment(
 
     html! {
         div class="arrival-list-panel" {
-            (status_tabs(ArrivalTablePath::PATH, "closest .arrival-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(ArrivalListPath::PATH, "#arrival-data-card", "#arrival-filter-form", tabs, &active_value, "status"))
 
-            form class="filter-bar filter-form"
-                hx-get=(ArrivalTablePath::PATH)
-                hx-trigger="change,keyup changed delay:300ms from:.search-input"
+            form class="filter-bar filter-form" id="arrival-filter-form"
+                hx-get=(ArrivalListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#arrival-data-card"
                 hx-select="#arrival-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#arrival-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"
                         style="width:180px"
                         placeholder="单据编号"
-                        value=(params.doc_number.as_deref().unwrap_or(""))
-                        hx-get=(ArrivalTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="#arrival-data-card"
-                        hx-swap="outerHTML";
+                        value=(params.doc_number.as_deref().unwrap_or(""));
                 }
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="supplier"
                         placeholder="供应商"
-                        value=(params.supplier.as_deref().unwrap_or(""))
-                        hx-get=(ArrivalTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="#arrival-data-card"
-                        hx-swap="outerHTML";
+                        value=(params.supplier.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_id"
-                    hx-get=(ArrivalTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="#arrival-data-card"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="warehouse_id" {
                     option value="" { "全部仓库" }
                     @for w in warehouses {
                         option value=(w.id) selected[selected_warehouse == w.id.to_string()] { (w.name) }

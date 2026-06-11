@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct CycleCountListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/cycle-counts/table")]
-pub struct CycleCountTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/cycle-counts/create")]
 pub struct CycleCountCreatePath;
 
@@ -39,7 +35,6 @@ pub struct CycleCountDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(CycleCountListPath::PATH, get(wms_cycle_count_list::get_cycle_count_list))
-        .route(CycleCountTablePath::PATH, get(wms_cycle_count_list::get_cycle_count_table))
         .route(CycleCountProductsPath::PATH, get(wms_cycle_count_create::get_products))
         .route(CycleCountItemRowPath::PATH, get(wms_cycle_count_create::get_item_row))
         .route(CycleCountCreatePath::PATH, get(wms_cycle_count_create::get_cycle_count_create).post(wms_cycle_count_create::create_cycle_count))

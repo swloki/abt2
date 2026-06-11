@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct BackflushListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/backflushes/table")]
-pub struct BackflushTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/backflushes/{id}")]
 pub struct BackflushDetailPath {
     pub id: i64,
@@ -27,6 +23,5 @@ pub struct BackflushDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(BackflushListPath::PATH, get(wms_backflush_list::get_backflush_list))
-        .route(BackflushTablePath::PATH, get(wms_backflush_list::get_backflush_table))
         .route(BackflushDetailPath::PATH, get(wms_backflush_detail::get_backflush_detail))
 }

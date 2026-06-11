@@ -17,7 +17,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::fms::{ExpenseCreatePath, ExpenseDetailPath, ExpenseListPath, ExpenseTablePath};
+use crate::routes::fms::{ExpenseCreatePath, ExpenseDetailPath, ExpenseListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -159,26 +159,6 @@ pub async fn get_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("FMS", "read")]
-pub async fn get_table(
-    _path: ExpenseTablePath,
-    ctx: RequestContext,
-    Query(params): Query<ExpenseQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.expense_service();
-
-    let filter = build_filter(&params);
-    let page_num = params.page.unwrap_or(1);
-    let result = svc
-        .list(&service_ctx, &mut conn, filter, abt_core::shared::types::PageParams::new(page_num, 20))
-        .await?;
-
-    let (applicant_names, dept_names) = resolve_names(&state, &service_ctx, &mut conn, &result.items).await;
-
-    Ok(Html(expense_data_card(&result, &params, &applicant_names, &dept_names).into_string()))
-}
-
 fn build_filter(params: &ExpenseQueryParams) -> ExpenseFilter {
     let status_vec = match &params.status {
         Some(1) => vec![ExpenseStatus::Draft],
@@ -249,15 +229,16 @@ fn expense_table_fragment(
 
     html! {
         div {
-            (status_tabs_with_param(ExpenseTablePath::PATH, "#expense-data-card", "closest form", tabs, &selected_status, "status"))
+            (status_tabs_with_param(ExpenseListPath::PATH, "#expense-data-card", "#expense-filter-form", tabs, &selected_status, "status"))
 
-            form class="filter-bar filter-form"
-                hx-get=(ExpenseTablePath::PATH)
+            form class="filter-bar filter-form" id="expense-filter-form"
+                hx-get=(ExpenseListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#expense-data-card"
                 hx-select="#expense-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#expense-filter-form"
+                hx-push-url="true" {
                 select class="filter-select" name="status" {
                     option value="" selected[params.status.is_none()] { "全部状态" }
                     option value="1" selected[params.status == Some(1)] { "草稿" }

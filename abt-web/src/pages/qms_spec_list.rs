@@ -19,7 +19,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::qms::{SpecCreatePath, SpecDetailPath, SpecListPath, SpecTablePath};
+use crate::routes::qms::{SpecCreatePath, SpecDetailPath, SpecListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -153,35 +153,6 @@ pub async fn get_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("QMS", "read")]
-pub async fn get_table(
-    _path: SpecTablePath,
-    ctx: RequestContext,
-    Query(params): Query<SpecQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.inspection_specification_service();
-    let product_svc = state.product_service();
-
-    let filter = InspectionSpecFilter {
-        product_id: None,
-        inspection_type: params.inspection_type.as_deref().and_then(parse_inspection_type),
-        status: params.status.as_deref().and_then(parse_status),
-        keyword: params.keyword.clone(),
-    };
-    let page_num = params.page.unwrap_or(1);
-    let result = svc
-        .list(&service_ctx, &mut conn, filter, abt_core::shared::types::PageParams::new(page_num, 20))
-        .await?;
-
-    let product_ids: Vec<i64> = result.items.iter().map(|s| s.product_id).collect();
-    let product_names = resolve_product_names(&product_svc, &service_ctx, &mut conn, &product_ids).await;
-
-    Ok(Html(
-        spec_data_card(&result, &product_names, &params).into_string(),
-    ))
-}
-
 // ── Components ──
 
 fn spec_list_page(
@@ -225,16 +196,17 @@ fn spec_table_fragment(
 
     html! {
         div class="spec-list-panel" {
-            (status_tabs_with_param(SpecTablePath::PATH, "#spec-data-card", "closest form", tabs, selected_status, "status"))
+            (status_tabs_with_param(SpecListPath::PATH, "#spec-data-card", "#filter-form", tabs, selected_status, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
-                hx-get=(SpecTablePath::PATH)
+            form id="filter-form" class="filter-bar filter-form"
+                hx-get=(SpecListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#spec-data-card"
                 hx-select="#spec-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

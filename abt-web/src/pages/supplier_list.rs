@@ -10,10 +10,10 @@ use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::supplier::{
-    SupplierCreatePath, SupplierDeletePath, SupplierDetailPath, SupplierListPath, SupplierTablePath,
+    SupplierCreatePath, SupplierDeletePath, SupplierDetailPath, SupplierListPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 
@@ -66,24 +66,6 @@ pub async fn get_supplier_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("SUPPLIER", "read")]
-pub async fn get_supplier_table(
-    ctx: RequestContext,
-    Query(params): Query<SupplierQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let can_delete = ctx.has_permission("SUPPLIER", "delete").await;
-    let can_edit = ctx.has_permission("SUPPLIER", "update").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.supplier_service();
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    Ok(Html(supplier_table_fragment(&result, &params, can_delete, can_edit).into_string()))
 }
 
 #[require_permission("SUPPLIER", "delete")]
@@ -161,25 +143,25 @@ fn supplier_table_fragment(
 
     html! {
         div class="supplier-list-panel" {
-            (status_tabs(SupplierTablePath::PATH, "closest .supplier-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(SupplierListPath::PATH, "#supplier-data-card", "#supplier-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="supplier-filter-form"
+                hx-get=(SupplierListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#supplier-data-card"
+                hx-select="#supplier-data-card"
+                hx-swap="outerHTML"
+                hx-select-oob="#status-tabs"
+                hx-include="#supplier-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索供应商名称、编码…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(SupplierTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .supplier-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="category"
-                    hx-get=(SupplierTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .supplier-list-panel"
-                    hx-swap="outerHTML" {
+                select class="filter-select" name="category" {
                     option value="" { "全部类别" }
                     option value="1" selected[params.category == Some(1)] { "原材料" }
                     option value="2" selected[params.category == Some(2)] { "包装材料" }
@@ -187,22 +169,10 @@ fn supplier_table_fragment(
                     option value="4" selected[params.category == Some(4)] { "辅料" }
                     option value="5" selected[params.category == Some(5)] { "服务" }
                 }
-                select class="filter-select" name="status"
-                    hx-get=(SupplierTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .supplier-list-panel"
-                    hx-swap="outerHTML" {
-                    option value="" { "全部状态" }
-                    option value="1" selected[params.status == Some(1)] { "潜在" }
-                    option value="2" selected[params.status == Some(2)] { "合格" }
-                    option value="3" selected[params.status == Some(3)] { "试用期" }
-                    option value="4" selected[params.status == Some(4)] { "不合格" }
-                    option value="5" selected[params.status == Some(5)] { "黑名单" }
-                }
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="supplier-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

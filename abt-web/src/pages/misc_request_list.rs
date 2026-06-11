@@ -16,7 +16,7 @@ use abt_core::shared::types::ServiceContext;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::misc_request::*;
@@ -189,27 +189,6 @@ pub async fn get_misc_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("MISC_REQUEST", "read")]
-pub async fn get_misc_table(
-    ctx: RequestContext,
-    Query(params): Query<MiscQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.misc_request_service();
-    let user_svc = state.user_service();
-    let dept_svc = state.department_service();
-
-    let dept_id_map = load_dept_id_map(&dept_svc, &service_ctx, &mut conn).await;
-    let filter = build_filter(&params, &dept_id_map);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let operator_map = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
-    let dept_name_map = resolve_department_names(&dept_svc, &service_ctx, &mut conn).await;
-
-    Ok(Html(misc_table_fragment(&result, &params, &operator_map, &dept_name_map).into_string()))
-}
-
 // ── Components ──
 
 fn misc_list_page(
@@ -265,26 +244,25 @@ fn misc_table_fragment(
 
     html! {
         div class="misc-list-panel" {
-            (status_tabs(MiscTablePath::PATH, "closest .misc-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(MiscListPath::PATH, "#misc-data-card", "#misc-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="misc-filter-form"
+                hx-get=(MiscListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#misc-data-card"
+                hx-select="#misc-data-card"
+                hx-swap="outerHTML"
+                hx-select-oob="#status-tabs"
+                hx-include="#misc-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索单据编号…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(MiscTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .misc-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="department"
-                    hx-get=(MiscTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .misc-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="department" {
                     option value="" selected[dept_value.is_empty()] { "全部部门" }
                     option value="行政部" selected[dept_value == "行政部"] { "行政部" }
                     option value="IT部" selected[dept_value == "IT部"] { "IT部" }
@@ -295,12 +273,7 @@ fn misc_table_fragment(
                     option value="人事部" selected[dept_value == "人事部"] { "人事部" }
                     option value="市场部" selected[dept_value == "市场部"] { "市场部" }
                 }
-                select class="filter-select" name="date_range"
-                    hx-get=(MiscTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .misc-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="date_range" {
                     option value="" selected[date_range_value.is_empty()] { "请购日期" }
                     option value="7d" selected[date_range_value == "7d"] { "最近7天" }
                     option value="30d" selected[date_range_value == "30d"] { "最近30天" }
@@ -309,7 +282,7 @@ fn misc_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="misc-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

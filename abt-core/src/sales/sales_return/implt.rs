@@ -57,7 +57,7 @@ impl SalesReturnService for SalesReturnServiceImpl {
             ));
         }
 
-        if shipping.order_id != req.order_id {
+        if shipping.order_id != Some(req.order_id) {
             return Err(DomainError::validation(
                 "Shipping request does not belong to the specified order",
             ));

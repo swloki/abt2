@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct BinListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/bins/table")]
-pub struct BinTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/bins/create")]
 pub struct BinCreatePath;
 
@@ -31,7 +27,6 @@ pub struct BinDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(BinListPath::PATH, get(wms_bin_list::get_bin_list))
-        .route(BinTablePath::PATH, get(wms_bin_list::get_bin_table))
         .route(BinCreatePath::PATH, get(wms_bin_create::get_bin_create).post(wms_bin_create::create_bin))
         .route(BinDetailPath::PATH, get(wms_bin_detail::get_bin_detail))
 }

@@ -14,7 +14,7 @@ use crate::components::import_modal::{self, ImportModalConfig};
 use crate::components::export_button;
 use crate::components::pagination::pagination;
 use crate::routes::routing::{
-    RoutingDeletePath, RoutingDetailPath, RoutingListPath, RoutingTablePath,
+    RoutingDeletePath, RoutingDetailPath, RoutingListPath,
     RoutingCreatePath,
 };
 use crate::utils::{empty_as_none, RequestContext};
@@ -68,30 +68,6 @@ pub async fn get_routing_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("ROUTING", "read")]
-pub async fn get_routing_table(
-    ctx: RequestContext,
-    Query(params): Query<RoutingQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let can_delete = ctx.has_permission("ROUTING", "delete").await;
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let svc = state.routing_service();
-
-    let filter = RoutingQuery {
-        keyword: params.keyword.clone(),
-    };
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    Ok(Html(routing_table_fragment(&result, &params, can_delete).into_string()))
 }
 
 #[require_permission("ROUTING", "delete")]
@@ -176,7 +152,7 @@ fn routing_table_fragment(
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索工艺路线名称…"
                         value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(RoutingTablePath::PATH)
+                        hx-get=(RoutingListPath::PATH)
                         hx-trigger="keyup changed delay:300ms"
                         hx-target="closest .customer-list-panel"
                         hx-swap="outerHTML";

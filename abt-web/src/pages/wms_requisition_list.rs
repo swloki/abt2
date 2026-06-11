@@ -15,10 +15,10 @@ use abt_core::wms::warehouse::WarehouseService;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_requisition::*;
+use crate::routes::wms_requisition::{RequisitionCreatePath, RequisitionDetailPath, RequisitionListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -151,27 +151,6 @@ pub async fn get_requisition_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "read")]
-pub async fn get_requisition_table(
-    _path: RequisitionTablePath,
-    ctx: RequestContext,
-    Query(params): Query<RequisitionQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.material_requisition_service();
-    let warehouse_svc = state.warehouse_service();
-    let user_svc = state.user_service();
-
-    let filter = build_filter(&params);
-    let page = params.page.unwrap_or(1);
-    let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
-
-    let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-    let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
-
-    Ok(Html(requisition_data_card(&result, &warehouse_names, &operator_names, &params).into_string()))
-}
-
 // ── Components ──
 
 fn requisition_list_page(
@@ -223,42 +202,30 @@ fn requisition_table_fragment(
 
     html! {
         div class="requisition-list-panel" {
-            (status_tabs(RequisitionTablePath::PATH, "closest .requisition-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(RequisitionListPath::PATH, "#requisition-data-card", "#requisition-filter-form", tabs, &active_value, "status"))
 
-            form class="filter-bar filter-form"
-                hx-get=(RequisitionTablePath::PATH)
-                hx-trigger="change,keyup changed delay:300ms from:.search-input"
+            form class="filter-bar filter-form" id="requisition-filter-form"
+                hx-get=(RequisitionListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#requisition-data-card"
                 hx-select="#requisition-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#requisition-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"
                         style="width:180px"
                         placeholder="单据编号"
-                        value=(params.doc_number.as_deref().unwrap_or(""))
-                        hx-get=(RequisitionTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="#requisition-data-card"
-                        hx-swap="outerHTML";
+                        value=(params.doc_number.as_deref().unwrap_or(""));
                 }
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="work_order"
                         placeholder="关联工单"
-                        value=(params.work_order.as_deref().unwrap_or(""))
-                        hx-get=(RequisitionTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="#requisition-data-card"
-                        hx-swap="outerHTML";
+                        value=(params.work_order.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_id"
-                    hx-get=(RequisitionTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="#requisition-data-card"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="warehouse_id" {
                     option value="" { "全部仓库" }
                     @for w in warehouses {
                         option value=(w.id) selected[selected_warehouse == w.id.to_string()] { (w.name) }

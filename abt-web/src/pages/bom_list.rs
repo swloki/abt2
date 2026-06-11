@@ -13,10 +13,10 @@ use abt_core::shared::types::PaginatedResult;
 use crate::components::icon;
 use crate::components::export_button::{self, ExportItem};
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::bom::{
-    BomCostDrawerPath, BomCreatePath, BomDeletePath, BomDetailPath, BomListPath, BomLaborCostDrawerPath, BomTablePath,
+    BomCostDrawerPath, BomCreatePath, BomDeletePath, BomDetailPath, BomListPath, BomLaborCostDrawerPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
@@ -72,25 +72,6 @@ pub async fn get_bom_list(
         "主数据管理", Some(page_name), content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
-}
-#[require_permission("BOM", "read")]
-pub async fn get_bom_table(
-    ctx: RequestContext,
-    Query(mut params): Query<BomQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let can_view_cost = ctx.has_permission("COST", "read").await;
-    let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
-    let can_delete = ctx.has_permission("BOM", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    resolve_category_name(&state, &service_ctx, &mut conn, &mut params).await;
-    let svc = state.bom_query_service();
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-    let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
-    let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
-    let table_ctx = BomTableContext { cat_map: &cat_map, cat_list: &cat_list, user_map: &user_map, can_view_labor_cost, can_view_cost, can_delete };
-    Ok(Html(bom_table_fragment(&result, &params, &table_ctx).into_string()))
 }
 #[require_permission("BOM", "delete")]
 pub async fn delete_bom(
@@ -280,36 +261,25 @@ fn bom_table_fragment(
         TabItem { value: "1".into(), label: "草稿", count: if active_value == "1" { Some(total_count) } else { None } },
         TabItem { value: "2".into(), label: "已发布", count: if active_value == "2" { Some(total_count) } else { None } },
     ];
-    let hx_attrs = ".filter-bar input, .filter-bar select".to_string();
     html! {
         div class="bom-list-panel" {
-            (status_tabs(BomTablePath::PATH, "closest .bom-list-panel", &hx_attrs, tabs, &active_value))
+            (status_tabs_with_param(BomListPath::PATH, "#bom-data-card", "#bom-filter-form", tabs, &active_value, "status"))
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="bom-filter-form"
+                hx-get=(BomListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#bom-data-card"
+                hx-select="#bom-data-card"
+                hx-swap="outerHTML"
+                hx-include="#bom-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索BOM名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(BomTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .bom-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="status"
-                    hx-get=(BomTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .bom-list-panel"
-                    hx-swap="outerHTML" {
-                    option value="" { "全部状态" }
-                    option value="1" selected[params.status == Some(1)] { "草稿" }
-                    option value="2" selected[params.status == Some(2)] { "已发布" }
-                }
-                select class="filter-select" name="category_id"
-                    hx-get=(BomTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .bom-list-panel"
-                    hx-swap="outerHTML" {
+                select class="filter-select" name="category_id" {
                     option value="" { "全部分类" }
                     @for cat in ctx.cat_list {
                         option value=(cat.bom_category_id) selected[params.category_id == Some(cat.bom_category_id)] { (cat.bom_category_name) }
@@ -317,22 +287,14 @@ fn bom_table_fragment(
                 }
                 input class="filter-date" type="date" name="date_from"
                     value=(params.date_from.as_deref().unwrap_or(""))
-                    hx-get=(BomTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .bom-list-panel"
-                    hx-swap="outerHTML"
                     title="开始日期" {}
                 span style="color:var(--muted);font-size:var(--text-sm)" { "—" }
                 input class="filter-date" type="date" name="date_to"
                     value=(params.date_to.as_deref().unwrap_or(""))
-                    hx-get=(BomTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .bom-list-panel"
-                    hx-swap="outerHTML"
                     title="结束日期" {}
             }
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="bom-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

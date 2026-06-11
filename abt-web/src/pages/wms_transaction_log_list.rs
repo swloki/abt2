@@ -11,7 +11,7 @@ use abt_core::wms::enums::TransactionType;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
-use crate::routes::wms_transaction_log::{TransactionListPath, TransactionTablePath};
+use crate::routes::wms_transaction_log::TransactionListPath;
 use crate::utils::{empty_as_none, RequestContext};
 
 use abt_macros::require_permission;
@@ -61,23 +61,6 @@ pub async fn get_transaction_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("INVENTORY", "read")]
-pub async fn get_transaction_table(
-    _path: TransactionTablePath,
-    ctx: RequestContext,
-    Query(params): Query<TransactionLogQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.inventory_service();
-
-    let filter = build_filter(&params);
-    let page_num = params.page.unwrap_or(1);
-
-    let result = svc.query_logs(&service_ctx, &mut conn, filter, page_num, 20).await?;
-
-    Ok(Html(transaction_data_card(&result, &params).into_string()))
 }
 
 // ── Helpers ──
@@ -159,13 +142,14 @@ fn transaction_list_page(
 
 fn transaction_filter_form(params: &TransactionLogQueryParams) -> Markup {
     html! {
-        form class="filter-bar filter-form"
-            hx-get=(TransactionTablePath::PATH)
+        form class="filter-bar filter-form" id="transaction-filter-form"
+            hx-get=(TransactionListPath::PATH)
             hx-trigger="change,keyup changed delay:300ms from:.search-input"
             hx-target="#transaction-data-card"
             hx-select="#transaction-data-card"
             hx-swap="outerHTML"
-            hx-include="closest form" {
+            hx-include="#transaction-filter-form"
+                hx-push-url="true" {
             div class="search-wrap" {
                 (icon::search_icon("w-4 h-4"))
                 input class="search-input" type="text" name="doc_number"

@@ -16,7 +16,7 @@ use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::purchase_order::*;
@@ -174,31 +174,6 @@ pub async fn get_po_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("PURCHASE_ORDER", "read")]
-pub async fn get_po_table(
-    ctx: RequestContext,
-    Query(params): Query<POQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("PURCHASE_ORDER", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.purchase_order_service();
-    let supplier_svc = state.supplier_service();
-    let user_svc = state.user_service();
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-    let buyer_names = resolve_buyer_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let suppliers = supplier_svc
-        .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(po_table_fragment(&result, &supplier_names, &buyer_names, &suppliers.items, &params, can_delete).into_string()))
-}
-
 // ── Components ──
 
 fn po_list_page(
@@ -258,37 +233,31 @@ fn po_table_fragment(
 
     html! {
         div class="po-list-panel" {
-            (status_tabs(POTablePath::PATH, "closest .po-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(POListPath::PATH, "#po-data-card", "#po-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="po-filter-form"
+                hx-get=(POListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#po-data-card"
+                hx-select="#po-data-card"
+                hx-swap="outerHTML"
+                hx-select-oob="#status-tabs"
+                hx-include="#po-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索采购单号…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(POTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .po-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="supplier_id"
-                    hx-get=(POTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .po-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="supplier_id" {
                     option value="" { "全部供应商" }
                     @for s in suppliers {
                         option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
                     }
                 }
-                select class="filter-select" name="date_range"
-                    hx-get=(POTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .po-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="date_range" {
                     option value="" selected[selected_range.is_empty()] { "订单日期" }
                     option value="7d" selected[selected_range == "7d"] { "最近7天" }
                     option value="30d" selected[selected_range == "30d"] { "最近30天" }
@@ -297,7 +266,7 @@ fn po_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="po-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

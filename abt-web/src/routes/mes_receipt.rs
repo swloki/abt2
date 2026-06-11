@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct ReceiptListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/receipts/table")]
-pub struct ReceiptTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/receipts/create")]
 pub struct ReceiptCreatePath;
 
@@ -45,7 +41,6 @@ pub struct MaterialUsageDataPath;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ReceiptListPath::PATH, get(mes_receipt_list::get_receipt_list))
-        .route(ReceiptTablePath::PATH, get(mes_receipt_list::get_receipt_table))
         .route(
             ReceiptCreatePath::PATH,
             get(mes_receipt_create::get_receipt_create).post(mes_receipt_create::create_receipt),

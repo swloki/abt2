@@ -14,7 +14,7 @@ use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::quotation::*;
@@ -133,37 +133,6 @@ pub async fn get_quotation_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("SALES_ORDER", "read")]
-pub async fn get_quotation_table(
-    ctx: RequestContext,
-    Query(params): Query<QuotationQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("SALES_ORDER", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.quotation_service();
-    let customer_svc = state.customer_service();
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let mut names = HashMap::new();
-    let mut seen_customers = HashSet::new();
-    for q in &result.items {
-        if seen_customers.insert(q.customer_id)
-            && let Ok(c) = customer_svc.get(&service_ctx, &mut conn, q.customer_id).await {
-                names.insert(q.customer_id, c.name);
-            }
-    }
-
-    let customers = customer_svc
-        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(quotation_table_fragment(&result, &names, &customers.items, &params, can_delete).into_string()))
-}
-
-
 #[require_permission("SALES_ORDER", "delete")]
 pub async fn delete_quotation(
     path: DeleteQuotationPath,
@@ -234,37 +203,31 @@ fn quotation_table_fragment(
 
     html! {
         div class="quotation-list-panel" {
-            (status_tabs(QuotationTablePath::PATH, "closest .quotation-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(QuotationListPath::PATH, "#quotation-data-card", "#quotation-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="quotation-filter-form"
+                hx-get=(QuotationListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#quotation-data-card"
+                hx-select="#quotation-data-card"
+                hx-swap="outerHTML"
+                hx-select-oob="#status-tabs"
+                hx-include="#quotation-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索报价单号、客户名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(QuotationTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .quotation-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="customer_id"
-                    hx-get=(QuotationTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .quotation-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="customer_id" {
                     option value="" { "全部客户" }
                     @for c in customers {
                         option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
                     }
                 }
-                select class="filter-select" name="date_range"
-                    hx-get=(QuotationTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .quotation-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="date_range" {
                     option value="" selected[selected_range.is_empty()] { "报价日期" }
                     option value="7d" selected[selected_range == "7d"] { "最近7天" }
                     option value="30d" selected[selected_range == "30d"] { "最近30天" }
@@ -273,7 +236,7 @@ fn quotation_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="quotation-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

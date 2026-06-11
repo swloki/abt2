@@ -18,7 +18,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::qms::{MrbCreatePath, MrbDetailPath, MrbListPath, MrbTablePath};
+use crate::routes::qms::{MrbCreatePath, MrbDetailPath, MrbListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -184,37 +184,6 @@ pub async fn get_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("QMS", "read")]
-pub async fn get_table(
-    _path: MrbTablePath,
-    ctx: RequestContext,
-    Query(params): Query<MrbQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.mrb_service();
-    let product_svc = state.product_service();
-    let result_svc = state.inspection_result_service();
-
-    let filter = MrbFilter {
-        status: params.status.as_deref().and_then(parse_status),
-        disposition: params.disposition.and_then(MRBDisposition::from_i16),
-        responsible_party: params.responsible_party.and_then(ResponsibleParty::from_i16),
-        ..Default::default()
-    };
-    let page_num = params.page.unwrap_or(1);
-    let result = svc
-        .list(&service_ctx, &mut conn, filter, abt_core::shared::types::PageParams::new(page_num, 20))
-        .await?;
-
-    let product_ids: Vec<i64> = result.items.iter().map(|m| m.product_id).collect();
-    let product_names = resolve_product_names(&product_svc, &service_ctx, &mut conn, &product_ids).await;
-
-    let result_ids: Vec<i64> = result.items.iter().map(|m| m.inspection_result_id).collect();
-    let result_doc_numbers = resolve_result_doc_numbers(&result_svc, &service_ctx, &mut conn, &result_ids).await;
-
-    Ok(Html(mrb_data_card(&result, &product_names, &result_doc_numbers, &params).into_string()))
-}
-
 // ── Components ──
 
 fn mrb_list_page(
@@ -261,16 +230,17 @@ fn mrb_table_fragment(
 
     html! {
         div class="mrb-list-panel" {
-            (status_tabs_with_param(MrbTablePath::PATH, "#mrb-data-card", "closest form", tabs, selected_status, "status"))
+            (status_tabs_with_param(MrbListPath::PATH, "#mrb-data-card", "#filter-form", tabs, selected_status, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
-                hx-get=(MrbTablePath::PATH)
+            form id="filter-form" class="filter-bar filter-form"
+                hx-get=(MrbListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#mrb-data-card"
                 hx-select="#mrb-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

@@ -62,8 +62,11 @@ pub async fn get_shipping_detail(
 
     let customer_name = customer_svc.get(&service_ctx, &mut conn, shipping.customer_id)
         .await.map(|c| c.name).unwrap_or_else(|_| "未知客户".into());
-    let order_number = order_svc.find_by_id(&service_ctx, &mut conn, shipping.order_id)
-        .await.map(|o| o.doc_number).unwrap_or_else(|_| "—".into());
+    let order_number = match shipping.order_id {
+        Some(oid) => order_svc.find_by_id(&service_ctx, &mut conn, oid)
+            .await.map(|o| o.doc_number).unwrap_or_else(|_| "—".into()),
+        None => "—".into(),
+    };
     let operator_name = user_svc.get_user(&service_ctx, &mut conn, shipping.operator_id)
         .await.map(|u| u.display_name.unwrap_or(u.username)).unwrap_or_else(|_| "—".into());
 
@@ -233,7 +236,11 @@ fn shipping_detail_page(
                     }
                     div class="detail-source" {
                         "来源订单："
-                        a href=(format!("/admin/orders/{}", s.order_id)) { (order_number) }
+                        @if let Some(oid) = s.order_id {
+                            a href=(format!("/admin/orders/{oid}")) { (order_number) }
+                        } @else {
+                            (order_number)
+                        }
                     }
                 }
                 div class="page-actions" {

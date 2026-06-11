@@ -16,7 +16,7 @@ use abt_core::shared::types::PageParams;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
-use crate::routes::product::{PriceHistoryDetailPath, PriceHistoryListPath, PriceHistoryTablePath};
+use crate::routes::product::{PriceHistoryDetailPath, PriceHistoryListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -77,18 +77,6 @@ pub async fn get_price_history_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("PRODUCT", "read")]
-pub async fn get_price_history_table(
-    _path: PriceHistoryTablePath,
-    ctx: RequestContext,
-    Query(params): Query<PriceHistoryQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-
-    let (rows, total, page, total_pages) = fetch_enriched_rows(&state, &service_ctx, &mut conn, &params).await?;
-    Ok(Html(price_history_table_fragment(&rows, total, page, total_pages, &params).into_string()))
 }
 
 // ── Data Fetching ──
@@ -223,13 +211,14 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
             // ── Filter Bar + Table ──
             div class="customer-list-panel" {
                 // ── Filter Bar ──
-                form class="filter-bar filter-form"
-                    hx-get=(PriceHistoryTablePath::PATH)
+                form id="filter-form" class="filter-bar filter-form"
+                    hx-get=(PriceHistoryListPath::PATH)
                     hx-trigger="change,keyup changed delay:300ms from:.search-input"
                     hx-target=".data-card"
                     hx-select=".data-card"
                     hx-swap="outerHTML"
-                    hx-include="closest form" {
+                    hx-include="#filter-form"
+                hx-push-url="true" {
                     div class="search-wrap" {
                         (icon::search_icon("w-4 h-4"))
                         input class="search-input" type="text" name="keyword"
@@ -269,9 +258,6 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
     }
 }
 
-fn price_history_table_fragment(rows: &[PriceHistoryRow], total: u64, page: u32, total_pages: u32, _params: &PriceHistoryQueryParams) -> Markup {
-    data_card(rows, total, page, total_pages)
-}
 fn data_card(rows: &[PriceHistoryRow], total: u64, page: u32, total_pages: u32) -> Markup {
     html! {
         div class="data-card" {

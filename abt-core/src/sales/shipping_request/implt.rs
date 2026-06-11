@@ -110,10 +110,11 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                 db,
                 &CreateShippingRequestParams {
                     doc_number: &doc_number,
-                    order_id: req.order_id,
+                    order_id: Some(req.order_id),
                     customer_id: order.customer_id,
                     expected_ship_date: req.expected_ship_date,
                     shipping_address: req.shipping_address.as_deref().unwrap_or(""),
+                    carrier: "",
                     remark: "",
                     operator_id: ctx.operator_id,
                 },
@@ -158,6 +159,159 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             .await?;
 
         Ok(id)
+    }
+
+    async fn save_draft(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        req: CreateDraftReq,
+    ) -> Result<i64> {
+        let doc_number = new_document_sequence_service(self.pool.clone())
+            .next_number(ctx, db, DocumentType::ShippingRequest)
+            .await?;
+
+        let id = self
+            .repo
+            .create(
+                db,
+                &CreateShippingRequestParams {
+                    doc_number: &doc_number,
+                    order_id: req.order_id,
+                    customer_id: req.customer_id,
+                    expected_ship_date: req.expected_ship_date,
+                    shipping_address: req.shipping_address.as_deref().unwrap_or(""),
+                    carrier: req.carrier.as_deref().unwrap_or(""),
+                    remark: req.remark.as_deref().unwrap_or(""),
+                    operator_id: ctx.operator_id,
+                },
+            )
+            .await?;
+
+        // 如果有明细行，写入
+        if !req.items.is_empty() {
+            let item_inputs: Vec<ShippingItemInput> = req
+                .items
+                .iter()
+                .enumerate()
+                .map(|(i, item)| ShippingItemInput {
+                    line_no: (i + 1) as i32,
+                    order_item_id: item.order_item_id.unwrap_or(0),
+                    product_id: item.product_id.unwrap_or(0),
+                    warehouse_id: item.warehouse_id,
+                    requested_qty: item.requested_qty,
+                    description: item.description.clone(),
+                })
+                .collect();
+            self.item_repo.create_batch(db, id, &item_inputs).await?;
+        }
+
+        // 如果关联了订单，建立文档链接
+        if let Some(order_id) = req.order_id {
+            new_document_link_service(self.pool.clone())
+                .create_links(
+                    ctx,
+                    db,
+                    vec![LinkRequest {
+                        source_type: DocumentType::ShippingRequest,
+                        source_id: id,
+                        target_type: DocumentType::SalesOrder,
+                        target_id: order_id,
+                        link_type: LinkType::Triggers,
+                    }],
+                )
+                .await?;
+        }
+
+        new_state_machine_service(self.pool.clone())
+            .transition(ctx, db, "ShippingStatus", id, "Draft", None)
+            .await
+            .ok();
+
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: "ShippingRequest",
+                    entity_id: id,
+                    action: AuditAction::Create,
+                    changes: Some(serde_json::json!({
+                        "order_id": req.order_id,
+                        "customer_id": req.customer_id,
+                        "is_draft": true,
+                    })),
+                    context: None,
+                },
+            )
+            .await?;
+
+        Ok(id)
+    }
+
+    async fn update_draft(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+        req: UpdateDraftReq,
+    ) -> Result<()> {
+        let existing = self
+            .repo
+            .find_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("ShippingRequest"))?;
+
+        if existing.status != ShippingStatus::Draft {
+            return Err(DomainError::business_rule("仅草稿状态的发货单可以编辑"));
+        }
+
+        self.repo
+            .update_draft_fields(
+                db,
+                id,
+                req.order_id,
+                req.customer_id,
+                req.expected_ship_date,
+                req.shipping_address.as_deref(),
+                req.carrier.as_deref(),
+                req.remark.as_deref(),
+            )
+            .await?;
+
+        // 如果传了 items，全量替换明细行
+        if let Some(items) = req.items {
+            self.item_repo.delete_by_shipping_request_id(db, id).await?;
+            if !items.is_empty() {
+                let item_inputs: Vec<ShippingItemInput> = items
+                    .iter()
+                    .enumerate()
+                    .map(|(i, item)| ShippingItemInput {
+                        line_no: (i + 1) as i32,
+                        order_item_id: item.order_item_id.unwrap_or(0),
+                        product_id: item.product_id.unwrap_or(0),
+                        warehouse_id: item.warehouse_id,
+                        requested_qty: item.requested_qty,
+                        description: item.description.clone(),
+                    })
+                    .collect();
+                self.item_repo.create_batch(db, id, &item_inputs).await?;
+            }
+        }
+
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx,
+                db,
+                RecordAuditLogReq {
+                    entity_type: "ShippingRequest",
+                    entity_id: id,
+                    action: AuditAction::Update,
+                    changes: None,
+                    context: None,
+                },
+            )
+            .await?;
+
+        Ok(())
     }
 
     async fn find_by_id(
@@ -207,6 +361,10 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
 
         if existing.status != ShippingStatus::Draft {
             return Err(DomainError::business_rule("Only Draft shipping requests can be confirmed"));
+        }
+
+        if existing.order_id.is_none() {
+            return Err(DomainError::business_rule("草稿必须关联销售订单后才能确认"));
         }
 
         // QMS OQC hard gate: 查询发货请求的检验结果
@@ -303,6 +461,10 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             return Err(DomainError::business_rule("Only Picking shipping requests can be shipped"));
         }
 
+        let order_id = existing.order_id.ok_or_else(|| {
+            DomainError::business_rule("发货单缺少关联订单，无法发货")
+        })?;
+
         let shipping_items = self
             .item_repo
             .find_by_shipping_request_id(db, id)
@@ -330,7 +492,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         // COGS entries
         let order_items = self
             .order_item_repo
-            .find_by_order_id(db, existing.order_id)
+            .find_by_order_id(db, order_id)
             .await?;
 
         let period = chrono::Utc::now().format("%Y-%m").to_string();
@@ -345,7 +507,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
             let cogs_amount = ship_item.requested_qty * unit_cost;
             cost_entries.push(EntryRequest {
                 entity_type: CostEntityType::SalesOrder,
-                entity_id: existing.order_id,
+                entity_id: order_id,
                 cost_type: CostType::Material,
                 debit_amount: cogs_amount,
                 credit_amount: Decimal::ZERO,
@@ -383,7 +545,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         };
 
         self.order_repo
-            .update_status(db, existing.order_id, new_order_status)
+            .update_status(db, order_id, new_order_status)
             .await?;
 
         new_audit_log_service(self.pool.clone())
@@ -411,7 +573,7 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
                     payload: serde_json::json!({
                         "shipping_request_id": id,
                         "doc_number": existing.doc_number,
-                        "order_id": existing.order_id,
+                        "order_id": order_id,
                     }),
                     idempotency_key: None,
                 },

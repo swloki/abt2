@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct PlanListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/plans/table")]
-pub struct PlanTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/plans/create")]
 pub struct PlanCreatePath;
 
@@ -47,7 +43,6 @@ pub struct PlanReleasePath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(PlanListPath::PATH, get(mes_plan_list::get_plan_list))
-        .route(PlanTablePath::PATH, get(mes_plan_list::get_plan_table))
         .route(PlanItemRowPath::PATH, get(mes_plan_create::get_item_row))
         .route(
             PlanCreatePath::PATH,

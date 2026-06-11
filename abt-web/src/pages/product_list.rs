@@ -22,7 +22,7 @@ use crate::components::export_button::{self, ExportItem};
 use crate::layout::page::admin_page;
 use crate::routes::product::{
     ProductCopyPath, ProductCreatePath, ProductDeletePath, ProductDetailPath, ProductEditPath,
-    ProductListPath, ProductTablePath, ProductUsagePath, ProductPricePath, ProductPriceHistoryPath,
+    ProductListPath, ProductUsagePath, ProductPricePath, ProductPriceHistoryPath,
     ProductPriceDrawerPath, ProductWatchPath, ProductUnwatchPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
@@ -85,30 +85,6 @@ pub async fn get_product_list(
     );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("PRODUCT", "read")]
-pub async fn get_product_table(
-    ctx: RequestContext,
-    Query(params): Query<ProductQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let can_delete = ctx.has_permission("PRODUCT", "delete").await;
-    let can_edit = ctx.has_permission("PRODUCT", "update").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.product_service();
-    let cat_svc = state.category_service();
-    let watcher_svc = state.product_watcher_service();
-    let categories = cat_svc.get_tree(&service_ctx, &mut conn, None, None).await?;
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let watched = watcher_svc.list_watched_products(&service_ctx, &mut conn, 1, 1000).await?;
-    let watched_ids: Vec<i64> = watched.items.iter().map(|w| w.product_id).collect();
-
-    Ok(Html(product_table_fragment(&result, &params, &categories, &watched_ids, can_delete, can_edit).into_string()))
 }
 
 #[require_permission("PRODUCT", "read")]
@@ -395,13 +371,14 @@ fn product_table_fragment(
     html! {
         div class="customer-list-panel" {
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
-                hx-get=(ProductTablePath::PATH)
+            form id="filter-form" class="filter-bar filter-form"
+                hx-get=(ProductListPath::PATH)
                 hx-trigger="change,keyup changed delay:300ms from:.search-input"
                 hx-target=".data-card"
                 hx-select=".data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="code"

@@ -12,14 +12,9 @@ use crate::state::AppState;
 #[typed_path("/admin/wms/transactions")]
 pub struct TransactionListPath;
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/transactions/table")]
-pub struct TransactionTablePath;
-
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(TransactionListPath::PATH, get(wms_transaction_log_list::get_transaction_list))
-        .route(TransactionTablePath::PATH, get(wms_transaction_log_list::get_transaction_table))
 }

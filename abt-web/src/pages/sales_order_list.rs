@@ -16,7 +16,7 @@ use abt_core::shared::types::ServiceContext;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
@@ -152,31 +152,6 @@ pub async fn get_order_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("SALES_ORDER", "read")]
-pub async fn get_order_table(
-    ctx: RequestContext,
-    Query(params): Query<OrderQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("SALES_ORDER", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.sales_order_service();
-    let customer_svc = state.customer_service();
-    let user_svc = state.user_service();
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().map(|o| o.customer_id)).await;
-    let sales_rep_names = resolve_sales_rep_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let customers = customer_svc
-        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(order_table_fragment(&result, &customer_names, &sales_rep_names, &customers.items, &params, can_delete).into_string()))
-}
-
 // ── Edit / Delete Handlers ──
 
 pub async fn delete_order(
@@ -255,37 +230,31 @@ fn order_table_fragment(
 
     html! {
         div class="order-list-panel" {
-            (status_tabs(OrderTablePath::PATH, "closest .order-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(OrderListPath::PATH, "#order-data-card", "#order-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="order-filter-form"
+                hx-get=(OrderListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#order-data-card"
+                hx-select="#order-data-card"
+                hx-swap="outerHTML"
+                hx-select-oob="#status-tabs"
+                hx-include="#order-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索订单号、客户名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(OrderTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .order-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="customer_id"
-                    hx-get=(OrderTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .order-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="customer_id" {
                     option value="" { "全部客户" }
                     @for c in customers {
                         option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
                     }
                 }
-                select class="filter-select" name="date_range"
-                    hx-get=(OrderTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .order-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="date_range" {
                     option value="" selected[selected_range.is_empty()] { "交货日期" }
                     option value="7d" selected[selected_range == "7d"] { "最近7天" }
                     option value="30d" selected[selected_range == "30d"] { "最近30天" }
@@ -294,7 +263,7 @@ fn order_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="order-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

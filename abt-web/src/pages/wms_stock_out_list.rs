@@ -17,7 +17,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_stock_out::{StockOutCreatePath, StockOutListPath, StockOutTablePath};
+use crate::routes::wms_stock_out::{StockOutCreatePath, StockOutListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -153,37 +153,6 @@ pub async fn get_stock_out_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "read")]
-pub async fn get_stock_out_table(
-    _path: StockOutTablePath,
-    ctx: RequestContext,
-    Query(params): Query<StockOutQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.inventory_transaction_service();
-    let user_svc = state.user_service();
-    let warehouse_svc = state.warehouse_service();
-
-    let txn_type = params.transaction_type.as_deref().and_then(TransactionType::from_name);
-    let filter = TransactionFilter {
-        transaction_type: txn_type,
-        product_id: None,
-        warehouse_id: params.warehouse_id,
-        source_type: None,
-        source_id: None,
-        doc_number: params.doc_number.clone(),
-        product_code: params.product_code.clone(),
-    };
-    let page_num = params.page.unwrap_or(1);
-    let result = svc.query(&service_ctx, &mut conn, filter, page_num, 20).await?;
-
-    let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
-    let wh_names = resolve_wh_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let query = build_query_string(&params);
-    Ok(Html(stock_out_data_card(&result, &operator_names, &wh_names, &query).into_string()))
-}
-
 // ── Components ──
 
 fn stock_out_list_page(
@@ -226,7 +195,7 @@ fn stock_out_data_card(
     query: &str,
 ) -> Markup {
     html! {
-        div class="data-card" id="stock-out-data-card" {
+        div class="data-card" id="stockout-data-card" {
             div class="data-card-scroll" {
                 table class="data-table" {
                     thead {
@@ -351,16 +320,17 @@ fn stock_out_table_fragment(
                 }
             }
 
-            (status_tabs_with_param(StockOutTablePath::PATH, "closest .stockout-list-panel", ".filter-bar input, .filter-bar select", tabs, selected_type, "transaction_type"))
+            (status_tabs_with_param(StockOutListPath::PATH, "#stockout-data-card", "#stockout-filter-form", tabs, selected_type, "transaction_type"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
-                hx-get=(StockOutTablePath::PATH)
+            form class="filter-bar filter-form" id="stockout-filter-form"
+                hx-get=(StockOutListPath::PATH)
                 hx-trigger="change,keyup changed delay:300ms from:.search-input"
-                hx-target="#stock-out-data-card"
-                hx-select="#stock-out-data-card"
+                hx-target="#stockout-data-card"
+                hx-select="#stockout-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#stockout-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"
@@ -373,11 +343,6 @@ fn stock_out_table_fragment(
                     input class="search-input" type="text" name="product_code"
                         placeholder="物料编码"
                         value=(params.product_code.as_deref().unwrap_or(""));
-                }
-                select class="filter-select" name="transaction_type" {
-                    option value="" selected[selected_type.is_empty()] { "出库类型" }
-                    option value="SalesShipment" selected[selected_type == "SalesShipment"] { "销售出库" }
-                    option value="MaterialIssue" selected[selected_type == "MaterialIssue"] { "生产领料" }
                 }
                 select class="filter-select" name="warehouse_id" {
                     option value="" selected[params.warehouse_id.is_none()] { "全部仓库" }

@@ -71,30 +71,6 @@ pub async fn get_role_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("ROLE", "read")]
-pub async fn get_role_table(
-    ctx: RequestContext,
-    Query(params): Query<RoleQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let can_create = ctx.has_permission("ROLE", "create").await;
-    let can_delete = ctx.has_permission("ROLE", "delete").await;
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-
-    let (roles, perm_counts, total_perms, user_map) =
-        gather_role_data(&state, &service_ctx, &mut conn).await?;
-    let filtered = filter_roles(&roles, &params);
-
-    Ok(Html(
-        role_table_fragment(&filtered, &params, &perm_counts, total_perms, &user_map, can_create, can_delete)
-            .into_string(),
-    ))
-}
-
 #[require_permission("ROLE", "delete")]
 pub async fn delete_role(
     path: RoleDeletePath,
@@ -343,14 +319,14 @@ fn role_table_fragment(
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索角色名称、角色代码…"
                         value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(RoleTablePath::PATH)
+                        hx-get=(RoleListPath::PATH)
                         hx-trigger="keyup changed delay:300ms"
                         hx-target="closest .role-list-panel"
                         hx-swap="outerHTML"
                         hx-include="select[name='role_type']";
                 }
                 select class="filter-select" name="role_type"
-                    hx-get=(RoleTablePath::PATH)
+                    hx-get=(RoleListPath::PATH)
                     hx-trigger="change"
                     hx-target="closest .role-list-panel"
                     hx-swap="outerHTML"

@@ -15,12 +15,18 @@ use crate::state::AppState;
 pub struct ShippingListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/table")]
-pub struct ShippingTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/shipping/create")]
 pub struct ShippingCreatePath;
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/shipping/{id}/edit")]
+pub struct ShippingEditPath {
+    pub id: i64,
+}
+
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/shipping/draft")]
+pub struct ShippingSaveDraftPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/shipping/{id}")]
@@ -71,9 +77,10 @@ pub struct ShippingOrderSearchPath;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ShippingListPath::PATH, get(shipping_list::get_shipping_list))
-        .route(ShippingTablePath::PATH, get(shipping_list::get_shipping_table))
         .route(ShippingDetailPath::PATH, get(shipping_detail::get_shipping_detail))
         .route(ShippingCreatePath::PATH, get(shipping_create::get_shipping_create).post(shipping_create::post_shipping_create))
+        .route(ShippingEditPath::PATH, get(shipping_create::get_shipping_edit))
+        .route(ShippingSaveDraftPath::PATH, post(shipping_create::post_save_draft))
         .route(ShippingDeletePath::PATH, post(shipping_list::delete_shipping))
         .route(ShippingCustomerContactsPath::PATH, get(shipping_create::get_customer_contacts))
         .route(ShippingOrderSearchPath::PATH, get(shipping_create::get_order_search))

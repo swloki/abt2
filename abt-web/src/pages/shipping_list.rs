@@ -15,7 +15,7 @@ use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
@@ -54,7 +54,7 @@ fn build_query_string(params: &ShippingQueryParams) -> String {
 
 fn status_label(s: ShippingStatus) -> (&'static str, &'static str) {
     match s {
-        ShippingStatus::Draft => ("草稿", "status-draft"),
+        ShippingStatus::Draft => ("待审核", "status-draft"),
         ShippingStatus::Confirmed => ("已确认", "status-confirmed"),
         ShippingStatus::Picking => ("拣货中", "status-picking"),
         ShippingStatus::Shipped => ("已发货", "status-shipped"),
@@ -107,10 +107,12 @@ async fn resolve_order_numbers<S: SalesOrderService>(
     let mut map = HashMap::new();
     let mut seen = HashSet::new();
     for item in items {
-        if seen.insert(item.order_id)
-            && let Ok(order) = svc.find_by_id(ctx, db, item.order_id).await {
-                map.insert(item.order_id, order.doc_number);
-            }
+        if let Some(oid) = item.order_id {
+            if seen.insert(oid)
+                && let Ok(order) = svc.find_by_id(ctx, db, oid).await {
+                    map.insert(oid, order.doc_number);
+                }
+        }
     }
     map
 }
@@ -155,37 +157,6 @@ pub async fn get_shipping_list(
     );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("SHIPPING", "read")]
-pub async fn get_shipping_table(
-    ctx: RequestContext,
-    Query(params): Query<ShippingQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("SHIPPING", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-
-    let shipping_svc = state.shipping_service();
-    let customer_svc = state.customer_service();
-    let order_svc = state.sales_order_service();
-    let filter = ShippingQuery {
-        order_id: None,
-        status: params.status.and_then(ShippingStatus::from_i16),
-        keyword: params.keyword.clone(),
-        customer_id: params.customer_id,
-    };
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = shipping_svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let status_counts = count_by_status(&shipping_svc, &service_ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
-    let order_numbers = resolve_order_numbers(&order_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let customers = customer_svc
-        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(shipping_table_fragment(&result, &customer_names, &order_numbers, &customers.items, &params, &status_counts, can_delete).into_string()))
 }
 
 #[require_permission("SHIPPING", "delete")]
@@ -254,7 +225,7 @@ fn shipping_table_fragment(
 
     let tabs = &[
         TabItem { value: String::new(), label: "全部", count: Some(total_count) },
-        TabItem { value: "1".into(), label: "草稿", count: draft_count },
+        TabItem { value: "1".into(), label: "待审核", count: draft_count },
         TabItem { value: "2".into(), label: "已确认", count: confirmed_count },
         TabItem { value: "3".into(), label: "拣货中", count: picking_count },
         TabItem { value: "4".into(), label: "已发货", count: shipped_count },
@@ -265,25 +236,23 @@ fn shipping_table_fragment(
 
     html! {
         div class="shipping-list-panel" {
-            (status_tabs(ShippingTablePath::PATH, "closest .shipping-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(ShippingListPath::PATH, "#shipping-data-card", "#shipping-filter-form", tabs, &active_value, "status"))
 
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="shipping-filter-form"
+                hx-get=(ShippingListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#shipping-data-card"
+                hx-select="#shipping-data-card"
+                hx-swap="outerHTML"
+                hx-include="#shipping-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索发货单号、客户名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(ShippingTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .shipping-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="customer_id"
-                    hx-get=(ShippingTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .shipping-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="customer_id" {
                     option value="" { "全部客户" }
                     @for c in customers {
                         option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
@@ -291,7 +260,7 @@ fn shipping_table_fragment(
                 }
             }
 
-            div class="data-card" {
+            div class="data-card" id="shipping-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {
@@ -336,19 +305,23 @@ fn shipping_row(
     let detail_path = ShippingDetailPath { id: s.id };
     let (status_text, status_class) = status_label(s.status);
     let customer_name = customer_names.get(&s.customer_id).map(|n| n.as_str()).unwrap_or("—");
-    let order_num = order_numbers.get(&s.order_id).map(|n| n.as_str()).unwrap_or("—");
+    let order_num = s.order_id.and_then(|oid| order_numbers.get(&oid).map(|n| n.as_str())).unwrap_or("—");
     let ship_date = s.expected_ship_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into());
     let created = s.created_at.format("%Y-%m-%d %H:%M").to_string();
     let onclick = format!("location.href='{}'", detail_path);
     let is_draft = s.status == ShippingStatus::Draft;
     let delete_path = ShippingDeletePath { id: s.id };
-    let order_detail = OrderDetailPath { id: s.order_id };
+    let order_detail_path = s.order_id.map(|oid| OrderDetailPath { id: oid });
 
     html! {
         tr {
             td class="link-cell mono" onclick=(&onclick) { (s.doc_number) }
             td onclick=(&onclick) {
-                a href=(order_detail.to_string()) class="text-accent" onclick="event.stopPropagation()" { (order_num) }
+                @if let Some(odp) = order_detail_path {
+                    a href=(odp.to_string()) class="text-accent" onclick="event.stopPropagation()" { (order_num) }
+                } @else {
+                    (order_num)
+                }
             }
             td onclick=(&onclick) { (customer_name) }
             td onclick=(&onclick) {
@@ -361,7 +334,7 @@ fn shipping_row(
             td onclick="event.stopPropagation()" {
                 div class="row-actions" {
                     @if is_draft {
-                        a class="row-action-btn" href=(detail_path.to_string()) title="编辑" {
+                        a class="row-action-btn" href=(ShippingEditPath { id: s.id }.to_string()) title="编辑" {
                             (icon::edit_icon("w-4 h-4"))
                         }
                         @if can_delete {

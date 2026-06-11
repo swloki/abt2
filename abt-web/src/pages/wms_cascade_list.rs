@@ -1,29 +1,16 @@
-use axum::extract::Query;
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
-use serde::Deserialize;
 use rust_decimal::Decimal;
 
 use abt_core::wms::inventory_cascade::model::*;
-use abt_core::wms::inventory_cascade::InventoryCascadeService;
 
 use crate::components::icon;
 use crate::layout::page::admin_page;
-use crate::routes::wms_cascade::{CascadeListPath, CascadeTablePath};
-use crate::utils::{empty_as_none, RequestContext};
+use crate::routes::wms_cascade::CascadeListPath;
+use crate::utils::RequestContext;
 
 use abt_macros::require_permission;
-
-// ── Query Params ──
-
-#[allow(dead_code)]
-#[derive(Debug, Deserialize, Clone, Default)]
-pub struct CascadeQueryParams {
-    pub product_code: Option<String>,
-    #[serde(default, deserialize_with = "empty_as_none")]
-    pub page: Option<u32>,
-}
 
 // ── Handlers ──
 
@@ -50,44 +37,6 @@ pub async fn get_cascade_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "read")]
-pub async fn get_cascade_table(
-    _path: CascadeTablePath,
-    ctx: RequestContext,
-    Query(params): Query<CascadeQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.inventory_cascade_service();
-
-    if let Some(ref code) = params.product_code
-        && !code.is_empty() {
-            let query = CascadeInventoryQuery {
-                product_id: None,
-                product_code: Some(code.clone()),
-                max_results: 500,
-            };
-
-            match svc.cascade_inventory(&service_ctx, &mut conn, query).await {
-                Ok(result) => {
-                    return Ok(Html(cascade_results(&result).into_string()));
-                }
-                Err(_) => {
-                    return Ok(Html(html! {
-                        div style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                            "未找到匹配的产品"
-                        }
-                    }.into_string()));
-                }
-            }
-        }
-
-    Ok(Html(html! {
-        div style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-            "请输入产品编码进行查询"
-        }
-    }.into_string()))
-}
-
 // ── Components ──
 
 fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
@@ -102,13 +51,13 @@ fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="product_code"
                         placeholder="输入产品编码或产品名称"
-                        hx-get=(CascadeTablePath::PATH)
+                        hx-get=(CascadeListPath::PATH)
                         hx-trigger="keyup changed delay:500ms"
                         hx-target=".cascade-results"
                         hx-swap="innerHTML";
                 }
                 button class="btn btn-primary"
-                    hx-get=(CascadeTablePath::PATH)
+                    hx-get=(CascadeListPath::PATH)
                     hx-target=".cascade-results"
                     hx-swap="innerHTML"
                     hx-include="input[name=product_code]" {

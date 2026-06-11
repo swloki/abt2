@@ -18,7 +18,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_stock::{StockListPath, StockTablePath, StockZonesPath, StockDetailPath, StockDetailQuery};
+use crate::routes::wms_stock::{StockListPath, StockZonesPath, StockDetailPath, StockDetailQuery};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -285,34 +285,6 @@ pub async fn get_stock_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "read")]
-pub async fn get_stock_table(
-    _path: StockTablePath,
-    ctx: RequestContext,
-    Query(params): Query<StockQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.stock_ledger_service();
-    let product_svc = state.product_service();
-
-
-    let has_search = params.product_code.as_deref().is_some_and(|s| !s.trim().is_empty())
-        || params.product_name.as_deref().is_some_and(|s| !s.trim().is_empty());
-    let (single_pid, all_pids) = resolve_product_search(&product_svc, &service_ctx, &mut conn, &params).await.unwrap_or((None, vec![]));
-    let filter = build_filter(&params, single_pid, all_pids.clone());
-    let page_num = params.page.unwrap_or(1);
-    let mut result = svc.query(&service_ctx, &mut conn, filter, page_num, 20).await?;
-
-    // 搜索了但没找到匹配产品 → 清空结果
-    if has_search && all_pids.is_empty() && single_pid.is_none() {
-        result.items.clear();
-    }
-
-    let product_names = resolve_product_names(&product_svc, &service_ctx, &mut conn, &result.items).await;
-    // HTMX partial: return only the data-card
-    Ok(Html(stock_data_card(&result, &product_names, &params).into_string()))
-}
-
 // ── Components ──
 struct StockListContext<'a> {
     product_names: &'a HashMap<i64, (String, String)>,
@@ -400,13 +372,14 @@ fn stock_filter_bar(
     params: &StockQueryParams,
 ) -> Markup {
     html! {
-        form class="filter-bar filter-form"
-            hx-get=(StockTablePath::PATH)
+        form class="filter-bar filter-form" id="stock-filter-form"
+            hx-get=(StockListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
             hx-target="#stock-data-card"
             hx-select="#stock-data-card"
             hx-swap="outerHTML"
-            hx-include="closest form" {
+            hx-include="#stock-filter-form"
+                hx-push-url="true" {
             div class="search-wrap" {
                 (icon::search_icon("w-4 h-4"))
                 input class="search-input" type="text" name="product_code"

@@ -13,10 +13,6 @@ use axum::Router;
 pub struct UserListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/system/users/table")]
-pub struct UserTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/system/users/new")]
 pub struct UserCreatePath;
 
@@ -67,7 +63,6 @@ pub struct UserEditPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(UserListPath::PATH, get(user_list::get_user_list))
-        .route(UserTablePath::PATH, get(user_list::get_user_table))
         .route(UserCreatePath::PATH, get(user_create::get_user_create).post(user_create::post_user_create))
         .route(UserDetailPath::PATH, get(user_detail::get_user_detail))
         .route(UserEditPath::PATH, get(user_edit::get_user_edit).post(user_edit::post_user_edit))

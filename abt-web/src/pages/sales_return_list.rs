@@ -16,7 +16,7 @@ use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
@@ -185,41 +185,6 @@ pub async fn get_return_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("SALES_ORDER", "read")]
-pub async fn get_return_table(
-    ctx: RequestContext,
-    Query(params): Query<ReturnQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("SHIPPING", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-
-    let return_svc = state.sales_return_service();
-    let customer_svc = state.customer_service();
-    let shipping_svc = state.shipping_service();
-    let order_svc = state.sales_order_service();
-
-    let filter = ReturnQuery {
-        order_id: None,
-        shipping_request_id: None,
-        customer_id: params.customer_id,
-        status: params.status.and_then(ReturnStatus::from_i16),
-        keyword: params.keyword.clone(),
-    };
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = return_svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let status_counts = count_by_status(&return_svc, &service_ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
-    let shipping_numbers = resolve_shipping_numbers(&shipping_svc, &service_ctx, &mut conn, &result.items).await;
-    let order_numbers = resolve_order_numbers(&order_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let customers = customer_svc
-        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(return_table_fragment(&result, &customer_names, &shipping_numbers, &order_numbers, &customers.items, &params, &status_counts, can_delete).into_string()))
-}
-
 #[require_permission("SALES_ORDER", "delete")]
 pub async fn delete_return(
     path: ReturnDeletePath,
@@ -304,25 +269,24 @@ fn return_table_fragment(
 
     html! {
         div class="return-list-panel" {
-            (status_tabs(ReturnTablePath::PATH, "closest .return-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(ReturnListPath::PATH, "#return-data-card", "#return-filter-form", tabs, &active_value, "status"))
 
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="return-filter-form"
+                hx-get=(ReturnListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#return-data-card"
+                hx-select="#return-data-card"
+                hx-swap="outerHTML"
+                hx-select-oob="#status-tabs"
+                hx-include="#return-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索退货单号、客户名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(ReturnTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .return-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="customer_id"
-                    hx-get=(ReturnTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .return-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="customer_id" {
                     option value="" { "全部客户" }
                     @for c in customers {
                         option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
@@ -330,7 +294,7 @@ fn return_table_fragment(
                 }
             }
 
-            div class="data-card" {
+            div class="data-card" id="return-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

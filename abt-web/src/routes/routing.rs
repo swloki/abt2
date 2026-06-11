@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct RoutingListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/routings/table")]
-pub struct RoutingTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/routings/new")]
 pub struct RoutingCreatePath;
 
@@ -44,10 +40,6 @@ pub struct RoutingDeletePath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(RoutingListPath::PATH, get(routing_list::get_routing_list))
-        .route(
-            RoutingTablePath::PATH,
-            get(routing_list::get_routing_table),
-        )
         .route(
             RoutingCreatePath::PATH,
             get(routing_create::get_routing_create).post(routing_create::post_routing_create),

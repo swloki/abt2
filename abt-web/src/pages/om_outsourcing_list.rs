@@ -19,7 +19,7 @@ use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::om::{
-    OmOutsourcingCreatePath, OmOutsourcingDetailPath, OmOutsourcingListPath, OmOutsourcingTablePath,
+    OmOutsourcingCreatePath, OmOutsourcingDetailPath, OmOutsourcingListPath,
 };
 use crate::utils::{empty_as_none, fmt_qty, RequestContext};
 use abt_macros::require_permission;
@@ -282,36 +282,6 @@ pub async fn get_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("OM", "read")]
-pub async fn get_table(
-    _path: OmOutsourcingTablePath,
-    ctx: RequestContext,
-    Query(params): Query<OutsourcingQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.outsourcing_order_service();
-    let supplier_svc = state.supplier_service();
-    let product_svc = state.product_service();
-    let tracking_svc = state.outsourcing_tracking_service();
-
-    let filter = build_filter(&params);
-    let page_num = params.page.unwrap_or(1);
-    let result = svc
-        .list(&service_ctx, &mut conn, filter, PageParams { page: page_num, page_size: 20 })
-        .await?;
-    let supplier_names =
-        resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-    let product_names =
-        resolve_product_names(&product_svc, &service_ctx, &mut conn, &result.items).await;
-    let latest_tracking =
-        resolve_latest_tracking(&tracking_svc, &service_ctx, &mut conn, &result.items).await;
-
-    Ok(Html(
-        data_card(&result, &supplier_names, &product_names, &latest_tracking, &params)
-            .into_string(),
-    ))
-}
-
 // ── Components ──
 
 fn list_page(
@@ -364,16 +334,17 @@ fn table_fragment(
 
     html! {
         div class="plan-list-panel" {
-            (status_tabs_with_param(OmOutsourcingTablePath::PATH, "#outsourcing-data-card", "closest form", tabs, selected_status, "status"))
+            (status_tabs_with_param(OmOutsourcingListPath::PATH, "#outsourcing-data-card", "#outsourcing-filter-form", tabs, selected_status, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
-                hx-get=(OmOutsourcingTablePath::PATH)
+            form class="filter-bar filter-form" id="outsourcing-filter-form"
+                hx-get=(OmOutsourcingListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#outsourcing-data-card"
                 hx-select="#outsourcing-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#outsourcing-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct BomListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/boms/table")]
-pub struct BomTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/boms/new")]
 pub struct BomCreatePath;
 
@@ -109,8 +105,7 @@ pub struct BomCostClearTempPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(BomListPath::PATH, get(bom_list::get_bom_list))
-        .route(BomTablePath::PATH, get(bom_list::get_bom_table))
-        .route(BomCreatePath::PATH, get(bom_create::get_bom_create).post(bom_create::post_bom_create))
+.route(BomCreatePath::PATH, get(bom_create::get_bom_create).post(bom_create::post_bom_create))
         .route(BomProductsPath::PATH, get(bom_edit::get_bom_products))
         .route(BomDetailPath::PATH, get(bom_detail::get_bom_detail))
         .route(BomEditPath::PATH, get(bom_edit::get_bom_edit))

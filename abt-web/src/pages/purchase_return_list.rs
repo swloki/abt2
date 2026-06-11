@@ -15,7 +15,7 @@ use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::purchase_return::*;
@@ -149,29 +149,6 @@ pub async fn get_pr_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("PURCHASE_RETURN", "read")]
-pub async fn get_pr_table(
-    ctx: RequestContext,
-    Query(params): Query<PRQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("PURCHASE_RETURN", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.purchase_return_service();
-    let supplier_svc = state.supplier_service();
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let suppliers = supplier_svc
-        .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(pr_table_fragment(&result, &supplier_names, &suppliers.items, &params, can_delete).into_string()))
-}
-
 // ── Components ──
 
 fn pr_list_page(
@@ -228,37 +205,31 @@ fn pr_table_fragment(
 
     html! {
         div class="pr-list-panel" {
-            (status_tabs(PRTablePath::PATH, "closest .pr-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(PRListPath::PATH, "#pr-data-card", "#pr-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="pr-filter-form"
+                hx-get=(PRListPath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#pr-data-card"
+                hx-select="#pr-data-card"
+                hx-swap="outerHTML"
+                hx-select-oob="#status-tabs"
+                hx-include="#pr-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索退货单号…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(PRTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .pr-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="supplier_id"
-                    hx-get=(PRTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .pr-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="supplier_id" {
                     option value="" { "全部供应商" }
                     @for s in suppliers {
                         option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
                     }
                 }
-                select class="filter-select" name="date_range"
-                    hx-get=(PRTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .pr-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="date_range" {
                     option value="" selected[selected_range.is_empty()] { "退货日期" }
                     option value="7d" selected[selected_range == "7d"] { "最近7天" }
                     option value="30d" selected[selected_range == "30d"] { "最近30天" }
@@ -267,7 +238,7 @@ fn pr_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="pr-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

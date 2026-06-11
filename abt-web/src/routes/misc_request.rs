@@ -15,10 +15,6 @@ use crate::state::AppState;
 pub struct MiscListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/purchase/misc-requests/table")]
-pub struct MiscTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/misc-requests/create")]
 pub struct MiscCreatePath;
 
@@ -49,8 +45,7 @@ pub struct MiscCancelPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(MiscListPath::PATH, get(misc_request_list::get_misc_list))
-        .route(MiscTablePath::PATH, get(misc_request_list::get_misc_table))
-        .route(MiscCreatePath::PATH, get(misc_request_create::get_misc_create).post(misc_request_create::create_misc))
+.route(MiscCreatePath::PATH, get(misc_request_create::get_misc_create).post(misc_request_create::create_misc))
         .route(MiscItemRowPath::PATH, get(misc_request_create::get_misc_item_row))
         .route(MiscDetailPath::PATH, get(misc_request_detail::get_misc_detail))
         .route(MiscApprovePath::PATH, post(misc_request_detail::approve_misc))

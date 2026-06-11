@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct PreconListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/purchase/reconciliations/table")]
-pub struct PreconTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/reconciliations/create")]
 pub struct PreconCreatePath;
 
@@ -37,8 +33,7 @@ pub struct PreconConfirmPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(PreconListPath::PATH, get(purchase_recon_list::get_precon_list))
-        .route(PreconTablePath::PATH, get(purchase_recon_list::get_precon_table))
-        .route(PreconCreatePath::PATH, get(purchase_recon_create::get_precon_create).post(purchase_recon_create::create_precon))
+.route(PreconCreatePath::PATH, get(purchase_recon_create::get_precon_create).post(purchase_recon_create::create_precon))
         .route(PreconDetailPath::PATH, get(purchase_recon_detail::get_precon_detail))
         .route(PreconConfirmPath::PATH, post(purchase_recon_detail::confirm_precon))
 }

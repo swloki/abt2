@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct TransferListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/transfers/table")]
-pub struct TransferTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/transfers/create")]
 pub struct TransferCreatePath;
 
@@ -39,7 +35,6 @@ pub struct TransferDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(TransferListPath::PATH, get(wms_transfer_list::get_transfer_list))
-        .route(TransferTablePath::PATH, get(wms_transfer_list::get_transfer_table))
         .route(TransferProductsPath::PATH, get(wms_transfer_create::get_products))
         .route(TransferItemRowPath::PATH, get(wms_transfer_create::get_item_row))
         .route(TransferCreatePath::PATH, get(wms_transfer_create::get_transfer_create).post(wms_transfer_create::create_transfer))

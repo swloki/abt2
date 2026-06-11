@@ -49,6 +49,7 @@ fn status_tab(hx_get: &str, hx_target: &str, hx_include: &str, tab: &TabItem, ac
             hx-select=(hx_target)
             hx-select-oob="#status-tabs"
             hx-swap="outerHTML"
+            hx-push-url="true"
             hx-vals=(vals)
             hx-include=(hx_include) {
             (tab.label)

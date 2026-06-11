@@ -10,7 +10,7 @@ use abt_core::wms::enums::BackflushStatus;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
-use crate::routes::wms_backflush::{BackflushDetailPath, BackflushListPath, BackflushTablePath};
+use crate::routes::wms_backflush::{BackflushDetailPath, BackflushListPath};
 use crate::utils::{empty_as_none, RequestContext};
 
 use abt_macros::require_permission;
@@ -62,23 +62,6 @@ pub async fn get_backflush_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "read")]
-pub async fn get_backflush_table(
-    _path: BackflushTablePath,
-    ctx: RequestContext,
-    Query(params): Query<BackflushQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.backflush_service();
-
-    let filter = build_filter(&params);
-    let page = params.page.unwrap_or(1);
-    let page_size = 20u32;
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page, page_size).await?;
-    Ok(Html(backflush_data_card(&result, &params).into_string()))
-}
-
 // ── Helpers ──
 
 fn build_filter(params: &BackflushQueryParams) -> abt_core::wms::backflush::BackflushFilter {
@@ -113,13 +96,14 @@ fn backflush_table_fragment(
 
     html! {
         div class="backflush-list-panel" {
-            form class="filter-bar filter-form"
-                hx-get=(BackflushTablePath::PATH)
+            form class="filter-bar filter-form" id="filter-form"
+                hx-get=(BackflushListPath::PATH)
                 hx-trigger="change,keyup changed delay:300ms from:.search-input"
                 hx-target="#backflush-data-card"
                 hx-select="#backflush-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

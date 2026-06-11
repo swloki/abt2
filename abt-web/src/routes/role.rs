@@ -13,10 +13,6 @@ use axum::Router;
 pub struct RoleListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/system/roles/table")]
-pub struct RoleTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/system/roles/new")]
 pub struct RoleCreatePath;
 
@@ -60,7 +56,6 @@ pub struct PermissionToggleBatchPath;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(RoleListPath::PATH, get(role_list::get_role_list))
-        .route(RoleTablePath::PATH, get(role_list::get_role_table))
         .route(RoleCreatePath::PATH, get(role_create::get_role_create).post(role_create::post_role_create))
         .route(RoleDetailPath::PATH, get(role_detail::get_role_detail))
         .route(RoleDeletePath::PATH, post(role_list::delete_role))

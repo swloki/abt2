@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct ReportListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/reports/table")]
-pub struct ReportTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/reports/create")]
 pub struct ReportCreatePath;
 
@@ -35,7 +31,6 @@ pub struct WageListPath;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ReportListPath::PATH, get(mes_report_list::get_report_list))
-        .route(ReportTablePath::PATH, get(mes_report_list::get_report_table))
         .route(
             ReportCreatePath::PATH,
             get(mes_report_create::get_report_create).post(mes_report_create::create_report),

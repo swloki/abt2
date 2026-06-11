@@ -20,7 +20,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::qms::{ResultCreatePath, ResultDetailPath, ResultListPath, ResultTablePath};
+use crate::routes::qms::{ResultCreatePath, ResultDetailPath, ResultListPath};
 use crate::utils::{empty_as_none, fmt_qty, RequestContext};
 use abt_macros::require_permission;
 
@@ -225,37 +225,6 @@ pub async fn get_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("QMS", "read")]
-pub async fn get_table(
-    _path: ResultTablePath,
-    ctx: RequestContext,
-    Query(params): Query<ResultQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.inspection_result_service();
-    let spec_svc = state.inspection_specification_service();
-    let product_svc = state.product_service();
-
-    let filter = build_filter(&params);
-    let page_num = params.page.unwrap_or(1);
-    let result = svc
-        .list_by_source(
-            &service_ctx,
-            &mut conn,
-            filter,
-            abt_core::shared::types::PageParams::new(page_num, 20),
-        )
-        .await?;
-
-    let product_names =
-        resolve_product_names(&spec_svc, &product_svc, &service_ctx, &mut conn, &result.items)
-            .await;
-
-    Ok(Html(
-        result_data_card(&result, &product_names, &params).into_string(),
-    ))
-}
-
 // ── Components ──
 
 fn result_list_page(
@@ -299,16 +268,17 @@ fn result_table_fragment(
 
     html! {
         div class="result-list-panel" {
-            (status_tabs_with_param(ResultTablePath::PATH, "#result-data-card", "closest form", tabs, selected_status, "status"))
+            (status_tabs_with_param(ResultListPath::PATH, "#result-data-card", "#filter-form", tabs, selected_status, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
-                hx-get=(ResultTablePath::PATH)
+            form id="filter-form" class="filter-bar filter-form"
+                hx-get=(ResultListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#result-data-card"
                 hx-select="#result-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

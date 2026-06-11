@@ -15,7 +15,7 @@ use abt_core::wms::warehouse::WarehouseService;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::wms_requisition::*;
@@ -223,42 +223,29 @@ fn requisition_table_fragment(
 
     html! {
         div class="requisition-list-panel" {
-            (status_tabs(RequisitionTablePath::PATH, "closest .requisition-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(RequisitionTablePath::PATH, "#requisition-data-card", "#requisition-filter-form", tabs, &active_value, "status"))
 
-            form class="filter-bar filter-form"
+            form class="filter-bar filter-form" id="requisition-filter-form"
                 hx-get=(RequisitionTablePath::PATH)
-                hx-trigger="change,keyup changed delay:300ms from:.search-input"
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#requisition-data-card"
                 hx-select="#requisition-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#requisition-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"
                         style="width:180px"
                         placeholder="单据编号"
-                        value=(params.doc_number.as_deref().unwrap_or(""))
-                        hx-get=(RequisitionTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="#requisition-data-card"
-                        hx-swap="outerHTML";
+                        value=(params.doc_number.as_deref().unwrap_or(""));
                 }
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="work_order"
                         placeholder="关联工单"
-                        value=(params.work_order.as_deref().unwrap_or(""))
-                        hx-get=(RequisitionTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="#requisition-data-card"
-                        hx-swap="outerHTML";
+                        value=(params.work_order.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_id"
-                    hx-get=(RequisitionTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="#requisition-data-card"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="warehouse_id" {
                     option value="" { "全部仓库" }
                     @for w in warehouses {
                         option value=(w.id) selected[selected_warehouse == w.id.to_string()] { (w.name) }

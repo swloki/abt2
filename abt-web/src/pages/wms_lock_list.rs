@@ -14,7 +14,7 @@ use abt_core::master_data::customer::CustomerService;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::wms_inventory_lock::{
     LockCreatePath, LockDetailPath, LockListPath, LockTablePath,
@@ -239,42 +239,29 @@ fn lock_table_fragment(
 
     html! {
         div class="lock-list-panel" {
-            (status_tabs(LockTablePath::PATH, "closest .lock-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(LockTablePath::PATH, "#lock-data-card", "#lock-filter-form", tabs, &active_value, "status"))
 
-            form class="filter-bar filter-form"
+            form class="filter-bar filter-form" id="lock-filter-form"
                 hx-get=(LockTablePath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#lock-data-card"
                 hx-select="#lock-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#lock-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"
                         style="width:180px"
                         placeholder="锁库单号"
-                        value=(params.doc_number.as_deref().unwrap_or(""))
-                        hx-get=(LockTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="#lock-data-card"
-                        hx-swap="outerHTML";
+                        value=(params.doc_number.as_deref().unwrap_or(""));
                 }
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="product"
                         placeholder="产品编码/名称"
-                        value=(params.product.as_deref().unwrap_or(""))
-                        hx-get=(LockTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="#lock-data-card"
-                        hx-swap="outerHTML";
+                        value=(params.product.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="warehouse_id"
-                    hx-get=(LockTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="#lock-data-card"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="warehouse_id" {
                     option value="" { "全部仓库" }
                 }
             }

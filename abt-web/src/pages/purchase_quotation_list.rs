@@ -15,7 +15,7 @@ use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::purchase_quotation::*;
@@ -287,37 +287,29 @@ fn pq_table_fragment(
 
     html! {
         div class="pq-list-panel" {
-            (status_tabs(PQTablePath::PATH, "closest .pq-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(PQTablePath::PATH, "#pq-data-card", "#pq-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="pq-filter-form"
+                hx-get=(PQTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#pq-data-card"
+                hx-select="#pq-data-card"
+                hx-swap="outerHTML"
+                hx-include="#pq-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索报价单号…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(PQTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .pq-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="supplier_id"
-                    hx-get=(PQTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .pq-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="supplier_id" {
                     option value="" { "全部供应商" }
                     @for s in suppliers {
                         option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
                     }
                 }
-                select class="filter-select" name="date_range"
-                    hx-get=(PQTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .pq-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="date_range" {
                     option value="" selected[selected_range.is_empty()] { "报价日期" }
                     option value="7d" selected[selected_range == "7d"] { "最近7天" }
                     option value="30d" selected[selected_range == "30d"] { "最近30天" }
@@ -326,7 +318,7 @@ fn pq_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="pq-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

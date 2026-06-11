@@ -10,7 +10,7 @@ use abt_core::wms::enums::CycleCountStatus;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::wms_cycle_count::{
     CycleCountCreatePath, CycleCountDetailPath, CycleCountListPath, CycleCountTablePath,
@@ -155,15 +155,15 @@ fn cycle_count_table_fragment(
 
     html! {
         div class="cycle-count-panel" {
-            (status_tabs(CycleCountTablePath::PATH, "closest .cycle-count-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(CycleCountTablePath::PATH, "#cycle-count-data-card", "#cycle-count-filter-form", tabs, &active_value, "status"))
 
-            form class="filter-bar filter-form"
+            form class="filter-bar filter-form" id="cycle-count-filter-form"
                 hx-get=(CycleCountTablePath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#cycle-count-data-card"
                 hx-select="#cycle-count-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#cycle-count-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

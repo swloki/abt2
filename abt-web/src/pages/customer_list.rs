@@ -10,7 +10,7 @@ use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::customer::{CustomerDetailPath, CustomerListPath, CustomerTablePath, EditCustomerPath, DeleteCustomerPath};
 use crate::utils::{empty_as_none, RequestContext};
@@ -195,25 +195,23 @@ fn customer_table_fragment(
 
     html! {
         div class="customer-list-panel" {
-            (status_tabs(CustomerTablePath::PATH, "closest .customer-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(CustomerTablePath::PATH, "#customer-data-card", "#customer-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="customer-filter-form"
+                hx-get=(CustomerTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#customer-data-card"
+                hx-select="#customer-data-card"
+                hx-swap="outerHTML"
+                hx-include="#customer-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索客户名称、联系人、电话…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(CustomerTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .customer-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="category"
-                    hx-get=(CustomerTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .customer-list-panel"
-                    hx-swap="outerHTML" {
+                select class="filter-select" name="category" {
                     option value="" { "全部分类" }
                     option value="1" selected[params.category == Some(1)] { "经销商" }
                     option value="2" selected[params.category == Some(2)] { "直客" }
@@ -223,7 +221,7 @@ fn customer_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="customer-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

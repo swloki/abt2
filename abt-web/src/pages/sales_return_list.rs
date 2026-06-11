@@ -16,7 +16,7 @@ use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
@@ -304,25 +304,22 @@ fn return_table_fragment(
 
     html! {
         div class="return-list-panel" {
-            (status_tabs(ReturnTablePath::PATH, "closest .return-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(ReturnTablePath::PATH, "#return-data-card", "#return-filter-form", tabs, &active_value, "status"))
 
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="return-filter-form"
+                hx-get=(ReturnTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#return-data-card"
+                hx-select="#return-data-card"
+                hx-swap="outerHTML"
+                hx-include="#return-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索退货单号、客户名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(ReturnTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .return-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="customer_id"
-                    hx-get=(ReturnTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .return-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="customer_id" {
                     option value="" { "全部客户" }
                     @for c in customers {
                         option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
@@ -330,7 +327,7 @@ fn return_table_fragment(
                 }
             }
 
-            div class="data-card" {
+            div class="data-card" id="return-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

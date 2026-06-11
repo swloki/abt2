@@ -15,7 +15,7 @@ use abt_core::shared::types::{PageParams, PgExecutor, ServiceContext};
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::OrderDetailPath;
@@ -267,25 +267,22 @@ fn shipping_table_fragment(
 
     html! {
         div class="shipping-list-panel" {
-            (status_tabs(ShippingTablePath::PATH, "closest .shipping-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(ShippingTablePath::PATH, "#shipping-data-card", "#shipping-filter-form", tabs, &active_value, "status"))
 
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="shipping-filter-form"
+                hx-get=(ShippingTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#shipping-data-card"
+                hx-select="#shipping-data-card"
+                hx-swap="outerHTML"
+                hx-include="#shipping-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索发货单号、客户名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(ShippingTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .shipping-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="customer_id"
-                    hx-get=(ShippingTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .shipping-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="customer_id" {
                     option value="" { "全部客户" }
                     @for c in customers {
                         option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
@@ -293,7 +290,7 @@ fn shipping_table_fragment(
                 }
             }
 
-            div class="data-card" {
+            div class="data-card" id="shipping-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

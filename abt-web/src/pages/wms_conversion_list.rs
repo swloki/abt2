@@ -9,7 +9,7 @@ use abt_core::wms::form_conversion::{FormConversion, FormConversionService};
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::wms_conversion::{ConversionCreatePath, ConversionDetailPath, ConversionListPath, ConversionTablePath};
 use crate::utils::{empty_as_none, RequestContext};
@@ -173,15 +173,15 @@ fn conversion_table_fragment(
 
     html! {
         div class="conversion-list-panel" {
-            (status_tabs(ConversionTablePath::PATH, "closest .conversion-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(ConversionTablePath::PATH, "#conversion-data-card", "#conversion-filter-form", tabs, &active_value, "status"))
 
-            form class="filter-bar filter-form"
+            form class="filter-bar filter-form" id="conversion-filter-form"
                 hx-get=(ConversionTablePath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#conversion-data-card"
                 hx-select="#conversion-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#conversion-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

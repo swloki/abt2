@@ -16,7 +16,7 @@ use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::payment_request::*;
@@ -269,48 +269,35 @@ fn pay_table_fragment(
 
     html! {
         div class="pay-list-panel" {
-            (status_tabs(PayTablePath::PATH, "closest .pay-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(PayTablePath::PATH, "#pay-data-card", "#pay-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="pay-filter-form"
+                hx-get=(PayTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#pay-data-card"
+                hx-select="#pay-data-card"
+                hx-swap="outerHTML"
+                hx-include="#pay-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索申请单号、供应商名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(PayTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .pay-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="supplier_id"
-                    hx-get=(PayTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .pay-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="supplier_id" {
                     option value="" { "全部供应商" }
                     @for s in suppliers {
                         option value=(s.id) selected[selected_supplier == s.id.to_string()] { (s.name) }
                     }
                 }
-                select class="filter-select" name="date_range"
-                    hx-get=(PayTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .pay-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="date_range" {
                     option value="" selected[selected_range.is_empty()] { "付款日期" }
                     option value="7d" selected[selected_range == "7d"] { "最近7天" }
                     option value="30d" selected[selected_range == "30d"] { "最近30天" }
                     option value="3m" selected[selected_range == "3m"] { "最近3个月" }
                 }
-                select class="filter-select" name="payment_method"
-                    hx-get=(PayTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .pay-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="payment_method" {
                     option value="" selected[selected_method.is_empty()] { "全部付款方式" }
                     option value="1" selected[selected_method == "1"] { "银行转账" }
                     option value="2" selected[selected_method == "2"] { "现金" }
@@ -319,7 +306,7 @@ fn pay_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="pay-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

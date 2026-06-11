@@ -226,7 +226,7 @@ fn stock_out_data_card(
     query: &str,
 ) -> Markup {
     html! {
-        div class="data-card" id="stock-out-data-card" {
+        div class="data-card" id="stockout-data-card" {
             div class="data-card-scroll" {
                 table class="data-table" {
                     thead {
@@ -351,16 +351,16 @@ fn stock_out_table_fragment(
                 }
             }
 
-            (status_tabs_with_param(StockOutTablePath::PATH, "closest .stockout-list-panel", ".filter-bar input, .filter-bar select", tabs, selected_type, "transaction_type"))
+            (status_tabs_with_param(StockOutTablePath::PATH, "#stockout-data-card", "#stockout-filter-form", tabs, selected_type, "transaction_type"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
+            form class="filter-bar filter-form" id="stockout-filter-form"
                 hx-get=(StockOutTablePath::PATH)
                 hx-trigger="change,keyup changed delay:300ms from:.search-input"
-                hx-target="#stock-out-data-card"
-                hx-select="#stock-out-data-card"
+                hx-target="#stockout-data-card"
+                hx-select="#stockout-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#stockout-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

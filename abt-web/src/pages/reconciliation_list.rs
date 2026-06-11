@@ -14,7 +14,7 @@ use abt_core::shared::types::{PageParams, ServiceContext};
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::reconciliation::*;
@@ -248,36 +248,28 @@ fn reconciliation_table_fragment(
 
     html! {
         div class="reconciliation-list-panel" {
-            (status_tabs(ReconciliationTablePath::PATH, "closest .reconciliation-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(ReconciliationTablePath::PATH, "#reconciliation-data-card", "#reconciliation-filter-form", tabs, &active_value, "status"))
 
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="reconciliation-filter-form"
+                hx-get=(ReconciliationTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#reconciliation-data-card"
+                hx-select="#reconciliation-data-card"
+                hx-swap="outerHTML"
+                hx-include="#reconciliation-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索对账单号、客户名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(ReconciliationTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .reconciliation-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="customer_id"
-                    hx-get=(ReconciliationTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .reconciliation-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="customer_id" {
                     option value="" { "全部客户" }
                     @for c in customers {
                         option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
                     }
                 }
-                select class="filter-select" name="period"
-                    hx-get=(ReconciliationTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .reconciliation-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="period" {
                     option value="" selected[selected_period.is_empty()] { "对账期间" }
                     @for p in generate_periods() {
                         option value=(p.value) selected[selected_period == p.value] { (p.label) }
@@ -285,7 +277,7 @@ fn reconciliation_table_fragment(
                 }
             }
 
-            div class="data-card" {
+            div class="data-card" id="reconciliation-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

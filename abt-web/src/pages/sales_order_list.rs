@@ -16,7 +16,7 @@ use abt_core::shared::types::ServiceContext;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
@@ -255,37 +255,29 @@ fn order_table_fragment(
 
     html! {
         div class="order-list-panel" {
-            (status_tabs(OrderTablePath::PATH, "closest .order-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(OrderTablePath::PATH, "#order-data-card", "#order-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="order-filter-form"
+                hx-get=(OrderTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#order-data-card"
+                hx-select="#order-data-card"
+                hx-swap="outerHTML"
+                hx-include="#order-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索订单号、客户名称…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(OrderTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .order-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="customer_id"
-                    hx-get=(OrderTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .order-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="customer_id" {
                     option value="" { "全部客户" }
                     @for c in customers {
                         option value=(c.id) selected[selected_customer == c.id.to_string()] { (c.name) }
                     }
                 }
-                select class="filter-select" name="date_range"
-                    hx-get=(OrderTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .order-list-panel"
-                    hx-swap="outerHTML"
-                    hx-include=".filter-bar input, .filter-bar select" {
+                select class="filter-select" name="date_range" {
                     option value="" selected[selected_range.is_empty()] { "交货日期" }
                     option value="7d" selected[selected_range == "7d"] { "最近7天" }
                     option value="30d" selected[selected_range == "30d"] { "最近30天" }
@@ -294,7 +286,7 @@ fn order_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="order-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

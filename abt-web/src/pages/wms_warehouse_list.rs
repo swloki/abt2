@@ -13,7 +13,7 @@ use crate::components::icon;
 use crate::components::import_modal::{self, ImportModalConfig};
 use crate::components::export_button;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::wms_warehouse::{
     WarehouseCreatePath, WarehouseDeletePath, WarehouseDetailPath, WarehouseEditPath,
@@ -233,16 +233,16 @@ fn warehouse_table_fragment(
 
     html! {
         div class="warehouse-list-panel" {
-            (status_tabs(WarehouseTablePath::PATH, "closest .warehouse-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(WarehouseTablePath::PATH, "#warehouse-data-card", "#warehouse-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
+            form class="filter-bar filter-form" id="warehouse-filter-form"
                 hx-get=(WarehouseTablePath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#warehouse-data-card"
                 hx-select="#warehouse-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#warehouse-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="code"

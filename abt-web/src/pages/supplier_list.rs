@@ -10,7 +10,7 @@ use abt_core::shared::types::PageParams;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
-use crate::components::tabs::{status_tabs, TabItem};
+use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::supplier::{
     SupplierCreatePath, SupplierDeletePath, SupplierDetailPath, SupplierListPath, SupplierTablePath,
@@ -161,25 +161,23 @@ fn supplier_table_fragment(
 
     html! {
         div class="supplier-list-panel" {
-            (status_tabs(SupplierTablePath::PATH, "closest .supplier-list-panel", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs_with_param(SupplierTablePath::PATH, "#supplier-data-card", "#supplier-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
-            div class="filter-bar" {
+            form class="filter-bar filter-form" id="supplier-filter-form"
+                hx-get=(SupplierTablePath::PATH)
+                hx-trigger="change, keyup changed delay:300ms from:.search-input"
+                hx-target="#supplier-data-card"
+                hx-select="#supplier-data-card"
+                hx-swap="outerHTML"
+                hx-include="#supplier-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索供应商名称、编码…"
-                        value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(SupplierTablePath::PATH)
-                        hx-trigger="keyup changed delay:300ms"
-                        hx-target="closest .supplier-list-panel"
-                        hx-swap="outerHTML";
+                        value=(params.keyword.as_deref().unwrap_or(""));
                 }
-                select class="filter-select" name="category"
-                    hx-get=(SupplierTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .supplier-list-panel"
-                    hx-swap="outerHTML" {
+                select class="filter-select" name="category" {
                     option value="" { "全部类别" }
                     option value="1" selected[params.category == Some(1)] { "原材料" }
                     option value="2" selected[params.category == Some(2)] { "包装材料" }
@@ -187,11 +185,7 @@ fn supplier_table_fragment(
                     option value="4" selected[params.category == Some(4)] { "辅料" }
                     option value="5" selected[params.category == Some(5)] { "服务" }
                 }
-                select class="filter-select" name="status"
-                    hx-get=(SupplierTablePath::PATH)
-                    hx-trigger="change"
-                    hx-target="closest .supplier-list-panel"
-                    hx-swap="outerHTML" {
+                select class="filter-select" name="status" {
                     option value="" { "全部状态" }
                     option value="1" selected[params.status == Some(1)] { "潜在" }
                     option value="2" selected[params.status == Some(2)] { "合格" }
@@ -202,7 +196,7 @@ fn supplier_table_fragment(
             }
 
             // ── Data Table ──
-            div class="data-card" {
+            div class="data-card" id="supplier-data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
                         thead {

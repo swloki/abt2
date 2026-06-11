@@ -70,7 +70,7 @@ struct ResourceGroupDef {
 const RESOURCE_GROUPS: &[ResourceGroupDef] = &[
     ResourceGroupDef {
         name: "基础数据",
-        resources: &["CUSTOMER", "PRODUCT", "CATEGORY", "BOM", "BOM_CATEGORY"],
+        resources: &["CUSTOMER", "SUPPLIER", "PRODUCT", "CATEGORY", "BOM", "BOM_CATEGORY", "ROUTING", "LABOR_PROCESS_DICT"],
     },
     ResourceGroupDef {
         name: "库存管理",
@@ -82,11 +82,23 @@ const RESOURCE_GROUPS: &[ResourceGroupDef] = &[
     },
     ResourceGroupDef {
         name: "采购管理",
-        resources: &["PURCHASE_ORDER"],
+        resources: &["PURCHASE_ORDER", "PURCHASE_QUOTATION", "PURCHASE_RETURN", "PURCHASE_RECON"],
     },
     ResourceGroupDef {
         name: "生产管理",
         resources: &["WORK_ORDER", "INSPECTION", "COST", "LABOR_COST"],
+    },
+    ResourceGroupDef {
+        name: "委外管理",
+        resources: &["OM", "OUTSOURCING"],
+    },
+    ResourceGroupDef {
+        name: "质量管理",
+        resources: &["QMS"],
+    },
+    ResourceGroupDef {
+        name: "财务管理",
+        resources: &["FMS", "MISC_REQUEST", "PAYMENT_REQUEST"],
     },
     ResourceGroupDef {
         name: "系统工具",

@@ -28,7 +28,7 @@ ssh-keyscan -H $TARGET_HOST >>~/.ssh/known_hosts
 #sshpass -p $SSH_PASSWORD rsync -avz $MONITOR_DIR "$TARGET_USER@$TARGET_HOST:$TARGET_DIR"
 #sshpass -p $SSH_PASSWORD rsync -avz $MONITOR_DIR "$TARGET_USER@$TARGET_HOST:$TARGET_DIR"
 #sshpass -p $SSH_PASSWORD ssh $TARGET_USER@$TARGET_HOST "cd $TARGET_DIR && /home/weichen/.cargo/bin/cargo build --release"
-sshpass -p $SSH_PASSWORD ssh $TARGET_USER@$TARGET_HOST "rm -f /data/abt3/*"
+sshpass -p $SSH_PASSWORD ssh $TARGET_USER@$TARGET_HOST "rm -f /data/abt3/abt-web"
 echo "删除成功"
 sshpass -p $SSH_PASSWORD rsync -avz $MONITOR_DIR "$TARGET_USER@$TARGET_HOST:$TARGET_DIR"
 

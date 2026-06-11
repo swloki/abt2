@@ -1,4 +1,5 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
+use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
 use super::model::{CreateManualReq, IssueMaterialReq, MaterialRequisition, RequisitionFilter};
@@ -9,7 +10,7 @@ use crate::shared::document_link::model::LinkRequest;
 use crate::shared::types::PgExecutor;
 use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
-use crate::shared::enums::{DocumentType, LinkType};
+use crate::shared::enums::{AuditAction, CostEntityType, CostType, DocumentType, LinkType};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
@@ -17,6 +18,8 @@ use crate::shared::types::pagination::PaginatedResult;
 use crate::wms::enums::RequisitionStatus;
 use crate::wms::inventory_transaction::model::RecordTransactionReq;
 use crate::wms::inventory_transaction::{new_inventory_transaction_service, service::InventoryTransactionService};
+use crate::shared::cost_entry::{new_cost_entry_service, model::EntryRequest, service::CostEntryService};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 
 pub struct MaterialRequisitionServiceImpl {
     pool: PgPool,
@@ -205,6 +208,37 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         if affected == 0 {
             return Err(DomainError::not_found("MaterialRequisition"));
         }
+
+        // 领料出库 → 创建材料成本分录（工单关联时）
+        if requisition.work_order_id > 0 {
+            let period = chrono::Local::now().format("%Y-%m").to_string();
+            let total_issued: Decimal = req.items.iter().map(|i| i.issued_qty).sum();
+            new_cost_entry_service(self.pool.clone())
+                .create_entries(
+                    ctx, db,
+                    vec![EntryRequest {
+                        entity_type: CostEntityType::WorkOrder,
+                        entity_id: requisition.work_order_id,
+                        cost_type: CostType::Material,
+                        debit_amount: total_issued,
+                        credit_amount: total_issued,
+                        cost_center: None,
+                        profit_center: None,
+                        period,
+                        source_type: DocumentType::MaterialRequisition,
+                        source_id: req.id,
+                    }],
+                )
+                .await?;
+        }
+
+        // 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx, db,
+                RecordAuditLogReq::new("MaterialRequisition", req.id, AuditAction::Transition),
+            )
+            .await?;
 
         Ok(())
     }

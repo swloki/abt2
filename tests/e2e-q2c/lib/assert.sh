@@ -230,3 +230,127 @@ abt_assert_db_empty() {
         return 1
     fi
 }
+
+# --- 事件断言 ---
+# 用法: abt_assert_event <aggregate_type> <aggregate_id> <description>
+# 验证 domain_events 表中存在指定聚合的事件
+abt_assert_event() {
+    local aggregate_type="$1"
+    local aggregate_id="$2"
+    local description="${3:-事件 $aggregate_type#$aggregate_id}"
+
+    if [[ -z "$DB_URL" ]]; then
+        assert_skip "事件断言跳过（无 DB_URL）: $description"
+        return 0
+    fi
+
+    local count
+    count=$(psql "$DB_URL" -t -A -c \
+        "SELECT COUNT(*) FROM domain_events WHERE aggregate_type = '$aggregate_type' AND aggregate_id = $aggregate_id AND status IN (1,2,3)" \
+        2>/dev/null || echo "0")
+
+    if [[ "$count" -gt 0 ]]; then
+        assert_pass "$description → $count events"
+        return 0
+    else
+        assert_fail "$description → 无事件记录"
+        return 1
+    fi
+}
+
+# --- 通知断言 ---
+# 用法: abt_assert_notification <operator_id> <description>
+# 验证通知表中有给指定用户的未读/已读通知
+# 注: 通知表名取决于系统实现，常见为 notifications 或 user_notifications
+abt_assert_notification() {
+    local operator_id="$1"
+    local description="${2:-通知 user#$operator_id}"
+
+    if [[ -z "$DB_URL" ]]; then
+        assert_skip "通知断言跳过（无 DB_URL）: $description"
+        return 0
+    fi
+
+    # 检查通知表是否存在
+    local notify_table
+    notify_table=$(psql "$DB_URL" -t -A -c \
+        "SELECT table_name FROM information_schema.tables WHERE table_name IN ('notifications','user_notifications','scheduled_tasks') LIMIT 1" \
+        2>/dev/null || echo "")
+
+    if [[ -z "$notify_table" ]]; then
+        assert_skip "通知断言跳过（通知表不存在）: $description"
+        return 0
+    fi
+
+    local count
+    count=$(psql "$DB_URL" -t -A -c \
+        "SELECT COUNT(*) FROM $notify_table WHERE operator_id = $operator_id OR recipient_id = $operator_id" \
+        2>/dev/null || echo "0")
+
+    if [[ "$count" -gt 0 ]]; then
+        assert_pass "$description → $count notifications"
+        return 0
+    else
+        assert_fail "$description → 无通知记录"
+        return 1
+    fi
+}
+
+# --- 财务断言（借贷平衡） ---
+# 用法: abt_assert_accounting_balance <journal_id> <description>
+# 验证 cash_journal_lines 中指定 journal_id 的借方合计 = 贷方合计
+abt_assert_accounting_balance() {
+    local journal_id="$1"
+    local description="${2:-借贷平衡 journal#$journal_id}"
+
+    if [[ -z "$DB_URL" ]]; then
+        assert_skip "财务断言跳过（无 DB_URL）: $description"
+        return 0
+    fi
+
+    local result
+    result=$(psql "$DB_URL" -t -A -c \
+        "SELECT ABS(SUM(debit_amount) - SUM(credit_amount)) FROM cash_journal_lines WHERE journal_id = $journal_id" \
+        2>/dev/null || echo "NULL")
+
+    if [[ "$result" == "NULL" || -z "$result" ]]; then
+        assert_skip "财务断言跳过（无 journal_lines 数据）: $description"
+        return 0
+    fi
+
+    # 允许 0.01 精度误差
+    if [[ "$(echo "$result < 0.01" | bc -l 2>/dev/null || echo 0)" -eq 1 ]]; then
+        assert_pass "$description → balance diff=$result"
+        return 0
+    else
+        assert_fail "$description → 借贷不平衡 diff=$result"
+        return 1
+    fi
+}
+
+# --- 审计断言 ---
+# 用法: abt_assert_audit <entity_type> <entity_id> <description>
+# 验证 audit_logs 表中存在指定实体的审计记录
+abt_assert_audit() {
+    local entity_type="$1"
+    local entity_id="$2"
+    local description="${3:-审计日志 $entity_type#$entity_id}"
+
+    if [[ -z "$DB_URL" ]]; then
+        assert_skip "审计断言跳过（无 DB_URL）: $description"
+        return 0
+    fi
+
+    local count
+    count=$(psql "$DB_URL" -t -A -c \
+        "SELECT COUNT(*) FROM audit_logs WHERE entity_type = '$entity_type' AND entity_id = $entity_id" \
+        2>/dev/null || echo "0")
+
+    if [[ "$count" -gt 0 ]]; then
+        assert_pass "$description → $count audit entries"
+        return 0
+    else
+        assert_fail "$description → 无审计记录"
+        return 1
+    fi
+}

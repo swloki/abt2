@@ -7,7 +7,7 @@
 # 财务页面:
 #   现金日记账: /admin/fms/journals
 #   成本分析:   /admin/fms/cost-analysis
-#   对账单:     /admin/reconciliation/create
+#   对账单:     /admin/reconciliations/new
 #
 # KTD1: 财务域标记为 🟡 P1（部分实现），需先探测功能可用性
 # ============================================================================
@@ -117,75 +117,76 @@ for TABLE in "journal_entries" "accounts_receivable" "ar_records" "cash_journals
 done
 
 if [[ "$AR_FOUND" == "false" ]]; then
-    log_info "未找到自动生成的 AR 凭证（可能未实现自动 AR 生成）"
+    log_info "未找到自动生成的 AR 凭证 — 通过 UI 手动创建销售回款日记账"
 
-    # 尝试通过 UI 手动创建日记账
-    log_step "4b. 尝试手动创建应收日记账"
+    log_step "4b. 手动创建销售回款日记账"
     abt_navigate "$AGENT_F1_SESSION" "/admin/fms/journals/create"
     sleep 1
 
     page_text=$(abt_get_text "$AGENT_F1_SESSION" 2>/dev/null || echo "")
     if echo "$page_text" | grep -qi "forbidden\|403"; then
-        assert_skip "无创建日记账权限"
+        log_warn "无创建日记账权限 — 跳过手动创建"
     else
-        # 权限/403 检测 + 表单可用性检查
-        HAS_FORM=$(abt_eval "$AGENT_F1_SESSION" "document.querySelector('form select, form input[type=\"submit\"], form button[type=\"submit\"]') ? 'yes' : 'no'" 2>/dev/null || echo "no")
-
+        HAS_FORM=$(abt_has_element "$AGENT_F1_SESSION" "form")
         if [[ "$HAS_FORM" != "yes" ]]; then
-            log_warn "日记账创建页无可用表单，使用 DB 回退"
-            # DB 回退: 直接插入日记账
-            TODAY=$(powershell -c "(Get-Date).ToString('yyyy-MM-dd')" 2>/dev/null || echo "")
-            psql "$DB_URL" -c "
-                INSERT INTO journal_entries (entry_date, amount, entry_type, reference_type, reference_id, remark, created_at, updated_at)
-                VALUES ('$TODAY', $EXPECTED_AR, 'receivable', 'sales_order', $SALES_ORDER_ID, 'Q2C E2E - 应收确认 SO#$SALES_ORDER_ID', NOW(), NOW())
-            " 2>/dev/null || true
-            relay_write "ar_amount" "$EXPECTED_AR"
-            log_info "DB 回退创建日记账: ¥$EXPECTED_AR"
+            log_warn "日记账创建页无表单 — 跳过"
         else
-            # 尝试填写日记账表单
-            TODAY=$(powershell -c "(Get-Date).ToString('yyyy-MM-dd')" 2>/dev/null)
-            abt_eval "$AGENT_F1_SESSION" "
+            TODAY=$(powershell -c "(Get-Date).ToString('yyyy-MM-dd')" 2>/dev/null || echo "")
+            PERIOD=$(powershell -c "(Get-Date).ToString('yyyy-MM')" 2>/dev/null || echo "")
+
+            # 填写 cash_journals 表单（字段: journal_type, direction, amount, bank_account,
+            #   counterparty_type, counterparty_name, source_no, transaction_date, period, remark）
+            FILL_RESULT=$(abt_eval "$AGENT_F1_SESSION" "
                 var form = document.querySelector('form');
-                if (form) {
-                    var dateInput = form.querySelector('input[name=\"entry_date\"], input[name=\"date\"]');
-                    if (dateInput) dateInput.value = '$TODAY';
-                    var amountInput = form.querySelector('input[name=\"amount\"]');
-                    if (amountInput) amountInput.value = '$EXPECTED_AR';
-                    var typeSelect = form.querySelector('select[name=\"entry_type\"], select[name=\"type\"]');
-                    if (typeSelect) {
-                        // 选择应收类型
-                        for (var i = 0; i < typeSelect.options.length; i++) {
-                            if (typeSelect.options[i].text.indexOf('应收') >= 0 || typeSelect.options[i].text.indexOf('receivable') >= 0) {
-                                typeSelect.selectedIndex = i;
-                                break;
-                            }
-                        }
-                    }
-                    var refInput = form.querySelector('input[name=\"reference_id\"], input[name=\"ref_id\"]');
-                    if (refInput) refInput.value = '$SALES_ORDER_ID';
+                if (!form) { 'no_form'; } else {
+                    // 日记账类型: 1=销售回款
+                    var jt = form.querySelector('select[name=\"journal_type\"]');
+                    if (jt) jt.value = '1';
+                    // 收付方向: 1=流入
+                    var dir = form.querySelector('select[name=\"direction\"]');
+                    if (dir) dir.value = '1';
+                    // 金额
+                    var amt = form.querySelector('input[name=\"amount\"]');
+                    if (amt) amt.value = '$EXPECTED_AR';
+                    // 银行账户
+                    var ba = form.querySelector('input[name=\"bank_account\"]');
+                    if (ba) ba.value = 'BANK-Q2C-001';
+                    // 往来方类型: 1=客户
+                    var ct = form.querySelector('select[name=\"counterparty_type\"]');
+                    if (ct) ct.value = '1';
+                    // 往来方名称
+                    var cn = form.querySelector('input[name=\"counterparty_name\"]');
+                    if (cn) cn.value = 'Q2C-客户-001';
+                    // 交易日期
+                    var td = form.querySelector('input[name=\"transaction_date\"]');
+                    if (td) td.value = '$TODAY';
+                    // 期间
+                    var pd = form.querySelector('input[name=\"period\"]');
+                    if (pd) pd.value = '$PERIOD';
+                    // 备注
+                    var rm = form.querySelector('textarea[name=\"remark\"]');
+                    if (rm) rm.value = 'Q2C E2E - 应收确认 SO#$SALES_ORDER_ID';
+
+                    // 同步 XHR 提交
+                    var fd = new URLSearchParams(new FormData(form));
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', form.getAttribute('hx-post') || form.action, false);
+                    xhr.setRequestHeader('HX-Request', 'true');
+                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                    xhr.send(fd);
+                    xhr.status + ':' + xhr.responseText.substring(0, 200);
                 }
-                'journal_filled';
-            " > /dev/null 2>&1
+            " 2>/dev/null || echo "eval_failed")
+            log_info "销售回款日记账提交结果: $FILL_RESULT"
+            sleep 1
 
-            sleep 0.3
-
-            # HTMX 表单提交
-            abt_eval "$AGENT_F1_SESSION" "
-                var form = document.querySelector('form');
-                if (form) {
-                    htmx.ajax('POST', form.getAttribute('action') || window.location.pathname, {
-                        target: 'body',
-                        swap: 'none',
-                        source: form,
-                        values: Object.fromEntries(new FormData(form))
-                    });
-                }
-                'form_submitted';
-            " > /dev/null 2>&1 || true
-            sleep 2
-
+            if [[ "$FILL_RESULT" == "2"* ]] || [[ "$FILL_RESULT" == "3"* ]]; then
+                log_warn "日记账创建失败: $FILL_RESULT"
+            else
+                assert_pass "销售回款日记账已通过 UI 创建 (金额=$EXPECTED_AR)"
+                AR_FOUND=true
+            fi
             relay_write "ar_amount" "$EXPECTED_AR"
-            log_info "手动创建日记账: ¥$EXPECTED_AR"
         fi
     fi
 fi

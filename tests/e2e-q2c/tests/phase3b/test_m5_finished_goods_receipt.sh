@@ -61,7 +61,7 @@ sleep 1
 abt_assert_url_contains "$AGENT_W1_SESSION" "/admin/mes/receipts/create" "成品入库创建页" || log_info "page check skipped"
 
 # 检查页面是否有表单（可能 403 无权限）
-HAS_FORM=$(abt_eval "$AGENT_W1_SESSION" "document.querySelector('form') ? 'yes' : 'no'" 2>/dev/null || echo "no")
+HAS_FORM=$(abt_has_element "$AGENT_W1_SESSION" "form")
 
 if [[ "$HAS_FORM" == "yes" ]]; then
     # --- Step 3: 填写入库表单 ---
@@ -75,7 +75,7 @@ if [[ "$HAS_FORM" == "yes" ]]; then
             if (woInput) woInput.value = '$WORK_ORDER_ID';
             // 批次 ID（如果有）
             var batchInput = form.querySelector('input[name=\"batch_id\"]');
-            if (batchInput) batchInput.value = '${BATCH_ID:-}';
+            if (batchInput) { if ('${BATCH_ID:-}') batchInput.value = '${BATCH_ID}'; else batchInput.remove(); }
             // 产品 ID
             var pdInput = form.querySelector('input[name=\"product_id\"]');
             if (pdInput) pdInput.value = '$PRODUCT_FG_ID';
@@ -87,7 +87,10 @@ if [[ "$HAS_FORM" == "yes" ]]; then
             if (whInput) whInput.value = '$WH_FG_ID';
             // 库区 ID
             var zoneInput = form.querySelector('input[name=\"zone_id\"]');
-            if (zoneInput && '${WH_FG_ZONE_ID:-}') zoneInput.value = '$WH_FG_ZONE_ID';
+            if (zoneInput) { if ('${WH_FG_ZONE_ID:-}') zoneInput.value = '$WH_FG_ZONE_ID'; else zoneInput.remove(); }
+            // 储位 ID（可选，空则移除避免解析错误）
+            var binInput = form.querySelector('input[name=\"bin_id\"]');
+            if (binInput) binInput.remove();
             // 入库日期
             var dateInput = form.querySelector('input[name=\"receipt_date\"]');
             if (dateInput) dateInput.value = '$TODAY';
@@ -97,21 +100,30 @@ if [[ "$HAS_FORM" == "yes" ]]; then
 
     sleep 0.5
 
-    # --- Step 4: 提交入库（HTMX 表单提交替代 abt_click_by_text） ---
+    # --- Step 4: 提交入库 ---
     log_step "4. 提交成品入库"
-    abt_htmx_submit_form "$AGENT_W1_SESSION" "form" "" 2>/dev/null || \
-        abt_submit "$AGENT_W1_SESSION" || true
+    # 使用同步 XHR 提交表单以捕获错误
+    SUBMIT_RESULT=$(abt_eval "$AGENT_W1_SESSION" "
+        var form = document.querySelector('form');
+        if (!form) { 'no_form'; } else {
+            var fd = new URLSearchParams(new FormData(form));
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', form.getAttribute('hx-post') || form.action, false);
+            xhr.setRequestHeader('HX-Request', 'true');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send(fd);
+            xhr.status + ':' + xhr.responseText.substring(0, 300);
+        }
+    " 2>/dev/null || echo "eval_failed")
+    log_info "成品入库提交结果: $SUBMIT_RESULT"
     sleep 2
 
-    # 验证
+    # 验证 URL 跳转
     current_url=$(abt_get_url "$AGENT_W1_SESSION" 2>/dev/null || echo "")
     log_info "成品入库提交后 URL: $current_url"
 
     if [[ "$current_url" == *"/admin/mes/receipts"* ]]; then
         assert_pass "成品入库成功"
-    else
-        log_warn "成品入库提交后 URL: $current_url"
-        abt_screenshot "$AGENT_W1_SESSION" "/tmp/q2c-m5-fail.png" 2>/dev/null || true
     fi
 else
     log_warn "页面无表单（可能 403），跳过 UI 入库"
@@ -120,28 +132,17 @@ fi
 # --- Step 5: 数据库验证 ---
 log_step "5. 数据库验证"
 
-# 验证 MES 入库记录
+# 验证 MES 入库记录（纯 SELECT 查询，不插入）
 RECEIPT_ID=$(psql "$DB_URL" -t -A -c "
     SELECT id FROM production_receipts
-    WHERE work_order_id = $WORK_ORDER_ID AND deleted_at IS NULL
+    WHERE work_order_id = $WORK_ORDER_ID
     ORDER BY created_at DESC LIMIT 1" 2>/dev/null || echo "")
-
-# DB 回退：如果无入库记录，直接插入
-if [[ -z "${RECEIPT_ID:-}" ]]; then
-    log_warn "MES 入库记录不存在，使用 DB 回退插入"
-    psql "$DB_URL" -c "
-        INSERT INTO production_receipts (work_order_id, product_id, received_qty, warehouse_id, status, created_at, updated_at)
-        VALUES ($WORK_ORDER_ID, ${PRODUCT_FG_ID:-0}, 100, ${WH_FG_ID:-0}, 'completed', NOW(), NOW())
-    " 2>/dev/null || true
-    RECEIPT_ID=$(psql "$DB_URL" -t -A -c "
-        SELECT id FROM production_receipts
-        WHERE work_order_id = $WORK_ORDER_ID AND deleted_at IS NULL
-        ORDER BY created_at DESC LIMIT 1" 2>/dev/null || echo "")
-fi
 
 if [[ -n "${RECEIPT_ID:-}" ]]; then
     assert_pass "MES 入库记录存在 (id=$RECEIPT_ID)"
     relay_write "production_receipt_id" "$RECEIPT_ID"
+else
+    log_warn "MES 入库记录不存在 — UI 提交可能失败（查看上方提交结果）"
 fi
 
 # 验证 WH-FG 库存增加（stock_ledger 无 deleted_at 列）

@@ -205,6 +205,18 @@ if [[ -n "$QUOTATION_ID" ]]; then
         "数据库: 报价明细行存在"
 fi
 
+# --- 接力 context 字段（供下游节点使用） ---
+relay_write_json "context" '{
+    "customer_code": "CUS-001",
+    "product_code": "PRD-FG-001",
+    "quantity": 100,
+    "unit_price": 1500.00,
+    "discount_rate": 10,
+    "tax_rate": 13
+}'
+relay_write "next_agent" "Agent-S2"
+relay_write "next_action" "approve_quotation"
+
 # --- 完成 ---
 relay_set_status "completed"
 relay_snapshot "SNAP-S1-S2"

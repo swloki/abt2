@@ -9,9 +9,10 @@ use super::service::WorkOrderService;
 use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::mes::production_batch::model::WorkOrderRouting;
 use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
+use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::types::PgExecutor;
-use crate::shared::enums::{DocumentType, ReservationType};
+use crate::shared::enums::{AuditAction, DocumentType, ReservationType};
 use crate::shared::inventory_reservation::{new_inventory_reservation_service, model::ReserveRequest, service::InventoryReservationService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::Result;
@@ -51,6 +52,13 @@ impl WorkOrderService for WorkOrderServiceImpl {
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
+        // 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx, db,
+                RecordAuditLogReq::new("WorkOrder", work_order.id, AuditAction::Create),
+            )
+            .await?;
 
         Ok(work_order.id)
     }
@@ -194,6 +202,14 @@ impl WorkOrderService for WorkOrderServiceImpl {
         new_material_requisition_service(self.pool.clone())
             .create_for_work_order(ctx, db, id).await?;
 
+        // 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx, db,
+                RecordAuditLogReq::new("WorkOrder", id, AuditAction::Transition),
+            )
+            .await?;
+
         Ok(())
     }
 
@@ -249,6 +265,14 @@ impl WorkOrderService for WorkOrderServiceImpl {
         new_inventory_reservation_service(self.pool.clone())
             .cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await?;
 
+        // 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx, db,
+                RecordAuditLogReq::new("WorkOrder", id, AuditAction::Transition),
+            )
+            .await?;
+
         Ok(())
     }
 
@@ -292,6 +316,13 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await?;
         WorkOrderRepo::soft_delete(&mut *db, id).await.map_err(|e| DomainError::Internal(e.into()))?;
         WorkOrderRepo::soft_delete_batches(&mut *db, id).await.map_err(|e| DomainError::Internal(e.into()))?;
+        // 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx, db,
+                RecordAuditLogReq::new("WorkOrder", id, AuditAction::Delete),
+            )
+            .await?;
 
         Ok(())
     }

@@ -368,6 +368,11 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .transition(ctx, db, "SalesOrderStatus", id, "Confirmed", None)
             .await?;
 
+        // 立即更新业务表状态（不依赖后续 reserve 等操作）
+        self.repo
+            .update_status(db, id, SalesOrderStatus::Confirmed)
+            .await?;
+
         let items = self
             .item_repo
             .find_by_order_id(db, id)
@@ -407,10 +412,6 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 rollback_savepoint(db, "sp_reserve").await.ok();
             }
         }
-
-        self.repo
-            .update_status(db, id, SalesOrderStatus::Confirmed)
-            .await?;
 
         savepoint(db, "sp_audit").await.ok();
         if let Err(e) = new_audit_log_service(self.pool.clone())

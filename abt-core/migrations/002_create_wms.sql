@@ -62,7 +62,7 @@ CREATE TABLE bins (
     row_no                  VARCHAR(20),
     column_no               VARCHAR(20),
     layer_no                VARCHAR(20),
-    capacity_limit          DECIMAL(10,6),
+    capacity_limit          DECIMAL(18,6),
     allowed_product_types   TEXT[],
     temperature_req         VARCHAR(50),
     status                  SMALLINT    NOT NULL DEFAULT 1, -- 1=Empty, 2=Occupied, 3=Locked, 4=Disabled
@@ -111,10 +111,10 @@ CREATE TABLE stock_ledger (
     zone_id         BIGINT      NOT NULL,
     bin_id          BIGINT      NOT NULL,
     batch_no        VARCHAR(50),
-    quantity        DECIMAL(10,6) NOT NULL DEFAULT 0,
-    reserved_qty    DECIMAL(10,6) NOT NULL DEFAULT 0,
-    available_qty   DECIMAL(10,6) NOT NULL DEFAULT 0,
-    unit_cost       DECIMAL(10,6),
+    quantity        DECIMAL(18,6) NOT NULL DEFAULT 0,
+    reserved_qty    DECIMAL(18,6) NOT NULL DEFAULT 0,
+    available_qty   DECIMAL(18,6) NOT NULL DEFAULT 0,
+    unit_cost       DECIMAL(18,6),
     received_date   DATE,
     expiry_date     DATE,
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -159,9 +159,9 @@ CREATE TABLE arrival_notice_items (
     notice_id       BIGINT      NOT NULL REFERENCES arrival_notices(id),
     order_item_id   BIGINT,
     product_id      BIGINT      NOT NULL,
-    declared_qty    DECIMAL(10,6) NOT NULL,
-    received_qty    DECIMAL(10,6) NOT NULL DEFAULT 0,
-    accepted_qty    DECIMAL(10,6) NOT NULL DEFAULT 0,
+    declared_qty    DECIMAL(18,6) NOT NULL,
+    received_qty    DECIMAL(18,6) NOT NULL DEFAULT 0,
+    accepted_qty    DECIMAL(18,6) NOT NULL DEFAULT 0,
     batch_no        VARCHAR(50)
 );
 
@@ -180,8 +180,8 @@ CREATE TABLE inventory_transactions (
     zone_id             BIGINT,
     bin_id              BIGINT,
     batch_no            VARCHAR(50),
-    quantity            DECIMAL(10,6) NOT NULL,
-    unit_cost           DECIMAL(10,6),
+    quantity            DECIMAL(18,6) NOT NULL,
+    unit_cost           DECIMAL(18,6),
     source_type         VARCHAR(50) NOT NULL,       -- DocumentType string reference
     source_id           BIGINT      NOT NULL,
     remark              TEXT,
@@ -224,9 +224,9 @@ CREATE TABLE material_requisition_items (
     id                  BIGSERIAL   PRIMARY KEY,
     requisition_id      BIGINT      NOT NULL REFERENCES material_requisitions(id),
     product_id          BIGINT      NOT NULL,
-    requested_qty       DECIMAL(10,6) NOT NULL,
-    issued_qty          DECIMAL(10,6) NOT NULL DEFAULT 0,
-    variance_qty        DECIMAL(10,6) NOT NULL DEFAULT 0,
+    requested_qty       DECIMAL(18,6) NOT NULL,
+    issued_qty          DECIMAL(18,6) NOT NULL DEFAULT 0,
+    variance_qty        DECIMAL(18,6) NOT NULL DEFAULT 0,
     bin_id              BIGINT
 );
 
@@ -241,10 +241,10 @@ CREATE TABLE backflush_records (
     doc_number          VARCHAR(50) NOT NULL,
     work_order_id       BIGINT      NOT NULL,
     product_id          BIGINT      NOT NULL,
-    completed_qty       DECIMAL(10,6) NOT NULL,
+    completed_qty       DECIMAL(18,6) NOT NULL,
     backflush_date      DATE        NOT NULL,
     status              SMALLINT    NOT NULL DEFAULT 1, -- 1=Draft, 2=Executed, 3=Adjusted
-    variance_threshold  DECIMAL(10,6) NOT NULL DEFAULT 0.05,
+    variance_threshold  DECIMAL(18,6) NOT NULL DEFAULT 0.05,
     operator_id         BIGINT      NOT NULL,
     created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -260,10 +260,10 @@ CREATE TABLE backflush_items (
     id                  BIGSERIAL   PRIMARY KEY,
     record_id           BIGINT      NOT NULL REFERENCES backflush_records(id),
     component_id        BIGINT      NOT NULL,
-    theoretical_qty     DECIMAL(10,6) NOT NULL,
-    actual_qty          DECIMAL(10,6) NOT NULL,
-    variance_qty        DECIMAL(10,6) NOT NULL,
-    variance_rate       DECIMAL(10,6) NOT NULL,
+    theoretical_qty     DECIMAL(18,6) NOT NULL,
+    actual_qty          DECIMAL(18,6) NOT NULL,
+    variance_qty        DECIMAL(18,6) NOT NULL,
+    variance_rate       DECIMAL(18,6) NOT NULL,
     is_over_threshold   BOOLEAN     NOT NULL DEFAULT false
 );
 
@@ -299,9 +299,9 @@ CREATE TABLE cycle_count_items (
     bin_id              BIGINT      NOT NULL,
     product_id          BIGINT      NOT NULL,
     batch_no            VARCHAR(50),
-    system_qty          DECIMAL(10,6) NOT NULL,
-    counted_qty         DECIMAL(10,6) NOT NULL DEFAULT 0,
-    variance_qty        DECIMAL(10,6) NOT NULL DEFAULT 0,
+    system_qty          DECIMAL(18,6) NOT NULL,
+    counted_qty         DECIMAL(18,6) NOT NULL DEFAULT 0,
+    variance_qty        DECIMAL(18,6) NOT NULL DEFAULT 0,
     variance_reason     TEXT,
     is_adjusted         BOOLEAN     NOT NULL DEFAULT false
 );
@@ -337,7 +337,7 @@ CREATE TABLE transfer_items (
     id                  BIGSERIAL   PRIMARY KEY,
     transfer_id         BIGINT      NOT NULL REFERENCES inventory_transfers(id),
     product_id          BIGINT      NOT NULL,
-    quantity            DECIMAL(10,6) NOT NULL,
+    quantity            DECIMAL(18,6) NOT NULL,
     batch_no            VARCHAR(50)
 );
 
@@ -369,8 +369,8 @@ CREATE TABLE conversion_items (
     conversion_id       BIGINT      NOT NULL REFERENCES form_conversions(id),
     direction           SMALLINT    NOT NULL,           -- 1=Consume, 2=Produce
     product_id          BIGINT      NOT NULL,
-    quantity            DECIMAL(10,6) NOT NULL,
-    unit_cost           DECIMAL(10,6) NOT NULL,
+    quantity            DECIMAL(18,6) NOT NULL,
+    unit_cost           DECIMAL(18,6) NOT NULL,
     batch_no            VARCHAR(50)
 );
 
@@ -385,7 +385,7 @@ CREATE TABLE inventory_locks (
     doc_number          VARCHAR(50) NOT NULL,
     product_id          BIGINT      NOT NULL,
     warehouse_id        BIGINT      NOT NULL REFERENCES warehouses(id),
-    locked_qty          DECIMAL(10,6) NOT NULL,
+    locked_qty          DECIMAL(18,6) NOT NULL,
     lock_reason         TEXT        NOT NULL,
     customer_id         BIGINT,
     status              SMALLINT    NOT NULL DEFAULT 1, -- 1=Active, 2=Released, 3=Cancelled

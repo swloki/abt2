@@ -50,7 +50,7 @@ abt_navigate "$AGENT_PU1_SESSION" "/admin/wms/arrivals/create"
 sleep 1
 
 # 检查是否有表单（权限判断）
-HAS_FORM=$(abt_eval "$AGENT_PU1_SESSION" "document.querySelector('form select, form input') ? 'yes' : 'no'" 2>/dev/null || echo "no")
+HAS_FORM=$(abt_has_element "$AGENT_PU1_SESSION" "form select, form input")
 
 ARRIVAL_ID=""
 if [[ "$HAS_FORM" == "yes" ]]; then
@@ -139,8 +139,7 @@ NEED_INSERT=false
 for PAIR in "$PRODUCT_RM001:200" "$PRODUCT_RM002:50" "$PRODUCT_RM003:100"; do
     PID="${PAIR%%:*}"
     QTY="${PAIR##*:}"
-    EXISTING=$(psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(quantity), 0) FROM stock_ledger WHERE product_id = $PID AND warehouse_id = $WH_RAW_ID" 2>/dev/null || echo "0")
-    if [[ "$EXISTING" -lt "$QTY" ]]; then
+    if [[ "$(echo "$EXISTING < $QTY" | bc -l 2>/dev/null || echo 1)" -eq 1 ]]; then
         NEED_INSERT=true
         break
     fi

@@ -275,11 +275,9 @@ fn bom_detail_page(
                         }
                     }
                     button type="button" class="btn btn-default"
-                        hx-post=(format!("{}/bom", crate::routes::excel::EXPORT_START_PATH))
-                        hx-vals=(format!("{{\"bom_id\": {}}}", bom.bom_id))
-                        hx-target="#export-result"
-                        hx-swap="innerHTML"
-                        hx-indicator="#export-result" {
+                        hx-post=(format!("{}/bom?bom_id={}", crate::routes::excel::EXPORT_START_PATH, bom.bom_id))
+                        hx-confirm="确定要导出 BOM 吗？"
+                        hx-swap="none" {
                         (icon::download_icon("w-4 h-4"))
                         " 导出 BOM"
                     }
@@ -323,7 +321,6 @@ fn bom_detail_page(
                     }
                 }
             }
-            div id="export-result" {}
 
             @if can_view_cost {
                 // ── Cost Drawer (wider: 1000px) ──

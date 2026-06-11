@@ -72,6 +72,18 @@ abt_select_by_text() {
     " > /dev/null 2>&1
 }
 
+# --- 检查元素是否存在 ---
+# 用法: abt_has_element <session> <css_selector>
+# 返回 "yes" 或 "no"（去除 abt_eval 返回的 JSON 引号）
+abt_has_element() {
+    local session="$1"
+    local selector="$2"
+    local result
+    result=$(abt_eval "$session" "document.querySelector('$selector') ? 'yes' : 'no'" 2>/dev/null || echo "no")
+    # 去除 agent-browser 返回的 JSON 字符串引号
+    echo "${result//\"/}"
+}
+
 # --- 点击按钮/元素 ---
 # 用法: abt_click <session> <css_selector>
 abt_click() {
@@ -226,9 +238,13 @@ abt_htmx_post() {
     local path="$2"
 
     abt_eval "$session" "
-        htmx.ajax('POST', '$path', {target: 'body', swap: 'none'});
-        'htmx_post_done';
-    " > /dev/null 2>&1 || true
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '$path', false);
+        xhr.setRequestHeader('HX-Request', 'true');
+        xhr.setRequestHeader('HX-Target', 'body');
+        xhr.send();
+        xhr.status + ' ' + xhr.responseText.substring(0, 200);
+    " 2>/dev/null
 }
 
 # --- HTMX 表单提交 ---

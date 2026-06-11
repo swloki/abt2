@@ -154,8 +154,6 @@ fn routing_list_page(
                 template_columns: "产品编码, 工序编码, 工序名称, 单价, 数量, 排序, 备注",
             }))
 
-            // ── Export Result ──
-            div id="export-result" {}
         }
     }
 }

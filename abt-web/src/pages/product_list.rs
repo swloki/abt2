@@ -378,8 +378,6 @@ fn product_list_page(
                 template_columns: "新编码, 旧编码, 物料名称, 库位编码, 库存数量, 价格, 安全库存, 分类ID",
             }))
 
-            // ── Export Result ──
-            div id="export-result" {}
         }
     }
 }

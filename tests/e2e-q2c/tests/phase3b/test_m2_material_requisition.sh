@@ -71,7 +71,7 @@ sleep 1
 abt_assert_url_contains "$AGENT_W1_SESSION" "/admin/wms/requisitions/create" "领料单创建页" || log_info "page check skipped"
 
 # 检查页面是否有表单（可能 403 无权限）
-HAS_FORM=$(abt_eval "$AGENT_W1_SESSION" "document.querySelector('form') ? 'yes' : 'no'" 2>/dev/null || echo "no")
+HAS_FORM=$(abt_has_element "$AGENT_W1_SESSION" "form")
 
 # --- Step 3: 方式一 — 通过工单 ID 自动生成领料 ---
 log_step "3. 尝试通过工单 ID 自动生成领料"

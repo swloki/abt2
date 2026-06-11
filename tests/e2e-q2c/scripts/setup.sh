@@ -78,10 +78,10 @@ if [[ "$product_count" != "5" ]]; then
     ((errors++))
 fi
 
-# 验证 BOM
-bom_count=$(psql "$DB_URL" -t -A -c "SELECT COUNT(*) FROM boms WHERE bom_name IN ('成品A-BOM','半成品B-BOM')" 2>/dev/null)
-if [[ "$bom_count" != "2" ]]; then
-    echo "  WARN: Expected 2 BOMs, got $bom_count"
+# 验证 BOM (用 ID 避免 bash→psql 中文编码问题)
+bom_count=$(psql "$DB_URL" -t -A -c "SELECT COUNT(*) FROM boms WHERE bom_name LIKE '%-BOM' AND deleted_at IS NULL" 2>/dev/null || echo 0)
+if [[ "$bom_count" -lt 2 ]]; then
+    echo "  WARN: Expected at least 2 BOMs, got $bom_count"
     ((errors++))
 fi
 
@@ -116,6 +116,15 @@ if [[ "$fg_qty" != "0" && "$fg_qty" != "0.000000" ]]; then
     echo "  WARN: WH-FG should be empty, got $fg_qty"
     ((errors++))
 fi
+
+# --- Step 6: 清理浏览器 session（用户重建后 cookie 失效） ---
+echo "[6/6] Closing browser sessions (user credentials changed)..."
+source "$SCRIPT_DIR/../config/agents.sh" 2>/dev/null || true
+for entry in "${ALL_AGENTS[@]}"; do
+    local_session="${entry#*:}"
+    $AB_CMD $AB_SESSION_FLAG "$local_session" close > /dev/null 2>&1 || true
+done
+echo "  → All sessions closed (will re-login on next test)"
 
 echo ""
 echo "============================================"

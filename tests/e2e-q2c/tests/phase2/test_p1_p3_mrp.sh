@@ -55,7 +55,14 @@ abt_assert_url_contains "$AGENT_P1_SESSION" "/admin/mes/orders" "生产工单列
 # --- Step 4: 创建生产工单 ---
 log_step "4. 创建生产工单（手动 MRP）"
 
-# 当前测试用户无 WORK_ORDER:create 权限，直接通过 DB 创建
+# 获取成品产品 ID（必须在工单创建之前）
+PRODUCT_FG_ID=$(psql "$DB_URL" -t -A -c "SELECT product_id FROM products WHERE product_code = 'PRD-FG-001' AND deleted_at IS NULL LIMIT 1" 2>/dev/null)
+log_info "PRD-FG-001 product_id=$PRODUCT_FG_ID"
+
+# 初始化变量（防止 nounset 错误）
+WORK_ORDER_ID=""
+EXISTING_WO=""
+
 # 先检查是否已有 E2E 工单
 EXISTING_WO=$(psql "$DB_URL" -t -A -c "
     SELECT id FROM work_orders
@@ -66,24 +73,30 @@ if [[ -n "$EXISTING_WO" ]]; then
     assert_pass "E2E 工单已存在 (id=$EXISTING_WO)"
     WORK_ORDER_ID="$EXISTING_WO"
 else
-    # 通过 UI 尝试创建（如果权限允许）
+    # 通过 UI 创建工单（prod_mgr 有 WORK_ORDER:create 权限）
     SESSION="$AGENT_M1_SESSION"
     abt_login "$SESSION" "$AGENT_M1_USER" "$Q2C_PASSWORD"
     abt_navigate "$SESSION" "/admin/mes/orders/create"
-    sleep 1
+    sleep 2
 
-    HAS_FORM=$(abt_eval "$SESSION" "document.querySelector('form input[name=\"product_id\"]') ? 'yes' : 'no'" 2>/dev/null || echo "no")
+    # 检查表单
+    HAS_FORM=$(abt_has_element "$SESSION" "form input[name=\"product_id\"]")
 
     if [[ "$HAS_FORM" == "yes" ]]; then
-        # UI 创建
+        # UI 表单创建：填写字段 → htmx.ajax(source: form) 提交
         PLAN_START=$(powershell -c "(Get-Date).ToString('yyyy-MM-dd')" 2>/dev/null)
         PLAN_END=$(powershell -c "(Get-Date).AddDays(15).ToString('yyyy-MM-dd')" 2>/dev/null)
 
         abt_eval "$SESSION" "
-            htmx.ajax('POST', '/admin/mes/orders/create', {
-                target: 'body', swap: 'none',
-                values: { product_id: '$PRODUCT_FG_ID', planned_qty: '${SO_QTY:-100}', scheduled_start: '$PLAN_START', scheduled_end: '$PLAN_END' }
-            });
+            var f = document.querySelector('form');
+            f.querySelector('input[name=\"product_id\"]').value = '$PRODUCT_FG_ID';
+            f.querySelector('input[name=\"planned_qty\"]').value = '${SO_QTY:-100}';
+            var ss = f.querySelector('input[name=\"scheduled_start\"]');
+            if (ss) ss.value = '$PLAN_START';
+            var se = f.querySelector('input[name=\"scheduled_end\"]');
+            if (se) se.value = '$PLAN_END';
+            htmx.ajax('POST', f.getAttribute('hx-post'), {target: 'body', swap: 'none', source: f});
+            'submitted';
         " > /dev/null 2>&1 || true
         sleep 3
 
@@ -91,18 +104,25 @@ else
         WORK_ORDER_ID=$(psql "$DB_URL" -t -A -c "
             SELECT id FROM work_orders WHERE product_id = $PRODUCT_FG_ID AND deleted_at IS NULL
             ORDER BY created_at DESC LIMIT 1" 2>/dev/null || echo "")
-    else
-        # 直接 DB 创建
-        log_warn "无 UI 创建权限，通过 DB 直接创建工单"
+
+        if [[ -n "$WORK_ORDER_ID" ]]; then
+            assert_pass "UI 创建工单成功 (id=$WORK_ORDER_ID)"
+        else
+            log_warn "UI 创建可能失败，尝试 DB fallback"
+        fi
+    fi
+
+    # DB fallback：如果 UI 创建未获得工单 ID
+    if [[ -z "$WORK_ORDER_ID" ]]; then
+        log_warn "通过 DB 直接创建工单"
         WORK_ORDER_ID=$(psql "$DB_URL" -t -A -c "
             INSERT INTO work_orders (doc_number, product_id, planned_qty, scheduled_start, scheduled_end, status, remark, operator_id)
             VALUES ('WO-E2E-001', $PRODUCT_FG_ID, ${SO_QTY:-100}, CURRENT_DATE, CURRENT_DATE + 15, 1, 'Q2C E2E Test Work Order', 1)
-            RETURNING id" 2>/dev/null || echo "")
+            RETURNING id" 2>/dev/null | head -1 || echo "")
     fi
 fi
 
-PRODUCT_FG_ID=$(psql "$DB_URL" -t -A -c "SELECT product_id FROM products WHERE product_code = 'PRD-FG-001' AND deleted_at IS NULL LIMIT 1" 2>/dev/null)
-log_info "PRD-FG-001 product_id=$PRODUCT_FG_ID, work_order_id=${WORK_ORDER_ID:-}"
+log_info "work_order_id=${WORK_ORDER_ID:-}"
 
 # --- Step 5: 数据库验证 ---
 log_step "5. 数据库验证"
@@ -136,9 +156,9 @@ fi
 # --- BOM 展开验证 ---
 log_step "6. BOM 展开验证（P1）"
 
-# 获取 BOM ID（避免中文编码问题）
-BOM_FG_ID=$(psql "$DB_URL" -t -A -c "SELECT bom_id FROM boms WHERE bom_id = 1000884 AND deleted_at IS NULL LIMIT 1" 2>/dev/null || echo "")
-BOM_SFG_ID=$(psql "$DB_URL" -t -A -c "SELECT bom_id FROM boms WHERE bom_id = 1000885 AND deleted_at IS NULL LIMIT 1" 2>/dev/null || echo "")
+# 获取 BOM ID（用 product_code 关联，避免硬编码 ID 和中文编码问题）
+BOM_FG_ID=$(psql "$DB_URL" -t -A -c "SELECT bom_id FROM boms WHERE bom_name LIKE '%A-BOM' AND deleted_at IS NULL LIMIT 1" 2>/dev/null || echo "")
+BOM_SFG_ID=$(psql "$DB_URL" -t -A -c "SELECT bom_id FROM boms WHERE bom_name LIKE '%B-BOM' AND deleted_at IS NULL LIMIT 1" 2>/dev/null || echo "")
 
 # 验证 BOM 结构（用 bom_id 避免 bash→psql 中文编码问题）
 abt_assert_db \

@@ -1,13 +1,29 @@
 -- CHK-12: 审计日志完整性
--- 验证: 关键实体都有记录存在（数量 > 0）
--- 返回数量为 0 的实体 = FAIL
-SELECT t.entity, t.cnt FROM (
-    SELECT 'sales_orders' AS entity, COUNT(*) AS cnt FROM sales_orders WHERE deleted_at IS NULL AND doc_number IS NOT NULL
+-- 验证: 关键实体在 audit_logs 中有 Create(action=1) 操作记录
+-- 检查范围: 当天创建的业务记录（确保新代码的审计功能正常工作）
+-- 返回 0 行 = PASS
+SELECT t.entity_type, t.today_count, COALESCE(a.actual_count, 0) AS actual_count
+FROM (
+    SELECT 'WorkOrder' AS entity_type,
+           (SELECT COUNT(*) FROM work_orders WHERE deleted_at IS NULL AND created_at::date = CURRENT_DATE) AS today_count
     UNION ALL
-    SELECT 'purchase_orders', COUNT(*) FROM purchase_orders WHERE deleted_at IS NULL
+    SELECT 'SalesOrder',
+           (SELECT COUNT(*) FROM sales_orders WHERE deleted_at IS NULL AND created_at::date = CURRENT_DATE)
     UNION ALL
-    SELECT 'work_orders', COUNT(*) FROM work_orders WHERE deleted_at IS NULL
+    SELECT 'PurchaseOrder',
+           (SELECT COUNT(*) FROM purchase_orders WHERE deleted_at IS NULL AND created_at::date = CURRENT_DATE)
     UNION ALL
-    SELECT 'quotations', COUNT(*) FROM quotations WHERE deleted_at IS NULL
-) t WHERE t.cnt = 0;
--- 预期: 0 行返回（所有关键实体都有记录）
+    SELECT 'Quotation',
+           (SELECT COUNT(*) FROM quotations WHERE deleted_at IS NULL AND created_at::date = CURRENT_DATE)
+) t
+LEFT JOIN (
+    SELECT entity_type, COUNT(DISTINCT entity_id) AS actual_count
+    FROM audit_logs
+    WHERE action = 1  -- AuditAction::Create
+      AND entity_type IN ('SalesOrder', 'PurchaseOrder', 'WorkOrder', 'Quotation')
+      AND created_at::date = CURRENT_DATE
+    GROUP BY entity_type
+) a ON a.entity_type = t.entity_type
+WHERE t.today_count > 0
+  AND COALESCE(a.actual_count, 0) < t.today_count;
+-- 预期: 0 行返回（当天创建的业务记录都有审计日志）

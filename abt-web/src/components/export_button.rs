@@ -6,15 +6,15 @@ pub struct ExportItem {
     pub export_type: &'static str,
 }
 
-/// 单个导出按钮
+/// 单个导出按钮（点击弹确认框，确认后直接下载）
 pub fn export_button(label: &str, export_type: &str) -> Markup {
     let path = format!("{}/{}", crate::routes::excel::EXPORT_START_PATH, export_type);
+    let confirm_msg = format!("确定要导出「{}」吗？", label);
     html! {
         button type="button" class="btn btn-default"
             hx-post=(path)
-            hx-target="#export-result"
-            hx-swap="innerHTML"
-            hx-indicator="#export-result" {
+            hx-confirm=(confirm_msg)
+            hx-swap="none" {
             (crate::components::icon::download_icon("w-4 h-4"))
             " " (label)
         }
@@ -39,31 +39,17 @@ pub fn export_dropdown(items: &[ExportItem]) -> Markup {
     }
 }
 
-/// 导出菜单项
+/// 导出菜单项（点击弹确认框，确认后直接下载）
 fn export_menu_item(item: &ExportItem) -> Markup {
     let path = format!("{}/{}", crate::routes::excel::EXPORT_START_PATH, item.export_type);
+    let confirm_msg = format!("确定要导出「{}」吗？", item.label);
     html! {
         button type="button"
             hx-post=(path)
-            hx-target="#export-result"
-            hx-swap="innerHTML"
-            hx-indicator="#export-result"
+            hx-confirm=(confirm_msg)
+            hx-swap="none"
             onclick="hsRemoveClosest(this,'.export-dropdown-menu','is-open')" {
             (item.label)
-        }
-    }
-}
-
-/// 导出结果区域 HTML 片段（handler 调用）
-pub fn render_export_result(task_id: i64, filename: &str) -> Markup {
-    let download_path = format!("{}/{}", crate::routes::excel::EXPORT_DOWNLOAD_PATH, task_id);
-    html! {
-        div class="export-result" {
-            "✓ 导出完成"
-            a href=(download_path) class="btn btn-sm btn-primary" download {
-                (crate::components::icon::download_icon("w-3.5 h-3.5"))
-                " " (filename) ".xlsx"
-            }
         }
     }
 }

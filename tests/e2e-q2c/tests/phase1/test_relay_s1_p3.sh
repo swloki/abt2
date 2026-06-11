@@ -40,6 +40,11 @@ TOTAL_STEPS=5
 PASS_COUNT=0
 FAIL_COUNT=0
 
+# goto_summary: 跳到汇总输出（在失败时调用）
+goto_summary() {
+    :
+}
+
 run_step() {
     local step_num="$1"
     local step_name="$2"
@@ -123,9 +128,6 @@ if [[ "$ALL_PRESENT" == "true" ]]; then
 fi
 
 # --- 汇总 ---
-goto_summary() {
-    :
-}
 
 echo ""
 echo "============================================"

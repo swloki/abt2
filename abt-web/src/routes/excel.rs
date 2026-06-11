@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use axum::extract::{Multipart, State};
+use axum::extract::{Multipart, Query, State};
 use axum::http::{header, HeaderMap};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
@@ -13,7 +13,6 @@ use axum::Router;
 use axum_extra::routing::TypedPath;
 use serde::Deserialize;
 
-use crate::components::export_button::render_export_result;
 use crate::components::import_modal::{render_import_progress, render_import_result};
 use crate::errors::{Result as WebResult, WebError};
 use crate::state::AppState;
@@ -25,7 +24,7 @@ use abt_macros::require_permission;
 
 // ── 导出表单 ──
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Default)]
 pub struct ExportForm {
     pub bom_id: Option<i64>,
     pub product_code: Option<String>,
@@ -246,24 +245,31 @@ pub async fn get_import_progress(
 
 // ── Handler: 导出启动 ──
 
-#[require_permission("PRODUCT", "read")]
 pub async fn post_export_start(
     path: ExcelExportStartPath,
     ctx: RequestContext,
-    State(state): State<AppState>,
-    form: axum::extract::Form<ExportForm>,
+    Query(form): Query<ExportForm>,
 ) -> WebResult<impl IntoResponse> {
-    let pool = state.pool.clone();
+    // 根据 export_type 检查对应资源权限
+    let (resource, action) = match path.export_type.as_str() {
+        "warehouse-location" => ("WAREHOUSE", "read"),
+        _ => ("PRODUCT", "read"),
+    };
+    crate::permissions::check_permission(&ctx, resource, action).await?;
+
+    let pool = ctx.state.pool.clone();
     let user_id = ctx.claims.sub;
 
-    let (bytes, filename) = execute_export(&pool, &path.export_type, form.0)
+    let (bytes, filename) = execute_export(&pool, &path.export_type, form)
         .await
         .map_err(|e| WebError::from(abt_core::shared::types::DomainError::Internal(e)))?;
 
     let safe_name = sanitize_filename(&filename);
-    let task_id = state.store_export_file(bytes, &safe_name, user_id);
+    let task_id = ctx.state.store_export_file(bytes, &safe_name, user_id);
+    let download_url = format!("{}/{}", EXPORT_DOWNLOAD_PATH, task_id);
+    let trigger = format!("{{\"exportDone\":{{\"url\":\"{}\"}}}}", download_url);
 
-    Ok(render_export_result(task_id, &safe_name))
+    Ok(([("HX-Trigger", trigger)], ()))
 }
 
 // ── Handler: 导出下载 ──

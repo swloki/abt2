@@ -250,7 +250,6 @@ fn bom_list_page(
             }
         }
         script src="/cost-drawer.js?v=20260602" {}
-        div id="export-result" {}
     }
 }
 fn bom_table_fragment(
@@ -413,6 +412,12 @@ fn bom_row(bom: &Bom, cat_map: &HashMap<i64, String>, user_map: &HashMap<i64, St
                     a class="row-action-btn" title="查看"
                         href=(detail_path) {
                         (icon::eye_icon("w-4 h-4"))
+                    }
+                    button type="button" class="row-action-btn" title="导出BOM"
+                        hx-post=(format!("{}/bom?bom_id={}", crate::routes::excel::EXPORT_START_PATH, bom.bom_id))
+                        hx-confirm=(format!("确定要导出「{}」吗？", bom.bom_name))
+                        hx-swap="none" {
+                        (icon::download_icon("w-4 h-4"))
                     }
                     @if can_view_cost {
                         button type="button" class="row-action-btn" title="查看成本"

@@ -1,12 +1,12 @@
 /**
- * 统一数据迁移脚本: abt → abt_v2
+ * 统一数据迁移脚本: abt_real → abt2
  *
- * 将旧 abt 数据库的所有业务数据迁移到 abt_v2。
- * 迁移顺序遵循外键依赖关系。
+ * 将旧 abt_real 数据库的所有业务数据迁移到 abt2。
+ * 迁移前会清空 abt2 的业务数据（保留运行时/系统表），再按依赖顺序导入。
  *
  * 环境变量：
  *   PGHOST=localhost PGPORT=5432 PGUSER=postgres PGPASSWORD=123456
- *   ABT_DB=abt  ABT_V2_DB=abt_v2
+ *   ABT_DB=abt_real  ABT_V2_DB=abt2
  *
  * 运行：bun run scripts/migrate-all.ts
  */
@@ -17,8 +17,8 @@ const HOST = process.env.PGHOST ?? "localhost";
 const PORT = parseInt(process.env.PGPORT ?? "5432", 10);
 const USER = process.env.PGUSER ?? "postgres";
 const PASS = process.env.PGPASSWORD ?? "123456";
-const ABT_DB = process.env.ABT_DB ?? "abt";
-const ABT_V2_DB = process.env.ABT_V2_DB ?? "abt_v2";
+const ABT_DB = process.env.ABT_DB ?? "abt_real";
+const ABT_V2_DB = process.env.ABT_V2_DB ?? "abt2";
 
 const abtPool = new pg.Pool({ host: HOST, port: PORT, user: USER, password: PASS, database: ABT_DB });
 const v2Pool = new pg.Pool({ host: HOST, port: PORT, user: USER, password: PASS, database: ABT_V2_DB });
@@ -81,7 +81,84 @@ async function columnExists(pool: pg.Pool, table: string, column: string): Promi
 // ============================================================================
 
 async function main() {
-  console.log("=== 统一数据迁移: abt → abt_v2 ===\n");
+  console.log("=== 统一数据迁移: abt_real → abt2 ===\n");
+
+  // ── Phase -1: 清空 abt2 业务数据（保留运行时/系统表）────────────────
+  console.log("── Phase -1: 清空 abt2 业务数据 ──");
+  {
+    // 按外键依赖反序分批 TRUNCATE，使用 CASCADE 处理依赖
+    const truncateGroups = [
+      // 组1: 末端业务表（无被依赖）
+      [
+        "sales_return_items", "sales_returns", "sales_order_items", "sales_orders",
+        "shipping_request_items", "shipping_requests",
+        "quotation_items", "quotations",
+        "reconciliation_items", "reconciliations",
+        "purchase_return_items", "purchase_returns",
+        "purchase_order_items", "purchase_orders",
+        "purchase_quotation_items", "purchase_quotations",
+        "purchase_recon_items", "purchase_reconciliations",
+        "work_order_routings", "work_orders", "work_reports",
+        "production_plan_items", "production_plans",
+        "production_batches", "production_inspections", "production_receipts",
+        "production_exception_events", "production_exceptions",
+        "material_requisition_items", "material_requisitions",
+        "arrival_notice_items", "arrival_notices",
+        "backflush_items", "backflush_records",
+        "cycle_count_items", "cycle_counts",
+        "transfer_items", "inventory_transfers",
+        "conversion_items", "form_conversions",
+        "cash_journal_lines", "cash_journals",
+        "write_offs",
+        "expense_reimbursement_items", "expense_reimbursements",
+        "cost_entries", "payment_requests",
+        "inspection_results", "inspection_specifications",
+        "mrbs", "rmas",
+        "outsourcing_materials", "outsourcing_orders", "outsourcing_trackings",
+        "misc_request_items", "miscellaneous_requests",
+        "inventory_reservations", "inventory_locks",
+        "bom_snapshots",
+        "product_categories", "categories",
+        "supplier_bank_accounts", "supplier_contacts", "suppliers",
+        "customer_addresses", "customer_contacts", "customers",
+      ],
+      // 组2: 库存交易
+      [
+        "inventory_transactions", "stock_ledger",
+      ],
+      // 组3: BOM + 工艺
+      [
+        "bom_nodes", "bom_routings", "bom_labor_processes",
+        "boms", "bom_categories",
+        "routing_steps", "routings", "labor_process_dicts",
+      ],
+      // 组4: 主数据 + 库位
+      [
+        "products", "bins", "zones", "warehouses",
+      ],
+      // 组5: 身份层 + 工作流 + 其他
+      [
+        "user_roles", "user_departments", "role_permissions",
+        "roles", "users", "departments",
+        "workflow_history", "workflow_tasks", "workflow_instances", "workflow_templates",
+        "notifications", "product_watchers", "price_log",
+        "document_links", "entity_state_logs",
+      ],
+    ];
+
+    for (let i = 0; i < truncateGroups.length; i++) {
+      const tables = truncateGroups[i];
+      const tableList = tables.join(", ");
+      try {
+        await v2Pool.query(`TRUNCATE TABLE ${tableList} CASCADE`);
+        console.log(`  组${i + 1} 已清空: ${tables.length} 张表`);
+      } catch (e: any) {
+        console.error(`  组${i + 1} 清空失败: ${e.message}`);
+        throw e;
+      }
+    }
+    console.log("  业务数据清空完成\n");
+  }
 
   // ── 0. Identity 数据（用户、角色、部门、权限）──────────────────────
   console.log("── 0. identity (users, roles, departments, permissions) ──");
@@ -399,8 +476,12 @@ async function main() {
   console.log("── 6. locations → zones + bins ──");
   const locationMapping = new Map<number, { warehouseId: number; zoneId: number; binId: number }>();
   {
+    const hasLocUpdatedAt = await columnExists(abtPool, "location", "updated_at");
+    const locSelectCols = hasLocUpdatedAt
+      ? "location_id, warehouse_id, location_code, location_name, capacity, created_at, updated_at, deleted_at, status"
+      : "location_id, warehouse_id, location_code, location_name, capacity, created_at, deleted_at, status";
     const { rows } = await abtPool.query(
-      "SELECT location_id, warehouse_id, location_code, location_name, capacity, created_at, updated_at, deleted_at, status FROM location ORDER BY location_id",
+      `SELECT ${locSelectCols} FROM location ORDER BY location_id`,
     );
     // 先插 zones
     const zoneData = rows.map((r) => {
@@ -415,7 +496,7 @@ async function main() {
         0, // sort_order
         null, // remark
         r.created_at,
-        r.updated_at ?? r.created_at,
+        hasLocUpdatedAt && r.updated_at ? r.updated_at : r.created_at,
         r.deleted_at,
       ];
     });
@@ -448,7 +529,7 @@ async function main() {
         null, // temperature_req
         1, // status = Active
         r.created_at,
-        r.updated_at ?? r.created_at,
+        hasLocUpdatedAt && r.updated_at ? r.updated_at : r.created_at,
         r.deleted_at,
       ];
     });
@@ -660,8 +741,8 @@ async function main() {
         loc.zoneId,
         loc.binId,
         r.batch_no ?? null, // 保持 NULL 而非空字符串
-        r.quantity,
-        r.safety_stock ?? 0, // 安全库存
+        r.safety_stock ?? 0, // safety_stock
+        r.quantity,          // quantity
         0, // reserved_qty
         r.quantity, // available_qty
         null, // unit_cost
@@ -820,31 +901,7 @@ async function main() {
     console.log(`  ${n}/${rows.length} 条\n`);
   }
 
-  // ── 16. H3云同步状态 ────────────────────────────────────────────
-  console.log("── 16. h3yun_sync_state ──");
-  {
-    const { rows } = await abtPool.query(
-      "SELECT id, entity_type, entity_id, h3yun_object_id, last_synced_at, content_hash, created_at FROM h3yun_sync_state ORDER BY id",
-    );
-    const data = rows.map((r) => [
-      Number(r.id),
-      r.entity_type,
-      Number(r.entity_id),
-      r.h3yun_object_id ?? null,
-      r.last_synced_at ?? null,
-      r.content_hash ?? null,
-      r.created_at,
-    ]);
-    const n = await batchInsert(
-      v2Pool,
-      "h3yun_sync_state",
-      ["id", "entity_type", "entity_id", "h3yun_object_id", "last_synced_at", "content_hash", "created_at"],
-      data,
-      ["id"],
-    );
-    await resetSequence(v2Pool, "h3yun_sync_state", "id");
-    console.log(`  ${n}/${rows.length} 条\n`);
-  }
+  // ── 16. H3云同步状态 — abt2 无此表，跳过 ──
 
   // ── 17. 工作流 ──────────────────────────────────────────────────
   console.log("── 17. workflow ──");
@@ -1006,16 +1063,13 @@ async function main() {
     console.log(`  transitions seeded, backfill: ${draftCount} Draft + ${pubCount} Published\n`);
   }
 
-  // ── 注意：以下表因 schema 差异过大，无法直接迁移 ──────────────
-  // - document_sequences: abt(doc_type/prefix/reset_rule) vs abt_v2(prefix/seq_date/strategy)，结构完全不同
-  // - quotations/sales_orders/shipping_requests/sales_returns: abt 用 customer_name(VARCHAR)，
-  //   abt_v2 用 customer_id(BIGINT NOT NULL)，且 abt_v2 多出 sales_rep_id/contact_id 等必填字段
-  // - reconciliation_statements → reconciliations: period 格式不同（year+month vs VARCHAR(7)），
-  //   且 abt_v2 的 reconciliation_items 关联 shipping_request_id/sales_order_id
-  // - permission_audit_logs → audit_logs: abt_v2 是分区表，列结构不同
+  // ── 注意：以下 abt_real 表因无对应 abt2 目标表或 schema 差异过大，跳过 ──
+  // - terms / term_relation: 旧分类体系，abt2 用 categories + product_categories（结构完全不同）
+  // - product_price_log_archived: 归档表，无对应目标
+  // - permission_audit_logs: 结构与 abt2 的 audit_logs 分区表不同
 
   // ── 验证 ─────────────────────────────────────────────────────────
-  console.log("=== 验证：源表 vs 目标表行数对比 ===\n");
+  console.log("=== 验证：abt_real 源表 vs abt2 目标表行数对比 ===\n");
   const checks: { srcTable: string; dstTable: string; srcPk: string; dstPk: string }[] = [
     { srcTable: "users", dstTable: "users", srcPk: "user_id", dstPk: "user_id" },
     { srcTable: "roles", dstTable: "roles", srcPk: "role_id", dstPk: "role_id" },
@@ -1039,7 +1093,6 @@ async function main() {
     { srcTable: "inventory_log", dstTable: "inventory_transactions", srcPk: "log_id", dstPk: "id" },
     { srcTable: "notifications", dstTable: "notifications", srcPk: "notification_id", dstPk: "notification_id" },
     { srcTable: "product_watchers", dstTable: "product_watchers", srcPk: "user_id", dstPk: "user_id" },
-    { srcTable: "h3yun_sync_state", dstTable: "h3yun_sync_state", srcPk: "id", dstPk: "id" },
     { srcTable: "workflow_templates", dstTable: "workflow_templates", srcPk: "id", dstPk: "id" },
     { srcTable: "workflow_instances", dstTable: "workflow_instances", srcPk: "id", dstPk: "id" },
     { srcTable: "workflow_tasks", dstTable: "workflow_tasks", srcPk: "id", dstPk: "id" },
@@ -1054,7 +1107,7 @@ async function main() {
     const dst = dstCnt[0].c;
     const ok = src === dst ? "✓" : "✗";
     if (src !== dst) allOk = false;
-    console.log(`  ${ok} abt.${srcTable} → abt_v2.${dstTable}: ${src} → ${dst}`);
+    console.log(`  ${ok} abt_real.${srcTable} → abt2.${dstTable}: ${src} → ${dst}`);
   }
 
   console.log(`\n${allOk ? "全部验证通过" : "存在差异，请检查上方标记为 ✗ 的表"}。\n`);

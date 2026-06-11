@@ -69,13 +69,25 @@ DELETE FROM production_inspections WHERE work_order_id IN (
     )
 );
 
--- 工单
-DELETE FROM work_order_routings WHERE work_order_id IN (
+-- 生产批次（必须在 work_orders 之前删除）
+DELETE FROM production_batches WHERE work_order_id IN (
     SELECT id FROM work_orders WHERE operator_id IN (
         SELECT user_id FROM users WHERE username LIKE 'q2c_%'
     )
 );
-DELETE FROM work_orders WHERE operator_id IN (
+
+-- 工单（包括 UI 创建的，可能 operator_id 不是 q2c 用户）
+DELETE FROM production_batches WHERE work_order_id IN (
+    SELECT id FROM work_orders WHERE doc_number LIKE 'WO-E2E%' OR operator_id IN (
+        SELECT user_id FROM users WHERE username LIKE 'q2c_%'
+    )
+);
+DELETE FROM work_order_routings WHERE work_order_id IN (
+    SELECT id FROM work_orders WHERE doc_number LIKE 'WO-E2E%' OR operator_id IN (
+        SELECT user_id FROM users WHERE username LIKE 'q2c_%'
+    )
+);
+DELETE FROM work_orders WHERE doc_number LIKE 'WO-E2E%' OR operator_id IN (
     SELECT user_id FROM users WHERE username LIKE 'q2c_%'
 );
 

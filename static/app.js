@@ -76,6 +76,13 @@ document.addEventListener('htmx:afterRequest', function (e) {
     window.showToast(msg, 'error');
 });
 
+// ── Export download handler ──
+
+document.addEventListener('exportDone', function (e) {
+    window.location.href = e.detail.url;
+    window.showToast('导出完成', 'success');
+});
+
 
 // ── HTMX: re-init for swapped content ──
 

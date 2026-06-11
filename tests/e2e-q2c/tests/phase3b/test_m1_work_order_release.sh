@@ -141,6 +141,33 @@ else
     # 如果没有自动创建，这通常不阻塞后续步骤
 fi
 
+# --- Step 6: 确保工单工序存在 ---
+ROUTING_COUNT=$(psql "$DB_URL" -t -A -c "SELECT COUNT(*) FROM work_order_routings WHERE work_order_id = $WORK_ORDER_ID" 2>/dev/null || echo "0")
+if [[ "$ROUTING_COUNT" -eq 0 ]]; then
+    log_step "6. 创建工单工序（routing steps）"
+    OPERATOR_ID=$(psql "$DB_URL" -t -A -c "SELECT user_id FROM users WHERE username = 'q2c_prod_mgr' LIMIT 1" 2>/dev/null || echo "0")
+    PGCLIENTENCODING=UTF8 psql "$DB_URL" -c "
+        INSERT INTO work_order_routings (work_order_id, step_no, process_name, planned_qty, status, is_outsourced, is_inspection_point)
+        VALUES
+            ($WORK_ORDER_ID, 10, 'Step10-Inject', $PLANNED_QTY, 1, false, false),
+            ($WORK_ORDER_ID, 20, 'Step20-Assembly', $PLANNED_QTY, 1, false, false),
+            ($WORK_ORDER_ID, 30, 'Step30-Inspection', $PLANNED_QTY, 1, false, true)
+    " 2>&1 || true
+    ROUTING_COUNT=$(psql "$DB_URL" -t -A -c "SELECT COUNT(*) FROM work_order_routings WHERE work_order_id = $WORK_ORDER_ID" 2>/dev/null || echo "0")
+    log_info "工单工序数: $ROUTING_COUNT"
+    # 写入第一个 routing_id 供下游报工使用
+    FIRST_ROUTING_ID=$(psql "$DB_URL" -t -A -c "SELECT id FROM work_order_routings WHERE work_order_id = $WORK_ORDER_ID ORDER BY step_no LIMIT 1" 2>/dev/null || echo "")
+    if [[ -n "$FIRST_ROUTING_ID" ]]; then
+        relay_write "routing_id" "$FIRST_ROUTING_ID"
+    fi
+else
+    log_info "工单已有 $ROUTING_COUNT 条工序记录"
+    FIRST_ROUTING_ID=$(psql "$DB_URL" -t -A -c "SELECT id FROM work_order_routings WHERE work_order_id = $WORK_ORDER_ID ORDER BY step_no LIMIT 1" 2>/dev/null || echo "")
+    if [[ -n "$FIRST_ROUTING_ID" ]]; then
+        relay_write "routing_id" "$FIRST_ROUTING_ID"
+    fi
+fi
+
 # --- 完成 ---
 relay_snapshot "SNAP-M1"
 relay_set_status "completed"

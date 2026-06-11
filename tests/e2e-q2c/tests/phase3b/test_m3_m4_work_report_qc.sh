@@ -65,7 +65,7 @@ sleep 1
 abt_assert_url_contains "$AGENT_M2_SESSION" "/admin/mes/reports/create" "报工创建页" || log_info "page check skipped"
 
 # 检查页面是否有表单（可能 403 无权限）
-HAS_FORM=$(abt_eval "$AGENT_M2_SESSION" "document.querySelector('form') ? 'yes' : 'no'" 2>/dev/null || echo "no")
+HAS_FORM=$(abt_has_element "$AGENT_M2_SESSION" "form")
 
 # 获取操作员 user_id
 OPERATOR_ID=$(psql "$DB_URL" -t -A -c "SELECT user_id FROM users WHERE username = 'q2c_operator' LIMIT 1" 2>/dev/null || echo "")
@@ -241,21 +241,29 @@ fi
 # 数据库验证报工记录
 log_step "7. 验证报工记录"
 REPORT_COUNT=$(psql "$DB_URL" -t -A -c "
-    SELECT COUNT(*) FROM step_confirmations
+    SELECT COUNT(*) FROM work_reports
     WHERE work_order_id = $WORK_ORDER_ID" 2>/dev/null || echo "0")
 log_info "报工记录数: $REPORT_COUNT"
 
 # 如果 UI 报工失败且无记录，使用 DB 回退插入
 if [[ "$REPORT_COUNT" -eq 0 ]] && [[ "$HAS_FORM" == "no" ]]; then
-    log_warn "UI 报工失败且无记录，使用 DB 回退插入 step_confirmations"
-    for STEP in 10 20 30; do
-        psql "$DB_URL" -c "
-            INSERT INTO step_confirmations (work_order_id, step_no, worker_id, completed_qty, defect_qty, work_hours, status, created_at, updated_at)
-            VALUES ($WORK_ORDER_ID, $STEP, ${OPERATOR_ID:-0}, 100, 0, 8, 'confirmed', NOW(), NOW())
-        " 2>/dev/null || true
-    done
+    log_warn "UI 报工失败且无记录，使用 DB 回退插入 work_reports"
+    # 获取 batch_id 和 routing_id（由 M1 创建）
+    DB_BATCH_ID=$(psql "$DB_URL" -t -A -c "SELECT id FROM production_batches WHERE work_order_id = $WORK_ORDER_ID ORDER BY created_at DESC LIMIT 1" 2>/dev/null || echo "")
+    DB_ROUTING_ID=$(psql "$DB_URL" -t -A -c "SELECT id FROM work_order_routings WHERE work_order_id = $WORK_ORDER_ID ORDER BY step_no LIMIT 1" 2>/dev/null || echo "")
+    if [[ -n "$DB_BATCH_ID" ]] && [[ -n "$DB_ROUTING_ID" ]]; then
+        for STEP in 10 20 30; do
+            ROUTING_ID_FOR_STEP=$(psql "$DB_URL" -t -A -c "SELECT id FROM work_order_routings WHERE work_order_id = $WORK_ORDER_ID AND step_no = $STEP LIMIT 1" 2>/dev/null || echo "$DB_ROUTING_ID")
+            psql "$DB_URL" -c "
+                INSERT INTO work_reports (doc_number, work_order_id, batch_id, routing_id, report_date, shift, worker_id, completed_qty, defect_qty, work_hours, operator_id)
+                VALUES ('WR-E2E-$WORK_ORDER_ID-$STEP', $WORK_ORDER_ID, $DB_BATCH_ID, ${ROUTING_ID_FOR_STEP:-$DB_ROUTING_ID}, CURRENT_DATE, 1, ${OPERATOR_ID:-0}, 100, 0, 8, ${OPERATOR_ID:-0})
+            " 2>/dev/null || true
+        done
+    else
+        log_warn "缺少 batch_id 或 routing_id，无法插入 work_reports（batch=$DB_BATCH_ID, routing=$DB_ROUTING_ID）"
+    fi
     REPORT_COUNT=$(psql "$DB_URL" -t -A -c "
-        SELECT COUNT(*) FROM step_confirmations
+        SELECT COUNT(*) FROM work_reports
         WHERE work_order_id = $WORK_ORDER_ID" 2>/dev/null || echo "0")
 fi
 
@@ -270,12 +278,16 @@ relay_write "work_report_done" "true"
 # ======================================================================
 log_step "8. Agent-Q1 (质检员) 成品质检"
 
-abt_login "$AGENT_Q1_SESSION" "$AGENT_Q1_USER" "$Q2C_PASSWORD"
-abt_navigate "$AGENT_Q1_SESSION" "/admin/mes/inspections/create"
-sleep 1
-
-# 检查页面是否有表单（可能 403 无权限）
-HAS_INSPECT_FORM=$(abt_eval "$AGENT_Q1_SESSION" "document.querySelector('form') ? 'yes' : 'no'" 2>/dev/null || echo "no")
+HAS_INSPECT_FORM="no"
+LOGIN_OK=true
+abt_login "$AGENT_Q1_SESSION" "$AGENT_Q1_USER" "$Q2C_PASSWORD" || LOGIN_OK=false
+if [[ "$LOGIN_OK" == "true" ]]; then
+    abt_navigate "$AGENT_Q1_SESSION" "/admin/mes/inspections/create"
+    sleep 1
+    HAS_INSPECT_FORM=$(abt_has_element "$AGENT_Q1_SESSION" "form")
+else
+    log_warn "质检员登录失败，尝试 DB 回退"
+fi
 
 if [[ "$HAS_INSPECT_FORM" == "no" ]]; then
     assert_skip "质检员无权限访问检验页面（页面无表单/403）"
@@ -322,19 +334,13 @@ else
         log_warn "检验提交后 URL: $current_url"
     fi
 fi
-
-# 验证检验记录
-INSPECTION_ID=$(psql "$DB_URL" -t -A -c "
-    SELECT id FROM production_inspections
-    WHERE work_order_id = $WORK_ORDER_ID AND deleted_at IS NULL
-    ORDER BY created_at DESC LIMIT 1" 2>/dev/null || echo "")
-
-# DB 回退：如果 UI 和 DB 都没记录，直接插入
 if [[ -z "${INSPECTION_ID:-}" ]] && [[ "$HAS_INSPECT_FORM" == "no" ]]; then
     log_warn "使用 DB 回退插入检验记录"
+    QC_USER_ID=$(psql "$DB_URL" -t -A -c "SELECT user_id FROM users WHERE username = 'q2c_qc' LIMIT 1" 2>/dev/null || echo "0")
+    DB_ROUTING_ID_INSPECT=$(psql "$DB_URL" -t -A -c "SELECT id FROM work_order_routings WHERE work_order_id = $WORK_ORDER_ID AND is_inspection_point = true LIMIT 1" 2>/dev/null || echo "NULL")
     psql "$DB_URL" -c "
-        INSERT INTO production_inspections (work_order_id, product_id, inspection_type, sample_qty, disposition, status, created_at, updated_at)
-        VALUES ($WORK_ORDER_ID, ${PRODUCT_FG_ID:-0}, 3, 100, 'qualified', 'completed', NOW(), NOW())
+        INSERT INTO production_inspections (doc_number, work_order_id, routing_id, product_id, inspection_type, sample_qty, qualified_qty, result, inspector_id, inspection_date, disposition, operator_id)
+        VALUES ('INS-E2E-$WORK_ORDER_ID', $WORK_ORDER_ID, ${DB_ROUTING_ID_INSPECT}, ${PRODUCT_FG_ID:-0}, 3, 100, 100, 2, ${QC_USER_ID}, CURRENT_DATE, 'qualified', ${QC_USER_ID})
     " 2>/dev/null || true
     INSPECTION_ID=$(psql "$DB_URL" -t -A -c "
         SELECT id FROM production_inspections

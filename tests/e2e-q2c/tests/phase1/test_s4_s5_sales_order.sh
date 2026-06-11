@@ -171,6 +171,10 @@ fi
 # --- 完成 ---
 relay_write "so_quantity" "${QTY:-100}"
 relay_write "so_total_amount" "${TOTAL:-0}"
+
+# --- 接力 context 字段更新 ---
+relay_write "next_agent" "Agent-P1"
+relay_write "next_action" "execute_mrp"
 relay_snapshot "SNAP-S4-S5"
 relay_set_status "completed"
 

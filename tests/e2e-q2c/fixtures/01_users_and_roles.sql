@@ -159,7 +159,9 @@ INSERT INTO role_permissions (role_id, resource_code, action) VALUES
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_buyer_role'), 'PRODUCT', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_buyer_role'), 'PRICE', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_buyer_role'), 'WAREHOUSE', 'read'),
-    ((SELECT role_id FROM roles WHERE role_code = 'q2c_buyer_role'), 'INVENTORY', 'read')
+    ((SELECT role_id FROM roles WHERE role_code = 'q2c_buyer_role'), 'INVENTORY', 'read'),
+    -- 补充: 来料通知创建需要 INVENTORY:create
+    ((SELECT role_id FROM roles WHERE role_code = 'q2c_buyer_role'), 'INVENTORY', 'create')
 ON CONFLICT (role_id, resource_code, action) DO NOTHING;
 
 -- 3.5 采购经理: 采购专员权限 + delete + 审批
@@ -197,7 +199,9 @@ INSERT INTO role_permissions (role_id, resource_code, action) VALUES
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_operator_role'), 'INSPECTION', 'update'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_operator_role'), 'LABOR_COST', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_operator_role'), 'LABOR_COST', 'update'),
-    ((SELECT role_id FROM roles WHERE role_code = 'q2c_operator_role'), 'PRODUCT', 'read')
+    ((SELECT role_id FROM roles WHERE role_code = 'q2c_operator_role'), 'PRODUCT', 'read'),
+    -- 补充: 报工创建需要 WORK_ORDER:create
+    ((SELECT role_id FROM roles WHERE role_code = 'q2c_operator_role'), 'WORK_ORDER', 'create')
 ON CONFLICT (role_id, resource_code, action) DO NOTHING;
 
 -- 3.8 质检员: INSPECTION/QMS CRUD + PRODUCT/WAREHOUSE read
@@ -235,11 +239,14 @@ INSERT INTO role_permissions (role_id, resource_code, action) VALUES
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'INVENTORY', 'update'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'INVENTORY', 'delete'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'PRODUCT', 'read'),
+    ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'PURCHASE_ORDER', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'CATEGORY', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'SHIPPING', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'SHIPPING', 'update'),
+    -- 补充: 发货创建需要 SHIPPING:create, 成品入库需要 WORK_ORDER:create
+    ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'SHIPPING', 'create'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'WORK_ORDER', 'read'),
-    ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'PURCHASE_ORDER', 'read')
+    ((SELECT role_id FROM roles WHERE role_code = 'q2c_warehouse_role'), 'WORK_ORDER', 'create')
 ON CONFLICT (role_id, resource_code, action) DO NOTHING;
 
 -- 3.11 财务会计: FMS/COST/SHIPPING/SALES_ORDER/PURCHASE_ORDER CRUD
@@ -250,13 +257,14 @@ INSERT INTO role_permissions (role_id, resource_code, action) VALUES
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_accountant_role'), 'FMS', 'delete'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_accountant_role'), 'COST', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_accountant_role'), 'COST', 'update'),
+    -- 补充: 对账核销创建需要 SALES_ORDER:create
+    ((SELECT role_id FROM roles WHERE role_code = 'q2c_accountant_role'), 'SALES_ORDER', 'create'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_accountant_role'), 'SALES_ORDER', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_accountant_role'), 'PURCHASE_ORDER', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_accountant_role'), 'SHIPPING', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_accountant_role'), 'CUSTOMER', 'read'),
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_accountant_role'), 'SUPPLIER', 'read')
 ON CONFLICT (role_id, resource_code, action) DO NOTHING;
-
 -- 3.12 成本会计: COST/PRODUCT/BOM/WORK_ORDER CRUD
 INSERT INTO role_permissions (role_id, resource_code, action) VALUES
     ((SELECT role_id FROM roles WHERE role_code = 'q2c_cost_acct_role'), 'COST', 'create'),

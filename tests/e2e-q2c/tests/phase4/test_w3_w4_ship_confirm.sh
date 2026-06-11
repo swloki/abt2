@@ -63,16 +63,16 @@ log_info "当前状态: ${SHIP_STATUS:-?}"
 case "${SHIP_STATUS:-}" in
     1) # Draft → Confirm
         log_info "从 Draft 推进到 Confirmed..."
-        abt_htmx_post "$AGENT_W1_SESSION" "/admin/shipping/$SHIP_ID/confirm" 2>/dev/null || \
-            abt_eval "$AGENT_W1_SESSION" "htmx.ajax('POST','/admin/shipping/$SHIP_ID/confirm',{target:'body',swap:'none'})" > /dev/null 2>&1 || true
+        CONFIRM_RESULT=$(abt_htmx_post "$AGENT_W1_SESSION" "/admin/shipping/$SHIP_ID/confirm")
+        log_info "confirm 结果: $CONFIRM_RESULT"
         sleep 2
         abt_navigate "$AGENT_W1_SESSION" "/admin/shipping/$SHIP_ID"
         sleep 1
         ;&  # fall-through
     2) # Confirmed → Pick
         log_info "从 Confirmed 推进到 Picking..."
-        abt_htmx_post "$AGENT_W1_SESSION" "/admin/shipping/$SHIP_ID/pick" 2>/dev/null || \
-            abt_eval "$AGENT_W1_SESSION" "htmx.ajax('POST','/admin/shipping/$SHIP_ID/pick',{target:'body',swap:'none'})" > /dev/null 2>&1 || true
+        PICK_RESULT=$(abt_htmx_post "$AGENT_W1_SESSION" "/admin/shipping/$SHIP_ID/pick")
+        log_info "pick 结果: $PICK_RESULT"
         sleep 2
         abt_navigate "$AGENT_W1_SESSION" "/admin/shipping/$SHIP_ID"
         sleep 1
@@ -80,9 +80,9 @@ case "${SHIP_STATUS:-}" in
 esac
 
 # 现在点击"确认发出"
-log_info "确认发出 (HTMX POST)..."
-abt_htmx_post "$AGENT_W1_SESSION" "/admin/shipping/$SHIP_ID/ship" 2>/dev/null || \
-    abt_eval "$AGENT_W1_SESSION" "htmx.ajax('POST','/admin/shipping/$SHIP_ID/ship',{target:'body',swap:'none'})" > /dev/null 2>&1 || true
+log_info "确认发出 (同步 XHR POST)..."
+SHIP_RESULT=$(abt_htmx_post "$AGENT_W1_SESSION" "/admin/shipping/$SHIP_ID/ship")
+log_info "ship 结果: $SHIP_RESULT"
 sleep 2
 
 # 验证状态变为 Shipped
@@ -92,44 +92,7 @@ log_info "发出后状态: ${SHIP_STATUS_AFTER:-?} (4=Shipped)"
 if [[ "${SHIP_STATUS_AFTER:-}" == "4" ]]; then
     assert_pass "发货出库成功 (status=Shipped)"
 else
-    log_warn "发货状态: ${SHIP_STATUS_AFTER:-?} (可能已发出但状态码不同)"
-fi
-
-# --- Step 4: 验证库存扣减 ---
-log_step "4. 验证库存扣减"
-
-# stock_ledger 无 deleted_at 列
-AFTER_FG=$(psql "$DB_URL" -t -A -c "SELECT COALESCE(SUM(quantity),0) FROM stock_ledger WHERE product_id='${PRODUCT_FG_ID:-0}' AND warehouse_id='${WH_FG_ID:-0}'" 2>/dev/null || echo "0")
-log_info "发货后 WH-FG 成品库存: $AFTER_FG (发货前: $BEFORE_FG)"
-
-SO_QTY=$(relay_read "so_quantity")
-log_info "SO 需求量: ${SO_QTY:-100}"
-
-# --- Step 5: 验证发货记录 ---
-log_step "5. 数据库验证"
-
-# 如果 UI 状态推进失败，通过 DB 直接更新
-SHIP_CURRENT_STATUS=$(psql "$DB_URL" -t -A -c "SELECT status FROM shipping_requests WHERE id = $SHIP_ID" 2>/dev/null || echo "1")
-if [[ "$SHIP_CURRENT_STATUS" -lt 4 ]]; then
-    log_warn "UI 未推进状态 (current=$SHIP_CURRENT_STATUS)，通过 DB 直接更新为已发出"
-    psql "$DB_URL" -c "UPDATE shipping_requests SET status = 4 WHERE id = $SHIP_ID" > /dev/null 2>&1 || true
-fi
-
-# 确保发货明细存在
-ITEM_COUNT=$(psql "$DB_URL" -t -A -c "SELECT COUNT(*) FROM shipping_request_items WHERE shipping_request_id = $SHIP_ID" 2>/dev/null || echo "0")
-if [[ "$ITEM_COUNT" == "0" ]]; then
-    SO_ITEM_ID=$(psql "$DB_URL" -t -A -c "SELECT id FROM sales_order_items WHERE order_id = (SELECT order_id FROM shipping_requests WHERE id = $SHIP_ID) LIMIT 1" 2>/dev/null || echo "")
-    SO_QTY_VAL=$(psql "$DB_URL" -t -A -c "SELECT quantity FROM sales_order_items WHERE order_id = (SELECT order_id FROM shipping_requests WHERE id = $SHIP_ID) LIMIT 1" 2>/dev/null || echo "100")
-    psql "$DB_URL" -c "
-        INSERT INTO shipping_request_items (shipping_request_id, line_no, order_item_id, product_id, warehouse_id, requested_qty, shipped_qty, description)
-        VALUES ($SHIP_ID, 1, ${SO_ITEM_ID:-NULL}, ${PRODUCT_FG_ID:-0}, ${WH_FG_ID:-0}, ${SO_QTY_VAL:-100}, ${SO_QTY_VAL:-100}, 'Q2C E2E')
-    " > /dev/null 2>&1 || true
-    log_info "已创建发货明细 (product_id=${PRODUCT_FG_ID:-?}, qty=${SO_QTY_VAL:-100})"
-    psql "$DB_URL" -c "
-        INSERT INTO shipping_request_items (shipping_request_id, line_no, order_item_id, product_id, warehouse_id, requested_qty, shipped_qty, description)
-        VALUES ($SHIP_ID, 1, ${SO_ITEM_ID:-NULL}, ${PRODUCT_FG_ID:-0}, ${WH_FG_ID:-0}, ${SO_QTY:-100}, ${SO_QTY:-100}, 'Q2C E2E')
-    " > /dev/null 2>&1 || true
-    log_info "已创建发货明细 (product_id=${PRODUCT_FG_ID:-?}, qty=${SO_QTY:-100})"
+    log_warn "发货状态: ${SHIP_STATUS_AFTER:-?} — 检查 ship 结果日志"
 fi
 
 abt_assert_db \

@@ -4,14 +4,23 @@
 # 从 S1（报价创建）到 F6（总账结算）+ CHK（数据一致性校验）
 #
 # 执行顺序:
-#   0. 环境初始化 (setup.sh)
-#   1. Phase 1+2: S1→S2→S3→S4→P1-P3 (报价→审批→订单→MRP)
-#   2. Phase 3A:  PU1→PU6 (采购→收货→来料检验)
-#   3. Phase 3B:  M1→M5 (工单→领料→报工→质检→成品入库)
-#   4. Phase 4:   W1→W4 (发货申请→拣货→发出→签收)
-#   5. Phase 5:   F1→F6 + FP1→FP4 (应收→成本→发票→收款→核销→总账+应付)
-#   6. CHK:       CHK-01~12 (12 项数据一致性校验)
-#   7. 汇总报告
+#   0.  环境初始化 (setup.sh)
+#   1.  Step 1:  S1-S2 报价创建
+#   2.  Step 2:  S3 报价审批
+#   3.  Step 3:  S4-S5 销售订单
+#   4.  Step 4:  P1-P3 生产计划
+#   5.  Step 5:  PU1-PU4 采购订单
+#   6.  Step 6:  PU5-PU6 收货入库
+#   7.  Step 7:  M1 工单下达
+#   8.  Step 8:  M2 生产领料
+#   9.  Step 9:  M3-M4 报工与质检
+#  10.  Step 10: M5 成品入库
+#  11.  Step 11: W1-W2 发货申请与拣货
+#  12.  Step 12: W3-W4 发出与签收
+#  13.  Step 13: F1-F2 应收与成本
+#  14.  Step 14: F3-F5 开票与核销
+#  15.  Step 15: CHK 数据一致性校验
+#  --  FP1-FP4 + F6: 应付与总账 (bash 调用，不计步数)
 # ============================================================================
 set -euo pipefail
 
@@ -55,7 +64,7 @@ relay_init "q2c-full-$(date +%Y%m%d%H%M%S)"
 relay_set_status "running"
 
 # --- 步骤定义 ---
-TOTAL_STEPS=12
+TOTAL_STEPS=15
 PASS_COUNT=0
 FAIL_COUNT=0
 
@@ -88,6 +97,35 @@ run_step() {
     fi
 }
 
+# --- 汇总与退出 ---
+# goto_summary: 打印汇总报告并根据失败阶段决定退出码
+#   Phase 1-4 (P0) 失败 → exit 1
+#   Phase 5   (财务域) 失败 → exit 0 + warning
+goto_summary() {
+    echo ""
+    echo "============================================"
+    echo "  Q2C 全链路 Happy Path 中断汇总"
+    echo "============================================"
+    echo "  通过: $PASS_COUNT/$TOTAL_STEPS"
+    echo "  失败: $FAIL_COUNT"
+    echo "============================================"
+
+    relay_set_status "failed"
+    relay_snapshot "SNAP-FULL-HAPPY-PATH"
+
+    echo ""
+    echo "接力数据摘要:"
+    echo "  报价 ID:     $(relay_read quotation_id 2>/dev/null || echo 'N/A')"
+    echo "  订单 ID:     $(relay_read sales_order_id 2>/dev/null || echo 'N/A')"
+    echo "  工单 ID:     $(relay_read work_order_id 2>/dev/null || echo 'N/A')"
+    echo "  采购订单 ID: $(relay_read purchase_order_id 2>/dev/null || echo 'N/A')"
+    echo "  发货申请 ID: $(relay_read shipping_request_id 2>/dev/null || echo 'N/A')"
+    echo ""
+
+    echo -e "${RED}❌ Q2C HAPPY PATH FAILED ($FAIL_COUNT failures)${NC}"
+    exit 1
+}
+
 # --- Phase 1+2: 销售与计划 ---
 
 run_step 1 "S1-S2 报价创建" "$PHASE1/test_s1_s2_quotation.sh" || goto_summary
@@ -109,52 +147,49 @@ run_step 10 "M5 成品入库" "$PHASE3B/test_m5_finished_goods_receipt.sh" || go
 
 # --- Phase 4: 发货 ---
 
-run_step 11 "W1-W4 发货与签收" "$PHASE4/test_w3_w4_ship_confirm.sh" || goto_summary
+run_step 11 "W1-W2 发货申请与拣货" "$PHASE4/test_w1_w2_pick_pack.sh" || goto_summary
+run_step 12 "W3-W4 发出与签收" "$PHASE4/test_w3_w4_ship_confirm.sh" || goto_summary
 
 # --- Phase 5: 财务 (可降级) ---
+# 财务域失败不阻断 CI，但输出 warning
 
-# W1-W2 和 W3-W4 可以分开，但为了简化合并为一步
-# 如果需要分开：先 W1-W2 再 W3-W4
+PHASE5_P0_STEPS=$PASS_COUNT
+PHASE5_FAILED=0
 
-# 发货前先创建发货申请（如果 W3-W4 脚本没有包含创建）
-# 这里假设 W3-W4 包含了完整的发货流程
-
-# 财务步骤（允许部分失败，标记为 P1/P2）
 echo ""
 echo "============================================"
 echo "  Phase 5: 财务闭环（可降级）"
 echo "============================================"
 
 # F1-F2
-run_step 11 "F1-F2 应收与成本" "$PHASE5/test_f1_f2_ar_cost.sh" || {
+run_step 13 "F1-F2 应收与成本" "$PHASE5/test_f1_f2_ar_cost.sh" || {
     log_warn "F1-F2 失败，财务域可能部分未实现"
-    # 不阻断链路
+    PHASE5_FAILED=1
 }
 
 # F3-F5
-run_step 12 "F3-F5 开票与核销" "$PHASE5/test_f3_f5_invoice_collect.sh" || {
+run_step 14 "F3-F5 开票与核销" "$PHASE5/test_f3_f5_invoice_collect.sh" || {
     log_warn "F3-F5 失败，继续后续步骤"
+    PHASE5_FAILED=1
 }
 
-# FP1-FP4
-bash "$PHASE5/test_fp1_fp4_ap_payment.sh" || log_warn "FP1-FP4 失败"
-
-# F6
-bash "$PHASE5/test_f6_gl_settlement.sh" || log_warn "F6 总账结算跳过"
-
 # --- CHK 校验 ---
+
 echo ""
 echo "============================================"
 echo "  数据一致性校验"
 echo "============================================"
 
-bash "$VALIDATION/test_chk_all.sh" || log_warn "CHK 校验存在失败项"
-
-# --- 汇总 ---
-goto_summary() {
-    :
+run_step 15 "CHK 数据一致性校验" "$VALIDATION/test_chk_all.sh" || {
+    log_warn "CHK 校验存在失败项"
+    PHASE5_FAILED=1
 }
 
+# FP1-FP4 + F6: 应付与总账 (bash 调用，不计步数)
+bash "$PHASE5/test_fp1_fp4_ap_payment.sh" || log_warn "FP1-FP4 失败"
+bash "$PHASE5/test_f6_gl_settlement.sh" || log_warn "F6 总账结算跳过"
+
+# --- 汇总 ---
 echo ""
 echo "============================================"
 echo "  Q2C 全链路 Happy Path 完成"
@@ -168,17 +203,23 @@ relay_snapshot "SNAP-FULL-HAPPY-PATH"
 
 echo ""
 echo "接力数据摘要:"
-echo "  报价 ID:     $(relay_read quotation_id)"
-echo "  订单 ID:     $(relay_read sales_order_id)"
-echo "  工单 ID:     $(relay_read work_order_id)"
-echo "  采购订单 ID: $(relay_read purchase_order_id)"
-echo "  发货申请 ID: $(relay_read shipping_request_id)"
+echo "  报价 ID:     $(relay_read quotation_id 2>/dev/null || echo 'N/A')"
+echo "  订单 ID:     $(relay_read sales_order_id 2>/dev/null || echo 'N/A')"
+echo "  工单 ID:     $(relay_read work_order_id 2>/dev/null || echo 'N/A')"
+echo "  采购订单 ID: $(relay_read purchase_order_id 2>/dev/null || echo 'N/A')"
+echo "  发货申请 ID: $(relay_read shipping_request_id 2>/dev/null || echo 'N/A')"
 echo ""
 
 if [[ $FAIL_COUNT -eq 0 ]]; then
     echo -e "${GREEN}✅ Q2C HAPPY PATH PASSED${NC}"
     exit 0
 else
-    echo -e "${YELLOW}⚠️ Q2C HAPPY PATH COMPLETED WITH WARNINGS ($FAIL_COUNT failures)${NC}"
-    exit 0  # 财务域失败不视为整体失败
+    # P0 阶段（Phase 1-4）失败 → CI 红灯
+    if [[ $PASS_COUNT -lt $PHASE5_P0_STEPS ]]; then
+        echo -e "${RED}❌ Q2C HAPPY PATH FAILED ($FAIL_COUNT failures, P0 phase broken)${NC}"
+        exit 1
+    fi
+    # 仅财务域失败 → CI 绿灯 + warning
+    echo -e "${YELLOW}⚠️ Q2C HAPPY PATH COMPLETED WITH WARNINGS ($FAIL_COUNT failures in financial domain)${NC}"
+    exit 0
 fi

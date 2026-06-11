@@ -212,8 +212,6 @@ fn warehouse_list_page(
                 template_columns: "仓库编码, 仓库名称, 库位编码, 库位名称, 容量",
             }))
 
-            // ── Export Result ──
-            div id="export-result" {}
         }
     }
 }

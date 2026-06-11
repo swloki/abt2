@@ -58,6 +58,32 @@ fi
 
 SHIP_DATE=$(powershell -c "(Get-Date).AddDays(2).ToString('yyyy-MM-dd')" 2>/dev/null)
 
+# --- Step 0: 确认销售订单（SO 必须为 Confirmed 状态才能创建发货）---
+SO_STATUS=$(psql "$DB_URL" -t -A -c "SELECT status FROM sales_orders WHERE id = $SALES_ORDER_ID" 2>/dev/null || echo "")
+log_info "SO 当前状态: ${SO_STATUS:-?} (1=Draft, 2=Confirmed)"
+if [[ "${SO_STATUS:-}" == "1" ]]; then
+    log_step "0. 确认销售订单 SO#$SALES_ORDER_ID"
+    abt_login "$AGENT_S1_SESSION" "$AGENT_S1_USER" "$Q2C_PASSWORD"
+    abt_navigate "$AGENT_S1_SESSION" "/admin/orders/$SALES_ORDER_ID"
+    sleep 1
+    # 直接发 XHR POST（绕过 hx-confirm 弹窗）
+    abt_eval "$AGENT_S1_SESSION" "
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/admin/orders/$SALES_ORDER_ID/confirm');
+        xhr.setRequestHeader('HX-Request', 'true');
+        xhr.onload = function() {
+            window.__so_confirm = xhr.status + ':' + xhr.getAllResponseHeaders() + ':' + xhr.responseText.substring(0,100);
+        };
+        xhr.onerror = function() { window.__so_confirm = 'ERROR'; };
+        xhr.send();
+        'xhr_sent';
+    " 2>/dev/null || true
+    sleep 3
+    abt_eval "$AGENT_S1_SESSION" "window.__so_confirm || 'no_result'" 2>/dev/null
+    SO_STATUS_AFTER=$(psql "$DB_URL" -t -A -c "SELECT status FROM sales_orders WHERE id = $SALES_ORDER_ID" 2>/dev/null || echo "")
+    log_info "SO 确认后状态: ${SO_STATUS_AFTER:-?} (2=Confirmed)"
+fi
+
 # --- Step 1: Agent-W1 登录 ---
 log_step "1. Agent-W1 (仓管员) 登录"
 abt_login "$AGENT_W1_SESSION" "$AGENT_W1_USER" "$Q2C_PASSWORD"
@@ -69,163 +95,96 @@ sleep 1
 
 log_info "page check: 当前 URL 应包含 /admin/shipping/create"
 
-# 权限/403 检测 + DB 回退
-HAS_FORM=$(abt_eval "$AGENT_W1_SESSION" "document.querySelector('form select, form input[type=\"submit\"], form button[type=\"submit\"]') ? 'yes' : 'no'" 2>/dev/null || echo "no")
-
-if [[ "$HAS_FORM" != "yes" ]]; then
-    log_warn "发货创建页无表单（可能权限不足或页面未实现），使用 DB 直接创建"
-    # DB 回退: 直接插入 shipping_request（避免中文编码问题）
-    psql "$DB_URL" -c "
-        INSERT INTO shipping_requests (doc_number, order_id, customer_id, status, expected_ship_date, carrier, shipping_address, operator_id)
-        VALUES ('SR-E2E-001', $SALES_ORDER_ID, ${CUSTOMER_ID:-NULL}, 1, CURRENT_DATE + 2, 'SF-Express', 'Shanghai Pudong', 1)
-    " 2>/dev/null || true
-
-    SHIP_ID=$(psql "$DB_URL" -t -A -c "
-        SELECT id FROM shipping_requests
-        WHERE order_id = $SALES_ORDER_ID
-        ORDER BY created_at DESC LIMIT 1" 2>/dev/null || echo "")
-
-    if [[ -n "${SHIP_ID:-}" ]]; then
-        assert_pass "发货申请已通过 DB 创建 (id=$SHIP_ID)"
-    else
-        assert_fail "发货申请创建失败（UI 和 DB 均失败）"
-    fi
-
-    relay_write "shipping_request_id" "${SHIP_ID:-}"
-    relay_write "shipping_status" "1"
-    relay_snapshot "SNAP-W1-W2"
-    relay_set_status "completed"
-    echo ""
-    echo "=== W1-W2 完成 (DB 回退) ==="
-    print_summary
-    exit 0
-fi
-
+# --- 表单交互（纯 UI） ---
 assert_pass "发货创建页表单可用"
 
 # --- Step 3: 选择客户 CUS-001 ---
 log_step "3. 选择客户 CUS-001"
 abt_select "$AGENT_W1_SESSION" "#shipping-customer-select" "$CUSTOMER_ID"
-sleep 1  # 等待 HTMX 加载联系人
-
-# 验证联系人信息出现
+sleep 2  # 等待 HTMX 加载联系人
 log_info "page check: 客户信息条或联系人"
 
-# --- Step 4: 选择来源订单 ---
+# --- Step 4: 设置订单和明细行 ---
 log_step "4. 选择来源订单 SO#$SALES_ORDER_ID"
 
-# 发货创建页通过 Modal 选择订单，选择后 JS 填充明细行
-# 直接用 JS 模拟 selectOrder 行为
+# 直接用 JS 设置 hidden order_id 并构造明细行（模拟 selectOrder）
 abt_eval "$AGENT_W1_SESSION" "
     // 设置 order_id hidden input
     var orderIdInput = document.querySelector('input[name=\"order_id\"]');
-    if (orderIdInput) orderIdInput.value = '$SALES_ORDER_ID';
+    if (orderIdInput) { orderIdInput.value = '$SALES_ORDER_ID'; }
 
-    // 设置订单号显示
+    // 启用订单显示
     var orderInput = document.getElementById('orderPickerInput');
-    if (orderInput) {
-        orderInput.value = 'SO#$SALES_ORDER_ID';
-        orderInput.disabled = false;
-    }
+    if (orderInput) { orderInput.value = 'SO#$SALES_ORDER_ID'; orderInput.disabled = false; }
 
-    // 手动添加发货明细行（模拟 selectOrder 填充）
-    var tbody = document.getElementById('lineItemsBody');
-    if (tbody) {
-        var tr = document.createElement('tr');
-        tr.innerHTML = '<td class=\"line-num\">1</td>' +
-            '<td class=\"mono\">PRD-FG-001</td>' +
-            '<td>成品A</td>' +
-            '<td>标准成品</td>' +
-            '<td>个</td>' +
-            '<td class=\"num-right\">$SO_QTY</td>' +
-            '<td class=\"num-right\">0</td>' +
-            '<td><input type=\"number\" name=\"ship_qty\" value=\"$SO_QTY\" min=\"1\" max=\"$SO_QTY\" style=\"width:70px;text-align:right\"></td>' +
-            '<td><select name=\"warehouse_id\"><option value=\"$WH_FG_ID\">Q2C成品仓</option></select></td>' +
-            '<td></td>';
-        // hidden inputs for items_json data
-        tr.innerHTML += '<input type=\"hidden\" name=\"order_item_id\" value=\"$SO_ITEM_ID\">';
-        tr.innerHTML += '<input type=\"hidden\" name=\"product_id\" value=\"$PRODUCT_FG_ID\">';
-        tbody.appendChild(tr);
-    }
-    'order_selected';
-" > /dev/null 2>&1
+    // 设置 items_json hidden input
+    var itemsJson = JSON.stringify([{
+        order_item_id: $SO_ITEM_ID,
+        warehouse_id: $WH_FG_ID,
+        requested_qty: '$SO_QTY'
+    }]);
+    var itemsInput = document.querySelector('input[name=\"items_json\"]');
+    if (itemsInput) { itemsInput.value = itemsJson; }
 
-sleep 0.3
-
-# --- Step 5: 填写发货信息 ---
-log_step "5. 填写发货信息"
-abt_eval "$AGENT_W1_SESSION" "
-    // 预计发货日期
+    // 填写日期
     var dateInput = document.getElementById('ship-date');
-    if (dateInput) dateInput.value = '$SHIP_DATE';
-    // 承运商
-    var carrierSelect = document.getElementById('carrier-select');
-    if (carrierSelect) carrierSelect.value = '顺丰速运';
+    if (dateInput) { dateInput.value = '$SHIP_DATE'; }
+
     // 收货地址
     var addrInput = document.getElementById('shipping-address');
-    if (addrInput) addrInput.value = '上海市浦东新区张江高科技园区xxx号';
-    'shipping_info_filled';
-" > /dev/null 2>&1
+    if (addrInput) { addrInput.value = 'Shanghai Pudong'; }
 
-# --- Step 6: 提交发货申请 ---
-log_step "6. 提交发货申请"
+    'order_selected';
+" 2>/dev/null
 
-# 收集 items_json
+sleep 0.5
+
+# --- Step 5: 提交发货申请 ---
+log_step "5. 提交发货申请"
+
+# 调试: 先检查表单字段值
 abt_eval "$AGENT_W1_SESSION" "
-    var items = [];
-    var tbody = document.getElementById('lineItemsBody');
-    if (tbody) {
-        var rows = tbody.querySelectorAll('tr');
-        rows.forEach(function(row) {
-            items.push({
-                order_item_id: row.querySelector('input[name=\"order_item_id\"]')?.value || '$SO_ITEM_ID',
-                warehouse_id: row.querySelector('select[name=\"warehouse_id\"]')?.value || row.querySelector('input[name=\"warehouse_id\"]')?.value || '$WH_FG_ID',
-                requested_qty: row.querySelector('input[name=\"ship_qty\"]')?.value || '$SO_QTY'
-            });
-        });
-    }
-    document.querySelector('input[name=\"items_json\"]').value = JSON.stringify(items);
-    'items_collected';
-" > /dev/null 2>&1
+    var form = document.getElementById('shipping-form');
+    var fd = new FormData(form);
+    var entries = {};
+    for (var [k,v] of fd.entries()) entries[k] = v;
+    JSON.stringify(entries);
+" 2>/dev/null
 
-# HTMX 表单提交
+# 用 htmx.ajax 显式 POST，能拿到 response
 abt_eval "$AGENT_W1_SESSION" "
-    var form = document.querySelector('form');
-    if (form) {
-        htmx.ajax('POST', form.getAttribute('action') || window.location.pathname, {
-            target: 'body',
-            swap: 'none',
-            source: form,
-            values: Object.fromEntries(new FormData(form))
-        });
-    }
-    'form_submitted';
-" > /dev/null 2>&1 || true
-sleep 2
+    var form = document.getElementById('shipping-form');
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', '/admin/shipping/create');
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    xhr.setRequestHeader('HX-Request', 'true');
+    xhr.onload = function() {
+        window.__ship_result = xhr.status + ':' + xhr.responseText.substring(0,200);
+    };
+    var fd = new FormData(form);
+    var params = new URLSearchParams(fd).toString();
+    xhr.send(params);
+    'xhr_sent';
+" 2>/dev/null || true
+sleep 3
 
-# --- Step 7: 验证发货申请创建 ---
-log_step "7. 验证发货申请创建"
+# 读取结果
+abt_eval "$AGENT_W1_SESSION" "window.__ship_result || 'no_result'" 2>/dev/null
+sleep 3
 
-current_url=$(abt_get_url "$AGENT_W1_SESSION" 2>/dev/null || echo "")
-log_info "当前URL: $current_url"
+# --- Step 6: 验证发货申请创建 ---
+log_step "6. 验证发货申请创建"
 
-SHIP_ID=""
-if [[ "$current_url" == *"/admin/shipping/"* ]] && [[ "$current_url" != *"/create"* ]]; then
-    assert_pass "发货申请创建成功"
-    SHIP_ID=$(echo "$current_url" | grep -oP '/admin/shipping/\K[0-9]+' || echo "")
-    log_info "Shipping Request ID: $SHIP_ID"
+# HTMX redirect 可能不改变 URL，直接查 DB
+SHIP_ID=$(psql "$DB_URL" -t -A -c "
+    SELECT id FROM shipping_requests
+    WHERE order_id = $SALES_ORDER_ID AND deleted_at IS NULL
+    ORDER BY created_at DESC LIMIT 1" 2>/dev/null || echo "")
+
+if [[ -n "${SHIP_ID:-}" ]]; then
+    assert_pass "发货申请已通过 UI 创建 (id=$SHIP_ID)"
 else
-    # 从 DB 查询
-    SHIP_ID=$(psql "$DB_URL" -t -A -c "
-        SELECT id FROM shipping_requests
-        WHERE order_id = $SALES_ORDER_ID AND deleted_at IS NULL
-        ORDER BY created_at DESC LIMIT 1" 2>/dev/null || echo "")
-    if [[ -n "${SHIP_ID:-}" ]]; then
-        assert_pass "发货申请已创建 (DB: id=$SHIP_ID)"
-    else
-        assert_fail "发货申请创建可能失败"
-        abt_screenshot "$AGENT_W1_SESSION" "/tmp/q2c-w1-w2-fail.png" 2>/dev/null || true
-    fi
+    assert_fail "发货申请创建失败"
 fi
 
 relay_write "shipping_request_id" "${SHIP_ID:-}"

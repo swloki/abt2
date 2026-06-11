@@ -7,6 +7,7 @@ mod pages;
 mod permissions;
 mod routes;
 mod state;
+mod toast;
 mod utils;
 
 use state::AppState;

@@ -113,6 +113,7 @@ pub async fn get_item_row(
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct StockInCreateForm {
+    pub transaction_type: String,
     pub source_type: String,
     pub source_ref: Option<String>,
     pub delivery_no: Option<String>,
@@ -154,7 +155,10 @@ pub async fn create_stock_in(
         return Err(DomainError::validation("请至少添加一个物料").into());
     }
 
-    let transaction_type = TransactionType::PurchaseReceipt;
+    let transaction_type = match form.transaction_type.as_str() {
+        "ProductionReceipt" => TransactionType::ProductionReceipt,
+        _ => TransactionType::PurchaseReceipt,
+    };
 
     let source_type = match form.source_type.as_str() {
         "arrival" => "arrival_notice",
@@ -236,16 +240,19 @@ fn stock_in_create_content(
                     (icon::download_icon("w-7 h-7"))
                     span class="type-label" { "采购入库" }
                     span class="type-desc" { "PURCHASE_RECEIPT" br; "关联来料通知 / 采购订单" }
+                    (maud::PreEscaped(r#"<script>me().on('click',()=>{me('.type-btn').classRemove('active');me().classAdd('active');me('#stockin-txn-type').value='PurchaseReceipt'})</script>"#))
                 }
                 div class="type-btn" {
                     (icon::box_icon("w-7 h-7"))
                     span class="type-label" { "生产入库" }
                     span class="type-desc" { "PRODUCTION_RECEIPT" br; "关联工单完工报工" }
+                    (maud::PreEscaped(r#"<script>me().on('click',()=>{me('.type-btn').classRemove('active');me().classAdd('active');me('#stockin-txn-type').value='ProductionReceipt'})</script>"#))
                 }
             }
 
             form id="stockInForm" hx-post=(StockInCreatePath::PATH) hx-swap="none"
                 onsubmit="return wmsStockInCollectItems()" {
+                input type="hidden" id="stockin-txn-type" name="transaction_type" value="PurchaseReceipt" {};
                 // ── Source Section ──
                 div class="wms-form-section" {
                     div class="form-section-title" {

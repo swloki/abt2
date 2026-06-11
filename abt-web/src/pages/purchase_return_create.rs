@@ -272,8 +272,7 @@ fn pr_create_page(
                             hx-trigger="change"
                             hx-target="#pr-order-data"
                             hx-swap="innerHTML"
-                            hx-include="#pr-order-select"
-                            name="order_id" {
+                            hx-include="#pr-order-select" {
                             option value="" { "请选择采购订单" }
                             @for o in orders {
                                 @let status_text = order_status_text(o.status);

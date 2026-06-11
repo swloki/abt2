@@ -58,7 +58,7 @@ pub async fn get_supplier_create(
         is_htmx,
         "新建供应商",
         &claims,
-        "md",
+        "purchase",
         SupplierCreatePath::PATH,
         "主数据管理",
         Some("新建供应商"),

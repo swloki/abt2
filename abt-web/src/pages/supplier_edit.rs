@@ -46,7 +46,7 @@ pub async fn get_supplier_edit(
         is_htmx,
         &format!("编辑 {}", supplier.name),
         &claims,
-        "md",
+        "purchase",
         &edit_path_str,
         "主数据管理",
         Some(&format!("编辑 {}", supplier.name)),

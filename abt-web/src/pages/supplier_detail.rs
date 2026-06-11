@@ -40,7 +40,7 @@ pub async fn get_supplier_detail(
         is_htmx,
         &format!("{} - 供应商详情", supplier.name),
         &claims,
-        "md",
+        "purchase",
         &detail_path_str,
         "主数据管理",
         Some(&supplier.name),

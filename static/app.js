@@ -29,7 +29,7 @@ window.positionDropdown = function (trigger, dropdown) {
 
 // ── HTMX global error handling ──
 
-// 错误兜底：直接创建 error toast（绕过 DashMap 队列，因为 handler 已失败）
+// 错误兜底：通过 POST /api/toast 显示错误 toast
 document.addEventListener('htmx:afterRequest', function (e) {
     if (e.detail.successful) return;
     var xhr = e.detail.xhr;
@@ -41,33 +41,12 @@ document.addEventListener('htmx:afterRequest', function (e) {
     }
 
     var msg = (xhr.responseText || '').trim() || '操作失败';
-    var container = document.querySelector('.toast-container');
-    if (!container) return;
-
-    var div = document.createElement('div');
-    div.className = 'toast toast-error';
-    div.setAttribute('role', 'alert');
-    div.innerHTML = '<span class="toast-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>' +
-        '<span class="toast-message">' + msg.replace(/</g, '&amp;lt;') + '</span>' +
-        '<button class="toast-close" onclick="this.parentElement.remove()">×</button>';
-    container.appendChild(div);
+    htmx.ajax('POST', '/api/toast', {target: '.toast-container', swap: 'innerHTML', values: {msg: msg, type: 'error'}});
 });
 
 // ── Export download handler ──
-// TODO: 迁移后端 excel.rs 使用 add_toast() 后，替换为 htmx.trigger(document.body, 'showToast')
 document.addEventListener('exportDone', function (e) {
     window.location.href = e.detail.url;
-
-    var container = document.querySelector('.toast-container');
-    if (!container) return;
-
-    var div = document.createElement('div');
-    div.className = 'toast toast-success';
-    div.setAttribute('role', 'status');
-    div.innerHTML = '<span class="toast-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>' +
-        '<span class="toast-message">导出完成</span>' +
-        '<button class="toast-close" onclick="this.parentElement.remove()">×</button>';
-    container.appendChild(div);
 });
 
 // CSS 动画结束后自动移除 DOM 节点，防止长时间使用后堆积透明元素

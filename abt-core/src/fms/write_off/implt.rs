@@ -202,11 +202,11 @@ impl WriteOffService for WriteOffServiceImpl {
     async fn list(
         &self,
         _ctx: &ServiceContext, db: PgExecutor<'_>,
-        write_off_type: Option<WriteOffType>,
+        filter: WriteOffListFilter,
         page: PageParams,
     ) -> Result<PaginatedResult<WriteOff>> {
         let (items, total) =
-            WriteOffRepo::list(db, write_off_type, &page)
+            WriteOffRepo::list(db, &filter, &page)
                 .await?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))

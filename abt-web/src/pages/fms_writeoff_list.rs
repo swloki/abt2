@@ -7,7 +7,7 @@ use maud::{html, Markup};
 use serde::Deserialize;
 
 use abt_core::fms::enums::WriteOffType;
-use abt_core::fms::write_off::model::WriteOff;
+use abt_core::fms::write_off::model::{WriteOff, WriteOffListFilter};
 use abt_core::fms::write_off::WriteOffService;
 use abt_core::shared::enums::document_type::DocumentType;
 use abt_core::shared::identity::UserService;
@@ -47,6 +47,16 @@ fn build_query_string(params: &WriteoffQueryParams) -> String {
     if let Some(v) = params.writeoff_type {
         parts.push(format!("writeoff_type={v}"));
     }
+    if let Some(ref v) = params.keyword
+        && !v.is_empty() {
+            parts.push(format!("keyword={}", v.replace(' ', "%20")));
+        }
+    if let Some(v) = params.start_date {
+        parts.push(format!("start_date={v}"));
+    }
+    if let Some(v) = params.end_date {
+        parts.push(format!("end_date={v}"));
+    }
     if let Some(v) = params.page
         && v > 1 {
             parts.push(format!("page={v}"));
@@ -81,6 +91,12 @@ async fn resolve_operator_names(
 pub struct WriteoffQueryParams {
     #[serde(default, deserialize_with = "empty_as_none")]
     pub writeoff_type: Option<i16>,
+    #[serde(default)]
+    pub keyword: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub start_date: Option<chrono::NaiveDate>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub end_date: Option<chrono::NaiveDate>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub page: Option<u32>,
 }
@@ -98,10 +114,15 @@ pub async fn get_list(
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.write_off_service();
 
-    let wo_type = params.writeoff_type.and_then(WriteOffType::from_i16);
+    let filter = WriteOffListFilter {
+        write_off_type: params.writeoff_type.and_then(WriteOffType::from_i16),
+        keyword: params.keyword.clone(),
+        start_date: params.start_date,
+        end_date: params.end_date,
+    };
     let page_num = params.page.unwrap_or(1);
     let result = svc
-        .list(&service_ctx, &mut conn, wo_type, abt_core::shared::types::PageParams::new(page_num, 20))
+        .list(&service_ctx, &mut conn, filter, abt_core::shared::types::PageParams::new(page_num, 20))
         .await?;
 
     let operator_names = resolve_operator_names(&state, &service_ctx, &mut conn, &result.items).await;
@@ -127,10 +148,15 @@ pub async fn get_table(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.write_off_service();
 
-    let wo_type = params.writeoff_type.and_then(WriteOffType::from_i16);
+    let filter = WriteOffListFilter {
+        write_off_type: params.writeoff_type.and_then(WriteOffType::from_i16),
+        keyword: params.keyword.clone(),
+        start_date: params.start_date,
+        end_date: params.end_date,
+    };
     let page_num = params.page.unwrap_or(1);
     let result = svc
-        .list(&service_ctx, &mut conn, wo_type, abt_core::shared::types::PageParams::new(page_num, 20))
+        .list(&service_ctx, &mut conn, filter, abt_core::shared::types::PageParams::new(page_num, 20))
         .await?;
 
     let operator_names = resolve_operator_names(&state, &service_ctx, &mut conn, &result.items).await;
@@ -180,29 +206,28 @@ fn writeoff_table_fragment(
             (status_tabs_with_param(
                 WriteoffTablePath::PATH,
                 "#writeoff-data-card",
-                "closest form",
+                "#writeoff-filter-form",
                 tabs,
                 &selected_type,
                 "writeoff_type",
             ))
 
             // 筛选栏 — 暂时只放占位搜索和日期筛选
-            form class="filter-bar filter-form"
+            form id="writeoff-filter-form" class="filter-bar filter-form"
                 hx-get=(WriteoffTablePath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#writeoff-data-card"
                 hx-select="#writeoff-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#writeoff-filter-form" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"
                         style="width:200px"
-                        placeholder="搜索日记账号、来源单号…"
-                        disabled;
+                        placeholder="搜索日记账号…";
                 }
-                input type="date" class="filter-select" style="width:150px" title="起始日期" disabled;
-                input type="date" class="filter-select" style="width:150px" title="截止日期" disabled;
+                input type="date" name="start_date" class="filter-select" style="width:150px" title="起始日期";
+                input type="date" name="end_date" class="filter-select" style="width:150px" title="截止日期";
             }
 
             (writeoff_data_card(result, params, operator_names))

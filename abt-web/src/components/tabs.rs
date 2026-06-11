@@ -25,7 +25,7 @@ pub fn status_tabs_with_param(
     param_name: &str,
 ) -> Markup {
     html! {
-        div class="status-tabs" {
+        div id="status-tabs" class="status-tabs" {
             @for tab in tabs {
                 (status_tab(hx_get, hx_target, hx_include, tab, active_value, param_name))
             }
@@ -46,6 +46,8 @@ fn status_tab(hx_get: &str, hx_target: &str, hx_include: &str, tab: &TabItem, ac
         a class=(class)
             hx-get=(hx_get)
             hx-target=(hx_target)
+            hx-select=(hx_target)
+            hx-select-oob="#status-tabs"
             hx-swap="outerHTML"
             hx-vals=(vals)
             hx-include=(hx_include) {

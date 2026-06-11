@@ -28,7 +28,7 @@ pub trait WriteOffService: Send + Sync {
     async fn list(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
-        write_off_type: Option<crate::fms::enums::WriteOffType>,
+        filter: super::model::WriteOffListFilter,
         page: PageParams,
     ) -> Result<PaginatedResult<WriteOff>>;
     /// Get the unreconciled amount for a given source document.

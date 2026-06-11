@@ -37,3 +37,16 @@ pub struct WriteOffReq {
     pub amount: Decimal,
     pub idempotency_key: Option<String>,
 }
+
+// ---------------------------------------------------------------------------
+// List Filter
+// ---------------------------------------------------------------------------
+
+/// 核销列表查询筛选条件
+#[derive(Debug, Clone, Default)]
+pub struct WriteOffListFilter {
+    pub write_off_type: Option<WriteOffType>,
+    pub keyword: Option<String>,
+    pub start_date: Option<chrono::NaiveDate>,
+    pub end_date: Option<chrono::NaiveDate>,
+}

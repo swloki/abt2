@@ -83,50 +83,83 @@ impl WriteOffRepo {
     /// Returns (items, total_count).
     pub async fn list(
         executor: PgExecutor<'_>,
-        write_off_type: Option<WriteOffType>,
+        filter: &super::model::WriteOffListFilter,
         page: &PageParams,
     ) -> Result<(Vec<WriteOff>, u64)> {
-        // 根据是否有类型筛选，分别走不同 SQL
-        let (total, items) = match write_off_type {
-            Some(wt) => {
-                let total: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(
-                    "SELECT COUNT(*) FROM write_offs WHERE write_off_type = $1"
-                ))
-                .bind(wt)
-                .fetch_one(&mut *executor)
-                .await?;
+        let mut where_clauses = vec!["1=1".to_string()];
+        let mut param_idx: i32 = 0;
+        let needs_journal_join = filter.keyword.as_ref().is_some_and(|k| !k.is_empty());
 
-                let items = sqlx::query_as::<sqlx::Postgres, WriteOff>(sqlx::AssertSqlSafe(format!(
-                    "SELECT {WRITE_OFF_COLUMNS} FROM write_offs \
-                     WHERE write_off_type = $1 ORDER BY id DESC LIMIT $2 OFFSET $3"
-                )))
-                .bind(wt)
-                .bind(page.page_size as i64)
-                .bind(page.offset() as i64)
-                .fetch_all(&mut *executor)
-                .await?;
-
-                (total, items)
+        if filter.write_off_type.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("wo.write_off_type = ${param_idx}"));
+        }
+        if let Some(ref kw) = filter.keyword
+            && !kw.is_empty() {
+                param_idx += 1;
+                where_clauses.push(format!("cj.doc_number ILIKE ${param_idx}"));
             }
-            None => {
-                let total: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(
-                    "SELECT COUNT(*) FROM write_offs"
-                ))
-                .fetch_one(&mut *executor)
-                .await?;
+        if filter.start_date.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("wo.write_off_date >= ${param_idx}"));
+        }
+        if filter.end_date.is_some() {
+            param_idx += 1;
+            where_clauses.push(format!("wo.write_off_date <= ${param_idx}"));
+        }
 
-                let items = sqlx::query_as::<sqlx::Postgres, WriteOff>(sqlx::AssertSqlSafe(format!(
-                    "SELECT {WRITE_OFF_COLUMNS} FROM write_offs \
-                     ORDER BY id DESC LIMIT $1 OFFSET $2"
-                )))
-                .bind(page.page_size as i64)
-                .bind(page.offset() as i64)
-                .fetch_all(&mut *executor)
-                .await?;
-
-                (total, items)
-            }
+        let where_sql = where_clauses.join(" AND ");
+        let from_sql = if needs_journal_join {
+            "write_offs wo LEFT JOIN cash_journals cj ON cj.id = wo.cash_journal_id"
+        } else {
+            "write_offs wo"
         };
+
+        // Count
+        let count_sql = format!("SELECT COUNT(*) FROM {from_sql} WHERE {where_sql}");
+        let mut count_q = sqlx::query_scalar::<sqlx::Postgres, i64>(sqlx::AssertSqlSafe(count_sql));
+        if let Some(wt) = filter.write_off_type {
+            count_q = count_q.bind(wt);
+        }
+        if let Some(ref kw) = filter.keyword
+            && !kw.is_empty() {
+                count_q = count_q.bind(format!("%{kw}%"));
+            }
+        if let Some(d) = filter.start_date {
+            count_q = count_q.bind(d);
+        }
+        if let Some(d) = filter.end_date {
+            count_q = count_q.bind(d);
+        }
+        let total: i64 = count_q.fetch_one(&mut *executor).await?;
+
+        // Data
+        let limit_idx = param_idx + 1;
+        let offset_idx = param_idx + 2;
+        let data_sql = format!(
+            "SELECT wo.id, wo.write_off_type, wo.cash_journal_id, wo.source_type, wo.source_id, \
+             wo.amount, wo.write_off_date, wo.idempotency_key, wo.operator_id, wo.created_at \
+             FROM {from_sql} WHERE {where_sql} ORDER BY wo.id DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
+        );
+        let mut data_q = sqlx::query_as::<sqlx::Postgres, WriteOff>(sqlx::AssertSqlSafe(data_sql));
+        if let Some(wt) = filter.write_off_type {
+            data_q = data_q.bind(wt);
+        }
+        if let Some(ref kw) = filter.keyword
+            && !kw.is_empty() {
+                data_q = data_q.bind(format!("%{kw}%"));
+            }
+        if let Some(d) = filter.start_date {
+            data_q = data_q.bind(d);
+        }
+        if let Some(d) = filter.end_date {
+            data_q = data_q.bind(d);
+        }
+        let items = data_q
+            .bind(page.page_size as i64)
+            .bind(page.offset() as i64)
+            .fetch_all(&mut *executor)
+            .await?;
 
         Ok((items, total as u64))
     }

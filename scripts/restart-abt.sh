@@ -37,8 +37,8 @@ echo "🚀 启动服务..."
 # 等待就绪
 echo "⏳ 等待服务就绪..."
 for i in $(seq 1 10); do
-  if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/login 2>/dev/null | grep -q "200"; then
-    echo "✅ 服务已就绪: http://localhost:8000"
+  if curl -s -o /dev/null -w "%{http_code}" https://localhost:8000/login 2>/dev/null | grep -q "200"; then
+    echo "✅ 服务已就绪: https://localhost:8000"
     exit 0
   fi
   sleep 1

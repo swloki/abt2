@@ -49,12 +49,12 @@ allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*), Bash(psql:*), B
 psql "$DATABASE_URL" -f scripts/sales-test-data.sql
 
 # 2. 登录
-agent-browser open http://localhost:8000/login
+agent-browser open https://localhost:8000/login
 agent-browser fill @e1 "admin" && agent-browser fill @e2 "chenxi0514"
 agent-browser click @e3 && sleep 2
 
 # 3. 测试页面
-agent-browser open http://localhost:8000/admin/orders && agent-browser snapshot -i
+agent-browser open https://localhost:8000/admin/orders && agent-browser snapshot -i
 
 # 4. 修改后重启
 ./scripts/restart-abt.sh --clippy

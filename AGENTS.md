@@ -404,10 +404,10 @@ Use `agent-browser` CLI for end-to-end page testing. **Never use `curl`** for pa
 
 ```bash
 # First-time login — save auth profile
-agent-browser auth save abt --url http://localhost:8000/login --username admin --password chenxi0514
+agent-browser auth save abt --url https://localhost:8000/login --username admin --password chenxi0514
 
 # Start browser and login
-agent-browser --session-name abt open http://localhost:8000/login
+agent-browser --session-name abt open https://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "chenxi0514"
@@ -421,7 +421,7 @@ The `--session-name abt` flag auto-saves/restores cookies so subsequent opens re
 
 ```bash
 # Navigate to target page
-agent-browser open http://localhost:8000/admin/md/products
+agent-browser open https://localhost:8000/admin/md/products
 agent-browser snapshot -i              # Get interactive elements with @eN refs
 agent-browser screenshot --full        # Full page screenshot for visual verification
 
@@ -470,7 +470,7 @@ agent-browser errors
 Add `--headed` flag to watch the browser in real time during debugging:
 
 ```bash
-agent-browser --headed open http://localhost:8000/admin/md/products
+agent-browser --headed open https://localhost:8000/admin/md/products
 agent-browser --headed snapshot -i
 ```
 

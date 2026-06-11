@@ -405,7 +405,7 @@ Expected: departments=4, roles=7, users=7, user_roles=8 (test_multi 有 2 个), 
 - [ ] **Step 4: 快速验证 test_sales 能登录**
 
 ```bash
-agent-browser open http://localhost:8000/login
+agent-browser open https://localhost:8000/login
 agent-browser snapshot -i
 # 填写用户名
 agent-browser fill @e<username_ref> "test_sales"
@@ -492,7 +492,7 @@ git commit -m "test: 权限测试结果记录模板"
 - [ ] **Step 1: 打开登录页并登录**
 
 ```bash
-agent-browser open http://localhost:8000/login
+agent-browser open https://localhost:8000/login
 agent-browser snapshot -i
 # 填写用户名
 agent-browser fill @e<username> "test_sales"
@@ -584,7 +584,7 @@ agent-browser screenshot
 - [ ] **Step 10: 直接访问 BOM 管理和供应商页面（TP-SAL-MD-06 ~ 07）**
 
 ```bash
-agent-browser open http://localhost:8000/admin/md/boms
+agent-browser open https://localhost:8000/admin/md/boms
 agent-browser wait --load networkidle
 agent-browser snapshot -i
 agent-browser screenshot
@@ -606,7 +606,7 @@ Expected: 403 或重定向到登录页
 - `/admin/system/permissions` → ✅/❌ TP-SAL-SEC-05
 
 ```bash
-agent-browser open http://localhost:8000/admin/system/users
+agent-browser open https://localhost:8000/admin/system/users
 agent-browser wait --load networkidle
 agent-browser snapshot -i
 agent-browser screenshot
@@ -636,10 +636,10 @@ git commit -m "test: 销售经理权限测试结果"
 
 ```bash
 # 先登出
-agent-browser open http://localhost:8000/logout
+agent-browser open https://localhost:8000/logout
 agent-browser wait --load networkidle
 # 再登录
-agent-browser open http://localhost:8000/login
+agent-browser open https://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username> "test_warehouse"
 agent-browser fill @e<password> "test1234"
@@ -923,7 +923,7 @@ git commit -m "test: 继承链用户权限测试结果"
 - [ ] **Step 1: 测试登录失败（TP-GEN-AUTH-02）**
 
 ```bash
-agent-browser open http://localhost:8000/login
+agent-browser open https://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username> "test_sales"
 agent-browser fill @e<password> "wrongpassword"
@@ -940,7 +940,7 @@ Expected: 显示错误提示，留在登录页
 用任意测试用户登录后登出：
 
 ```bash
-agent-browser open http://localhost:8000/login
+agent-browser open https://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username> "test_sales"
 agent-browser fill @e<password> "test1234"
@@ -958,7 +958,7 @@ Expected: 跳转回登录页
 - [ ] **Step 3: 测试未登录访问（TP-GEN-AUTH-05）**
 
 ```bash
-agent-browser open http://localhost:8000/admin
+agent-browser open https://localhost:8000/admin
 agent-browser wait --load networkidle
 agent-browser snapshot -i
 agent-browser screenshot

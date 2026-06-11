@@ -551,14 +551,14 @@ async function main() {
     const { rows } = await abtPool.query(
       `SELECT ${locSelectCols} FROM location ORDER BY location_id`,
     );
-    // 先插 zones
+    // 先插 zones — 使用通用库区编码，旧库位编码留给 bins
     const zoneData = rows.map((r) => {
       const id = Number(r.location_id);
       const whId = Number(r.warehouse_id);
       return [
         id,
         whId,
-        r.location_code,
+        `ZONE-${id}`, // 通用库区编码，避免与储位编码混淆
         r.location_name ?? r.location_code,
         1, // zone_type = Storage
         0, // sort_order
@@ -577,7 +577,7 @@ async function main() {
     );
     await resetSequence(v2Pool, "zones", "id");
 
-    // 为每个 zone 创建一个默认 bin（stock_ledger.bin_id NOT NULL）
+    // 为每个 zone 创建 bin — 旧库位编码放到 bins.code
     const binData = rows.map((r) => {
       const zoneId = Number(r.location_id);
       const binId = zoneId;
@@ -589,8 +589,8 @@ async function main() {
       return [
         binId,
         zoneId,
-        "DEFAULT", // code
-        "默认库位",
+        r.location_code, // 旧库位编码 → 储位编码
+        r.location_name ?? r.location_code, // 旧库位名称 → 储位名称
         null, null, null, // row_no, column_no, layer_no
         null, // capacity_limit
         null, // allowed_product_types

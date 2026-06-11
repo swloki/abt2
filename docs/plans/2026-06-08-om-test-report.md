@@ -110,7 +110,7 @@
 | 侧栏图标 | 有图标 | truck 图标显示正常 | ✅ |
 
 ## 环境信息
-- 服务地址: http://localhost:8000
+- 服务地址: https://localhost:8000
 - 测试账号: admin / chenxi0514
 - 数据库: PostgreSQL abt_v2
 - 编译验证: cargo clippy 0 errors

@@ -18,7 +18,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_stock::{StockListPath, StockTablePath, StockZonesPath};
+use crate::routes::wms_stock::{StockListPath, StockTablePath, StockZonesPath, StockDetailPath, StockDetailQuery};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -188,9 +188,16 @@ async fn resolve_bin_codes<S: WarehouseService>(
 }
 
 fn format_decimal(d: &Decimal) -> String {
+    fn fmt_int(n: i64) -> String {
+        let s = n.abs().to_string();
+        let mut parts: Vec<&str> = s.as_bytes().rchunks(3).map(|c| std::str::from_utf8(c).unwrap()).collect();
+        parts.reverse();
+        let joined = parts.join(",");
+        if n < 0 { format!("-{joined}") } else { joined }
+    }
     let v: f64 = d.to_f64().unwrap_or(0.0);
     if v == (v as i64) as f64 {
-        format!("{}", v as i64)
+        fmt_int(v as i64)
     } else {
         format!("{v:.2}")
     }
@@ -264,16 +271,13 @@ pub async fn get_stock_list(
     }
 
     let product_names = resolve_product_names(&product_svc, &service_ctx, &mut conn, &result.items).await;
-    let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-    let zone_codes = resolve_zone_codes(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-    let bin_codes = resolve_bin_codes(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     let warehouses = warehouse_svc.list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200).await.map(|r| r.items).unwrap_or_default();
     let zones = if let Some(wid) = params.warehouse_id {
         warehouse_svc.list_zones(&service_ctx, &mut conn, wid).await.unwrap_or_default()
     } else {
         vec![]
     };
-    let ctx = StockListContext { product_names: &product_names, warehouse_names: &warehouse_names, zone_codes: &zone_codes, bin_codes: &bin_codes, warehouses: &warehouses, zones: &zones, params: &params };
+    let ctx = StockListContext { product_names: &product_names, warehouses: &warehouses, zones: &zones, params: &params };
     let content = stock_list_page(&result, &ctx);
     let page_html = admin_page(
         is_htmx, "库存查询", &claims, "inventory", StockListPath::PATH, "库存管理", None, content, &nav_filter,
@@ -290,7 +294,7 @@ pub async fn get_stock_table(
     let RequestContext { mut conn, state, service_ctx, .. } = ctx;
     let svc = state.stock_ledger_service();
     let product_svc = state.product_service();
-    let warehouse_svc = state.warehouse_service();
+
 
     let has_search = params.product_code.as_deref().is_some_and(|s| !s.trim().is_empty())
         || params.product_name.as_deref().is_some_and(|s| !s.trim().is_empty());
@@ -305,19 +309,13 @@ pub async fn get_stock_table(
     }
 
     let product_names = resolve_product_names(&product_svc, &service_ctx, &mut conn, &result.items).await;
-    let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-    let zone_codes = resolve_zone_codes(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-    let bin_codes = resolve_bin_codes(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
     // HTMX partial: return only the data-card
-    Ok(Html(stock_data_card(&result, &product_names, &warehouse_names, &zone_codes, &bin_codes, &params).into_string()))
+    Ok(Html(stock_data_card(&result, &product_names, &params).into_string()))
 }
 
 // ── Components ──
 struct StockListContext<'a> {
     product_names: &'a HashMap<i64, (String, String)>,
-    warehouse_names: &'a HashMap<i64, String>,
-    zone_codes: &'a HashMap<i64, String>,
-    bin_codes: &'a HashMap<i64, String>,
     warehouses: &'a [abt_core::wms::warehouse::model::Warehouse],
     zones: &'a [abt_core::wms::warehouse::model::Zone],
     params: &'a StockQueryParams,
@@ -376,7 +374,19 @@ fn stock_list_page(
             // ── Filter Bar (outside data-card, always visible) ──
             (stock_filter_bar(ctx.warehouses, ctx.zones, ctx.params))
             // ── Data Card (HTMX target) ──
-            (stock_data_card(result, ctx.product_names, ctx.warehouse_names, ctx.zone_codes, ctx.bin_codes, ctx.params))
+            (stock_data_card(result, ctx.product_names, ctx.params))
+
+            // ── Detail Drawer ──
+            div id="stock-drawer" class="detail-drawer" {
+                div class="detail-drawer-mask" onclick="document.getElementById('stock-drawer').classList.remove('open');document.body.style.overflow=''" {}
+                div class="detail-drawer-body" {
+                    div class="detail-drawer-header" {
+                        h3 { "库存详情" }
+                        button class="detail-drawer-close" onclick="document.getElementById('stock-drawer').classList.remove('open');document.body.style.overflow=''" { "×" }
+                    }
+                    div class="detail-drawer-content" id="stock-drawer-content" {}
+                }
+            }
         }
     }
 }
@@ -441,9 +451,6 @@ fn stock_filter_bar(
 fn stock_data_card(
     result: &abt_core::shared::types::PaginatedResult<abt_core::wms::stock_ledger::model::StockLedger>,
     product_names: &HashMap<i64, (String, String)>,
-    warehouse_names: &HashMap<i64, String>,
-    zone_codes: &HashMap<i64, String>,
-    bin_codes: &HashMap<i64, String>,
     params: &StockQueryParams,
 ) -> Markup {
     let query = build_query_string(params);
@@ -456,17 +463,9 @@ fn stock_data_card(
                         tr {
                             th { "产品编码" }
                             th { "产品名称" }
-                            th { "仓库" }
-                            th { "库区" }
-                            th { "储位" }
-                            th { "批次号" }
                             th class="num-right" { "现有量" }
-                            th class="num-right" { "已预留量" }
                             th class="num-right" { "可用量" }
-                            th class="num-right" { "单位成本" }
-                            th class="num-right" { "安全库存" }
-                            th { "入库日期" }
-                            th { "有效期" }
+                            th { "操作" }
                         }
                     }
                     tbody {
@@ -474,32 +473,29 @@ fn stock_data_card(
                             @let product_info = product_names.get(&item.product_id);
                             @let p_code = product_info.map(|(c, _)| c.as_str()).unwrap_or("—");
                             @let p_name = product_info.map(|(_, n)| n.as_str()).unwrap_or("—");
-                            @let wh_name = warehouse_names.get(&item.warehouse_id).map(|s| s.as_str()).unwrap_or("—");
-                            @let z_code = zone_codes.get(&item.zone_id).map(|s| s.as_str()).unwrap_or("—");
-                            @let b_code = bin_codes.get(&item.bin_id).map(|s| s.as_str()).unwrap_or("—");
                             @let is_low = item.available_qty <= Decimal::ZERO;
                             @let low_class = if is_low { "text-low-stock" } else { "" };
                             @let danger_style = if is_low { "color:var(--danger)" } else { "" };
                             tr class=(low_class) {
                                 td class="link-cell mono" style=(danger_style) { (p_code) }
                                 td style=(danger_style) { (p_name) }
-                                td { (wh_name) }
-                                td { (z_code) }
-                                td class="mono" { (b_code) }
-                                td class="mono" { (item.batch_no.as_deref().unwrap_or("—")) }
                                 td class="num-right" { (format_decimal(&item.quantity)) }
-                                td class="num-right" { (format_decimal(&item.reserved_qty)) }
                                 @let avail_style = if is_low { "color:var(--danger);font-weight:600" } else { "" };
                                 td class="num-right" style=(avail_style) { (format_decimal(&item.available_qty)) }
-                                td class="num-right" { (item.unit_cost.map(|c| format!("¥{}", format_decimal(&c))).unwrap_or_else(|| "—".into())) }
-                                td class="num-right" { "—" }
-                                td class="mono" style="color:var(--muted)" { (item.received_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) }
-                                td style="color:var(--muted)" { (item.expiry_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) }
+                                td {
+                                    a style="color:var(--accent);font-size:var(--text-sm);cursor:pointer"
+                                        hx-get=(format!("{}?id={}", StockDetailPath::PATH, item.id))
+                                        hx-target="#stock-drawer-content"
+                                        hx-swap="innerHTML"
+                                        hx-on::after-request="document.getElementById('stock-drawer').classList.add('open');document.body.style.overflow='hidden'" {
+                                        "详情"
+                                    }
+                                }
                             }
                         }
                         @if result.items.is_empty() {
                             tr {
-                                td colspan="13" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
+                                td colspan="5" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                     "暂无库存数据"
                                 }
                             }
@@ -508,6 +504,105 @@ fn stock_data_card(
                 }
             }
             (pagination(StockListPath::PATH, &query, result.total, result.page, result.total_pages))
+        }
+    }
+}
+
+// ── Stock Detail Drawer (HTMX endpoint) ──
+
+#[require_permission("INVENTORY", "read")]
+pub async fn get_stock_detail(
+    _path: StockDetailPath,
+    ctx: RequestContext,
+    Query(query): Query<StockDetailQuery>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let svc = state.stock_ledger_service();
+    let product_svc = state.product_service();
+    let warehouse_svc = state.warehouse_service();
+
+    let filter = StockFilter { product_id: None, product_ids: None, warehouse_id: None, zone_id: None, bin_id: None, batch_no: None };
+    let result = svc.query(&service_ctx, &mut conn, filter, 1, 10000).await?;
+
+    let item = result.items.iter().find(|i| i.id == query.id);
+    let Some(item) = item else {
+        return Ok(Html("<div style=\"padding:var(--space-6);color:var(--muted)\">未找到库存记录</div>".into()));
+    };
+
+    let product_info = resolve_product_names(&product_svc, &service_ctx, &mut conn, std::slice::from_ref(item)).await;
+    let warehouse_name = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, std::slice::from_ref(item)).await;
+    let zone_code = resolve_zone_codes(&warehouse_svc, &service_ctx, &mut conn, std::slice::from_ref(item)).await;
+    let bin_code = resolve_bin_codes(&warehouse_svc, &service_ctx, &mut conn, std::slice::from_ref(item)).await;
+
+    let p_code = product_info.get(&item.product_id).map(|(c, _)| c.clone()).unwrap_or_default();
+    let p_name = product_info.get(&item.product_id).map(|(_, n)| n.clone()).unwrap_or_default();
+    let wh = warehouse_name.get(&item.warehouse_id).cloned().unwrap_or_else(|| "—".into());
+    let zone = zone_code.get(&item.zone_id).cloned().unwrap_or_else(|| "—".into());
+    let bin = bin_code.get(&item.bin_id).cloned().unwrap_or_else(|| "—".into());
+
+    Ok(Html(stock_detail_content(item, &p_code, &p_name, &wh, &zone, &bin).into_string()))
+}
+
+fn stock_detail_content(
+    item: &abt_core::wms::stock_ledger::model::StockLedger,
+    p_code: &str,
+    p_name: &str,
+    warehouse: &str,
+    zone: &str,
+    bin: &str,
+) -> Markup {
+    let safe_stock = Decimal::ZERO; // TODO: 从产品安全库存读取
+    let pct = if safe_stock > Decimal::ZERO {
+        std::cmp::min(100, (item.available_qty / safe_stock * Decimal::from(100)).to_u32().unwrap_or(100))
+    } else { 100 };
+    let bar_color = if pct < 25 { "var(--danger)" } else if pct < 60 { "var(--warn)" } else { "var(--success)" };
+    let stock_value = item.unit_cost.map(|c| item.quantity * c);
+    let is_low = item.available_qty <= Decimal::ZERO;
+
+    html! {
+        div class="detail-section" {
+            div class="detail-section-title" { "基本信息" }
+            div class="detail-grid" {
+                div class="detail-item" { span class="label" { "产品编码" } span class="value mono" { (p_code) } }
+                div class="detail-item" { span class="label" { "产品名称" } span class="value" { (p_name) } }
+                div class="detail-item" { span class="label" { "仓库" } span class="value" { (warehouse) } }
+                div class="detail-item" { span class="label" { "库区" } span class="value" { (zone) } }
+                div class="detail-item" { span class="label" { "储位" } span class="value mono" { (bin) } }
+                div class="detail-item" { span class="label" { "批次号" } span class="value mono" { (item.batch_no.as_deref().unwrap_or("—")) } }
+            }
+        }
+        div class="detail-section" {
+            div class="detail-section-title" { "库存数量" }
+            div class="detail-grid" {
+                div class="detail-item" { span class="label" { "现有量" } span class="value mono" { (format_decimal(&item.quantity)) } }
+                div class="detail-item" { span class="label" { "已预留" } span class="value mono" { (format_decimal(&item.reserved_qty)) } }
+                div class="detail-item" {
+                    span class="label" { "可用量" }
+                    span class={"value mono" (if is_low { " danger" } else { "" })} { (format_decimal(&item.available_qty)) }
+                }
+                div class="detail-item" {
+                    span class="label" { "安全库存" }
+                    span class={"value mono" (if is_low { " warn" } else { "" })} { (format_decimal(&safe_stock)) }
+                }
+            }
+            div style="margin-top:12px" {
+                div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--muted);margin-bottom:4px" {
+                    span { "可用量 / 安全库存" }
+                    span style=(format!("font-weight:600;color:{bar_color}")) { (format!("{pct}%")) }
+                }
+                div class="stock-bar-wrap" {
+                    div class="stock-bar-fill" style=(format!("width:{pct}%;background:{bar_color}")) {}
+                }
+            }
+        }
+        div class="detail-section" {
+            div class="detail-section-title" { "财务与日期" }
+            div class="detail-grid" {
+                div class="detail-item" { span class="label" { "单位成本" } span class="value mono" { (item.unit_cost.map(|c| format!("¥{}", format_decimal(&c))).unwrap_or_else(|| "—".into())) } }
+                div class="detail-item" { span class="label" { "库存金额" } span class="value mono" { (stock_value.map(|v| format!("¥{}", format_decimal(&v))).unwrap_or_else(|| "—".into())) } }
+                div class="detail-item" { span class="label" { "入库日期" } span class="value mono" { (item.received_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
+                div class="detail-item" { span class="label" { "有效期" } span class="value mono" { (item.expiry_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into())) } }
+            }
         }
     }
 }

@@ -20,11 +20,20 @@ pub struct StockTablePath;
 #[typed_path("/admin/wms/stock/zones")]
 pub struct StockZonesPath;
 
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/wms/stock/detail")]
+pub struct StockDetailPath;
+
+#[derive(Debug, Deserialize)]
+pub struct StockDetailQuery {
+    pub id: i64,
+}
+
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(StockListPath::PATH, get(wms_stock_list::get_stock_list))
         .route(StockTablePath::PATH, get(wms_stock_list::get_stock_table))
-        .route(StockZonesPath::PATH, get(wms_stock_list::get_zone_options))
+        .route(StockDetailPath::PATH, get(wms_stock_list::get_stock_detail))
 }

@@ -14,9 +14,9 @@ export DATABASE_URL="postgres://postgres:123456@172.17.0.1:5432/abt_v2"
 cargo build --release
 
 echo ">>> 构建完成！"
-ls -la target/release/abt 2>/dev/null || true
+ls -la target/release/abt-web 2>/dev/null || true
 
-MONITOR_DIR="./target/release/abt"
+MONITOR_DIR="./target/release/abt-web"
 TARGET_USER="weichen"
 TARGET_HOST="119.29.23.115"
 TARGET_DIR="/data/abt3"

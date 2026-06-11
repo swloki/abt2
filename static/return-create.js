@@ -114,10 +114,14 @@
       var items = [];
       var tbody = document.getElementById("pr-item-tbody");
       if (!tbody) return;
+      var intFields = ["order_item_id", "product_id"];
       tbody.querySelectorAll("tr").forEach(function (tr) {
         var vals = {};
         tr.querySelectorAll("input, select").forEach(function (el) {
-          if (el.name) vals[el.name] = el.value;
+          if (el.name) {
+            var v = el.value;
+            vals[el.name] = intFields.indexOf(el.name) >= 0 ? parseInt(v, 10) : v;
+          }
         });
         items.push(vals);
       });

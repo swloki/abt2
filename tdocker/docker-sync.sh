@@ -19,7 +19,7 @@ ls -la target/release/abt 2>/dev/null || true
 MONITOR_DIR="./target/release/abt"
 TARGET_USER="weichen"
 TARGET_HOST="119.29.23.115"
-TARGET_DIR="/data/abt3/"
+TARGET_DIR="/data/abt3"
 SSH_PASSWORD="chenxi,,0514"
 
 echo "开始"
@@ -28,7 +28,7 @@ ssh-keyscan -H $TARGET_HOST >>~/.ssh/known_hosts
 #sshpass -p $SSH_PASSWORD rsync -avz $MONITOR_DIR "$TARGET_USER@$TARGET_HOST:$TARGET_DIR"
 #sshpass -p $SSH_PASSWORD rsync -avz $MONITOR_DIR "$TARGET_USER@$TARGET_HOST:$TARGET_DIR"
 #sshpass -p $SSH_PASSWORD ssh $TARGET_USER@$TARGET_HOST "cd $TARGET_DIR && /home/weichen/.cargo/bin/cargo build --release"
-sshpass -p $SSH_PASSWORD ssh $TARGET_USER@$TARGET_HOST "rm -f /data/abt3"
+sshpass -p $SSH_PASSWORD ssh $TARGET_USER@$TARGET_HOST "rm -f /data/abt3/*"
 echo "删除成功"
 sshpass -p $SSH_PASSWORD rsync -avz $MONITOR_DIR "$TARGET_USER@$TARGET_HOST:$TARGET_DIR"
 

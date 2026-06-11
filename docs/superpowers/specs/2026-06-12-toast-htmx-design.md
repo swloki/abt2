@@ -49,6 +49,7 @@ GET /api/toast (读后即焚)
 pub struct ToastMessage {
     pub msg: String,
     pub r#type: ToastType,
+    pub created_at: Instant,  // 用于 TTL 过期清理
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
@@ -68,6 +69,9 @@ pub enum ToastType {
 - `DashMap` 的 entry API 提供原子性插入，彻底消除竞态
 - 读后即焚：每次 GET `/api/toast` 读取后立即清空队列
 - Toast 消息本身是临时性的，服务器重启丢失可接受
+- **防内存泄漏**（双重防御）：
+  - **TTL 过期**：`get_toasts` 过滤掉 `created_at` 超过 60s 的消息
+  - **队列上限**：`add_toast` 时限制每用户最多 10 条，超出丢弃最早的
 
 ## API
 
@@ -110,11 +114,17 @@ use dashmap::DashMap;
 static TOAST_QUEUE: Lazy<DashMap<i64, Vec<ToastMessage>>> = Lazy::new(DashMap::new);
 
 /// 向用户队列追加一条 Toast 消息（原子操作，无竞态）
+/// 每用户上限 10 条，超出丢弃最早的
+const MAX_TOASTS_PER_USER: usize = 10;
+
 pub fn add_toast(user_id: i64, msg: impl Into<String>, r#type: ToastType) {
-    TOAST_QUEUE
+    let mut queue = TOAST_QUEUE
         .entry(user_id)
-        .or_insert_with(Vec::new)
-        .push(ToastMessage { msg: msg.into(), r#type });
+        .or_insert_with(Vec::new);
+    if queue.len() >= MAX_TOASTS_PER_USER {
+        queue.remove(0);
+    }
+    queue.push(ToastMessage { msg: msg.into(), r#type, created_at: Instant::now() });
 }
 
 /// 写入 Toast 消息 + 设置 HX-Trigger 响应头的便捷函数
@@ -128,14 +138,21 @@ pub fn toast_response(user_id: i64, msg: impl Into<String>, r#type: ToastType) -
         .into_response()
 }
 
-/// GET /api/toast handler：读后即焚
+/// GET /api/toast handler：读后即焚，过滤超过 60s 的过期消息
+const TOAST_TTL: Duration = Duration::from_secs(60);
+
 pub async fn get_toasts(session: Session) -> Response {
     let user_id = get_current_user_id(&session); // 从 session 中取 user_id
     let messages = TOAST_QUEUE.remove(&user_id).map(|(_, v)| v).unwrap_or_default();
-    if messages.is_empty() {
+    let now = Instant::now();
+    let fresh: Vec<_> = messages
+        .into_iter()
+        .filter(|m| now.duration_since(m.created_at) < TOAST_TTL)
+        .collect();
+    if fresh.is_empty() {
         return StatusCode::NO_CONTENT.into_response();
     }
-    Html(render_toasts(&messages)).into_response()
+    Html(render_toasts(&fresh)).into_response()
 }
 ```
 

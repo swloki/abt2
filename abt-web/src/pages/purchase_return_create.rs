@@ -257,7 +257,7 @@ fn pr_create_page(
             form id="pr-form"
                   hx-post=(PRCreatePath::PATH)
                   hx-swap="none"
-                  onsubmit="PRCreate.collectItems()" {
+                  onsubmit="PRCreate.collectItems();return true" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
 
             // ── 关联单据 ──
@@ -399,7 +399,7 @@ fn pr_create_page(
             }
 
         }
-        script src="/return-create.js?v=20260604" {}
+        script src="/return-create.js?v=20260612" {}
     }
 }
 

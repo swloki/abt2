@@ -11,8 +11,8 @@ mod utils;
 
 use state::AppState;
 use time::Duration;
+use tower_http::compression::CompressionLayer;
 use tower_http::services::ServeDir;
-use tower_http::trace::TraceLayer;
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tracing_subscriber::EnvFilter;
 
@@ -39,7 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = routes::router(state)
         .fallback_service(ServeDir::new("static"))
         .layer(session_layer)
-        .layer(TraceLayer::new_for_http());
+        .layer(CompressionLayer::new());
 
     let tls_config = load_or_generate_tls().await?;
     tracing::info!("HTTPS listening on https://{addr}");

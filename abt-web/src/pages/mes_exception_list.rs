@@ -1,16 +1,14 @@
-use axum::extract::Query;
 use axum::response::Html;
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
-use serde::Deserialize;
 
-use abt_core::mes::enums::{ExceptionStatus, ExceptionType, ReasonCategory};
+use abt_core::mes::enums::{ExceptionStatus, ExceptionType};
 use abt_core::mes::production_exception::ProductionExceptionService;
 use abt_core::shared::types::PaginatedResult;
 
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_exception::{ExceptionListPath, ExceptionTablePath};
+use crate::routes::mes_exception::ExceptionListPath;
 use crate::utils::RequestContext;
 use abt_macros::require_permission;
 
@@ -27,38 +25,6 @@ pub async fn get_exception_list(_path: ExceptionListPath, ctx: RequestContext) -
 
     let content = exception_list_page(&stats, &result);
     Ok(Html(admin_page(is_htmx, "生产异常", &claims, "production", ExceptionListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
-}
-
-#[derive(Debug, Deserialize, Default)]
-pub struct ExceptionQueryParams {
-    pub page: Option<u32>,
-    pub exception_type: Option<i16>,
-    pub status: Option<i16>,
-    pub reason_category: Option<i16>,
-    pub keyword: Option<String>,
-}
-
-#[require_permission("WORK_ORDER", "read")]
-pub async fn get_exception_table(
-    _path: ExceptionTablePath,
-    ctx: RequestContext,
-    Query(params): Query<ExceptionQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.production_exception_service();
-
-    let page = params.page.unwrap_or(1);
-    let filter = abt_core::mes::production_exception::model::ExceptionListFilter {
-        exception_type: params.exception_type.and_then(ExceptionType::from_i16),
-        status: params.status.and_then(ExceptionStatus::from_i16),
-        reason_category: params.reason_category.and_then(ReasonCategory::from_i16),
-        keyword: params.keyword,
-        date_from: None,
-        date_to: None,
-    };
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
-    Ok(Html(exception_table_fragment(&result).into_string()))
 }
 
 fn exception_list_page(
@@ -93,12 +59,12 @@ fn exception_list_page(
         // Filter bar
         div class="filter-bar" {
             input class="form-input" type="text" name="keyword" placeholder="搜索编号或描述..."
-                hx-get=(ExceptionTablePath::PATH)
+                hx-get=(ExceptionListPath::PATH)
                 hx-target="#exception-table"
                 hx-trigger="keyup changed delay:300ms"
                 hx-swap="innerHTML" {}
             select class="form-select" name="exception_type"
-                hx-get=(ExceptionTablePath::PATH)
+                hx-get=(ExceptionListPath::PATH)
                 hx-target="#exception-table"
                 hx-trigger="change"
                 hx-swap="innerHTML" {

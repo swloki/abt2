@@ -13,7 +13,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::wms_cycle_count::{
-    CycleCountCreatePath, CycleCountDetailPath, CycleCountListPath, CycleCountTablePath,
+    CycleCountCreatePath, CycleCountDetailPath, CycleCountListPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 
@@ -63,23 +63,6 @@ pub async fn get_cycle_count_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("INVENTORY", "read")]
-pub async fn get_cycle_count_table(
-    _path: CycleCountTablePath,
-    ctx: RequestContext,
-    Query(params): Query<CycleCountQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.cycle_count_service();
-
-    let filter = build_filter(&params);
-    let page_num = params.page.unwrap_or(1);
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
-
-    Ok(Html(cycle_count_table_fragment(&result, &params).into_string()))
 }
 
 // ── Helpers ──
@@ -155,15 +138,16 @@ fn cycle_count_table_fragment(
 
     html! {
         div class="cycle-count-panel" {
-            (status_tabs_with_param(CycleCountTablePath::PATH, "#cycle-count-data-card", "#cycle-count-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(CycleCountListPath::PATH, "#cycle-count-data-card", "#cycle-count-filter-form", tabs, &active_value, "status"))
 
             form class="filter-bar filter-form" id="cycle-count-filter-form"
-                hx-get=(CycleCountTablePath::PATH)
+                hx-get=(CycleCountListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#cycle-count-data-card"
                 hx-select="#cycle-count-data-card"
                 hx-swap="outerHTML"
-                hx-include="#cycle-count-filter-form" {
+                hx-include="#cycle-count-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

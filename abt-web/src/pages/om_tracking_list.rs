@@ -19,7 +19,7 @@ use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::om::{
-    OmOutsourcingDetailPath, OmTrackingListPath, OmTrackingTablePath,
+    OmOutsourcingDetailPath, OmTrackingListPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
@@ -163,20 +163,6 @@ pub async fn get_list(
         Some("/admin/om"),
         content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("OUTSOURCING", "read")]
-pub async fn get_table(
-    _path: OmTrackingTablePath,
-    ctx: RequestContext,
-    Query(params): Query<TrackingQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-
-    let (result, order_map, supplier_map, product_map) =
-        fetch_tracking_data(&state, &service_ctx, &mut conn, &params).await?;
-
-    Ok(Html(tracking_data_card(&result, &order_map, &supplier_map, &product_map, &params).into_string()))
 }
 
 // ── Data fetching ──
@@ -398,7 +384,7 @@ fn tracking_table_fragment(
         div class="tracking-list-panel" {
             // ── Filter Bar ──
             form class="filter-bar filter-form"
-                hx-get=(OmTrackingTablePath::PATH)
+                hx-get=(OmTrackingListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#tracking-data-card"
                 hx-select="#tracking-data-card"

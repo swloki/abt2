@@ -16,10 +16,6 @@ use crate::state::AppState;
 pub struct QuotationListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/quotations/table")]
-pub struct QuotationTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/quotations/new")]
 pub struct QuotationCreatePath;
 
@@ -82,8 +78,7 @@ pub struct QuotationCustomerContactsPath;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(QuotationListPath::PATH, get(quotation_list::get_quotation_list))
-        .route(QuotationTablePath::PATH, get(quotation_list::get_quotation_table))
-        .route(QuotationCreatePath::PATH, get(quotation_create::get_quotation_create).post(quotation_create::create_quotation))
+.route(QuotationCreatePath::PATH, get(quotation_create::get_quotation_create).post(quotation_create::create_quotation))
         .route(QuotationDetailPath::PATH, get(quotation_detail::get_quotation_detail))
         .route(EditQuotationFormPath::PATH, get(quotation_edit::get_quotation_edit))
         .route(UpdateQuotationPath::PATH, post(quotation_edit::update_quotation))

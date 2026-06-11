@@ -13,7 +13,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::supplier::{
-    SupplierCreatePath, SupplierDeletePath, SupplierDetailPath, SupplierListPath, SupplierTablePath,
+    SupplierCreatePath, SupplierDeletePath, SupplierDetailPath, SupplierListPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 
@@ -66,24 +66,6 @@ pub async fn get_supplier_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("SUPPLIER", "read")]
-pub async fn get_supplier_table(
-    ctx: RequestContext,
-    Query(params): Query<SupplierQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let can_delete = ctx.has_permission("SUPPLIER", "delete").await;
-    let can_edit = ctx.has_permission("SUPPLIER", "update").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.supplier_service();
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    Ok(Html(supplier_table_fragment(&result, &params, can_delete, can_edit).into_string()))
 }
 
 #[require_permission("SUPPLIER", "delete")]
@@ -161,16 +143,18 @@ fn supplier_table_fragment(
 
     html! {
         div class="supplier-list-panel" {
-            (status_tabs_with_param(SupplierTablePath::PATH, "#supplier-data-card", "#supplier-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(SupplierListPath::PATH, "#supplier-data-card", "#supplier-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
             form class="filter-bar filter-form" id="supplier-filter-form"
-                hx-get=(SupplierTablePath::PATH)
+                hx-get=(SupplierListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#supplier-data-card"
                 hx-select="#supplier-data-card"
                 hx-swap="outerHTML"
-                hx-include="#supplier-filter-form" {
+                hx-select-oob="#status-tabs"
+                hx-include="#supplier-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct StockListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/stock/table")]
-pub struct StockTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/stock/zones")]
 pub struct StockZonesPath;
 
@@ -34,6 +30,5 @@ pub struct StockDetailQuery {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(StockListPath::PATH, get(wms_stock_list::get_stock_list))
-        .route(StockTablePath::PATH, get(wms_stock_list::get_stock_table))
         .route(StockDetailPath::PATH, get(wms_stock_list::get_stock_detail))
 }

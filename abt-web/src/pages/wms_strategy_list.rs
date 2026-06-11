@@ -7,7 +7,7 @@ use abt_core::wms::strategy::StrategyService;
 use abt_core::wms::enums::{PickType, PutawayType};
 
 use crate::layout::page::admin_page;
-use crate::routes::wms_strategy::{StrategyListPath, StrategyTablePath};
+use crate::routes::wms_strategy::StrategyListPath;
 use crate::utils::RequestContext;
 
 use abt_macros::require_permission;
@@ -39,20 +39,6 @@ pub async fn get_strategy_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("INVENTORY", "read")]
-pub async fn get_strategy_table(
-    _path: StrategyTablePath,
-    ctx: RequestContext,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.strategy_service();
-
-    let putaway_strategies = svc.list_putaway(&service_ctx, &mut conn, None).await?;
-    let pick_strategies = svc.list_pick(&service_ctx, &mut conn, None).await?;
-
-    Ok(Html(strategy_list_page(&putaway_strategies, &pick_strategies).into_string()))
 }
 
 // ── Helpers ──

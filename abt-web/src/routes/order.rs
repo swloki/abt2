@@ -16,10 +16,6 @@ use crate::state::AppState;
 pub struct OrderListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/orders/table")]
-pub struct OrderTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/orders/create")]
 pub struct OrderCreatePath;
 
@@ -89,8 +85,7 @@ pub struct CancelOrderPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(OrderListPath::PATH, get(sales_order_list::get_order_list))
-        .route(OrderTablePath::PATH, get(sales_order_list::get_order_table))
-        .route(OrderCreatePath::PATH, get(sales_order_create::get_order_create).post(sales_order_create::create_order))
+.route(OrderCreatePath::PATH, get(sales_order_create::get_order_create).post(sales_order_create::create_order))
         .route(OrderProductsPath::PATH, get(sales_order_create::get_products))
         .route(OrderItemRowPath::PATH, get(sales_order_create::get_order_item_row))
         .route(OrderCustomerContactsPath::PATH, get(sales_order_create::get_customer_contacts))

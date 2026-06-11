@@ -15,7 +15,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::fms::{JournalCreatePath, JournalDetailPath, JournalListPath, JournalTablePath};
+use crate::routes::fms::{JournalCreatePath, JournalDetailPath, JournalListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -196,25 +196,6 @@ pub async fn get_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("FMS", "read")]
-pub async fn get_table(
-    _path: JournalTablePath,
-    ctx: RequestContext,
-    Query(params): Query<JournalQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.cash_journal_service();
-
-    let filter = build_filter(&params);
-    let page_num = params.page.unwrap_or(1);
-    let result = svc
-        .list(&service_ctx, &mut conn, filter, abt_core::shared::types::PageParams::new(page_num, 20))
-        .await?;
-
-    let counterparty_names = resolve_counterparty_names(&state, &service_ctx, &mut conn, &result.items).await;
-    Ok(Html(journal_data_card(&result, &params, &counterparty_names).into_string()))
-}
-
 fn build_filter(params: &JournalQueryParams) -> CashJournalFilter {
     let status_vec = match &params.status {
         Some(1) => vec![JournalStatus::Draft],
@@ -267,15 +248,16 @@ fn journal_table_fragment(result: &PaginatedResult<CashJournal>, params: &Journa
 
     html! {
         div {
-            (status_tabs_with_param(JournalTablePath::PATH, "#journal-data-card", "closest form", tabs, &selected_status, "status"))
+            (status_tabs_with_param(JournalListPath::PATH, "#journal-data-card", "#journal-filter-form", tabs, &selected_status, "status"))
 
-            form class="filter-bar filter-form"
-                hx-get=(JournalTablePath::PATH)
+            form class="filter-bar filter-form" id="journal-filter-form"
+                hx-get=(JournalListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#journal-data-card"
                 hx-select="#journal-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#journal-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

@@ -12,7 +12,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
-use crate::routes::customer::{CustomerDetailPath, CustomerListPath, CustomerTablePath, EditCustomerPath, DeleteCustomerPath};
+use crate::routes::customer::{CustomerDetailPath, CustomerListPath, EditCustomerPath, DeleteCustomerPath};
 use crate::utils::{empty_as_none, RequestContext};
 use crate::utils::fmt_qty;
 use abt_macros::require_permission;
@@ -57,23 +57,6 @@ pub async fn get_customer_list(
     );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("CUSTOMER", "read")]
-pub async fn get_customer_table(
-    ctx: RequestContext,
-    Query(params): Query<CustomerQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let can_delete = ctx.has_permission("CUSTOMER", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.customer_service();
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    Ok(Html(customer_table_fragment(&result, &params, can_delete).into_string()))
 }
 
 #[require_permission("CUSTOMER", "delete")]
@@ -195,16 +178,18 @@ fn customer_table_fragment(
 
     html! {
         div class="customer-list-panel" {
-            (status_tabs_with_param(CustomerTablePath::PATH, "#customer-data-card", "#customer-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(CustomerListPath::PATH, "#customer-data-card", "#customer-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
             form class="filter-bar filter-form" id="customer-filter-form"
-                hx-get=(CustomerTablePath::PATH)
+                hx-get=(CustomerListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#customer-data-card"
                 hx-select="#customer-data-card"
                 hx-swap="outerHTML"
-                hx-include="#customer-filter-form" {
+                hx-select-oob="#status-tabs"
+                hx-include="#customer-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

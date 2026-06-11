@@ -18,7 +18,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::fms::{WriteoffListPath, WriteoffTablePath};
+use crate::routes::fms::WriteoffListPath;
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -139,30 +139,6 @@ pub async fn get_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("FMS", "read")]
-pub async fn get_table(
-    _path: WriteoffTablePath,
-    ctx: RequestContext,
-    Query(params): Query<WriteoffQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.write_off_service();
-
-    let filter = WriteOffListFilter {
-        write_off_type: params.writeoff_type.and_then(WriteOffType::from_i16),
-        keyword: params.keyword.clone(),
-        start_date: params.start_date,
-        end_date: params.end_date,
-    };
-    let page_num = params.page.unwrap_or(1);
-    let result = svc
-        .list(&service_ctx, &mut conn, filter, abt_core::shared::types::PageParams::new(page_num, 20))
-        .await?;
-
-    let operator_names = resolve_operator_names(&state, &service_ctx, &mut conn, &result.items).await;
-    Ok(Html(writeoff_table_fragment(&result, &params, &operator_names).into_string()))
-}
-
 // ── Components ──
 
 fn writeoff_list_page(
@@ -204,7 +180,7 @@ fn writeoff_table_fragment(
         div {
             // 类型 Tab
             (status_tabs_with_param(
-                WriteoffTablePath::PATH,
+                WriteoffListPath::PATH,
                 "#writeoff-data-card",
                 "#writeoff-filter-form",
                 tabs,
@@ -214,12 +190,13 @@ fn writeoff_table_fragment(
 
             // 筛选栏 — 暂时只放占位搜索和日期筛选
             form id="writeoff-filter-form" class="filter-bar filter-form"
-                hx-get=(WriteoffTablePath::PATH)
+                hx-get=(WriteoffListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#writeoff-data-card"
                 hx-select="#writeoff-data-card"
                 hx-swap="outerHTML"
-                hx-include="#writeoff-filter-form" {
+                hx-include="#writeoff-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

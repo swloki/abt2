@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct ArrivalListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/arrivals/table")]
-pub struct ArrivalTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/arrivals/create")]
 pub struct ArrivalCreatePath;
 
@@ -39,7 +35,6 @@ pub struct ArrivalDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ArrivalListPath::PATH, get(wms_arrival_list::get_arrival_list))
-        .route(ArrivalTablePath::PATH, get(wms_arrival_list::get_arrival_table))
         .route(ArrivalProductsPath::PATH, get(wms_arrival_create::get_products))
         .route(ArrivalItemRowPath::PATH, get(wms_arrival_create::get_item_row))
         .route(ArrivalCreatePath::PATH, get(wms_arrival_create::get_arrival_create).post(wms_arrival_create::create_arrival))

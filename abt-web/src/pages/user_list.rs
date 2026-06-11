@@ -76,37 +76,6 @@ pub async fn get_user_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("USER", "read")]
-pub async fn get_user_table(
-    ctx: RequestContext,
-    Query(params): Query<UserQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let can_delete = ctx.has_permission("USER", "delete").await;
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-
-    let user_svc = state.user_service();
-    let role_svc = state.role_service();
-    let dept_svc = state.department_service();
-
-    let users = user_svc
-        .list_users_with_roles(&service_ctx, &mut conn)
-        .await?;
-    let all_roles = role_svc.list_roles(&service_ctx, &mut conn).await?;
-    let all_depts = dept_svc.list_departments(&service_ctx, &mut conn).await?;
-
-    let user_depts = load_user_departments(&dept_svc, &service_ctx, &mut conn, &users).await;
-
-    Ok(Html(
-        user_table_fragment(&users, &all_roles, &all_depts, &user_depts, &params, can_delete)
-            .into_string(),
-    ))
-}
-
 #[require_permission("USER", "delete")]
 pub async fn delete_user(
     path: UserDeletePath,
@@ -315,7 +284,7 @@ fn user_table_fragment(
     let page_users: Vec<_> = filtered.into_iter().skip(skip).take(page_size as usize).collect();
 
     let status_query = |s: &str| -> String {
-        let mut qs = format!("{}?page=1", UserTablePath::PATH);
+        let mut qs = format!("{}?page=1", UserListPath::PATH);
         if !s.is_empty() {
             qs.push_str("&status=");
             qs.push_str(s);
@@ -406,7 +375,7 @@ fn user_table_fragment(
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索用户名、显示名称…"
                         value=(keyword)
-                        hx-get=(UserTablePath::PATH)
+                        hx-get=(UserListPath::PATH)
                         hx-trigger="keyup changed delay:300ms"
                         hx-target="closest .user-list-panel"
                         hx-swap="outerHTML"
@@ -414,7 +383,7 @@ fn user_table_fragment(
                         hx-include="select[name=role_filter],select[name=dept_filter]";
                 }
                 select class="filter-select" name="role_filter"
-                    hx-get=(UserTablePath::PATH)
+                    hx-get=(UserListPath::PATH)
                     hx-trigger="change"
                     hx-target="closest .user-list-panel"
                     hx-swap="outerHTML"
@@ -429,7 +398,7 @@ fn user_table_fragment(
                     }
                 }
                 select class="filter-select" name="dept_filter"
-                    hx-get=(UserTablePath::PATH)
+                    hx-get=(UserListPath::PATH)
                     hx-trigger="change"
                     hx-target="closest .user-list-panel"
                     hx-swap="outerHTML"
@@ -479,7 +448,7 @@ fn user_table_fragment(
 
             // ── Pagination ──
             (pagination::htmx_pagination_inherited(
-                UserTablePath::PATH,
+                UserListPath::PATH,
                 total,
                 page,
                 total_pages,

@@ -153,25 +153,6 @@ pub async fn get_precon_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("PURCHASE_RECON", "read")]
-pub async fn get_precon_table(
-    ctx: RequestContext,
-    Query(params): Query<PreconQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.purchase_reconciliation_service();
-    let supplier_svc = state.supplier_service();
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-    let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-    let item_counts = resolve_item_counts(&svc, &service_ctx, &mut conn, &result.items).await;
-    let suppliers = supplier_svc
-        .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
-        .await?;
-    Ok(Html(precon_table_fragment(&result, &supplier_names, &item_counts, &suppliers.items, &params).into_string()))
-}
-
 // ── Components ──
 
 fn precon_list_page(
@@ -223,15 +204,17 @@ fn precon_table_fragment(
     let periods = generate_periods(12);
     html! {
         div class="precon-list-panel" {
-            (status_tabs_with_param(PreconTablePath::PATH, "#precon-data-card", "#precon-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(PreconListPath::PATH, "#precon-data-card", "#precon-filter-form", tabs, &active_value, "status"))
             // ── Filter Bar ──
             form class="filter-bar filter-form" id="precon-filter-form"
-                hx-get=(PreconTablePath::PATH)
+                hx-get=(PreconListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#precon-data-card"
                 hx-select="#precon-data-card"
                 hx-swap="outerHTML"
-                hx-include="#precon-filter-form" {
+                hx-select-oob="#status-tabs"
+                hx-include="#precon-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

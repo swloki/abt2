@@ -186,31 +186,6 @@ pub async fn get_pay_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("PAYMENT_REQUEST", "read")]
-pub async fn get_pay_table(
-    ctx: RequestContext,
-    Query(params): Query<PayQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("PURCHASE_ORDER", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.payment_request_service();
-    let supplier_svc = state.supplier_service();
-    let recon_svc = state.purchase_reconciliation_service();
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-    let recon_doc_numbers = resolve_recon_doc_numbers(&recon_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let suppliers = supplier_svc
-        .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(pay_table_fragment(&result, &supplier_names, &recon_doc_numbers, &suppliers.items, &params, can_delete).into_string()))
-}
-
 // ── Components ──
 
 fn pay_list_page(
@@ -269,16 +244,18 @@ fn pay_table_fragment(
 
     html! {
         div class="pay-list-panel" {
-            (status_tabs_with_param(PayTablePath::PATH, "#pay-data-card", "#pay-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(PayListPath::PATH, "#pay-data-card", "#pay-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
             form class="filter-bar filter-form" id="pay-filter-form"
-                hx-get=(PayTablePath::PATH)
+                hx-get=(PayListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#pay-data-card"
                 hx-select="#pay-data-card"
                 hx-swap="outerHTML"
-                hx-include="#pay-filter-form" {
+                hx-select-oob="#status-tabs"
+                hx-include="#pay-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

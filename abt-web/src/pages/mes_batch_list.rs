@@ -13,7 +13,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_batch::{BatchListPath, BatchTablePath};
+use crate::routes::mes_batch::BatchListPath;
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -81,21 +81,6 @@ pub async fn get_batch_list(
     Ok(Html(admin_page(is_htmx, "生产批次", &claims, "production", BatchListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[require_permission("WORK_ORDER", "read")]
-pub async fn get_batch_table(
-    _path: BatchTablePath, ctx: RequestContext, Query(params): Query<BatchQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let filter = BatchListFilter {
-        status: params.status.as_deref().and_then(parse_batch_status),
-        keyword: params.keyword.clone(),
-    };
-    let page = params.page.unwrap_or(1);
-    let result = state.production_batch_service()
-        .list_batches(&service_ctx, &mut conn, filter, page, 20).await?;
-    Ok(Html(batch_data_card(&result, &params).into_string()))
-}
-
 fn batch_list_page(
     result: &PaginatedResult<BatchListItem>,
     params: &BatchQueryParams,
@@ -122,10 +107,11 @@ fn batch_table_fragment(
     let sel = params.status.as_deref().unwrap_or("");
 
     html! { div {
-        (status_tabs_with_param(BatchTablePath::PATH, "#batch-data-card", "closest form", tabs, sel, "status"))
-        form class="filter-bar filter-form" hx-get=(BatchTablePath::PATH)
+        (status_tabs_with_param(BatchListPath::PATH, "#batch-data-card", "#filter-form", tabs, sel, "status"))
+        form id="filter-form" class="filter-bar filter-form" hx-get=(BatchListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
-            hx-target="#batch-data-card" hx-select="#batch-data-card" hx-swap="outerHTML" hx-include="closest form" {
+            hx-target="#batch-data-card" hx-select="#batch-data-card" hx-swap="outerHTML" hx-include="#filter-form"
+                hx-push-url="true" {
             div class="search-wrap" { (icon::search_icon("w-4 h-4"))
                 input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索批次号…" value=(params.keyword.as_deref().unwrap_or(""));
             }
@@ -205,7 +191,7 @@ fn batch_data_card(
                     }
                 }}
             }
-            (pagination(BatchTablePath::PATH, &query, result.total, result.page, result.total_pages))
+            (pagination(BatchListPath::PATH, &query, result.total, result.page, result.total_pages))
         }
     }
 }

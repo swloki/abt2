@@ -15,10 +15,6 @@ use crate::state::AppState;
 pub struct ReconciliationListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/reconciliations/table")]
-pub struct ReconciliationTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/reconciliations/new")]
 pub struct ReconciliationCreatePath;
 
@@ -67,8 +63,7 @@ pub struct SettleReconciliationPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ReconciliationListPath::PATH, get(reconciliation_list::get_reconciliation_list))
-        .route(ReconciliationTablePath::PATH, get(reconciliation_list::get_reconciliation_table))
-        .route(ReconciliationCreatePath::PATH, get(reconciliation_create::get_reconciliation_create).post(reconciliation_create::post_reconciliation_create))
+.route(ReconciliationCreatePath::PATH, get(reconciliation_create::get_reconciliation_create).post(reconciliation_create::post_reconciliation_create))
         .route(ReconciliationPreviewPath::PATH, get(reconciliation_create::get_reconciliation_preview))
         .route(ReconciliationDetailPath::PATH, get(reconciliation_detail::get_reconciliation_detail))
         .route(ReconciliationDeletePath::PATH, post(reconciliation_list::delete_reconciliation))

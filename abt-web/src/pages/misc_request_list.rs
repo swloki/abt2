@@ -189,27 +189,6 @@ pub async fn get_misc_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("MISC_REQUEST", "read")]
-pub async fn get_misc_table(
-    ctx: RequestContext,
-    Query(params): Query<MiscQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.misc_request_service();
-    let user_svc = state.user_service();
-    let dept_svc = state.department_service();
-
-    let dept_id_map = load_dept_id_map(&dept_svc, &service_ctx, &mut conn).await;
-    let filter = build_filter(&params, &dept_id_map);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let operator_map = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
-    let dept_name_map = resolve_department_names(&dept_svc, &service_ctx, &mut conn).await;
-
-    Ok(Html(misc_table_fragment(&result, &params, &operator_map, &dept_name_map).into_string()))
-}
-
 // ── Components ──
 
 fn misc_list_page(
@@ -265,16 +244,18 @@ fn misc_table_fragment(
 
     html! {
         div class="misc-list-panel" {
-            (status_tabs_with_param(MiscTablePath::PATH, "#misc-data-card", "#misc-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(MiscListPath::PATH, "#misc-data-card", "#misc-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
             form class="filter-bar filter-form" id="misc-filter-form"
-                hx-get=(MiscTablePath::PATH)
+                hx-get=(MiscListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#misc-data-card"
                 hx-select="#misc-data-card"
                 hx-swap="outerHTML"
-                hx-include="#misc-filter-form" {
+                hx-select-oob="#status-tabs"
+                hx-include="#misc-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

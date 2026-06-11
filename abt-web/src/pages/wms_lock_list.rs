@@ -17,7 +17,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::wms_inventory_lock::{
-    LockCreatePath, LockDetailPath, LockListPath, LockTablePath,
+    LockCreatePath, LockDetailPath, LockListPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 
@@ -107,60 +107,6 @@ pub async fn get_lock_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "read")]
-pub async fn get_lock_table(
-    _path: LockTablePath,
-    ctx: RequestContext,
-    Query(params): Query<LockQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.inventory_lock_service();
-
-    let filter = build_filter(&params);
-    let page_num = params.page.unwrap_or(1);
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
-
-    // batch resolve IDs
-    let product_svc = state.product_service();
-    let mut product_map: std::collections::HashMap<i64, (String, String)> = std::collections::HashMap::new();
-    for lock in &result.items {
-        if !product_map.contains_key(&lock.product_id)
-            && let Ok(p) = product_svc.get(&service_ctx, &mut conn, lock.product_id).await {
-                product_map.insert(lock.product_id, (p.product_code, p.pdt_name));
-            }
-    }
-
-    let wh_svc = state.warehouse_service();
-    let mut wh_names: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
-    for lock in &result.items {
-        if !wh_names.contains_key(&lock.warehouse_id)
-            && let Ok(w) = wh_svc.get(&service_ctx, &mut conn, lock.warehouse_id).await {
-                wh_names.insert(lock.warehouse_id, w.name);
-            }
-    }
-
-    let user_svc = state.user_service();
-    let operator_ids: Vec<i64> = result.items.iter().map(|l| l.operator_id).collect();
-    let operator_map = user_svc.get_users_by_ids(&service_ctx, &mut conn, operator_ids)
-        .await
-        .map(|users| users.into_iter().map(|u| (u.user.user_id, u.user.display_name.unwrap_or(u.user.username))).collect::<std::collections::HashMap<i64, String>>())
-        .unwrap_or_default();
-
-    let customer_svc = state.customer_service();
-    let mut customer_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
-    for lock in &result.items {
-        if let Some(cid) = lock.customer_id
-            && !customer_map.contains_key(&cid)
-                && let Ok(c) = customer_svc.get(&service_ctx, &mut conn, cid).await {
-                    customer_map.insert(cid, c.name);
-                }
-    }
-
-    let fragment = lock_table_fragment(&result, &params, &product_map, &wh_names, &operator_map, &customer_map);
-    Ok(Html(fragment.into_string()))
-}
-
 // ── Helpers ──
 
 fn build_filter(params: &LockQueryParams) -> LockFilter {
@@ -239,15 +185,16 @@ fn lock_table_fragment(
 
     html! {
         div class="lock-list-panel" {
-            (status_tabs_with_param(LockTablePath::PATH, "#lock-data-card", "#lock-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(LockListPath::PATH, "#lock-data-card", "#lock-filter-form", tabs, &active_value, "status"))
 
             form class="filter-bar filter-form" id="lock-filter-form"
-                hx-get=(LockTablePath::PATH)
+                hx-get=(LockListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#lock-data-card"
                 hx-select="#lock-data-card"
                 hx-swap="outerHTML"
-                hx-include="#lock-filter-form" {
+                hx-include="#lock-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

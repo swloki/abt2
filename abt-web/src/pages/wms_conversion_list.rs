@@ -11,7 +11,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
-use crate::routes::wms_conversion::{ConversionCreatePath, ConversionDetailPath, ConversionListPath, ConversionTablePath};
+use crate::routes::wms_conversion::{ConversionCreatePath, ConversionDetailPath, ConversionListPath};
 use crate::utils::{empty_as_none, RequestContext};
 
 use abt_macros::require_permission;
@@ -60,25 +60,6 @@ pub async fn get_conversion_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("INVENTORY", "read")]
-pub async fn get_conversion_table(
-    _path: ConversionTablePath,
-    ctx: RequestContext,
-    Query(params): Query<ConversionQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.form_conversion_service();
-
-    let filter = build_filter(&params);
-    let page = params.page.unwrap_or(1);
-    let page_size = 20u32;
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page, page_size).await?;
-
-    let fragment = conversion_table_fragment(&result, &params);
-    Ok(Html(fragment.into_string()))
 }
 
 // ── Helpers ──
@@ -172,15 +153,16 @@ fn conversion_table_fragment(
 
     html! {
         div class="conversion-list-panel" {
-            (status_tabs_with_param(ConversionTablePath::PATH, "#conversion-data-card", "#conversion-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(ConversionListPath::PATH, "#conversion-data-card", "#conversion-filter-form", tabs, &active_value, "status"))
 
             form class="filter-bar filter-form" id="conversion-filter-form"
-                hx-get=(ConversionTablePath::PATH)
+                hx-get=(ConversionListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#conversion-data-card"
                 hx-select="#conversion-data-card"
                 hx-swap="outerHTML"
-                hx-include="#conversion-filter-form" {
+                hx-include="#conversion-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

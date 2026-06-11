@@ -13,7 +13,7 @@ use crate::components::export_button;
 use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
 use crate::routes::labor_process_dict::{
-    ProcessDictCreatePath, ProcessDictDeletePath, ProcessDictListPath, ProcessDictTablePath,
+    ProcessDictCreatePath, ProcessDictDeletePath, ProcessDictListPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
@@ -79,30 +79,6 @@ pub async fn get_process_dict_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("LABOR_PROCESS_DICT", "read")]
-pub async fn get_process_dict_table(
-    ctx: RequestContext,
-    Query(params): Query<ProcessDictQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let can_delete = ctx.has_permission("LABOR_PROCESS_DICT", "delete").await;
-    let RequestContext {
-        mut conn,
-        state,
-        service_ctx,
-        ..
-    } = ctx;
-    let svc = state.labor_process_dict_service();
-
-    let filter = LaborProcessDictQuery {
-        keyword: params.keyword.clone(),
-    };
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    Ok(Html(process_dict_table_fragment(&result, &params, can_delete).into_string()))
 }
 
 #[require_permission("LABOR_PROCESS_DICT", "create")]
@@ -231,7 +207,7 @@ fn process_dict_table_fragment(
                     input class="search-input" type="text" name="keyword"
                         placeholder="搜索工序编码或名称…"
                         value=(params.keyword.as_deref().unwrap_or(""))
-                        hx-get=(ProcessDictTablePath::PATH)
+                        hx-get=(ProcessDictListPath::PATH)
                         hx-trigger="keyup changed delay:300ms, processDictDeleted from:body"
                         hx-target="#process-dict-table"
                         hx-select="#process-dict-table"

@@ -15,10 +15,6 @@ use crate::state::AppState;
 pub struct ReturnListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/returns/table")]
-pub struct ReturnTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/returns/new")]
 pub struct ReturnCreatePath;
 
@@ -73,8 +69,7 @@ pub struct ReturnDeletePath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ReturnListPath::PATH, get(sales_return_list::get_return_list))
-        .route(ReturnTablePath::PATH, get(sales_return_list::get_return_table))
-        .route(ReturnCreatePath::PATH, get(sales_return_create::get_return_create).post(sales_return_create::create_return))
+.route(ReturnCreatePath::PATH, get(sales_return_create::get_return_create).post(sales_return_create::create_return))
         .route(ReturnOrdersPath::PATH, get(sales_return_create::get_orders))
         .route(ReturnDetailPath::PATH, get(sales_return_detail::get_return_detail))
         .route(ConfirmReturnPath::PATH, post(sales_return_detail::confirm_return))

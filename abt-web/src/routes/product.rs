@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct ProductListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/products/table")]
-pub struct ProductTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/products/new")]
 pub struct ProductCreatePath;
 
@@ -51,12 +47,6 @@ pub struct ProductUsagePath {
 }
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/products/{id}/usage-table")]
-pub struct ProductUsageTablePath {
-    pub id: i64,
-}
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/products/{id}/price")]
 pub struct ProductPricePath {
     pub id: i64,
@@ -78,9 +68,6 @@ pub struct ProductPriceDrawerPath {
 #[typed_path("/admin/md/price-history")]
 pub struct PriceHistoryListPath;
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/price-history/table")]
-pub struct PriceHistoryTablePath;
 #[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/price-history/{log_id}/detail")]
 pub struct PriceHistoryDetailPath {
@@ -110,14 +97,12 @@ pub struct ProductCopyPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ProductListPath::PATH, get(product_list::get_product_list))
-        .route(ProductTablePath::PATH, get(product_list::get_product_table))
         .route(ProductCreatePath::PATH, get(product_create::get_product_create).post(product_create::post_product_create))
         .route(ProductDetailPath::PATH, get(product_detail::get_product_detail))
         .route(ProductUpdatePath::PATH, post(product_detail::update_product))
         .route(ProductEditPath::PATH, get(product_detail::get_product_edit))
         .route(ProductDeletePath::PATH, post(product_list::delete_product))
         .route(ProductUsagePath::PATH, get(product_list::get_product_usage))
-        .route(ProductUsageTablePath::PATH, get(product_detail::get_product_usage_table))
         .route(ProductPricePath::PATH, post(product_list::update_product_price))
         .route(ProductPriceHistoryPath::PATH, get(product_list::get_price_history))
         .route(ProductPriceDrawerPath::PATH, get(product_list::get_price_drawer))
@@ -125,6 +110,5 @@ pub fn router() -> Router<AppState> {
         .route(ProductUnwatchPath::PATH, post(product_list::unwatch_product))
         .route(ProductCopyPath::PATH, get(product_create::copy_product))
         .route(PriceHistoryListPath::PATH, get(price_history_list::get_price_history_list))
-        .route(PriceHistoryTablePath::PATH, get(price_history_list::get_price_history_table))
         .route(PriceHistoryDetailPath::PATH, get(price_history_list::get_price_history_detail))
 }

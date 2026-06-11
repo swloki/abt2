@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct BatchListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/batches/table")]
-pub struct BatchTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/batches/{id}")]
 pub struct BatchDetailPath {
     pub id: i64,
@@ -69,7 +65,6 @@ pub struct ScheduleBoardPath;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(BatchListPath::PATH, get(mes_batch_list::get_batch_list))
-        .route(BatchTablePath::PATH, get(mes_batch_list::get_batch_table))
         .route(BatchDetailPath::PATH, get(mes_batch_detail::get_batch_detail))
         .route(BatchConfirmStepPath::PATH, post(mes_batch_detail::confirm_step))
         .route(BatchAdvancePath::PATH, post(mes_batch_detail::advance_to_receipt))

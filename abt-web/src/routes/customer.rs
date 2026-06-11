@@ -20,10 +20,6 @@ pub struct CustomerListPath;
 pub struct CreateCustomerPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/customers/table")]
-pub struct CustomerTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/customers/{id}/edit")]
 pub struct EditCustomerPath {
     pub id: i64,
@@ -78,8 +74,7 @@ pub struct CustomerTransactionsPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(CustomerListPath::PATH, get(customer_list::get_customer_list))
-        .route(CustomerTablePath::PATH, get(customer_list::get_customer_table))
-        .route(CreateCustomerPath::PATH, get(customer_create::get_customer_create).post(customer_create::post_customer_create))
+.route(CreateCustomerPath::PATH, get(customer_create::get_customer_create).post(customer_create::post_customer_create))
         .route(EditCustomerPath::PATH, get(customer_edit::get_customer_edit).post(customer_edit::post_customer_edit))
         .route(CustomerDetailPath::PATH, get(customer_detail::get_customer_detail))
         .route(CreateContactPath::PATH, post(customer_detail::create_contact))

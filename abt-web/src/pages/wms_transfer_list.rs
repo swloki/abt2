@@ -11,7 +11,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs, TabItem};
 use crate::layout::page::admin_page;
-use crate::routes::wms_transfer::{TransferCreatePath, TransferDetailPath, TransferListPath, TransferTablePath};
+use crate::routes::wms_transfer::{TransferCreatePath, TransferDetailPath, TransferListPath};
 use crate::utils::{empty_as_none, RequestContext};
 
 use abt_macros::require_permission;
@@ -60,86 +60,6 @@ pub async fn get_transfer_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("INVENTORY", "read")]
-pub async fn get_transfer_table(
-    _path: TransferTablePath,
-    ctx: RequestContext,
-    Query(params): Query<TransferQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.transfer_service();
-
-    let filter = build_filter(&params);
-    let page = params.page.unwrap_or(1);
-    let page_size = 20u32;
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page, page_size).await?;
-
-    let query = build_query_string(&params);
-    let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
-    let total_count = result.total;
-
-    let tabs = &[
-        TabItem { value: String::new(), label: "全部", count: Some(total_count) },
-        TabItem { value: "1".into(), label: "草稿", count: None },
-        TabItem { value: "2".into(), label: "在途", count: None },
-        TabItem { value: "3".into(), label: "已完成", count: None },
-        TabItem { value: "4".into(), label: "已取消", count: None },
-    ];
-
-    let data_card = html! {
-        div class="data-card" id="transfer-data-card" {
-            (status_tabs(TransferTablePath::PATH, "#transfer-data-card", ".filter-bar input, .filter-bar select", tabs, &active_value))
-
-            form class="filter-bar filter-form"
-                hx-get=(TransferTablePath::PATH)
-                hx-trigger="change, keyup changed delay:300ms from:.search-input"
-                hx-target="#transfer-data-card"
-                hx-select="#transfer-data-card"
-                hx-swap="outerHTML"
-                hx-include="closest form" {
-                div class="search-wrap" {
-                    (icon::search_icon("w-4 h-4"))
-                    input class="search-input" type="text" name="doc_number"
-                        placeholder="调拨单号";
-                }
-            }
-
-            div class="data-card-scroll" {
-                table class="data-table" {
-                    thead {
-                        tr {
-                            th { "调拨单号" }
-                            th { "调出仓库" }
-                            th { "调入仓库" }
-                            th { "调拨日期" }
-                            th { "状态" }
-                            th class="num-right" { "物料项数" }
-                            th { "操作员" }
-                            th { "操作" }
-                        }
-                    }
-                    tbody {
-                        @for t in &result.items {
-                            (transfer_row(t))
-                        }
-                        @if result.items.is_empty() {
-                            tr {
-                                td colspan="8" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
-                                    "暂无调拨数据"
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            (pagination(TransferListPath::PATH, &query, result.total, result.page, result.total_pages))
-        }
-    };
-
-    Ok(Html(data_card.into_string()))
 }
 
 // ── Helpers ──
@@ -197,15 +117,16 @@ fn transfer_table_fragment(
 
     html! {
         div class="data-card" id="transfer-data-card" {
-            (status_tabs(TransferTablePath::PATH, "#transfer-data-card", ".filter-bar input, .filter-bar select", tabs, &active_value))
+            (status_tabs(TransferListPath::PATH, "#transfer-data-card", ".filter-bar input, .filter-bar select", tabs, &active_value))
 
-            form class="filter-bar filter-form"
-                hx-get=(TransferTablePath::PATH)
+            form class="filter-bar filter-form" id="transfer-filter-form"
+                hx-get=(TransferListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#transfer-data-card"
                 hx-select="#transfer-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#transfer-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

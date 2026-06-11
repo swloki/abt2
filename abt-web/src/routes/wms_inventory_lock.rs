@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct LockListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/locks/table")]
-pub struct LockTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/locks/create")]
 pub struct LockCreatePath;
 
@@ -31,7 +27,6 @@ pub struct LockDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(LockListPath::PATH, get(wms_lock_list::get_lock_list))
-        .route(LockTablePath::PATH, get(wms_lock_list::get_lock_table))
         .route(LockCreatePath::PATH, get(wms_lock_create::get_lock_create).post(wms_lock_create::create_lock))
         .route(LockDetailPath::PATH, get(wms_lock_detail::get_lock_detail).post(wms_lock_detail::post_lock_action))
 }

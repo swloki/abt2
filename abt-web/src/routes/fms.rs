@@ -18,10 +18,6 @@ pub struct FmsDashboardPath;
 pub struct JournalListPath;
 
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
-#[typed_path("/admin/fms/journals/table")]
-pub struct JournalTablePath;
-
-#[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/journals/create")]
 pub struct JournalCreatePath;
 
@@ -35,10 +31,6 @@ pub struct JournalDetailPath {
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/expenses")]
 pub struct ExpenseListPath;
-
-#[derive(TypedPath, Deserialize, Serialize, Clone)]
-#[typed_path("/admin/fms/expenses/table")]
-pub struct ExpenseTablePath;
 
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/expenses/create")]
@@ -55,10 +47,6 @@ pub struct ExpenseDetailPath {
 #[typed_path("/admin/fms/writeoffs")]
 pub struct WriteoffListPath;
 
-#[derive(TypedPath, Deserialize, Serialize, Clone)]
-#[typed_path("/admin/fms/writeoffs/table")]
-pub struct WriteoffTablePath;
-
 // Cost Analysis
 #[derive(TypedPath, Deserialize, Serialize, Clone)]
 #[typed_path("/admin/fms/cost-analysis")]
@@ -72,17 +60,14 @@ pub fn router() -> Router<AppState> {
         .route(FmsDashboardPath::PATH, get(crate::pages::fms_dashboard::get_dashboard))
         // Cash Journal
         .route(JournalListPath::PATH, get(crate::pages::fms_journal_list::get_list))
-        .route(JournalTablePath::PATH, get(crate::pages::fms_journal_list::get_table))
-        .route(JournalCreatePath::PATH, get(crate::pages::fms_journal_create::get_create).post(crate::pages::fms_journal_create::create))
+.route(JournalCreatePath::PATH, get(crate::pages::fms_journal_create::get_create).post(crate::pages::fms_journal_create::create))
         .route(JournalDetailPath::PATH, get(crate::pages::fms_journal_detail::get_detail))
         // Expense
         .route(ExpenseListPath::PATH, get(crate::pages::fms_expense_list::get_list))
-        .route(ExpenseTablePath::PATH, get(crate::pages::fms_expense_list::get_table))
-        .route(ExpenseCreatePath::PATH, get(crate::pages::fms_expense_create::get_create).post(crate::pages::fms_expense_create::create))
+.route(ExpenseCreatePath::PATH, get(crate::pages::fms_expense_create::get_create).post(crate::pages::fms_expense_create::create))
         .route(ExpenseDetailPath::PATH, get(crate::pages::fms_expense_detail::get_detail))
         // Write-Off
         .route(WriteoffListPath::PATH, get(crate::pages::fms_writeoff_list::get_list))
-        .route(WriteoffTablePath::PATH, get(crate::pages::fms_writeoff_list::get_table))
-        // Cost Analysis
+// Cost Analysis
         .route(CostAnalysisPath::PATH, get(crate::pages::fms_cost_analysis::get_page))
 }

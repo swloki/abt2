@@ -156,31 +156,6 @@ pub async fn get_arrival_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "read")]
-pub async fn get_arrival_table(
-    _path: ArrivalTablePath,
-    ctx: RequestContext,
-    Query(params): Query<ArrivalQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.arrival_notice_service();
-    let warehouse_svc = state.warehouse_service();
-    let supplier_svc = state.supplier_service();
-
-    let filter = build_filter(&params);
-    let page = params.page.unwrap_or(1);
-    let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
-
-    let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-    let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let warehouses = warehouse_svc
-        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
-        .await?;
-
-    Ok(Html(arrival_table_fragment(&result, &warehouse_names, &supplier_names, &warehouses.items, &params, false).into_string()))
-}
-
 // ── Components ──
 
 fn arrival_list_page(
@@ -237,15 +212,16 @@ fn arrival_table_fragment(
 
     html! {
         div class="arrival-list-panel" {
-            (status_tabs_with_param(ArrivalTablePath::PATH, "#arrival-data-card", "#arrival-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(ArrivalListPath::PATH, "#arrival-data-card", "#arrival-filter-form", tabs, &active_value, "status"))
 
             form class="filter-bar filter-form" id="arrival-filter-form"
-                hx-get=(ArrivalTablePath::PATH)
+                hx-get=(ArrivalListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#arrival-data-card"
                 hx-select="#arrival-data-card"
                 hx-swap="outerHTML"
-                hx-include="#arrival-filter-form" {
+                hx-include="#arrival-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

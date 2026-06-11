@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct WarehouseListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/warehouses/table")]
-pub struct WarehouseTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/warehouses/create")]
 pub struct WarehouseCreatePath;
 
@@ -61,7 +57,6 @@ pub struct WarehouseZoneBinsPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(WarehouseListPath::PATH, get(wms_warehouse_list::get_warehouse_list))
-        .route(WarehouseTablePath::PATH, get(wms_warehouse_list::get_warehouse_table))
         .route(WarehouseCreatePath::PATH, get(wms_warehouse_create::get_warehouse_create).post(wms_warehouse_create::create_warehouse))
         .route(WarehouseDetailPath::PATH, get(wms_warehouse_detail::get_warehouse_detail))
         .route(WarehouseEditPath::PATH, get(wms_warehouse_detail::get_warehouse_edit).post(wms_warehouse_detail::update_warehouse))

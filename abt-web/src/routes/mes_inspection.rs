@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct InspectionListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/mes/inspections/table")]
-pub struct InspectionTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/mes/inspections/create")]
 pub struct InspectionCreatePath;
 
@@ -37,7 +33,6 @@ pub struct InspectionRecordResultPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(InspectionListPath::PATH, get(mes_inspection_list::get_inspection_list))
-        .route(InspectionTablePath::PATH, get(mes_inspection_list::get_inspection_table))
         .route(
             InspectionCreatePath::PATH,
             get(mes_inspection_create::get_inspection_create).post(mes_inspection_create::create_inspection),

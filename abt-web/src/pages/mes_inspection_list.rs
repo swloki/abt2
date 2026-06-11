@@ -14,7 +14,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_inspection::{InspectionCreatePath, InspectionListPath, InspectionTablePath};
+use crate::routes::mes_inspection::{InspectionCreatePath, InspectionListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -72,18 +72,6 @@ pub async fn get_inspection_list(
     Ok(Html(admin_page(is_htmx, "生产报检", &claims, "production", InspectionListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[require_permission("INSPECTION", "read")]
-pub async fn get_inspection_table(
-    _path: InspectionTablePath, ctx: RequestContext, Query(params): Query<InspectionQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let filter = params.to_filter();
-    let page = params.page.unwrap_or(1);
-    let svc = state.production_inspection_service();
-    let result = svc.list_inspections(&service_ctx, &mut conn, filter, page, 20).await?;
-    Ok(Html(inspection_data_card(&result, &params).into_string()))
-}
-
 fn inspection_list_page(
     result: &PaginatedResult<InspectionListItem>,
     params: &InspectionQueryParams,
@@ -112,10 +100,11 @@ fn inspection_table_fragment(
     let sel = params.inspection_type.as_deref().unwrap_or("");
 
     html! { div {
-        (status_tabs_with_param(InspectionTablePath::PATH, "#insp-data-card", "closest form", tabs, sel, "inspection_type"))
-        form class="filter-bar filter-form" hx-get=(InspectionTablePath::PATH)
+        (status_tabs_with_param(InspectionListPath::PATH, "#insp-data-card", "#filter-form", tabs, sel, "inspection_type"))
+        form id="filter-form" class="filter-bar filter-form" hx-get=(InspectionListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
-            hx-target="#insp-data-card" hx-select="#insp-data-card" hx-swap="outerHTML" hx-include="closest form" {
+            hx-target="#insp-data-card" hx-select="#insp-data-card" hx-swap="outerHTML" hx-include="#filter-form"
+                hx-push-url="true" {
             div class="search-wrap" { (icon::search_icon("w-4 h-4"))
                 input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索报检单号…" value=(params.keyword.as_deref().unwrap_or(""));
             }

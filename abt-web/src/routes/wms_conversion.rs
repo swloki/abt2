@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct ConversionListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/wms/conversions/table")]
-pub struct ConversionTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/wms/conversions/create")]
 pub struct ConversionCreatePath;
 
@@ -39,7 +35,6 @@ pub struct ConversionDetailPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ConversionListPath::PATH, get(wms_conversion_list::get_conversion_list))
-        .route(ConversionTablePath::PATH, get(wms_conversion_list::get_conversion_table))
         .route(ConversionProductsPath::PATH, get(wms_conversion_create::get_products))
         .route(ConversionItemRowPath::PATH, get(wms_conversion_create::get_item_row))
         .route(ConversionCreatePath::PATH, get(wms_conversion_create::get_conversion_create).post(wms_conversion_create::create_conversion))

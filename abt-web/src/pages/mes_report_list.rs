@@ -12,7 +12,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_report::{ReportCreatePath, ReportListPath, ReportTablePath};
+use crate::routes::mes_report::{ReportCreatePath, ReportListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -60,18 +60,6 @@ pub async fn get_report_list(
     Ok(Html(admin_page(is_htmx, "报工记录", &claims, "production", ReportListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[require_permission("WORK_ORDER", "read")]
-pub async fn get_report_table(
-    _path: ReportTablePath, ctx: RequestContext, Query(params): Query<ReportQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.work_report_service();
-    let filter = build_filter(&params);
-    let page = params.page.unwrap_or(1).max(1);
-    let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
-    Ok(Html(report_data_card(&result, &params).into_string()))
-}
-
 fn report_list_page(
     result: &PaginatedResult<ReportListItem>,
     params: &ReportQueryParams,
@@ -92,9 +80,10 @@ fn report_table_fragment(
     params: &ReportQueryParams,
 ) -> Markup {
     html! { div {
-        form class="filter-bar filter-form" hx-get=(ReportTablePath::PATH)
+        form id="filter-form" class="filter-bar filter-form" hx-get=(ReportListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
-            hx-target="#report-data-card" hx-select="#report-data-card" hx-swap="outerHTML" hx-include="closest form" {
+            hx-target="#report-data-card" hx-select="#report-data-card" hx-swap="outerHTML" hx-include="#filter-form"
+                hx-push-url="true" {
             div class="search-wrap" { (icon::search_icon("w-4 h-4"))
                 input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
             }
@@ -144,7 +133,7 @@ fn report_data_card(
                     }
                 }}
             }
-            (pagination(ReportTablePath::PATH, &query, result.total, result.page, result.total_pages))
+            (pagination(ReportListPath::PATH, &query, result.total, result.page, result.total_pages))
         }
     }
 }

@@ -15,10 +15,6 @@ use crate::state::AppState;
 pub struct POListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/purchase/orders/table")]
-pub struct POTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/orders/create")]
 pub struct POCreatePath;
 
@@ -63,8 +59,7 @@ pub struct PODeletePath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(POListPath::PATH, get(purchase_order_list::get_po_list))
-        .route(POTablePath::PATH, get(purchase_order_list::get_po_table))
-        .route(POCreatePath::PATH, get(purchase_order_create::get_po_create).post(purchase_order_create::create_po))
+.route(POCreatePath::PATH, get(purchase_order_create::get_po_create).post(purchase_order_create::create_po))
         .route(POProductsPath::PATH, get(purchase_order_create::get_po_products))
         .route(POItemRowPath::PATH, get(purchase_order_create::get_po_item_row))
         .route(POSupplierDetailPath::PATH, get(purchase_order_create::get_po_supplier_detail))

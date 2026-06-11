@@ -142,36 +142,6 @@ pub async fn get_reconciliation_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("SALES_ORDER", "read")]
-pub async fn get_reconciliation_table(
-    ctx: RequestContext,
-    Query(params): Query<ReconciliationQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("SALES_ORDER", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-
-    let reconciliation_svc = state.reconciliation_service();
-    let customer_svc = state.customer_service();
-
-    let filter = ReconciliationQuery {
-        customer_id: params.customer_id,
-        period: params.period.clone(),
-        status: params.status.and_then(ReconciliationStatus::from_i16),
-        keyword: params.keyword.clone(),
-    };
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = reconciliation_svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let status_counts = count_by_status(&reconciliation_svc, &service_ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
-
-    let customers = customer_svc
-        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(reconciliation_table_fragment(&result, &customer_names, &customers.items, &params, &status_counts, can_delete).into_string()))
-}
-
 #[require_permission("SALES_ORDER", "delete")]
 pub async fn delete_reconciliation(
     path: ReconciliationDeletePath,
@@ -248,15 +218,17 @@ fn reconciliation_table_fragment(
 
     html! {
         div class="reconciliation-list-panel" {
-            (status_tabs_with_param(ReconciliationTablePath::PATH, "#reconciliation-data-card", "#reconciliation-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(ReconciliationListPath::PATH, "#reconciliation-data-card", "#reconciliation-filter-form", tabs, &active_value, "status"))
 
             form class="filter-bar filter-form" id="reconciliation-filter-form"
-                hx-get=(ReconciliationTablePath::PATH)
+                hx-get=(ReconciliationListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#reconciliation-data-card"
                 hx-select="#reconciliation-data-card"
                 hx-swap="outerHTML"
-                hx-include="#reconciliation-filter-form" {
+                hx-select-oob="#status-tabs"
+                hx-include="#reconciliation-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

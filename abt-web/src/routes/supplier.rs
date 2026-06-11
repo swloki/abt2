@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct SupplierListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/md/suppliers/table")]
-pub struct SupplierTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/md/suppliers/new")]
 pub struct SupplierCreatePath;
 
@@ -72,11 +68,7 @@ pub fn router() -> Router<AppState> {
             SupplierListPath::PATH,
             get(supplier_list::get_supplier_list),
         )
-        .route(
-            SupplierTablePath::PATH,
-            get(supplier_list::get_supplier_table),
-        )
-        .route(
+.route(
             SupplierCreatePath::PATH,
             get(supplier_create::get_supplier_create).post(supplier_create::post_supplier_create),
         )

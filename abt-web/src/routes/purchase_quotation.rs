@@ -13,10 +13,6 @@ use crate::state::AppState;
 pub struct PQListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/purchase/quotations/table")]
-pub struct PQTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/quotations/create")]
 pub struct PQCreatePath;
 
@@ -67,8 +63,7 @@ pub struct PQConvertPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(PQListPath::PATH, get(purchase_quotation_list::get_pq_list))
-        .route(PQTablePath::PATH, get(purchase_quotation_list::get_pq_table))
-        .route(PQCreatePath::PATH, get(purchase_quotation_create::get_pq_create).post(purchase_quotation_create::create_pq))
+.route(PQCreatePath::PATH, get(purchase_quotation_create::get_pq_create).post(purchase_quotation_create::create_pq))
         .route(PQProductsPath::PATH, get(purchase_quotation_create::get_pq_products))
         .route(PQItemRowPath::PATH, get(purchase_quotation_create::get_pq_item_row))
         .route(PQSupplierContactsPath::PATH, get(purchase_quotation_create::get_pq_supplier_contacts))

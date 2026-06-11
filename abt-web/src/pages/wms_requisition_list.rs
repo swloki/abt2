@@ -18,7 +18,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_requisition::*;
+use crate::routes::wms_requisition::{RequisitionCreatePath, RequisitionDetailPath, RequisitionListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -151,31 +151,6 @@ pub async fn get_requisition_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "read")]
-pub async fn get_requisition_table(
-    _path: RequisitionTablePath,
-    ctx: RequestContext,
-    Query(params): Query<RequisitionQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.material_requisition_service();
-    let warehouse_svc = state.warehouse_service();
-    let user_svc = state.user_service();
-
-    let filter = build_filter(&params);
-    let page = params.page.unwrap_or(1);
-    let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
-
-    let warehouse_names = resolve_warehouse_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-    let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let warehouses = warehouse_svc
-        .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200)
-        .await?;
-
-    Ok(Html(requisition_table_fragment(&result, &warehouse_names, &operator_names, &warehouses.items, &params).into_string()))
-}
-
 // ── Components ──
 
 fn requisition_list_page(
@@ -227,15 +202,16 @@ fn requisition_table_fragment(
 
     html! {
         div class="requisition-list-panel" {
-            (status_tabs_with_param(RequisitionTablePath::PATH, "#requisition-data-card", "#requisition-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(RequisitionListPath::PATH, "#requisition-data-card", "#requisition-filter-form", tabs, &active_value, "status"))
 
             form class="filter-bar filter-form" id="requisition-filter-form"
-                hx-get=(RequisitionTablePath::PATH)
+                hx-get=(RequisitionListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#requisition-data-card"
                 hx-select="#requisition-data-card"
                 hx-swap="outerHTML"
-                hx-include="#requisition-filter-form" {
+                hx-include="#requisition-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

@@ -12,7 +12,7 @@ use abt_core::wms::enums::BinStatus;
 use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::layout::page::admin_page;
-use crate::routes::wms_bin::{BinCreatePath, BinDetailPath, BinListPath, BinTablePath};
+use crate::routes::wms_bin::{BinCreatePath, BinDetailPath, BinListPath};
 use crate::utils::{empty_as_none, RequestContext};
 
 use abt_macros::require_permission;
@@ -74,34 +74,6 @@ pub async fn get_bin_list(
         Some("储位管理"),
         content, &nav_filter,    );
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("LOCATION", "read")]
-pub async fn get_bin_table(
-    ctx: RequestContext,
-    Query(params): Query<BinQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.warehouse_service();
-
-    let search_params = build_search_params(&params);
-    let result = svc.search_bins_with_warehouse(&service_ctx, &mut conn, search_params).await?;
-    let _warehouses = svc.list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200).await?;
-
-    // Build zone lookup for display
-    let mut zone_map: HashMap<i64, Zone> = HashMap::new();
-    let mut fetched_wh: HashSet<i64> = HashSet::new();
-    for item in &result.items {
-        if fetched_wh.insert(item.warehouse_id)
-            && let Ok(zs) = svc.list_zones(&service_ctx, &mut conn, item.warehouse_id).await {
-                for z in zs {
-                    zone_map.insert(z.id, z);
-                }
-            }
-    }
-
-    // HTMX partial: return only the data-card
-    Ok(Html(bin_data_card(&result, &params, &zone_map).into_string()))
 }
 
 // ── Helpers ──
@@ -228,13 +200,14 @@ fn bin_table_fragment(
     html! {
         div class="bin-list-panel" {
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
-                hx-get=(BinTablePath::PATH)
+            form class="filter-bar filter-form" id="filter-form"
+                hx-get=(BinListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#bin-data-card"
                 hx-select="#bin-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="code"

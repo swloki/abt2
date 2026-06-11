@@ -17,7 +17,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath, StockInTablePath};
+use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -153,37 +153,6 @@ pub async fn get_stock_in_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("INVENTORY", "read")]
-pub async fn get_stock_in_table(
-    _path: StockInTablePath,
-    ctx: RequestContext,
-    Query(params): Query<StockInQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.inventory_transaction_service();
-    let user_svc = state.user_service();
-    let warehouse_svc = state.warehouse_service();
-
-    let txn_type = params.transaction_type.as_deref().and_then(TransactionType::from_name);
-    let filter = TransactionFilter {
-        transaction_type: txn_type,
-        product_id: None,
-        warehouse_id: params.warehouse_id,
-        source_type: None,
-        source_id: None,
-        doc_number: params.doc_number.clone(),
-        product_code: params.product_code.clone(),
-    };
-    let page_num = params.page.unwrap_or(1);
-    let result = svc.query(&service_ctx, &mut conn, filter, page_num, 20).await?;
-
-    let operator_names = resolve_operator_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
-    let wh_names = resolve_wh_names(&warehouse_svc, &service_ctx, &mut conn, &result.items).await;
-    let warehouses = warehouse_svc.list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 200).await.map(|r| r.items).unwrap_or_default();
-
-    Ok(Html(stock_in_data_card(&result, &operator_names, &wh_names, &warehouses, &params).into_string()))
-}
-
 // ── Components ──
 
 fn stock_in_list_page(
@@ -279,16 +248,17 @@ fn stock_in_table_fragment(
                 }
             }
 
-            (status_tabs_with_param(StockInTablePath::PATH, "#stock-in-data-card", "closest form", tabs, selected_type, "transaction_type"))
+            (status_tabs_with_param(StockInListPath::PATH, "#stock-in-data-card", "#stock-in-filter-form", tabs, selected_type, "transaction_type"))
 
             // ── Filter Bar ──
-            form class="filter-bar filter-form"
-                hx-get=(StockInTablePath::PATH)
+            form class="filter-bar filter-form" id="stock-in-filter-form"
+                hx-get=(StockInListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#stock-in-data-card"
                 hx-select="#stock-in-data-card"
                 hx-swap="outerHTML"
-                hx-include="closest form" {
+                hx-include="#stock-in-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="doc_number"

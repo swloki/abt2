@@ -15,10 +15,6 @@ use crate::state::AppState;
 pub struct ShippingListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/shipping/table")]
-pub struct ShippingTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/shipping/create")]
 pub struct ShippingCreatePath;
 
@@ -81,7 +77,6 @@ pub struct ShippingOrderSearchPath;
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(ShippingListPath::PATH, get(shipping_list::get_shipping_list))
-        .route(ShippingTablePath::PATH, get(shipping_list::get_shipping_table))
         .route(ShippingDetailPath::PATH, get(shipping_detail::get_shipping_detail))
         .route(ShippingCreatePath::PATH, get(shipping_create::get_shipping_create).post(shipping_create::post_shipping_create))
         .route(ShippingEditPath::PATH, get(shipping_create::get_shipping_edit))

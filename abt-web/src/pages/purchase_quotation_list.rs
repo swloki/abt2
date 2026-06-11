@@ -203,31 +203,6 @@ pub async fn get_pq_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("PURCHASE_QUOTATION", "read")]
-pub async fn get_pq_table(
-    ctx: RequestContext,
-    Query(params): Query<PQQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("PURCHASE_QUOTATION", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.purchase_quotation_service();
-    let supplier_svc = state.supplier_service();
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-    let supplier_contacts = resolve_supplier_contacts(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-    let supplier_currencies = resolve_supplier_currencies(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let suppliers = supplier_svc
-        .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(pq_table_fragment(&result, &supplier_names, &supplier_contacts, &supplier_currencies, &suppliers.items, &params, can_delete).into_string()))
-}
-
 // ── Components ──
 
 fn pq_list_page(
@@ -287,16 +262,18 @@ fn pq_table_fragment(
 
     html! {
         div class="pq-list-panel" {
-            (status_tabs_with_param(PQTablePath::PATH, "#pq-data-card", "#pq-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(PQListPath::PATH, "#pq-data-card", "#pq-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
             form class="filter-bar filter-form" id="pq-filter-form"
-                hx-get=(PQTablePath::PATH)
+                hx-get=(PQListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#pq-data-card"
                 hx-select="#pq-data-card"
                 hx-swap="outerHTML"
-                hx-include="#pq-filter-form" {
+                hx-select-oob="#status-tabs"
+                hx-include="#pq-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

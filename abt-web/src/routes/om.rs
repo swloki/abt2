@@ -17,10 +17,6 @@ pub struct OmDashboardPath;
 pub struct OmOutsourcingListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/om/outsourcing/table")]
-pub struct OmOutsourcingTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/om/outsourcing/create")]
 pub struct OmOutsourcingCreatePath;
 
@@ -64,10 +60,6 @@ pub struct OmRecordNodePath {
 #[typed_path("/admin/om/tracking")]
 pub struct OmTrackingListPath;
 
-#[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/om/tracking/table")]
-pub struct OmTrackingTablePath;
-
 // ── Router ──
 
 pub fn router() -> Router<AppState> {
@@ -76,8 +68,7 @@ pub fn router() -> Router<AppState> {
         .route(OmDashboardPath::PATH, get(om_dashboard::get_dashboard))
         // Outsourcing CRUD
         .route(OmOutsourcingListPath::PATH, get(om_outsourcing_list::get_list))
-        .route(OmOutsourcingTablePath::PATH, get(om_outsourcing_list::get_table))
-        .route(
+.route(
             OmOutsourcingCreatePath::PATH,
             get(om_outsourcing_create::get_create).post(om_outsourcing_create::create),
         )
@@ -89,5 +80,4 @@ pub fn router() -> Router<AppState> {
         .route(OmRecordNodePath::PATH, post(om_outsourcing_detail::record_node))
         // Tracking
         .route(OmTrackingListPath::PATH, get(om_tracking_list::get_list))
-        .route(OmTrackingTablePath::PATH, get(om_tracking_list::get_table))
 }

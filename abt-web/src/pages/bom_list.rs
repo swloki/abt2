@@ -16,7 +16,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::bom::{
-    BomCostDrawerPath, BomCreatePath, BomDeletePath, BomDetailPath, BomListPath, BomLaborCostDrawerPath, BomTablePath,
+    BomCostDrawerPath, BomCreatePath, BomDeletePath, BomDetailPath, BomListPath, BomLaborCostDrawerPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
@@ -72,25 +72,6 @@ pub async fn get_bom_list(
         "主数据管理", Some(page_name), content, &nav_filter,
     );
     Ok(Html(page_html.into_string()))
-}
-#[require_permission("BOM", "read")]
-pub async fn get_bom_table(
-    ctx: RequestContext,
-    Query(mut params): Query<BomQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let can_view_cost = ctx.has_permission("COST", "read").await;
-    let can_view_labor_cost = ctx.has_permission("LABOR_COST", "read").await;
-    let can_delete = ctx.has_permission("BOM", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    resolve_category_name(&state, &service_ctx, &mut conn, &mut params).await;
-    let svc = state.bom_query_service();
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-    let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
-    let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
-    let table_ctx = BomTableContext { cat_map: &cat_map, cat_list: &cat_list, user_map: &user_map, can_view_labor_cost, can_view_cost, can_delete };
-    Ok(Html(bom_table_fragment(&result, &params, &table_ctx).into_string()))
 }
 #[require_permission("BOM", "delete")]
 pub async fn delete_bom(
@@ -282,15 +263,16 @@ fn bom_table_fragment(
     ];
     html! {
         div class="bom-list-panel" {
-            (status_tabs_with_param(BomTablePath::PATH, "#bom-data-card", "#bom-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(BomListPath::PATH, "#bom-data-card", "#bom-filter-form", tabs, &active_value, "status"))
             // ── Filter Bar ──
             form class="filter-bar filter-form" id="bom-filter-form"
-                hx-get=(BomTablePath::PATH)
+                hx-get=(BomListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#bom-data-card"
                 hx-select="#bom-data-card"
                 hx-swap="outerHTML"
-                hx-include="#bom-filter-form" {
+                hx-include="#bom-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

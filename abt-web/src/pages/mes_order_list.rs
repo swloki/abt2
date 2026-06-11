@@ -15,7 +15,7 @@ use crate::components::pagination::pagination;
 use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_order::{OrderCreatePath, OrderListPath, OrderTablePath};
+use crate::routes::mes_order::{OrderCreatePath, OrderListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -85,29 +85,6 @@ pub async fn get_order_list(
     Ok(Html(admin_page(is_htmx, "工单管理", &claims, "production", OrderListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[require_permission("WORK_ORDER", "read")]
-pub async fn get_order_table(
-    _path: OrderTablePath, ctx: RequestContext, Query(params): Query<OrderQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.work_order_service();
-    let user_svc = state.user_service();
-    let product_svc = state.product_service();
-    let filter = WorkOrderFilter {
-        status: params.status.as_deref().and_then(parse_wo_status),
-        product_id: None, keyword: params.keyword.clone(), date_from: None, date_to: None,
-    };
-    let result = svc.list(&service_ctx, &mut conn, filter, params.page.unwrap_or(1), 20).await?;
-    let op_names = resolve_op_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
-    let product_names: HashMap<i64, String> = {
-        let pids: Vec<i64> = result.items.iter().map(|i| i.product_id).collect();
-        product_svc.get_by_ids(&service_ctx, &mut conn, pids).await
-            .map(|ps| ps.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect())
-            .unwrap_or_default()
-    };
-    Ok(Html(order_data_card(&result, &op_names, &product_names, &params).into_string()))
-}
-
 fn order_list_page(
     result: &abt_core::shared::types::PaginatedResult<abt_core::mes::work_order::WorkOrder>,
     op_names: &HashMap<i64, String>, product_names: &HashMap<i64, String>, params: &OrderQueryParams,
@@ -137,10 +114,11 @@ fn order_table_fragment(
     let sel = params.status.as_deref().unwrap_or("");
 
     html! { div {
-        (status_tabs_with_param(OrderTablePath::PATH, "#order-data-card", "closest form", tabs, sel, "status"))
-        form class="filter-bar filter-form" hx-get=(OrderTablePath::PATH)
+        (status_tabs_with_param(OrderListPath::PATH, "#order-data-card", "#filter-form", tabs, sel, "status"))
+        form id="filter-form" class="filter-bar filter-form" hx-get=(OrderListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
-            hx-target="#order-data-card" hx-select="#order-data-card" hx-swap="outerHTML" hx-include="closest form" {
+            hx-target="#order-data-card" hx-select="#order-data-card" hx-swap="outerHTML" hx-include="#filter-form"
+                hx-push-url="true" {
             div class="search-wrap" { (icon::search_icon("w-4 h-4"))
                 input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索工单编号…" value=(params.keyword.as_deref().unwrap_or(""));
             }

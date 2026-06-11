@@ -159,37 +159,6 @@ pub async fn get_shipping_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("SHIPPING", "read")]
-pub async fn get_shipping_table(
-    ctx: RequestContext,
-    Query(params): Query<ShippingQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("SHIPPING", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-
-    let shipping_svc = state.shipping_service();
-    let customer_svc = state.customer_service();
-    let order_svc = state.sales_order_service();
-    let filter = ShippingQuery {
-        order_id: None,
-        status: params.status.and_then(ShippingStatus::from_i16),
-        keyword: params.keyword.clone(),
-        customer_id: params.customer_id,
-    };
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = shipping_svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let status_counts = count_by_status(&shipping_svc, &service_ctx, &mut conn, params.customer_id).await;
-    let customer_names = resolve_customer_names(&customer_svc, &service_ctx, &mut conn, result.items.iter().map(|i| i.customer_id)).await;
-    let order_numbers = resolve_order_numbers(&order_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let customers = customer_svc
-        .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(shipping_table_fragment(&result, &customer_names, &order_numbers, &customers.items, &params, &status_counts, can_delete).into_string()))
-}
-
 #[require_permission("SHIPPING", "delete")]
 pub async fn delete_shipping(
     path: ShippingDeletePath,
@@ -267,15 +236,16 @@ fn shipping_table_fragment(
 
     html! {
         div class="shipping-list-panel" {
-            (status_tabs_with_param(ShippingTablePath::PATH, "#shipping-data-card", "#shipping-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(ShippingListPath::PATH, "#shipping-data-card", "#shipping-filter-form", tabs, &active_value, "status"))
 
             form class="filter-bar filter-form" id="shipping-filter-form"
-                hx-get=(ShippingTablePath::PATH)
+                hx-get=(ShippingListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#shipping-data-card"
                 hx-select="#shipping-data-card"
                 hx-swap="outerHTML"
-                hx-include="#shipping-filter-form" {
+                hx-include="#shipping-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

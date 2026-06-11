@@ -15,10 +15,6 @@ use crate::state::AppState;
 pub struct PRListPath;
 
 #[derive(TypedPath, Deserialize, Clone)]
-#[typed_path("/admin/purchase/returns/table")]
-pub struct PRTablePath;
-
-#[derive(TypedPath, Deserialize, Clone)]
 #[typed_path("/admin/purchase/returns/create")]
 pub struct PRCreatePath;
 #[derive(TypedPath, Deserialize, Clone)]
@@ -48,8 +44,7 @@ pub struct PRCancelPath {
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(PRListPath::PATH, get(purchase_return_list::get_pr_list))
-        .route(PRTablePath::PATH, get(purchase_return_list::get_pr_table))
-        .route(PRCreatePath::PATH, get(purchase_return_create::get_pr_create).post(purchase_return_create::create_pr))
+.route(PRCreatePath::PATH, get(purchase_return_create::get_pr_create).post(purchase_return_create::create_pr))
         .route(PROrderItemsPath::PATH, get(purchase_return_create::get_pr_order_items))
         .route(PRDetailPath::PATH, get(purchase_return_detail::get_pr_detail))
         .route(PRConfirmPath::PATH, post(purchase_return_detail::confirm_pr))

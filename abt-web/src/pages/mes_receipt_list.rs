@@ -13,7 +13,7 @@ use crate::components::icon;
 use crate::components::pagination::pagination;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::mes_receipt::{ReceiptCreatePath, ReceiptListPath, ReceiptTablePath};
+use crate::routes::mes_receipt::{ReceiptCreatePath, ReceiptListPath};
 use crate::utils::{empty_as_none, RequestContext};
 use abt_macros::require_permission;
 
@@ -48,18 +48,6 @@ pub async fn get_receipt_list(
     Ok(Html(admin_page(is_htmx, "完工入库", &claims, "production", ReceiptListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[require_permission("WORK_ORDER", "read")]
-pub async fn get_receipt_table(
-    _path: ReceiptTablePath, ctx: RequestContext, Query(params): Query<ReceiptQueryParams>,
-) -> Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.production_receipt_service();
-    let page = params.page.unwrap_or(1);
-    let filter = ReceiptListFilter { keyword: params.keyword.clone() };
-    let result = svc.list(&service_ctx, &mut conn, filter, page, 20).await?;
-    Ok(Html(receipt_table_fragment(&result, &params).into_string()))
-}
-
 fn receipt_list_page(
     result: &PaginatedResult<ReceiptListItem>,
     params: &ReceiptQueryParams,
@@ -80,9 +68,10 @@ fn receipt_table_fragment(
     params: &ReceiptQueryParams,
 ) -> Markup {
     html! { div {
-        form class="filter-bar filter-form" hx-get=(ReceiptTablePath::PATH)
+        form id="filter-form" class="filter-bar filter-form" hx-get=(ReceiptListPath::PATH)
             hx-trigger="change, keyup changed delay:300ms from:.search-input"
-            hx-target="#receipt-data-card" hx-select="#receipt-data-card" hx-swap="outerHTML" hx-include="closest form" {
+            hx-target="#receipt-data-card" hx-select="#receipt-data-card" hx-swap="outerHTML" hx-include="#filter-form"
+                hx-push-url="true" {
             div class="search-wrap" { (icon::search_icon("w-4 h-4"))
                 input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索单号…" value=(params.keyword.as_deref().unwrap_or(""));
             }

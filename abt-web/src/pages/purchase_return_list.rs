@@ -149,29 +149,6 @@ pub async fn get_pr_list(
     Ok(Html(page_html.into_string()))
 }
 
-#[require_permission("PURCHASE_RETURN", "read")]
-pub async fn get_pr_table(
-    ctx: RequestContext,
-    Query(params): Query<PRQueryParams>,
-) -> Result<Html<String>> {
-    let can_delete = ctx.has_permission("PURCHASE_RETURN", "delete").await;
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.purchase_return_service();
-    let supplier_svc = state.supplier_service();
-
-    let filter = build_filter(&params);
-    let page = PageParams::new(params.page.unwrap_or(1), 20);
-    let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
-
-    let supplier_names = resolve_supplier_names(&supplier_svc, &service_ctx, &mut conn, &result.items).await;
-
-    let suppliers = supplier_svc
-        .list(&service_ctx, &mut conn, SupplierQuery { name: None, status: Some(SupplierStatus::Qualified), category: None }, PageParams::new(1, 200))
-        .await?;
-
-    Ok(Html(pr_table_fragment(&result, &supplier_names, &suppliers.items, &params, can_delete).into_string()))
-}
-
 // ── Components ──
 
 fn pr_list_page(
@@ -228,16 +205,18 @@ fn pr_table_fragment(
 
     html! {
         div class="pr-list-panel" {
-            (status_tabs_with_param(PRTablePath::PATH, "#pr-data-card", "#pr-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(PRListPath::PATH, "#pr-data-card", "#pr-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
             form class="filter-bar filter-form" id="pr-filter-form"
-                hx-get=(PRTablePath::PATH)
+                hx-get=(PRListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#pr-data-card"
                 hx-select="#pr-data-card"
                 hx-swap="outerHTML"
-                hx-include="#pr-filter-form" {
+                hx-select-oob="#status-tabs"
+                hx-include="#pr-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="keyword"

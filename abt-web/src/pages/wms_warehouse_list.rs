@@ -17,7 +17,7 @@ use crate::components::tabs::{status_tabs_with_param, TabItem};
 use crate::layout::page::admin_page;
 use crate::routes::wms_warehouse::{
     WarehouseCreatePath, WarehouseDeletePath, WarehouseDetailPath, WarehouseEditPath,
-    WarehouseListPath, WarehouseTablePath,
+    WarehouseListPath,
 };
 use crate::utils::{empty_as_none, RequestContext};
 
@@ -92,43 +92,6 @@ pub async fn get_warehouse_list(
         content, &nav_filter,    );
 
     Ok(Html(page_html.into_string()))
-}
-
-#[require_permission("WAREHOUSE", "read")]
-pub async fn get_warehouse_table(
-    ctx: RequestContext,
-    Query(params): Query<WarehouseQueryParams>,
-) -> crate::errors::Result<Html<String>> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.warehouse_service();
-
-    let filter = build_filter(&params);
-    let page_num = params.page.unwrap_or(1);
-
-    let result = svc.list(&service_ctx, &mut conn, filter, page_num, 20).await?;
-
-    // 解析管理员名称
-    let manager_ids: Vec<i64> = result.items.iter()
-        .filter_map(|w| w.manager_id)
-        .collect();
-    let manager_map = if manager_ids.is_empty() {
-        std::collections::HashMap::new()
-    } else {
-        state.user_service()
-            .get_users_by_ids(&service_ctx, &mut conn, manager_ids)
-            .await
-            .map(|users| {
-                users.into_iter()
-                    .map(|u| {
-                        let name = u.user.display_name.unwrap_or(u.user.username);
-                        (u.user.user_id, name)
-                    })
-                    .collect::<std::collections::HashMap<i64, String>>()
-            })
-            .unwrap_or_default()
-    };
-
-    Ok(Html(warehouse_table_fragment(&result, &params, &manager_map, false).into_string()))
 }
 
 // ── Helpers ──
@@ -233,16 +196,17 @@ fn warehouse_table_fragment(
 
     html! {
         div class="warehouse-list-panel" {
-            (status_tabs_with_param(WarehouseTablePath::PATH, "#warehouse-data-card", "#warehouse-filter-form", tabs, &active_value, "status"))
+            (status_tabs_with_param(WarehouseListPath::PATH, "#warehouse-data-card", "#warehouse-filter-form", tabs, &active_value, "status"))
 
             // ── Filter Bar ──
             form class="filter-bar filter-form" id="warehouse-filter-form"
-                hx-get=(WarehouseTablePath::PATH)
+                hx-get=(WarehouseListPath::PATH)
                 hx-trigger="change, keyup changed delay:300ms from:.search-input"
                 hx-target="#warehouse-data-card"
                 hx-select="#warehouse-data-card"
                 hx-swap="outerHTML"
-                hx-include="#warehouse-filter-form" {
+                hx-include="#warehouse-filter-form"
+                hx-push-url="true" {
                 div class="search-wrap" {
                     (icon::search_icon("w-4 h-4"))
                     input class="search-input" type="text" name="code"

@@ -27,41 +27,9 @@ window.positionDropdown = function (trigger, dropdown) {
 };
 
 
-window.showToast = function (message, type) {
-    var container = me('.toast-container');
-    if (!container) return;
-    type = type || 'success';
-
-    var icons = {
-        success: '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>',
-        error: '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>',
-        warning: '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>'
-    };
-
-    var div = document.createElement('div');
-    div.className = 'toast toast-show toast-' + type;
-    div.innerHTML = icons[type] || icons.success;
-
-    var span = document.createElement('span');
-    span.className = 'toast-message';
-    span.textContent = message;
-    div.appendChild(span);
-
-    var btn = document.createElement('button');
-    btn.className = 'toast-close';
-    btn.textContent = '\u00d7';
-    btn.onclick = function () { if (div.parentNode) div.parentNode.removeChild(div); };
-    div.appendChild(btn);
-
-    container.appendChild(div);
-
-    setTimeout(function () {
-        if (div.parentNode) div.parentNode.removeChild(div);
-    }, 4000);
-};
-
 // ── HTMX global error handling ──
 
+// 错误兜底：直接创建 error toast（绕过 DashMap 队列，因为 handler 已失败）
 document.addEventListener('htmx:afterRequest', function (e) {
     if (e.detail.successful) return;
     var xhr = e.detail.xhr;
@@ -73,14 +41,40 @@ document.addEventListener('htmx:afterRequest', function (e) {
     }
 
     var msg = (xhr.responseText || '').trim() || '操作失败';
-    window.showToast(msg, 'error');
+    var container = document.querySelector('.toast-container');
+    if (!container) return;
+
+    var div = document.createElement('div');
+    div.className = 'toast toast-error';
+    div.setAttribute('role', 'alert');
+    div.innerHTML = '<span class="toast-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></span>' +
+        '<span class="toast-message">' + msg.replace(/</g, '&amp;lt;') + '</span>' +
+        '<button class="toast-close" onclick="this.parentElement.remove()">×</button>';
+    container.appendChild(div);
 });
 
 // ── Export download handler ──
-
+// TODO: 迁移后端 excel.rs 使用 add_toast() 后，替换为 htmx.trigger(document.body, 'showToast')
 document.addEventListener('exportDone', function (e) {
     window.location.href = e.detail.url;
-    window.showToast('导出完成', 'success');
+
+    var container = document.querySelector('.toast-container');
+    if (!container) return;
+
+    var div = document.createElement('div');
+    div.className = 'toast toast-success';
+    div.setAttribute('role', 'status');
+    div.innerHTML = '<span class="toast-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="toast-icon"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>' +
+        '<span class="toast-message">导出完成</span>' +
+        '<button class="toast-close" onclick="this.parentElement.remove()">×</button>';
+    container.appendChild(div);
+});
+
+// CSS 动画结束后自动移除 DOM 节点，防止长时间使用后堆积透明元素
+document.addEventListener('animationend', function (e) {
+    if (e.target.classList.contains('toast')) {
+        e.target.remove();
+    }
 });
 
 
@@ -205,9 +199,9 @@ window.lineItemCalc = function(tbodyId) {
             var cell = me('.line-total', row);
             if (cell) cell.textContent = (q * p * (1 - d / 100)).toFixed(2);
         });
-        me('#subtotal-value').textContent = '\u00a5 ' + subtotal.toFixed(2);
-        me('#discount-value').textContent = '- \u00a5 ' + disc.toFixed(2);
-        me('#grand-value').textContent = '\u00a5 ' + (subtotal - disc).toFixed(2);
+        me('#subtotal-value').textContent = '¥ ' + subtotal.toFixed(2);
+        me('#discount-value').textContent = '- ¥ ' + disc.toFixed(2);
+        me('#grand-value').textContent = '¥ ' + (subtotal - disc).toFixed(2);
     }
     function collectItems() {
         var tbody = me(tbodyId);

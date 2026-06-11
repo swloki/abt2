@@ -1,7 +1,9 @@
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
+use axum::Form;
 use maud::{html, Markup};
 use dashmap::DashMap;
+use serde::Deserialize;
 use std::sync::LazyLock;
 use std::time::{Duration, Instant};
 
@@ -77,7 +79,35 @@ pub fn toast_response(user_id: i64, msg: impl Into<String>, r#type: ToastType) -
         .into_response()
 }
 
+// ── Client POST model ──────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct ClientToastRequest {
+    pub msg: String,
+    pub r#type: String,
+}
+
 // ── Handler ────────────────────────────────────────────
+
+/// POST /api/toast — 客户端直接提交消息，后端返回 Toast HTML
+/// 用于客户端表单验证等不走业务 handler 的场景
+pub async fn post_client_toast(Form(req): Form<ClientToastRequest>) -> Response {
+    let toast_type = match req.r#type.as_str() {
+        "error" => ToastType::Error,
+        "warning" => ToastType::Warning,
+        "info" => ToastType::Info,
+        _ => ToastType::Success,
+    };
+    Html(
+        render_toasts(&[ToastMessage {
+            msg: req.msg,
+            r#type: toast_type,
+            created_at: Instant::now(),
+        }])
+        .into_string(),
+    )
+    .into_response()
+}
 
 /// GET /api/toast — 读后即焚，返回 Toast HTML
 pub async fn get_toasts(session: Session) -> Response {

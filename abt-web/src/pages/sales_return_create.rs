@@ -587,8 +587,8 @@ function removeRow(btn) {{
 function handleSubmit() {{
     const order = document.getElementById('f-order-id').value;
     const reason = document.getElementById('reason-select').value;
-    if (!order) {{ showToast('请选择来源订单', 'error'); return false; }}
-    if (!reason) {{ showToast('请选择退货原因', 'error'); return false; }}
+    if (!order) {{ htmx.ajax('POST', '/api/toast', {{target: '.toast-container', swap: 'innerHTML', values: {{msg: '请选择来源订单', type: 'error'}}}}); return false; }}
+    if (!reason) {{ htmx.ajax('POST', '/api/toast', {{target: '.toast-container', swap: 'innerHTML', values: {{msg: '请选择退货原因', type: 'error'}}}}); return false; }}
     const rows = document.querySelectorAll('#line-items-body tr');
     const items = [];
     let hasQty = false;
@@ -605,14 +605,14 @@ function handleSubmit() {{
             }});
         }}
     }});
-    if (!hasQty) {{ showToast('请至少填写一行退货数量', 'error'); return false; }}
+    if (!hasQty) {{ htmx.ajax('POST', '/api/toast', {{target: '.toast-container', swap: 'innerHTML', values: {{msg: '请至少填写一行退货数量', type: 'error'}}}}); return false; }}
     document.getElementById('f-reason').value = document.getElementById('reason-select').selectedOptions[0].text;
     document.querySelector('[name="items_json"]').value = JSON.stringify(items);
     return true;
 }}
 
 function handleSaveDraft() {{
-    showToast('草稿功能开发中', 'info');
+    htmx.ajax('POST', '/api/toast', {{target: '.toast-container', swap: 'innerHTML', values: {{msg: '草稿功能开发中', type: 'info'}}}});
 }}
 
 // Expose to global scope for inline event handlers
@@ -622,18 +622,6 @@ window.addReturnRow = addReturnRow;
 window.removeRow = removeRow;
 window.handleSubmit = handleSubmit;
 window.handleSaveDraft = handleSaveDraft;
-
-function showToast(msg, type) {{
-    const existing = document.querySelector('.feedback-toast');
-    if (existing) existing.remove();
-    const t = document.createElement('div');
-    t.className = 'feedback-toast';
-    const bg = type === 'error' ? 'var(--danger)' : type === 'info' ? 'var(--accent)' : 'var(--success)';
-    t.style.cssText = `position:fixed;top:72px;right:32px;padding:12px 20px;border-radius:var(--radius-md);background:${{bg}};color:#fff;font-size:var(--text-sm);font-weight:500;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12)`;
-    t.textContent = msg;
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2500);
-}}
 
 // File upload
 (function(){{

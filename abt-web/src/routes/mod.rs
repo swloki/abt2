@@ -61,7 +61,7 @@ use crate::state::AppState;
 pub fn router(state: AppState) -> Router {
     Router::new()
         .merge(auth::router())
-        .route("/api/toast", get(crate::toast::get_toasts))
+        .route("/api/toast", get(crate::toast::get_toasts).post(crate::toast::post_client_toast))
         .merge(
             dashboard::router()
                 .merge(sidebar::router())

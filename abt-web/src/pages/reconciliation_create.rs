@@ -289,7 +289,7 @@ fn reconciliation_create_page(
                 div class="create-action-bar" {
                     a class="btn btn-default" href=(ReconciliationListPath::PATH) { "取消" }
                     div class="action-bar-right" {
-                        button type="button" class="btn btn-default" onclick="showToast('草稿功能开发中','info')" {
+                        button type="button" class="btn btn-default" onclick="htmx.ajax('POST', '/api/toast', {target: '.toast-container', swap: 'innerHTML', values: {msg: '草稿功能开发中', type: 'info'}})" {
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }
@@ -302,21 +302,10 @@ fn reconciliation_create_page(
                 }
             }
 
-            // ── Toast helper ──
+            // ── Preview trigger helper ──
             (maud::PreEscaped(r#"<script>
 function triggerPreview() {
     htmx.trigger(document.getElementById('rec-app'), 'previewChanged');
-}
-function showToast(msg, type) {
-    const existing = document.querySelector('.feedback-toast');
-    if (existing) existing.remove();
-    const t = document.createElement('div');
-    t.className = 'feedback-toast';
-    const bg = type === 'error' ? 'var(--danger)' : type === 'info' ? 'var(--accent)' : 'var(--success)';
-    t.style.cssText = `position:fixed;top:72px;right:32px;padding:12px 20px;border-radius:var(--radius-md);background:${bg};color:#fff;font-size:var(--text-sm);font-weight:500;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.12)`;
-    t.textContent = msg;
-    document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2500);
 }
 </script>"#))
         }

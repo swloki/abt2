@@ -10,13 +10,13 @@
 
 ## Solution
 
-将 Toast 升级为独立的 HTMX 控件，挂载在全局 layout 中。后端通过 Session 队列管理消息，通过 `HX-Trigger` 事件驱动 Toast 组件重载渲染。
+将 Toast 升级为独立的 HTMX 控件，挂载在全局 layout 中。后端通过进程内 `DashMap` 队列管理消息（按 user_id 隔离），通过 `HX-Trigger` 事件驱动 Toast 组件重载渲染。
 
 ## Architecture
 
 ```
 Handler (业务逻辑)
-  ① add_toast(session, msg, type) → 写入 Session 队列
+  ① add_toast(user_id, msg, type) → 写入 DashMap 队列（原子操作）
   ② 响应头带 HX-Trigger: showToast
          │
          │ HTTP Response
@@ -27,9 +27,8 @@ Layout: toast-container + 隐藏 HTMX 触发器
          │ GET /api/toast
          ▼
 GET /api/toast (读后即焚)
-  ① 从 Session 读取 toast_messages
-  ② 清空 Session 队列
-  ③ 渲染 Toast HTML → OOB swap 到 .toast-container
+  ① 从 DashMap 按 user_id 取出并移除消息
+  ② 渲染 Toast HTML → OOB swap 到 .toast-container
          │
          │ Toast HTML
          ▼
@@ -62,17 +61,19 @@ pub enum ToastType {
 }
 ```
 
-### Session Storage
+### Toast Queue Storage
 
-- Session key: `"toast_messages"`，值为 `Vec<ToastMessage>`
-- 使用现有的 `tower_sessions` 框架
+- 使用进程内 `DashMap<i64, Vec<ToastMessage>>`（key 为 user_id），替代 Session 存储
+- **原因**：`tower_sessions` 的 read-modify-write 不保证原子性，并发请求会互相覆盖（经典 lost update）
+- `DashMap` 的 entry API 提供原子性插入，彻底消除竞态
 - 读后即焚：每次 GET `/api/toast` 读取后立即清空队列
+- Toast 消息本身是临时性的，服务器重启丢失可接受
 
 ## API
 
 ### GET /api/toast
 
-从 Session 读取并消费 Toast 消息队列，返回 Toast HTML。
+从 DashMap 队列读取并消费 Toast 消息，返回 Toast HTML。
 
 - **响应**：`hx-swap-oob="innerHTML:.toast-container"` 的 Toast HTML 片段
 - **队列为空时**：返回 `204 No Content`
@@ -103,30 +104,38 @@ GET /api/toast
 ### Utility Functions
 
 ```rust
-/// 向 Session 队列追加一条 Toast 消息
-pub async fn add_toast(session: &Session, msg: impl Into<String>, r#type: ToastType) {
-    let mut messages = session
-        .get::<Vec<ToastMessage>>("toast_messages")
-        .await
-        .unwrap_or_default()
-        .unwrap_or_default();
-    messages.push(ToastMessage { msg: msg.into(), r#type });
-    session.set("toast_messages", messages).await;
+use dashmap::DashMap;
+
+/// 全局 Toast 队列，key 为 user_id
+static TOAST_QUEUE: Lazy<DashMap<i64, Vec<ToastMessage>>> = Lazy::new(DashMap::new);
+
+/// 向用户队列追加一条 Toast 消息（原子操作，无竞态）
+pub fn add_toast(user_id: i64, msg: impl Into<String>, r#type: ToastType) {
+    TOAST_QUEUE
+        .entry(user_id)
+        .or_insert_with(Vec::new)
+        .push(ToastMessage { msg: msg.into(), r#type });
 }
 
 /// 写入 Toast 消息 + 设置 HX-Trigger 响应头的便捷函数
 /// 适用于 hx-swap="none" 的场景
-pub async fn toast_response(
-    session: &Session,
-    msg: impl Into<String>,
-    r#type: ToastType,
-) -> Response {
-    add_toast(session, msg, r#type).await;
+pub fn toast_response(user_id: i64, msg: impl Into<String>, r#type: ToastType) -> Response {
+    add_toast(user_id, msg, r#type);
     (
         StatusCode::OK,
         [("HX-Trigger", "showToast")],
     )
         .into_response()
+}
+
+/// GET /api/toast handler：读后即焚
+pub async fn get_toasts(session: Session) -> Response {
+    let user_id = get_current_user_id(&session); // 从 session 中取 user_id
+    let messages = TOAST_QUEUE.remove(&user_id).map(|(_, v)| v).unwrap_or_default();
+    if messages.is_empty() {
+        return StatusCode::NO_CONTENT.into_response();
+    }
+    Html(render_toasts(&messages)).into_response()
 }
 ```
 
@@ -134,15 +143,15 @@ pub async fn toast_response(
 
 ```rust
 // 场景1：表单提交成功（hx-swap="none" 模式）
-async fn create_order(session: Session, Form(form): Form<CreateOrder>) -> Response {
+async fn create_order(ctx: RequestContext, Form(form): Form<CreateOrder>) -> Response {
     order_service.create(ctx, form).await?;
-    toast_response(&session, "创建成功", ToastType::Success).await
+    toast_response(ctx.user_id(), "创建成功", ToastType::Success)
 }
 
 // 场景2：操作 + 返回 HTML（同时触发 Toast）
-async fn delete_order(session: Session, Path(id): Path<i64>) -> Response {
+async fn delete_order(ctx: RequestContext, Path(id): Path<i64>) -> Response {
     order_service.delete(ctx, id).await?;
-    add_toast(&session, "删除成功", ToastType::Success).await;
+    add_toast(ctx.user_id(), "删除成功", ToastType::Success);
     (
         [("HX-Trigger", "showToast")],
         Html(render_order_list()),
@@ -155,8 +164,8 @@ async fn delete_order(session: Session, Path(id): Path<i64>) -> Response {
 
 **两层机制**：
 
-1. **业务流程**：Handler 主动调用 `add_toast` → Session 队列 + `HX-Trigger: showToast` → Toast 组件渲染
-2. **异常兜底**：保留 `htmx:afterRequest` 全局监听，改为触发 HTMX 事件而非调用 `showToast()`
+1. **业务流程**：Handler 主动调用 `add_toast(user_id, msg, type)` → DashMap 队列 + `HX-Trigger: showToast` → Toast 组件渲染
+2. **异常兜底**：保留 `htmx:afterRequest` 全局监听，改为触发 HTMX 事件
 
 ```javascript
 // static/app.js — 兜底逻辑
@@ -166,12 +175,12 @@ document.addEventListener('htmx:afterRequest', function (e) {
     if (!xhr) return;
     if (xhr.status === 401) { window.location.href = '/login'; return; }
     // 触发 HTMX 事件，走统一 Toast 流程
-    // 但此时 Session 中没有消息，需要特殊处理（见下方）
+    // WebError::into_response 已将错误消息写入 DashMap 队列
     htmx.trigger(document.body, 'showToast', {});
 });
 ```
 
-**异常兜底的 Session 缺失问题**：`htmx:afterRequest` 触发时 Session 中没有预写入的消息。解决方案：后端 `WebError::into_response` 中对业务错误（4xx）也写入 Session 队列，使异常走同一流程。对于无法写入 Session 的情况（如 Session 不可用），Toast 组件返回空响应，不显示任何内容——这是可接受的行为。
+**异常兜底方案**：`WebError::into_response` 中对业务错误（4xx）也调用 `add_toast` 写入 DashMap 队列，使异常走同一流程。对于无法获取 user_id 的极端情况，Toast 组件返回空响应——可接受的行为。
 
 ## Layout Integration
 
@@ -224,16 +233,29 @@ fn toast_container() -> Markup {
 - 多条消息纵向堆叠，间距 8px
 - 零 JS 定时器，纯 CSS 驱动
 
+### DOM 残留清理
+
+纯 CSS 动画结束后元素仍残留在 DOM 中（`opacity: 0` 但节点未移除），长时间使用会堆积无用节点。通过事件委托一行清理：
+
+```javascript
+// static/app.js — CSS 动画结束后自动移除 DOM 节点
+document.addEventListener('animationend', function (e) {
+    if (e.target.classList.contains('toast')) {
+        e.target.remove();
+    }
+});
+```
+
 ## File Changes
 
 | File | Action | Description |
 |------|--------|-------------|
-| `abt-web/src/toast.rs` | **New** | `ToastMessage`, `ToastType`, `add_toast()`, `toast_response()`, `GET /api/toast` handler |
+| `abt-web/src/toast.rs` | **New** | `ToastMessage`, `ToastType`, `TOAST_QUEUE` (DashMap), `add_toast()`, `toast_response()`, `GET /api/toast` handler |
 | `abt-web/src/layout/page.rs` | **Modify** | `toast_container()` 改为 HTMX 组件 |
-| `abt-web/src/errors.rs` | **Modify** | `WebError::into_response` 中业务错误写入 Session 队列 |
+| `abt-web/src/errors.rs` | **Modify** | `WebError::into_response` 中业务错误调用 `add_toast` 写入队列 |
 | `abt-web/src/app.rs` | **Modify** | 注册 `GET /api/toast` 路由 |
 | `static/base.css` | **Modify** | Toast 样式重构：Flex 堆叠 + CSS animation |
-| `static/app.js` | **Modify** | 移除 `showToast()`，兜底逻辑改为 `htmx.trigger()` |
+| `static/app.js` | **Modify** | 移除 `showToast()`，兜底逻辑改为 `htmx.trigger()`，新增 `animationend` DOM 清理 |
 
 ## Out of Scope
 

@@ -289,7 +289,7 @@ fn reconciliation_create_page(
                 div class="create-action-bar" {
                     a class="btn btn-default" href=(ReconciliationListPath::PATH) { "取消" }
                     div class="action-bar-right" {
-                        button type="button" class="btn btn-default" onclick="htmx.ajax('POST', '/api/toast', {target: '.toast-container', swap: 'innerHTML', values: {msg: '草稿功能开发中', type: 'info'}})" {
+                        button type="button" class="btn btn-default" onclick="show_toast('草稿功能开发中','info')" {
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }

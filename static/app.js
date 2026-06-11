@@ -27,6 +27,12 @@ window.positionDropdown = function (trigger, dropdown) {
 };
 
 
+// ── Toast helper ──
+// 通过 HTMX POST /api/toast 显示 toast 提示（服务端渲染）
+window.show_toast = function (msg, type) {
+    htmx.ajax('POST', '/api/toast', {target: '.toast-container', swap: 'innerHTML', values: {msg: msg, type: type || 'success'}});
+};
+
 // ── HTMX global error handling ──
 
 // 错误兜底：通过 POST /api/toast 显示错误 toast
@@ -41,7 +47,7 @@ document.addEventListener('htmx:afterRequest', function (e) {
     }
 
     var msg = (xhr.responseText || '').trim() || '操作失败';
-    htmx.ajax('POST', '/api/toast', {target: '.toast-container', swap: 'innerHTML', values: {msg: msg, type: 'error'}});
+    window.show_toast(msg, 'error');
 });
 
 // ── Export download handler ──

@@ -478,7 +478,7 @@ me('#pq-form').on('submit', function(e) {
     });
     if (items.length === 0) {
         e.preventDefault();
-        htmx.ajax('POST', '/api/toast', {target: '.toast-container', swap: 'innerHTML', values: {msg: '请至少添加一个报价产品明细', type: 'error'}});
+        show_toast('请至少添加一个报价产品明细', 'error');
         return;
     }
     me('#items-json').value = JSON.stringify(items);

@@ -16,6 +16,7 @@ use serde::Deserialize;
 use crate::components::import_modal::{render_import_progress, render_import_result};
 use crate::errors::{Result as WebResult, WebError};
 use crate::state::AppState;
+use crate::toast::{add_toast, ToastType};
 use crate::utils::RequestContext;
 use abt_core::shared::excel::types::{ImportResult, ImportSource, RowError};
 use abt_core::shared::excel::helpers::write_headers;
@@ -267,7 +268,8 @@ pub async fn post_export_start(
     let safe_name = sanitize_filename(&filename);
     let task_id = ctx.state.store_export_file(bytes, &safe_name, user_id);
     let download_url = format!("{}/{}", EXPORT_DOWNLOAD_PATH, task_id);
-    let trigger = format!("{{\"exportDone\":{{\"url\":\"{}\"}}}}", download_url);
+    add_toast(user_id, "导出完成", ToastType::Success);
+    let trigger = format!("{{\"showToast\":{{}},\"exportDone\":{{\"url\":\"{}\"}}}}", download_url);
 
     Ok(([("HX-Trigger", trigger)], ()))
 }

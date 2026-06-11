@@ -587,8 +587,8 @@ function removeRow(btn) {{
 function handleSubmit() {{
     const order = document.getElementById('f-order-id').value;
     const reason = document.getElementById('reason-select').value;
-    if (!order) {{ htmx.ajax('POST', '/api/toast', {{target: '.toast-container', swap: 'innerHTML', values: {{msg: '请选择来源订单', type: 'error'}}}}); return false; }}
-    if (!reason) {{ htmx.ajax('POST', '/api/toast', {{target: '.toast-container', swap: 'innerHTML', values: {{msg: '请选择退货原因', type: 'error'}}}}); return false; }}
+    if (!order) {{ show_toast('请选择来源订单', 'error'); return false; }}
+    if (!reason) {{ show_toast('请选择退货原因', 'error'); return false; }}
     const rows = document.querySelectorAll('#line-items-body tr');
     const items = [];
     let hasQty = false;
@@ -605,14 +605,14 @@ function handleSubmit() {{
             }});
         }}
     }});
-    if (!hasQty) {{ htmx.ajax('POST', '/api/toast', {{target: '.toast-container', swap: 'innerHTML', values: {{msg: '请至少填写一行退货数量', type: 'error'}}}}); return false; }}
+    if (!hasQty) {{ show_toast('请至少填写一行退货数量', 'error'); return false; }}
     document.getElementById('f-reason').value = document.getElementById('reason-select').selectedOptions[0].text;
     document.querySelector('[name="items_json"]').value = JSON.stringify(items);
     return true;
 }}
 
 function handleSaveDraft() {{
-    htmx.ajax('POST', '/api/toast', {{target: '.toast-container', swap: 'innerHTML', values: {{msg: '草稿功能开发中', type: 'info'}}}});
+    show_toast('草稿功能开发中', 'info');
 }}
 
 // Expose to global scope for inline event handlers

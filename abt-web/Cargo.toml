@@ -16,8 +16,11 @@ abt-macros = { path = "../abt-macros" }
 # Web framework
 axum = { version = "0.8", features = ["multipart"] }
 axum-extra = { version = "0.12", features = ["typed-routing"] }
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
 maud = { version = "0.27", features = ["axum"] }
 tower-http = { version = "0.6", features = ["fs", "trace"] }
+rcgen = "0.13"
 tower = "0.5"
 
 # Async

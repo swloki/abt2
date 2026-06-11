@@ -16,3 +16,7 @@ scripts/convert-labor-excel/convert-labor-excel.exe
 graphify-out
 sessions/
 backup/
+
+# TLS certificates
+cert.der
+key.der

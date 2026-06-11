@@ -1,3 +1,4 @@
+/* Source: E:/work/abt/static/base.css */
 @font-face {
   font-family: "Plus Jakarta Sans";
   src: url("/fonts/PJS-400.woff2") format("woff2");
@@ -28,29 +29,29 @@
 }
 
 @font-face {
-  font-family: "Alibaba PuHuiTi";
-  src: url("/fonts/APHT-55.woff2") format("woff2");
+  font-family: "Noto Sans SC";
+  src: url("/fonts/NSSC-400.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Alibaba PuHuiTi";
-  src: url("/fonts/APHT-65.woff2") format("woff2");
+  font-family: "Noto Sans SC";
+  src: url("/fonts/NSSC-500.woff2") format("woff2");
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Alibaba PuHuiTi";
-  src: url("/fonts/APHT-75.woff2") format("woff2");
+  font-family: "Noto Sans SC";
+  src: url("/fonts/NSSC-600.woff2") format("woff2");
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: "Alibaba PuHuiTi";
-  src: url("/fonts/APHT-85.woff2") format("woff2");
+  font-family: "Noto Sans SC";
+  src: url("/fonts/NSSC-700.woff2") format("woff2");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -82,7 +83,7 @@
   --danger-bg: rgba(220, 38, 38, 0.05);
   --info: #2563eb;
 
-  --font-body: "Plus Jakarta Sans", "Ant Sans", "Alibaba PuHuiTi", Inter, -apple-system, sans-serif;
+  --font-body: "Plus Jakarta Sans", "Ant Sans", "Noto Sans SC", Inter, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
 
   --text-xs: 12px;

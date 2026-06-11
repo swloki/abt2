@@ -27,11 +27,15 @@ window.positionDropdown = function (trigger, dropdown) {
 };
 
 
-// ── Toast helper ──
+// ── Toast helpers ──
 // 通过 HTMX POST /api/toast 显示 toast 提示（服务端渲染）
 window.show_toast = function (msg, type) {
     htmx.ajax('POST', '/api/toast', {target: '.toast-container', swap: 'innerHTML', values: {msg: msg, type: type || 'success'}});
 };
+window.show_success_toast = function (msg) { show_toast(msg, 'success'); };
+window.show_error_toast = function (msg) { show_toast(msg, 'error'); };
+window.show_warning_toast = function (msg) { show_toast(msg, 'warning'); };
+window.show_info_toast = function (msg) { show_toast(msg, 'info'); };
 
 // ── HTMX global error handling ──
 
@@ -47,7 +51,7 @@ document.addEventListener('htmx:afterRequest', function (e) {
     }
 
     var msg = (xhr.responseText || '').trim() || '操作失败';
-    window.show_toast(msg, 'error');
+    window.show_error_toast(msg);
 });
 
 // ── Export download handler ──

@@ -289,7 +289,7 @@ fn reconciliation_create_page(
                 div class="create-action-bar" {
                     a class="btn btn-default" href=(ReconciliationListPath::PATH) { "取消" }
                     div class="action-bar-right" {
-                        button type="button" class="btn btn-default" onclick="show_toast('草稿功能开发中','info')" {
+                        button type="button" class="btn btn-default" onclick="show_info_toast('草稿功能开发中')" {
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }

@@ -478,7 +478,7 @@ me('#pq-form').on('submit', function(e) {
     });
     if (items.length === 0) {
         e.preventDefault();
-        show_toast('请至少添加一个报价产品明细', 'error');
+        show_error_toast('请至少添加一个报价产品明细');
         return;
     }
     me('#items-json').value = JSON.stringify(items);

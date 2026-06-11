@@ -22,12 +22,7 @@
     if (contactInput) contactInput.value = contact;
     if (phoneInput) phoneInput.value = phone;
 
-    // Set hidden order_id
-    var orderSelect = document.getElementById("pr-order-select");
-    var hiddenOrderId = document.querySelector('#pr-form input[name="order_id"]');
-    if (orderSelect && hiddenOrderId) {
-      hiddenOrderId.value = orderSelect.value;
-    }
+    // order_id is submitted directly from the select[name="order_id"]
 
     // Build item rows
     var itemDivs = container.querySelectorAll("[data-item]");

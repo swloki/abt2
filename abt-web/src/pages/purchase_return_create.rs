@@ -259,7 +259,6 @@ fn pr_create_page(
                   hx-swap="none"
                   onsubmit="PRCreate.collectItems()" {
                 input type="hidden" id="items-json" name="items_json" value="[]";
-                input type="hidden" name="order_id";
 
             // ── 关联单据 ──
             div class="data-card" style="margin-bottom:var(--space-4)" {
@@ -268,6 +267,7 @@ fn pr_create_page(
                     div class="form-field" {
                         label { "采购订单" span style="color:var(--danger)" { "*" } }
                         select id="pr-order-select"
+                            name="order_id"
                             hx-get=(PROrderItemsPath::PATH)
                             hx-trigger="change"
                             hx-target="#pr-order-data"

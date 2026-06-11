@@ -19,7 +19,7 @@ ls -la target/release/abt 2>/dev/null || true
 MONITOR_DIR="./target/release/abt"
 TARGET_USER="weichen"
 TARGET_HOST="119.29.23.115"
-TARGET_DIR="/data/abt3"
+TARGET_DIR="/data/abt3/"
 SSH_PASSWORD="chenxi,,0514"
 
 echo "开始"

@@ -18,6 +18,7 @@ use abt_macros::require_permission;
 // ── Query Params ──
 
 #[allow(dead_code)]
+#[derive(Debug, Deserialize, Clone, Default)]
 pub struct CascadeQueryParams {
     pub product_code: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]

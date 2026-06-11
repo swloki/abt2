@@ -166,16 +166,16 @@ pub async fn get_role_detail(
     // Count how many permissions actually match the matrix resources
     let matched_count = count_matched_perms(&groups, &normalized_perms);
 
-    let content = role_detail_page(
-        &rwp,
-        parent_role_name.as_deref(),
-        &child_roles,
+    let ctx = RoleDetailContext {
+        parent_role_name: parent_role_name.as_deref(),
+        child_roles: &child_roles,
         user_count,
-        &groups,
+        groups: &groups,
         total_perms,
-        &normalized_perms,
+        normalized_perms: &normalized_perms,
         matched_count,
-    );
+    };
+    let content = role_detail_page(&rwp, &ctx);
 
     let detail_path_str = RoleDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
@@ -274,24 +274,27 @@ fn group_icon_svg(cls: &str) -> Markup {
 }
 
 // ── Page Component ──
+struct RoleDetailContext<'a> {
+    parent_role_name: Option<&'a str>,
+    child_roles: &'a [&'a abt_core::shared::identity::model::Role],
+    user_count: usize,
+    groups: &'a [GroupData],
+    total_perms: usize,
+    normalized_perms: &'a [String],
+    matched_count: usize,
+}
 
-#[allow(clippy::too_many_arguments)]
+
 fn role_detail_page(
     rwp: &abt_core::shared::identity::model::RoleWithPermissions,
-    parent_role_name: Option<&str>,
-    child_roles: &[&abt_core::shared::identity::model::Role],
-    user_count: usize,
-    groups: &[GroupData],
-    total_perms: usize,
-    normalized_perms: &[String],
-    matched_count: usize,
+    ctx: &RoleDetailContext,
 ) -> Markup {
     let role = &rwp.role;
     let role_id = role.role_id;
     let list_path = RoleListPath.to_string();
     let edit_path = RoleEditPath { id: role_id }.to_string();
     let initials = get_initials(&role.role_name);
-    let perm_count = matched_count;
+    let perm_count = ctx.matched_count;
 
     html! {
         div {
@@ -320,7 +323,7 @@ fn role_detail_page(
                             } @else {
                                 span.tag-pill.tag-dept { "自定义角色" }
                             }
-                            @if let Some(pname) = parent_role_name {
+                            @if let Some(pname) = ctx.parent_role_name {
                                 span.tag-pill.tag-super { "上级: " (pname) }
                             }
                         }
@@ -343,12 +346,12 @@ fn role_detail_page(
                 }
                 div.ps-item {
                     span.ps-dot.d-green {}
-                    b { (user_count) }
+                    b { (ctx.user_count) }
                     span { "个用户" }
                 }
                 div.ps-item {
                     span.ps-dot.d-purple {}
-                    b { (total_perms) }
+                    b { (ctx.total_perms) }
                     span { "项可分配" }
                 }
             }
@@ -380,7 +383,7 @@ fn role_detail_page(
                     }
                     div.info-row {
                         span.info-label { "上级角色" }
-                        @if let Some(pname) = parent_role_name {
+                        @if let Some(pname) = ctx.parent_role_name {
                             span.info-val { (pname) }
                         } @else {
                             span.info-val.info-muted { "无" }
@@ -414,15 +417,15 @@ fn role_detail_page(
             }
 
             // ── Child Roles Card ──
-            @if !child_roles.is_empty() {
+            @if !ctx.child_roles.is_empty() {
                 div.info-card {
                     div.info-card-title {
                         (icon::grid_icon("w-[18px] h-[18px] text-accent"))
                         "下级角色"
-                        span.d-card-count { (child_roles.len()) }
+                        span.d-card-count { (ctx.child_roles.len()) }
                     }
                     div.info-card-rows {
-                        @for child in child_roles {
+                        @for child in ctx.child_roles {
                             div.info-row {
                                 span.info-label {
                                     a href=(RoleDetailPath { id: child.role_id }.to_string()) style="color:var(--accent)" {
@@ -442,7 +445,7 @@ fn role_detail_page(
                     (icon::sliders_icon("w-[18px] h-[18px] text-accent"))
                     "权限配置"
                     span.d-card-count {
-                        (format!("{} / {} 项", perm_count, total_perms))
+                        (format!("{} / {} 项", perm_count, ctx.total_perms))
                     }
                 }
 
@@ -451,14 +454,14 @@ fn role_detail_page(
                         "已分配 "
                         span.perm-count { (perm_count) }
                         " / "
-                        span { (total_perms) }
+                        span { (ctx.total_perms) }
                         " 项权限"
                     }
                 }
 
                 div.perm-groups {
-                    @for (gi, group) in groups.iter().enumerate() {
-                        (perm_detail_group(gi, group, normalized_perms))
+                    @for (gi, group) in ctx.groups.iter().enumerate() {
+                        (perm_detail_group(gi, group, ctx.normalized_perms))
                     }
                 }
             }

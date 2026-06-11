@@ -86,19 +86,24 @@ pub async fn get_wage_list(
         .map(|d| d.defect_qty)
         .sum();
 
-    let content = wage_list_page(
-        &summaries, &user_map, &wo_doc_map,
-        date_from, date_to,
-        total_wage, worker_count, total_completed, total_defect, total_operator_defect,
-    );
+    let wctx = WageListContext {
+        user_map: &user_map,
+        wo_doc_map: &wo_doc_map,
+        date_from,
+        date_to,
+        total_wage,
+        worker_count,
+        total_completed,
+        total_defect,
+        total_operator_defect,
+    };
+    let content = wage_list_page(&summaries, &wctx);
     Ok(Html(admin_page(is_htmx, "计件工资汇总", &claims, "production", WageListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
-#[allow(clippy::too_many_arguments)]
-fn wage_list_page(
-    summaries: &[abt_core::mes::work_report::WageSummary],
-    user_map: &HashMap<i64, String>,
-    wo_doc_map: &HashMap<i64, String>,
+struct WageListContext<'a> {
+    user_map: &'a HashMap<i64, String>,
+    wo_doc_map: &'a HashMap<i64, String>,
     date_from: chrono::NaiveDate,
     date_to: chrono::NaiveDate,
     total_wage: rust_decimal::Decimal,
@@ -106,13 +111,18 @@ fn wage_list_page(
     total_completed: rust_decimal::Decimal,
     total_defect: rust_decimal::Decimal,
     total_operator_defect: rust_decimal::Decimal,
+}
+
+fn wage_list_page(
+    summaries: &[abt_core::mes::work_report::WageSummary],
+    ctx: &WageListContext,
 ) -> Markup {
-    let date_from_str = date_from.format("%Y-%m-%d").to_string();
-    let date_to_str = date_to.format("%Y-%m-%d").to_string();
-    let total_completed_fmt = crate::utils::fmt_qty(total_completed);
-    let total_defect_fmt = crate::utils::fmt_qty(total_defect);
-    let defect_rate = if total_completed > rust_decimal::Decimal::ZERO {
-        let rate = (total_defect / total_completed) * rust_decimal::Decimal::ONE_HUNDRED;
+    let date_from_str = ctx.date_from.format("%Y-%m-%d").to_string();
+    let date_to_str = ctx.date_to.format("%Y-%m-%d").to_string();
+    let total_completed_fmt = crate::utils::fmt_qty(ctx.total_completed);
+    let total_defect_fmt = crate::utils::fmt_qty(ctx.total_defect);
+    let defect_rate = if ctx.total_completed > rust_decimal::Decimal::ZERO {
+        let rate = (ctx.total_defect / ctx.total_completed) * rust_decimal::Decimal::ONE_HUNDRED;
         format!("{:.1}%", rate)
     } else {
         "0%".to_string()
@@ -147,7 +157,7 @@ fn wage_list_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>"#))
                 }
                 div {
-                    div class="stat-value" { "¥" (crate::utils::fmt_qty(total_wage)) }
+                    div class="stat-value" { "¥" (crate::utils::fmt_qty(ctx.total_wage)) }
                     div class="stat-label" { "本月工资总额" }
                 }
             }
@@ -156,7 +166,7 @@ fn wage_list_page(
                     (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>"#))
                 }
                 div {
-                    div class="stat-value" { (worker_count) }
+                    div class="stat-value" { (ctx.worker_count) }
                     div class="stat-label" { "计件工人数" }
                 }
             }
@@ -177,7 +187,7 @@ fn wage_list_page(
                 div {
                     div class="stat-value" { "—" }
                     div class="stat-label" { "扣减金额(操作失误)" }
-                    div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "操作失误不良: " (crate::utils::fmt_qty(total_operator_defect)) "件" }
+                    div style="font-size:var(--text-xs);color:var(--muted);margin-top:2px" { "操作失误不良: " (crate::utils::fmt_qty(ctx.total_operator_defect)) "件" }
                 }
             }
         }
@@ -214,7 +224,7 @@ fn wage_list_page(
                 }
 
                 @for (idx, summary) in summaries.iter().enumerate() {
-                    @let worker_name = user_map.get(&summary.worker_id).cloned().unwrap_or_else(|| format!("工人#{}", summary.worker_id));
+                    @let worker_name = ctx.user_map.get(&summary.worker_id).cloned().unwrap_or_else(|| format!("工人#{}", summary.worker_id));
                     @let initial = worker_name.chars().next().unwrap_or('?');
                     @let wc = summary.details.iter().map(|d| d.completed_qty).sum::<rust_decimal::Decimal>();
                     @let wd = summary.details.iter().map(|d| d.defect_qty).sum::<rust_decimal::Decimal>();
@@ -255,7 +265,7 @@ fn wage_list_page(
                             }}
                             tbody {
                                 @for detail in &summary.details {
-                                    @let wo_doc = wo_doc_map.get(&detail.work_order_id).cloned().unwrap_or_else(|| "—".to_string());
+                                    @let wo_doc = ctx.wo_doc_map.get(&detail.work_order_id).cloned().unwrap_or_else(|| "—".to_string());
                                     @let defect_label = match detail.defect_reason {
                                         Some(abt_core::mes::enums::DefectReason::MaterialDefect) => format!("{} (物料不良)", crate::utils::fmt_qty(detail.defect_qty)),
                                         Some(abt_core::mes::enums::DefectReason::EquipmentFault) => format!("{} (设备故障)", crate::utils::fmt_qty(detail.defect_qty)),
@@ -288,7 +298,7 @@ fn wage_list_page(
 
         // 分页
         div class="pagination" {
-            span { "共 " (worker_count) " 名工人" }
+            span { "共 " (ctx.worker_count) " 名工人" }
         }
     }}
 }

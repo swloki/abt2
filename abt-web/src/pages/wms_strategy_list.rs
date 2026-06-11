@@ -57,7 +57,7 @@ pub async fn get_strategy_table(
 
 // ── Helpers ──
 
-#[allow(dead_code)]
+fn _putaway_type_label(t: &PutawayType) -> &'static str {
     match t {
         PutawayType::SameMerge => "同物料合并",
         PutawayType::Nearest => "就近入库",
@@ -75,7 +75,7 @@ fn putaway_type_tag(t: &PutawayType) -> &'static str {
     }
 }
 
-#[allow(dead_code)]
+fn _pick_type_label(t: &PickType) -> &'static str {
     match t {
         PickType::Fifo => "先进先出",
         PickType::Fefo => "先到期先出",

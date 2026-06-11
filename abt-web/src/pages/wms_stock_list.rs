@@ -277,7 +277,8 @@ pub async fn get_stock_list(
     } else {
         vec![]
     };
-    let content = stock_list_page(&result, &product_names, &warehouse_names, &zone_codes, &bin_codes, &warehouses, &zones, &params);
+    let ctx = StockListContext { product_names: &product_names, warehouse_names: &warehouse_names, zone_codes: &zone_codes, bin_codes: &bin_codes, warehouses: &warehouses, zones: &zones, params: &params };
+    let content = stock_list_page(&result, &ctx);
     let page_html = admin_page(
         is_htmx, "库存查询", &claims, "inventory", StockListPath::PATH, "库存管理", None, content, &nav_filter,
     );
@@ -321,17 +322,19 @@ pub async fn get_stock_table(
 }
 
 // ── Components ──
+struct StockListContext<'a> {
+    product_names: &'a HashMap<i64, (String, String)>,
+    warehouse_names: &'a HashMap<i64, String>,
+    zone_codes: &'a HashMap<i64, String>,
+    bin_codes: &'a HashMap<i64, String>,
+    warehouses: &'a [abt_core::wms::warehouse::model::Warehouse],
+    zones: &'a [abt_core::wms::warehouse::model::Zone],
+    params: &'a StockQueryParams,
+}
 
-#[allow(clippy::too_many_arguments)]
 fn stock_list_page(
     result: &abt_core::shared::types::PaginatedResult<abt_core::wms::stock_ledger::model::StockLedger>,
-    product_names: &HashMap<i64, (String, String)>,
-    warehouse_names: &HashMap<i64, String>,
-    zone_codes: &HashMap<i64, String>,
-    bin_codes: &HashMap<i64, String>,
-    warehouses: &[abt_core::wms::warehouse::model::Warehouse],
-    zones: &[abt_core::wms::warehouse::model::Zone],
-    params: &StockQueryParams,
+    ctx: &StockListContext,
 ) -> Markup {
     html! {
         div {
@@ -380,9 +383,9 @@ fn stock_list_page(
             }
 
             // ── Filter Bar (outside data-card, always visible) ──
-            (stock_filter_bar(warehouses, zones, params))
+            (stock_filter_bar(ctx.warehouses, ctx.zones, ctx.params))
             // ── Data Card (HTMX target) ──
-            (stock_data_card(result, product_names, warehouse_names, zone_codes, bin_codes, params))
+            (stock_data_card(result, ctx.product_names, ctx.warehouse_names, ctx.zone_codes, ctx.bin_codes, ctx.params))
         }
     }
 }

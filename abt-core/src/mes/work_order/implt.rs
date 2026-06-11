@@ -180,8 +180,8 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 6. 库存 HARD 预留（非阻断：预留失败不阻止工单下达）
-        let reserve_result = new_inventory_reservation_service(self.pool.clone())
+        // 6. 库存 HARD 预留（planned_qty）
+        new_inventory_reservation_service(self.pool.clone())
             .reserve(
                 ctx, db,
                 vec![ReserveRequest {
@@ -196,10 +196,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
                     expires_at: None,
                 }],
             )
-            .await;
-        if let Err(e) = reserve_result {
-            tracing::warn!("工单 {} 库存预留失败（非阻断）: {}", id, e);
-        }
+            .await?;
 
         // 7. 创建领料单
         new_material_requisition_service(self.pool.clone())

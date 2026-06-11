@@ -73,7 +73,8 @@ pub async fn get_transfer_detail(
     }
 
     let detail_path = TransferDetailPath { id: path.id }.to_string();
-    let content = transfer_detail_page(&transfer, &items, &detail_path, &from_wh_name, &to_wh_name, &operator_name, &product_codes, &product_names, &product_specs, &product_units);
+    let ctx = TransferDetailContext { items: &items, detail_path: &detail_path, from_wh_name: &from_wh_name, to_wh_name: &to_wh_name, operator_name: &operator_name, product_codes: &product_codes, product_names: &product_names, product_specs: &product_specs, product_units: &product_units };
+    let content = transfer_detail_page(&transfer, &ctx);
     let page_html = admin_page(
         is_htmx,
         "调拨单详情",
@@ -112,20 +113,22 @@ pub async fn post_transfer_action(
     Ok(resp)
 }
 
-// ── Components ──
 
-#[allow(clippy::too_many_arguments)]
+struct TransferDetailContext<'a> {
+    items: &'a [TransferItem],
+    detail_path: &'a str,
+    from_wh_name: &'a str,
+    to_wh_name: &'a str,
+    operator_name: &'a str,
+    product_codes: &'a std::collections::HashMap<i64, String>,
+    product_names: &'a std::collections::HashMap<i64, String>,
+    product_specs: &'a std::collections::HashMap<i64, String>,
+    product_units: &'a std::collections::HashMap<i64, String>,
+}
+
 fn transfer_detail_page(
     transfer: &abt_core::wms::transfer::InventoryTransfer,
-    items: &[TransferItem],
-    detail_path: &str,
-    from_wh_name: &str,
-    to_wh_name: &str,
-    operator_name: &str,
-    product_codes: &std::collections::HashMap<i64, String>,
-    product_names: &std::collections::HashMap<i64, String>,
-    product_specs: &std::collections::HashMap<i64, String>,
-    product_units: &std::collections::HashMap<i64, String>,
+    ctx: &TransferDetailContext,
 ) -> Markup {
     let (status_label, status_class) = match transfer.status {
         TransferStatus::Draft => ("草稿", "status-draft"),
@@ -149,7 +152,7 @@ fn transfer_detail_page(
                     }
                 }
                 div class="page-actions" {
-                    (transfer_action_buttons(transfer.status, detail_path))
+                    (transfer_action_buttons(transfer.status, ctx.detail_path))
                 }
             }
 
@@ -166,11 +169,11 @@ fn transfer_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "调出仓库" }
-                        span class="info-value" { (from_wh_name) }
+                        span class="info-value" { (ctx.from_wh_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "调入仓库" }
-                        span class="info-value" { (to_wh_name) }
+                        span class="info-value" { (ctx.to_wh_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "调拨日期" }
@@ -178,7 +181,7 @@ fn transfer_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "操作员" }
-                        span class="info-value" { (operator_name) }
+                        span class="info-value" { (ctx.operator_name) }
                     }
                 }
             }
@@ -201,13 +204,13 @@ fn transfer_detail_page(
                         }
                     }
                     tbody {
-                        @for (i, item) in items.iter().enumerate() {
+                        @for (i, item) in ctx.items.iter().enumerate() {
                             tr {
                                 td class="mono" { (i + 1) }
-                                td class="mono" { (product_codes.get(&item.product_id).map(|c| c.as_str()).unwrap_or("—")) }
-                                td { (product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
-                                td { (product_specs.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—")) }
-                                td { (product_units.get(&item.product_id).map(|u| u.as_str()).unwrap_or("—")) }
+                                td class="mono" { (ctx.product_codes.get(&item.product_id).map(|c| c.as_str()).unwrap_or("—")) }
+                                td { (ctx.product_names.get(&item.product_id).map(|n| n.as_str()).unwrap_or("—")) }
+                                td { (ctx.product_specs.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                td { (ctx.product_units.get(&item.product_id).map(|u| u.as_str()).unwrap_or("—")) }
                                 td class="num-right" { (format!("{:.2}", item.quantity)) }
                                 td class="mono" {
                                     @if let Some(ref batch) = item.batch_no {
@@ -218,7 +221,7 @@ fn transfer_detail_page(
                                 }
                             }
                         }
-                        @if items.is_empty() {
+                        @if ctx.items.is_empty() {
                             tr {
                                 td colspan="7" style="text-align:center;padding:var(--space-8);color:var(--muted)" {
                                     "暂无明细数据"

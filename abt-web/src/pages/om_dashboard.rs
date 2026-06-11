@@ -116,19 +116,19 @@ pub async fn get_dashboard(
     // Supplier ranking by amount
     let supplier_ranking = calc_supplier_ranking(&all_result.items, &supplier_names);
 
-    let content = om_dashboard_page(
-        total,
+    let ctx = OmDashboardContext {
         in_production,
         delivered,
         overdue,
         monthly_amount,
-        &recent_orders,
-        &supplier_names,
-        &product_names,
-        &latest_tracking,
-        &type_dist,
-        &supplier_ranking,
-    );
+        recent: &recent_orders,
+        supplier_names: &supplier_names,
+        product_names: &product_names,
+        latest_tracking: &latest_tracking,
+        type_dist: &type_dist,
+        supplier_ranking: &supplier_ranking,
+    };
+    let content = om_dashboard_page(total, &ctx);
 
     let page_html = admin_page(
         is_htmx,
@@ -213,6 +213,7 @@ async fn resolve_latest_tracking<S: OutsourcingTrackingService>(
 // ── Analytics ──
 
 #[allow(dead_code)]
+struct TypeDistEntry {
     label: &'static str,
     bg: &'static str,
     fg: &'static str,
@@ -294,20 +295,21 @@ fn calc_supplier_ranking(
 
 // ── Page ──
 
-#[allow(clippy::too_many_arguments)]
-fn om_dashboard_page(
-    total: u64,
+struct OmDashboardContext<'a> {
     in_production: u64,
     delivered: u64,
     overdue: u64,
     monthly_amount: Decimal,
-    recent: &[&OutsourcingOrder],
-    supplier_names: &HashMap<i64, String>,
-    product_names: &HashMap<i64, String>,
-    latest_tracking: &HashMap<i64, String>,
-    type_dist: &[TypeDistEntry],
-    supplier_ranking: &[SupplierRankEntry],
-) -> Markup {
+    recent: &'a [&'a OutsourcingOrder],
+    supplier_names: &'a HashMap<i64, String>,
+    product_names: &'a HashMap<i64, String>,
+    latest_tracking: &'a HashMap<i64, String>,
+    type_dist: &'a [TypeDistEntry],
+    supplier_ranking: &'a [SupplierRankEntry],
+}
+
+
+fn om_dashboard_page(total: u64, ctx: &OmDashboardContext) -> Markup {
     html! {
         div {
             // ── Page Header ──
@@ -333,28 +335,28 @@ fn om_dashboard_page(
                 div class="stat-card" {
                     div class="stat-icon green" { (icon::tool_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (in_production) }
+                        div class="stat-value" { (ctx.in_production) }
                         div class="stat-label" { "生产中" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon orange" { (icon::package_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (delivered) }
+                        div class="stat-value" { (ctx.delivered) }
                         div class="stat-label" { "待收货" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon red" { (icon::alert_triangle_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (overdue) }
+                        div class="stat-value" { (ctx.overdue) }
                         div class="stat-label" { "超期预警" }
                     }
                 }
                 div class="stat-card" {
                     div class="stat-icon purple" { (icon::currency_icon("w-5 h-5")) }
                     div {
-                        div class="stat-value" { (format_amount(monthly_amount)) }
+                        div class="stat-value" { (format_amount(ctx.monthly_amount)) }
                         div class="stat-label" { "本月委外金额" }
                     }
                 }
@@ -366,8 +368,8 @@ fn om_dashboard_page(
                 div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)" {
                     (quick_entry_card(OmOutsourcingCreatePath::PATH, "新建委外单", "创建委外生产订单", "blue", "plus", None))
                     (quick_entry_card(OmOutsourcingListPath::PATH, "委外单管理", "查看和管理所有委外单", "green", "list", Some(total)))
-                    (quick_entry_card(OmTrackingListPath::PATH, "追踪管理", "物流节点与进度跟踪", "orange", "track", if overdue > 0 { Some(overdue) } else { None }))
-                    (quick_entry_card(OmOutsourcingListPath::PATH, "收货登记", "委外到货确认与入库", "cyan", "receive", Some(delivered)))
+                    (quick_entry_card(OmTrackingListPath::PATH, "追踪管理", "物流节点与进度跟踪", "orange", "track", if ctx.overdue > 0 { Some(ctx.overdue) } else { None }))
+                    (quick_entry_card(OmOutsourcingListPath::PATH, "收货登记", "委外到货确认与入库", "cyan", "receive", Some(ctx.delivered)))
                 }
             }
 
@@ -392,16 +394,16 @@ fn om_dashboard_page(
                             }
                         }
                         tbody {
-                            @if recent.is_empty() {
+                            @if ctx.recent.is_empty() {
                                 tr {
                                     td colspan="8" style="text-align:center;color:var(--muted);padding:var(--space-8)" { "暂无委外单" }
                                 }
                             } @else {
-                                @for order in recent {
-                                    @let supplier_name = supplier_names.get(&order.supplier_id).map(|s| s.as_str()).unwrap_or("—");
-                                    @let product_name = product_names.get(&order.product_id).map(|s| s.as_str()).unwrap_or("—");
+                                @for order in ctx.recent {
+                                    @let supplier_name = ctx.supplier_names.get(&order.supplier_id).map(|s| s.as_str()).unwrap_or("—");
+                                    @let product_name = ctx.product_names.get(&order.product_id).map(|s| s.as_str()).unwrap_or("—");
                                     @let amount = order.planned_qty * order.unit_price;
-                                    @let tracking = latest_tracking.get(&order.id).map(|s| s.as_str()).unwrap_or("—");
+                                    @let tracking = ctx.latest_tracking.get(&order.id).map(|s| s.as_str()).unwrap_or("—");
                                     @let (s_label, s_bg, s_color) = status_label(&order.status);
                                     @let (t_label, t_bg, t_color) = type_label(&order.outsourcing_type);
                                     tr {
@@ -448,7 +450,7 @@ fn om_dashboard_page(
                         " 委外类型分布"
                     }
                     div class="data-card" style="padding:var(--space-5)" {
-                        @for entry in type_dist {
+                        @for entry in ctx.type_dist {
                             div style="margin-bottom:var(--space-4)" {
                                 div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:var(--space-2)" {
                                     span style="font-size:13px;font-weight:500" { (entry.label) }
@@ -464,7 +466,7 @@ fn om_dashboard_page(
                                 }
                             }
                         }
-                        @if type_dist.iter().all(|e| e.count == 0) {
+                        @if ctx.type_dist.iter().all(|e| e.count == 0) {
                             div style="text-align:center;color:var(--muted);padding:var(--space-6);font-size:13px" { "暂无数据" }
                         }
                     }
@@ -477,7 +479,7 @@ fn om_dashboard_page(
                         " 供应商委外金额排名"
                     }
                     div class="data-card" style="padding:var(--space-5)" {
-                        @for (i, entry) in supplier_ranking.iter().enumerate() {
+                        @for (i, entry) in ctx.supplier_ranking.iter().enumerate() {
                             @let medal = match i {
                                 0 => "🥇",
                                 1 => "🥈",
@@ -499,7 +501,7 @@ fn om_dashboard_page(
                                 }
                             }
                         }
-                        @if supplier_ranking.is_empty() {
+                        @if ctx.supplier_ranking.is_empty() {
                             div style="text-align:center;color:var(--muted);padding:var(--space-6);font-size:13px" { "暂无数据" }
                         }
                     }

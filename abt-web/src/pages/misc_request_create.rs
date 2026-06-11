@@ -17,6 +17,7 @@ use abt_macros::require_permission;
 // ── Form request ──
 
 #[allow(dead_code)]
+#[derive(Debug, Deserialize)]
 pub struct MiscCreateForm {
     pub department: Option<String>,
     pub purpose: String,

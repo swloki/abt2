@@ -11,17 +11,16 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
-#[allow(dead_code)]
 pub struct NotificationServiceImpl {
     repo: NotificationRepo,
-    pool: PgPool,
+    _pool: PgPool,
 }
 
 impl NotificationServiceImpl {
     pub fn new(pool: PgPool) -> Self {
         Self {
             repo: NotificationRepo,
-            pool,
+            _pool: pool,
         }
     }
 }

@@ -97,11 +97,13 @@ pub async fn load_usage_data(
     let picked_total: Decimal = bom_items.iter().map(|i| i.picked_qty).sum();
     let variance = backflush_qty - standard_qty;
 
-    let html_content = usage_data_fragment(
-        &wo_info, &bom_items,
+    let ctx = MaterialUsageContext {
+        bom_items: &bom_items,
         standard_qty, backflush_qty, picked_total, variance,
-        &bf_records.items, &requisitions.items,
-    );
+        bf_records: &bf_records.items,
+        requisitions: &requisitions.items,
+    };
+    let html_content = usage_data_fragment(&wo_info, &ctx);
     Ok(Html(html_content.into_string()))
 }
 
@@ -148,17 +150,17 @@ fn material_usage_page(
     }}
 }
 
-#[allow(clippy::too_many_arguments)]
-fn usage_data_fragment(
-    wo_info: &abt_core::mes::dashboard::model::WoBasicInfo,
-    bom_items: &[abt_core::mes::dashboard::model::BomCompareItem],
+struct MaterialUsageContext<'a> {
+    bom_items: &'a [abt_core::mes::dashboard::model::BomCompareItem],
     standard_qty: Decimal,
     backflush_qty: Decimal,
     picked_total: Decimal,
     variance: Decimal,
-    bf_records: &[abt_core::wms::backflush::model::BackflushRecord],
-    requisitions: &[abt_core::wms::material_requisition::model::MaterialRequisition],
-) -> Markup {
+    bf_records: &'a [abt_core::wms::backflush::model::BackflushRecord],
+    requisitions: &'a [abt_core::wms::material_requisition::model::MaterialRequisition],
+}
+
+fn usage_data_fragment(wo_info: &abt_core::mes::dashboard::model::WoBasicInfo, ctx: &MaterialUsageContext) -> Markup {
     let status_display = match wo_info.status {
         1 => ("待计划", "pill-pending"),
         2 => ("已计划", "pill-progress"),
@@ -192,7 +194,7 @@ fn usage_data_fragment(
             div class="stat-card" {
                 div class="stat-icon blue" { (icon::box_icon("")) }
                 div {
-                    div class="stat-card-value" { (crate::utils::fmt_qty(standard_qty)) }
+                    div class="stat-card-value" { (crate::utils::fmt_qty(ctx.standard_qty)) }
                     div class="stat-card-label" { "BOM 标准用量" }
                     div class="text-xs text-muted mt-1" {
                         "按完成 " (crate::utils::fmt_qty(wo_info.completed_qty)) " 件计算"
@@ -203,7 +205,7 @@ fn usage_data_fragment(
             div class="stat-card" {
                 div class="stat-icon green" { (icon::clipboard_list_icon("")) }
                 div {
-                    div class="stat-card-value" { (crate::utils::fmt_qty(picked_total)) }
+                    div class="stat-card-value" { (crate::utils::fmt_qty(ctx.picked_total)) }
                     div class="stat-card-label" { "实际消耗(领料)" }
                     div class="text-xs text-muted mt-1" { "含损耗余量" }
                 }
@@ -212,7 +214,7 @@ fn usage_data_fragment(
             div class="stat-card" {
                 div class="stat-icon orange" { (icon::refresh_icon("")) }
                 div {
-                    div class="stat-card-value" { (crate::utils::fmt_qty(backflush_qty)) }
+                    div class="stat-card-value" { (crate::utils::fmt_qty(ctx.backflush_qty)) }
                     div class="stat-card-label" { "倒冲消耗" }
                 }
             }
@@ -220,14 +222,14 @@ fn usage_data_fragment(
             div class="stat-card" {
                 div class="stat-icon red" { (icon::circle_alert_icon("")) }
                 div {
-                    @let variance_cls = if variance > Decimal::ZERO { "text-danger" } else if variance < Decimal::ZERO { "text-success" } else { "" };
+                    @let variance_cls = if ctx.variance > Decimal::ZERO { "text-danger" } else if ctx.variance < Decimal::ZERO { "text-success" } else { "" };
                     div class=(format!("stat-card-value {variance_cls}")) {
-                        @if variance > Decimal::ZERO { "+" }
-                        (crate::utils::fmt_qty(variance))
+                        @if ctx.variance > Decimal::ZERO { "+" }
+                        (crate::utils::fmt_qty(ctx.variance))
                     }
                     div class="stat-card-label" { "用量差异" }
-                    @if standard_qty > Decimal::ZERO {
-                        @let rate = ((variance / standard_qty) * Decimal::ONE_HUNDRED).abs();
+                    @if ctx.standard_qty > Decimal::ZERO {
+                        @let rate = ((ctx.variance / ctx.standard_qty) * Decimal::ONE_HUNDRED).abs();
                         div class="text-xs text-muted mt-1" {
                             "超出标准 " (crate::utils::fmt_qty(rate)) "%"
                         }
@@ -237,7 +239,7 @@ fn usage_data_fragment(
         }
 
         // ── BOM comparison table ──
-        @if !bom_items.is_empty() {
+        @if !ctx.bom_items.is_empty() {
             div class="section-card" {
                 div class="section-card-head" {
                     (icon::box_icon(""))
@@ -257,7 +259,7 @@ fn usage_data_fragment(
                             th class="num-right" { "差异" }
                         }}
                         tbody {
-                            @for item in bom_items {
+                            @for item in ctx.bom_items {
                                 @let diff = item.backflush_total - item.standard_total;
                                 @let diff_cls = if diff > Decimal::ZERO { "diff-positive" } else if diff < Decimal::ZERO { "diff-negative" } else { "diff-zero" };
                                 @let loss_rate = if item.standard_total > Decimal::ZERO {
@@ -292,7 +294,7 @@ fn usage_data_fragment(
         }
 
         // ── Backflush detail records ──
-        @if !bf_records.is_empty() {
+        @if !ctx.bf_records.is_empty() {
             div class="section-card" {
                 div class="section-card-head" {
                     (icon::refresh_icon(""))
@@ -307,7 +309,7 @@ fn usage_data_fragment(
                             th { "状态" }
                         }}
                         tbody {
-                            @for rec in bf_records {
+                            @for rec in ctx.bf_records {
                                 tr {
                                     td class="mono" {
                                         a href=(format!("/admin/wms/backflush/{}", rec.id)) class="link-cell" { (rec.doc_number) }
@@ -324,7 +326,7 @@ fn usage_data_fragment(
         }
 
         // ── Requisition records ──
-        @if !requisitions.is_empty() {
+        @if !ctx.requisitions.is_empty() {
             div class="section-card" {
                 div class="section-card-head" {
                     (icon::clipboard_list_icon(""))
@@ -338,7 +340,7 @@ fn usage_data_fragment(
                             th { "状态" }
                         }}
                         tbody {
-                            @for req in requisitions {
+                            @for req in ctx.requisitions {
                                 tr {
                                     td class="mono" {
                                         a href=(format!("/admin/wms/requisition/{}", req.id)) class="link-cell" { (req.doc_number) }

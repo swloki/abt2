@@ -100,6 +100,7 @@ struct TransferItemWeb {
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Deserialize)]
 pub struct TransferCreateForm {
     #[serde(deserialize_with = "empty_as_none")]
     pub from_warehouse_id: Option<i64>,

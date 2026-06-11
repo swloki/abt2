@@ -75,7 +75,7 @@ pub async fn get_po_detail(
             (names, codes, units, specs)
         }
     };
-    let content = po_detail_page(&order, &items, &supplier_name, &operator_name, &product_names, &product_codes, &product_units, &product_specs);
+    let content = po_detail_page(&order, &items, &OrderDetailContext { supplier_name: &supplier_name, operator_name: &operator_name, product_names: &product_names, product_codes: &product_codes, product_units: &product_units, product_specs: &product_specs });
     let page_html = admin_page(
         is_htmx, "订单详情", &claims, "purchase",
         &format!("{}/{}", POListPath::PATH, path.id),
@@ -160,16 +160,19 @@ fn workflow_steps(current: PurchaseOrderStatus) -> Markup {
 
 // ── Components ──
 
-#[allow(clippy::too_many_arguments)]
+struct OrderDetailContext<'a> {
+    supplier_name: &'a str,
+    operator_name: &'a str,
+    product_names: &'a HashMap<i64, String>,
+    product_codes: &'a HashMap<i64, String>,
+    product_units: &'a HashMap<i64, String>,
+    product_specs: &'a HashMap<i64, String>,
+}
+
 fn po_detail_page(
     order: &PurchaseOrder,
     items: &[PurchaseOrderItem],
-    supplier_name: &str,
-    operator_name: &str,
-    product_names: &HashMap<i64, String>,
-    product_codes: &HashMap<i64, String>,
-    product_units: &HashMap<i64, String>,
-    product_specs: &HashMap<i64, String>,
+    ctx: &OrderDetailContext,
 ) -> Markup {
     let (status_text, status_class) = status_label(order.status);
     let expected_delivery = order.expected_delivery_date
@@ -227,7 +230,7 @@ fn po_detail_page(
                 div class="info-grid" {
                     div class="info-item" {
                         span class="info-label" { "供应商" }
-                        span class="info-value" { (supplier_name) }
+                        span class="info-value" { (ctx.supplier_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "订单日期" }
@@ -251,7 +254,7 @@ fn po_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "采购员" }
-                        span class="info-value" { (operator_name) }
+                        span class="info-value" { (ctx.operator_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "关联报价" }
@@ -281,7 +284,7 @@ fn po_detail_page(
                         }
                         tbody {
                             @for item in items {
-                                (item_row(item, product_names, product_codes, product_units, product_specs))
+                                (item_row(item, ctx.product_names, ctx.product_codes, ctx.product_units, ctx.product_specs))
                             }
                             @if items.is_empty() {
                                 tr {
@@ -291,8 +294,8 @@ fn po_detail_page(
                                 }
                             }
                         }
+                        }
                     }
-                }
                 // ── Amount Summary ──
                 div class="amount-summary" {
                     div class="amount-row" {

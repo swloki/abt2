@@ -5,24 +5,9 @@ use sqlx::FromRow;
 pub struct ProductionExceptionRepo;
 
 impl ProductionExceptionRepo {
-#[allow(clippy::too_many_arguments)]
     pub async fn insert(
         executor: &mut sqlx::postgres::PgConnection,
-        doc_number: &str,
-        exception_type: super::super::enums::ExceptionType,
-        severity: super::super::enums::ExceptionSeverity,
-        reason_category: Option<super::super::enums::ReasonCategory>,
-        work_order_id: Option<i64>,
-        batch_id: Option<i64>,
-        product_id: Option<i64>,
-        current_step: Option<i32>,
-        impact_qty: Option<rust_decimal::Decimal>,
-        description: Option<&str>,
-        disposition: Option<&str>,
-        found_at: chrono::DateTime<chrono::Utc>,
-        finder_id: Option<i64>,
-        owner_id: Option<i64>,
-        operator_id: i64,
+        params: &CreateExceptionParams<'_>,
     ) -> Result<ProductionException> {
         let row = sqlx::query(
             "INSERT INTO production_exceptions \
@@ -35,21 +20,21 @@ impl ProductionExceptionRepo {
               description, disposition, found_at, finder_id, owner_id, operator_id, \
               created_at, updated_at"
         )
-        .bind(doc_number)
-        .bind(exception_type)
-        .bind(severity)
-        .bind(reason_category)
-        .bind(work_order_id)
-        .bind(batch_id)
-        .bind(product_id)
-        .bind(current_step)
-        .bind(impact_qty)
-        .bind(description)
-        .bind(disposition)
-        .bind(found_at)
-        .bind(finder_id)
-        .bind(owner_id)
-        .bind(operator_id)
+        .bind(params.doc_number)
+        .bind(params.exception_type)
+        .bind(params.severity)
+        .bind(params.reason_category)
+        .bind(params.work_order_id)
+        .bind(params.batch_id)
+        .bind(params.product_id)
+        .bind(params.current_step)
+        .bind(params.impact_qty)
+        .bind(params.description)
+        .bind(params.disposition)
+        .bind(params.found_at)
+        .bind(params.finder_id)
+        .bind(params.owner_id)
+        .bind(params.operator_id)
         .fetch_one(&mut *executor)
         .await?;
 

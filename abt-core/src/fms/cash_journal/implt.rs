@@ -40,28 +40,18 @@ impl CashJournalService for CashJournalServiceImpl {
         if req.amount <= rust_decimal::Decimal::ZERO {
             return Err(DomainError::validation("amount must be greater than zero"));
         }
+        if req.lines.is_empty() {
+            return Err(DomainError::validation("at least one journal line is required"));
+        }
 
-        // 如果没有明细行，自动生成默认行（借方 = 贷方 = amount）
-        let lines = if req.lines.is_empty() {
-            vec![CashJournalLineInput {
-                account_code: String::new(),
-                debit_amount: req.amount,
-                credit_amount: req.amount,
-                cost_center: None,
-                profit_center: None,
-                remark: String::new(),
-            }]
-        } else {
-            // Header amount must equal sum of line debit (and credit) totals
-            let total_debit: rust_decimal::Decimal = req.lines.iter().map(|l| l.debit_amount).sum();
-            let total_credit: rust_decimal::Decimal = req.lines.iter().map(|l| l.credit_amount).sum();
-            if total_debit != req.amount || total_credit != req.amount {
-                return Err(DomainError::validation(
-                    "header amount must equal line debit and credit totals",
-                ));
-            }
-            req.lines.clone()
-        };
+        // Header amount must equal sum of line debit (and credit) totals
+        let total_debit: rust_decimal::Decimal = req.lines.iter().map(|l| l.debit_amount).sum();
+        let total_credit: rust_decimal::Decimal = req.lines.iter().map(|l| l.credit_amount).sum();
+        if total_debit != req.amount || total_credit != req.amount {
+            return Err(DomainError::validation(
+                "header amount must equal line debit and credit totals",
+            ));
+        }
 
         let doc_number = new_document_sequence_service(self.pool.clone())
             .next_number(ctx, db, DocumentType::CashJournal)
@@ -71,7 +61,7 @@ impl CashJournalService for CashJournalServiceImpl {
             .await
             ?;
 
-        CashJournalLineRepo::batch_insert(db, id, &lines)
+        CashJournalLineRepo::batch_insert(db, id, &req.lines)
             .await
             ?;
 

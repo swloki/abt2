@@ -26,6 +26,25 @@ pub struct ProductionException {
     pub updated_at: DateTime<Utc>,
 }
 
+/// 新建异常参数（insert 参数封装）
+pub struct CreateExceptionParams<'a> {
+    pub doc_number: &'a str,
+    pub exception_type: ExceptionType,
+    pub severity: ExceptionSeverity,
+    pub reason_category: Option<ReasonCategory>,
+    pub work_order_id: Option<i64>,
+    pub batch_id: Option<i64>,
+    pub product_id: Option<i64>,
+    pub current_step: Option<i32>,
+    pub impact_qty: Option<Decimal>,
+    pub description: Option<&'a str>,
+    pub disposition: Option<&'a str>,
+    pub found_at: DateTime<Utc>,
+    pub finder_id: Option<i64>,
+    pub owner_id: Option<i64>,
+    pub operator_id: i64,
+}
+
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct ExceptionEvent {
     pub id: i64,

@@ -126,6 +126,7 @@ struct ProfitCenterView {
 }
 
 #[allow(dead_code)]
+struct MarginView {
     order_id: i64,
     doc_number: String,
     customer_name: String,

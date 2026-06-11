@@ -127,7 +127,6 @@ pub struct SuspendForm {
     pub reason: String,
 }
 
-#[allow(clippy::too_many_arguments)]
 fn batch_detail_page(
     batch: &abt_core::mes::production_batch::ProductionBatch,
     product_name: &str,

@@ -90,13 +90,18 @@ pub async fn get_pq_detail(
         }
     };
 
-    let content = pq_detail_page(
-        &pq, &items,
-        supplier_name, &supplier_contact, &supplier_phone,
-        &buyer_name,
-        &product_names, &product_codes, &product_specs, &product_units,
+    let qctx = QuotationDetailContext {
+        supplier_name,
+        supplier_contact: &supplier_contact,
+        supplier_phone: &supplier_phone,
+        buyer_name: &buyer_name,
+        product_names: &product_names,
+        product_codes: &product_codes,
+        product_specs: &product_specs,
+        product_units: &product_units,
         can_delete,
-    );
+    };
+    let content = pq_detail_page(&pq, &items, &qctx);
     let page_html = admin_page(
         is_htmx, "报价详情", &claims, "purchase",
         &format!("{}/{}", PQListPath::PATH, path.id),
@@ -199,32 +204,28 @@ fn workflow_steps(current: PurchaseQuotationStatus) -> Markup {
 
 // ── Components ──
 
-#[allow(clippy::too_many_arguments)]
+struct QuotationDetailContext<'a> {
+    supplier_name: &'a str,
+    supplier_contact: &'a str,
+    supplier_phone: &'a str,
+    buyer_name: &'a str,
+    product_names: &'a HashMap<i64, String>,
+    product_codes: &'a HashMap<i64, String>,
+    product_specs: &'a HashMap<i64, String>,
+    product_units: &'a HashMap<i64, String>,
+    can_delete: bool,
+}
+
 fn pq_detail_page(
     pq: &PurchaseQuotation,
     items: &[PurchaseQuotationItem],
-    supplier_name: &str,
-    supplier_contact: &str,
-    supplier_phone: &str,
-    buyer_name: &str,
-    product_names: &HashMap<i64, String>,
-    product_codes: &HashMap<i64, String>,
-    product_specs: &HashMap<i64, String>,
-    product_units: &HashMap<i64, String>,
-    can_delete: bool,
+    ctx: &QuotationDetailContext,
 ) -> Markup {
     let (status_text, status_class) = status_label(pq.status);
     let currency = items.first().map(|i| i.currency.as_str()).unwrap_or("CNY");
-    let remark = if pq.remark.is_empty() { "—" } else { pq.remark.as_str() };
-
+    let remark = if pq.remark.is_empty() { "—" } else { &pq.remark };
     html! {
         div {
-            // ── Back Link ──
-            a class="back-link" href=(PQListPath::PATH) {
-                (icon::chevron_left_icon("w-4 h-4"))
-                "返回采购报价列表"
-            }
-
             // ── Detail Header ──
             div class="detail-header" {
                 div {
@@ -249,7 +250,7 @@ fn pq_detail_page(
                             "取消"
                         }
                     }
-                    @if pq.status != PurchaseQuotationStatus::Active && can_delete {
+                    @if pq.status != PurchaseQuotationStatus::Active && ctx.can_delete {
                         button class="btn btn-danger-ghost"
                             hx-post=(PQDeletePath { id: pq.id }.to_string())
                             hx-confirm="确认删除此报价？删除后不可恢复。" {
@@ -269,15 +270,15 @@ fn pq_detail_page(
                 div class="info-grid" {
                     div class="info-item" {
                         span class="info-label" { "供应商名称" }
-                        span class="info-value" { (supplier_name) }
+                        span class="info-value" { (ctx.supplier_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "联系人" }
-                        span class="info-value" { (supplier_contact) }
+                        span class="info-value" { (ctx.supplier_contact) }
                     }
                     div class="info-item" {
                         span class="info-label" { "联系电话" }
-                        span class="info-value" { (supplier_phone) }
+                        span class="info-value" { (ctx.supplier_phone) }
                     }
                     div class="info-item" {
                         span class="info-label" { "报价日期" }
@@ -295,7 +296,7 @@ fn pq_detail_page(
                     }
                     div class="info-item" {
                         span class="info-label" { "采购员" }
-                        span class="info-value" { (buyer_name) }
+                        span class="info-value" { (ctx.buyer_name) }
                     }
                     div class="info-item" {
                         span class="info-label" { "备注" }
@@ -323,7 +324,7 @@ fn pq_detail_page(
                         }
                         tbody {
                             @for item in items {
-                                (item_row(item, product_names, product_codes, product_specs, product_units))
+                                (item_row(item, ctx.product_names, ctx.product_codes, ctx.product_specs, ctx.product_units))
                             }
                             @if items.is_empty() {
                                 tr {

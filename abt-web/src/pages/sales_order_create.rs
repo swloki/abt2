@@ -63,6 +63,7 @@ pub struct OrderCreateQueryParams {
 }
 
 #[allow(dead_code)]
+struct OrderPrefill {
     customer_id: i64,
     contact_id: i64,
     payment_terms: Option<String>,

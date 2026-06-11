@@ -29,6 +29,7 @@ pub struct RoutingCreateForm {
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Deserialize)]
 struct StepWeb {
     process_code: String,
     step_order: i32,

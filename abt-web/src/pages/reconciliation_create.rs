@@ -30,7 +30,7 @@ pub struct PreviewQuery {
     pub period: Option<String>,
 }
 
-#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
 #[allow(dead_code)]
 pub struct ReconciliationCreateForm {
     pub customer_id: i64,
@@ -43,10 +43,10 @@ pub struct ReconciliationCreateForm {
 struct ProductInfo {
     code: String,
     name: String,
-    unit: String,
+    _unit: String,
 }
 
-#[allow(dead_code)]
+fn _generate_periods() -> Vec<(String, String)> {
     let now = chrono::Local::now();
     let mut periods = vec![];
     for i in 0..12 {
@@ -137,7 +137,7 @@ pub async fn get_reconciliation_preview(
         .get_by_ids(&service_ctx, &mut conn, product_ids)
         .await
         .map(|products| products.into_iter().map(|p| {
-            (p.product_id, ProductInfo { code: p.product_code, name: p.pdt_name, unit: p.unit })
+            (p.product_id, ProductInfo { code: p.product_code, name: p.pdt_name, _unit: p.unit })
         }).collect())
         .unwrap_or_default();
 

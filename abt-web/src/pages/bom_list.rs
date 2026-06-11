@@ -8,6 +8,7 @@ use abt_core::master_data::bom::model::*;
 use abt_core::shared::identity::UserService;
 use abt_core::master_data::bom::{BomCategoryService, BomCommandService, BomQueryService};
 use abt_core::shared::types::PageParams;
+use abt_core::shared::types::PaginatedResult;
 
 use crate::components::icon;
 use crate::components::export_button::{self, ExportItem};
@@ -59,7 +60,8 @@ pub async fn get_bom_list(
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
     let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
-    let content = bom_list_page(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost, can_view_cost, can_create, can_delete);
+    let ctx = BomListContext { cat_map: &cat_map, cat_list: &cat_list, user_map: &user_map, can_view_labor_cost, can_view_cost, can_create, can_delete };
+    let content = bom_list_page(&result, &params, &ctx);
     let current_path = match &params.category_name {
         Some(cn) if !cn.is_empty() => format!("{}?category_name={}", BomListPath::PATH, cn),
         _ => BomListPath::PATH.to_string(),
@@ -87,7 +89,8 @@ pub async fn get_bom_table(
     let result = svc.list(&service_ctx, &mut conn, filter, page).await?;
     let (cat_map, cat_list) = load_categories(&state, &service_ctx, &mut conn).await;
     let user_map = resolve_creator_names(&state.user_service(), &service_ctx, &mut conn, &result.items).await;
-    Ok(Html(bom_table_fragment(&result, &params, &cat_map, &cat_list, &user_map, can_view_labor_cost, can_view_cost, can_delete).into_string()))
+    let table_ctx = BomTableContext { cat_map: &cat_map, cat_list: &cat_list, user_map: &user_map, can_view_labor_cost, can_view_cost, can_delete };
+    Ok(Html(bom_table_fragment(&result, &params, &table_ctx).into_string()))
 }
 #[require_permission("BOM", "delete")]
 pub async fn delete_bom(
@@ -171,19 +174,22 @@ fn build_query_string(params: &BomQueryParams) -> String {
     q.join("&")
 }
 
-// ── Components ──
-
-#[allow(clippy::too_many_arguments)]
-fn bom_list_page(
-    result: &abt_core::shared::types::PaginatedResult<Bom>,
-    params: &BomQueryParams,
-    cat_map: &HashMap<i64, String>,
-    cat_list: &[BomCategory],
-    user_map: &HashMap<i64, String>,
+struct BomListContext<'a> {
+    cat_map: &'a HashMap<i64, String>,
+    cat_list: &'a [BomCategory],
+    user_map: &'a HashMap<i64, String>,
     can_view_labor_cost: bool,
     can_view_cost: bool,
     can_create: bool,
     can_delete: bool,
+}
+
+// ── Components ──
+
+fn bom_list_page(
+    result: &abt_core::shared::types::PaginatedResult<Bom>,
+    params: &BomQueryParams,
+    ctx: &BomListContext,
 ) -> Markup {
     html! {
         div {
@@ -194,7 +200,7 @@ fn bom_list_page(
                     (export_button::export_dropdown(&[
                         ExportItem { label: "缺少人工成本BOM", export_type: "boms-no-labor-cost" },
                     ]))
-                    @if can_create {
+                    @if ctx.can_create {
                         a href=(BomCreatePath::PATH) class="btn btn-primary" {
                             (icon::plus_icon("w-4 h-4"))
                             "新建BOM"
@@ -203,9 +209,9 @@ fn bom_list_page(
                 }
             }
             // ── Tabs + Filter + Data Table (HTMX panel) ──
-            (bom_table_fragment(result, params, cat_map, cat_list, user_map, can_view_labor_cost, can_view_cost, can_delete))
+            (bom_table_fragment(result, params, &BomTableContext { cat_map: ctx.cat_map, cat_list: ctx.cat_list, user_map: ctx.user_map, can_view_labor_cost: ctx.can_view_labor_cost, can_view_cost: ctx.can_view_cost, can_delete: ctx.can_delete }))
 
-            @if can_view_cost {
+            @if ctx.can_view_cost {
                 // ── Cost Drawer ──
                 div id="cost-drawer" class="drawer-overlay"
                     onclick="hsRemove(null,'#cost-drawer','open')" {
@@ -226,7 +232,7 @@ fn bom_list_page(
                         }
                     }
                 }
-            } @else if can_view_labor_cost {
+            } @else if ctx.can_view_labor_cost {
                 // ── Labor Cost Drawer ──
                 div id="labor-drawer" class="drawer-overlay"
                     onclick="hsRemove(null,'#labor-drawer','open')" {
@@ -252,16 +258,19 @@ fn bom_list_page(
         script src="/cost-drawer.js?v=20260602" {}
     }
 }
-#[allow(clippy::too_many_arguments)]
-fn bom_table_fragment(
-    result: &abt_core::shared::types::PaginatedResult<Bom>,
-    params: &BomQueryParams,
-    cat_map: &HashMap<i64, String>,
-    cat_list: &[BomCategory],
-    user_map: &HashMap<i64, String>,
+struct BomTableContext<'a> {
+    cat_map: &'a HashMap<i64, String>,
+    cat_list: &'a [BomCategory],
+    user_map: &'a HashMap<i64, String>,
     can_view_labor_cost: bool,
     can_view_cost: bool,
     can_delete: bool,
+}
+
+fn bom_table_fragment(
+    result: &PaginatedResult<Bom>,
+    params: &BomQueryParams,
+    ctx: &BomTableContext,
 ) -> Markup {
     let query = build_query_string(params);
     let active_value = params.status.map(|s| s.to_string()).unwrap_or_default();
@@ -302,7 +311,7 @@ fn bom_table_fragment(
                     hx-target="closest .bom-list-panel"
                     hx-swap="outerHTML" {
                     option value="" { "全部分类" }
-                    @for cat in cat_list {
+                    @for cat in ctx.cat_list {
                         option value=(cat.bom_category_id) selected[params.category_id == Some(cat.bom_category_id)] { (cat.bom_category_name) }
                     }
                 }
@@ -339,7 +348,7 @@ fn bom_table_fragment(
                         }
                         tbody {
                             @for bom in &result.items {
-                                (bom_row(bom, cat_map, user_map, can_view_labor_cost, can_view_cost, can_delete))
+                                (bom_row(bom, ctx.cat_map, ctx.user_map, ctx.can_view_labor_cost, ctx.can_view_cost, ctx.can_delete))
                             }
                             @if result.items.is_empty() {
                                 tr {

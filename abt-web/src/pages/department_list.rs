@@ -560,7 +560,7 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
     } else {
         "新建部门"
     };
-    let subtitle = if let Some(d) = dept {
+    let subtitle = if let Some(d) = &dept {
         if is_edit {
             format!("修改「{}」的部门信息", d.department_name)
         } else {

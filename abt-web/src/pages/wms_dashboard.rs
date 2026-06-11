@@ -71,7 +71,11 @@ pub async fn get_wms_dashboard(
         .map(|dt| chrono::DateTime::<chrono::Utc>::from_naive_utc_and_offset(dt, chrono::Utc))
         .unwrap_or(now);
 
-    let in_filter = abt_core::wms::inventory::model::TransactionLogFilter { start_date: Some(month_start), transaction_type: Some("PURCHASE_RECEIPT".into()), ..Default::default() };
+    let in_filter = abt_core::wms::inventory::model::TransactionLogFilter {
+        start_date: Some(month_start),
+        transaction_type: Some("PURCHASE_RECEIPT".into()),
+        ..Default::default()
+    };
 
     let month_in_count = inv_svc
         .query_logs(&service_ctx, &mut conn, in_filter, page1.page, page1.page_size)
@@ -79,7 +83,11 @@ pub async fn get_wms_dashboard(
         .map(|r| r.total)
         .unwrap_or(0);
 
-    let out_filter = abt_core::wms::inventory::model::TransactionLogFilter { start_date: Some(month_start), transaction_type: Some("SALES_SHIPMENT".into()), ..Default::default() };
+    let out_filter = abt_core::wms::inventory::model::TransactionLogFilter {
+        start_date: Some(month_start),
+        transaction_type: Some("SALES_SHIPMENT".into()),
+        ..Default::default()
+    };
 
     let month_out_count = inv_svc
         .query_logs(&service_ctx, &mut conn, out_filter, page1.page, page1.page_size)

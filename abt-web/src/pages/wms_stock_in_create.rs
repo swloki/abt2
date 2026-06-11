@@ -111,6 +111,7 @@ pub async fn get_item_row(
 // ── Form Data ──
 
 #[allow(dead_code)]
+#[derive(Debug, Deserialize)]
 pub struct StockInCreateForm {
     pub source_type: String,
     pub source_ref: Option<String>,

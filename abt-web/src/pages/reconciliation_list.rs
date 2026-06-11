@@ -188,7 +188,6 @@ pub async fn delete_reconciliation(
 
 // ── Components ──
 
-#[allow(clippy::too_many_arguments)]
 fn reconciliation_list_page(
     _claims: &abt_core::shared::identity::model::Claims,
     result: &abt_core::shared::types::PaginatedResult<Reconciliation>,

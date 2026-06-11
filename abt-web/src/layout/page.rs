@@ -22,11 +22,7 @@ fn document(title: &str, body: Markup) -> Markup {
                 script src="/surreal.js" {}
                 script src=(cache_url("/app.js")) {}
             }
-            body {
-                (body)
-                (toast_container())
-                (global_confirm_dialog())
-            }
+            body { (body) (toast_container()) (global_confirm_dialog()) }
         }
     }
 }
@@ -47,14 +43,15 @@ fn admin_shell(
                 (sidebar::sidebar(claims, active_module, current_path, nav_filter))
                 div class="main-content" {
                     (header::header(claims, module_name, page_name))
-                    div class="page-content" {
-                        (content)
-                    }
+                    div class="page-content" { (content) }
                 }
             }
-            (PreEscaped("<script>if(localStorage.getItem('sidebar-collapsed')==='true')me('.app-shell').classAdd('sidebar-collapsed')</script>"))
-            div class="mobile-sidebar-overlay"
-                onclick="hsRemove(this,null,'open')" {}
+            ({
+                PreEscaped(
+                    "<script>if(localStorage.getItem('sidebar-collapsed')==='true')me('.app-shell').classAdd('sidebar-collapsed')</script>",
+                )
+            })
+            div class="mobile-sidebar-overlay" onclick="hsRemove(this,null,'open')" {}
             (sidebar::mobile_nav(active_module, current_path, nav_filter))
         }
     }
@@ -106,18 +103,23 @@ fn global_confirm_dialog() -> Markup {
     let icon = r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>"#;
     html! {
         div id="global-confirm-dialog" {
-            div class="dialog-overlay"
-                onclick="hsRemove(this,null,'open')" {
+            div class="dialog-overlay" onclick="hsRemove(this,null,'open')" {
                 div class="dialog" onclick="event.stopPropagation()" {
                     div class="dialog-body" {
-                        div class="dialog-icon-wrap" {
-                            (PreEscaped(icon))
-                        }
+                        div class="dialog-icon-wrap" { (PreEscaped(icon)) }
                         p class="dialog-desc" id="global-confirm-message" {}
                     }
                     div class="dialog-foot" {
-                        button type="button" class="btn btn-default" onclick="hsRemoveClosest(this,'.dialog-overlay','open')" { "取消" }
-                        button type="button" class="btn btn-danger" onclick="window._confirmIssueRequest();hsRemoveClosest(this,'.dialog-overlay','open')" { "确认" }
+                        button
+                            type="button"
+                            class="btn btn-default"
+                            onclick="hsRemoveClosest(this,'.dialog-overlay','open')"
+                        { "取消" }
+                        button
+                            type="button"
+                            class="btn btn-danger"
+                            onclick="window._confirmIssueRequest();hsRemoveClosest(this,'.dialog-overlay','open')"
+                        { "确认" }
                     }
                 }
             }

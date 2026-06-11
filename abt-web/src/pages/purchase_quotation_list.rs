@@ -230,7 +230,6 @@ pub async fn get_pq_table(
 
 // ── Components ──
 
-#[allow(clippy::too_many_arguments)]
 fn pq_list_page(
     result: &abt_core::shared::types::PaginatedResult<PurchaseQuotation>,
     supplier_names: &HashMap<i64, String>,

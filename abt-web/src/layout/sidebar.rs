@@ -7,7 +7,7 @@ use crate::components::icon;
 
 // ── Navigation Data ──
 
-#[allow(dead_code)]
+#[derive(Clone, Copy)]
 enum NavIcon {
     Home,
     Users,
@@ -21,11 +21,11 @@ enum NavIcon {
     ClipboardDoc,
     Payment,
     Sliders,
-    Archive,
+    _Archive,
     Database,
     Wrench,
     Tag,
-    Link,
+    _Link,
     Lock,
     Search,
     ArrowDown,
@@ -33,7 +33,7 @@ enum NavIcon {
     Switch,
     Refresh,
     Lightning,
-    Factory,
+    _Factory,
     Calendar,
     Layers,
     Hammer,
@@ -374,11 +374,11 @@ fn render_item_icon(ni: NavIcon) -> Markup {
         NavIcon::ClipboardDoc => icon::clipboard_document_icon(""),
         NavIcon::Payment => icon::payment_icon(""),
         NavIcon::Sliders => icon::sliders_icon(""),
-        NavIcon::Archive => icon::package_icon(""),
+        NavIcon::_Archive => icon::package_icon(""),
         NavIcon::Database => icon::grid_icon(""),
         NavIcon::Wrench => icon::sliders_icon(""),
         NavIcon::Tag => icon::file_text_icon(""),
-        NavIcon::Link => icon::link_icon(""),
+        NavIcon::_Link => icon::link_icon(""),
         NavIcon::Lock => icon::lock_icon(""),
         NavIcon::Search => icon::search_icon(""),
         NavIcon::ArrowDown => icon::download_icon(""),
@@ -386,7 +386,7 @@ fn render_item_icon(ni: NavIcon) -> Markup {
         NavIcon::Switch => icon::refresh_icon(""),
         NavIcon::Refresh => icon::refresh_icon(""),
         NavIcon::Lightning => icon::bolt_icon(""),
-        NavIcon::Factory => icon::box_icon(""),
+        NavIcon::_Factory => icon::box_icon(""),
         NavIcon::Calendar => icon::file_text_icon(""),
         NavIcon::Layers => icon::grid_icon(""),
         NavIcon::Hammer => icon::sliders_icon(""),
@@ -439,7 +439,7 @@ pub fn avatar_initials(name: &str) -> String {
     chars[chars.len() - 2..].iter().collect()
 }
 
-#[allow(dead_code)]
+fn _find_module(id: &str) -> Option<usize> {
     modules().iter().position(|m| m.id == id)
 }
 

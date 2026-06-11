@@ -19,6 +19,7 @@ use abt_macros::require_permission;
 // ── Form request ──
 
 #[allow(dead_code)]
+#[derive(Debug, Deserialize)]
 pub struct PreconCreateForm {
     pub supplier_id: i64,
     pub period: String,

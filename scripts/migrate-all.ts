@@ -134,7 +134,7 @@ async function main() {
       ],
       // 组4: 主数据 + 库位
       [
-        "products", "bins", "zones", "warehouses",
+        "products", "product_categories", "categories", "bins", "zones", "warehouses",
       ],
       // 组5: 身份层 + 工作流 + 其他
       [
@@ -433,6 +433,74 @@ async function main() {
     );
     await resetSequence(v2Pool, "products", "product_id");
     console.log(`  ${n}/${rows.length} 条\n`);
+  }
+
+  // ── 4b. 产品分类 ──────────────────────────────────────────────────
+  console.log("── 4b. terms → categories + product_categories ──");
+  {
+    // categories: terms (taxonomy='category') → categories
+    const { rows: terms } = await abtPool.query(
+      "SELECT term_id, term_name, term_parent, term_meta FROM terms WHERE taxonomy = 'category' ORDER BY term_id",
+    );
+
+    // 构建 path: 从根到当前节点的完整路径
+    const termMap = new Map<number, { name: string; parent: number }>();
+    for (const t of terms) {
+      termMap.set(Number(t.term_id), { name: t.term_name, parent: Number(t.term_parent) });
+    }
+
+    const buildPath = (id: number): string => {
+      const parts: string[] = [];
+      let cur = id;
+      const visited = new Set<number>();
+      while (cur && cur !== 0 && !visited.has(cur)) {
+        visited.add(cur);
+        const node = termMap.get(cur);
+        if (!node) break;
+        parts.unshift(node.name);
+        cur = node.parent;
+      }
+      return parts.join("/");
+    };
+
+    const catData = terms.map((r) => {
+      const id = Number(r.term_id);
+      const parentId = Number(r.term_parent);
+      return [
+        id,
+        r.term_name,
+        parentId !== 0 ? parentId : 0,
+        buildPath(id),
+        r.term_meta ? JSON.stringify(r.term_meta) : '{}',
+        new Date(), // created_at
+        null,       // updated_at
+      ];
+    });
+    const cn = await batchInsert(
+      v2Pool,
+      "categories",
+      ["category_id", "category_name", "parent_id", "path", "meta", "created_at", "updated_at"],
+      catData,
+      ["category_id"],
+    );
+    console.log(`  categories: ${cn}/${terms.length} 条`);
+
+    // product_categories: term_relation → product_categories
+    const { rows: rels } = await abtPool.query(
+      "SELECT tr.term_id, tr.product_id FROM term_relation tr JOIN terms t ON t.term_id = tr.term_id WHERE t.taxonomy = 'category' ORDER BY tr.term_id, tr.product_id",
+    );
+    const relData = rels.map((r) => [
+      Number(r.product_id),
+      Number(r.term_id),
+    ]);
+    const rn = await batchInsert(
+      v2Pool,
+      "product_categories",
+      ["product_id", "category_id"],
+      relData,
+      ["product_id", "category_id"],
+    );
+    console.log(`  product_categories: ${rn}/${rels.length} 条\n`);
   }
 
   // ── 5. 仓库 ──────────────────────────────────────────────────────

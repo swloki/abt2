@@ -796,7 +796,6 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
 }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn detail_panel(
     category: &Category,
     parent_name: &str,

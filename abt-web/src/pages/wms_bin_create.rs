@@ -18,6 +18,7 @@ use abt_macros::require_permission;
 // ── Form Data ──
 
 #[allow(dead_code)]
+#[derive(Debug, Deserialize)]
 pub struct BinCreateForm {
     pub code: String,
     pub name: String,

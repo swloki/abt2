@@ -15,6 +15,7 @@ use crate::utils::RequestContext;
 // ── Form Data ──
 
 #[allow(dead_code)]
+#[derive(Debug, Deserialize)]
 pub struct UserCreateForm {
     pub username: String,
     pub display_name: Option<String>,

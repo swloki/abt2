@@ -53,7 +53,7 @@ pub mod om;
 pub mod qms;
 pub mod fms;
 pub mod excel;
-use axum::{Router, middleware};
+use axum::{Router, routing::get, middleware};
 
 use crate::auth::middleware::auth_middleware;
 use crate::state::AppState;
@@ -61,6 +61,7 @@ use crate::state::AppState;
 pub fn router(state: AppState) -> Router {
     Router::new()
         .merge(auth::router())
+        .route("/api/toast", get(crate::toast::get_toasts))
         .merge(
             dashboard::router()
                 .merge(sidebar::router())

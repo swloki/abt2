@@ -96,6 +96,11 @@ pub fn standalone_page(title: &str, body: Markup) -> Markup {
 fn toast_container() -> Markup {
     html! {
         div class="toast-container" {}
+        div hx-get="/api/toast"
+            hx-trigger="showToast from:body"
+            hx-target=".toast-container"
+            hx-swap="innerHTML"
+            class="hidden" {}
     }
 }
 

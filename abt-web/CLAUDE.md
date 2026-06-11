@@ -12,7 +12,7 @@ Rust 全栈前端，Axum + Maud + HTMX + Surreal.js + UnoCSS，直接调用 `abt
 **路由与组件**
 - **必须使用 `TypedPath`**，禁止硬编码字符串 URL
 - **使用 `hx-target="this"`** 让组件自包含，禁止硬编码 `#id` 作为 target。当 `this` 不满足需求时才用 `closest <selector>` 等相对定位
-- **禁止为局部刷新单独创建 Handler** — Handler 始终返回完整组件
+- **禁止为局部刷新单独创建 Handler** — 列表页统一用单端点模式（一个 list handler 服务完整页面和 HTMX 局部刷新），禁止创建独立的 table handler
 
 **样式**
 - **禁止在 Maud 模板中使用 `style` 属性内联样式** — 所有样式必须提取到 `uno.config.ts` 中作为 CSS 类。唯一例外是 `<col>` 等必须用 style 的极少数场景
@@ -195,6 +195,66 @@ pub fn render_component(username: &str, mode: &str) -> Markup {
     }
 }
 ```
+
+### 列表页单端点模式
+
+**核心原则：一个 URL = 一个 Handler**。列表页只保留一个 `list` handler，通过 `admin_page(is_htmx)` 同时服务完整页面（首次访问）和 HTMX 局部刷新（tab 切换、搜索、分页）。**禁止为 tab 切换、搜索、分页创建额外的 handler 或路由**。
+
+```
+用户请求 ──→ 单一 list handler
+                ├── is_htmx=false → admin_page(false, ...) → 完整 HTML 页面
+                └── is_htmx=true  → admin_page(true, ...)  → 只有 content 片段
+                                    HTMX 从响应中选取 #data-card + #status-tabs 替换
+```
+
+**为什么**：tab 切换、搜索、分页本质上是同一个数据视图的不同参数组合，应该是**一个端点 + 不同 query params**，而不是拆成多个端点。HTMX 的 `hx-get` + `hx-vals` / `hx-include` 天然支持参数组合，不需要后端参与。
+
+#### 三大控件
+
+**Status Tabs**（`status_tabs_with_param`）：
+
+```rust
+// 组件内部生成的每个 <a> 自带：
+// hx-get=ListPath::PATH          → 同一个 list 端点
+// hx-target="#data-card"         → 替换数据区（标准 CSS #id，禁止 closest）
+// hx-select="#data-card"         → 从响应中选取数据区
+// hx-select-oob="#status-tabs"   → 同时替换 tab 栏自身
+// hx-push-url="true"             → 浏览器地址栏反映当前状态
+// hx-vals='{"status": "2"}'      → 携带状态参数
+// hx-include="#filter-form"      → 携带搜索表单参数
+status_tabs_with_param(ListPath::PATH, "#data-card", "#filter-form", tabs, &active_value, "status")
+```
+
+**Filter Form**：
+
+```rust
+// form 包裹所有筛选控件，统一 hx-get
+// 子元素（input/select）无需独立 hx-* 属性，change 事件由 form 的 hx-trigger 捕获
+form class="filter-bar filter-form" id="xxx-filter-form"
+    hx-get=(ListPath::PATH)
+    hx-trigger="change, keyup changed delay:300ms from:.search-input"
+    hx-target="#data-card"
+    hx-select="#data-card"
+    hx-swap="outerHTML"
+    hx-push-url="true"
+    hx-include="#xxx-filter-form" {   // 指向自身 id，GET 自动携带所有字段
+    // input, select ...
+}
+```
+
+**Pagination**：
+
+```rust
+// 服务端拼接完整 query_string（包含 status、keyword 等），确保分页保持筛选状态
+pagination(ListPath::PATH, &query_string, total, page, total_pages)
+```
+
+#### 关键约束
+
+- **`hx-select` 只支持标准 CSS 选择器**：`closest` 是 HTMX 扩展伪选择器，仅在 `hx-target` 中有效。`hx-select` 从服务器响应 HTML 中选取片段，必须用 `#id`
+- **`hx-select-oob` 支持逗号分隔**：可同时替换多个区域 `hx-select-oob="#status-tabs, #filter-form"`
+- **`TypedPath::PATH` 需要 trait 在 scope 中**：页面文件必须 `use axum_extra::routing::TypedPath;`，否则报 `no associated item named PATH`
+- **`Serialize` 与 `TypedPath` derive 冲突**：`#[derive(TypedPath, Serialize, ...)]` 会阻止 `PATH` 常量生成，去掉 `Serialize`
 
 ---
 

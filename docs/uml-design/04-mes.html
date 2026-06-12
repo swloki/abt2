@@ -934,5 +934,106 @@ classDiagram
     </div>
   </div>
 </div>
+<!-- ========== 需求池子模块（P2+P4 下游集成）========== -->
+<div class="mockup" style="margin-top: 24px;">
+  <div class="mockup-header" style="background: linear-gradient(135deg, #e06c75, #e5a655);">
+    MES 需求池 — MesDemandService（P2+P4 下游集成）
+  </div>
+  <div style="padding: 20px;">
+
+    <div style="margin-bottom: 16px;">
+      <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">模块结构</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        abt-core/src/mes/demand_handler/<br>
+        ├── mod.rs &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # 导出 + new_mes_demand_service(pool)<br>
+        ├── model.rs &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # DemandPoolQuery, DemandSummary, MaterialAggQuery, MaterialAggSummary<br>
+        │ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        # CreatePlanFromDemandsReq, PlanDemandItemReq, CreateDownstreamResult, SkippedDemand, LockedDemand<br>
+        ├── service.rs &nbsp;&nbsp;&nbsp;&nbsp; # MesDemandService trait<br>
+        ├── repo.rs &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # MesDemandRepo（视图查询 + 乐观锁）<br>
+        ├── implt.rs &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # MesDemandServiceImpl<br>
+        └── handler.rs &nbsp;&nbsp;&nbsp;&nbsp; # MesDemandCreatedHandler
+      </div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">MesDemandService 接口</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        trait MesDemandService {<br>
+        &nbsp;&nbsp;/// 查询待处理的自制需求（订单行维度）<br>
+        &nbsp;&nbsp;async fn list_pending_demands(ctx, db, query: DemandPoolQuery, page) → PaginatedResult&lt;DemandSummary&gt;<br>
+        <br>
+        &nbsp;&nbsp;/// 按物料聚合查询（物料维度 — 计划员主要操作入口）<br>
+        &nbsp;&nbsp;async fn list_material_aggregated(ctx, db, query: MaterialAggQuery, page) → PaginatedResult&lt;MaterialAggSummary&gt;<br>
+        <br>
+        &nbsp;&nbsp;/// 从选中的需求创建生产计划草稿<br>
+        &nbsp;&nbsp;/// 乐观锁并发控制 + 按 product_id 聚合 + 同事务发布 DemandConfirmed 事件<br>
+        &nbsp;&nbsp;async fn create_plan_from_demands(ctx, db, req: CreatePlanFromDemandsReq) → CreateDownstreamResult<br>
+        }
+      </div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">请求模型</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        <b>CreatePlanFromDemandsReq</b> {<br>
+        &nbsp;&nbsp;demand_ids: Vec&lt;i64&gt;, plan_type: i16, plan_date: NaiveDate, remark?: String,<br>
+        &nbsp;&nbsp;items?: Vec&lt;PlanDemandItemReq&gt;, &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// 每条需求的排程参数（可选）<br>
+        &nbsp;&nbsp;default_scheduled_start?: NaiveDate, &nbsp;&nbsp;// 默认 = plan_date<br>
+        &nbsp;&nbsp;default_scheduled_end?: NaiveDate &nbsp;&nbsp;&nbsp;&nbsp;// 默认 = plan_date + 7天（TODO: P5 接入 Lead Time）<br>
+        }<br>
+        <b>PlanDemandItemReq</b> { demand_id, scheduled_start, scheduled_end, priority }
+      </div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">数据库视图 v_production_demands</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        CREATE VIEW v_production_demands AS<br>
+        &nbsp;&nbsp;SELECT d.id, d.source_id AS order_id, d.source_line_id AS order_line_id,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d.product_id, d.required_qty AS quantity, d.required_date, d.priority,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d.status AS demand_status, d.acquire_channel, d.target_doc_id, d.created_at,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; p.name AS product_name, p.code AS product_code, so.doc_number AS order_no<br>
+        &nbsp;&nbsp;FROM demands d<br>
+        &nbsp;&nbsp;JOIN products p ON p.id = d.product_id<br>
+        &nbsp;&nbsp;JOIN sales_orders so ON so.id = d.source_id<br>
+        &nbsp;&nbsp;WHERE d.acquire_channel = 1 AND d.deleted_at IS NULL;
+      </div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">MesDemandCreatedHandler</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        impl EventHandler for MesDemandCreatedHandler {<br>
+        &nbsp;&nbsp;/// 监听 DemandCreated 事件，仅处理 acquire_channel = 1（自制）<br>
+        &nbsp;&nbsp;/// 回查 v_production_demands 视图获取真实数据<br>
+        &nbsp;&nbsp;/// 防御事件乱序：status ≠ Pending 则跳过<br>
+        &nbsp;&nbsp;/// 通过 notify_by_role 发送通知给生产角色<br>
+        &nbsp;&nbsp;/// 不创建任何下游单据（保留操作员合并控制权）<br>
+        }
+      </div>
+    </div>
+
+    <div>
+      <h4 style="color: #e5a655; margin: 0 0 6px 0; font-size: 13px;">create_plan_from_demands 流程</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        1. 乐观锁：UPDATE demands SET status=Confirmed WHERE id=ANY($1) AND status=Pending AND acquire_channel=1 RETURNING *<br>
+        2. 计算被跳过的需求（不在 RETURNING 集合中的 demand_ids）<br>
+        3. 按 product_id 聚合成功锁定的需求<br>
+        4. 构建 CreatePlanItemReq：排程参数从 items 映射或使用默认值<br>
+        5. 调用 ProductionPlanService::create 创建生产计划草稿<br>
+        6. 逐条更新 target_doc (doc_type=ProductionPlan, doc_id=plan_id)<br>
+        7. 逐条发布 DemandConfirmed 事件（同事务内）<br>
+        8. 返回 CreateDownstreamResult（含 doc_id、处理数、跳过列表）<br>
+        <br>
+        <b>后续流程（已有实现）</b>：<br>
+        计划员审核 → ProductionPlanService::release → 释放工单 → WorkOrderService::release<br>
+        → 工单完工 → ProductionReceiptService 入库 → DemandService::fulfill → 需求完成
+      </div>
+    </div>
+
+  </div>
+</div>
+
 </body>
 </html>

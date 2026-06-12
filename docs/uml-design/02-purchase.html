@@ -724,5 +724,100 @@ classDiagram
   </div>
 </div>
 
+<!-- ========== 需求池子模块（P2+P4 下游集成）========== -->
+<div class="mockup" style="margin-top: 24px;">
+  <div class="mockup-header" style="background: linear-gradient(135deg, #6bc76b, #56b6c2);">
+    采购需求池 — PurchaseDemandService（P2+P4 下游集成）
+  </div>
+  <div style="padding: 20px;">
+
+    <div style="margin-bottom: 16px;">
+      <h4 style="color: #6bc76b; margin: 0 0 6px 0; font-size: 13px;">模块结构</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        abt-core/src/purchase/demand_handler/<br>
+        ├── mod.rs &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # 导出 + new_purchase_demand_service(pool)<br>
+        ├── model.rs &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # DemandPoolQuery, DemandSummary, MaterialAggQuery, MaterialAggSummary<br>
+        │ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        # CreateOrderFromDemandsReq, CreateDownstreamResult, SkippedDemand, LockedDemand<br>
+        ├── service.rs &nbsp;&nbsp;&nbsp;&nbsp; # PurchaseDemandService trait<br>
+        ├── repo.rs &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # PurchaseDemandRepo（视图查询 + 乐观锁）<br>
+        ├── implt.rs &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; # PurchaseDemandServiceImpl<br>
+        └── handler.rs &nbsp;&nbsp;&nbsp;&nbsp; # PurchaseDemandCreatedHandler
+      </div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <h4 style="color: #6bc76b; margin: 0 0 6px 0; font-size: 13px;">PurchaseDemandService 接口</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        trait PurchaseDemandService {<br>
+        &nbsp;&nbsp;/// 查询待处理的外购需求（订单行维度）<br>
+        &nbsp;&nbsp;async fn list_pending_demands(ctx, db, query: DemandPoolQuery, page) → PaginatedResult&lt;DemandSummary&gt;<br>
+        <br>
+        &nbsp;&nbsp;/// 按物料聚合查询（物料维度 — 采购员主要操作入口）<br>
+        &nbsp;&nbsp;async fn list_material_aggregated(ctx, db, query: MaterialAggQuery, page) → PaginatedResult&lt;MaterialAggSummary&gt;<br>
+        <br>
+        &nbsp;&nbsp;/// 从选中的需求批量创建采购订单草稿<br>
+        &nbsp;&nbsp;/// 乐观锁并发控制 + 按 product_id 聚合 + 同事务发布 DemandConfirmed 事件<br>
+        &nbsp;&nbsp;async fn create_order_from_demands(ctx, db, req: CreateOrderFromDemandsReq) → CreateDownstreamResult<br>
+        }
+      </div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <h4 style="color: #6bc76b; margin: 0 0 6px 0; font-size: 13px;">请求/响应模型</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        <b>DemandPoolQuery</b> { status?: i16, product_id?: i64, order_id?: i64 }<br>
+        <b>DemandSummary</b> { id, order_id, order_no, product_id, product_name, product_code, quantity, required_date?, priority, demand_status, created_at }<br>
+        <b>MaterialAggQuery</b> { product_id?: i64 }<br>
+        <b>MaterialAggSummary</b> { product_id, product_name, product_code, total_demand_qty, demand_count, earliest_required_date?, latest_required_date? }<br>
+        <b>CreateOrderFromDemandsReq</b> { demand_ids: Vec&lt;i64&gt;, supplier_id: i64, expected_delivery_date?, remark: String }<br>
+        <b>CreateDownstreamResult</b> { doc_id, processed_demand_count, skipped_demands: Vec&lt;SkippedDemand&gt;, demand_status: "Confirmed" }
+      </div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <h4 style="color: #6bc76b; margin: 0 0 6px 0; font-size: 13px;">数据库视图 v_purchase_demands</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        CREATE VIEW v_purchase_demands AS<br>
+        &nbsp;&nbsp;SELECT d.id, d.source_id AS order_id, d.source_line_id AS order_line_id,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d.product_id, d.required_qty AS quantity, d.required_date, d.priority,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; d.status AS demand_status, d.acquire_channel, d.target_doc_id, d.created_at,<br>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; p.name AS product_name, p.code AS product_code, so.doc_number AS order_no<br>
+        &nbsp;&nbsp;FROM demands d<br>
+        &nbsp;&nbsp;JOIN products p ON p.id = d.product_id<br>
+        &nbsp;&nbsp;JOIN sales_orders so ON so.id = d.source_id<br>
+        &nbsp;&nbsp;WHERE d.acquire_channel = 2 AND d.deleted_at IS NULL;
+      </div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <h4 style="color: #6bc76b; margin: 0 0 6px 0; font-size: 13px;">PurchaseDemandCreatedHandler</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        impl EventHandler for PurchaseDemandCreatedHandler {<br>
+        &nbsp;&nbsp;/// 监听 DemandCreated 事件，仅处理 acquire_channel = 2（外购）<br>
+        &nbsp;&nbsp;/// 回查 v_purchase_demands 视图获取真实数据<br>
+        &nbsp;&nbsp;/// 防御事件乱序：status ≠ Pending 则跳过<br>
+        &nbsp;&nbsp;/// 通过 notify_by_role 发送通知给采购角色<br>
+        &nbsp;&nbsp;/// 不创建任何下游单据（保留操作员合并控制权）<br>
+        }
+      </div>
+    </div>
+
+    <div>
+      <h4 style="color: #6bc76b; margin: 0 0 6px 0; font-size: 13px;">create_order_from_demands 流程</h4>
+      <div style="font-family: monospace; font-size: 11.5px; color: #ccc; line-height: 1.8;">
+        1. 乐观锁：UPDATE demands SET status=Confirmed WHERE id=ANY($1) AND status=Pending AND acquire_channel=2 RETURNING *<br>
+        2. 计算被跳过的需求（不在 RETURNING 集合中的 demand_ids）<br>
+        3. 按 product_id 聚合成功锁定的需求（合并数量）<br>
+        4. 调用 PurchaseOrderService::create 创建 PO 草稿<br>
+        5. 逐条更新 target_doc (doc_type=PurchaseOrder, doc_id=po_id)<br>
+        6. 逐条发布 DemandConfirmed 事件（同事务内）<br>
+        7. 返回 CreateDownstreamResult（含 doc_id、处理数、跳过列表）
+      </div>
+    </div>
+
+  </div>
+</div>
+
 </body>
 </html>

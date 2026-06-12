@@ -262,7 +262,7 @@ fn quotation_edit_page(
                                     td { input class="li-input" type="text" name="description" value=(&item.description) {} }
                                     td { input class="li-input-center" type="text" name="unit" readonly value=(&item.unit) {} }
                                     td { input class="li-input-num" type="number" min="1" step="1" name="quantity" value=(item.quantity.to_string()) placeholder="0" style="width:80px" {} }
-                                    td { input class="li-input-price" type="number" step="0.01" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" style="width:100px" {} }
+                                    td { input class="li-input-price" type="number" step="any" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" style="width:100px" {} }
                                     td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) style="width:64px" {} }
                                     td class="line-total" { "—" }
                                     td { button type="button" class="btn-remove-row" title="删除行"

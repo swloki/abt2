@@ -191,7 +191,7 @@ fn expense_create_page() -> Markup {
                 + '<option value="1">差旅</option><option value="2">办公</option>'
                 + '<option value="3">交通</option><option value="4">餐饮</option>'
                 + '<option value="5">招待</option><option value="6">其他</option></select></td>'
-                + '<td><input type="number" class="num-input" data-field="amount" placeholder="0.00" step="0.01" oninput="calcTotal()"></td>'
+                + '<td><input type="number" class="num-input" data-field="amount" placeholder="0.00" step="any" oninput="calcTotal()"></td>'
                 + '<td><input type="text" data-field="description" placeholder="费用说明"></td>'
                 + '<td><input type="text" data-field="receipt_no" placeholder="发票号"></td>'
                 + '<td><select data-field="cost_center"><option value="">选择</option><option value="1">CC-001 生产部</option><option value="2">CC-002 销售部</option><option value="3">CC-003 管理部</option></select></td>'

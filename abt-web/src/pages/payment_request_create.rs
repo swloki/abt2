@@ -256,7 +256,7 @@ fn pay_create_page(
                     }
                     div class="form-field" {
                         label { "付款金额" span style="color:var(--danger)" { "*" } }
-                        input type="number" id="pay-amount" name="amount" step="0.01" min="0" placeholder="0.00" required {}
+                        input type="number" id="pay-amount" name="amount" step="any" min="0" placeholder="0.00" required {}
                     }
                     div class="form-field" {
                         label { "付款方式" span style="color:var(--danger)" { "*" } }
@@ -272,7 +272,7 @@ fn pay_create_page(
                     }
                     div class="form-field" {
                         label { "发票金额" }
-                        input type="number" name="invoice_amount" step="0.01" min="0" placeholder="0.00" {}
+                        input type="number" name="invoice_amount" step="any" min="0" placeholder="0.00" {}
                     }
                     div class="form-field" {
                         label { "申请人" }

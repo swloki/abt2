@@ -587,7 +587,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
             td { input class="form-input num-input" type="number" min="0.01" step="any" name="quantity" placeholder="0" style="width:90px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td style="text-align:center;font-size:var(--text-sm);color:var(--fg-2)" { (product.unit) }
-            td { input class="form-input num-input" type="number" step="0.01" name="unit_cost" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
+            td { input class="form-input num-input" type="number" step="any" name="unit_cost" placeholder="0.00" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td class="line-subtotal" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
             td { button type="button" class="btn-remove-row" title="删除行"
                 onclick="hsRemoveClosestEl(this,'tr');setTimeout(wmsStockOutRenumber,50)" {

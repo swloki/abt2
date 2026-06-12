@@ -317,7 +317,7 @@ fn create_page(
                         }
                         div class="form-field" {
                             label class="form-label" { "单价" }
-                            input class="form-input" type="number" step="0.01" min="0" name="unit_price" required;
+                            input class="form-input" type="number" step="any" min="0" name="unit_price" required;
                         }
                         div class="form-field" {
                             label class="form-label" { "预计交期" }
@@ -420,7 +420,7 @@ fn create_page(
                         }
                         div class="form-field" {
                             label class="form-label" { "单位成本" }
-                            input class="form-input" type="number" step="0.01" min="0" id="modal-unit-cost";
+                            input class="form-input" type="number" step="any" min="0" id="modal-unit-cost";
                         }
                     }
                 }
@@ -457,8 +457,8 @@ function omConfirmMaterial() {
     var tr = document.createElement('tr');
     tr.setAttribute('oninput','omUpdateMaterialJson()');
     tr.innerHTML = '<td>' + pname + '<input type="hidden" name="m_product_id" value="' + pid + '"></td>' +
-        '<td><input class="form-input" type="number" step="0.01" min="0" name="m_planned_qty" value="' + qty + '" style="width:100px;text-align:right"></td>' +
-        '<td><input class="form-input" type="number" step="0.01" min="0" name="m_unit_cost" value="' + cost + '" style="width:100px;text-align:right"></td>' +
+        '<td><input class="form-input" type="number" step="any" min="0" name="m_planned_qty" value="' + qty + '" style="width:100px;text-align:right"></td>' +
+        '<td><input class="form-input" type="number" step="any" min="0" name="m_unit_cost" value="' + cost + '" style="width:100px;text-align:right"></td>' +
         '<td class="line-subtotal mono" style="text-align:right">' + (qty * cost).toFixed(2) + '</td>' +
         '<td><button type="button" class="btn-remove-row" title="删除" onclick="this.closest(\'tr\').remove();omUpdateMaterialJson()">' + '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>';
     tbody.appendChild(tr);

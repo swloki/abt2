@@ -152,7 +152,7 @@ fn journal_create_page() -> Markup {
                                 "金额 "
                                 span style="color:var(--danger)" { "*" }
                             }
-                            input class="form-input" type="number" name="amount" step="0.01" min="0" required placeholder="0.00" style="font-family:var(--font-mono);text-align:right";
+                            input class="form-input" type="number" name="amount" step="any" min="0" required placeholder="0.00" style="font-family:var(--font-mono);text-align:right";
                         }
                         // 银行账户
                         div class="form-field" {

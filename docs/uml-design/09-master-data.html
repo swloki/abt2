@@ -1903,11 +1903,11 @@ classDiagram
     </table>
     <h3 style="color:#61afef;margin:16px 0 12px;">迁移策略</h3>
     <ul style="color:#cdd6f4;font-size:14px;line-height:1.8;padding-left:20px;">
-      <li>DB 层：在 products 表新增 acquire_channel VARCHAR 列 + CHECK 约束 + B-tree 索引</li>
+      <li>DB 层：在 products 表新增 acquire_channel SMALLINT 列（NOT NULL DEFAULT 9）+ CHECK 约束 (1,2,3,4,9) + 部分索引 idx_products_acquire_channel（WHERE deleted_at IS NULL）</li>
       <li>迁移：从 meta JSONB 中提取 acquire_channel 填充新列，无法识别的设为 Legacy(9)</li>
-      <li>Rust 层：AcquireChannel 枚举 + serde 字符串序列化，读写兼容现有数据</li>
-      <li>Legacy(9)：迁移时无法识别的历史数据标记，不阻塞业务流程，日志记录供数据清洗</li>
-      <li>ProductMeta JSONB 中移除 acquire_channel 字段（双写过渡期后清理）</li>
+      <li>Rust 层：AcquireChannel 枚举（i16 discriminant 1/2/3/4/9）+ from_i16/as_i16 数值映射，DB 列为 SMALLINT</li>
+      <li>Legacy(9)：迁移时无法识别的历史数据标记，行为等同自制，不阻塞业务流程，日志驱动数据清洗（临时态，逐步清洗至正确渠道；清洗记录见 docs/solutions/master-data/acquire-channel-migration.md）</li>
+      <li>ProductMeta JSONB 中 acquire_channel 暂保留（默认空串）作为冗余；独立列为权威来源，meta 字段待后续清理</li>
       <li>下游模块（sales/purchase/wms）通过 AcquireChannel 枚举进行穷举匹配，编译期保证无遗漏</li>
     </ul>
   </div>

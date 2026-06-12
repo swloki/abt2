@@ -504,7 +504,7 @@ fn prefill_item_row(item: &QuotationItem, names: &HashMap<i64, String>, codes: &
             td { input class="li-input" type="text" name="description" value=(item.description.as_str()) {} }
             td { input class="li-input-center" type="text" name="unit" readonly value=(item.unit.as_str()) {} }
             td { input class="li-input-num" type="number" min="1" step="1" name="quantity" value=(item.quantity) {} }
-            td { input class="li-input-price" type="number" step="0.01" name="unit_price" value=(item.unit_price) {} }
+            td { input class="li-input-price" type="number" step="any" name="unit_price" value=(item.unit_price) {} }
             td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" value=(discount) {} }
             td class="line-total" { "—" }
             td { input class="li-input-date" type="date" name="item_delivery_date" value=(delivery) {} }
@@ -562,7 +562,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td { input class="li-input" type="text" name="description" {} }
             td { input class="li-input-center" type="text" name="unit" readonly value=(product.unit) {} }
             td { input class="li-input-num" type="number" min="1" step="1" name="quantity" placeholder="0" {} }
-            td { input class="li-input-price" type="number" step="0.01" name="unit_price" placeholder="0.00" {} }
+            td { input class="li-input-price" type="number" step="any" name="unit_price" placeholder="0.00" {} }
             td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" {} }
             td class="line-total" { "—" }
             td { input class="li-input-date" type="date" name="item_delivery_date" {} }

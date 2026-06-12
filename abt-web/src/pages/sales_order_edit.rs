@@ -256,7 +256,7 @@ fn order_edit_page(
                                     td { input class="li-input" type="text" name="description" value=(&item.description) {} }
                                     td { input class="li-input-center" type="text" name="unit" readonly value=(&item.unit) {} }
                                     td { input class="li-input-num" type="number" min="1" step="1" name="quantity" value=(item.quantity.to_string()) placeholder="0" {} }
-                                    td { input class="li-input-price" type="number" step="0.01" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" {} }
+                                    td { input class="li-input-price" type="number" step="any" name="unit_price" value=(item.unit_price.to_string()) placeholder="0.00" {} }
                                     td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" value=(item.discount_rate.to_string()) {} }
                                     td class="line-total" { "—" }
                                     td { input class="li-input-date" type="date" name="item_delivery_date" value=(item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default()) {} }

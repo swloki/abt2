@@ -27,6 +27,11 @@
 | confirm 状态同步策略 | 同步更新 + Outbox 事件 | 调用方需要即时结果，Outbox 保证最终一致 |
 | 供应商约束 | supplier_id 必填 | 一次创建只关联一个供应商，操作员自行决定合并或拆分 |
 | 排程参数 | items 可选 + 默认值 | 初版支持批量创建后逐行修改，降低操作复杂度 |
+| confirm 状态同步 | **异步事件驱动** | confirm 只更新 demands + Outbox 事件，Handler 异步更新 fulfillment/订单行，避免跨聚合死锁 |
+| 并发控制 | **乐观锁（UPDATE WHERE status='Open'）** | 受影响行数校验，防止两个操作员同时抢占同一批需求 |
+| 需求池查询维度 | **订单行 + 物料聚合双视图** | 物料维度是采购员/计划员主要操作入口，避免逐条勾选 |
+| Handler 回查告警 | **warn! 日志** | Demand 不存在时非静默跳过，记录告警便于排查数据一致性 |
+| 预留消耗策略 | **保持锁定 + 取消自动释放** | 部分发货后剩余预留保持锁定，取消时自动释放防止幽灵占用 |
 
 ## 3. 整体架构
 
@@ -115,10 +120,16 @@ impl EventHandler for PurchaseDemandCreatedHandler {
         let demand_id = event.aggregate_id;
         let mut conn = self.pool.acquire().await
             .map_err(|e| DomainError::Internal(e.into()))?;
-        let demand = DemandRepo::find_by_id(&mut conn, demand_id).await?
-            .ok_or_else(|| DomainError::not_found("Demand"))?;
+        let demand = match DemandRepo::find_by_id(&mut conn, demand_id).await? {
+            Some(d) => d,
+            None => {
+                // 需求不存在（物理删除或归档）— 记录 Warning 以便排查数据一致性
+                warn!(demand_id, "Demand not found for DemandCreated event, skipping notification");
+                return Ok(());
+            }
+        };
 
-        // 如果需求已被处理或取消，跳过通知
+        // 如果需求已被处理或取消，跳过通知（防御事件乱序）
         if demand.status != DemandStatus::Open {
             return Ok(());
         }
@@ -161,18 +172,28 @@ impl EventHandler for PurchaseDemandCreatedHandler {
 ```rust
 #[async_trait]
 pub trait PurchaseDemandService: Send + Sync {
-    /// 查询待处理的外购需求
+    /// 查询待处理的外购需求（订单行维度）
     /// 从 sales demands 表读取，按 acquire_channel = Purchased 过滤
     async fn list_pending_demands(
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
         query: DemandQuery,
-    ) -> Result<Vec<DemandSummary>>;
+    ) -> Result<PaginatedResult<DemandSummary>>;
+
+    /// 按物料聚合查询外购需求（物料维度 — 采购员操作入口）
+    /// 聚合结果：物料X，总需求100，涉及5个订单，净缺口70
+    /// 这是采购员的**主要操作视图**，而非按订单行逐条展示
+    async fn list_material_aggregated(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        query: MaterialAggQuery,
+    ) -> Result<PaginatedResult<MaterialAggSummary>>;
 
     /// 从选中的需求批量创建采购订单草稿
     /// - 可合并多条需求为一张 PO（同供应商）
-    /// - 创建后调用 DemandService.confirm 关闭环
+    /// - 使用乐观锁并发控制（见 4.5 步骤 1）
     async fn create_order_from_demands(
         &self,
         ctx: &ServiceContext,
@@ -185,7 +206,7 @@ pub trait PurchaseDemandService: Send + Sync {
 ### 4.4 请求/响应模型
 
 ```rust
-/// 需求查询参数
+/// 需求查询参数（订单行维度）
 pub struct DemandQuery {
     pub status: Option<DemandStatus>,   // 默认 Open
     pub product_id: Option<i64>,
@@ -194,19 +215,38 @@ pub struct DemandQuery {
     pub page_size: Option<u32>,
 }
 
-/// 需求摘要（展示给操作员）
+/// 需求摘要（订单行维度 — 展示给操作员）
 pub struct DemandSummary {
     pub id: i64,
     pub order_id: i64,
     pub order_no: String,               // 来源订单号
     pub product_id: i64,
-    pub product_name: String,           // 产品名称（JOIN 查询）
+    pub product_name: String,           // 产品名称
     pub product_code: String,           // 产品编码
     pub quantity: Decimal,              // 需求数量
     pub required_date: Option<NaiveDate>,
     pub priority: i32,
     pub status: DemandStatus,
     pub created_at: NaiveDateTime,
+}
+
+/// 物料聚合查询参数
+pub struct MaterialAggQuery {
+    pub product_id: Option<i64>,        // 按产品筛选
+    pub page: Option<u32>,
+    pub page_size: Option<u32>,
+}
+
+/// 物料聚合摘要（物料维度 — 采购员主要操作视图）
+pub struct MaterialAggSummary {
+    pub product_id: i64,
+    pub product_name: String,
+    pub product_code: String,
+    pub total_demand_qty: Decimal,      // 总需求量（SUM 所有 Open 需求）
+    pub demand_count: i64,              // 涉及多少条需求
+    pub earliest_required_date: Option<NaiveDate>, // 最早需求日期
+    pub latest_required_date: Option<NaiveDate>,   // 最晚需求日期
+    pub demand_ids: Vec<i64>,           // 包含的需求 ID 列表（前端展开用）
 }
 
 /// 从需求创建采购订单请求
@@ -218,19 +258,28 @@ pub struct CreateOrderFromDemandsReq {
 }
 ```
 
+**设计说明**：
+- `list_material_aggregated` 是采购员的**主要操作视图**，避免采购员逐条勾选 500 条需求
+- 前端展示：物料X，总需求100，涉及5个订单，最早需 7/15 → 操作员点击"创建PO"直接用所有 demand_ids
+- `list_pending_demands` 仍保留，用于需要查看订单行明细的场景
+
 ### 4.5 create_order_from_demands 流程
 
-1. **校验**：读取选中的 demands，确认：
-   - 状态必须为 `Open`
-   - `acquire_channel` 必须为 `Purchased`
-   - 不存在重复 ID
-2. **供应商约束**：`CreateOrderFromDemandsReq.supplier_id` 为**必填**，操作员创建 PO 前必须指定供应商。如果选中的需求对应的产品默认供应商不一致，由操作员自行决定拆分或统一指定。**一次调用只创建一张 PO，只关联一个供应商**。
+1. **乐观锁抢占**（并发控制）：
+   ```sql
+   UPDATE demands SET status = 'Processing'
+   WHERE id = ANY($1) AND status = 'Open' AND acquire_channel = 2 AND deleted_at IS NULL;
+   ```
+   - 检查受影响行数是否等于 `demand_ids.len()`，如果不等于说明部分需求已被他人处理
+   - 返回 `OptimisticLockError("部分需求已被他人处理，请刷新重试")`
+   - 这比先 SELECT 再 UPDATE 的两步模式更安全，避免了 TOCTOU 竞争
+2. **供应商约束**：`CreateOrderFromDemandsReq.supplier_id` 为**必填**，操作员创建 PO 前必须指定供应商。**一次调用只创建一张 PO，只关联一个供应商**
 3. **聚合**：按 `product_id` 聚合需求（多条需求同产品则合并数量）
 4. **创建 PO**：调用 `PurchaseOrderService::create` 创建采购订单草稿
    - 每个 product_id 聚合后生成一个订单行
    - `line_no` 自动编号
    - `unit_price` 取产品默认采购价或 0（待采购员补充）
-5. **关联需求**：逐一调用 `DemandService::confirm`，传入 PO ID（6.5 节定义的实现策略）
+5. **关联需求**：更新每条 demand 的 `target_doc_id` = PO ID，发布 `DemandConfirmed` 事件（见 6.5 节异步策略）
 6. **事务保证**：以上步骤在同一数据库事务中完成
 7. **返回**：新建的 PO ID
 
@@ -339,8 +388,13 @@ impl EventHandler for MesDemandCreatedHandler {
         let demand_id = event.aggregate_id;
         let mut conn = self.pool.acquire().await
             .map_err(|e| DomainError::Internal(e.into()))?;
-        let demand = DemandRepo::find_by_id(&mut conn, demand_id).await?
-            .ok_or_else(|| DomainError::not_found("Demand"))?;
+        let demand = match DemandRepo::find_by_id(&mut conn, demand_id).await? {
+            Some(d) => d,
+            None => {
+                warn!(demand_id, "Demand not found for DemandCreated event, skipping notification");
+                return Ok(());
+            }
+        };
 
         if demand.status != DemandStatus::Open {
             return Ok(());
@@ -531,42 +585,53 @@ impl EventHandler for SalesDemandConfirmedHandler {
 }
 ```
 
-### 6.5 DemandService.confirm 的实现策略（状态同步对齐）
+### 6.5 DemandService.confirm 的实现策略（异步事件驱动，避免跨聚合死锁）
 
-**核心问题**：`confirm` 方法是同步更新状态 + 发布事件，还是只发布事件由 Handler 异步更新？
+**核心问题**：`confirm` 方法是在同一事务内同步更新 demands + fulfillment_plan_lines + sales_order_items 三张表，还是只更新 demands 然后通过事件异步更新其余两张？
 
-**决策**：`DemandService.confirm` **在同一事务内同步更新所有状态**，事件仅用于通知其他模块。理由：
+**决策**：`confirm` 方法**只更新 demands 表 + 发布 DemandConfirmed 事件**，由 `SalesDemandConfirmedHandler` 异步更新 fulfillment_plan_lines 和 sales_order_items。
 
-1. `confirm` 的调用方（采购/MES 的 `create_order_from_demands`/`create_plan_from_demands`）需要**即时**拿到状态更新结果
-2. 如果依赖异步事件处理，存在延迟窗口，用户可能在此期间重复操作
-3. Outbox 模式保证事件最终发布，事务内写 events 表，事务提交后由 EventProcessor 异步分发
+**理由**：
+1. **跨聚合死锁风险**：多个采购员同时确认不同需求但涉及同一销售订单的多行时，同一事务跨三张表的 UPDATE 极易引发行锁竞争甚至死锁
+2. **事务持有锁时间短**：confirm 事务只锁 demands 行，迅速释放；fulfillment/订单行更新由 Handler 独立事务完成
+3. **EventProcessor 通常在秒级内消费事件**，用户体感上接近即时
+4. **幂等设计保证最终一致**：Handler 先检查状态再更新，重复消费不会出错
 
-**具体实现**（已在 `sales_order/implt.rs` 第 1004-1049 行）：
+**具体实现**：
 ```
-同一事务内：
+confirm() 事务内（只涉及 demands 表）：
   1. UPDATE demands SET status = 'Processing', target_doc_id = ?, target_doc_type = ?
-  2. UPDATE fulfillment_plan_lines SET status = Producing/Purchasing
-  3. UPDATE sales_order_items SET line_status = Producing/Purchasing
-  4. INSERT INTO domain_events (DemandConfirmed) -- Outbox
-  5. NOTIFY domain_event
+  2. INSERT INTO domain_events (DemandConfirmed) -- Outbox
+  3. NOTIFY domain_event
+
+SalesDemandConfirmedHandler（异步，独立事务）：
+  1. 从 event payload 获取 order_line_id、acquire_channel、target_doc_id
+  2. 查询 fulfillment_plan_line，幂等检查：如果 status 已经是 Producing/Purchasing，跳过
+  3. UPDATE fulfillment_plan_lines SET status = Producing/Purchasing
+  4. UPDATE sales_order_items SET line_status = Producing/Purchasing
 ```
 
 **幂等保证**：
-- `handle_demand_confirmed` Handler（6.4）注册后，如果 `DemandConfirmed` 事件被 EventProcessor 消费，Handler 内部必须**先检查状态是否已更新**（已被 `confirm` 方法同步更新过），若已更新则跳过（幂等返回 Ok）
-- 避免同一状态变更被 `confirm` 同步路径和 EventHandler 异步路径各执行一次
+- Handler 先 SELECT 检查状态，已更新则跳过
+- EventProcessor 的 IdempotencyRepo.check_and_mark 提供第一层去重
+- 即使事件被重复消费，结果一致（天然幂等）
 
 ## 7. API 路由设计
 
 ```
 # 采购模块 — 需求处理
-GET    /purchase/demands                — 查询待处理外购需求
+GET    /purchase/demands                      — 查询待处理外购需求（订单行维度）
        ?status=Open&product_id=xxx&page=1&page_size=20
-POST   /purchase/demands/create-order   — 从需求创建采购订单草稿
+GET    /purchase/demands/material-aggregated  — 按物料聚合查询（物料维度，主要操作入口）
+       ?product_id=xxx&page=1&page_size=20
+POST   /purchase/demands/create-order         — 从需求创建采购订单草稿
 
 # MES 模块 — 需求处理
-GET    /mes/demands                     — 查询待处理自制需求
+GET    /mes/demands                           — 查询待处理自制需求（订单行维度）
        ?status=Open&product_id=xxx&page=1&page_size=20
-POST   /mes/demands/create-plan         — 从需求创建生产计划草稿
+GET    /mes/demands/material-aggregated       — 按物料聚合查询（物料维度，主要操作入口）
+       ?product_id=xxx&page=1&page_size=20
+POST   /mes/demands/create-plan               — 从需求创建生产计划草稿
 ```
 
 ## 8. 完整闭环时序
@@ -644,7 +709,7 @@ POST   /mes/demands/create-plan         — 从需求创建生产计划草稿
 
 | 场景 | 处理方式 |
 |------|----------|
-| 需求已被其他操作员处理 | 乐观锁或状态校验，返回 "demand already processing" 错误 |
+| **并发抢占同一批需求** | 乐观锁：`UPDATE demands SET status='Processing' WHERE id=ANY($1) AND status='Open'`，受影响行数 ≠ 期望数时返回 `OptimisticLockError`，提示"部分需求已被他人处理，请刷新" |
 | 多条需求的产品无供应商 | 返回明确错误，列出无供应商的产品 |
 | 生产计划创建失败 | 事务回滚，demand 状态保持 Open |
 | 通知服务不可用 | EventHandler 失败后进入重试队列，不影响需求创建 |
@@ -652,8 +717,11 @@ POST   /mes/demands/create-plan         — 从需求创建生产计划草稿
 | 需求取消后下游单据已创建 | 需要手动取消下游单据，DemandService.reject 回退 |
 | PO 被取消 | 采购模块发布事件 → DemandService.reject → demand 回退到 Open |
 | **生产计划被取消** | MES 模块在 `ProductionPlanService::cancel` 中调用 `DemandService.reject` → demand 回退到 Open → 履行计划行回退到 Pending。**必须在生产计划模块的取消逻辑中集成此调用** |
-| **EventHandler 重复消费** | EventProcessor 的幂等检查（IdempotencyRepo.check_and_mark）+ Handler 内部先检查 demand.status 是否已更新，双重保障 |
-| **事件乱序** | Handler 内部回查 demands 表验证当前状态，如果 status ≠ Open 则跳过通知 |
+| **EventHandler 重复消费** | EventProcessor 幂等检查（IdempotencyRepo）+ Handler 内部先检查状态再更新，双重保障 |
+| **事件乱序** | Handler 内部回查 demands 表验证当前状态，status ≠ Open 则跳过通知 |
+| **Demand 回查不存在** | Handler 记录 `warn!` 日志（非静默跳过），便于排查数据一致性 |
+| **部分发货后预留消耗** | 订单行需求 100，预留 100。第一次发货 60 → 消耗 60 预留，剩余 40 预留**保持锁定**（不释放回公共池），直到订单行关闭或取消 |
+| **取消订单释放预留** | 取消未发货剩余量（增加 cancelled_qty）→ 触发**自动释放预留**（Release Allocation），释放量 = 取消量。否则导致库存"幽灵占用" |
 
 ## 11. 实施风险与缓解
 
@@ -665,7 +733,7 @@ POST   /mes/demands/create-plan         — 从需求创建生产计划草稿
 | demand 状态不一致 | 低 | 本次无自动对账（P5），风险可接受。标注：当前只能靠手动排查 |
 | 库存重新预留不在本次范围 | 低 | 正确：预留重算在补货入库后（P5），当前只创建补货单据 |
 
-## 11. 与已有设计文档的关系
+## 12. 与已有设计文档的关系
 
 本方案是 `docs/design-proposal-sales-order-fulfillment-flow.md` 的 P2+P4 实现延续：
 - P0（AcquireChannel 枚举化）✅ 已完成
@@ -674,3 +742,15 @@ POST   /mes/demands/create-plan         — 从需求创建生产计划草稿
 - P3（前端 UI）— 不在本次范围
 - P4（下游模块集成）❌ 未实现 → 本次实现
 - P5（补货完成闭环）— 后续实现
+
+## 13. 远期规划（未纳入本次范围的建议）
+
+以下建议来自专家审查，架构价值高但超出 P2+P4 范围，记录以备后续迭代：
+
+| 建议 | 价值 | 触发条件 |
+|------|------|----------|
+| **交期反向同步（CTP/ATP）** | PO 预计到货日 / 工单预计完工日 → 回写 `sales_order_items.estimated_ready_date` | P5 补货闭环阶段一起实现 |
+| **变更级联评估（Impact Analysis）** | 销售取消/减量前评估下游单据状态，阻断或提示先作废下游 | 业务提出"取消操作不安全"反馈 |
+| **acquire_channel 柔性路由** | 允许计划员在 demand/履行计划行上人工覆盖补货通道 | 出现"产能满载需临时外购"场景 |
+| **CQRS 读模型宽表** | 用事件驱动的宽表 `purchase_demand_pool` 替换视图 | demands 数据量 > 5 万行或需要数据权限控制 |
+| **需求认领/锁定机制** | 采购员勾选时锁定 demand（assigned_to + 5分钟超时） | 多采购员并发操作频繁冲突 |

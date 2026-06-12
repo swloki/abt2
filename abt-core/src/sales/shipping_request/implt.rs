@@ -57,11 +57,10 @@ impl ShippingRequestService for ShippingRequestServiceImpl {
         let order = new_sales_order_service(self.pool.clone()).find_by_id(ctx, db, req.order_id).await?;
 
         if order.status != SalesOrderStatus::Confirmed
-            && order.status != SalesOrderStatus::InProduction
             && order.status != SalesOrderStatus::PartiallyShipped
         {
             return Err(DomainError::business_rule(
-                "Order must be Confirmed, InProduction or PartiallyShipped to create shipping request",
+                "Order must be Confirmed or PartiallyShipped to create shipping request",
             ));
         }
 

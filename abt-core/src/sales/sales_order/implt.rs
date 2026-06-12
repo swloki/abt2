@@ -458,42 +458,6 @@ impl SalesOrderService for SalesOrderServiceImpl {
         Ok(())
     }
 
-    async fn start_progress(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
-        let existing = self
-            .repo
-            .find_by_id(db, id)
-            .await?
-            .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
-
-        if existing.status != SalesOrderStatus::Confirmed {
-            return Err(DomainError::business_rule("Only Confirmed orders can start progress"));
-        }
-
-        new_state_machine_service(self.pool.clone())
-            .transition(ctx, db, "SalesOrderStatus", id, "InProduction", None)
-            .await?;
-
-        self.repo
-            .update_status(db, id, SalesOrderStatus::InProduction)
-            .await?;
-
-        new_audit_log_service(self.pool.clone())
-            .record(
-                    ctx,
-                    db,
-                    RecordAuditLogReq {
-                        entity_type: "SalesOrder",
-                        entity_id: id,
-                        action: AuditAction::Transition,
-                        changes: Some(serde_json::json!({ "from": existing.status.as_str(), "to": "InProduction" })),
-                        context: None,
-                    },
-                )
-            .await?;
-
-        Ok(())
-    }
-
     async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo

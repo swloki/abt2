@@ -46,8 +46,6 @@ pub trait SalesOrderService: Send + Sync {
 
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
-    async fn start_progress(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
-
     async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;

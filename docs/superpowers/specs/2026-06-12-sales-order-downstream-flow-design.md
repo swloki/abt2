@@ -24,10 +24,9 @@
 | 前端范围 | 只做后端 | 前端 UI 留到 P3 阶段 |
 | Handler 通知数据来源 | 回查 demands 表 | 与 v5"Payload 精简，消费者回查"原则一致，通知始终反映真实状态 |
 | 跨模块查询策略 | 数据库视图 | 单体 + 共享数据库架构下最轻量，封装 JOIN 逻辑避免直接依赖 |
-| confirm 状态同步策略 | 同步更新 + Outbox 事件 | 调用方需要即时结果，Outbox 保证最终一致 |
-| 供应商约束 | supplier_id 必填 | 一次创建只关联一个供应商，操作员自行决定合并或拆分 |
-| 排程参数 | items 可选 + 默认值 | 初版支持批量创建后逐行修改，降低操作复杂度 |
 | confirm 状态同步 | **异步事件驱动** | confirm 只更新 demands + Outbox 事件，Handler 异步更新 fulfillment/订单行，避免跨聚合死锁 |
+| 供应商约束 | supplier_id 必填 | 一次创建只关联一个供应商，操作员自行决定合并或拆分 |
+| 排程参数 | items 可选 + 默认值 | 初版支持批量创建后逐行修改，降低操作复杂度（默认提前期不可硬编码，见 14.4） |
 | 并发控制 | **乐观锁（UPDATE WHERE status='Open'）** | 受影响行数校验，防止两个操作员同时抢占同一批需求 |
 | 需求池查询维度 | **订单行 + 物料聚合双视图** | 物料维度是采购员/计划员主要操作入口，避免逐条勾选 |
 | Handler 回查告警 | **warn! 日志** | Demand 不存在时非静默跳过，记录告警便于排查数据一致性 |
@@ -246,7 +245,7 @@ pub struct MaterialAggSummary {
     pub demand_count: i64,              // 涉及多少条需求
     pub earliest_required_date: Option<NaiveDate>, // 最早需求日期
     pub latest_required_date: Option<NaiveDate>,   // 最晚需求日期
-    pub demand_ids: Vec<i64>,           // 包含的需求 ID 列表（前端展开用）
+    // 注意：不返回 demand_ids 列表，避免大数组陷阱（见 14.2）
 }
 
 /// 从需求创建采购订单请求
@@ -260,7 +259,8 @@ pub struct CreateOrderFromDemandsReq {
 
 **设计说明**：
 - `list_material_aggregated` 是采购员的**主要操作视图**，避免采购员逐条勾选 500 条需求
-- 前端展示：物料X，总需求100，涉及5个订单，最早需 7/15 → 操作员点击"创建PO"直接用所有 demand_ids
+- 前端展示：物料X，总需求100，涉及5个订单，最早需 7/15 → 操作员点击"创建PO"
+- **不返回 demand_ids 列表**（避免大数组陷阱，见 14.2），前端需要明细时调用 `list_pending_demands`
 - `list_pending_demands` 仍保留，用于需要查看订单行明细的场景
 
 ### 4.5 create_order_from_demands 流程
@@ -271,7 +271,7 @@ pub struct CreateOrderFromDemandsReq {
    WHERE id = ANY($1) AND status = 'Open' AND acquire_channel = 2 AND deleted_at IS NULL;
    ```
    - 检查受影响行数是否等于 `demand_ids.len()`，如果不等于说明部分需求已被他人处理
-   - 返回 `OptimisticLockError("部分需求已被他人处理，请刷新重试")`
+   - **部分成功优化**（见 14.3）：可只对成功锁定的需求创建 PO，返回 `CreateOrderResult` 含 `skipped_demands`
    - 这比先 SELECT 再 UPDATE 的两步模式更安全，避免了 TOCTOU 竞争
 2. **供应商约束**：`CreateOrderFromDemandsReq.supplier_id` 为**必填**，操作员创建 PO 前必须指定供应商。**一次调用只创建一张 PO，只关联一个供应商**
 3. **聚合**：按 `product_id` 聚合需求（多条需求同产品则合并数量）
@@ -474,7 +474,8 @@ pub struct PlanDemandItemReq {
 
 **排程策略**：
 - 如果提供了 `items`，使用每条需求各自的排程参数
-- 如果未提供 `items`，所有需求统一使用 `default_scheduled_start/end`（默认 start = plan_date，end = plan_date + 7 天）
+- 如果未提供 `items`，所有需求统一使用 `default_scheduled_start/end`
+- **默认值不可硬编码**（见 14.4）：end 默认 = plan_date + 配置项 `default_production_lead_time_days`（而非写死 +7），代码中加 `// TODO: P5 接入产品主数据 Lead Time`
 - 计划员可在前端逐步细化排程，初版支持批量创建后逐行修改
 
 ### 5.5 create_plan_from_demands 流程
@@ -743,7 +744,121 @@ POST   /mes/demands/create-plan               — 从需求创建生产计划草
 - P4（下游模块集成）❌ 未实现 → 本次实现
 - P5（补货完成闭环）— 后续实现
 
-## 13. 远期规划（未纳入本次范围的建议）
+## 14. 代码落地暗坑防御
+
+### 14.1 Outbox 事务可见性陷阱
+
+**场景**：`confirm` 事务内更新 demands → 写入 domain_events (Outbox) → NOTIFY。EventProcessor 收到通知后，`SalesDemandConfirmedHandler` 开启新事务去更新 fulfillment_plan_lines。
+
+**隐患**：如果 NOTIFY 发送得比数据库事务 COMMIT 还快，Handler 的新事务可能因为隔离级别（Read Committed）读不到刚刚更新的数据，导致幂等校验失败或状态回退。
+
+**防御措施**：
+- 当前 EventProcessor 采用 **DB 轮询 + LISTEN/NOTIFY 双模式**（`processor.rs` 第 100-115 行），`fetch_pending/fetch_retryable` 使用 `FOR UPDATE SKIP LOCKED`，天然只拉取已提交的事件
+- Handler 内部的幂等 SQL 使用**前置状态校验的单条 UPDATE**（见 14.5），不依赖先 SELECT 再 UPDATE 的两步模式
+- 如果未来 EventProcessor 改为纯 LISTEN/NOTIFY 驱动，必须加入短暂重试机制（retry after 100ms）
+
+### 14.2 物料聚合视图的大数组陷阱
+
+**场景**：`MaterialAggSummary` 中包含 `demand_ids: Vec<i64>`。对于通用物料（如"M4 螺丝"），需求池中可能同时存在数千条 Open 状态的 demand。
+
+**隐患**：数千个 ID 塞进 JSON 响应会撑爆网络带宽，前端渲染表格也会卡死。
+
+**防御措施**：
+- **不返回完整 `demand_ids`**，改为只返回 `demand_count: i64`
+- 前端点击"展开明细"或"创建 PO"时，调用 `list_pending_demands`（带 `product_id` 过滤）分页加载
+- 如果需要快捷操作（如一键创建），API 端直接接收 `product_id` + `supplier_id`，后端自动选取该物料所有 Open 需求
+
+```rust
+// 修正后的模型
+pub struct MaterialAggSummary {
+    pub product_id: i64,
+    pub product_name: String,
+    pub product_code: String,
+    pub total_demand_qty: Decimal,
+    pub demand_count: i64,              // 数量，不是 ID 列表
+    pub earliest_required_date: Option<NaiveDate>,
+    pub latest_required_date: Option<NaiveDate>,
+    // demand_ids 字段已移除
+}
+
+// 新增：一键按物料创建 PO（后端自动选取所有 Open 需求）
+pub struct CreateOrderByMaterialReq {
+    pub product_id: i64,
+    pub supplier_id: i64,
+    pub expected_delivery_date: Option<NaiveDate>,
+    pub remark: String,
+}
+```
+
+### 14.3 乐观锁部分成功的体验优化
+
+**场景**：采购员勾选 10 个需求点击"创建 PO"，乐观锁发现 2 个已被抢走（受影响行数 = 8 ≠ 10）。
+
+**当前策略**：全部回滚，抛出 `OptimisticLockError`。
+
+**优化方案**：返回**部分成功**结果，降低操作挫败感：
+
+```rust
+pub struct CreateOrderResult {
+    pub po_id: i64,                         // 成功创建的 PO ID
+    pub processed_demand_count: usize,      // 成功处理的需求数
+    pub skipped_demands: Vec<SkippedDemand>, // 被跳过的需求
+}
+
+pub struct SkippedDemand {
+    pub demand_id: i64,
+    pub reason: String,                     // "已被他人处理" / "状态已变更"
+}
+```
+
+**实施策略**：
+- 乐观锁 UPDATE 后，只对成功锁定的需求继续创建 PO
+- 未锁定的需求记入 `skipped_demands`
+- 前端弹出 Toast："已创建 PO #123（8/10），2 条需求已被他人处理已跳过"
+- 如果开发成本受限，保持全部回滚亦可，但错误消息必须列出被抢走的需求 ID
+
+### 14.4 MES 默认排程的硬编码风险
+
+**场景**：5.4 节中 `default_scheduled_end` 默认 = plan_date + 7 天。
+
+**隐患**：不同产品的制造提前期（Lead Time）差异巨大（机箱 1 天 vs 精密仪器 30 天），写死 +7 会导致排程失真。
+
+**防御措施**：
+- 如果产品主数据中有 `manufacturing_lead_time` 字段，优先使用
+- 如果没有，使用系统配置表的全局默认值（如 `default_production_lead_time_days`），避免魔法数字散落在业务代码中
+- 代码中必须加注释：`// TODO: P5 阶段接入产品主数据 Lead Time，当前使用全局配置默认值`
+- API 层 `default_scheduled_end` 如果未提供，默认值逻辑为：`plan_date + lead_time_days`（从配置读取，不硬编码 7）
+
+### 14.5 Handler 幂等更新的 SQL 模式
+
+**场景**：`SalesDemandConfirmedHandler` 异步更新 `fulfillment_plan_lines`，需保证幂等。
+
+**错误写法**（TOCTOU 陷阱）：
+```sql
+-- ✗ 危险：SELECT 和 UPDATE 之间存在时间窗口
+SELECT status FROM fulfillment_plan_lines WHERE order_line_id = $1;
+-- 如果 status == 'Pending'，则：
+UPDATE fulfillment_plan_lines SET status = 'Producing' WHERE order_line_id = $1;
+```
+
+**正确写法**（原子性幂等 UPDATE）：
+```sql
+-- ✓ 安全：单条语句，数据库行锁保证原子性
+UPDATE fulfillment_plan_lines
+SET status = 'Producing'
+WHERE order_line_id = $1
+  AND status = 'Pending';
+-- 检查 rows_affected == 1 判断是否更新成功
+-- rows_affected == 0 表示已被其他 Handler 处理过（幂等，跳过）
+-- rows_affected == 1 表示本次成功更新
+```
+
+**实施原则**：
+- 所有 Handler 内的状态更新必须使用**前置状态校验的单条 UPDATE**
+- 通过 `rows_affected` 判断操作结果，不依赖先 SELECT 再 UPDATE
+- `rows_affected == 0` 不视为错误，而是幂等成功（状态已更新过）
+
+## 15. 远期规划（未纳入本次范围的建议）
 
 以下建议来自专家审查，架构价值高但超出 P2+P4 范围，记录以备后续迭代：
 

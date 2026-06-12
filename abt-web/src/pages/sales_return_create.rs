@@ -32,7 +32,6 @@ fn order_status_text(s: SalesOrderStatus) -> &'static str {
     match s {
         SalesOrderStatus::Draft => "草稿",
         SalesOrderStatus::Confirmed => "已确认",
-        SalesOrderStatus::InProduction => "生产中",
         SalesOrderStatus::PartiallyShipped => "部分发货",
         SalesOrderStatus::Shipped => "已发货",
         SalesOrderStatus::Completed => "已完成",
@@ -143,10 +142,9 @@ pub async fn get_orders(
         )
         .await?;
 
-    // Filter to only active statuses (2=Confirmed, 3=InProduction, 4=PartiallyShipped, 5=Shipped)
+    // Filter to only active statuses (Confirmed, PartiallyShipped, Shipped)
     let active_statuses = [
         SalesOrderStatus::Confirmed,
-        SalesOrderStatus::InProduction,
         SalesOrderStatus::PartiallyShipped,
         SalesOrderStatus::Shipped,
     ];

@@ -108,7 +108,6 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
     match s {
         SalesOrderStatus::Draft => ("草稿", "status-draft"),
         SalesOrderStatus::Confirmed => ("已确认", "status-confirmed"),
-        SalesOrderStatus::InProduction => ("生产中", "status-progress"),
         SalesOrderStatus::PartiallyShipped => ("部分发货", "status-partial"),
         SalesOrderStatus::Shipped => ("已发货", "status-shipped"),
         SalesOrderStatus::Completed => ("已完成", "status-completed"),

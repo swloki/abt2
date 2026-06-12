@@ -24,7 +24,6 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
     match s {
         SalesOrderStatus::Draft => ("草稿", "status-draft"),
         SalesOrderStatus::Confirmed => ("已确认", "status-confirmed"),
-        SalesOrderStatus::InProduction => ("生产中", "status-progress"),
         SalesOrderStatus::PartiallyShipped => ("部分发货", "status-partial"),
         SalesOrderStatus::Shipped => ("已发货", "status-shipped"),
         SalesOrderStatus::Completed => ("已完成", "status-completed"),
@@ -113,20 +112,6 @@ pub async fn confirm_order(
 }
 
 #[require_permission("SALES_ORDER", "update")]
-pub async fn start_order(
-    path: StartOrderPath,
-    ctx: RequestContext,
-) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.sales_order_service();
-
-    svc.start_progress(&service_ctx, &mut conn, path.id).await?;
-
-    let redirect = OrderDetailPath { id: path.id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
-}
-
-#[require_permission("SALES_ORDER", "update")]
 pub async fn complete_order(
     path: CompleteOrderPath,
     ctx: RequestContext,
@@ -160,7 +145,6 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
     let steps: &[(&str, SalesOrderStatus)] = &[
         ("草稿", SalesOrderStatus::Draft),
         ("已确认", SalesOrderStatus::Confirmed),
-        ("生产中", SalesOrderStatus::InProduction),
         ("部分发货", SalesOrderStatus::PartiallyShipped),
         ("已发货", SalesOrderStatus::Shipped),
         ("已完成", SalesOrderStatus::Completed),
@@ -236,7 +220,7 @@ fn order_detail_page(
                         (icon::printer_icon("w-4 h-4"))
                         "打印"
                     }
-                    @if matches!(o.status, SalesOrderStatus::Confirmed | SalesOrderStatus::InProduction | SalesOrderStatus::PartiallyShipped) {
+                    @if matches!(o.status, SalesOrderStatus::Confirmed | SalesOrderStatus::PartiallyShipped) {
                         a class="btn btn-primary" href="#" {
                             (icon::truck_icon("w-4 h-4"))
                             "创建发货申请"
@@ -246,16 +230,6 @@ fn order_detail_page(
                         button class="btn btn-primary"
                             hx-post=(ConfirmOrderPath { id: o.id }.to_string())
                             hx-confirm="确认审核此订单？" { "确认订单" }
-                    }
-                    @if o.status == SalesOrderStatus::Confirmed {
-                        button class="btn btn-primary"
-                            hx-post=(StartOrderPath { id: o.id }.to_string())
-                            hx-confirm="确认开始生产？" { "开始生产" }
-                    }
-                    @if o.status == SalesOrderStatus::InProduction {
-                        button class="btn btn-success"
-                            hx-post=(CompleteOrderPath { id: o.id }.to_string())
-                            hx-confirm="确认完成此订单？" { "完成订单" }
                     }
                     @if matches!(o.status, SalesOrderStatus::Draft | SalesOrderStatus::Confirmed) {
                         button class="btn btn-danger"

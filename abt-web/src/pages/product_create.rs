@@ -1,10 +1,12 @@
 use axum_extra::routing::TypedPath;
 use axum::response::{Html, IntoResponse};
-use maud::{Markup, html};
+use maud::{Markup, html, PreEscaped};
 use serde::Deserialize;
 
+use abt_core::master_data::category::{CategoryService, model::CategoryTree};
 use abt_core::master_data::product::model::{CreateProductReq, Product, ProductMeta, ProductStatus, AcquireChannel};
 use abt_core::master_data::product::ProductService;
+use abt_core::shared::types::DomainError;
 use abt_macros::require_permission;
 
 use crate::components::icon;
@@ -31,6 +33,7 @@ pub struct ProductCreateForm {
     pub acquire_channel: Option<String>,
     pub external_code: Option<String>,
     pub owner_department_id: Option<String>,
+    pub category_id: Option<String>,
     pub old_code: Option<String>,
     pub remark: Option<String>,
 }
@@ -54,8 +57,11 @@ pub async fn get_product_create(
         None
     };
 
+    let cat_svc = state.category_service();
+    let categories = cat_svc.get_tree(&service_ctx, &mut conn, None, None).await?;
+
     let title = if copy_source.is_some() { "复制产品" } else { "新建产品" };
-    let content = product_create_page(copy_source.as_ref());
+    let content = product_create_page(copy_source.as_ref(), &categories);
     let page_html = admin_page(
         is_htmx,
         title,
@@ -82,6 +88,13 @@ pub async fn post_product_create(
         ..
     } = ctx;
     let svc = state.product_service();
+
+    // 解析并校验 category_id
+    let category_id = form.category_id
+        .as_deref()
+        .filter(|s| !s.is_empty())
+        .and_then(|s| s.parse::<i64>().ok())
+        .ok_or_else(|| DomainError::validation("请选择所属分类"))?;
 
     let owner_department_id = form
         .owner_department_id
@@ -112,13 +125,17 @@ pub async fn post_product_create(
 
     let id = svc.create(&service_ctx, &mut conn, create_req).await?;
 
+    // 关联产品分类
+    let cat_svc = state.category_service();
+    cat_svc.assign_products(&service_ctx, &mut conn, category_id, vec![id]).await?;
+
     let redirect = ProductDetailPath { id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
 // ── Components ──
 
-fn product_create_page(source: Option<&Product>) -> Markup {
+fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) -> Markup {
     let title = if source.is_some() { "复制产品" } else { "新建产品" };
     let btn_label = if source.is_some() { "保存副本" } else { "保存产品" };
 
@@ -191,6 +208,15 @@ fn product_create_page(source: Option<&Product>) -> Markup {
                     div class="form-section-title" { "分类与归属" }
                     div class="form-grid" {
                         div class="form-field" {
+                            label { "所属分类 " span style="color:var(--danger)" { "*" } }
+                            input type="hidden" name="category_id" id="selected-category-id" {}
+                            button type="button" class="form-input category-select-trigger" id="category-select-btn" {
+                                span id="category-select-label" { "请选择分类" }
+                                (icon::chevron_right_icon("w-4 h-4"))
+                                (PreEscaped(r#"<script>me().on('click',function(){me('#category-modal').classAdd('is-open')})</script>"#))
+                            }
+                        }
+                        div class="form-field" {
                             label { "归属部门" }
                             select name="owner_department_id" {
                                 option value="" { "-- 请选择 --" }
@@ -220,6 +246,106 @@ fn product_create_page(source: Option<&Product>) -> Markup {
                     a class="btn btn-default" href=(ProductListPath::PATH) { "取消" }
                     button type="submit" class="btn btn-primary" {
                         (btn_label)
+                    }
+                }
+            }
+
+            // ── Category Select Modal ──
+            div id="category-modal" class="modal-overlay" {
+                div class="modal" onclick="event.stopPropagation()" {
+                    div class="modal-head" {
+                        h2 { "选择分类" }
+                        button type="button" class="btn-icon" {
+                            (icon::x_icon("w-4 h-4"))
+                            (PreEscaped(r#"<script>me().on('click',function(){me('#category-modal').classRemove('is-open')})</script>"#))
+                        }
+                    }
+                    div class="modal-body" {
+                        div class="category-search-bar" {
+                            (icon::search_icon("w-4 h-4"))
+                            input type="text" id="category-search-input" class="category-search-input" placeholder="搜索分类…" {}
+                        }
+                        div id="category-list-container" class="category-select-list" {
+                            @if categories.is_empty() {
+                                div class="category-empty" { "暂无分类数据" }
+                            } @else {
+                                @for node in categories {
+                                    (category_tree_node(node, 0))
+                                }
+                            }
+                        }
+                    }
+                }
+                (PreEscaped(r#"<script>me('#category-modal').on('click',function(e){if(e.target===me('#category-modal'))me('#category-modal').classRemove('is-open')})</script>"#))
+            }
+
+            // ── Category Select Scripts ──
+            (PreEscaped(r#"<script>
+(function(){
+    var searchInput=document.getElementById('category-search-input');
+    var container=document.getElementById('category-list-container');
+    if(!searchInput||!container)return;
+
+    function filter(q){
+        q=(q||'').trim().toLowerCase();
+        var items=container.querySelectorAll('.category-select-item');
+        if(!q){for(var i=0;i<items.length;i++)items[i].style.display='';return;}
+        for(var i=0;i<items.length;i++){
+            var name=(items[i].getAttribute('data-name')||'').toLowerCase();
+            items[i]._match=(name.indexOf(q)>=0);
+        }
+        for(var i=0;i<items.length;i++){
+            if(items[i]._match){
+                var p=items[i].parentElement;
+                while(p&&p!==container){
+                    if(p.classList&&p.classList.contains('category-select-item'))p._match=true;
+                    p=p.parentElement;
+                }
+            }
+        }
+        for(var i=0;i<items.length;i++){
+            items[i].style.display=items[i]._match?'':'none';
+            delete items[i]._match;
+        }
+    }
+
+    searchInput.addEventListener('input',function(){filter(this.value)});
+
+    container.addEventListener('click',function(e){
+        var btn=e.target.closest('.category-pick-btn');
+        if(!btn)return;
+        var id=btn.getAttribute('data-id');
+        var name=btn.getAttribute('data-name');
+        document.getElementById('selected-category-id').value=id;
+        document.getElementById('category-select-label').textContent=name;
+        document.getElementById('category-modal').classList.remove('is-open');
+    });
+})();
+</script>"#))
+        }
+    }
+}
+
+/// 递归渲染分类树节点（用于弹窗选择）
+fn category_tree_node(node: &CategoryTree, depth: usize) -> Markup {
+    let id = node.category_id;
+    let name = &node.category_name;
+    let name_lower = name.to_lowercase();
+    let pad = format!("padding-left:{}px", depth * 24 + 12);
+
+    html! {
+        div.category-select-item data-name=(name_lower) {
+            div class="category-select-info" style=(pad) {
+                @if !node.children.is_empty() {
+                    (icon::chevron_right_icon("w-4 h-4 category-tree-arrow"))
+                }
+                span class="category-select-name" { (name) }
+                button type="button" class="category-pick-btn btn btn-sm btn-primary" data-id=(id) data-name=(name) { "选择" }
+            }
+            @if !node.children.is_empty() {
+                div class="category-select-children" {
+                    @for child in &node.children {
+                        (category_tree_node(child, depth + 1))
                     }
                 }
             }

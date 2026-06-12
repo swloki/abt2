@@ -9,6 +9,7 @@ use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::shared::identity::UserService;
+use abt_core::wms::inventory::InventoryService;
 
 use crate::components::icon;
 use crate::errors::Result;
@@ -52,6 +53,7 @@ pub async fn get_order_detail(
     let customer_svc = state.customer_service();
     let product_svc = state.product_service();
     let user_svc = state.user_service();
+    let inventory_svc = state.inventory_service();
 
     let order = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
 
@@ -89,7 +91,22 @@ pub async fn get_order_detail(
         }
     };
 
-    let content = order_detail_page(&order, &items, &customer_name, &contact, &sales_rep, &product_names, &product_codes);
+    let stock_quantities: HashMap<i64, rust_decimal::Decimal> = {
+        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        let mut map = HashMap::new();
+        for pid in product_ids {
+            let total = inventory_svc
+                .get_by_product(&service_ctx, &mut conn, pid)
+                .await
+                .unwrap_or_default()
+                .into_iter()
+                .fold(rust_decimal::Decimal::ZERO, |acc, v| acc + v.quantity);
+            map.insert(pid, total);
+        }
+        map
+    };
+
+    let content = order_detail_page(&order, &items, &customer_name, &contact, &sales_rep, &product_names, &product_codes, &stock_quantities);
     let page_html = admin_page(
         is_htmx, "订单详情", &claims, "sales",
         &format!("{}/{}", OrderListPath::PATH, path.id),
@@ -211,6 +228,7 @@ fn order_detail_page(
     sales_rep: &str,
     product_names: &HashMap<i64, String>,
     product_codes: &HashMap<i64, String>,
+    stock_quantities: &HashMap<i64, rust_decimal::Decimal>,
 ) -> Markup {
     let (status_text, status_class) = status_label(o.status);
     let contact_name = contact.as_ref().map(|c| c.name.as_str()).unwrap_or("—");
@@ -319,6 +337,7 @@ fn order_detail_page(
                                 th { "产品名称" }
                                 th { "单位" }
                                 th class="num-right" { "数量" }
+                                th class="num-right" { "库存数量" }
                                 th class="num-right" { "单价" }
                                 th class="num-right" { "折扣" }
                                 th class="num-right" { "小计" }
@@ -329,11 +348,11 @@ fn order_detail_page(
                         }
                         tbody {
                             @for item in items {
-                                (item_row(item, product_names, product_codes))
+                                (item_row(item, product_names, product_codes, stock_quantities))
                             }
                             @if items.is_empty() {
                                 tr {
-                                    td colspan="11" class="td-empty" {
+                                    td colspan="12" class="td-empty" {
                                         "暂无明细"
                                     }
                                 }
@@ -368,6 +387,7 @@ fn item_row(
     item: &SalesOrderItem,
     names: &HashMap<i64, String>,
     codes: &HashMap<i64, String>,
+    stock_quantities: &HashMap<i64, rust_decimal::Decimal>,
 ) -> Markup {
     let product_name = names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let product_code = codes.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
@@ -377,6 +397,8 @@ fn item_row(
     } else {
         "—".into()
     };
+    let stock_qty = stock_quantities.get(&item.product_id).copied().unwrap_or(rust_decimal::Decimal::ZERO);
+    let stock_display = if stock_qty > rust_decimal::Decimal::ZERO { fmt_qty(stock_qty) } else { "—".into() };
 
     html! {
         tr {
@@ -385,6 +407,7 @@ fn item_row(
             td { (product_name) }
             td { (item.unit.as_str()) }
             td class="num-right" { (fmt_qty(item.quantity)) }
+            td class="num-right" { (stock_display) }
             td class="num-right" { (crate::utils::fmt_amount(item.unit_price)) }
             td class="num-right" { (discount) }
             td class="num-right" { (crate::utils::fmt_amount(item.amount)) }

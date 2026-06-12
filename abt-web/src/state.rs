@@ -92,6 +92,51 @@ impl AppState {
             });
         }
 
+        // ── EventProcessor: 注册领域事件处理器并启动后台消费 ──
+        {
+            use abt_core::shared::event_bus::{
+                EventHandlerRegistry, EventHandlerRegistryImpl, EventProcessor,
+                DeadLetterServiceImpl,
+            };
+            use abt_core::purchase::demand_handler::PurchaseDemandCreatedHandler;
+            use abt_core::mes::demand_handler::MesDemandCreatedHandler;
+            use abt_core::sales::sales_order::{SalesDemandConfirmedHandler, SalesDemandRejectedHandler};
+            use abt_core::shared::enums::event::DomainEventType;
+
+            let registry = Arc::new(EventHandlerRegistryImpl::new());
+
+            // DemandCreated — 两个 handler 注册在同一事件类型
+            registry.register(
+                DomainEventType::DemandCreated,
+                Arc::new(PurchaseDemandCreatedHandler::new(pool.clone())),
+            );
+            registry.register(
+                DomainEventType::DemandCreated,
+                Arc::new(MesDemandCreatedHandler::new(pool.clone())),
+            );
+
+            // DemandConfirmed / DemandRejected
+            registry.register(
+                DomainEventType::DemandConfirmed,
+                Arc::new(SalesDemandConfirmedHandler::new(pool.clone())),
+            );
+            registry.register(
+                DomainEventType::DemandRejected,
+                Arc::new(SalesDemandRejectedHandler::new(pool.clone())),
+            );
+
+            let dead_letter = Arc::new(DeadLetterServiceImpl::new());
+            let processor = EventProcessor::new(
+                Arc::new(pool.clone()),
+                registry,
+                dead_letter,
+                3, // max_retries
+            );
+            processor.start();
+
+            tracing::info!("EventProcessor started with 4 handlers registered");
+        }
+
         Ok(Self {
             pool,
             jwt_secret: config.jwt_secret.clone(),

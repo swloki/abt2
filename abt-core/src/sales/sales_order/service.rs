@@ -44,6 +44,13 @@ pub trait SalesOrderService: Send + Sync {
         order_id: i64,
     ) -> Result<Vec<SalesOrderItem>>;
 
+    /// 按多个订单 ID 批量取明细，避免逐单查询（N+1）。
+    async fn list_items_by_order_ids(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_ids: &[i64],
+    ) -> Result<Vec<SalesOrderItem>>;
+
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
     async fn start_progress(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;

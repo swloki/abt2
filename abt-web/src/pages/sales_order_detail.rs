@@ -14,6 +14,7 @@ use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
+use crate::routes::shipping::ShippingCreatePath;
 use crate::utils::RequestContext;
 use crate::utils::fmt_qty;
 use abt_macros::require_permission;
@@ -237,7 +238,7 @@ fn order_detail_page(
                         "打印"
                     }
                     @if matches!(o.status, SalesOrderStatus::Confirmed | SalesOrderStatus::InProduction | SalesOrderStatus::PartiallyShipped) {
-                        a class="btn btn-primary" href="#" {
+                        a class="btn btn-primary" href=(format!("{}?order_id={}", ShippingCreatePath::PATH, o.id)) {
                             (icon::truck_icon("w-4 h-4"))
                             "创建发货申请"
                         }

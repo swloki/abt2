@@ -54,6 +54,47 @@ struct OrderItemRow {
     shipped_qty: rust_decimal::Decimal,
 }
 
+/// 从订单明细 + 产品构造聚合行（order_search 与订单预填共用）
+fn order_item_row(
+    item: &SalesOrderItem,
+    product: Option<&abt_core::master_data::product::model::Product>,
+    order_id: i64,
+) -> OrderItemRow {
+    OrderItemRow {
+        order_id,
+        order_item_id: item.id,
+        product_id: item.product_id,
+        product_code: product.map(|p| p.product_code.clone()).unwrap_or_default(),
+        product_name: product.map(|p| p.pdt_name.clone()).unwrap_or_default(),
+        specification: product.map(|p| Some(p.meta.specification.clone())).unwrap_or(None),
+        unit: product.map(|p| Some(p.unit.clone())).unwrap_or(None),
+        ordered_qty: item.quantity,
+        shipped_qty: item.shipped_qty,
+    }
+}
+
+/// 聚合行 → 前端 selectOrder() 消费的 item JSON（order_search 与订单预填共用）
+fn order_item_to_json(row: &OrderItemRow) -> serde_json::Value {
+    serde_json::json!({
+        "order_item_id": row.order_item_id,
+        "product_id": row.product_id,
+        "product_code": &row.product_code,
+        "product_name": &row.product_name,
+        "specification": row.specification.as_deref().unwrap_or(""),
+        "unit": row.unit.as_deref().unwrap_or(""),
+        "ordered_qty": row.ordered_qty.to_string(),
+        "shipped_qty": row.shipped_qty.to_string(),
+    })
+}
+
+/// 订单详情页「创建发货申请」带入的预填数据
+#[derive(Default)]
+struct ShippingPrefill {
+    customer_id: Option<i64>,
+    /// 完整 orderData JSON，前端 selectOrder() 直接消费
+    order_json: Option<String>,
+}
+
 // ── Form & Query Structs ──
 
 #[derive(Debug, Deserialize)]
@@ -100,11 +141,18 @@ pub struct OrderSearchQuery {
     pub keyword: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Default)]
+pub struct ShippingCreateQuery {
+    #[serde(default)]
+    pub order_id: Option<i64>,
+}
+
 // ── Handlers ──
 
 #[require_permission("SHIPPING", "create")]
 pub async fn get_shipping_create(
     _path: ShippingCreatePath,
+    Query(q): Query<ShippingCreateQuery>,
     ctx: RequestContext,
 ) -> Result<Html<String>> {
     let is_htmx = ctx.is_htmx();
@@ -113,6 +161,8 @@ pub async fn get_shipping_create(
 
     let customer_svc = state.customer_service();
     let warehouse_svc = state.warehouse_service();
+    let order_svc = state.sales_order_service();
+    let product_svc = state.product_service();
     let customers = customer_svc
         .list(&service_ctx, &mut conn, CustomerQuery { name: None, status: None, category: None, owner_id: None }, PageParams::new(1, 200))
         .await?;
@@ -121,7 +171,37 @@ pub async fn get_shipping_create(
         .list(&service_ctx, &mut conn, WarehouseFilter::default(), 1, 100)
         .await?;
 
-    let content = shipping_create_page(&customers.items, &warehouses.items);
+    // 从订单详情页「创建发货申请」带入：预填客户 + 来源订单 + 明细行
+    let prefill = if let Some(oid) = q.order_id.filter(|&id| id > 0) {
+        match order_svc.find_by_id(&service_ctx, &mut conn, oid).await {
+            Ok(order) => {
+                let items = order_svc
+                    .list_items(&service_ctx, &mut conn, oid)
+                    .await
+                    .unwrap_or_default();
+                let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = product_svc
+                    .get_by_ids(&service_ctx, &mut conn, items.iter().map(|i| i.product_id).collect())
+                    .await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|p| (p.product_id, p))
+                    .collect();
+                let rows: Vec<OrderItemRow> = items
+                    .iter()
+                    .map(|item| order_item_row(item, product_map.get(&item.product_id), oid))
+                    .collect();
+                ShippingPrefill {
+                    customer_id: Some(order.customer_id),
+                    order_json: Some(build_order_prefill_json(&order, &rows)),
+                }
+            }
+            Err(_) => ShippingPrefill::default(),
+        }
+    } else {
+        ShippingPrefill::default()
+    };
+
+    let content = shipping_create_page(&customers.items, &warehouses.items, &prefill);
     let page_html = admin_page(
         is_htmx, "新建发货申请", &claims, "sales",
         ShippingCreatePath::PATH, "销售管理", Some("新建发货申请"), content, &nav_filter,
@@ -348,47 +428,32 @@ pub async fn get_order_search(
         return Ok(Html(order_search_empty().into_string()));
     }
 
-    // Collect all order items and product ids across orders
-    let order_svc_inner = state.sales_order_service();
+    // 一次批量取所有订单明细（避免逐单 N+1），再收集 product_id
     let product_svc = state.product_service();
 
-    let mut all_items: Vec<(i64, abt_core::sales::sales_order::model::SalesOrderItem)> = Vec::new();
-    let mut all_product_ids: Vec<i64> = Vec::new();
-    for order in &result.items {
-        if let Ok(items) = order_svc_inner.list_items(&service_ctx, &mut conn, order.id).await {
-            for item in &items {
-                all_product_ids.push(item.product_id);
-            }
-            for item in items {
-                all_items.push((order.id, item));
-            }
-        }
-    }
+    let order_ids: Vec<i64> = result.items.iter().map(|o| o.id).collect();
+    let all_items: Vec<(i64, abt_core::sales::sales_order::model::SalesOrderItem)> = order_svc
+        .list_items_by_order_ids(&service_ctx, &mut conn, &order_ids)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|item| (item.order_id, item))
+        .collect();
+    let all_product_ids: Vec<i64> = all_items.iter().map(|(_, i)| i.product_id).collect();
 
-    // Fetch product details for all product_ids
-    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = if all_product_ids.is_empty() {
-        HashMap::new()
-    } else {
-        product_svc.get_by_ids(&service_ctx, &mut conn, all_product_ids)
-            .await
-            .map(|ps| ps.into_iter().map(|p| (p.product_id, p)).collect())
-            .unwrap_or_default()
-    };
+    // Fetch product details for all product_ids（repo 层已守卫空 vec）
+    let product_map: HashMap<i64, abt_core::master_data::product::model::Product> = product_svc
+        .get_by_ids(&service_ctx, &mut conn, all_product_ids)
+        .await
+        .unwrap_or_default()
+        .into_iter()
+        .map(|p| (p.product_id, p))
+        .collect();
 
-    let item_rows: Vec<OrderItemRow> = all_items.into_iter().map(|(order_id, item)| {
-        let product = product_map.get(&item.product_id);
-        OrderItemRow {
-            order_id,
-            order_item_id: item.id,
-            product_id: item.product_id,
-            product_code: product.map(|p| p.product_code.clone()).unwrap_or_default(),
-            product_name: product.map(|p| p.pdt_name.clone()).unwrap_or_default(),
-            specification: product.map(|p| Some(p.meta.specification.clone())).unwrap_or(None),
-            unit: product.map(|p| Some(p.unit.clone())).unwrap_or(None),
-            ordered_qty: item.quantity,
-            shipped_qty: item.shipped_qty,
-        }
-    }).collect();
+    let item_rows: Vec<OrderItemRow> = all_items
+        .into_iter()
+        .map(|(order_id, item)| order_item_row(&item, product_map.get(&item.product_id), order_id))
+        .collect();
 
     let mut items_map: HashMap<i64, Vec<&OrderItemRow>> = HashMap::new();
     for item in &item_rows {
@@ -396,6 +461,19 @@ pub async fn get_order_search(
     }
 
     Ok(Html(order_search_results(&result.items, &items_map).into_string()))
+}
+
+/// 组装前端 selectOrder() 直接消费的 orderData JSON（用于订单详情页预填）
+fn build_order_prefill_json(order: &SalesOrder, rows: &[OrderItemRow]) -> String {
+    serde_json::json!({
+        "id": order.id,
+        "customer_id": order.customer_id,
+        "doc_number": order.doc_number,
+        "total": order.total_amount.to_string(),
+        "order_date": order.order_date.format("%Y-%m-%d").to_string(),
+        "status": order_status_text(order.status),
+        "items": rows.iter().map(order_item_to_json).collect::<Vec<_>>(),
+    }).to_string()
 }
 
 // ── Components ──
@@ -686,6 +764,7 @@ fn shipping_edit_page(
 fn shipping_create_page(
     customers: &[abt_core::master_data::customer::model::Customer],
     warehouses: &[abt_core::wms::warehouse::model::Warehouse],
+    prefill: &ShippingPrefill,
 ) -> Markup {
     let warehouses_json = serde_json::to_string(
         &warehouses.iter().map(|w| serde_json::json!({
@@ -694,8 +773,13 @@ fn shipping_create_page(
         })).collect::<Vec<_>>()
     ).unwrap_or_default();
 
+    let prefill_customer_id = prefill.customer_id;
+    let prefill_order_json = prefill.order_json.as_deref().unwrap_or("");
+
     html! {
-        div id="shipping-app" class="padded-section" data-warehouses=(warehouses_json) {
+        div id="shipping-app" class="padded-section"
+            data-warehouses=(warehouses_json)
+            data-order-prefill=(prefill_order_json) {
             // ── Page Header ──
             a class="back-link" href=(ShippingListPath::PATH) {
                 (icon::arrow_left_icon("w-4 h-4"))
@@ -724,7 +808,7 @@ fn shipping_create_page(
                                 onchange="onCustomerChange()" {
                                 option value="" { "请选择客户" }
                                 @for c in customers {
-                                    option value=(c.id) { (c.name) }
+                                    option value=(c.id) selected[prefill_customer_id == Some(c.id)] { (c.name) }
                                 }
                             }
                         }
@@ -924,6 +1008,29 @@ fn shipping_create_page(
 
             // ── External script ──
             script src="/shipping-create.js" {}
+            (maud::PreEscaped(r#"<script>
+                (function(){
+                    var app = document.getElementById('shipping-app');
+                    if (!app) return;
+                    var orderJson = app.getAttribute('data-order-prefill');
+                    if (!orderJson || orderJson === '') return;
+                    try {
+                        var orderData = JSON.parse(orderJson);
+                        selectedCustomer = String(orderData.customer_id || '');
+                        var hiddenCid = document.querySelector('#order-modal input[name="customer_id"]');
+                        if (hiddenCid) hiddenCid.value = selectedCustomer;
+                        var orderInput = document.getElementById('orderPickerInput');
+                        if (orderInput) { orderInput.disabled = false; orderInput.placeholder = '点击选择来源订单'; }
+                        var bar = document.getElementById('customerInfoBar');
+                        if (bar) bar.classList.remove('hidden-initial');
+                        selectOrder(orderData);
+                        var dateEl = document.getElementById('detailOrderDate');
+                        var statusEl = document.getElementById('detailOrderStatus');
+                        if (dateEl && orderData.order_date) dateEl.textContent = orderData.order_date;
+                        if (statusEl && orderData.status) statusEl.textContent = orderData.status;
+                    } catch(e) { if (window.console) console.error('shipping prefill failed', e); }
+                })();
+            </script>"#))
         }
     }
 }
@@ -990,18 +1097,7 @@ fn order_search_results(
                 @let items_json = serde_json::json!({
                     "id": order.id,
                     "doc_number": &order.doc_number,
-                    "items": items_map.get(&order.id).map(|items| items.iter().map(|item| {
-                        serde_json::json!({
-                            "order_item_id": item.order_item_id,
-                            "product_id": item.product_id,
-                            "product_code": &item.product_code,
-                            "product_name": &item.product_name,
-                            "specification": item.specification.as_deref().unwrap_or(""),
-                            "unit": item.unit.as_deref().unwrap_or(""),
-                            "ordered_qty": item.ordered_qty.to_string(),
-                            "shipped_qty": item.shipped_qty.to_string(),
-                        })
-                    }).collect::<Vec<_>>()).unwrap_or_default()
+                    "items": items_map.get(&order.id).map(|items| items.iter().map(|item| order_item_to_json(item)).collect::<Vec<_>>()).unwrap_or_default()
                 }).to_string();
 
                 div class="product-select-item" {

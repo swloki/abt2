@@ -313,6 +313,26 @@ impl SalesOrderItemRepo {
         Ok(items)
     }
 
+    /// 按多个订单 ID 批量取明细（用于列表/搜索场景，避免 N+1）。
+    pub async fn find_by_order_ids(
+        &self,
+        executor: PgExecutor<'_>,
+        order_ids: &[i64],
+    ) -> Result<Vec<SalesOrderItem>> {
+        if order_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+        let items = sqlx::query_as::<sqlx::Postgres, SalesOrderItem>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {ITEM_COLUMNS} FROM sales_order_items WHERE order_id = ANY($1) ORDER BY order_id, line_no"
+            )),
+        )
+        .bind(order_ids)
+        .fetch_all(executor)
+        .await?;
+        Ok(items)
+    }
+
     pub async fn delete_by_order_id(
         &self,
         executor: PgExecutor<'_>,

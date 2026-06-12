@@ -353,6 +353,16 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .await
     }
 
+    async fn list_items_by_order_ids(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_ids: &[i64],
+    ) -> Result<Vec<SalesOrderItem>> {
+        self.item_repo
+            .find_by_order_ids(db, order_ids)
+            .await
+    }
+
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
         let existing = self
             .repo

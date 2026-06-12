@@ -1,6 +1,7 @@
 //! 采购 SRM 模块
 
 pub mod enums;
+pub mod demand_handler;
 pub mod misc_request;
 pub mod order;
 pub mod payment;

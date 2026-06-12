@@ -60,11 +60,84 @@ impl<'de> serde::Deserialize<'de> for ProductStatus {
     }
 }
 
+/// 产品获取途径
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(i16)]
+pub enum AcquireChannel {
+    SelfProduced = 1,  // 自制
+    Purchased = 2,     // 外购
+    Outsourced = 3,    // 委外（预留）
+    NonInventory = 4,  // 费用/服务/虚拟件（跳过库存校验和补货）
+    Legacy = 9,        // 历史遗留（行为等同自制，日志驱动数据清洗）
+}
+
+impl AcquireChannel {
+    pub fn from_i16(v: i16) -> Option<Self> {
+        match v {
+            1 => Some(Self::SelfProduced),
+            2 => Some(Self::Purchased),
+            3 => Some(Self::Outsourced),
+            4 => Some(Self::NonInventory),
+            9 => Some(Self::Legacy),
+            _ => None,
+        }
+    }
+
+    pub fn as_i16(self) -> i16 {
+        self as i16
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::SelfProduced => "SelfProduced",
+            Self::Purchased => "Purchased",
+            Self::Outsourced => "Outsourced",
+            Self::NonInventory => "NonInventory",
+            Self::Legacy => "Legacy",
+        }
+    }
+}
+
+impl sqlx::Type<sqlx::Postgres> for AcquireChannel {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        <i16 as sqlx::Type<sqlx::Postgres>>::type_info()
+    }
+}
+
+impl<'q> sqlx::Encode<'q, sqlx::Postgres> for AcquireChannel {
+    fn encode_by_ref(
+        &self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
+        <i16 as sqlx::Encode<'q, sqlx::Postgres>>::encode_by_ref(&self.as_i16(), buf)
+    }
+}
+
+impl<'r> sqlx::Decode<'r, sqlx::Postgres> for AcquireChannel {
+    fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let v = <i16 as sqlx::Decode<'r, sqlx::Postgres>>::decode(value)?;
+        Self::from_i16(v).ok_or_else(|| format!("unknown AcquireChannel: {v}").into())
+    }
+}
+
+impl serde::Serialize for AcquireChannel {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_i16(self.as_i16())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AcquireChannel {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let v = i16::deserialize(d)?;
+        Self::from_i16(v).ok_or_else(|| serde::de::Error::custom(format!("unknown AcquireChannel: {v}")))
+    }
+}
+
 /// 产品元数据 (JSONB)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProductMeta {
     pub specification: String,
-    pub acquire_channel: String,
+    // acquire_channel 已迁移为 Product 独立列
     pub old_code: Option<String>,
     #[serde(default)]
     pub remark: Option<String>,
@@ -101,6 +174,7 @@ pub struct Product {
     pub product_code: String,
     pub unit: String,
     pub status: ProductStatus,
+    pub acquire_channel: AcquireChannel,
     pub external_code: Option<String>,
     pub owner_department_id: Option<i64>,
     pub meta: ProductMeta,
@@ -115,6 +189,7 @@ pub struct CreateProductReq {
     pub name: String,
     pub unit: String,
     pub status: ProductStatus,
+    pub acquire_channel: AcquireChannel,
     pub external_code: Option<String>,
     pub owner_department_id: Option<i64>,
     pub meta: ProductMeta,
@@ -125,6 +200,7 @@ pub struct CreateProductReq {
 pub struct UpdateProductReq {
     pub name: Option<String>,
     pub unit: Option<String>,
+    pub acquire_channel: Option<AcquireChannel>,
     pub external_code: Option<String>,
     pub owner_department_id: Option<i64>,
     pub meta: Option<ProductMeta>,

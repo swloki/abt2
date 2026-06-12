@@ -1,13 +1,13 @@
 use crate::shared::types::PgExecutor;
 use rust_decimal::Decimal;
-use crate::shared::types::Result;
+use crate::shared::types::{DomainError, Result};
 
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
 
 const ORDER_COLUMNS: &str = "id, doc_number, customer_id, contact_id, sales_rep_id, order_date, status, total_amount, total_cost, payment_terms, delivery_terms, delivery_address, remark, operator_id, created_at, updated_at, deleted_at";
 
-const ITEM_COLUMNS: &str = "id, order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, shipped_qty, returned_qty, delivery_date";
+const ITEM_COLUMNS: &str = "id, order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, shipped_qty, cancelled_qty, returned_qty, line_status, version, delivery_date";
 
 // ---------------------------------------------------------------------------
 // SalesOrderRepo
@@ -279,8 +279,8 @@ impl SalesOrderItemRepo {
     ) -> Result<()> {
         for item in items {
             sqlx::query(
-                r#"INSERT INTO sales_order_items (order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, delivery_date)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"#,
+                r#"INSERT INTO sales_order_items (order_id, line_no, product_id, description, quantity, unit, unit_price, unit_cost, discount_rate, amount, cancelled_qty, line_status, version, delivery_date)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0, 1, 1, $11)"#,
             )
             .bind(order_id)
             .bind(item.line_no)
@@ -375,6 +375,305 @@ impl SalesOrderItemRepo {
         .execute(executor)
         .await?;
         Ok(())
+    }
+
+    /// 批量更新行状态（乐观锁）
+    pub async fn batch_update_line_status(
+        &self,
+        executor: PgExecutor<'_>,
+        updates: &[(i64, SalesOrderLineStatus, i32)],  // (id, new_status, expected_version)
+    ) -> Result<()> {
+        for (id, status, expected_version) in updates {
+            let rows = sqlx::query(
+                r#"UPDATE sales_order_items
+                   SET line_status = $1, version = version + 1
+                   WHERE id = $2 AND version = $3"#,
+            )
+            .bind(status.as_i16())
+            .bind(id)
+            .bind(expected_version)
+            .execute(&mut *executor)
+            .await?;
+
+            if rows.rows_affected() == 0 {
+                return Err(DomainError::ConcurrentConflict);
+            }
+        }
+        Ok(())
+    }
+
+    /// 取消订单行（增加 cancelled_qty，乐观锁）
+    pub async fn cancel_line(
+        &self,
+        executor: PgExecutor<'_>,
+        id: i64,
+        add_cancelled_qty: Decimal,
+        new_line_status: SalesOrderLineStatus,
+        expected_version: i32,
+    ) -> Result<()> {
+        let rows = sqlx::query(
+            r#"UPDATE sales_order_items
+               SET cancelled_qty = cancelled_qty + $1,
+                   line_status = $2,
+                   version = version + 1
+               WHERE id = $3 AND version = $4
+                 AND quantity - shipped_qty - cancelled_qty - $1 >= 0"#,
+        )
+        .bind(add_cancelled_qty)
+        .bind(new_line_status.as_i16())
+        .bind(id)
+        .bind(expected_version)
+        .execute(executor)
+        .await?;
+
+        if rows.rows_affected() == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FulfillmentPlanLineRepo
+// ---------------------------------------------------------------------------
+
+pub struct FulfillmentPlanLineRepo;
+
+const FP_COLUMNS: &str = "id, order_id, order_line_id, product_id, acquire_channel, required_qty, reserved_qty, shortage_qty, status, source_doc_type, source_doc_id, reservation_details, required_date, version, created_at, updated_at";
+
+impl FulfillmentPlanLineRepo {
+    /// 批量插入履行计划行
+    pub async fn create_batch(
+        executor: PgExecutor<'_>,
+        lines: &[FulfillmentPlanLineInput],
+    ) -> Result<Vec<i64>> {
+        let mut ids = Vec::with_capacity(lines.len());
+        for line in lines {
+            let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
+                r#"INSERT INTO fulfillment_plan_lines
+                   (order_id, order_line_id, product_id, acquire_channel, required_qty, reserved_qty, shortage_qty, status, required_date)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                   RETURNING id"#,
+            )
+            .bind(line.order_id)
+            .bind(line.order_line_id)
+            .bind(line.product_id)
+            .bind(line.acquire_channel.as_i16())
+            .bind(line.required_qty)
+            .bind(line.reserved_qty)
+            .bind(line.shortage_qty)
+            .bind(line.status.as_i16())
+            .bind(line.required_date)
+            .fetch_one(&mut *executor)
+            .await?;
+            ids.push(id);
+        }
+        Ok(ids)
+    }
+
+    /// 按订单ID查询履行计划行
+    pub async fn find_by_order_id(
+        executor: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<Vec<FulfillmentPlanLine>> {
+        let lines = sqlx::query_as::<sqlx::Postgres, FulfillmentPlanLine>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {FP_COLUMNS} FROM fulfillment_plan_lines WHERE order_id = $1"
+            )),
+        )
+        .bind(order_id)
+        .fetch_all(executor)
+        .await?;
+        Ok(lines)
+    }
+
+    /// 按订单行ID查询（唯一）
+    pub async fn find_by_order_line_id(
+        executor: PgExecutor<'_>,
+        order_line_id: i64,
+    ) -> Result<Option<FulfillmentPlanLine>> {
+        let line = sqlx::query_as::<sqlx::Postgres, FulfillmentPlanLine>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {FP_COLUMNS} FROM fulfillment_plan_lines WHERE order_line_id = $1"
+            )),
+        )
+        .bind(order_line_id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(line)
+    }
+
+    /// 更新状态（乐观锁）
+    pub async fn update_status(
+        executor: PgExecutor<'_>,
+        id: i64,
+        status: FulfillmentLineStatus,
+        expected_version: i32,
+    ) -> Result<()> {
+        let rows = sqlx::query(
+            r#"UPDATE fulfillment_plan_lines
+               SET status = $1, version = version + 1, updated_at = NOW()
+               WHERE id = $2 AND version = $3"#,
+        )
+        .bind(status.as_i16())
+        .bind(id)
+        .bind(expected_version)
+        .execute(executor)
+        .await?;
+
+        if rows.rows_affected() == 0 {
+            return Err(DomainError::ConcurrentConflict);
+        }
+        Ok(())
+    }
+
+    /// 更新下游单据关联
+    pub async fn update_source_doc(
+        executor: PgExecutor<'_>,
+        id: i64,
+        source_doc_type: i16,
+        source_doc_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE fulfillment_plan_lines
+               SET source_doc_type = $1, source_doc_id = $2, updated_at = NOW()
+               WHERE id = $3"#,
+        )
+        .bind(source_doc_type)
+        .bind(source_doc_id)
+        .bind(id)
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DemandRepo
+// ---------------------------------------------------------------------------
+
+pub struct DemandRepo;
+
+const DEMAND_COLUMNS: &str = "id, demand_type, source_type, source_id, source_line_id, product_id, acquire_channel, required_qty, required_date, status, target_doc_type, target_doc_id, priority, remark, operator_id, created_at, updated_at, deleted_at";
+
+impl DemandRepo {
+    /// 创建需求
+    pub async fn create(
+        executor: PgExecutor<'_>,
+        input: &DemandInput,
+    ) -> Result<i64> {
+        let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            r#"INSERT INTO demands
+               (demand_type, source_type, source_id, source_line_id, product_id,
+                acquire_channel, required_qty, required_date, status, priority, remark, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11)
+               RETURNING id"#,
+        )
+        .bind(input.demand_type)
+        .bind(input.source_type)
+        .bind(input.source_id)
+        .bind(input.source_line_id)
+        .bind(input.product_id)
+        .bind(input.acquire_channel)
+        .bind(input.required_qty)
+        .bind(input.required_date)
+        .bind(input.priority)
+        .bind(&input.remark)
+        .bind(input.operator_id)
+        .fetch_one(executor)
+        .await?;
+        Ok(id)
+    }
+
+    /// 按 ID 查询
+    pub async fn find_by_id(
+        executor: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Option<Demand>> {
+        let demand = sqlx::query_as::<sqlx::Postgres, Demand>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {DEMAND_COLUMNS} FROM demands WHERE id = $1 AND deleted_at IS NULL"
+            )),
+        )
+        .bind(id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(demand)
+    }
+
+    /// 按来源行查询
+    pub async fn find_by_source_line(
+        executor: PgExecutor<'_>,
+        source_type: i16,
+        source_line_id: i64,
+    ) -> Result<Vec<Demand>> {
+        let demands = sqlx::query_as::<sqlx::Postgres, Demand>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {DEMAND_COLUMNS} FROM demands WHERE source_type = $1 AND source_line_id = $2 AND deleted_at IS NULL"
+            )),
+        )
+        .bind(source_type)
+        .bind(source_line_id)
+        .fetch_all(executor)
+        .await?;
+        Ok(demands)
+    }
+
+    /// 更新状态
+    pub async fn update_status(
+        executor: PgExecutor<'_>,
+        id: i64,
+        status: DemandStatus,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE demands SET status = $1, updated_at = NOW() WHERE id = $2"#,
+        )
+        .bind(status.as_i16())
+        .bind(id)
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 更新下游单据关联
+    pub async fn update_target_doc(
+        executor: PgExecutor<'_>,
+        id: i64,
+        target_doc_type: i16,
+        target_doc_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE demands
+               SET target_doc_type = $1, target_doc_id = $2, updated_at = NOW()
+               WHERE id = $3"#,
+        )
+        .bind(target_doc_type)
+        .bind(target_doc_id)
+        .bind(id)
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 对账查询：查找履行计划行状态与 demand 状态不一致的记录
+    pub async fn find_mismatched(
+        executor: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<Vec<(i64, i64)>> {
+        let rows = sqlx::query_as::<sqlx::Postgres, (i64, i64)>(
+            r#"SELECT fp.id, d.id
+               FROM fulfillment_plan_lines fp
+               JOIN demands d ON d.source_type = 2
+                 AND d.source_line_id = fp.order_line_id
+                 AND d.deleted_at IS NULL
+               WHERE fp.order_id = $1
+                 AND fp.status IN (3, 4)
+                 AND d.status IN (1, 5)"#,
+        )
+        .bind(order_id)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
     }
 }
 

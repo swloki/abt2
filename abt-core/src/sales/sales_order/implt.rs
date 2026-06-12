@@ -1,12 +1,14 @@
-use chrono::{Local, TimeDelta};
+use chrono::Local;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
 use crate::master_data::customer::{new_customer_service, service::CustomerService};
+use crate::master_data::product::{new_product_service, service::ProductService};
+use crate::master_data::product::model::AcquireChannel;
 use crate::sales::quotation::{new_quotation_service, service::QuotationService};
 use crate::sales::sales_order::model::*;
-use crate::sales::sales_order::repo::{SalesOrderItemRepo, SalesOrderRepo, savepoint, release_savepoint, rollback_savepoint};
-use crate::sales::sales_order::service::SalesOrderService;
+use crate::sales::sales_order::repo::{DemandRepo, FulfillmentPlanLineRepo, SalesOrderItemRepo, SalesOrderRepo, savepoint, release_savepoint, rollback_savepoint};
+use crate::sales::sales_order::service::{SalesOrderService, DemandService};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
 use crate::shared::document_link::model::LinkRequest;
@@ -74,6 +76,22 @@ impl SalesOrderServiceImpl {
                 }
             })
             .collect()
+    }
+}
+
+/// 幂等的订单头状态计算 — 每次订单行变更后调用
+/// 关键：cancelled_qty 不等于 shipped_qty，取消不是发货
+fn calc_header_status(items: &[SalesOrderItem]) -> SalesOrderStatus {
+    let all_settled = items.iter().all(|i| i.is_settled());
+    let any_shipped = items.iter().any(|i| i.shipped_qty > Decimal::ZERO);
+    let any_open = items.iter().any(|i| i.open_qty() > Decimal::ZERO);
+
+    if all_settled && any_shipped {
+        SalesOrderStatus::Shipped
+    } else if any_shipped && any_open {
+        SalesOrderStatus::PartiallyShipped
+    } else {
+        SalesOrderStatus::Confirmed
     }
 }
 
@@ -364,58 +382,94 @@ impl SalesOrderService for SalesOrderServiceImpl {
     }
 
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
-        let existing = self
-            .repo
-            .find_by_id(db, id)
-            .await?
+        // 1. 加载并校验
+        let existing = self.repo.find_by_id(db, id).await?
             .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
 
         if existing.status != SalesOrderStatus::Draft {
             return Err(DomainError::business_rule("Only Draft orders can be confirmed"));
         }
 
+        let items = self.item_repo.find_by_order_id(db, id).await?;
+        if items.is_empty() {
+            return Err(DomainError::business_rule("Cannot confirm order without items"));
+        }
+
+        // 2. 批量查询产品获取 acquire_channel
+        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        let products = new_product_service(self.pool.clone())
+            .get_by_ids(ctx, db, product_ids).await?;
+        let product_map: std::collections::HashMap<i64, AcquireChannel> = products
+            .into_iter()
+            .map(|p| (p.product_id, p.acquire_channel))
+            .collect();
+
+        // 3. 状态机转换
         new_state_machine_service(self.pool.clone())
             .transition(ctx, db, "SalesOrderStatus", id, "Confirmed", None)
             .await?;
+        self.repo.update_status(db, id, SalesOrderStatus::Confirmed).await?;
 
-        // 立即更新业务表状态（不依赖后续 reserve 等操作）
-        self.repo
-            .update_status(db, id, SalesOrderStatus::Confirmed)
-            .await?;
+        // 4. 逐行处理：预留 + 生成履行计划
+        let mut fp_inputs: Vec<FulfillmentPlanLineInput> = Vec::with_capacity(items.len());
+        let mut line_status_updates: Vec<(i64, SalesOrderLineStatus, i32)> = Vec::with_capacity(items.len());
+        let mut reserve_requests: Vec<ReserveRequest> = Vec::new();
 
-        let items = self
-            .item_repo
-            .find_by_order_id(db, id)
-            .await?;
+        for item in &items {
+            let ac = product_map.get(&item.product_id)
+                .copied()
+                .unwrap_or(AcquireChannel::Legacy);
 
-        // Reserve inventory in a savepoint so failures don't abort the main transaction
-        let ttl = chrono::Utc::now() + TimeDelta::days(7);
-        let reserve_requests: Vec<ReserveRequest> = items
-            .iter()
-            .map(|item| ReserveRequest {
-                product_id: item.product_id,
-                warehouse_id: 1,
-                reserved_qty: item.quantity,
-                reservation_type: ReservationType::Soft,
-                source_type: DocumentType::SalesOrder,
-                source_id: id,
-                source_line_id: Some(item.id),
-                priority: 5,
-                expires_at: Some(ttl),
-            })
-            .collect();
-
-        savepoint(db, "sp_reserve").await.ok();
-        match new_inventory_reservation_service(self.pool.clone()).reserve(ctx, db, reserve_requests).await {
-            Ok(batch) if batch.failed_items.is_empty() => {
-                release_savepoint(db, "sp_reserve").await.ok();
+            match ac {
+                AcquireChannel::NonInventory => {
+                    // 费用/服务类：跳过库存，直接 Allocated
+                    fp_inputs.push(FulfillmentPlanLineInput {
+                        order_id: id,
+                        order_line_id: item.id,
+                        product_id: item.product_id,
+                        acquire_channel: ac,
+                        required_qty: item.quantity,
+                        reserved_qty: item.quantity,
+                        shortage_qty: Decimal::ZERO,
+                        status: FulfillmentLineStatus::Allocated,
+                        required_date: item.delivery_date,
+                    });
+                    line_status_updates.push((item.id, SalesOrderLineStatus::Allocated, 1));
+                }
+                _ => {
+                    // 库存类：尝试硬预留
+                    reserve_requests.push(ReserveRequest {
+                        product_id: item.product_id,
+                        warehouse_id: 1,
+                        reserved_qty: item.quantity,
+                        reservation_type: ReservationType::Hard,
+                        source_type: DocumentType::SalesOrder,
+                        source_id: id,
+                        source_line_id: Some(item.id),
+                        priority: 5,
+                        expires_at: None,
+                    });
+                }
             }
+        }
+
+        // 5. 执行预留
+        savepoint(db, "sp_reserve").await.ok();
+        let mut succeeded_reservations: std::collections::HashSet<i64> = std::collections::HashSet::new();
+        match new_inventory_reservation_service(self.pool.clone())
+            .reserve(ctx, db, reserve_requests.clone())
+            .await
+        {
             Ok(batch) => {
-                tracing::warn!(
-                    "inventory reservation partial failure: {}/{} succeeded",
-                    batch.success_count, batch.total
-                );
-                rollback_savepoint(db, "sp_reserve").await.ok();
+                let failed_indices: std::collections::HashSet<i32> = batch.failed_items.iter().map(|f| f.index).collect();
+                for (idx, req) in reserve_requests.iter().enumerate() {
+                    if !failed_indices.contains(&(idx as i32)) {
+                        if let Some(line_id) = req.source_line_id {
+                            succeeded_reservations.insert(line_id);
+                        }
+                    }
+                }
+                release_savepoint(db, "sp_reserve").await.ok();
             }
             Err(e) => {
                 tracing::warn!("inventory reserve error: {e}");
@@ -423,19 +477,54 @@ impl SalesOrderService for SalesOrderServiceImpl {
             }
         }
 
+        // 6. 为库存类行生成履行计划（根据预留结果决定状态）
+        for item in &items {
+            let ac = product_map.get(&item.product_id)
+                .copied()
+                .unwrap_or(AcquireChannel::Legacy);
+            if ac == AcquireChannel::NonInventory {
+                continue;
+            }
+
+            let fully_reserved = succeeded_reservations.contains(&item.id);
+            let (fp_status, line_status, reserved_qty, shortage_qty) = if fully_reserved {
+                (FulfillmentLineStatus::Allocated, SalesOrderLineStatus::Allocated, item.quantity, Decimal::ZERO)
+            } else {
+                (FulfillmentLineStatus::Pending, SalesOrderLineStatus::Pending, Decimal::ZERO, item.quantity)
+            };
+
+            fp_inputs.push(FulfillmentPlanLineInput {
+                order_id: id,
+                order_line_id: item.id,
+                product_id: item.product_id,
+                acquire_channel: ac,
+                required_qty: item.quantity,
+                reserved_qty,
+                shortage_qty,
+                status: fp_status,
+                required_date: item.delivery_date,
+            });
+            line_status_updates.push((item.id, line_status, 1));
+        }
+
+        // 7. 批量写入
+        if !fp_inputs.is_empty() {
+            FulfillmentPlanLineRepo::create_batch(db, &fp_inputs).await?;
+        }
+        if !line_status_updates.is_empty() {
+            self.item_repo.batch_update_line_status(db, &line_status_updates).await?;
+        }
+
+        // 8. 审计日志
         savepoint(db, "sp_audit").await.ok();
         if let Err(e) = new_audit_log_service(self.pool.clone())
-            .record(
-                    ctx,
-                    db,
-                    RecordAuditLogReq {
-                        entity_type: "SalesOrder",
-                        entity_id: id,
-                        action: AuditAction::Transition,
-                        changes: Some(serde_json::json!({ "from": "Draft", "to": "Confirmed" })),
-                        context: None,
-                    },
-                )
+            .record(ctx, db, RecordAuditLogReq {
+                entity_type: "SalesOrder",
+                entity_id: id,
+                action: AuditAction::Transition,
+                changes: Some(serde_json::json!({ "from": "Draft", "to": "Confirmed" })),
+                context: None,
+            })
             .await
         {
             tracing::warn!("audit record failed: {e}");
@@ -444,19 +533,16 @@ impl SalesOrderService for SalesOrderServiceImpl {
             release_savepoint(db, "sp_audit").await.ok();
         }
 
+        // 9. 领域事件
         savepoint(db, "sp_event").await.ok();
         if let Err(e) = new_domain_event_bus(self.pool.clone())
-            .publish(
-                ctx,
-                db,
-                EventPublishRequest {
-                    event_type: DomainEventType::SalesOrderConfirmed,
-                    aggregate_type: "SalesOrder".to_string(),
-                    aggregate_id: id,
-                    payload: serde_json::json!({ "sales_order_id": id }),
-                    idempotency_key: None,
-                },
-            )
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::SalesOrderConfirmed,
+                aggregate_type: "SalesOrder".to_string(),
+                aggregate_id: id,
+                payload: serde_json::json!({ "sales_order_id": id }),
+                idempotency_key: None,
+            })
             .await
         {
             tracing::warn!("event publish failed: {e}");
@@ -465,41 +551,24 @@ impl SalesOrderService for SalesOrderServiceImpl {
             release_savepoint(db, "sp_event").await.ok();
         }
 
-        Ok(())
-    }
-
-    async fn start_progress(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()> {
-        let existing = self
-            .repo
-            .find_by_id(db, id)
-            .await?
-            .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
-
-        if existing.status != SalesOrderStatus::Confirmed {
-            return Err(DomainError::business_rule("Only Confirmed orders can start progress"));
+        // P2: 为缺货行创建需求 + 发布 DemandCreated 事件
+        let has_shortages = fp_inputs.iter().any(|l| l.shortage_qty > Decimal::ZERO);
+        if has_shortages {
+            savepoint(db, "sp_demands").await.ok();
+            match DemandServiceImpl::new(self.pool.clone())
+                .create_from_order(ctx, db, id)
+                .await
+            {
+                Ok(demand_ids) => {
+                    tracing::info!("Created {} demands for order {id}", demand_ids.len());
+                    release_savepoint(db, "sp_demands").await.ok();
+                }
+                Err(e) => {
+                    tracing::warn!("Demand creation failed for order {id}: {e}");
+                    rollback_savepoint(db, "sp_demands").await.ok();
+                }
+            }
         }
-
-        new_state_machine_service(self.pool.clone())
-            .transition(ctx, db, "SalesOrderStatus", id, "InProduction", None)
-            .await?;
-
-        self.repo
-            .update_status(db, id, SalesOrderStatus::InProduction)
-            .await?;
-
-        new_audit_log_service(self.pool.clone())
-            .record(
-                    ctx,
-                    db,
-                    RecordAuditLogReq {
-                        entity_type: "SalesOrder",
-                        entity_id: id,
-                        action: AuditAction::Transition,
-                        changes: Some(serde_json::json!({ "from": existing.status.as_str(), "to": "InProduction" })),
-                        context: None,
-                    },
-                )
-            .await?;
 
         Ok(())
     }
@@ -521,10 +590,10 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .await?;
 
         for item in &items {
-            if item.shipped_qty < item.quantity {
+            if item.open_qty() > Decimal::ZERO {
                 return Err(DomainError::business_rule(format!(
-                    "Item {} not fully shipped: {}/{}",
-                    item.line_no, item.shipped_qty, item.quantity
+                    "Item {} has open qty {} (not fully shipped/cancelled)",
+                    item.line_no, item.open_qty()
                 )));
             }
         }
@@ -563,9 +632,10 @@ impl SalesOrderService for SalesOrderServiceImpl {
 
         if existing.status != SalesOrderStatus::Draft
             && existing.status != SalesOrderStatus::Confirmed
+            && existing.status != SalesOrderStatus::PartiallyShipped
         {
             return Err(DomainError::business_rule(
-                "Only Draft or Confirmed orders can be cancelled",
+                "Only Draft, Confirmed or PartiallyShipped orders can be cancelled",
             ));
         }
 
@@ -573,10 +643,20 @@ impl SalesOrderService for SalesOrderServiceImpl {
             .transition(ctx, db, "SalesOrderStatus", id, "Cancelled", None)
             .await?;
 
-        if existing.status == SalesOrderStatus::Confirmed {
-            new_inventory_reservation_service(self.pool.clone())
+        // 释放所有预留（Confirmed/PartiallyShipped 状态下才可能有预留）
+        if existing.status == SalesOrderStatus::Confirmed
+            || existing.status == SalesOrderStatus::PartiallyShipped
+        {
+            savepoint(db, "sp_cancel_resv").await.ok();
+            if let Err(e) = new_inventory_reservation_service(self.pool.clone())
                 .cancel_by_source(ctx, db, DocumentType::SalesOrder, id)
-                .await?;
+                .await
+            {
+                tracing::warn!("cancel reservations failed: {e}");
+                rollback_savepoint(db, "sp_cancel_resv").await.ok();
+            } else {
+                release_savepoint(db, "sp_cancel_resv").await.ok();
+            }
         }
 
         self.repo
@@ -675,4 +755,477 @@ impl SalesOrderService for SalesOrderServiceImpl {
             )
             .await
     }
+
+    // -- P1 新增方法 --
+
+    async fn cancel_line(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+        line_id: i64,
+        req: CancelLineReq,
+    ) -> Result<()> {
+        // 1. 校验订单状态
+        let order = self.repo.find_by_id(db, order_id).await?
+            .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
+
+        if order.status != SalesOrderStatus::Confirmed
+            && order.status != SalesOrderStatus::PartiallyShipped
+        {
+            return Err(DomainError::business_rule(
+                "Only Confirmed or PartiallyShipped orders can cancel lines"
+            ));
+        }
+
+        // 2. 校验订单行
+        let items = self.item_repo.find_by_order_id(db, order_id).await?;
+        let item = items.iter().find(|i| i.id == line_id)
+            .ok_or_else(|| DomainError::not_found("SalesOrderItem"))?;
+
+        if item.line_status == SalesOrderLineStatus::Shipped {
+            return Err(DomainError::business_rule("Cannot cancel a shipped line"));
+        }
+        if item.line_status == SalesOrderLineStatus::Cancelled {
+            return Err(DomainError::business_rule("Line is already cancelled"));
+        }
+        if req.cancelled_qty > item.open_qty() {
+            return Err(DomainError::business_rule(
+                &format!("Cancelled qty {} exceeds open qty {}", req.cancelled_qty, item.open_qty())
+            ));
+        }
+
+        // 3. 更新 cancelled_qty
+        let new_line_status = if item.open_qty() - req.cancelled_qty <= Decimal::ZERO {
+            SalesOrderLineStatus::Cancelled
+        } else {
+            item.line_status
+        };
+
+        self.item_repo.cancel_line(
+            db, line_id, req.cancelled_qty, new_line_status, item.version,
+        ).await?;
+
+        // 4. 释放预留（TODO: 当前 API 仅支持按 source_id 批量取消，暂跳过单行释放）
+        // 预留在整个订单取消时统一释放
+
+        // 5. 同步头状态
+        self.recalc_header_status(ctx, db, order_id).await?;
+
+        // 6. 审计
+        savepoint(db, "sp_audit").await.ok();
+        if let Err(e) = new_audit_log_service(self.pool.clone())
+            .record(ctx, db, RecordAuditLogReq {
+                entity_type: "SalesOrderItem",
+                entity_id: line_id,
+                action: AuditAction::Update,
+                changes: Some(serde_json::json!({
+                    "action": "cancel_line",
+                    "cancelled_qty": req.cancelled_qty.to_string()
+                })),
+                context: None,
+            })
+            .await
+        {
+            tracing::warn!("audit record failed: {e}");
+            rollback_savepoint(db, "sp_audit").await.ok();
+        } else {
+            release_savepoint(db, "sp_audit").await.ok();
+        }
+
+        Ok(())
+    }
+
+    async fn list_fulfillment_plan(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        query: FulfillmentPlanQuery,
+    ) -> Result<Vec<FulfillmentPlanLine>> {
+        if let Some(order_id) = query.order_id {
+            FulfillmentPlanLineRepo::find_by_order_id(db, order_id).await
+        } else {
+            Ok(Vec::new())
+        }
+    }
+
+    async fn recalc_header_status(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<SalesOrderStatus> {
+        let items = self.item_repo.find_by_order_id(db, order_id).await?;
+        let new_status = calc_header_status(&items);
+
+        // 仅当状态变化时才更新
+        let order = self.repo.find_by_id(db, order_id).await?
+            .ok_or_else(|| DomainError::not_found("SalesOrder"))?;
+
+        if order.status != new_status {
+            // 状态机验证转换合法性
+            new_state_machine_service(self.pool.clone())
+                .transition(
+                    &ServiceContext::system(), db,
+                    "SalesOrderStatus", order_id,
+                    new_status.as_str(), None,
+                )
+                .await?;
+
+            self.repo.update_status(db, order_id, new_status).await?;
+        }
+
+        Ok(new_status)
+    }
+
+    async fn reconcile_fulfillment_status(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<u32> {
+        let mismatched = DemandRepo::find_mismatched(db, order_id).await?;
+
+        let mut count = 0u32;
+        for (fp_id, _demand_id) in &mismatched {
+            let fp = FulfillmentPlanLineRepo::find_by_order_line_id(db, *fp_id).await?;
+            if let Some(line) = fp {
+                if let Err(e) = FulfillmentPlanLineRepo::update_status(
+                    db, line.id, FulfillmentLineStatus::Pending, line.version,
+                ).await {
+                    tracing::warn!("Reconcile failed for fp_line {}: {e}", line.id);
+                } else {
+                    count += 1;
+                }
+            }
+        }
+
+        // 同步订单头状态
+        self.recalc_header_status(ctx, db, order_id).await?;
+
+        Ok(count)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// DemandServiceImpl
+// ---------------------------------------------------------------------------
+
+pub struct DemandServiceImpl {
+    pool: PgPool,
+}
+
+impl DemandServiceImpl {
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+}
+
+#[async_trait::async_trait]
+impl DemandService for DemandServiceImpl {
+    async fn create_from_order(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<Vec<i64>> {
+        // 查询订单的履行计划行（有缺口的行）
+        let fp_lines: Vec<_> = FulfillmentPlanLineRepo::find_by_order_id(db, order_id)
+            .await?
+            .into_iter()
+            .filter(|l| l.shortage_qty > Decimal::ZERO && l.status == FulfillmentLineStatus::Pending)
+            .collect();
+
+        if fp_lines.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut demand_ids = Vec::with_capacity(fp_lines.len());
+
+        for line in &fp_lines {
+            let input = DemandInput {
+                demand_type: 1,  // SalesOrder
+                source_type: DocumentType::SalesOrder as i16,
+                source_id: order_id,
+                source_line_id: line.order_line_id,
+                product_id: line.product_id,
+                acquire_channel: line.acquire_channel.as_i16(),
+                required_qty: line.shortage_qty,
+                required_date: line.required_date,
+                priority: 5,
+                remark: String::new(),
+                operator_id: ctx.operator_id,
+            };
+
+            let demand_id = DemandRepo::create(&mut *db, &input).await?;
+            demand_ids.push(demand_id);
+
+            // 发布 DemandCreated 事件（精简 payload）
+            savepoint(db, &format!("sp_demand_evt_{demand_id}")).await.ok();
+            if let Err(e) = new_domain_event_bus(self.pool.clone())
+                .publish(ctx, db, EventPublishRequest {
+                    event_type: DomainEventType::DemandCreated,
+                    aggregate_type: "Demand".to_string(),
+                    aggregate_id: demand_id,
+                    payload: serde_json::json!({
+                        "order_id": order_id,
+                        "product_id": line.product_id,
+                        "acquire_channel": line.acquire_channel.as_i16(),
+                    }),
+                    idempotency_key: None,
+                })
+                .await
+            {
+                tracing::warn!("DemandCreated event publish failed for demand {demand_id}: {e}");
+                rollback_savepoint(db, &format!("sp_demand_evt_{demand_id}")).await.ok();
+            } else {
+                release_savepoint(db, &format!("sp_demand_evt_{demand_id}")).await.ok();
+            }
+        }
+
+        Ok(demand_ids)
+    }
+
+    async fn find_by_id(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Demand> {
+        DemandRepo::find_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("Demand"))
+    }
+
+    async fn list(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        _query: DemandQuery,
+        _page: PageParams,
+    ) -> Result<PaginatedResult<Demand>> {
+        // TODO: 实现动态查询
+        Ok(PaginatedResult::empty(_page.page, _page.page_size))
+    }
+
+    async fn confirm(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+        req: ConfirmDemandReq,
+    ) -> Result<()> {
+        let demand = DemandRepo::find_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("Demand"))?;
+
+        if demand.status != DemandStatus::Pending {
+            return Err(DomainError::business_rule(
+                "Only Pending demands can be confirmed"
+            ));
+        }
+
+        DemandRepo::update_status(db, id, DemandStatus::Confirmed).await?;
+        DemandRepo::update_target_doc(db, id, req.target_doc_type, req.target_doc_id).await?;
+
+        // 发布 DemandConfirmed 事件
+        savepoint(db, "sp_demand_confirm_evt").await.ok();
+        if let Err(e) = new_domain_event_bus(self.pool.clone())
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::DemandConfirmed,
+                aggregate_type: "Demand".to_string(),
+                aggregate_id: id,
+                payload: serde_json::json!({
+                    "order_id": demand.source_id,
+                    "order_line_id": demand.source_line_id,
+                    "product_id": demand.product_id,
+                    "acquire_channel": demand.acquire_channel,
+                    "target_doc_type": req.target_doc_type,
+                    "target_doc_id": req.target_doc_id,
+                }),
+                idempotency_key: None,
+            })
+            .await
+        {
+            tracing::warn!("DemandConfirmed event publish failed: {e}");
+            rollback_savepoint(db, "sp_demand_confirm_evt").await.ok();
+        } else {
+            release_savepoint(db, "sp_demand_confirm_evt").await.ok();
+        }
+
+        Ok(())
+    }
+
+    async fn reject(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let demand = DemandRepo::find_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("Demand"))?;
+
+        if demand.status != DemandStatus::Pending && demand.status != DemandStatus::Confirmed {
+            return Err(DomainError::business_rule(
+                "Only Pending or Confirmed demands can be rejected"
+            ));
+        }
+
+        DemandRepo::update_status(db, id, DemandStatus::Rejected).await?;
+
+        // 发布 DemandRejected 事件
+        savepoint(db, "sp_demand_reject_evt").await.ok();
+        if let Err(e) = new_domain_event_bus(self.pool.clone())
+            .publish(ctx, db, EventPublishRequest {
+                event_type: DomainEventType::DemandRejected,
+                aggregate_type: "Demand".to_string(),
+                aggregate_id: id,
+                payload: serde_json::json!({
+                    "order_id": demand.source_id,
+                    "order_line_id": demand.source_line_id,
+                    "product_id": demand.product_id,
+                }),
+                idempotency_key: None,
+            })
+            .await
+        {
+            tracing::warn!("DemandRejected event publish failed: {e}");
+            rollback_savepoint(db, "sp_demand_reject_evt").await.ok();
+        } else {
+            release_savepoint(db, "sp_demand_reject_evt").await.ok();
+        }
+
+        Ok(())
+    }
+
+    async fn fulfill(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let demand = DemandRepo::find_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("Demand"))?;
+
+        if demand.status != DemandStatus::Confirmed && demand.status != DemandStatus::InProgress {
+            return Err(DomainError::business_rule(
+                "Only Confirmed or InProgress demands can be fulfilled"
+            ));
+        }
+
+        DemandRepo::update_status(db, id, DemandStatus::Fulfilled).await?;
+        Ok(())
+    }
+
+    async fn cancel(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let demand = DemandRepo::find_by_id(db, id)
+            .await?
+            .ok_or_else(|| DomainError::not_found("Demand"))?;
+
+        if demand.status == DemandStatus::Fulfilled {
+            return Err(DomainError::business_rule("Cannot cancel a fulfilled demand"));
+        }
+
+        sqlx::query("UPDATE demands SET deleted_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(db)
+            .await?;
+        Ok(())
+    }
+
+    async fn find_mismatched(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<Vec<(i64, i64)>> {
+        DemandRepo::find_mismatched(db, order_id).await
+    }
+}
+
+// ---------------------------------------------------------------------------
+// 事件处理器 — 下游模块注册消费
+// ---------------------------------------------------------------------------
+
+/// 处理 DemandConfirmed 事件 — 更新履行计划行状态
+pub async fn handle_demand_confirmed(
+    _pool: PgPool,
+    _ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    event: &crate::shared::event_bus::model::DomainEvent,
+) -> Result<()> {
+    let payload = &event.payload;
+    let order_line_id: i64 = payload["order_line_id"]
+        .as_i64()
+        .ok_or_else(|| DomainError::validation("Missing order_line_id in DemandConfirmed payload"))?;
+    let acquire_channel: i16 = payload["acquire_channel"]
+        .as_i64()
+        .unwrap_or(9) as i16;
+    let target_doc_type: i16 = payload["target_doc_type"]
+        .as_i64()
+        .unwrap_or(0) as i16;
+    let target_doc_id: i64 = payload["target_doc_id"]
+        .as_i64()
+        .unwrap_or(0);
+
+    // 查找履行计划行
+    let fp_line = FulfillmentPlanLineRepo::find_by_order_line_id(db, order_line_id).await?
+        .ok_or_else(|| DomainError::not_found("FulfillmentPlanLine"))?;
+
+    // 根据 acquire_channel 决定新状态
+    let new_status = match acquire_channel {
+        1 => FulfillmentLineStatus::Producing,    // SelfProduced
+        2 => FulfillmentLineStatus::Purchasing,   // Purchased
+        3 => FulfillmentLineStatus::Producing,    // Outsourced → Producing
+        _ => FulfillmentLineStatus::Pending,
+    };
+
+    // 更新履行计划行
+    FulfillmentPlanLineRepo::update_status(db, fp_line.id, new_status, fp_line.version).await?;
+    FulfillmentPlanLineRepo::update_source_doc(db, fp_line.id, target_doc_type, target_doc_id).await?;
+
+    // 更新订单行状态
+    let order_item_status = match acquire_channel {
+        1 => SalesOrderLineStatus::Producing,
+        2 => SalesOrderLineStatus::Purchasing,
+        3 => SalesOrderLineStatus::Producing,
+        _ => SalesOrderLineStatus::Pending,
+    };
+
+    let item_repo = SalesOrderItemRepo;
+    item_repo.batch_update_line_status(
+        db,
+        &[(fp_line.order_line_id, order_item_status, 1)],
+    ).await?;
+
+    tracing::info!("DemandConfirmed handled: fp_line {} → {:?}", fp_line.id, new_status);
+
+    Ok(())
+}
+
+/// 处理 DemandRejected 事件 — 将履行计划行回退到 Pending
+pub async fn handle_demand_rejected(
+    _pool: PgPool,
+    _ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    event: &crate::shared::event_bus::model::DomainEvent,
+) -> Result<()> {
+    let payload = &event.payload;
+    let order_line_id: i64 = payload["order_line_id"]
+        .as_i64()
+        .ok_or_else(|| DomainError::validation("Missing order_line_id in DemandRejected payload"))?;
+
+    let fp_line = FulfillmentPlanLineRepo::find_by_order_line_id(db, order_line_id).await?
+        .ok_or_else(|| DomainError::not_found("FulfillmentPlanLine"))?;
+
+    // 回退到 Pending
+    FulfillmentPlanLineRepo::update_status(
+        db, fp_line.id, FulfillmentLineStatus::Pending, fp_line.version,
+    ).await?;
+
+    // 回退订单行状态
+    let item_repo = SalesOrderItemRepo;
+    item_repo.batch_update_line_status(
+        db,
+        &[(fp_line.order_line_id, SalesOrderLineStatus::Pending, 1)],
+    ).await?;
+
+    tracing::info!("DemandRejected handled: fp_line {} → Pending", fp_line.id);
+
+    Ok(())
 }

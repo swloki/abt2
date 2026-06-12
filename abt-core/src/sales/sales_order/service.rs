@@ -1,4 +1,5 @@
 ﻿use async_trait::async_trait;
+use rust_decimal::Decimal;
 
 use super::model::*;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, Result, ServiceContext};
@@ -53,8 +54,6 @@ pub trait SalesOrderService: Send + Sync {
 
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
-    async fn start_progress(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
-
     async fn complete(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
 
     async fn cancel(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
@@ -67,4 +66,119 @@ pub trait SalesOrderService: Send + Sync {
         filter: SalesOrderQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<SalesOrder>>;
+
+    // -- P1 新增 --
+
+    /// 取消订单行（部分或全部）。增加 cancelled_qty。
+    async fn cancel_line(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+        line_id: i64,
+        req: CancelLineReq,
+    ) -> Result<()>;
+
+    /// 查询履行计划行
+    async fn list_fulfillment_plan(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        query: FulfillmentPlanQuery,
+    ) -> Result<Vec<FulfillmentPlanLine>>;
+
+    /// 幂等重算订单头状态（根据行状态聚合推导）
+    async fn recalc_header_status(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<SalesOrderStatus>;
+
+    /// 手动对账：检测 fulfillment_plan_lines 状态不一致并修复
+    async fn reconcile_fulfillment_status(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<u32>;
+}
+
+/// 分配策略接口 — P1 定义接口，后续实现 FIFO
+pub struct AllocationResult {
+    pub fulfillment_line_id: i64,
+    pub allocated_qty: Decimal,
+}
+
+#[async_trait]
+pub trait ReplenishmentAllocationStrategy: Send + Sync {
+    /// 给定可用量和候选履行计划行，按策略分配
+    fn allocate(
+        &self,
+        product_id: i64,
+        available_qty: Decimal,
+        candidates: &[FulfillmentPlanLine],
+    ) -> Vec<AllocationResult>;
+}
+
+// ---------------------------------------------------------------------------
+// DemandService — 需求池生命周期管理
+// ---------------------------------------------------------------------------
+
+/// 需求服务 — 管理需求池生命周期
+#[async_trait]
+pub trait DemandService: Send + Sync {
+    /// 从订单创建需求（在 confirm 事务内调用）
+    async fn create_from_order(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<Vec<i64>>;
+
+    /// 按 ID 查询需求
+    async fn find_by_id(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Demand>;
+
+    /// 分页查询需求
+    async fn list(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        query: DemandQuery,
+        page: PageParams,
+    ) -> Result<PaginatedResult<Demand>>;
+
+    /// 下游确认需求（记录关联下游单据）
+    async fn confirm(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+        req: ConfirmDemandReq,
+    ) -> Result<()>;
+
+    /// 下游驳回需求
+    async fn reject(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()>;
+
+    /// 需求完成（下游单据执行完毕）
+    async fn fulfill(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()>;
+
+    /// 取消需求
+    async fn cancel(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()>;
+
+    /// 对账：查询 fulfillment_plan_lines 与 demands 状态不一致的记录
+    async fn find_mismatched(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<Vec<(i64, i64)>>;
 }

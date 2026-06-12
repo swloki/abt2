@@ -3,19 +3,21 @@ use std::collections::HashMap;
 use axum::response::{Html, IntoResponse};
 use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
+use rust_decimal::Decimal;
 
 use abt_core::master_data::customer::CustomerService;
+use abt_core::master_data::product::model::AcquireChannel;
 use abt_core::master_data::product::ProductService;
 use abt_core::sales::sales_order::model::*;
 use abt_core::sales::sales_order::SalesOrderService;
 use abt_core::shared::identity::UserService;
-use abt_core::wms::inventory::InventoryService;
+
+const DECIMAL_100: Decimal = Decimal::from_parts(100, 0, 0, false, 0);
 
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
 use crate::routes::order::*;
-use crate::routes::shipping::ShippingCreatePath;
 use crate::utils::RequestContext;
 use crate::utils::fmt_qty;
 use abt_macros::require_permission;
@@ -26,11 +28,40 @@ fn status_label(s: SalesOrderStatus) -> (&'static str, &'static str) {
     match s {
         SalesOrderStatus::Draft => ("草稿", "status-draft"),
         SalesOrderStatus::Confirmed => ("已确认", "status-confirmed"),
-        SalesOrderStatus::InProduction => ("生产中", "status-progress"),
-        SalesOrderStatus::PartiallyShipped => ("部分发货", "status-partial"),
+        SalesOrderStatus::PartiallyShipped => ("部分发货", "status-progress"),
         SalesOrderStatus::Shipped => ("已发货", "status-shipped"),
         SalesOrderStatus::Completed => ("已完成", "status-completed"),
-        SalesOrderStatus::Cancelled => ("已取消", "status-cancelled"),
+        SalesOrderStatus::Cancelled => ("已取消", "status-rejected"),
+    }
+}
+
+fn line_status_pill(s: SalesOrderLineStatus) -> (&'static str, &'static str) {
+    match s {
+        SalesOrderLineStatus::Pending => ("待处理", "line-status-pending"),
+        SalesOrderLineStatus::Allocated => ("已分配", "line-status-allocated"),
+        SalesOrderLineStatus::Producing => ("生产中", "line-status-producing"),
+        SalesOrderLineStatus::Purchasing => ("采购中", "line-status-purchasing"),
+        SalesOrderLineStatus::Shipped => ("已发货", "line-status-shipped"),
+        SalesOrderLineStatus::Cancelled => ("已取消", "line-status-cancelled"),
+    }
+}
+
+fn fulfill_status_pill(s: FulfillmentLineStatus) -> (&'static str, &'static str) {
+    match s {
+        FulfillmentLineStatus::Pending => ("待处理", "line-status-pending"),
+        FulfillmentLineStatus::Allocated => ("已分配", "line-status-allocated"),
+        FulfillmentLineStatus::Producing => ("生产中", "line-status-producing"),
+        FulfillmentLineStatus::Purchasing => ("采购中", "line-status-purchasing"),
+        FulfillmentLineStatus::Fulfilled => ("已履约", "line-status-shipped"),
+    }
+}
+
+fn acquire_tag(ch: AcquireChannel) -> (&'static str, &'static str) {
+    match ch {
+        AcquireChannel::SelfProduced | AcquireChannel::Legacy => ("自制", "self"),
+        AcquireChannel::Purchased => ("外购", "purchase"),
+        AcquireChannel::Outsourced => ("委外", "outsource"),
+        AcquireChannel::NonInventory => ("非库存", "non-inventory"),
     }
 }
 
@@ -53,11 +84,15 @@ pub async fn get_order_detail(
     let customer_svc = state.customer_service();
     let product_svc = state.product_service();
     let user_svc = state.user_service();
-    let inventory_svc = state.inventory_service();
 
     let order = svc.find_by_id(&service_ctx, &mut conn, path.id).await?;
-
     let items = svc.list_items(&service_ctx, &mut conn, path.id).await.unwrap_or_default();
+
+    // 履行计划
+    let plan_lines = svc.list_fulfillment_plan(
+        &service_ctx, &mut conn,
+        FulfillmentPlanQuery { order_id: Some(path.id), status: None },
+    ).await.unwrap_or_default();
 
     let customer_name = customer_svc
         .get(&service_ctx, &mut conn, order.customer_id)
@@ -79,6 +114,7 @@ pub async fn get_order_detail(
         .map(|u| u.display_name.unwrap_or(u.username))
         .unwrap_or_else(|_| "—".into());
 
+    // 产品信息
     let (product_names, product_codes) = {
         let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
         if product_ids.is_empty() {
@@ -91,22 +127,11 @@ pub async fn get_order_detail(
         }
     };
 
-    let stock_quantities: HashMap<i64, rust_decimal::Decimal> = {
-        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
-        let mut map = HashMap::new();
-        for pid in product_ids {
-            let total = inventory_svc
-                .get_by_product(&service_ctx, &mut conn, pid)
-                .await
-                .unwrap_or_default()
-                .into_iter()
-                .fold(rust_decimal::Decimal::ZERO, |acc, v| acc + v.quantity);
-            map.insert(pid, total);
-        }
-        map
-    };
-
-    let content = order_detail_page(&order, &items, &customer_name, &contact, &sales_rep, &product_names, &product_codes, &stock_quantities);
+    let content = order_detail_page(
+        &order, &items, &plan_lines,
+        &customer_name, &contact, &sales_rep,
+        &product_names, &product_codes,
+    );
     let page_html = admin_page(
         is_htmx, "订单详情", &claims, "sales",
         &format!("{}/{}", OrderListPath::PATH, path.id),
@@ -125,20 +150,6 @@ pub async fn confirm_order(
     let svc = state.sales_order_service();
 
     svc.confirm(&service_ctx, &mut conn, path.id).await?;
-
-    let redirect = OrderDetailPath { id: path.id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
-}
-
-#[require_permission("SALES_ORDER", "update")]
-pub async fn start_order(
-    path: StartOrderPath,
-    ctx: RequestContext,
-) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    let svc = state.sales_order_service();
-
-    svc.start_progress(&service_ctx, &mut conn, path.id).await?;
 
     let redirect = OrderDetailPath { id: path.id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
@@ -178,7 +189,6 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
     let steps: &[(&str, SalesOrderStatus)] = &[
         ("草稿", SalesOrderStatus::Draft),
         ("已确认", SalesOrderStatus::Confirmed),
-        ("生产中", SalesOrderStatus::InProduction),
         ("部分发货", SalesOrderStatus::PartiallyShipped),
         ("已发货", SalesOrderStatus::Shipped),
         ("已完成", SalesOrderStatus::Completed),
@@ -218,17 +228,250 @@ fn workflow_steps(current: SalesOrderStatus) -> Markup {
     }
 }
 
+// ── Fulfillment Progress Bar ──
+
+fn fulfillment_progress(items: &[SalesOrderItem], plan_lines: &[FulfillmentPlanLine]) -> Markup {
+    // 聚合统计
+    let total_ordered: Decimal = items.iter().map(|i| i.quantity).sum();
+    let total_shipped: Decimal = items.iter().map(|i| i.shipped_qty).sum();
+    let total_cancelled: Decimal = items.iter().map(|i| i.cancelled_qty).sum();
+
+    // 从履行计划行聚合补货状态
+    let mut total_allocated = Decimal::ZERO;
+    let mut total_producing = Decimal::ZERO;
+    let mut total_purchasing = Decimal::ZERO;
+
+    for pl in plan_lines {
+        match pl.status {
+            FulfillmentLineStatus::Allocated => total_allocated += pl.required_qty - pl.reserved_qty,
+            FulfillmentLineStatus::Producing => total_producing += pl.shortage_qty,
+            FulfillmentLineStatus::Purchasing => total_purchasing += pl.shortage_qty,
+            _ => {}
+        }
+    }
+
+    let total_open = total_ordered - total_shipped - total_cancelled;
+    let active_total = total_ordered - total_cancelled;
+
+    // 百分比（避免除以零）
+    let pct = |v: Decimal| -> String {
+        if active_total > Decimal::ZERO {
+            let p = (v / active_total * DECIMAL_100)
+                .round_dp_with_strategy(1, rust_decimal::RoundingStrategy::MidpointAwayFromZero);
+            format!("{}%", p)
+        } else {
+            "0%".into()
+        }
+    };
+
+    let pct_shipped = pct(total_shipped);
+    let pct_allocated = pct(total_allocated);
+    let pct_producing = pct(total_producing);
+    let pct_purchasing = pct(total_purchasing);
+    let pct_pending = pct(total_open - total_allocated - total_producing - total_purchasing);
+
+    // 只有确认后且有关联数据才显示
+    let show_bar = total_ordered > Decimal::ZERO;
+
+    html! {
+        @if show_bar {
+        div class="fulfill-progress" {
+            div class="fulfill-progress-header" {
+                div class="fulfill-progress-title" {
+                    (icon::chart_bar_icon("w-4 h-4"))
+                    "履约进度"
+                }
+                div class="progress-stats" {
+                    div class="progress-stat" {
+                        div class="progress-stat-value green" { (fmt_qty(total_shipped)) }
+                        div class="progress-stat-label" { "已发货" }
+                    }
+                    div class="progress-stat" {
+                        div class="progress-stat-value blue" { (fmt_qty(total_allocated)) }
+                        div class="progress-stat-label" { "已分配" }
+                    }
+                    div class="progress-stat" {
+                        div class="progress-stat-value orange" { (fmt_qty(total_producing + total_purchasing)) }
+                        div class="progress-stat-label" { "补货中" }
+                    }
+                    div class="progress-stat" {
+                        div class="progress-stat-value" { (fmt_qty(total_open)) }
+                        div class="progress-stat-label" { "未交量" }
+                    }
+                }
+            }
+            div class="progress-bar-track" {
+                div class="progress-bar-shipped" style=(format!("width:{}", pct_shipped)) {}
+                div class="progress-bar-allocated" style=(format!("width:{}", pct_allocated)) {}
+                div class="progress-bar-producing" style=(format!("width:{}", pct_producing)) {}
+                div class="progress-bar-purchasing" style=(format!("width:{}", pct_purchasing)) {}
+                div class="progress-bar-pending" style=(format!("width:{}", pct_pending)) {}
+            }
+            div class="progress-legend" {
+                span class="progress-legend-item" {
+                    span class="progress-legend-dot" style="background:var(--success)" {}
+                    "已发货 " (pct_shipped)
+                }
+                span class="progress-legend-item" {
+                    span class="progress-legend-dot" style="background:var(--accent)" {}
+                    "已分配 " (pct_allocated)
+                }
+                span class="progress-legend-item" {
+                    span class="progress-legend-dot" style="background:var(--warn)" {}
+                    "生产中 " (pct_producing)
+                }
+                span class="progress-legend-item" {
+                    span class="progress-legend-dot" style="background:#8b5cf6" {}
+                    "采购中 " (pct_purchasing)
+                }
+                span class="progress-legend-item" {
+                    span class="progress-legend-dot" style="background:var(--border)" {}
+                    "待处理 " (pct_pending)
+                }
+            }
+        }
+        }
+    }
+}
+
+// ── Fulfillment Workbench ──
+
+fn fulfillment_workbench(
+    plan_lines: &[FulfillmentPlanLine],
+    product_names: &HashMap<i64, String>,
+    product_codes: &HashMap<i64, String>,
+) -> Markup {
+    if plan_lines.is_empty() {
+        return html! {};
+    }
+
+    html! {
+        div class="fulfill-section" {
+            div class="fulfill-header" {
+                div class="fulfill-header-left" {
+                    span class="fulfill-title" { "履约工作台" }
+                    span class="fulfill-badge" { (format!("{} 行", plan_lines.len())) }
+                }
+                div class="fulfill-actions" {
+                    button class="fulfill-btn primary" {
+                        (icon::truck_icon("w-3.5 h-3.5"))
+                        "创建发货单"
+                    }
+                }
+            }
+            table class="fulfill-table" {
+                thead {
+                    tr {
+                        th { "产品" }
+                        th { "获取途径" }
+                        th class="num-right" { "需求量" }
+                        th class="num-right" { "已预留" }
+                        th class="num-right" { "缺口" }
+                        th { "库存满足率" }
+                        th { "履约状态" }
+                        th { "关联单据" }
+                    }
+                }
+                tbody {
+                    @for pl in plan_lines {
+                        (fulfill_plan_row(pl, product_names, product_codes))
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn fulfill_plan_row(
+    pl: &FulfillmentPlanLine,
+    names: &HashMap<i64, String>,
+    codes: &HashMap<i64, String>,
+) -> Markup {
+    let p_name = names.get(&pl.product_id).map(|s| s.as_str()).unwrap_or("—");
+    let p_code = codes.get(&pl.product_id).map(|s| s.as_str()).unwrap_or("—");
+    let (ch_label, ch_class) = acquire_tag(pl.acquire_channel);
+    let (st_label, st_class) = fulfill_status_pill(pl.status);
+
+    // 满足率
+    let fill_pct_val = if pl.required_qty > Decimal::ZERO {
+        (pl.reserved_qty / pl.required_qty * DECIMAL_100)
+            .round_dp_with_strategy(0, rust_decimal::RoundingStrategy::MidpointAwayFromZero)
+    } else {
+        Decimal::ZERO
+    };
+    let fill_bar_pct = format!("width:{}%", fill_pct_val);
+
+    // 满足率颜色
+    let fill_color = if pl.reserved_qty >= pl.required_qty {
+        "green"
+    } else if pl.reserved_qty > Decimal::ZERO {
+        "orange"
+    } else {
+        "red"
+    };
+
+    // 关联单据
+    let source_doc = match (pl.source_doc_type, pl.source_doc_id) {
+        (Some(_), Some(doc_id)) => {
+            // TODO: 根据 source_doc_type 显示对应单据编号
+            format!("#{}", doc_id)
+        }
+        _ => "—".into(),
+    };
+
+    html! {
+        tr {
+            td {
+                div class="product-cell" {
+                    span class="product-name" { (p_name) }
+                    span class="product-code" { (p_code) }
+                }
+            }
+            td {
+                span class=(format!("acquire-tag {}", ch_class)) { (ch_label) }
+            }
+            td class="num-right" { (fmt_qty(pl.required_qty)) }
+            td class="num-right" { (fmt_qty(pl.reserved_qty)) }
+            td class="num-right" {
+                @if pl.shortage_qty > Decimal::ZERO {
+                    span class="text-danger" { (fmt_qty(pl.shortage_qty)) }
+                } @else {
+                    (fmt_qty(pl.shortage_qty))
+                }
+            }
+            td {
+                div class="qty-bar" {
+                    div class="qty-bar-track" {
+                        div class=(format!("qty-bar-fill {}", fill_color)) style=(fill_bar_pct) {}
+                    }
+                    span class="qty-bar-text" { (fmt_qty(pl.reserved_qty)) " / " (fmt_qty(pl.required_qty)) }
+                }
+            }
+            td {
+                span class=(format!("line-status {}", st_class)) { (st_label) }
+            }
+            td {
+                @if source_doc != "—" {
+                    span class="fulfill-ref-link" { (source_doc) }
+                } @else {
+                    span class="text-muted" { "—" }
+                }
+            }
+        }
+    }
+}
+
 // ── Components ──
 
 fn order_detail_page(
     o: &SalesOrder,
     items: &[SalesOrderItem],
+    plan_lines: &[FulfillmentPlanLine],
     customer_name: &str,
     contact: &Option<ContactInfo>,
     sales_rep: &str,
     product_names: &HashMap<i64, String>,
     product_codes: &HashMap<i64, String>,
-    stock_quantities: &HashMap<i64, rust_decimal::Decimal>,
 ) -> Markup {
     let (status_text, status_class) = status_label(o.status);
     let contact_name = contact.as_ref().map(|c| c.name.as_str()).unwrap_or("—");
@@ -255,8 +498,8 @@ fn order_detail_page(
                         (icon::printer_icon("w-4 h-4"))
                         "打印"
                     }
-                    @if matches!(o.status, SalesOrderStatus::Confirmed | SalesOrderStatus::InProduction | SalesOrderStatus::PartiallyShipped) {
-                        a class="btn btn-primary" href=(format!("{}?order_id={}", ShippingCreatePath::PATH, o.id)) {
+                    @if matches!(o.status, SalesOrderStatus::Confirmed | SalesOrderStatus::PartiallyShipped) {
+                        a class="btn btn-primary" href="#" {
                             (icon::truck_icon("w-4 h-4"))
                             "创建发货申请"
                         }
@@ -265,16 +508,6 @@ fn order_detail_page(
                         button class="btn btn-primary"
                             hx-post=(ConfirmOrderPath { id: o.id }.to_string())
                             hx-confirm="确认审核此订单？" { "确认订单" }
-                    }
-                    @if o.status == SalesOrderStatus::Confirmed {
-                        button class="btn btn-primary"
-                            hx-post=(StartOrderPath { id: o.id }.to_string())
-                            hx-confirm="确认开始生产？" { "开始生产" }
-                    }
-                    @if o.status == SalesOrderStatus::InProduction {
-                        button class="btn btn-success"
-                            hx-post=(CompleteOrderPath { id: o.id }.to_string())
-                            hx-confirm="确认完成此订单？" { "完成订单" }
                     }
                     @if matches!(o.status, SalesOrderStatus::Draft | SalesOrderStatus::Confirmed) {
                         button class="btn btn-danger"
@@ -286,6 +519,9 @@ fn order_detail_page(
 
             // ── Workflow Steps ──
             (workflow_steps(o.status))
+
+            // ── Fulfillment Progress ──
+            (fulfillment_progress(items, plan_lines))
 
             // ── Order Info ──
             div class="info-card" {
@@ -326,7 +562,7 @@ fn order_detail_page(
                 }
             }
 
-            // ── Items Table ──
+            // ── Items Table (四量模型) ──
             div class="data-card" {
                 div class="data-card-scroll" {
                     table class="data-table" {
@@ -336,19 +572,19 @@ fn order_detail_page(
                                 th { "产品编码" }
                                 th { "产品名称" }
                                 th { "单位" }
-                                th class="num-right" { "数量" }
-                                th class="num-right" { "库存数量" }
-                                th class="num-right" { "单价" }
-                                th class="num-right" { "折扣" }
-                                th class="num-right" { "小计" }
+                                th class="num-right" { "订单量" }
                                 th class="num-right" { "已发货" }
-                                th class="num-right" { "已退货" }
+                                th class="num-right" { "已取消" }
+                                th class="num-right" { "未交量" }
+                                th class="num-right" { "单价" }
+                                th class="num-right" { "小计" }
+                                th { "行状态" }
                                 th { "交货日期" }
                             }
                         }
                         tbody {
                             @for item in items {
-                                (item_row(item, product_names, product_codes, stock_quantities))
+                                (item_row(item, product_names, product_codes))
                             }
                             @if items.is_empty() {
                                 tr {
@@ -372,9 +608,12 @@ fn order_detail_page(
                 }
             }
 
+            // ── Fulfillment Workbench ──
+            (fulfillment_workbench(plan_lines, product_names, product_codes))
+
             // ── Remarks ──
             @if !o.remark.is_empty() {
-                div class="info-card mt-6" {
+                div class="info-card" style="margin-top:var(--space-6)" {
                     div class="info-card-title" { "备注" }
                     p class="text-muted" { (o.remark.as_str()) }
                 }
@@ -387,18 +626,12 @@ fn item_row(
     item: &SalesOrderItem,
     names: &HashMap<i64, String>,
     codes: &HashMap<i64, String>,
-    stock_quantities: &HashMap<i64, rust_decimal::Decimal>,
 ) -> Markup {
     let product_name = names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let product_code = codes.get(&item.product_id).map(|s| s.as_str()).unwrap_or("—");
     let delivery = item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_else(|| "—".into());
-    let discount = if item.discount_rate > rust_decimal::Decimal::ZERO {
-        format!("{}%", fmt_qty(item.discount_rate))
-    } else {
-        "—".into()
-    };
-    let stock_qty = stock_quantities.get(&item.product_id).copied().unwrap_or(rust_decimal::Decimal::ZERO);
-    let stock_display = if stock_qty > rust_decimal::Decimal::ZERO { fmt_qty(stock_qty) } else { "—".into() };
+    let open_qty = item.open_qty();
+    let (ls_label, ls_class) = line_status_pill(item.line_status);
 
     html! {
         tr {
@@ -407,12 +640,20 @@ fn item_row(
             td { (product_name) }
             td { (item.unit.as_str()) }
             td class="num-right" { (fmt_qty(item.quantity)) }
-            td class="num-right" { (stock_display) }
-            td class="num-right" { (crate::utils::fmt_amount(item.unit_price)) }
-            td class="num-right" { (discount) }
-            td class="num-right" { (crate::utils::fmt_amount(item.amount)) }
             td class="num-right" { (fmt_qty(item.shipped_qty)) }
-            td class="num-right" { (fmt_qty(item.returned_qty)) }
+            td class="num-right" { (fmt_qty(item.cancelled_qty)) }
+            td class="num-right" {
+                @if open_qty > Decimal::ZERO {
+                    span class="text-danger" { (fmt_qty(open_qty)) }
+                } @else {
+                    (fmt_qty(open_qty))
+                }
+            }
+            td class="num-right" { (crate::utils::fmt_amount(item.unit_price)) }
+            td class="num-right" { (crate::utils::fmt_amount(item.amount)) }
+            td {
+                span class=(format!("line-status {}", ls_class)) { (ls_label) }
+            }
             td class="mono" { (delivery) }
         }
     }

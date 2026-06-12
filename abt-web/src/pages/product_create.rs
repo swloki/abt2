@@ -3,7 +3,7 @@ use axum::response::{Html, IntoResponse};
 use maud::{Markup, html};
 use serde::Deserialize;
 
-use abt_core::master_data::product::model::{CreateProductReq, Product, ProductMeta, ProductStatus};
+use abt_core::master_data::product::model::{CreateProductReq, Product, ProductMeta, ProductStatus, AcquireChannel};
 use abt_core::master_data::product::ProductService;
 use abt_macros::require_permission;
 
@@ -88,18 +88,23 @@ pub async fn post_product_create(
         .as_deref()
         .and_then(|s| if s.is_empty() { None } else { s.parse::<i64>().ok() });
 
+    // 将中文获取途径映射为枚举值
+    let acquire_channel = match form.acquire_channel.as_deref() {
+        Some("自制") => AcquireChannel::SelfProduced,
+        Some("采购") => AcquireChannel::Purchased,
+        Some("委外") => AcquireChannel::Outsourced,
+        _ => AcquireChannel::Legacy, // 默认值，用于历史遗留数据
+    };
+
     let create_req = CreateProductReq {
         name: form.name,
         unit: form.unit,
         status: ProductStatus::Active,
+        acquire_channel,
         external_code: form.external_code.filter(|s| !s.is_empty()),
         owner_department_id,
         meta: ProductMeta {
             specification: form.specification,
-            acquire_channel: form
-                .acquire_channel
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| "采购".to_string()),
             old_code: form.old_code.filter(|s| !s.is_empty()),
             remark: form.remark.filter(|s| !s.is_empty()),
         },
@@ -120,7 +125,13 @@ fn product_create_page(source: Option<&Product>) -> Markup {
     let name_val = source.map(|p| format!("{}-1", p.pdt_name)).unwrap_or_default();
     let spec_val = source.map(|p| p.meta.specification.as_str()).unwrap_or("");
     let unit_val = source.map(|p| p.unit.as_str()).unwrap_or("");
-    let acquire_val = source.map(|p| p.meta.acquire_channel.as_str()).unwrap_or("采购");
+    let acquire_val = source.map(|p| match p.acquire_channel {
+        AcquireChannel::SelfProduced => "自制",
+        AcquireChannel::Purchased => "采购",
+        AcquireChannel::Outsourced => "委外",
+        AcquireChannel::NonInventory => "非库存",
+        AcquireChannel::Legacy => "历史遗留",
+    }).unwrap_or("采购");
     let external_code_val = source.as_ref().and_then(|p| p.external_code.as_deref()).unwrap_or("");
     let old_code_val = source.as_ref().and_then(|p| p.meta.old_code.as_deref()).unwrap_or("");
 

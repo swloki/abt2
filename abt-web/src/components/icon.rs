@@ -193,6 +193,11 @@ pub fn truck_icon(c: &str) -> Markup {
 }
 
 #[allow(dead_code)]
+pub fn chart_bar_icon(c: &str) -> Markup {
+    svg(r#"<path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>"#, c)
+}
+
+#[allow(dead_code)]
 pub fn refresh_icon(c: &str) -> Markup {
     svg(r#"<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>"#, c)
 }

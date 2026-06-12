@@ -3861,6 +3861,127 @@ textarea.form-input{min-height:72px;resize:vertical;font-family:var(--font-body)
   border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
+/* ─── Fulfillment Progress Bar ─── */
+.fulfill-progress {
+  background: var(--bg); border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-6); margin-bottom: var(--space-5);
+}
+.fulfill-progress-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-4);
+}
+.fulfill-progress-title {
+  font-size: var(--text-sm); font-weight: 600; color: var(--fg);
+  display: flex; align-items: center; gap: var(--space-2);
+}
+.fulfill-progress-title svg { width: 16px; height: 16px; color: var(--accent); }
+.progress-bar-track {
+  height: 8px; background: var(--border-soft); border-radius: 4px;
+  overflow: hidden; display: flex;
+}
+.progress-bar-shipped { background: var(--success); border-radius: 4px 0 0 4px; transition: width 600ms var(--ease-standard); }
+.progress-bar-allocated { background: var(--accent); transition: width 600ms var(--ease-standard); }
+.progress-bar-producing { background: var(--warn); transition: width 600ms var(--ease-standard); }
+.progress-bar-purchasing { background: #8b5cf6; transition: width 600ms var(--ease-standard); }
+.progress-bar-pending { background: var(--border); border-radius: 0 4px 4px 0; transition: width 600ms var(--ease-standard); }
+.progress-legend { display: flex; gap: var(--space-5); margin-top: var(--space-3); flex-wrap: wrap; }
+.progress-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.progress-legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.progress-stats { display: flex; gap: var(--space-6); font-size: 12px; }
+.progress-stat { text-align: center; }
+.progress-stat-value {
+  font-size: var(--text-lg); font-weight: 700; font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+}
+.progress-stat-value.green { color: var(--success); }
+.progress-stat-value.blue { color: var(--accent); }
+.progress-stat-value.orange { color: var(--warn); }
+.progress-stat-value.purple { color: #8b5cf6; }
+.progress-stat-label { color: var(--muted); margin-top: 2px; }
+
+/* ─── Line Status Pills ─── */
+.line-status {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  font-size: 11px; font-weight: 500; white-space: nowrap;
+}
+.line-status-pending { background: #f1f5f9; color: #64748b; }
+.line-status-allocated { background: #dbeafe; color: #2563eb; }
+.line-status-producing { background: #fef3c7; color: #92400e; }
+.line-status-purchasing { background: #ede9fe; color: #6d28d9; }
+.line-status-shipped { background: #dcfce7; color: #166534; }
+.line-status-cancelled { background: #f1f5f9; color: #94a3b8; text-decoration: line-through; }
+
+/* ─── Fulfillment Workbench ─── */
+.fulfill-section {
+  background: var(--bg); border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+  margin-top: var(--space-5); overflow: hidden;
+}
+.fulfill-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border-soft);
+  background: var(--surface-raised);
+}
+.fulfill-header-left { display: flex; align-items: center; gap: var(--space-3); }
+.fulfill-title { font-size: var(--text-sm); font-weight: 600; color: var(--fg); }
+.fulfill-badge {
+  background: #dbeafe; color: #2563eb; padding: 1px 8px;
+  border-radius: var(--radius-pill); font-size: 11px; font-weight: 500;
+}
+.fulfill-actions { display: flex; gap: var(--space-2); }
+.fulfill-btn {
+  display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px;
+  border-radius: var(--radius-sm); font-size: 12px; font-weight: 500;
+  cursor: pointer; border: 1px solid var(--border); background: var(--bg);
+  color: var(--fg-2); transition: all var(--motion-fast);
+}
+.fulfill-btn:hover { border-color: var(--accent); color: var(--accent); }
+.fulfill-btn svg { width: 14px; height: 14px; }
+.fulfill-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.fulfill-btn.primary:hover { background: var(--accent-hover); }
+
+/* ─── Fulfillment Table ─── */
+.fulfill-table { width: 100%; border-collapse: collapse; }
+.fulfill-table th {
+  text-align: left; font-size: 11px; font-weight: 500; color: var(--muted);
+  padding: 10px 12px; border-bottom: 1px solid var(--border-soft);
+  background: var(--surface-raised); position: sticky; top: 0;
+}
+.fulfill-table td {
+  padding: 10px 12px; font-size: var(--text-sm); border-bottom: 1px solid var(--border-soft);
+  vertical-align: middle;
+}
+.fulfill-table tr:last-child td { border-bottom: none; }
+.fulfill-table tr:hover td { background: var(--accent-bg); }
+.fulfill-table .num-right { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.fulfill-table .product-cell { display: flex; flex-direction: column; gap: 2px; }
+.fulfill-table .product-name { font-weight: 500; color: var(--fg); }
+.fulfill-table .product-code { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+
+/* ─── Qty Bar (Fulfillment) ─── */
+.qty-bar { display: flex; align-items: center; gap: 6px; }
+.qty-bar-track { flex: 1; height: 4px; background: var(--border-soft); border-radius: 2px; overflow: hidden; min-width: 40px; }
+.qty-bar-fill { height: 100%; border-radius: 2px; transition: width 400ms; }
+.qty-bar-fill.green { background: var(--success); }
+.qty-bar-fill.blue { background: var(--accent); }
+.qty-bar-fill.orange { background: var(--warn); }
+.qty-bar-fill.red { background: var(--danger); }
+.qty-bar-text { font-size: 11px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; min-width: 60px; }
+
+/* ─── Acquire Channel Tags ─── */
+.acquire-tag {
+  display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px;
+  border-radius: 3px; font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
+}
+.acquire-tag.self { background: #fef3c7; color: #92400e; }
+.acquire-tag.purchase { background: #dbeafe; color: #1d4ed8; }
+.acquire-tag.outsource { background: #ede9fe; color: #6d28d9; }
+.acquire-tag.non-inventory { background: #f1f5f9; color: #64748b; }
+
+.fulfill-ref-link {
+  color: var(--accent); font-size: 11px; font-weight: 500;
+  font-family: var(--font-mono); text-decoration: none;
+}
+.fulfill-ref-link:hover { text-decoration: underline; }
+
 /* ─── Stock Bar ─── */
 .stock-bar-wrap {
   margin-top: var(--space-4);

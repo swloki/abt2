@@ -312,10 +312,11 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
     searchInput.addEventListener('input',function(){filter(this.value)});
 
     container.addEventListener('click',function(e){
-        var btn=e.target.closest('.category-pick-btn');
-        if(!btn)return;
-        var id=btn.getAttribute('data-id');
-        var name=btn.getAttribute('data-name');
+        if(e.target.closest('.category-tree-toggle'))return;
+        var nameEl=e.target.closest('.category-select-name');
+        if(!nameEl)return;
+        var id=nameEl.getAttribute('data-id');
+        var name=nameEl.getAttribute('data-name');
         document.getElementById('selected-category-id').value=id;
         document.getElementById('category-select-label').textContent=name;
         document.getElementById('category-modal').classList.remove('is-open');
@@ -333,16 +334,20 @@ fn category_tree_node(node: &CategoryTree, depth: usize) -> Markup {
     let name_lower = name.to_lowercase();
     let pad = format!("padding-left:{}px", depth * 24 + 12);
 
+    let has_children = !node.children.is_empty();
+
     html! {
         div.category-select-item data-name=(name_lower) {
             div class="category-select-info" style=(pad) {
-                @if !node.children.is_empty() {
-                    (icon::chevron_right_icon("w-4 h-4 category-tree-arrow"))
+                @if has_children {
+                    span class="category-tree-toggle" {
+                        (icon::chevron_right_icon("w-3.5 h-3.5"))
+                        (PreEscaped(r#"<script>me().on('click',function(e){e.stopPropagation();me(me(e).closest('.category-select-item')).classToggle('expanded')})</script>"#))
+                    }
                 }
-                span class="category-select-name" { (name) }
-                button type="button" class="category-pick-btn btn btn-sm btn-primary" data-id=(id) data-name=(name) { "选择" }
+                span class="category-select-name" data-id=(id) data-name=(name) { (name) }
             }
-            @if !node.children.is_empty() {
+            @if has_children {
                 div class="category-select-children" {
                     @for child in &node.children {
                         (category_tree_node(child, depth + 1))

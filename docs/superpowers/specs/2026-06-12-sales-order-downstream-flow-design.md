@@ -26,7 +26,7 @@
 | 跨模块查询策略 | 数据库视图 | 单体 + 共享数据库架构下最轻量，封装 JOIN 逻辑避免直接依赖 |
 | confirm 状态同步 | **异步事件驱动** | confirm 只更新 demands + Outbox 事件，Handler 异步更新 fulfillment/订单行，避免跨聚合死锁 |
 | 供应商约束 | supplier_id 必填 | 一次创建只关联一个供应商，操作员自行决定合并或拆分 |
-| 排程参数 | items 可选 + 默认值 | 初版支持批量创建后逐行修改，降低操作复杂度（默认提前期不可硬编码，见 14.4） |
+| 排程参数 | items 可选 + 默认值 | 初版支持批量创建后逐行修改，降低操作复杂度（默认提前期不可硬编码，见 15.4） |
 | 并发控制 | **乐观锁（UPDATE WHERE status='Open'）** | 受影响行数校验，防止两个操作员同时抢占同一批需求 |
 | 需求池查询维度 | **订单行 + 物料聚合双视图** | 物料维度是采购员/计划员主要操作入口，避免逐条勾选 |
 | Handler 回查告警 | **warn! 日志** | Demand 不存在时非静默跳过，记录告警便于排查数据一致性 |
@@ -245,7 +245,7 @@ pub struct MaterialAggSummary {
     pub demand_count: i64,              // 涉及多少条需求
     pub earliest_required_date: Option<NaiveDate>, // 最早需求日期
     pub latest_required_date: Option<NaiveDate>,   // 最晚需求日期
-    // 注意：不返回 demand_ids 列表，避免大数组陷阱（见 14.2）
+    // 注意：不返回 demand_ids 列表，避免大数组陷阱（见 15.2）
 }
 
 /// 从需求创建采购订单请求
@@ -260,7 +260,7 @@ pub struct CreateOrderFromDemandsReq {
 **设计说明**：
 - `list_material_aggregated` 是采购员的**主要操作视图**，避免采购员逐条勾选 500 条需求
 - 前端展示：物料X，总需求100，涉及5个订单，最早需 7/15 → 操作员点击"创建PO"
-- **不返回 demand_ids 列表**（避免大数组陷阱，见 14.2），前端需要明细时调用 `list_pending_demands`
+- **不返回 demand_ids 列表**（避免大数组陷阱，见 15.2），前端需要明细时调用 `list_pending_demands`
 - `list_pending_demands` 仍保留，用于需要查看订单行明细的场景
 
 ### 4.5 create_order_from_demands 流程
@@ -271,7 +271,7 @@ pub struct CreateOrderFromDemandsReq {
    WHERE id = ANY($1) AND status = 'Open' AND acquire_channel = 2 AND deleted_at IS NULL;
    ```
    - 检查受影响行数是否等于 `demand_ids.len()`，如果不等于说明部分需求已被他人处理
-   - **部分成功优化**（见 14.3）：可只对成功锁定的需求创建 PO，返回 `CreateOrderResult` 含 `skipped_demands`
+   - **部分成功优化**（见 15.3）：可只对成功锁定的需求创建 PO，返回 `CreateOrderResult` 含 `skipped_demands`
    - 这比先 SELECT 再 UPDATE 的两步模式更安全，避免了 TOCTOU 竞争
 2. **供应商约束**：`CreateOrderFromDemandsReq.supplier_id` 为**必填**，操作员创建 PO 前必须指定供应商。**一次调用只创建一张 PO，只关联一个供应商**
 3. **聚合**：按 `product_id` 聚合需求（多条需求同产品则合并数量）
@@ -475,7 +475,7 @@ pub struct PlanDemandItemReq {
 **排程策略**：
 - 如果提供了 `items`，使用每条需求各自的排程参数
 - 如果未提供 `items`，所有需求统一使用 `default_scheduled_start/end`
-- **默认值不可硬编码**（见 14.4）：end 默认 = plan_date + 配置项 `default_production_lead_time_days`（而非写死 +7），代码中加 `// TODO: P5 接入产品主数据 Lead Time`
+- **默认值不可硬编码**（见 15.4）：end 默认 = plan_date + 配置项 `default_production_lead_time_days`（而非写死 +7），代码中加 `// TODO: P5 接入产品主数据 Lead Time`
 - 计划员可在前端逐步细化排程，初版支持批量创建后逐行修改
 
 ### 5.5 create_plan_from_demands 流程
@@ -800,7 +800,7 @@ LIMIT 20;
 1. 用户点击【创建采购单】→ 弹窗
 2. 弹窗内调用 `GET /purchase/demands?product_id=X&status=Open`（订单行维度，分页加载明细）
 3. 用户在明细中勾选/全选 → 提交 `POST /purchase/demands/create-order`
-4. 响应含 `CreateOrderResult`（含 `skipped_demands`），Toast 提示结果
+4. 响应含 `CreateOrderResult`（含 `skipped_demands` 和 `demand_status`，见 15.6），Toast 提示结果
 
 **或快捷操作**：
 1. 用户直接点击【一键创建】（基于 `CreateOrderByMaterialReq`，后端自动选取该物料所有 Open 需求）
@@ -810,7 +810,7 @@ LIMIT 20;
 
 ## 15. 代码落地暗坑防御
 
-### 14.1 Outbox 事务可见性陷阱
+### 15.1 Outbox 事务可见性陷阱
 
 **场景**：`confirm` 事务内更新 demands → 写入 domain_events (Outbox) → NOTIFY。EventProcessor 收到通知后，`SalesDemandConfirmedHandler` 开启新事务去更新 fulfillment_plan_lines。
 
@@ -818,10 +818,10 @@ LIMIT 20;
 
 **防御措施**：
 - 当前 EventProcessor 采用 **DB 轮询 + LISTEN/NOTIFY 双模式**（`processor.rs` 第 100-115 行），`fetch_pending/fetch_retryable` 使用 `FOR UPDATE SKIP LOCKED`，天然只拉取已提交的事件
-- Handler 内部的幂等 SQL 使用**前置状态校验的单条 UPDATE**（见 14.5），不依赖先 SELECT 再 UPDATE 的两步模式
+- Handler 内部的幂等 SQL 使用**前置状态校验的单条 UPDATE**（见 15.5），不依赖先 SELECT 再 UPDATE 的两步模式
 - 如果未来 EventProcessor 改为纯 LISTEN/NOTIFY 驱动，必须加入短暂重试机制（retry after 100ms）
 
-### 14.2 物料聚合视图的大数组陷阱
+### 15.2 物料聚合视图的大数组陷阱
 
 **场景**：`MaterialAggSummary` 中包含 `demand_ids: Vec<i64>`。对于通用物料（如"M4 螺丝"），需求池中可能同时存在数千条 Open 状态的 demand。
 
@@ -854,7 +854,7 @@ pub struct CreateOrderByMaterialReq {
 }
 ```
 
-### 14.3 乐观锁部分成功的体验优化
+### 15.3 乐观锁部分成功的体验优化
 
 **场景**：采购员勾选 10 个需求点击"创建 PO"，乐观锁发现 2 个已被抢走（受影响行数 = 8 ≠ 10）。
 
@@ -881,7 +881,7 @@ pub struct SkippedDemand {
 - 前端弹出 Toast："已创建 PO #123（8/10），2 条需求已被他人处理已跳过"
 - 如果开发成本受限，保持全部回滚亦可，但错误消息必须列出被抢走的需求 ID
 
-### 14.4 MES 默认排程的硬编码风险
+### 15.4 MES 默认排程的硬编码风险
 
 **场景**：5.4 节中 `default_scheduled_end` 默认 = plan_date + 7 天。
 
@@ -893,7 +893,7 @@ pub struct SkippedDemand {
 - 代码中必须加注释：`// TODO: P5 阶段接入产品主数据 Lead Time，当前使用全局配置默认值`
 - API 层 `default_scheduled_end` 如果未提供，默认值逻辑为：`plan_date + lead_time_days`（从配置读取，不硬编码 7）
 
-### 14.5 Handler 幂等更新的 SQL 模式
+### 15.5 Handler 幂等更新的 SQL 模式
 
 **场景**：`SalesDemandConfirmedHandler` 异步更新 `fulfillment_plan_lines`，需保证幂等。
 
@@ -921,6 +921,56 @@ WHERE order_line_id = $1
 - 所有 Handler 内的状态更新必须使用**前置状态校验的单条 UPDATE**
 - 通过 `rows_affected` 判断操作结果，不依赖先 SELECT 再 UPDATE
 - `rows_affected == 0` 不视为错误，而是幂等成功（状态已更新过）
+
+### 15.6 confirm 异步后前端"短暂不一致"的应对
+
+**场景**：`create_order_from_demands` 返回 PO ID 后，`demands.status` 已变为 `Processing`，但 `fulfillment_plan_lines.status` 和 `sales_order_items.line_status` 仍是 `Pending`——需要等 EventProcessor 消费 `DemandConfirmed` 事件后才会更新（通常秒级）。
+
+**风险**：前端在 PO 创建成功后立即调用订单详情接口，看到状态还是 Pending，可能误操作或报错。
+
+**防御措施**：
+- `create_order_from_demands` API 响应中**显式返回 `demand_status: Processing`**，前端据此判断"补货已启动"
+- P3 阶段必须告知前端团队：**不要强依赖履行计划行实时同步**，只要 `demands.status == Processing`，UI 就应显示"采购中"/"生产中"
+- 如果前端需要确认最终状态，可提供轮询接口或使用"刷新状态"按钮（P3 范围）
+- EventProcessor 正常运行时延迟通常 < 2 秒，用户体感可接受
+
+```rust
+/// create_order_from_demands 的响应结构
+pub struct CreateOrderResult {
+    pub po_id: i64,
+    pub processed_demand_count: usize,
+    pub skipped_demands: Vec<SkippedDemand>,
+    pub demand_status: String,  // "Processing" — 前端用此字段而非查询订单行状态
+}
+```
+
+### 15.7 乐观锁部分成功时的遍历边界
+
+**场景**：采购员勾选 10 个需求，乐观锁成功 8 个（rows_affected = 8），2 个已被他人抢走。
+
+**风险**：后续创建 PO 和调用 `DemandService.confirm` 时，如果遍历范围错误地包含了全部 10 个 demand_ids（而非仅成功锁定的 8 个），会把已被他人处理的 demand 也纳入 confirm 调用。
+
+**防御措施**：
+- 乐观锁 UPDATE 返回的**实际受影响的 demand ID 集合**才是后续操作的遍历范围
+- 实现方式：UPDATE 语句使用 `RETURNING id`，只收集实际被锁定的 ID
+  ```sql
+  UPDATE demands SET status = 'Processing'
+  WHERE id = ANY($1) AND status = 'Open' AND acquire_channel = 2
+  RETURNING id;
+  ```
+- `DemandService.confirm` 的遍历范围**严格限定**为 `RETURNING id` 返回的集合，而非请求中的 `demand_ids`
+- 被跳过的需求（不在 RETURNING 集合中）记入 `skipped_demands`，不做任何操作
+
+### 15.8 SalesDemandConfirmedHandler 注册时序的安全性确认
+
+**场景**：`SalesDemandConfirmedHandler` 已注册并随 EventProcessor 启动。`DemandService.confirm` 在事务内插入 `DemandConfirmed` 事件 → 事务提交后 EventProcessor 很快拉到该事件。
+
+**确认**：当前 EventProcessor 基于 **DB 轮询 + FOR UPDATE SKIP LOCKED**（`processor.rs` 第 226-233 行），只会拉取已提交的事件。因此：
+- confirm 事务未提交时，domain_events 表中的事件行对其他事务不可见（Read Committed 隔离级别）
+- FOR UPDATE SKIP LOCKED 进一步确保：即使事件已被其他 worker 锁定，也不会读到半提交状态
+- **本地开发时同样安全**，不存在事务未提交就被消费的竞态
+
+**未来注意**：如果 EventProcessor 改为纯 LISTEN/NOTIFY 驱动（不经过 DB 轮询），必须在消费逻辑中补上事务可见性保护（如短暂重试或 version check）。
 
 ## 16. 远期规划（未纳入本次范围的建议）
 

@@ -1,8 +1,10 @@
+pub mod event_handlers;
 pub mod implt;
 pub mod model;
 pub mod repo;
 pub mod service;
 
+pub use event_handlers::{SalesDemandConfirmedHandler, SalesDemandRejectedHandler};
 pub use model::*;
 pub use service::{SalesOrderService, ReplenishmentAllocationStrategy, AllocationResult, DemandService};
 

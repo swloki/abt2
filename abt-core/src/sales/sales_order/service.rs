@@ -1,4 +1,5 @@
 ﻿use async_trait::async_trait;
+use rust_decimal::Decimal;
 
 use super::model::*;
 use crate::shared::types::{PgExecutor,PageParams, PaginatedResult, Result, ServiceContext};
@@ -58,4 +59,53 @@ pub trait SalesOrderService: Send + Sync {
         filter: SalesOrderQuery,
         page: PageParams,
     ) -> Result<PaginatedResult<SalesOrder>>;
+
+    // -- P1 新增 --
+
+    /// 取消订单行（部分或全部）。增加 cancelled_qty。
+    async fn cancel_line(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+        line_id: i64,
+        req: CancelLineReq,
+    ) -> Result<()>;
+
+    /// 查询履行计划行
+    async fn list_fulfillment_plan(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        query: FulfillmentPlanQuery,
+    ) -> Result<Vec<FulfillmentPlanLine>>;
+
+    /// 幂等重算订单头状态（根据行状态聚合推导）
+    async fn recalc_header_status(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<SalesOrderStatus>;
+
+    /// 手动对账：检测 fulfillment_plan_lines 状态不一致并修复
+    async fn reconcile_fulfillment_status(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<u32>;
+}
+
+/// 分配策略接口 — P1 定义接口，后续实现 FIFO
+pub struct AllocationResult {
+    pub fulfillment_line_id: i64,
+    pub allocated_qty: Decimal,
+}
+
+#[async_trait]
+pub trait ReplenishmentAllocationStrategy: Send + Sync {
+    /// 给定可用量和候选履行计划行，按策略分配
+    fn allocate(
+        &self,
+        product_id: i64,
+        available_qty: Decimal,
+        candidates: &[FulfillmentPlanLine],
+    ) -> Vec<AllocationResult>;
 }

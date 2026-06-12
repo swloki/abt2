@@ -629,4 +629,44 @@ impl SalesOrderService for SalesOrderServiceImpl {
             )
             .await
     }
+
+    // -- P1 新增方法（桩实现，P1-T5 填充逻辑） --
+
+    async fn cancel_line(
+        &self,
+        _ctx: &ServiceContext,
+        _db: PgExecutor<'_>,
+        _order_id: i64,
+        _line_id: i64,
+        _req: CancelLineReq,
+    ) -> Result<()> {
+        todo!("P1-T5: cancel_line implementation")
+    }
+
+    async fn list_fulfillment_plan(
+        &self,
+        _ctx: &ServiceContext,
+        _db: PgExecutor<'_>,
+        _query: FulfillmentPlanQuery,
+    ) -> Result<Vec<FulfillmentPlanLine>> {
+        todo!("P1-T5: list_fulfillment_plan implementation")
+    }
+
+    async fn recalc_header_status(
+        &self,
+        _ctx: &ServiceContext,
+        _db: PgExecutor<'_>,
+        _order_id: i64,
+    ) -> Result<SalesOrderStatus> {
+        todo!("P1-T5: recalc_header_status implementation")
+    }
+
+    async fn reconcile_fulfillment_status(
+        &self,
+        _ctx: &ServiceContext,
+        _db: PgExecutor<'_>,
+        _order_id: i64,
+    ) -> Result<u32> {
+        todo!("P1-T5: reconcile_fulfillment_status implementation")
+    }
 }

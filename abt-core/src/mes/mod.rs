@@ -4,6 +4,7 @@
 //! 严格遵循 docs/uml-design/04-mes.html 中的 UML 设计。
 
 pub mod enums;
+pub mod demand_handler;
 
 pub mod production_plan;
 pub mod work_order;

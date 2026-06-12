@@ -482,11 +482,11 @@ fn product_row(p: &Product, watched_ids: &[i64], can_delete: bool, can_edit: boo
                     button type="button" class="row-action-btn" title="更多"
                         id=(format!("more-btn-{}", p.product_id)) {
                         (icon::dots_vertical_icon("w-4 h-4"))
-                        script { (maud::PreEscaped("me().on('click', ev => { me(me(ev).nextElementSibling).classToggle('is-open'); if(me(ev).nextElementSibling.classList.contains('is-open')) positionDropdown(me(ev), me(ev).nextElementSibling) })")) }
+                        script { (maud::PreEscaped("me().on('click', ev => { var menu = me(ev).parentElement.querySelector('.row-actions-menu'); me(menu).classToggle('is-open'); if(menu.classList.contains('is-open')) positionDropdown(me(ev), menu) })")) }
                     }
                     // Backdrop to close menu on outside click
-                    div style="position:fixed;inset:0;z-index:49;display:none"
-                        onclick="hsRemoveClosest(this,'.row-actions-menu','is-open');this.style.display='none'" {}
+                    div class="dropdown-backdrop"
+                        onclick="this.parentElement.querySelector('.row-actions-menu').classList.remove('is-open')" {}
                     // Dropdown menu
                     div class="row-actions-menu" onclick="event.stopPropagation()" {
                         @if can_edit {

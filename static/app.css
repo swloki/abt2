@@ -506,11 +506,14 @@ p { margin: 0; }
 .row-action-btn svg { width: 14px; height: 14px; }
 /* ─── Row Action Dropdown ─── */
 .row-actions-menu {
-  position: fixed; top: -9999px; left: -9999px; z-index: 50;
+  position: fixed; display: none; z-index: 50;
   min-width: 140px; padding: 4px;
   background: var(--bg); border: 1px solid var(--border);
   border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
 }
+.row-actions-menu.is-open { display: block; }
+.dropdown-backdrop { display: none; position: fixed; inset: 0; z-index: 49; }
+.row-actions:has(.row-actions-menu.is-open) .dropdown-backdrop { display: block; }
 .row-actions-menu a,
 .row-actions-menu button {
   display: flex; align-items: center; gap: 8px; width: 100%;

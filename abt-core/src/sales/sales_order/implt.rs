@@ -1127,3 +1127,95 @@ impl DemandService for DemandServiceImpl {
         DemandRepo::find_mismatched(db, order_id).await
     }
 }
+
+// ---------------------------------------------------------------------------
+// 事件处理器 — 下游模块注册消费
+// ---------------------------------------------------------------------------
+
+/// 处理 DemandConfirmed 事件 — 更新履行计划行状态
+pub async fn handle_demand_confirmed(
+    _pool: PgPool,
+    _ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    event: &crate::shared::event_bus::model::DomainEvent,
+) -> Result<()> {
+    let payload = &event.payload;
+    let order_line_id: i64 = payload["order_line_id"]
+        .as_i64()
+        .ok_or_else(|| DomainError::validation("Missing order_line_id in DemandConfirmed payload"))?;
+    let acquire_channel: i16 = payload["acquire_channel"]
+        .as_i64()
+        .unwrap_or(9) as i16;
+    let target_doc_type: i16 = payload["target_doc_type"]
+        .as_i64()
+        .unwrap_or(0) as i16;
+    let target_doc_id: i64 = payload["target_doc_id"]
+        .as_i64()
+        .unwrap_or(0);
+
+    // 查找履行计划行
+    let fp_line = FulfillmentPlanLineRepo::find_by_order_line_id(db, order_line_id).await?
+        .ok_or_else(|| DomainError::not_found("FulfillmentPlanLine"))?;
+
+    // 根据 acquire_channel 决定新状态
+    let new_status = match acquire_channel {
+        1 => FulfillmentLineStatus::Producing,    // SelfProduced
+        2 => FulfillmentLineStatus::Purchasing,   // Purchased
+        3 => FulfillmentLineStatus::Producing,    // Outsourced → Producing
+        _ => FulfillmentLineStatus::Pending,
+    };
+
+    // 更新履行计划行
+    FulfillmentPlanLineRepo::update_status(db, fp_line.id, new_status, fp_line.version).await?;
+    FulfillmentPlanLineRepo::update_source_doc(db, fp_line.id, target_doc_type, target_doc_id).await?;
+
+    // 更新订单行状态
+    let order_item_status = match acquire_channel {
+        1 => SalesOrderLineStatus::Producing,
+        2 => SalesOrderLineStatus::Purchasing,
+        3 => SalesOrderLineStatus::Producing,
+        _ => SalesOrderLineStatus::Pending,
+    };
+
+    let item_repo = SalesOrderItemRepo;
+    item_repo.batch_update_line_status(
+        db,
+        &[(fp_line.order_line_id, order_item_status, 1)],
+    ).await?;
+
+    tracing::info!("DemandConfirmed handled: fp_line {} → {:?}", fp_line.id, new_status);
+
+    Ok(())
+}
+
+/// 处理 DemandRejected 事件 — 将履行计划行回退到 Pending
+pub async fn handle_demand_rejected(
+    _pool: PgPool,
+    _ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    event: &crate::shared::event_bus::model::DomainEvent,
+) -> Result<()> {
+    let payload = &event.payload;
+    let order_line_id: i64 = payload["order_line_id"]
+        .as_i64()
+        .ok_or_else(|| DomainError::validation("Missing order_line_id in DemandRejected payload"))?;
+
+    let fp_line = FulfillmentPlanLineRepo::find_by_order_line_id(db, order_line_id).await?
+        .ok_or_else(|| DomainError::not_found("FulfillmentPlanLine"))?;
+
+    // 回退到 Pending
+    FulfillmentPlanLineRepo::update_status(
+        db, fp_line.id, FulfillmentLineStatus::Pending, fp_line.version,
+    ).await?;
+
+    // 回退订单行状态
+    let item_repo = SalesOrderItemRepo;
+    item_repo.batch_update_line_status(
+        db,
+        &[(fp_line.order_line_id, SalesOrderLineStatus::Pending, 1)],
+    ).await?;
+
+    tracing::info!("DemandRejected handled: fp_line {} → Pending", fp_line.id);
+
+    Ok(())
+}

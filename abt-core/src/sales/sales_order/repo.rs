@@ -529,6 +529,135 @@ impl FulfillmentPlanLineRepo {
 }
 
 // ---------------------------------------------------------------------------
+// DemandRepo
+// ---------------------------------------------------------------------------
+
+pub struct DemandRepo;
+
+const DEMAND_COLUMNS: &str = "id, demand_type, source_type, source_id, source_line_id, product_id, acquire_channel, required_qty, required_date, status, target_doc_type, target_doc_id, priority, remark, operator_id, created_at, updated_at, deleted_at";
+
+impl DemandRepo {
+    /// 创建需求
+    pub async fn create(
+        executor: PgExecutor<'_>,
+        input: &DemandInput,
+    ) -> Result<i64> {
+        let id = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            r#"INSERT INTO demands
+               (demand_type, source_type, source_id, source_line_id, product_id,
+                acquire_channel, required_qty, required_date, status, priority, remark, operator_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1, $9, $10, $11)
+               RETURNING id"#,
+        )
+        .bind(input.demand_type)
+        .bind(input.source_type)
+        .bind(input.source_id)
+        .bind(input.source_line_id)
+        .bind(input.product_id)
+        .bind(input.acquire_channel)
+        .bind(input.required_qty)
+        .bind(input.required_date)
+        .bind(input.priority)
+        .bind(&input.remark)
+        .bind(input.operator_id)
+        .fetch_one(executor)
+        .await?;
+        Ok(id)
+    }
+
+    /// 按 ID 查询
+    pub async fn find_by_id(
+        executor: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Option<Demand>> {
+        let demand = sqlx::query_as::<sqlx::Postgres, Demand>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {DEMAND_COLUMNS} FROM demands WHERE id = $1 AND deleted_at IS NULL"
+            )),
+        )
+        .bind(id)
+        .fetch_optional(executor)
+        .await?;
+        Ok(demand)
+    }
+
+    /// 按来源行查询
+    pub async fn find_by_source_line(
+        executor: PgExecutor<'_>,
+        source_type: i16,
+        source_line_id: i64,
+    ) -> Result<Vec<Demand>> {
+        let demands = sqlx::query_as::<sqlx::Postgres, Demand>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {DEMAND_COLUMNS} FROM demands WHERE source_type = $1 AND source_line_id = $2 AND deleted_at IS NULL"
+            )),
+        )
+        .bind(source_type)
+        .bind(source_line_id)
+        .fetch_all(executor)
+        .await?;
+        Ok(demands)
+    }
+
+    /// 更新状态
+    pub async fn update_status(
+        executor: PgExecutor<'_>,
+        id: i64,
+        status: DemandStatus,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE demands SET status = $1, updated_at = NOW() WHERE id = $2"#,
+        )
+        .bind(status.as_i16())
+        .bind(id)
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 更新下游单据关联
+    pub async fn update_target_doc(
+        executor: PgExecutor<'_>,
+        id: i64,
+        target_doc_type: i16,
+        target_doc_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"UPDATE demands
+               SET target_doc_type = $1, target_doc_id = $2, updated_at = NOW()
+               WHERE id = $3"#,
+        )
+        .bind(target_doc_type)
+        .bind(target_doc_id)
+        .bind(id)
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 对账查询：查找履行计划行状态与 demand 状态不一致的记录
+    pub async fn find_mismatched(
+        executor: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<Vec<(i64, i64)>> {
+        let rows = sqlx::query_as::<sqlx::Postgres, (i64, i64)>(
+            r#"SELECT fp.id, d.id
+               FROM fulfillment_plan_lines fp
+               JOIN demands d ON d.source_type = 2
+                 AND d.source_line_id = fp.order_line_id
+                 AND d.deleted_at IS NULL
+               WHERE fp.order_id = $1
+                 AND fp.status IN (3, 4)
+                 AND d.status IN (1, 5)"#,
+        )
+        .bind(order_id)
+        .fetch_all(executor)
+        .await?;
+        Ok(rows)
+    }
+}
+
+// ---------------------------------------------------------------------------
 // SAVEPOINT helpers
 // ---------------------------------------------------------------------------
 

@@ -109,3 +109,69 @@ pub trait ReplenishmentAllocationStrategy: Send + Sync {
         candidates: &[FulfillmentPlanLine],
     ) -> Vec<AllocationResult>;
 }
+
+// ---------------------------------------------------------------------------
+// DemandService — 需求池生命周期管理
+// ---------------------------------------------------------------------------
+
+/// 需求服务 — 管理需求池生命周期
+#[async_trait]
+pub trait DemandService: Send + Sync {
+    /// 从订单创建需求（在 confirm 事务内调用）
+    async fn create_from_order(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<Vec<i64>>;
+
+    /// 按 ID 查询需求
+    async fn find_by_id(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Demand>;
+
+    /// 分页查询需求
+    async fn list(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        query: DemandQuery,
+        page: PageParams,
+    ) -> Result<PaginatedResult<Demand>>;
+
+    /// 下游确认需求（记录关联下游单据）
+    async fn confirm(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+        req: ConfirmDemandReq,
+    ) -> Result<()>;
+
+    /// 下游驳回需求
+    async fn reject(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()>;
+
+    /// 需求完成（下游单据执行完毕）
+    async fn fulfill(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()>;
+
+    /// 取消需求
+    async fn cancel(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()>;
+
+    /// 对账：查询 fulfillment_plan_lines 与 demands 状态不一致的记录
+    async fn find_mismatched(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        order_id: i64,
+    ) -> Result<Vec<(i64, i64)>>;
+}

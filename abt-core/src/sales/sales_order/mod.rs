@@ -4,7 +4,7 @@ pub mod repo;
 pub mod service;
 
 pub use model::*;
-pub use service::SalesOrderService;
+pub use service::{SalesOrderService, ReplenishmentAllocationStrategy, AllocationResult};
 
 use sqlx::PgPool;
 

@@ -22,6 +22,11 @@
 | 自制下游单据 | 生产计划 → 释放工单 | 符合 MES 现有流程，用户明确要求 |
 | 事件处理模式 | 事件驱动 + API 混合 | Handler 做通知，API 做单据创建，保留人工合并控制 |
 | 前端范围 | 只做后端 | 前端 UI 留到 P3 阶段 |
+| Handler 通知数据来源 | 回查 demands 表 | 与 v5"Payload 精简，消费者回查"原则一致，通知始终反映真实状态 |
+| 跨模块查询策略 | 数据库视图 | 单体 + 共享数据库架构下最轻量，封装 JOIN 逻辑避免直接依赖 |
+| confirm 状态同步策略 | 同步更新 + Outbox 事件 | 调用方需要即时结果，Outbox 保证最终一致 |
+| 供应商约束 | supplier_id 必填 | 一次创建只关联一个供应商，操作员自行决定合并或拆分 |
+| 排程参数 | items 可选 + 默认值 | 初版支持批量创建后逐行修改，降低操作复杂度 |
 
 ## 3. 整体架构
 
@@ -88,6 +93,8 @@ abt-core/src/purchase/demand_handler/
 
 ### 4.2 EventHandler — PurchaseDemandCreatedHandler
 
+**原则**：通知内容**回查 demands 表获取真实数据**，不依赖 payload 快照。这与 v5 设计文档的"Payload 精简，消费者回查"原则一致，确保通知始终反映需求当前状态。
+
 ```rust
 pub struct PurchaseDemandCreatedHandler {
     pool: PgPool,
@@ -104,27 +111,49 @@ impl EventHandler for PurchaseDemandCreatedHandler {
             return Ok(());
         }
 
-        // 触发通知：告诉采购员有新的外购需求待处理
+        // 回查 demands 表获取真实数据（而非依赖 payload 快照）
+        let demand_id = event.aggregate_id;
+        let mut conn = self.pool.acquire().await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let demand = DemandRepo::find_by_id(&mut conn, demand_id).await?
+            .ok_or_else(|| DomainError::not_found("Demand"))?;
+
+        // 如果需求已被处理或取消，跳过通知
+        if demand.status != DemandStatus::Open {
+            return Ok(());
+        }
+
+        // 查询产品名称（回查而非依赖 payload）
+        let product = ProductRepo::find_by_id(&mut conn, demand.product_id).await?
+            .ok_or_else(|| DomainError::not_found("Product"))?;
+        let order_no = SalesOrderRepo::find_order_no_by_id(&mut conn, demand.order_id).await?;
+
+        // 构造通知，内容来自真实数据
+        let ctx = ServiceContext::system(event.operator_id);
         let notification_svc = new_notification_service(self.pool.clone());
-        notification_svc.send(Notification {
-            target_role: "purchase_staff",
-            title: "新的外购需求待处理",
-            body: format!("产品ID: {}, 来源订单ID: {}",
-                payload["product_id"], payload["order_id"]),
-            link: format!("/purchase/demands?status=Open"),
+        notification_svc.notify_by_role(&ctx, &mut conn, PURCHASE_ROLE_ID, BatchNotificationReq {
+            notification_type: NotificationType::Business,
+            title: "新的外购需求待处理".into(),
+            content: Some(format!(
+                "产品: {} ({}) × {}, 来源订单: {}",
+                product.name, product.code, demand.quantity, order_no
+            )),
+            related_type: Some("demand".into()),
+            related_id: demand_id,
         }).await?;
 
         Ok(())
     }
 
-    fn name(&self) -> &str { "PurchaseDemandCreatedHandler" }
+    fn name(&self) -> &str { "purchase_demand_created" }
 }
 ```
 
 **行为说明**：
-- 收到 `DemandCreated` 事件后检查 `acquire_channel`
-- 仅处理 `Purchased(2)` 类型的需求
-- 通过通知服务发送提醒给采购角色
+- 收到 `DemandCreated` 事件后检查 `acquire_channel`，仅处理 `Purchased(2)`
+- **回查 demands 表**获取需求数据，而非依赖 payload 快照（v5 原则：事件结构稳定，消费者回查）
+- 再次校验 `demand.status == Open`，防御事件乱序（如需求已被手动关闭）
+- 通过 `notify_by_role` 发送业务通知给采购角色
 - **不创建任何下游单据**
 
 ### 4.3 PurchaseDemandService 接口
@@ -195,43 +224,83 @@ pub struct CreateOrderFromDemandsReq {
    - 状态必须为 `Open`
    - `acquire_channel` 必须为 `Purchased`
    - 不存在重复 ID
-2. **聚合**：按 `product_id` 聚合需求（多条需求同产品则合并数量）
-3. **创建 PO**：调用 `PurchaseOrderService::create` 创建采购订单草稿
+2. **供应商约束**：`CreateOrderFromDemandsReq.supplier_id` 为**必填**，操作员创建 PO 前必须指定供应商。如果选中的需求对应的产品默认供应商不一致，由操作员自行决定拆分或统一指定。**一次调用只创建一张 PO，只关联一个供应商**。
+3. **聚合**：按 `product_id` 聚合需求（多条需求同产品则合并数量）
+4. **创建 PO**：调用 `PurchaseOrderService::create` 创建采购订单草稿
    - 每个 product_id 聚合后生成一个订单行
    - `line_no` 自动编号
    - `unit_price` 取产品默认采购价或 0（待采购员补充）
-4. **关联需求**：逐一调用 `DemandService::confirm`，传入 PO ID
-5. **事务保证**：以上步骤在同一数据库事务中完成
-6. **返回**：新建的 PO ID
+5. **关联需求**：逐一调用 `DemandService::confirm`，传入 PO ID（6.5 节定义的实现策略）
+6. **事务保证**：以上步骤在同一数据库事务中完成
+7. **返回**：新建的 PO ID
 
-### 4.6 Repo 层查询
+### 4.6 Repo 层查询 — 跨模块数据访问策略
+
+**核心问题**：采购/MES 模块需要 JOIN `products` 和 `sales_orders` 表来展示需求摘要，这产生跨模块耦合。
+
+**决策：采用数据库视图封装 JOIN 逻辑**（短期方案）
+
+- 创建 `v_purchase_demands` 和 `v_production_demands` 视图，封装 demands + products + sales_orders 的 JOIN
+- 下游模块只读视图，不直接依赖销售表结构
+- 视图变更由数据库 migration 管理，如果销售表结构变更，只需更新视图定义
+- 当前架构是单体 + 共享数据库，视图是最轻量、最务实的解法
+
+```sql
+-- v_purchase_demands 视图
+CREATE VIEW v_purchase_demands AS
+SELECT
+    d.id, d.order_id, d.product_id, d.quantity,
+    d.required_date, d.priority, d.status AS demand_status,
+    d.acquire_channel, d.target_doc_id, d.created_at,
+    p.name AS product_name, p.code AS product_code,
+    so.order_no
+FROM demands d
+JOIN products p ON p.id = d.product_id
+JOIN sales_orders so ON so.id = d.order_id
+WHERE d.acquire_channel = 2    -- Purchased
+  AND d.deleted_at IS NULL;
+```
+
+**Repo 层查询**：
 
 ```rust
-/// 查询 demands 表（跨模块读取，只读）
-/// 采购模块通过此 repo 读取 sales 模块的 demands 数据
+/// 查询视图 v_purchase_demands（封装跨模块 JOIN）
 pub struct PurchaseDemandRepo;
 
 impl PurchaseDemandRepo {
-    /// 按条件查询外购需求
+    /// 按条件查询外购需求 — 读取视图而非原始表
     pub async fn find_demands(
         db: PgExecutor<'_>,
         query: &DemandQuery,
         page: u32,
         page_size: u32,
     ) -> Result<Vec<DemandSummary>> {
-        // JOIN products 表获取产品名称和编码
-        // JOIN sales_orders 表获取订单号
-        // WHERE acquire_channel = 2 (Purchased)
-        //   AND status = 'Open' (默认)
+        // SELECT * FROM v_purchase_demands
+        // WHERE status = 'Open' (默认) AND ...
+        // ORDER BY required_date ASC, priority DESC
     }
 
     /// 批量读取指定 ID 的 demands（用于校验和创建 PO）
+    /// 直接读 demands 原始表（需要写权限校验）
     pub async fn find_by_ids(
         db: PgExecutor<'_>,
         ids: &[i64],
-    ) -> Result<Vec<Demand>>;
+    ) -> Result<Vec<Demand>> {
+        // SELECT * FROM demands WHERE id = ANY($1) AND acquire_channel = 2
+    }
 }
 ```
+
+**必要的索引**（性能保障）：
+```sql
+-- demands 表核心查询索引
+CREATE INDEX idx_demands_channel_status ON demands (acquire_channel, status) WHERE deleted_at IS NULL;
+CREATE INDEX idx_demands_product ON demands (product_id) WHERE deleted_at IS NULL;
+```
+
+**长期演进方向**（超出本次范围）：
+- 如果未来拆分微服务，视图替换为服务间 API 调用
+- 如果 demands 数据量 > 10 万行，引入读模型（CQRS）或物化视图
 
 ## 5. MES 模块集成
 
@@ -247,6 +316,8 @@ abt-core/src/mes/demand_handler/
 ```
 
 ### 5.2 EventHandler — MesDemandCreatedHandler
+
+与采购 Handler 一致，**回查 demands 表获取真实数据**后构造通知。
 
 ```rust
 pub struct MesDemandCreatedHandler {
@@ -264,20 +335,38 @@ impl EventHandler for MesDemandCreatedHandler {
             return Ok(());
         }
 
-        // 触发通知
+        // 回查 demands 表获取真实数据
+        let demand_id = event.aggregate_id;
+        let mut conn = self.pool.acquire().await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let demand = DemandRepo::find_by_id(&mut conn, demand_id).await?
+            .ok_or_else(|| DomainError::not_found("Demand"))?;
+
+        if demand.status != DemandStatus::Open {
+            return Ok(());
+        }
+
+        let product = ProductRepo::find_by_id(&mut conn, demand.product_id).await?
+            .ok_or_else(|| DomainError::not_found("Product"))?;
+        let order_no = SalesOrderRepo::find_order_no_by_id(&mut conn, demand.order_id).await?;
+
+        let ctx = ServiceContext::system(event.operator_id);
         let notification_svc = new_notification_service(self.pool.clone());
-        notification_svc.send(Notification {
-            target_role: "production_planner",
-            title: "新的生产需求待处理",
-            body: format!("产品ID: {}, 来源订单ID: {}",
-                payload["product_id"], payload["order_id"]),
-            link: format!("/mes/demands?status=Open"),
+        notification_svc.notify_by_role(&ctx, &mut conn, PRODUCTION_ROLE_ID, BatchNotificationReq {
+            notification_type: NotificationType::Business,
+            title: "新的生产需求待处理".into(),
+            content: Some(format!(
+                "产品: {} ({}) × {}, 来源订单: {}",
+                product.name, product.code, demand.quantity, order_no
+            )),
+            related_type: Some("demand".into()),
+            related_id: demand_id,
         }).await?;
 
         Ok(())
     }
 
-    fn name(&self) -> &str { "MesDemandCreatedHandler" }
+    fn name(&self) -> &str { "mes_demand_created" }
 }
 ```
 
@@ -314,8 +403,11 @@ pub struct CreatePlanFromDemandsReq {
     pub plan_type: PlanType,            // 计划类型
     pub plan_date: NaiveDate,           // 计划日期
     pub remark: Option<String>,
-    /// 每条需求的排程参数
-    pub items: Vec<PlanDemandItemReq>,
+    /// 每条需求的排程参数 — 可选，不填则使用默认排程
+    pub items: Option<Vec<PlanDemandItemReq>>,
+    /// 默认排程参数（当 items 未提供时使用）
+    pub default_scheduled_start: Option<NaiveDate>,  // 默认 = plan_date
+    pub default_scheduled_end: Option<NaiveDate>,    // 默认 = plan_date + 7 天
 }
 
 pub struct PlanDemandItemReq {
@@ -325,6 +417,11 @@ pub struct PlanDemandItemReq {
     pub priority: i32,                  // 默认 0
 }
 ```
+
+**排程策略**：
+- 如果提供了 `items`，使用每条需求各自的排程参数
+- 如果未提供 `items`，所有需求统一使用 `default_scheduled_start/end`（默认 start = plan_date，end = plan_date + 7 天）
+- 计划员可在前端逐步细化排程，初版支持批量创建后逐行修改
 
 ### 5.5 create_plan_from_demands 流程
 
@@ -356,99 +453,16 @@ pub struct PlanDemandItemReq {
 
 **本次实施必须先完成**：
 1. 在 `AppState` 或启动流程中创建 `EventProcessor`
-2. 将已有的 `handle_demand_confirmed`/`handle_demand_rejected` 改造为 `impl EventHandler`
+2. 将已有的 `handle_demand_confirmed`/`handle_demand_rejected` 改造为 `impl EventHandler`（见 6.4 过渡策略）
 3. 注册所有 Handler 并启动 `EventProcessor`
 
-### 6.2 Handler 实现 — 遵循已有模式
+### 6.2 Handler 实现原则
 
 EventHandler trait 签名为 `handle(&self, event: &DomainEvent) -> Result<()>`，Handler 持有自己的 `PgPool`，在 `handle` 方法中通过 `self.pool.acquire()` 获取连接（参考 `h3yun/handlers.rs`）。
 
-```rust
-// abt-core/src/purchase/demand_handler/handler.rs
-pub struct PurchaseDemandCreatedHandler {
-    pool: PgPool,
-}
+**Handler 内部禁止直接调用需要 `ServiceContext` 的 Service trait 方法**。Handler 只做轻量操作（通知、状态标记），重操作（创建单据、预留库存）由 API 层的 Service 处理。
 
-impl PurchaseDemandCreatedHandler {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
-    }
-}
-
-#[async_trait]
-impl EventHandler for PurchaseDemandCreatedHandler {
-    async fn handle(&self, event: &DomainEvent) -> Result<()> {
-        let payload = &event.payload;
-        let acquire_channel = payload["acquire_channel"].as_i64();
-
-        if acquire_channel != Some(AcquireChannel::Purchased as i64) {
-            return Ok(());
-        }
-
-        // 获取连接，通过工厂函数创建通知服务
-        let mut conn = self.pool.acquire().await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-        let ctx = ServiceContext::system(event.operator_id);
-        let notification_svc = new_notification_service(self.pool.clone());
-        notification_svc.notify_by_role(&ctx, &mut conn, purchase_role_id, BatchNotificationReq {
-            notification_type: NotificationType::Business,
-            title: "新的外购需求待处理".into(),
-            content: Some(format!("产品ID: {}, 来源订单ID: {}",
-                payload["product_id"].as_i64().unwrap_or(0),
-                payload["order_id"].as_i64().unwrap_or(0))),
-            related_type: Some("demand".into()),
-            related_id: event.aggregate_id,
-        }).await?;
-
-        Ok(())
-    }
-
-    fn name(&self) -> &str { "purchase_demand_created" }
-}
-```
-
-```rust
-// abt-core/src/mes/demand_handler/handler.rs
-pub struct MesDemandCreatedHandler {
-    pool: PgPool,
-}
-
-impl MesDemandCreatedHandler {
-    pub fn new(pool: PgPool) -> Self {
-        Self { pool }
-    }
-}
-
-#[async_trait]
-impl EventHandler for MesDemandCreatedHandler {
-    async fn handle(&self, event: &DomainEvent) -> Result<()> {
-        let payload = &event.payload;
-        let acquire_channel = payload["acquire_channel"].as_i64();
-
-        if acquire_channel != Some(AcquireChannel::SelfProduced as i64) {
-            return Ok(());
-        }
-
-        let mut conn = self.pool.acquire().await
-            .map_err(|e| DomainError::Internal(e.into()))?;
-        let ctx = ServiceContext::system(event.operator_id);
-        let notification_svc = new_notification_service(self.pool.clone());
-        notification_svc.notify_by_role(&ctx, &mut conn, production_role_id, BatchNotificationReq {
-            notification_type: NotificationType::Business,
-            title: "新的生产需求待处理".into(),
-            content: Some(format!("产品ID: {}, 来源订单ID: {}",
-                payload["product_id"].as_i64().unwrap_or(0),
-                payload["order_id"].as_i64().unwrap_or(0))),
-            related_type: Some("demand".into()),
-            related_id: event.aggregate_id,
-        }).await?;
-
-        Ok(())
-    }
-
-    fn name(&self) -> &str { "mes_demand_created" }
-}
-```
+具体 Handler 实现代码见 4.2（采购）和 5.2（MES），均遵循**回查 demands 表**获取真实数据后构造通知的原则。
 
 ### 6.3 应用启动时的注册和启动
 
@@ -487,6 +501,59 @@ processor.start();
 ```
 
 两个 Handler 注册在同一 `DemandCreated` 事件类型上，`EventHandlerRegistry` 支持一对多，EventProcessor 会逐一调用。每个 Handler 通过 `acquire_channel` 过滤，互不干扰。
+
+### 6.4 handle_demand_confirmed / handle_demand_rejected 改造过渡策略
+
+**现状**：`sales_order/implt.rs` 中的 `handle_demand_confirmed` 和 `handle_demand_rejected` 是独立 `pub async fn`，接受 `(PgPool, &ServiceContext, PgExecutor, &DomainEvent)` 参数。经搜索确认，这两个函数**当前无任何调用点**（仅在定义处出现），因此改造不存在重复执行风险。
+
+**改造方案**：
+1. **新建** `SalesDemandConfirmedHandler` 和 `SalesDemandRejectedHandler`，各自 `impl EventHandler`，内部调用原函数逻辑
+2. **保留**原独立函数但不导出（`pub(crate)`），作为 Handler 内部的实现复用
+3. **注册**到 `DemandConfirmed(65)` 和 `DemandRejected(66)` 事件类型
+4. 如果未来有其他模块也需要消费这两个事件，Handler 通过过滤各自处理
+
+```rust
+// abt-core/src/sales/sales_order/event_handlers.rs（新文件）
+pub struct SalesDemandConfirmedHandler { pool: PgPool }
+
+#[async_trait]
+impl EventHandler for SalesDemandConfirmedHandler {
+    async fn handle(&self, event: &DomainEvent) -> Result<()> {
+        let mut conn = self.pool.acquire().await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+        let ctx = ServiceContext::system(event.operator_id);
+        // 复用已有逻辑
+        super::implt::handle_demand_confirmed(
+            self.pool.clone(), &ctx, &mut conn, event
+        ).await
+    }
+    fn name(&self) -> &str { "sales_demand_confirmed" }
+}
+```
+
+### 6.5 DemandService.confirm 的实现策略（状态同步对齐）
+
+**核心问题**：`confirm` 方法是同步更新状态 + 发布事件，还是只发布事件由 Handler 异步更新？
+
+**决策**：`DemandService.confirm` **在同一事务内同步更新所有状态**，事件仅用于通知其他模块。理由：
+
+1. `confirm` 的调用方（采购/MES 的 `create_order_from_demands`/`create_plan_from_demands`）需要**即时**拿到状态更新结果
+2. 如果依赖异步事件处理，存在延迟窗口，用户可能在此期间重复操作
+3. Outbox 模式保证事件最终发布，事务内写 events 表，事务提交后由 EventProcessor 异步分发
+
+**具体实现**（已在 `sales_order/implt.rs` 第 1004-1049 行）：
+```
+同一事务内：
+  1. UPDATE demands SET status = 'Processing', target_doc_id = ?, target_doc_type = ?
+  2. UPDATE fulfillment_plan_lines SET status = Producing/Purchasing
+  3. UPDATE sales_order_items SET line_status = Producing/Purchasing
+  4. INSERT INTO domain_events (DemandConfirmed) -- Outbox
+  5. NOTIFY domain_event
+```
+
+**幂等保证**：
+- `handle_demand_confirmed` Handler（6.4）注册后，如果 `DemandConfirmed` 事件被 EventProcessor 消费，Handler 内部必须**先检查状态是否已更新**（已被 `confirm` 方法同步更新过），若已更新则跳过（幂等返回 Ok）
+- 避免同一状态变更被 `confirm` 同步路径和 EventHandler 异步路径各执行一次
 
 ## 7. API 路由设计
 
@@ -543,17 +610,20 @@ POST   /mes/demands/create-plan         — 从需求创建生产计划草稿
 | 文件 | 改动 |
 |------|------|
 | `src/purchase/demand_handler/mod.rs` | 新增子模块导出 + 工厂函数 |
-| `src/purchase/demand_handler/handler.rs` | PurchaseDemandCreatedHandler |
+| `src/purchase/demand_handler/handler.rs` | PurchaseDemandCreatedHandler（回查 demands 表） |
 | `src/purchase/demand_handler/service.rs` | PurchaseDemandService trait + impl |
 | `src/purchase/demand_handler/model.rs` | DemandQuery、DemandSummary、CreateOrderFromDemandsReq |
-| `src/purchase/demand_handler/repo.rs` | demands 查询 + 聚合操作 |
+| `src/purchase/demand_handler/repo.rs` | 视图查询 + demands 批量读取 |
 | `src/purchase/mod.rs` | 导出 demand_handler 子模块 |
 | `src/mes/demand_handler/mod.rs` | 新增子模块导出 + 工厂函数 |
-| `src/mes/demand_handler/handler.rs` | MesDemandCreatedHandler |
+| `src/mes/demand_handler/handler.rs` | MesDemandCreatedHandler（回查 demands 表） |
 | `src/mes/demand_handler/service.rs` | MesDemandService trait + impl |
 | `src/mes/demand_handler/model.rs` | DemandQuery、DemandSummary、CreatePlanFromDemandsReq |
-| `src/mes/demand_handler/repo.rs` | demands 查询 + 聚合操作 |
+| `src/mes/demand_handler/repo.rs` | 视图查询 + demands 批量读取 |
 | `src/mes/mod.rs` | 导出 demand_handler 子模块 |
+| `src/sales/sales_order/event_handlers.rs` | 新增：SalesDemandConfirmedHandler + SalesDemandRejectedHandler（impl EventHandler） |
+| `src/sales/sales_order/mod.rs` | 导出 event_handlers |
+| `migrations/` | 新增：v_purchase_demands + v_production_demands 视图 + 索引 |
 
 ### 9.2 abt-web
 
@@ -581,6 +651,19 @@ POST   /mes/demands/create-plan         — 从需求创建生产计划草稿
 | 同一 demand 被两个模块处理 | acquire_channel 强过滤，不可能交叉 |
 | 需求取消后下游单据已创建 | 需要手动取消下游单据，DemandService.reject 回退 |
 | PO 被取消 | 采购模块发布事件 → DemandService.reject → demand 回退到 Open |
+| **生产计划被取消** | MES 模块在 `ProductionPlanService::cancel` 中调用 `DemandService.reject` → demand 回退到 Open → 履行计划行回退到 Pending。**必须在生产计划模块的取消逻辑中集成此调用** |
+| **EventHandler 重复消费** | EventProcessor 的幂等检查（IdempotencyRepo.check_and_mark）+ Handler 内部先检查 demand.status 是否已更新，双重保障 |
+| **事件乱序** | Handler 内部回查 demands 表验证当前状态，如果 status ≠ Open 则跳过通知 |
+
+## 11. 实施风险与缓解
+
+| 风险 | 等级 | 缓解措施 |
+|------|------|----------|
+| EventProcessor 未启动是最大风险 | **高** | 本次实施第一步解决，所有后续工作依赖此 |
+| 跨模块 JOIN 性能 | 中 | 创建 `idx_demands_channel_status` 复合索引，视图中不涉及复杂计算 |
+| 采购员/计划员无 UI 操作入口 | 中 | 后端 API 先行，P3 阶段尽早安排前端实现 |
+| demand 状态不一致 | 低 | 本次无自动对账（P5），风险可接受。标注：当前只能靠手动排查 |
+| 库存重新预留不在本次范围 | 低 | 正确：预留重算在补货入库后（P5），当前只创建补货单据 |
 
 ## 11. 与已有设计文档的关系
 

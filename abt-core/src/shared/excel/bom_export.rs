@@ -298,7 +298,7 @@ impl BomExporter {
             worksheet.write_string_with_format(
                 row,
                 7,
-                &node.product.meta.acquire_channel,
+                node.product.acquire_channel.as_str(),
                 cell_format,
             )?;
         }

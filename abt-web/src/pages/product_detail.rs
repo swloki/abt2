@@ -291,8 +291,8 @@ fn product_edit_page(product: &Product) -> Markup {
                                 style="background:var(--surface);color:var(--muted)" {}
                         }
                         div class="form-field" {
-                            label { "规格型号 " span style="color:var(--danger)" { "*" } }
-                            input type="text" name="specification" required placeholder="请输入规格型号" value=(product.meta.specification) {}
+                            label { "规格型号" }
+                            input type="text" name="specification" placeholder="请输入规格型号" value=(product.meta.specification) {}
                         }
                         div class="form-field" {
                             label { "计量单位 " span style="color:var(--danger)" { "*" } }

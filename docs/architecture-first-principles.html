@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ABT 系统架构 — 第一性原理</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; line-height: 1.7; }
+    h2 { color: #e0e0e0; margin-bottom: 4px; font-size: 24px; }
+    h3 { color: #61afef; margin: 24px 0 12px; font-size: 18px; }
+    h4 { color: #e5c07b; margin: 20px 0 8px; font-size: 15px; }
+    .subtitle { color: #888; font-size: 14px; margin-bottom: 28px; }
+
+    /* ── Section Card ── */
+    .section { background: #282a36; border-radius: 12px; padding: 24px 28px; margin-bottom: 24px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .section-header { font-size: 16px; font-weight: 700; padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
+    .section-header .icon { font-size: 20px; }
+    .section p { margin-bottom: 12px; font-size: 14.5px; color: #cdd6f4; }
+
+    /* ── Gradient Headers ── */
+    .header-flow { background: linear-gradient(135deg, #6c8bef, #61afef); color: #fff; }
+    .header-trace { background: linear-gradient(135deg, #56b6c2, #4ec9b0); color: #fff; }
+    .header-biz { background: linear-gradient(135deg, #e5c07b, #d19a66); color: #1e1e2e; }
+    .header-scene { background: linear-gradient(135deg, #c678dd, #e06c75); color: #fff; }
+    .header-core { background: linear-gradient(135deg, #e06c75, #d19a66); color: #fff; }
+
+    /* ── Code Block ── */
+    pre { background: #1a1a2e; border: 1px solid #333; border-radius: 8px; padding: 14px 18px; margin: 12px 0; font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; color: #abb2bf; }
+    code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: rgba(108,139,239,0.12); padding: 2px 6px; border-radius: 4px; color: #61afef; }
+    pre code { background: none; padding: 0; color: inherit; }
+
+    /* ── Highlight colors ── */
+    .hl-keyword { color: #c678dd; }
+    .hl-type { color: #e5c07b; }
+    .hl-string { color: #98c379; }
+    .hl-comment { color: #5c6370; font-style: italic; }
+    .hl-fn { color: #61afef; }
+    .hl-arrow { color: #56b6c2; font-weight: bold; }
+
+    /* ── Architecture Diagram ── */
+    .arch-diagram { background: #1a1a2e; border: 1px solid #333; border-radius: 10px; padding: 20px; margin: 16px 0; text-align: center; }
+    .arch-row { display: flex; justify-content: center; align-items: center; gap: 12px; margin: 8px 0; flex-wrap: wrap; }
+    .arch-box { padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; min-width: 120px; text-align: center; }
+    .arch-box-primary { background: linear-gradient(135deg, #6c8bef, #61afef); color: #fff; }
+    .arch-box-green { background: linear-gradient(135deg, #56b6c2, #4ec9b0); color: #fff; }
+    .arch-box-yellow { background: linear-gradient(135deg, #e5c07b, #d19a66); color: #1e1e2e; }
+    .arch-box-purple { background: linear-gradient(135deg, #c678dd, #e06c75); color: #fff; }
+    .arch-box-muted { background: #3b3f5c; color: #cdd6f4; border: 1px solid #555; }
+    .arch-arrow { color: #56b6c2; font-size: 18px; font-weight: bold; }
+    .arch-arrow-down { color: #56b6c2; font-size: 20px; margin: 6px 0; }
+
+    /* ── Comparison Table ── */
+    table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px; }
+    th { background: #3b3f5c; color: #e0e0e0; padding: 10px 14px; text-align: left; font-weight: 600; border-bottom: 2px solid #555; }
+    td { padding: 10px 14px; border-bottom: 1px solid #333; color: #cdd6f4; }
+    tr:hover td { background: rgba(108,139,239,0.06); }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    .tag-purple { background: rgba(198,120,221,0.2); color: #c678dd; }
+    .tag-blue { background: rgba(97,175,239,0.2); color: #61afef; }
+    .tag-green { background: rgba(86,182,194,0.2); color: #56b6c2; }
+    .tag-yellow { background: rgba(229,192,123,0.2); color: #e5c07b; }
+    .tag-red { background: rgba(224,108,117,0.2); color: #e06c75; }
+
+    /* ── Step Flow ── */
+    .step-flow { counter-reset: step; margin: 16px 0; }
+    .step-item { display: flex; align-items: flex-start; gap: 14px; padding: 10px 0; border-left: 3px solid #3b3f5c; padding-left: 16px; position: relative; }
+    .step-item::before { counter-increment: step; content: counter(step); position: absolute; left: -14px; top: 8px; width: 26px; height: 26px; border-radius: 50%; background: #6c8bef; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .step-item:last-child { border-left-color: transparent; }
+    .step-label { font-weight: 600; color: #61afef; min-width: 160px; font-size: 14px; }
+    .step-desc { color: #cdd6f4; font-size: 14px; }
+
+    /* ── Quote ── */
+    blockquote { border-left: 4px solid #6c8bef; background: rgba(108,139,239,0.08); padding: 12px 18px; margin: 14px 0; border-radius: 0 8px 8px 0; font-style: italic; color: #cdd6f4; }
+    blockquote strong { color: #61afef; font-style: normal; }
+
+    /* ── Bad / Good comparison ── */
+    .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0; }
+    .compare-bad { border: 1px solid rgba(224,108,117,0.3); border-radius: 8px; padding: 14px; background: rgba(224,108,117,0.05); }
+    .compare-bad .compare-title { color: #e06c75; font-weight: 700; margin-bottom: 8px; font-size: 13px; }
+    .compare-good { border: 1px solid rgba(86,182,194,0.3); border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05); }
+    .compare-good .compare-title { color: #56b6c2; font-weight: 700; margin-bottom: 8px; font-size: 13px; }
+
+    /* ── Tier Badge ── */
+    .tier { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+    .tier-sync { background: rgba(97,175,239,0.15); color: #61afef; }
+    .tier-async { background: rgba(198,120,221,0.15); color: #c678dd; }
+    .tier-human { background: rgba(229,192,123,0.15); color: #e5c07b; }
+
+    /* ── TOC ── */
+    .toc { background: #282a36; border-radius: 12px; padding: 20px 28px; margin-bottom: 28px; box-shadow: 0 4px 24px rgba(0,0,0,0.3); }
+    .toc-title { font-size: 15px; font-weight: 700; color: #e0e0e0; margin-bottom: 12px; }
+    .toc ol { padding-left: 20px; }
+    .toc li { margin: 6px 0; font-size: 14px; }
+    .toc a { color: #61afef; text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+<h2>ABT 系统架构 — 第一性原理</h2>
+<p class="subtitle">从最根本的问题出发，理解状态机、EventBus、工作流引擎三者的关系，以及 14 个共享服务组成的完整系统骨架</p>
+
+<!-- ━━━━━━━━━━━━━━━━ TOC ━━━━━━━━━━━━━━━━ -->
+<div class="toc">
+  <div class="toc-title">📑 目录</div>
+  <ol>
+    <li><a href="#core-problem">核心问题：ERP 系统在解决什么</a></li>
+    <li><a href="#state-machine">状态机：能不能这么做</a></li>
+    <li><a href="#event-bus">EventBus：做了之后谁要知道</a></li>
+    <li><a href="#workflow">工作流引擎：按什么步骤走</a></li>
+    <li><a href="#trio">三者的关系：层级接力</a></li>
+    <li><a href="#skeleton">完整骨架：10 个核心组件</a></li>
+    <li><a href="#full-scene">完整场景：确认销售订单</a></li>
+  </ol>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━ 1. 核心问题 ━━━━━━━━━━━━━━━━ -->
+<div class="section" id="core-problem">
+  <div class="section-header header-core">
+    <span class="icon">🎯</span> 核心问题
+  </div>
+
+  <p>一个 ERP 系统的本质是：<strong style="color:#e5c07b">很多人同时对同一批业务单据做操作，系统必须保证这些操作不会把数据搞乱。</strong></p>
+
+  <p>比如一张销售订单：</p>
+  <ul style="padding-left:20px; margin:8px 0 16px; font-size:14px;">
+    <li>张三点了「确认」</li>
+    <li>李四点了「发货」</li>
+    <li>王五想点「取消」</li>
+  </ul>
+
+  <p>这三个人不能同时成功，也不能乱序——你不能先发货再确认。<strong>谁来保证这个顺序是对的？</strong>这就是系统核心基础设施要解决的根本问题。</p>
+
+  <p>答案分成三个层次：</p>
+  <div class="arch-diagram">
+    <div class="arch-row">
+      <div class="arch-box arch-box-primary" style="min-width:200px">状态机<br><span style="font-weight:400;font-size:12px">这个操作合法吗？</span></div>
+      <span class="arch-arrow">→</span>
+      <div class="arch-box arch-box-purple" style="min-width:200px">工作流引擎<br><span style="font-weight:400;font-size:12px">按什么步骤走？</span></div>
+      <span class="arch-arrow">→</span>
+      <div class="arch-box arch-box-green" style="min-width:200px">EventBus<br><span style="font-weight:400;font-size:12px">谁需要知道？</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━ 2. 状态机 ━━━━━━━━━━━━━━━━ -->
+<div class="section" id="state-machine">
+  <div class="section-header header-flow">
+    <span class="icon">🔒</span> 一、状态机 — "能不能这么做"
+  </div>
+
+  <h3>没有状态机时会怎样</h3>
+
+  <div class="comparison">
+    <div class="compare-bad">
+      <div class="compare-title">✗ 每个 方法自己判断</div>
+<pre><code><span class="hl-keyword">async fn</span> <span class="hl-fn">confirm</span>(&self, ...) {
+    <span class="hl-keyword">if</span> order.status != Draft {
+        <span class="hl-keyword">return</span> Err(<span style="color:#e06c75">"只有 Draft 可以确认"</span>);
+    }
+    <span class="hl-comment">// ... 业务逻辑</span>
+}
+
+<span class="hl-keyword">async fn</span> <span class="hl-fn">complete</span>(&self, ...) {
+    <span class="hl-keyword">if</span> order.status != Shipped {
+        <span class="hl-keyword">return</span> Err(<span style="color:#e06c75">"只有 Shipped 可以完成"</span>);
+    }
+    <span class="hl-comment">// ... 业务逻辑</span>
+}</code></pre>
+      <p style="font-size:13px;color:#e06c75;margin-top:8px">状态转换规则散落在每个方法里。10 个状态、20 个转换时，规则变成没人能看到的"潜规则"。</p>
+    </div>
+    <div class="compare-good">
+      <div class="compare-title">✓ 集中到状态机统一管理</div>
+<pre><code><span class="hl-comment">// 状态机的全部核心逻辑</span>
+<span class="hl-keyword">fn</span> <span class="hl-fn">transition</span>(entity_type, entity_id, to_state) {
+    <span class="hl-keyword">let</span> current = <span class="hl-fn">get_current_state</span>(...);
+    <span class="hl-keyword">let</span> rule = <span class="hl-fn">find_rule</span>(from: current, to: to_state);
+
+    <span class="hl-keyword">if</span> rule.is_none() {
+        <span class="hl-keyword">return</span> Err(<span style="color:#e06c75">"非法转换"</span>);
+    }
+
+    <span class="hl-fn">write_log</span>(current → to_state);  <span class="hl-comment">// 不可变审计日志</span>
+    <span class="hl-fn">execute_side_effects</span>(rule);   <span class="hl-comment">// 触发事件/通知</span>
+}</code></pre>
+      <p style="font-size:13px;color:#56b6c2;margin-top:8px">规则集中在数据库，全貌一目了然，改规则不需要改代码。</p>
+    </div>
+  </div>
+
+  <h3>三层架构</h3>
+  <div class="arch-diagram">
+    <div style="max-width:600px;margin:0 auto;text-align:left;font-size:14px;">
+      <div style="border:2px solid #6c8bef;border-radius:8px;padding:12px 16px;margin-bottom:2px;background:rgba(108,139,239,0.08);">
+        <span style="color:#61afef;font-weight:700;">第 1 层：数据库定义</span> <span style="color:#888;font-size:12px">— state_transition_defs 表</span><br>
+        <span style="font-size:13px;color:#cdd6f4;">存储 (entity_type, from_state, to_state) 三元组，定义"什么是合法的转换"</span>
+      </div>
+      <div style="text-align:center;color:#56b6c2;font-size:18px;">▼</div>
+      <div style="border:2px solid #56b6c2;border-radius:8px;padding:12px 16px;margin-bottom:2px;background:rgba(86,182,194,0.08);">
+        <span style="color:#56b6c2;font-weight:700;">第 2 层：StateMachineService</span> <span style="color:#888;font-size:12px">— 验证 + 日志</span><br>
+        <span style="font-size:13px;color:#cdd6f4;">查规则 → 验证 → 写日志 → 执行 SideEffect</span>
+      </div>
+      <div style="text-align:center;color:#56b6c2;font-size:18px;">▼</div>
+      <div style="border:2px solid #e5c07b;border-radius:8px;padding:12px 16px;background:rgba(229,192,123,0.08);">
+        <span style="color:#e5c07b;font-weight:700;">第 3 层：业务 Service</span> <span style="color:#888;font-size:12px">— confirm() / complete() / cancel()</span><br>
+        <span style="font-size:13px;color:#cdd6f4;">先调状态机验证，再执行库存/价格等业务操作</span>
+      </div>
+    </div>
+  </div>
+
+  <blockquote>
+    状态机回答的只是一个极其简单的问题：<strong>"从状态 A 到状态 B，这条边在状态图上存不存在？"</strong>它不关心为什么合法，不关心发货了多少数量。它只做判断。
+  </blockquote>
+
+  <h3>SideEffect — 转换不只是"改个字段"</h3>
+
+  <p>SideEffect 是挂在状态转换规则上的<strong>"附加动作"</strong>，存储在 <code>state_transition_defs.side_effects</code> JSONB 列中。</p>
+
+<pre><code><span class="hl-keyword">pub enum</span> <span class="hl-type">SideEffect</span> {
+    <span class="hl-type">PublishEvent</span> { event_type, payload_template },  <span class="hl-comment">// ✅ 已实现 — 往 EventBus 写事件</span>
+    <span class="hl-type">Notify</span> { role_ids, template },                  <span class="hl-comment">// 🔲 预留 — 发通知</span>
+    <span class="hl-type">TriggerWorkflow</span> { definition_id },            <span class="hl-comment">// 🔲 预留 — 触发工作流</span>
+    <span class="hl-type">UpdateField</span> { field, value_template },         <span class="hl-comment">// 🔲 预留 — 自动更新字段</span>
+}</code></pre>
+
+  <p>执行逻辑在 <code>StateMachineServiceImpl::transition()</code> 的第 4 步——遍历 SideEffect 列表，<code>match</code> 分发。只有 <code>PublishEvent</code> 已实现，其他三个是预留接口。</p>
+
+  <blockquote>
+    SideEffect <strong>不是 EventBus 的执行者</strong>，而是 EventBus 的<strong>调用者</strong>。它是状态机的特性，不是 EventBus 的。<code>PublishEvent</code> 变体恰好会调用 <code>EventBus.publish()</code>。
+  </blockquote>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━ 3. EventBus ━━━━━━━━━━━━━━━━ -->
+<div class="section" id="event-bus">
+  <div class="section-header header-flow">
+    <span class="icon">📡</span> 二、EventBus — "做了之后谁要知道"
+  </div>
+
+  <h3>没有 EventBus 时会怎样</h3>
+
+  <div class="comparison">
+    <div class="compare-bad">
+      <div class="compare-title">✗ 直接调用下游模块</div>
+<pre><code><span class="hl-comment">// 销售订单确认时，直接调用库存和采购</span>
+<span class="hl-keyword">async fn</span> <span class="hl-fn">confirm</span>(&self, ...) {
+    inventory_service.<span class="hl-fn">reserve</span>(...);     <span class="hl-comment">// ← 直接依赖</span>
+    purchase_service.<span class="hl-fn">check_replenishment</span>(...); <span class="hl-comment">// ← 直接依赖</span>
+    h3yun_client.<span class="hl-fn">sync_product</span>(...);       <span class="hl-comment">// ← 直接依赖</span>
+}</code></pre>
+      <p style="font-size:13px;color:#e06c75;margin-top:8px">每加一个下游就要改这个文件。销售模块不需要知道库存怎么预留、采购怎么补货。</p>
+    </div>
+    <div class="compare-good">
+      <div class="compare-title">✓ 公告栏解耦</div>
+<pre><code><span class="hl-comment">// 销售只说："订单确认了，爱谁谁"</span>
+event_bus.<span class="hl-fn">publish</span>(SalesOrderConfirmed, order_id);
+
+<span class="hl-comment">// 下游各自响应</span>
+库存模块: <span class="hl-fn">reserve</span>(...)
+采购模块: <span class="hl-fn">check_replenishment</span>(...)
+外部系统: <span class="hl-fn">sync</span>(...)</code></pre>
+      <p style="font-size:13px;color:#56b6c2;margin-top:8px">发布者不需要知道谁在听，听的人不需要知道谁发的。只约定事件类型作为共同语言。</p>
+    </div>
+  </div>
+
+  <h3>Outbox 模式 — 保证不丢消息</h3>
+
+  <div class="arch-diagram">
+    <div style="max-width:620px;margin:0 auto;text-align:left;font-size:13.5px;">
+      <div style="border:1px solid #6c8bef;border-radius:8px;padding:12px 16px;margin-bottom:2px;background:rgba(108,139,239,0.06);">
+        <span style="color:#61afef;font-weight:700;">业务操作（如确认订单）</span>
+      </div>
+      <div style="text-align:center;color:#56b6c2;font-size:16px;">│</div>
+      <div style="display:flex;gap:12px;margin-bottom:2px;">
+        <div style="flex:1;border:1px solid #56b6c2;border-radius:8px;padding:10px 14px;background:rgba(86,182,194,0.06);font-size:13px;">
+          ① 开数据库事务<br>
+          ② 更新订单状态（业务数据）<br>
+          ③ 写入 domain_events 表（事件）<br>
+          ④ 提交事务
+        </div>
+        <div style="flex:1;border:1px solid #e5c07b;border-radius:8px;padding:10px 14px;background:rgba(229,192,123,0.06);font-size:13px;">
+          <span style="color:#e5c07b;">同一个事务</span> →<br>
+          ✓ 事务成功 → 事件一定写入了<br>
+          ✓ 事务回滚 → 事件也没了<br>
+          <span style="color:#e06c75;">不会出现假消息</span>
+        </div>
+      </div>
+      <div style="text-align:center;color:#56b6c2;font-size:16px;">▼</div>
+      <div style="border:1px solid #c678dd;border-radius:8px;padding:10px 14px;background:rgba(198,120,221,0.06);font-size:13px;">
+        <span style="color:#c678dd;font-weight:700;">后台 EventProcessor</span><br>
+        PostgreSQL LISTEN/NOTIFY 实时通知 → 取出 Pending 事件 → 分发给 EventHandler → 成功 mark_processed / 失败重试，超限进死信队列
+      </div>
+    </div>
+  </div>
+
+  <blockquote>
+    Outbox 的核心洞察：<strong>把事件和业务数据写进同一个数据库事务，保证它们要么一起成功、要么一起失败。然后用后台进程把事件搬运出去。</strong>
+  </blockquote>
+
+  <h3>三大保证</h3>
+  <table>
+    <tr><th>保证</th><th>怎么实现的</th></tr>
+    <tr><td><span class="tag tag-red">不丢</span></td><td>Outbox 模式（同事务）；Processor 断线重连；孤儿事件自动恢复</td></tr>
+    <tr><td><span class="tag tag-blue">不重复</span></td><td><code>idempotency_key</code> 唯一约束（<code>ON CONFLICT DO NOTHING</code>）；消费端也要幂等</td></tr>
+    <tr><td><span class="tag tag-green">可追踪</span></td><td><code>trace_id</code> / <code>request_id</code> 贯穿全链路；<code>entity_state_logs</code> 记录每次状态变化</td></tr>
+  </table>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━ 4. 工作流引擎 ━━━━━━━━━━━━━━━━ -->
+<div class="section" id="workflow">
+  <div class="section-header header-flow">
+    <span class="icon">🔀</span> 三、工作流引擎 — "按什么步骤走"
+  </div>
+
+  <h3>与状态机 + SideEffect 的区别</h3>
+
+  <p>三者都在回答"某件事发生后，下一步该做什么"，但复杂度完全不同：</p>
+
+  <div class="arch-diagram">
+    <div style="max-width:700px;margin:0 auto;">
+      <div class="arch-row" style="justify-content:flex-start;gap:20px;">
+        <div style="text-align:center;">
+          <div class="arch-box arch-box-primary" style="margin-bottom:6px;">SideEffect</div>
+          <div style="font-size:12px;color:#888;">同步、单步、无分支、无等待</div>
+          <div style="font-size:12px;color:#56b6c2;margin-top:4px;">"发个事件"</div>
+        </div>
+        <div style="color:#555;font-size:20px;padding-top:20px;">→</div>
+        <div style="text-align:center;">
+          <div class="arch-box arch-box-green" style="margin-bottom:6px;">状态机转换</div>
+          <div style="font-size:12px;color:#888;">同步、有规则校验</div>
+          <div style="font-size:12px;color:#56b6c2;margin-top:4px;">"A→B 合法吗"</div>
+        </div>
+        <div style="color:#555;font-size:20px;padding-top:20px;">→</div>
+        <div style="text-align:center;">
+          <div class="arch-box arch-box-purple" style="margin-bottom:6px;">工作流引擎</div>
+          <div style="font-size:12px;color:#888;">异步、有分支、有等待</div>
+          <div style="font-size:12px;color:#56b6c2;margin-top:4px;">"走完这个流程图"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>对比详情</h3>
+  <table>
+    <tr><th></th><th>状态机 SideEffect</th><th>工作流引擎</th></tr>
+    <tr>
+      <td><span class="tag tag-blue">执行方式</span></td>
+      <td><span class="tier tier-sync">同步</span> 同一个事务里</td>
+      <td><span class="tier tier-async">异步</span> 可跨天跨人</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">复杂度</span></td>
+      <td>一条转换 → 几个动作</td>
+      <td>图遍历，有分支 / 汇合 / 条件</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">等待</span></td>
+      <td>没有，做完就返回</td>
+      <td>有，审批节点等人操作</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">分支</span></td>
+      <td>没有</td>
+      <td>有，条件决定走哪条边</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">典型场景</span></td>
+      <td>状态变了发个事件</td>
+      <td>采购单需要三级审批</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-blue">代码量</span></td>
+      <td>一个 for + match</td>
+      <td>递归图遍历 process_next_node()</td>
+    </tr>
+  </table>
+
+  <h3>工作流的执行模型</h3>
+
+  <div class="arch-diagram">
+    <div style="max-width:650px;margin:0 auto;font-size:13px;text-align:left;">
+<pre style="border:none;padding:0;margin:0;background:none;font-size:13px;"><code><span class="hl-fn">process_next_node</span>(tx, instance_id, graph, node_id, condition) {
+    <span class="hl-comment">// 1. 先判断边上的条件</span>
+    <span class="hl-keyword">if</span> !<span class="hl-fn">evaluate_condition</span>(condition) { <span class="hl-keyword">return</span>; }
+
+    <span class="hl-comment">// 2. 根据节点类型做不同的事</span>
+    <span class="hl-keyword">match</span> node.node_type {
+        <span class="hl-type">Approval</span>  => <span class="hl-fn">create_task</span>(assignee),   <span class="hl-comment">// 创建待办，等真人审批，return</span>
+        <span class="hl-type">AutoTask</span>  => <span class="hl-fn">process_next_node</span>(...next), <span class="hl-comment">// 递归往下走</span>
+        <span class="hl-type">Join</span>      => <span class="hl-keyword">if</span> all_branches_done {       <span class="hl-comment">// 等所有分支汇合</span>
+                        <span class="hl-fn">process_next_node</span>(...next)
+                     },
+        <span class="hl-type">End</span>       => <span class="hl-fn">mark_completed</span>(),
+    }
+}</code></pre>
+    </div>
+  </div>
+
+  <blockquote>
+    状态机是<strong>"门卫"</strong>（能不能做），SideEffect 是<strong>"门铃"</strong>（做了之后通知谁），工作流是<strong>"完整的流程编排"</strong>（按步骤一步步走）。<code>SideEffect::TriggerWorkflow</code> 是串联两者的桥梁。
+  </blockquote>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━ 5. 三者关系 ━━━━━━━━━━━━━━━━ -->
+<div class="section" id="trio">
+  <div class="section-header header-flow">
+    <span class="icon">🔗</span> 四、三者的关系 — 层级接力
+  </div>
+
+  <div class="arch-diagram">
+    <div style="max-width:580px;margin:0 auto;text-align:left;font-size:13.5px;">
+      <div style="border:2px solid #6c8bef;border-radius:8px;padding:12px 16px;background:rgba(108,139,239,0.08);">
+        <span style="color:#61afef;font-weight:700;">① 状态机</span><br>
+        <span style="color:#888;">Draft → Confirmed 合法吗？</span> ✓
+        <div style="margin-left:12px;color:#888;">├── 写审计日志<br>└── SideEffect::TriggerWorkflow</div>
+      </div>
+      <div style="text-align:center;color:#56b6c2;font-size:18px;">▼</div>
+      <div style="border:2px solid #c678dd;border-radius:8px;padding:12px 16px;background:rgba(198,120,221,0.08);">
+        <span style="color:#c678dd;font-weight:700;">② 工作流引擎</span><br>
+        <span style="color:#888;">Start → 部门经理审批 → 财务审批 → End</span>
+        <div style="margin-left:12px;color:#888;">├── （等了 2 小时）部门经理 approve<br>├── （等了 1 天）财务 approve<br>└── 流程完成</div>
+      </div>
+      <div style="text-align:center;color:#56b6c2;font-size:18px;">▼</div>
+      <div style="border:2px solid #56b6c2;border-radius:8px;padding:12px 16px;background:rgba(86,182,194,0.08);">
+        <span style="color:#56b6c2;font-weight:700;">③ EventBus</span><br>
+        <span style="color:#888;">广播"审批通过"事件</span>
+        <div style="margin-left:12px;color:#888;">├── 采购模块 → 通知供应商<br>├── 库存模块 → 生成入库计划<br>└── ...其他下游模块各自响应</div>
+      </div>
+    </div>
+  </div>
+
+  <blockquote>
+    <strong>状态机是起点，工作流是中间编排，EventBus 是终点广播。</strong>三者通过 SideEffect 和事件类型串联成一条链。每一层只管自己的事。
+  </blockquote>
+
+  <table>
+    <tr><th>层</th><th>职责</th><th>不关心</th></tr>
+    <tr><td><span class="tag tag-blue">状态机</span></td><td>这个转换合法吗</td><td>审批要走几步、谁来审</td></tr>
+    <tr><td><span class="tag tag-purple">工作流</span></td><td>按流程图一步步走</td><td>业务数据是什么</td></tr>
+    <tr><td><span class="tag tag-green">EventBus</span></td><td>谁关心这件事就通知谁</td><td>状态怎么变、流程怎么走</td></tr>
+  </table>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━ 6. 完整骨架 ━━━━━━━━━━━━━━━━ -->
+<div class="section" id="skeleton">
+  <div class="section-header header-flow">
+    <span class="icon">🦴</span> 五、完整骨架 — 10 个核心组件
+  </div>
+
+  <p>状态机 / 工作流 / EventBus 管的是<strong>"流程和通信"</strong>。但一个 ERP 系统还有几件同样根本的事要做。<code>abt-core/src/shared/</code> 共 14 个共享服务，按第一性原理分成三组：</p>
+
+  <div class="arch-diagram">
+    <div style="max-width:700px;margin:0 auto;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div class="arch-box arch-box-primary" style="display:inline-block;padding:12px 30px;font-size:15px;">你已经理解的：状态机 → 工作流 → EventBus</div>
+      </div>
+      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+        <div style="flex:1;min-width:180px;border:2px solid #56b6c2;border-radius:10px;padding:14px;background:rgba(86,182,194,0.06);text-align:center;">
+          <div style="color:#56b6c2;font-weight:700;font-size:14px;margin-bottom:6px;">身份与权限</div>
+          <div style="color:#888;font-size:12px;">"你是谁，能做什么"</div>
+          <div style="margin-top:8px;font-size:13px;color:#cdd6f4;">Identity</div>
+        </div>
+        <div style="flex:1;min-width:180px;border:2px solid #e5c07b;border-radius:10px;padding:14px;background:rgba(229,192,123,0.06);text-align:center;">
+          <div style="color:#e5c07b;font-weight:700;font-size:14px;margin-bottom:6px;">数据可追溯</div>
+          <div style="color:#888;font-size:12px;">"发生了什么，能查吗"</div>
+          <div style="margin-top:8px;font-size:13px;color:#cdd6f4;">AuditLog · DocSequence · DocLink · StateLog</div>
+        </div>
+        <div style="flex:1;min-width:180px;border:2px solid #c678dd;border-radius:10px;padding:14px;background:rgba(198,120,221,0.06);text-align:center;">
+          <div style="color:#c678dd;font-weight:700;font-size:14px;margin-bottom:6px;">业务能力</div>
+          <div style="color:#888;font-size:12px;">"具体业务怎么算"</div>
+          <div style="margin-top:8px;font-size:13px;color:#cdd6f4;">InventoryResv · CostEntry · Idempotency</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>一句话定位表</h3>
+  <table>
+    <tr><th>组件</th><th>回答的根本问题</th><th>一句话</th></tr>
+    <tr>
+      <td><span class="tag tag-blue">状态机</span></td>
+      <td>这个操作合法吗</td>
+      <td>门卫</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-purple">工作流</span></td>
+      <td>按什么步骤走</td>
+      <td>流程编排</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">EventBus</span></td>
+      <td>谁需要知道</td>
+      <td>广播通知</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-yellow">Identity</span></td>
+      <td>你是谁，能做什么</td>
+      <td>门禁</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">Audit Log</span></td>
+      <td>发生了什么变更</td>
+      <td>监控录像</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">Doc Sequence</span></td>
+      <td>单据编号唯一吗</td>
+      <td>发号器</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-green">Doc Link</span></td>
+      <td>单据之间什么关系</td>
+      <td>血缘图谱</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-yellow">Inventory Reservation</span></td>
+      <td>还能卖多少</td>
+      <td>库存看门人</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-yellow">Cost Entry</span></td>
+      <td>钱怎么走的</td>
+      <td>账房先生</td>
+    </tr>
+    <tr>
+      <td><span class="tag tag-yellow">Idempotency</span></td>
+      <td>会不会重复</td>
+      <td>去重过滤器</td>
+    </tr>
+  </table>
+
+  <h4>各组件详细说明</h4>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:13.5px;">
+    <div style="border:1px solid #333;border-radius:8px;padding:12px;background:rgba(255,255,255,0.02);">
+      <span style="color:#56b6c2;font-weight:700;">Identity（身份认证 + 权限）</span><br>
+      每个请求进来第一件事：你是谁？有权限吗？<br>
+      <code style="font-size:12px;">#[require_permission("PRODUCT", "delete")]</code>
+    </div>
+    <div style="border:1px solid #333;border-radius:8px;padding:12px;background:rgba(255,255,255,0.02);">
+      <span style="color:#56b6c2;font-weight:700;">Audit Log（审计日志）</span><br>
+      记录字段级 diff："张三把金额从 10000 改成 12000"<br>
+      不可篡改，出了问题能追溯。
+    </div>
+    <div style="border:1px solid #333;border-radius:8px;padding:12px;background:rgba(255,255,255,0.02);">
+      <span style="color:#56b6c2;font-weight:700;">Document Sequence（单据编号）</span><br>
+      SO-2026-06-00142，唯一、连续、不可跳号。<br>
+      ERP 财务合规的硬性要求。
+    </div>
+    <div style="border:1px solid #333;border-radius:8px;padding:12px;background:rgba(255,255,255,0.02);">
+      <span style="color:#56b6c2;font-weight:700;">Document Link（单据关联）</span><br>
+      报价单 → 订单 → 发货单，整条链可追溯。<br>
+      任意一张单据都能找到上下游。
+    </div>
+    <div style="border:1px solid #333;border-radius:8px;padding:12px;background:rgba(255,255,255,0.02);">
+      <span style="color:#e5c07b;font-weight:700;">Inventory Reservation（库存预留）</span><br>
+      多个订单抢同一批库存时，谁先确认谁先得。<br>
+      回答 ATP：还能卖多少？
+    </div>
+    <div style="border:1px solid #333;border-radius:8px;padding:12px;background:rgba(255,255,255,0.02);">
+      <span style="color:#e5c07b;font-weight:700;">Cost Entry（成本分录）</span><br>
+      复式记账——每笔业务产生成对会计分录，借贷必相等。<br>
+      ERP 财务核心。
+    </div>
+    <div style="border:1px solid #333;border-radius:8px;padding:12px;background:rgba(255,255,255,0.02);grid-column:1/-1;">
+      <span style="color:#e5c07b;font-weight:700;">Idempotency（幂等性）</span><br>
+      用户点了两次"提交"，不会创建两张订单。<code>ON CONFLICT DO NOTHING</code> 防重复。
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━ 7. 完整场景 ━━━━━━━━━━━━━━━━ -->
+<div class="section" id="full-scene">
+  <div class="section-header header-scene">
+    <span class="icon">🎬</span> 六、完整场景 — "确认销售订单"
+  </div>
+
+  <p>用户点击"确认销售订单"，10 个组件如何依次工作：</p>
+
+  <div class="step-flow">
+    <div class="step-item">
+      <span class="step-label">Identity</span>
+      <span class="step-desc">张三有权限吗？ <span style="color:#56b6c2">✓</span></span>
+    </div>
+    <div class="step-item">
+      <span class="step-label">StateMachine</span>
+      <span class="step-desc">Draft → Confirmed 合法吗？ <span style="color:#56b6c2">✓</span></span>
+    </div>
+    <div class="step-item">
+      <span class="step-label">StateLog</span>
+      <span class="step-desc">写状态变更日志 <code>entity_state_logs</code></span>
+    </div>
+    <div class="step-item">
+      <span class="step-label">SideEffect</span>
+      <span class="step-desc">发事件 <code>SalesOrderConfirmed</code></span>
+    </div>
+    <div class="step-item">
+      <span class="step-label">AuditLog</span>
+      <span class="step-desc">记录所有字段变更（金额、状态等）</span>
+    </div>
+    <div class="step-item">
+      <span class="step-label">DocSequence</span>
+      <span class="step-desc">订单号 SO-2026-06-00142 已生成</span>
+    </div>
+    <div class="step-item">
+      <span class="step-label">InventoryReservation</span>
+      <span class="step-desc">预留库存，计算 ATP</span>
+    </div>
+    <div class="step-item">
+      <span class="step-label">CostEntry</span>
+      <span class="step-desc">生成成本分录（借贷）</span>
+    </div>
+    <div class="step-item">
+      <span class="step-label">EventBus</span>
+      <span class="step-desc">广播事件，下游模块各自响应</span>
+    </div>
+    <div class="step-item">
+      <span class="step-label">Workflow</span>
+      <span class="step-desc">（如果配置了 TriggerWorkflow）启动审批流程</span>
+    </div>
+  </div>
+
+  <blockquote>
+    状态机 / 工作流 / EventBus 是<strong>"流程中枢"</strong>，但还需要身份、追溯、业务计算这三组能力才能组成一个完整的 ERP。
+  </blockquote>
+</div>
+
+</body>
+</html>

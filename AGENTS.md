@@ -103,9 +103,6 @@ cargo run -p abt-web           # Start server (default port 8000) — DO NOT use
 # CSS build (static/ 目录位于项目根级)
 cd abt-web && npm run build:css   # Build UnoCSS → static/app.css
 cd abt-web && npm run watch       # Watch mode for CSS changes
-
-# Scripts (run with bun)
-bun run scripts/migrate-all.ts    # Full data migration
 ```
 
 **Important**: Do not use `cargo run` to start the server if it's already running. Verify correctness with `cargo clippy`.

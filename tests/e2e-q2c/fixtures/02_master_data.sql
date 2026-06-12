@@ -13,31 +13,31 @@ BEGIN;
 -- 成品 A
 INSERT INTO products (product_code, pdt_name, unit, status, meta)
 VALUES ('PRD-FG-001', '成品A（产成品）', '个', 1,
-        '{"specification":"标准成品","acquire_channel":"self-made","product_type":"finished_goods"}')
+        '{"specification":"标准成品","product_type":"finished_goods"}')
 ON CONFLICT (product_code) WHERE deleted_at IS NULL DO NOTHING;
 
 -- 半成品 B
 INSERT INTO products (product_code, pdt_name, unit, status, meta)
 VALUES ('PRD-SFG-001', '半成品B', '个', 1,
-        '{"specification":"标准半成品","acquire_channel":"self-made","product_type":"semi_finished"}')
+        '{"specification":"标准半成品","product_type":"semi_finished"}')
 ON CONFLICT (product_code) WHERE deleted_at IS NULL DO NOTHING;
 
 -- 原材料 C（钢材）
 INSERT INTO products (product_code, pdt_name, unit, status, meta)
 VALUES ('PRD-RM-001', '原材料C（钢材）', 'KG', 1,
-        '{"specification":"Q235B钢材","acquire_channel":"purchase","product_type":"raw_material"}')
+        '{"specification":"Q235B钢材","product_type":"raw_material"}')
 ON CONFLICT (product_code) WHERE deleted_at IS NULL DO NOTHING;
 
 -- 原材料 D（塑料）
 INSERT INTO products (product_code, pdt_name, unit, status, meta)
 VALUES ('PRD-RM-002', '原材料D（塑料）', 'KG', 1,
-        '{"specification":"PP塑料粒子","acquire_channel":"purchase","product_type":"raw_material"}')
+        '{"specification":"PP塑料粒子","product_type":"raw_material"}')
 ON CONFLICT (product_code) WHERE deleted_at IS NULL DO NOTHING;
 
 -- 辅料 E（包装）
 INSERT INTO products (product_code, pdt_name, unit, status, meta)
 VALUES ('PRD-RM-003', '辅料E（包装）', '个', 1,
-        '{"specification":"标准包装箱","acquire_channel":"purchase","product_type":"consumable"}')
+        '{"specification":"标准包装箱","product_type":"consumable"}')
 ON CONFLICT (product_code) WHERE deleted_at IS NULL DO NOTHING;
 
 -- ============================================================

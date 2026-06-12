@@ -2,9 +2,7 @@
   "name": "abt-migrations",
   "version": "1.0.0",
   "type": "module",
-  "scripts": {
-    "migrate": "bun run migrate-from-abt-real.ts"
-  },
+  "scripts": {},
   "dependencies": {
     "pg": "^8.13.0",
     "smol-toml": "^1.6.1",

@@ -58,9 +58,10 @@ JSONB 内的字符串存在以下问题：
 - **`Legacy(9)` 是临时态**：代码注释明确"行为等同自制，日志驱动数据清洗"。当前遗留的 352 条空值并非终态，应结合业务逐步清洗到正确渠道（多数应归自制 1）。新数据不应再写入 9。
 - **同一枚举复用**：`acquire_channel` 字段同时出现在 `fulfillment_plan_lines`（迁移 033）和 `demands`（迁移 034）表，共用 `AcquireChannel` 枚举与 CHECK 约束。
 - **写入校验**：新增/更新产品时由应用层（`ProductService`）保证 `acquire_channel` 取合法枚举值，勿依赖字符串别名。
+- **meta 键已清除**：`products.meta` 中残留的 `acquire_channel` 键已于 migration `035_drop_meta_acquire_channel.sql` 彻底移除（清理全部 12502 行存量键 + 更新 DEFAULT），独立列为唯一权威来源，`meta` 不再承载该字段。
 
 ## 关联
 
-- 迁移：`abt-core/migrations/032_acquire_channel_enum.sql`、`033_sales_order_fulfillment.sql`、`034_demands.sql`
+- 迁移：`abt-core/migrations/032_acquire_channel_enum.sql`、`033_sales_order_fulfillment.sql`、`034_demands.sql`、`035_drop_meta_acquire_channel.sql`
 - 枚举：`abt-core/src/master_data/product/model.rs`（`AcquireChannel`、`from_i16` / `as_i16`）
 - 设计文档：`docs/uml-design/09-master-data.html`

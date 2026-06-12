@@ -26,7 +26,7 @@
 | 跨模块查询策略 | 数据库视图 | 单体 + 共享数据库架构下最轻量，封装 JOIN 逻辑避免直接依赖 |
 | confirm 状态同步 | **异步事件驱动** | confirm 只更新 demands + Outbox 事件，Handler 异步更新 fulfillment/订单行，避免跨聚合死锁 |
 | 供应商约束 | supplier_id 必填 | 一次创建只关联一个供应商，操作员自行决定合并或拆分 |
-| 排程参数 | items 可选 + 默认值 | 初版支持批量创建后逐行修改，降低操作复杂度（默认提前期不可硬编码，见 15.4） |
+| 排程参数 | items 可选 + 默认值 | 初版支持批量创建后逐行修改，降低操作复杂度（默认提前期不可硬编码，见 14.4） |
 | 并发控制 | **乐观锁（UPDATE WHERE status='Open'）** | 受影响行数校验，防止两个操作员同时抢占同一批需求 |
 | 需求池查询维度 | **订单行 + 物料聚合双视图** | 物料维度是采购员/计划员主要操作入口，避免逐条勾选 |
 | Handler 回查告警 | **warn! 日志** | Demand 不存在时非静默跳过，记录告警便于排查数据一致性 |
@@ -79,7 +79,7 @@
 
 1. **EventHandler 只做通知，不自动创建单据** — 保留操作员合并需求的控制权
 2. **下游单据由操作员通过 API 主动创建** — 支持多条需求合并为一张 PO/生产计划
-3. **创建后调用 DemandService.confirm 关闭环** — 触发 DemandConfirmed 事件，同步履行计划行和订单行状态
+3. **创建后调用 DemandService.confirm 关闭环** — 更新 demands 状态为 Processing，发布 DemandConfirmed 事件，由 Handler 异步更新履行计划行和订单行状态（见 6.5）
 4. **两个 Handler 注册在同一事件上** — 通过 acquire_channel 各自过滤，互不干扰
 
 ## 4. 采购模块集成
@@ -245,7 +245,7 @@ pub struct MaterialAggSummary {
     pub demand_count: i64,              // 涉及多少条需求
     pub earliest_required_date: Option<NaiveDate>, // 最早需求日期
     pub latest_required_date: Option<NaiveDate>,   // 最晚需求日期
-    // 注意：不返回 demand_ids 列表，避免大数组陷阱（见 15.2）
+    // 注意：不返回 demand_ids 列表，避免大数组陷阱（见 14.2）
 }
 
 /// 从需求创建采购订单请求
@@ -260,7 +260,7 @@ pub struct CreateOrderFromDemandsReq {
 **设计说明**：
 - `list_material_aggregated` 是采购员的**主要操作视图**，避免采购员逐条勾选 500 条需求
 - 前端展示：物料X，总需求100，涉及5个订单，最早需 7/15 → 操作员点击"创建PO"
-- **不返回 demand_ids 列表**（避免大数组陷阱，见 15.2），前端需要明细时调用 `list_pending_demands`
+- **不返回 demand_ids 列表**（避免大数组陷阱，见 14.2），前端需要明细时调用 `list_pending_demands`
 - `list_pending_demands` 仍保留，用于需要查看订单行明细的场景
 
 ### 4.5 create_order_from_demands 流程
@@ -271,7 +271,7 @@ pub struct CreateOrderFromDemandsReq {
    WHERE id = ANY($1) AND status = 'Open' AND acquire_channel = 2 AND deleted_at IS NULL;
    ```
    - 检查受影响行数是否等于 `demand_ids.len()`，如果不等于说明部分需求已被他人处理
-   - **部分成功优化**（见 15.3）：可只对成功锁定的需求创建 PO，返回 `CreateOrderResult` 含 `skipped_demands`
+   - **部分成功优化**（见 14.3）：可只对成功锁定的需求创建 PO，返回 `CreateOrderResult` 含 `skipped_demands`
    - 这比先 SELECT 再 UPDATE 的两步模式更安全，避免了 TOCTOU 竞争
 2. **供应商约束**：`CreateOrderFromDemandsReq.supplier_id` 为**必填**，操作员创建 PO 前必须指定供应商。**一次调用只创建一张 PO，只关联一个供应商**
 3. **聚合**：按 `product_id` 聚合需求（多条需求同产品则合并数量）
@@ -429,23 +429,32 @@ impl EventHandler for MesDemandCreatedHandler {
 ```rust
 #[async_trait]
 pub trait MesDemandService: Send + Sync {
-    /// 查询待处理的自制需求
+    /// 查询待处理的自制需求（订单行维度）
     async fn list_pending_demands(
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
         query: DemandQuery,
-    ) -> Result<Vec<DemandSummary>>;
+    ) -> Result<PaginatedResult<DemandSummary>>;
+
+    /// 按物料聚合查询自制需求（物料维度 — 计划员操作入口）
+    /// 与采购模块对称，聚合结果：物料X，总需求100，涉及5个订单
+    async fn list_material_aggregated(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        query: MaterialAggQuery,
+    ) -> Result<PaginatedResult<MaterialAggSummary>>;
 
     /// 从选中的需求创建生产计划草稿
     /// - 多条需求可合并为一张生产计划（同产品合并数量）
-    /// - 创建后调用 DemandService.confirm 关闭环
+    /// - 使用乐观锁并发控制（见 5.5 步骤 1）
     async fn create_plan_from_demands(
         &self,
         ctx: &ServiceContext,
         db: PgExecutor<'_>,
         req: CreatePlanFromDemandsReq,
-    ) -> Result<i64>;
+    ) -> Result<CreatePlanResult>;
 }
 ```
 
@@ -475,23 +484,27 @@ pub struct PlanDemandItemReq {
 **排程策略**：
 - 如果提供了 `items`，使用每条需求各自的排程参数
 - 如果未提供 `items`，所有需求统一使用 `default_scheduled_start/end`
-- **默认值不可硬编码**（见 15.4）：end 默认 = plan_date + 配置项 `default_production_lead_time_days`（而非写死 +7），代码中加 `// TODO: P5 接入产品主数据 Lead Time`
+- **默认值不可硬编码**（见 14.4）：end 默认 = plan_date + 配置项 `default_production_lead_time_days`（而非写死 +7），代码中加 `// TODO: P5 接入产品主数据 Lead Time`
 - 计划员可在前端逐步细化排程，初版支持批量创建后逐行修改
 
 ### 5.5 create_plan_from_demands 流程
 
-1. **校验**：读取选中的 demands，确认：
-   - 状态必须为 `Open`
-   - `acquire_channel` 必须为 `SelfProduced`
-   - 不存在重复 ID
-2. **聚合**：按 `product_id` 聚合需求
+1. **乐观锁抢占**（并发控制，与 4.5 对称）：
+   ```sql
+   UPDATE demands SET status = 'Processing'
+   WHERE id = ANY($1) AND status = 'Open' AND acquire_channel = 1 AND deleted_at IS NULL
+   RETURNING id;
+   ```
+   - 只对成功锁定的需求（RETURNING id 集合）继续后续操作（见 14.7 遍历边界）
+   - 被跳过的需求记入 `skipped_demands`
+2. **聚合**：按 `product_id` 聚合成功锁定的需求
 3. **创建生产计划**：调用 `ProductionPlanService::create` 创建生产计划草稿
    - 利用已有的 `sales_order_id`、`sales_order_item_id` 关联字段
    - 每个 product_id 聚合后生成一个计划行
-   - 排程日期、优先级从 `PlanDemandItemReq` 中取
-4. **关联需求**：逐一调用 `DemandService::confirm`，传入生产计划 ID
-5. **事务保证**：同一数据库事务
-6. **返回**：新建的生产计划 ID
+   - 排程日期、优先级从 `PlanDemandItemReq` 中取（默认值见 14.4）
+4. **关联需求**：更新每条成功锁定 demand 的 `target_doc_id` = 计划 ID，发布 `DemandConfirmed` 事件（见 6.5 异步策略）
+5. **事务保证**：以上步骤在同一数据库事务中完成
+6. **返回**：`CreatePlanResult`（含计划 ID、处理数、跳过列表）
 
 ### 5.6 后续流程（已有实现）
 
@@ -612,8 +625,9 @@ SalesDemandConfirmedHandler（异步，独立事务）：
   4. UPDATE sales_order_items SET line_status = Producing/Purchasing
 ```
 
-**幂等保证**：
-- Handler 先 SELECT 检查状态，已更新则跳过
+**幂等保证**（详见 14.5 的 SQL 模式）：
+- Handler 使用**前置状态校验的单条 UPDATE**：`UPDATE ... SET status='Producing' WHERE order_line_id=$1 AND status='Pending'`
+- 通过 `rows_affected` 判断：`== 0` 表示已处理过（幂等跳过），`== 1` 表示本次成功
 - EventProcessor 的 IdempotencyRepo.check_and_mark 提供第一层去重
 - 即使事件被重复消费，结果一致（天然幂等）
 
@@ -744,11 +758,11 @@ POST   /mes/demands/create-plan               — 从需求创建生产计划草
 - P4（下游模块集成）❌ 未实现 → 本次实现
 - P5（补货完成闭环）— 后续实现
 
-## 14. 实施前 Pre-Flight 检查清单
+## 13. 实施前 Pre-Flight 检查清单
 
 > 以下检查项必须在编码前逐项确认，Tech Lead 签字后方可启动实施。
 
-### 14.0.1 Handler 事务边界隔离
+### 13.1 Handler 事务边界隔离
 
 **规则**：`SalesDemandConfirmedHandler` 内部**禁止再次 UPDATE demands 表**。
 
@@ -757,7 +771,7 @@ POST   /mes/demands/create-plan               — 从需求创建生产计划草
 - 原则：**谁创建谁维护主状态，下游只同步自身视图**
 - 代码 Review 时必须检查 `handle_demand_confirmed` 内部是否有 `UPDATE demands` 的残留 SQL，如有则删除
 
-### 14.0.2 EventProcessor 启动时序与容错
+### 13.2 EventProcessor 启动时序与容错
 
 **启动顺序**：
 1. DB 连接池初始化 + 健康检查通过
@@ -770,7 +784,7 @@ POST   /mes/demands/create-plan               — 从需求创建生产计划草
 - **严禁静默丢弃**：履约状态丢失会导致销售看板"卡死"在 Pending
 - 提供 `retry_failed()` 管理 API，允许运维手动重试死信事件
 
-### 14.0.3 视图索引的查询计划验证
+### 13.3 视图索引的查询计划验证
 
 **P4 联调阶段必须执行**：
 ```sql
@@ -788,9 +802,9 @@ LIMIT 20;
   - 或临时 `SET enable_hashjoin = off` 并观察性能
 - demands 表数据量超过 1 万行后必须重新验证
 
-### 14.0.4 前端交互对齐确认
+### 13.4 前端交互对齐确认
 
-由于聚合 API 不再返回 `demand_ids`（14.2 防御），前端交互流程必须对齐：
+由于聚合 API 不再返回 `demand_ids`（15.2 防御），前端交互流程必须对齐：
 
 **列表页（物料汇总视图）**：
 - 展示：螺丝M4 | 缺口: 500 | 涉及订单: 12 | 最早需求: 7/15
@@ -800,7 +814,7 @@ LIMIT 20;
 1. 用户点击【创建采购单】→ 弹窗
 2. 弹窗内调用 `GET /purchase/demands?product_id=X&status=Open`（订单行维度，分页加载明细）
 3. 用户在明细中勾选/全选 → 提交 `POST /purchase/demands/create-order`
-4. 响应含 `CreateOrderResult`（含 `skipped_demands` 和 `demand_status`，见 15.6），Toast 提示结果
+4. 响应含 `CreateOrderResult`（含 `skipped_demands` 和 `demand_status`，见 14.6），Toast 提示结果
 
 **或快捷操作**：
 1. 用户直接点击【一键创建】（基于 `CreateOrderByMaterialReq`，后端自动选取该物料所有 Open 需求）
@@ -808,9 +822,9 @@ LIMIT 20;
 
 ---
 
-## 15. 代码落地暗坑防御
+## 14. 代码落地暗坑防御
 
-### 15.1 Outbox 事务可见性陷阱
+### 14.1 Outbox 事务可见性陷阱
 
 **场景**：`confirm` 事务内更新 demands → 写入 domain_events (Outbox) → NOTIFY。EventProcessor 收到通知后，`SalesDemandConfirmedHandler` 开启新事务去更新 fulfillment_plan_lines。
 
@@ -818,10 +832,10 @@ LIMIT 20;
 
 **防御措施**：
 - 当前 EventProcessor 采用 **DB 轮询 + LISTEN/NOTIFY 双模式**（`processor.rs` 第 100-115 行），`fetch_pending/fetch_retryable` 使用 `FOR UPDATE SKIP LOCKED`，天然只拉取已提交的事件
-- Handler 内部的幂等 SQL 使用**前置状态校验的单条 UPDATE**（见 15.5），不依赖先 SELECT 再 UPDATE 的两步模式
+- Handler 内部的幂等 SQL 使用**前置状态校验的单条 UPDATE**（见 14.5），不依赖先 SELECT 再 UPDATE 的两步模式
 - 如果未来 EventProcessor 改为纯 LISTEN/NOTIFY 驱动，必须加入短暂重试机制（retry after 100ms）
 
-### 15.2 物料聚合视图的大数组陷阱
+### 14.2 物料聚合视图的大数组陷阱
 
 **场景**：`MaterialAggSummary` 中包含 `demand_ids: Vec<i64>`。对于通用物料（如"M4 螺丝"），需求池中可能同时存在数千条 Open 状态的 demand。
 
@@ -854,19 +868,23 @@ pub struct CreateOrderByMaterialReq {
 }
 ```
 
-### 15.3 乐观锁部分成功的体验优化
+### 14.3 乐观锁部分成功的体验优化
 
 **场景**：采购员勾选 10 个需求点击"创建 PO"，乐观锁发现 2 个已被抢走（受影响行数 = 8 ≠ 10）。
 
 **当前策略**：全部回滚，抛出 `OptimisticLockError`。
 
-**优化方案**：返回**部分成功**结果，降低操作挫败感：
+**优化方案**：返回**部分成功**结果，降低操作挫败感。
+
+**统一响应模型**（采购和 MES 共用）：
 
 ```rust
-pub struct CreateOrderResult {
-    pub po_id: i64,                         // 成功创建的 PO ID
+/// 创建下游单据的统一响应（含部分成功信息 + 异步状态提示）
+pub struct CreateDownstreamResult {
+    pub doc_id: i64,                        // 成功创建的单据 ID（PO 或生产计划）
     pub processed_demand_count: usize,      // 成功处理的需求数
     pub skipped_demands: Vec<SkippedDemand>, // 被跳过的需求
+    pub demand_status: String,              // "Processing" — 前端用此字段判断补货已启动（见 14.6）
 }
 
 pub struct SkippedDemand {
@@ -876,12 +894,12 @@ pub struct SkippedDemand {
 ```
 
 **实施策略**：
-- 乐观锁 UPDATE 后，只对成功锁定的需求继续创建 PO
+- 乐观锁 UPDATE RETURNING id 后，只对成功锁定的需求继续创建单据
 - 未锁定的需求记入 `skipped_demands`
 - 前端弹出 Toast："已创建 PO #123（8/10），2 条需求已被他人处理已跳过"
 - 如果开发成本受限，保持全部回滚亦可，但错误消息必须列出被抢走的需求 ID
 
-### 15.4 MES 默认排程的硬编码风险
+### 14.4 MES 默认排程的硬编码风险
 
 **场景**：5.4 节中 `default_scheduled_end` 默认 = plan_date + 7 天。
 
@@ -893,7 +911,7 @@ pub struct SkippedDemand {
 - 代码中必须加注释：`// TODO: P5 阶段接入产品主数据 Lead Time，当前使用全局配置默认值`
 - API 层 `default_scheduled_end` 如果未提供，默认值逻辑为：`plan_date + lead_time_days`（从配置读取，不硬编码 7）
 
-### 15.5 Handler 幂等更新的 SQL 模式
+### 14.5 Handler 幂等更新的 SQL 模式
 
 **场景**：`SalesDemandConfirmedHandler` 异步更新 `fulfillment_plan_lines`，需保证幂等。
 
@@ -922,7 +940,7 @@ WHERE order_line_id = $1
 - 通过 `rows_affected` 判断操作结果，不依赖先 SELECT 再 UPDATE
 - `rows_affected == 0` 不视为错误，而是幂等成功（状态已更新过）
 
-### 15.6 confirm 异步后前端"短暂不一致"的应对
+### 14.6 confirm 异步后前端"短暂不一致"的应对
 
 **场景**：`create_order_from_demands` 返回 PO ID 后，`demands.status` 已变为 `Processing`，但 `fulfillment_plan_lines.status` 和 `sales_order_items.line_status` 仍是 `Pending`——需要等 EventProcessor 消费 `DemandConfirmed` 事件后才会更新（通常秒级）。
 
@@ -935,16 +953,13 @@ WHERE order_line_id = $1
 - EventProcessor 正常运行时延迟通常 < 2 秒，用户体感可接受
 
 ```rust
-/// create_order_from_demands 的响应结构
-pub struct CreateOrderResult {
-    pub po_id: i64,
-    pub processed_demand_count: usize,
-    pub skipped_demands: Vec<SkippedDemand>,
-    pub demand_status: String,  // "Processing" — 前端用此字段而非查询订单行状态
-}
+/// create_order_from_demands / create_plan_from_demands 统一使用 CreateDownstreamResult
+/// 定义见 14.3，此处仅说明前端用法：
+/// - demand_status == "Processing" → UI 应显示"采购中"/"生产中"
+/// - skipped_demands 非空 → Toast 提示跳过的需求
 ```
 
-### 15.7 乐观锁部分成功时的遍历边界
+### 14.7 乐观锁部分成功时的遍历边界
 
 **场景**：采购员勾选 10 个需求，乐观锁成功 8 个（rows_affected = 8），2 个已被他人抢走。
 
@@ -961,7 +976,7 @@ pub struct CreateOrderResult {
 - `DemandService.confirm` 的遍历范围**严格限定**为 `RETURNING id` 返回的集合，而非请求中的 `demand_ids`
 - 被跳过的需求（不在 RETURNING 集合中）记入 `skipped_demands`，不做任何操作
 
-### 15.8 SalesDemandConfirmedHandler 注册时序的安全性确认
+### 14.8 SalesDemandConfirmedHandler 注册时序的安全性确认
 
 **场景**：`SalesDemandConfirmedHandler` 已注册并随 EventProcessor 启动。`DemandService.confirm` 在事务内插入 `DemandConfirmed` 事件 → 事务提交后 EventProcessor 很快拉到该事件。
 
@@ -972,7 +987,7 @@ pub struct CreateOrderResult {
 
 **未来注意**：如果 EventProcessor 改为纯 LISTEN/NOTIFY 驱动（不经过 DB 轮询），必须在消费逻辑中补上事务可见性保护（如短暂重试或 version check）。
 
-## 16. 远期规划（未纳入本次范围的建议）
+## 15. 远期规划（未纳入本次范围的建议）
 
 以下建议来自专家审查，架构价值高但超出 P2+P4 范围，记录以备后续迭代：
 

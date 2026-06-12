@@ -404,3 +404,133 @@ pub struct FulfillmentPlanLineInput {
     pub status: FulfillmentLineStatus,
     pub required_date: Option<NaiveDate>,
 }
+
+// ---------------------------------------------------------------------------
+// Demand — 需求池
+// ---------------------------------------------------------------------------
+
+/// 需求状态
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(i16)]
+pub enum DemandStatus {
+    Pending = 1,
+    Confirmed = 2,
+    InProgress = 3,
+    Fulfilled = 4,
+    Rejected = 5,
+}
+
+impl DemandStatus {
+    pub fn from_i16(v: i16) -> Option<Self> {
+        match v {
+            1 => Some(Self::Pending),
+            2 => Some(Self::Confirmed),
+            3 => Some(Self::InProgress),
+            4 => Some(Self::Fulfilled),
+            5 => Some(Self::Rejected),
+            _ => None,
+        }
+    }
+
+    pub fn as_i16(self) -> i16 {
+        self as i16
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Pending => "Pending",
+            Self::Confirmed => "Confirmed",
+            Self::InProgress => "InProgress",
+            Self::Fulfilled => "Fulfilled",
+            Self::Rejected => "Rejected",
+        }
+    }
+}
+
+impl sqlx::Type<sqlx::Postgres> for DemandStatus {
+    fn type_info() -> sqlx::postgres::PgTypeInfo {
+        <i16 as sqlx::Type<sqlx::Postgres>>::type_info()
+    }
+}
+
+impl sqlx::Encode<'_, sqlx::Postgres> for DemandStatus {
+    fn encode_by_ref(
+        &self,
+        buf: &mut sqlx::postgres::PgArgumentBuffer,
+    ) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
+        <i16 as sqlx::Encode<'_, sqlx::Postgres>>::encode_by_ref(&self.as_i16(), buf)
+    }
+}
+
+impl sqlx::Decode<'_, sqlx::Postgres> for DemandStatus {
+    fn decode(value: sqlx::postgres::PgValueRef<'_>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let v = <i16 as sqlx::Decode<'_, sqlx::Postgres>>::decode(value)?;
+        Self::from_i16(v).ok_or_else(|| format!("unknown DemandStatus: {v}").into())
+    }
+}
+
+impl Serialize for DemandStatus {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_i16(self.as_i16())
+    }
+}
+
+impl<'de> Deserialize<'de> for DemandStatus {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let v = i16::deserialize(d)?;
+        Self::from_i16(v).ok_or_else(|| serde::de::Error::custom(format!("unknown DemandStatus: {v}")))
+    }
+}
+
+/// 需求实体
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct Demand {
+    pub id: i64,
+    pub demand_type: i16,
+    pub source_type: i16,
+    pub source_id: i64,
+    pub source_line_id: i64,
+    pub product_id: i64,
+    pub acquire_channel: i16,
+    pub required_qty: Decimal,
+    pub required_date: Option<NaiveDate>,
+    pub status: DemandStatus,
+    pub target_doc_type: Option<i16>,
+    pub target_doc_id: Option<i64>,
+    pub priority: i32,
+    pub remark: String,
+    pub operator_id: i64,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub deleted_at: Option<DateTime<Utc>>,
+}
+
+/// 需求创建输入
+pub struct DemandInput {
+    pub demand_type: i16,
+    pub source_type: i16,
+    pub source_id: i64,
+    pub source_line_id: i64,
+    pub product_id: i64,
+    pub acquire_channel: i16,
+    pub required_qty: Decimal,
+    pub required_date: Option<NaiveDate>,
+    pub priority: i32,
+    pub remark: String,
+    pub operator_id: i64,
+}
+
+/// 需求查询
+#[derive(Debug, Clone, Default)]
+pub struct DemandQuery {
+    pub source_id: Option<i64>,
+    pub product_id: Option<i64>,
+    pub acquire_channel: Option<i16>,
+    pub status: Option<DemandStatus>,
+}
+
+/// 需求确认请求
+pub struct ConfirmDemandReq {
+    pub target_doc_type: i16,
+    pub target_doc_id: i64,
+}

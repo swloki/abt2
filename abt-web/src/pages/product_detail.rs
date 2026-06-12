@@ -3,7 +3,7 @@ use maud::{Markup, html};
 use serde::Deserialize;
 
 use abt_core::master_data::product::ProductService;
-use abt_core::master_data::product::model::*;
+use abt_core::master_data::product::model::{*, AcquireChannel};
 
 use abt_macros::require_permission;
 
@@ -96,17 +96,22 @@ pub async fn update_product(
         .as_deref()
         .and_then(|s| if s.is_empty() { None } else { s.parse::<i64>().ok() });
 
+    // 将中文获取途径映射为枚举值
+    let acquire_channel = match form.acquire_channel.as_deref() {
+        Some("自制") => Some(AcquireChannel::SelfProduced),
+        Some("采购") => Some(AcquireChannel::Purchased),
+        Some("委外") => Some(AcquireChannel::Outsourced),
+        _ => None, // 不修改，保持原值
+    };
+
     let req = UpdateProductReq {
         name: Some(form.name),
         unit: Some(form.unit),
+        acquire_channel,
         external_code: form.external_code.filter(|s| !s.is_empty()),
         owner_department_id,
         meta: Some(ProductMeta {
             specification: form.specification,
-            acquire_channel: form
-                .acquire_channel
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| "采购".to_string()),
             old_code: form.old_code.filter(|s| !s.is_empty()),
             remark: form.remark.filter(|s| !s.is_empty()),
         }),
@@ -174,7 +179,13 @@ fn product_detail_page(product: &Product) -> Markup {
                     }))
                     (detail_row("单位", html! { (product.unit) }))
                     (detail_row("获取途径", html! {
-                        @if product.meta.acquire_channel.is_empty() { "—" } @else { (&product.meta.acquire_channel) }
+                        (match product.acquire_channel {
+                            AcquireChannel::SelfProduced => "自制",
+                            AcquireChannel::Purchased => "采购",
+                            AcquireChannel::Outsourced => "委外",
+                            AcquireChannel::NonInventory => "非库存",
+                            AcquireChannel::Legacy => "历史遗留",
+                        })
                     }))
                     (detail_row("状态", html! {
                         span class=(format!("status-pill {status_class}")) { (status_label) }
@@ -240,7 +251,13 @@ fn product_edit_page(product: &Product) -> Markup {
     let update_path = ProductUpdatePath { id: product.product_id };
     let detail_path = ProductDetailPath { id: product.product_id };
 
-    let acquire_val = &product.meta.acquire_channel;
+    let acquire_val = match product.acquire_channel {
+        AcquireChannel::SelfProduced => "自制",
+        AcquireChannel::Purchased => "采购",
+        AcquireChannel::Outsourced => "委外",
+        AcquireChannel::NonInventory => "非库存",
+        AcquireChannel::Legacy => "历史遗留",
+    };
     let external_code_val = product.external_code.as_deref().unwrap_or("");
     let old_code_val = product.meta.old_code.as_deref().unwrap_or("");
     let remark_val = product.meta.remark.as_deref().unwrap_or("");

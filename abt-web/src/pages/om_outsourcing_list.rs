@@ -295,8 +295,8 @@ fn list_page(
     html! {
         div {
             div class="page-header" {
-                div class="page-header-left" {
-                    h1 class="page-title" { "委外单管理" }
+                h1 class="page-title" { "委外单管理" }
+                div class="page-actions" {
                     @if can_create {
                         a class="btn btn-primary" href=(OmOutsourcingCreatePath::PATH) {
                             (icon::plus_icon("w-4 h-4"))

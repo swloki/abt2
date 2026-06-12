@@ -348,7 +348,6 @@ p { margin: 0; }
 
 
 /* ─── Page Header ─── */
-.page-header-left { display: flex; align-items: center; gap: var(--space-3); }
 .page-actions { display: flex; gap: var(--space-3); }
 
 /* ─── Customer Stats Grid ─── */

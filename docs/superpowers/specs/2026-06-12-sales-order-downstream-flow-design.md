@@ -744,7 +744,71 @@ POST   /mes/demands/create-plan               — 从需求创建生产计划草
 - P4（下游模块集成）❌ 未实现 → 本次实现
 - P5（补货完成闭环）— 后续实现
 
-## 14. 代码落地暗坑防御
+## 14. 实施前 Pre-Flight 检查清单
+
+> 以下检查项必须在编码前逐项确认，Tech Lead 签字后方可启动实施。
+
+### 14.0.1 Handler 事务边界隔离
+
+**规则**：`SalesDemandConfirmedHandler` 内部**禁止再次 UPDATE demands 表**。
+
+- demands 的状态已在采购/MES 模块的 `create_order_from_demands`/`create_plan_from_demands` 事务中变更为 `Processing`
+- Handler 只负责更新 `fulfillment_plan_lines` 和 `sales_order_items` 两张表
+- 原则：**谁创建谁维护主状态，下游只同步自身视图**
+- 代码 Review 时必须检查 `handle_demand_confirmed` 内部是否有 `UPDATE demands` 的残留 SQL，如有则删除
+
+### 14.0.2 EventProcessor 启动时序与容错
+
+**启动顺序**：
+1. DB 连接池初始化 + 健康检查通过
+2. 所有业务路由注册完成
+3. **最后**才启动 EventProcessor 后台协程
+
+**消费失败策略**：
+- `max_retries = 3` + 指数退避（当前 EventProcessor 已支持 retry_count 递增）
+- 3 次仍失败（如 DB 瞬时抖动）→ 写入 `dead_letter_events` 表 + 触发 `warn!` 告警日志
+- **严禁静默丢弃**：履约状态丢失会导致销售看板"卡死"在 Pending
+- 提供 `retry_failed()` 管理 API，允许运维手动重试死信事件
+
+### 14.0.3 视图索引的查询计划验证
+
+**P4 联调阶段必须执行**：
+```sql
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT * FROM v_purchase_demands
+WHERE demand_status = 'Open'
+ORDER BY required_date ASC
+LIMIT 20;
+```
+
+**验证标准**：
+- `WHERE acquire_channel = 2 AND status = 'Open'` 必须走 **Index Scan**（利用 `idx_demands_channel_status`）
+- 如果 JOIN products/sales_orders 导致规划器选择 Hash Join 且内存溢出，考虑：
+  - 补充覆盖索引
+  - 或临时 `SET enable_hashjoin = off` 并观察性能
+- demands 表数据量超过 1 万行后必须重新验证
+
+### 14.0.4 前端交互对齐确认
+
+由于聚合 API 不再返回 `demand_ids`（14.2 防御），前端交互流程必须对齐：
+
+**列表页（物料汇总视图）**：
+- 展示：螺丝M4 | 缺口: 500 | 涉及订单: 12 | 最早需求: 7/15
+- 无 demand_ids 列表，前端不"猜" ID
+
+**操作流（创建采购单）**：
+1. 用户点击【创建采购单】→ 弹窗
+2. 弹窗内调用 `GET /purchase/demands?product_id=X&status=Open`（订单行维度，分页加载明细）
+3. 用户在明细中勾选/全选 → 提交 `POST /purchase/demands/create-order`
+4. 响应含 `CreateOrderResult`（含 `skipped_demands`），Toast 提示结果
+
+**或快捷操作**：
+1. 用户直接点击【一键创建】（基于 `CreateOrderByMaterialReq`，后端自动选取该物料所有 Open 需求）
+2. 省略勾选步骤，适合"通用物料全部采购"场景
+
+---
+
+## 15. 代码落地暗坑防御
 
 ### 14.1 Outbox 事务可见性陷阱
 
@@ -858,7 +922,7 @@ WHERE order_line_id = $1
 - 通过 `rows_affected` 判断操作结果，不依赖先 SELECT 再 UPDATE
 - `rows_affected == 0` 不视为错误，而是幂等成功（状态已更新过）
 
-## 15. 远期规划（未纳入本次范围的建议）
+## 16. 远期规划（未纳入本次范围的建议）
 
 以下建议来自专家审查，架构价值高但超出 P2+P4 范围，记录以备后续迭代：
 

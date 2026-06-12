@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>主数据模块 (Master Data) — 类图设计 v6</title>
+  <title>主数据模块 (Master Data) — 类图设计 v7</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
@@ -28,8 +28,8 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </script>
 </head>
 <body>
-<h2>主数据模块 (Master Data) — 类图设计 v6</h2>
-<p class="subtitle">产品目录 + 分类体系 + 价格管理 + BOM 工程数据 + 客商主数据 + 工艺路线 + 劳务工序 + 产品关注（Customer/Supplier/Routing/LaborProcess/ProductWatcher） · 所有业务模块的上游基础数据 · ServiceContext 统一契约 · CQRS 风格拆分</p>
+<h2>主数据模块 (Master Data) — 类图设计 v7</h2>
+<p class="subtitle">产品目录 + 分类体系 + 价格管理 + BOM 工程数据 + 客商主数据 + 工艺路线 + 劳务工序 + 产品关注 + AcquireChannel 枚举（SelfProduced/Purchased/Outsourced/NonInventory/Legacy） · acquire_channel 从 ProductMeta JSONB 提升为 Product 独立列 + B-tree 索引 · 所有业务模块的上游基础数据 · ServiceContext 统一契约 · CQRS 风格拆分</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -62,14 +62,23 @@ classDiagram
     +product_code: String
     +unit: String
     +status: ProductStatus
+    +acquire_channel: AcquireChannel
     +external_code: Option~String~
     +owner_department_id: Option~i64~
     +meta: ProductMeta
   }
 
+  class AcquireChannel {
+    &lt;&lt;enumeration&gt;&gt;
+    SelfProduced
+    Purchased
+    Outsourced
+    NonInventory
+    Legacy
+  }
+
   class ProductMeta {
     +specification: String
-    +acquire_channel: String
     +old_code: Option~String~
   }
 
@@ -551,6 +560,7 @@ classDiagram
 
   %% 实体关系
   Product *-- ProductMeta : meta
+  Product --> AcquireChannel : acquire_channel
   Product --> ProductStatus : status
   Category *-- CategoryMeta : meta
   CategoryTree *-- CategoryMeta : meta
@@ -1027,6 +1037,7 @@ classDiagram
           &nbsp;&nbsp;product_code: String <span style="color:#888;">// 自动生成</span><br>
           &nbsp;&nbsp;unit: String <span style="color:#888;">// 计量单位</span><br>
           &nbsp;&nbsp;status: ProductStatus <span style="color:#888;">// Active/Inactive/Obsolete</span><br>
+          &nbsp;&nbsp;acquire_channel: AcquireChannel <span style="color:#888;">// 获取途径 ◀ 独立列+索引</span><br>
           &nbsp;&nbsp;external_code: String? <span style="color:#888;">// 客户/供应商编码</span><br>
           &nbsp;&nbsp;owner_department_id: i64? <span style="color:#888;">// 归属部门</span><br>
           &nbsp;&nbsp;meta: JSONB → ProductMeta<br>
@@ -1036,10 +1047,23 @@ classDiagram
           &nbsp;&nbsp;Inactive <span style="color:#888;">// 停用，不出现在下拉框</span><br>
           &nbsp;&nbsp;Obsolete <span style="color:#888;">// 作废，仅供历史查询</span><br>
           }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">AcquireChannel</span> {<br>
+          &nbsp;&nbsp;SelfProduced = 1 <span style="color:#888;">// 自制</span><br>
+          &nbsp;&nbsp;Purchased = 2 <span style="color:#888;">// 外购</span><br>
+          &nbsp;&nbsp;Outsourced = 3 <span style="color:#888;">// 委外</span><br>
+          &nbsp;&nbsp;NonInventory = 4 <span style="color:#888;">// 非库存(服务/虚拟)</span><br>
+          &nbsp;&nbsp;Legacy = 9 <span style="color:#888;">// 历史数据(迁移兼容)</span><br>
+          }<br><br>
           <span style="color:#c678dd;">struct</span> <span style="color:#e5c07b;">ProductMeta</span> {<br>
           &nbsp;&nbsp;specification: String <span style="color:#888;">// 规格型号</span><br>
-          &nbsp;&nbsp;acquire_channel: String <span style="color:#888;">// 获取途径(采购/自制)</span><br>
           &nbsp;&nbsp;old_code: String? <span style="color:#888;">// 旧编码(迁移兼容)</span><br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">AcquireChannel</span> {<br>
+          &nbsp;&nbsp;SelfProduced = 1 <span style="color:#888;">// 自制</span><br>
+          &nbsp;&nbsp;Purchased = 2 <span style="color:#888;">// 外购</span><br>
+          &nbsp;&nbsp;Outsourced = 3 <span style="color:#888;">// 委外</span><br>
+          &nbsp;&nbsp;NonInventory = 4 <span style="color:#888;">// 非库存(服务/虚拟)</span><br>
+          &nbsp;&nbsp;Legacy = 9 <span style="color:#888;">// 历史数据(迁移兼容,不阻塞业务)</span><br>
           }<br><br>
           <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">ProductCategory</span> {<br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
@@ -1851,6 +1875,41 @@ classDiagram
       </p>
     </div>
 
+  </div>
+</div>
+
+<!-- v7 设计改进说明 -->
+<div class="mockup" style="margin-top:20px;">
+  <div class="mockup-header">v7 设计改进 — AcquireChannel 枚举化（Issue #12 + #16）</div>
+  <div class="mockup-body" style="padding:20px;">
+    <h3 style="color:#61afef;margin-bottom:12px;">变更摘要</h3>
+    <table style="width:100%;border-collapse:collapse;color:#cdd6f4;font-size:14px;">
+      <tr style="border-bottom:1px solid #333;">
+        <td style="padding:8px;color:#e5c07b;width:180px;">变更类型</td>
+        <td style="padding:8px;">字段类型提升 String → 枚举</td>
+      </tr>
+      <tr style="border-bottom:1px solid #333;">
+        <td style="padding:8px;color:#e5c07b;">影响字段</td>
+        <td style="padding:8px;">Product.acquire_channel（从 ProductMeta JSONB 提升为独立列+索引）</td>
+      </tr>
+      <tr style="border-bottom:1px solid #333;">
+        <td style="padding:8px;color:#e5c07b;">新增枚举</td>
+        <td style="padding:8px;">AcquireChannel: SelfProduced(1) / Purchased(2) / Outsourced(3) / NonInventory(4) / Legacy(9)</td>
+      </tr>
+      <tr>
+        <td style="padding:8px;color:#e5c07b;">设计依据</td>
+        <td style="padding:8px;">销售订单履行流程需要根据产品获取途径分流（自制→生产订单 / 外购→采购订单），String 类型无法保证类型安全和穷举匹配</td>
+      </tr>
+    </table>
+    <h3 style="color:#61afef;margin:16px 0 12px;">迁移策略</h3>
+    <ul style="color:#cdd6f4;font-size:14px;line-height:1.8;padding-left:20px;">
+      <li>DB 层：在 products 表新增 acquire_channel VARCHAR 列 + CHECK 约束 + B-tree 索引</li>
+      <li>迁移：从 meta JSONB 中提取 acquire_channel 填充新列，无法识别的设为 Legacy(9)</li>
+      <li>Rust 层：AcquireChannel 枚举 + serde 字符串序列化，读写兼容现有数据</li>
+      <li>Legacy(9)：迁移时无法识别的历史数据标记，不阻塞业务流程，日志记录供数据清洗</li>
+      <li>ProductMeta JSONB 中移除 acquire_channel 字段（双写过渡期后清理）</li>
+      <li>下游模块（sales/purchase/wms）通过 AcquireChannel 枚举进行穷举匹配，编译期保证无遗漏</li>
+    </ul>
   </div>
 </div>
 

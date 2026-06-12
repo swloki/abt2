@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>销售模块 (CRM) — 类图设计</title>
+  <title>销售模块 (CRM) — 类图设计 v2</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #1e1e2e; color: #cdd6f4; padding: 24px; }
@@ -28,8 +28,8 @@ mermaid.initialize({startOnLoad:true,theme:'dark',themeVariables:{darkMode:true,
 </script>
 </head>
 <body>
-<h2>销售模块 (CRM) — 类图设计</h2>
-<p class="subtitle">5 个核心实体 + 共享层引用 + 完整业务流转 + DomainError 错误模型 + 业务校验规则</p>
+<h2>销售模块 (CRM) — 类图设计 v2</h2>
+<p class="subtitle">头行状态分离 + SalesOrderLineStatus + FulfillmentPlanLine + Demand 需求池 + AcquireChannel 分流 + 四数量模型 + 共享层引用 + DomainError 错误模型 + 业务校验规则</p>
 
 <div class="mermaid-wrap">
   <div class="zoom-toolbar">
@@ -58,11 +58,47 @@ classDiagram
         &lt;&lt;enumeration&gt;&gt;
         Draft
         Confirmed
-        InProduction
         PartiallyShipped
         Shipped
         Completed
         Cancelled
+    }
+
+    class SalesOrderLineStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Pending
+        Allocated
+        Producing
+        Purchasing
+        Shipped
+        Cancelled
+    }
+
+    class AcquireChannel {
+        &lt;&lt;enumeration&gt;&gt;
+        SelfProduced
+        Purchased
+        Outsourced
+        NonInventory
+        Legacy
+    }
+
+    class FulfillmentLineStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Pending
+        Allocated
+        Producing
+        Purchasing
+        Fulfilled
+    }
+
+    class DemandStatus {
+        &lt;&lt;enumeration&gt;&gt;
+        Pending
+        Confirmed
+        InProgress
+        Fulfilled
+        Rejected
     }
 
     class ShippingStatus {
@@ -170,7 +206,10 @@ classDiagram
         +discount_rate: Decimal
         +amount: Decimal
         +shipped_qty: Decimal
+        +cancelled_qty: Decimal
         +returned_qty: Decimal
+        +line_status: SalesOrderLineStatus
+        +version: i32
         +delivery_date: Option~Date~
     }
 
@@ -267,11 +306,51 @@ classDiagram
     SalesReturn *-- SalesReturnItem
     Reconciliation *-- ReconciliationItem
 
+    class FulfillmentPlanLine {
+        +id: i64
+        +order_id: i64
+        +order_line_id: i64
+        +product_id: i64
+        +acquire_channel: AcquireChannel
+        +required_qty: Decimal
+        +reserved_qty: Decimal
+        +status: FulfillmentLineStatus
+        +source_doc_type: Option~String~
+        +source_doc_id: Option~i64~
+        +required_date: Option~Date~
+        +version: i32
+        +created_at: Timestamp
+        +updated_at: Timestamp
+    }
+
+    class Demand {
+        +id: i64
+        +demand_type: String
+        +source_type: String
+        +source_id: i64
+        +source_line_id: Option~i64~
+        +product_id: i64
+        +required_qty: Decimal
+        +required_date: Option~Date~
+        +status: DemandStatus
+        +remark: Option~String~
+        +created_at: Timestamp
+        +updated_at: Timestamp
+    }
+
     SalesOrder --> Quotation : DERIVED_FROM
     ShippingRequest --> SalesOrder : TRIGGERS
     SalesReturn --> SalesOrder : REFERENCES
     SalesReturn --> ShippingRequest : REFERENCES
     ReconciliationItem --> ShippingRequest : RECONCILES
+
+    SalesOrder *-- FulfillmentPlanLine : fulfillment
+    SalesOrderItem --> SalesOrderLineStatus : line_status
+    FulfillmentPlanLine --> FulfillmentLineStatus : status
+    FulfillmentPlanLine --> AcquireChannel : acquire_channel
+    FulfillmentPlanLine *-- Demand : demands
+    Demand --> DemandStatus : status
+    FulfillmentPlanLine --> SalesOrderItem : order_line_id
 
     class QuotationService {
         &lt;&lt;interface&gt;&gt;
@@ -293,10 +372,16 @@ classDiagram
         +update_header(ctx: &ServiceContext, db: PgExecutor, id, req) Result~Unit~
         +update(ctx: &ServiceContext, db: PgExecutor, id, req, items) Result~Unit~
         +list_items(ctx: &ServiceContext, db: PgExecutor, order_id) Result~Vec~SalesOrderItem~~
+        +list_items_by_order_ids(ctx: &ServiceContext, db: PgExecutor, order_ids) Result~Vec~SalesOrderItem~~
         +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
-        +start_progress(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +create_fulfillment_plan(ctx: &ServiceContext, db: PgExecutor, order_id) Result~Unit~
+        +list_fulfillment_plan(ctx: &ServiceContext, db: PgExecutor, order_id) Result~Vec~FulfillmentPlanLine~~
+        +generate_replenishment(ctx: &ServiceContext, db: PgExecutor, order_id) Result~Vec~i64~~
+        +recalc_header_status(ctx: &ServiceContext, db: PgExecutor, order_id) Result~Unit~
+        +reconcile_fulfillment_status(ctx: &ServiceContext, db: PgExecutor, order_id) Result~Unit~
         +complete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +cancel(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+        +cancel_line(ctx: &ServiceContext, db: PgExecutor, order_id, line_id, qty) Result~Unit~
         +delete(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
         +list(filter) PaginatedResult~SalesOrder~
     }
@@ -477,24 +562,95 @@ classDiagram
           &nbsp;&nbsp;line_no: i32<br>
           &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
           &nbsp;&nbsp;description: String<br>
-          &nbsp;&nbsp;quantity: Decimal(18,6)<br>
+          &nbsp;&nbsp;quantity: Decimal(18,6) <span style="color:#888;">// ordered_qty（不可变）</span><br>
           &nbsp;&nbsp;unit: String <span style="color:#888;">// 计量单位</span><br>
           &nbsp;&nbsp;unit_price: Decimal(18,6)<br>
           &nbsp;&nbsp;unit_cost: Decimal(18,6) <span style="color:#888;">// 单位成本</span><br>
           &nbsp;&nbsp;discount_rate: Decimal(5,2) <span style="color:#888;">// 折扣率%</span><br>
           &nbsp;&nbsp;amount: Decimal(20,4)<br>
           &nbsp;&nbsp;shipped_qty: Decimal(18,6) <span style="color:#888;">// 已发货量</span><br>
+          &nbsp;&nbsp;cancelled_qty: Decimal(18,6) <span style="color:#888;">// 已取消量（四数量模型）</span><br>
           &nbsp;&nbsp;returned_qty: Decimal(18,6) <span style="color:#888;">// 已退货量</span><br>
+          &nbsp;&nbsp;line_status: SalesOrderLineStatus <span style="color:#888;">// 行级状态</span><br>
+          &nbsp;&nbsp;version: i32 <span style="color:#888;">// 乐观锁</span><br>
           &nbsp;&nbsp;delivery_date: Date?<br>
           }<br><br>
           <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SalesOrderStatus</span> {<br>
-          &nbsp;&nbsp;DRAFT, CONFIRMED, IN_PRODUCTION<br>
+          &nbsp;&nbsp;DRAFT, CONFIRMED<br>
           &nbsp;&nbsp;PARTIALLY_SHIPPED, SHIPPED, COMPLETED<br>
           &nbsp;&nbsp;CANCELLED<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">SalesOrderLineStatus</span> {<br>
+          &nbsp;&nbsp;PENDING, ALLOCATED, PRODUCING<br>
+          &nbsp;&nbsp;PURCHASING, SHIPPED, CANCELLED<br>
           &nbsp;&nbsp;}
         </div>
         <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
-          <strong>共享层交互：</strong>DocumentSequence 编号 | InventoryReservation SOFT预留 | DocumentLink 关联报价
+          <strong>共享层交互：</strong>DocumentSequence 编号 | InventoryReservation SOFT预留 | DocumentLink 关联报价 | FulfillmentPlanLine 履行计划 | Demand 需求池
+        </p>
+      </div>
+
+      <!-- FulfillmentPlanLine -->
+      <div style="border: 2px solid #56b6c2; border-radius: 8px; padding: 14px; background: rgba(86,182,194,0.05);">
+        <h3 style="color: #56b6c2; margin: 0 0 6px 0;">FulfillmentPlanLine 履行计划行</h3>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">功能：行级履行进度跟踪，按 AcquireChannel 分流至生产/采购/委外</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">FulfillmentPlanLine</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;order_id: i64 <span style="color:#888;">FK→sales_orders</span><br>
+          &nbsp;&nbsp;order_line_id: i64 <span style="color:#888;">FK→sales_order_items</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;acquire_channel: AcquireChannel <span style="color:#888;">// 获取途径</span><br>
+          &nbsp;&nbsp;required_qty: Decimal(18,6) <span style="color:#888;">// 需求数量</span><br>
+          &nbsp;&nbsp;reserved_qty: Decimal(18,6) <span style="color:#888;">// 已预留数量</span><br>
+          &nbsp;&nbsp;status: FulfillmentLineStatus<br>
+          &nbsp;&nbsp;source_doc_type: String? <span style="color:#888;">// 下游单据类型(MO/PO)</span><br>
+          &nbsp;&nbsp;source_doc_id: i64? <span style="color:#888;">// 下游单据ID</span><br>
+          &nbsp;&nbsp;required_date: Date? <span style="color:#888;">// 需求日期</span><br>
+          &nbsp;&nbsp;version: i32 <span style="color:#888;">// 乐观锁</span><br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">FulfillmentLineStatus</span> {<br>
+          &nbsp;&nbsp;PENDING, ALLOCATED, PRODUCING<br>
+          &nbsp;&nbsp;PURCHASING, FULFILLED<br>
+          &nbsp;&nbsp;}<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">AcquireChannel</span> {<br>
+          &nbsp;&nbsp;SelfProduced=1, Purchased=2, Outsourced=3<br>
+          &nbsp;&nbsp;NonInventory=4, Legacy=9<br>
+          &nbsp;&nbsp;}
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>共享层交互：</strong>InventoryReservation 硬/计划预留 | DomainEventBus DemandCreated 事件 | 状态回调 reconcile_fulfillment_status()
+        </p>
+      </div>
+
+      <!-- Demand -->
+      <div style="border: 2px solid #e5c07b; border-radius: 8px; padding: 14px; background: rgba(229,192,123,0.05);">
+        <h3 style="color: #e5c07b; margin: 0 0 6px 0;">Demand 需求池</h3>
+        <p style="color:#aaa; font-size:11px; margin:0 0 8px 0;">功能：业务数据表，支持查询、展示、合并，通过 DomainEventBus 通知下游</p>
+        <div style="font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+          <span style="color:#c678dd;">entity</span> <span style="color:#e5c07b;">Demand</span> {<br>
+          &nbsp;&nbsp;id: i64 <span style="color:#888;">PK</span><br>
+          &nbsp;&nbsp;demand_type: String <span style="color:#888;">// SalesOrder/PurchaseOrder 等</span><br>
+          &nbsp;&nbsp;source_type: String <span style="color:#888;">// 来源单据类型</span><br>
+          &nbsp;&nbsp;source_id: i64 <span style="color:#888;">// 来源单据ID</span><br>
+          &nbsp;&nbsp;source_line_id: i64? <span style="color:#888;">// 来源行ID</span><br>
+          &nbsp;&nbsp;product_id: i64 <span style="color:#888;">FK→products</span><br>
+          &nbsp;&nbsp;required_qty: Decimal(18,6)<br>
+          &nbsp;&nbsp;required_date: Date?<br>
+          &nbsp;&nbsp;status: DemandStatus<br>
+          &nbsp;&nbsp;remark: String?<br>
+          &nbsp;&nbsp;created_at: Timestamp<br>
+          &nbsp;&nbsp;updated_at: Timestamp<br>
+          }<br><br>
+          <span style="color:#c678dd;">enum</span> <span style="color:#e5c07b;">DemandStatus</span> {<br>
+          &nbsp;&nbsp;PENDING, CONFIRMED, IN_PROGRESS<br>
+          &nbsp;&nbsp;FULFILLED, REJECTED<br>
+          &nbsp;&nbsp;}
+        </div>
+        <p style="color:#aaa; font-size:11px; margin: 8px 0 0 0;">
+          <strong>下游消费：</strong>生产/采购模块监听 DemandCreated 事件 → 确认需求 → 创建补货单据 → 回调更新 FulfillmentPlanLine.status
         </p>
       </div>
 
@@ -690,11 +846,10 @@ classDiagram
             </div>
 
             <div style="font-family: monospace; background: #1a1a2e; padding: 10px; border-radius: 6px; font-size: 11.5px;">
-              <h4 style="margin: 0 0 6px 0; color: #6bc76b; font-size: 12px;">SalesOrderStatus</h4>
-              <span style="color:#98c379;">Draft</span> → <span style="color:#56b6c2;">Confirmed</span> <span style="color:#888;">| confirm()</span><br>
-              <span style="color:#56b6c2;">Confirmed</span> → <span style="color:#c678dd;">InProduction</span> <span style="color:#888;">| start_progress()</span><br>
-              <span style="color:#c678dd;">InProduction</span> → <span style="color:#e5c07b;">PartiallyShipped</span> / <span style="color:#6bc76b;">Shipped</span> <span style="color:#888;">| SR.ship() 自动联动</span><br>
-              <span style="color:#6bc76b;">Shipped</span> → <span style="color:#6bc76b;">Completed</span> <span style="color:#888;">| complete() 需所有行 shipped_qty ≥ quantity</span><br>
+              <h4 style="margin: 0 0 6px 0; color: #6bc76b; font-size: 12px;">SalesOrderStatus (头状态 — 交付进度)</h4>
+              <span style="color:#98c379;">Draft</span> → <span style="color:#56b6c2;">Confirmed</span> <span style="color:#888;">| confirm() + 预留 + 履行计划 + 需求事件</span><br>
+              <span style="color:#56b6c2;">Confirmed</span> → <span style="color:#e5c07b;">PartiallyShipped</span> / <span style="color:#6bc76b;">Shipped</span> <span style="color:#888;">| SR.ship() + recalc_header_status()</span><br>
+              <span style="color:#6bc76b;">Shipped</span> → <span style="color:#6bc76b;">Completed</span> <span style="color:#888;">| complete() open_qty = 0 防御 cancelled_qty</span><br>
               <span style="color:#98c379;">Draft</span> / <span style="color:#56b6c2;">Confirmed</span> → <span style="color:#e06c75;">Cancelled</span> <span style="color:#888;">| cancel()</span>
             </div>
 
@@ -725,6 +880,23 @@ classDiagram
               <span style="color:#e06c75;">Disputed</span> → <span style="color:#98c379;">Draft</span> <span style="color:#888;">| reopen() 打回重做</span><br>
               <span style="color:#e06c75;">Disputed</span> → <span style="color:#6bc76b;">Settled</span> <span style="color:#888;">| force_settle() 差异结算</span>
             </div>
+
+            <div style="font-family: monospace; background: #1a1a2e; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+              <h4 style="margin: 0 0 6px 0; color: #e5c07b; font-size: 12px;">SalesOrderLineStatus (行状态)</h4>
+              <span style="color:#98c379;">Pending</span> → <span style="color:#56b6c2;">Allocated</span> <span style="color:#888;">| 库存已硬预留</span><br>
+              <span style="color:#98c379;">Pending</span> → <span style="color:#c678dd;">Producing</span> <span style="color:#888;">| AcquireChannel=SelfProduced, 生产订单已创建</span><br>
+              <span style="color:#98c379;">Pending</span> → <span style="color:#c678dd;">Purchasing</span> <span style="color:#888;">| AcquireChannel=Purchased, 采购单已创建</span><br>
+              <span style="color:#56b6c2;">Allocated</span> / <span style="color:#c678dd;">Producing</span> / <span style="color:#c678dd;">Purchasing</span> → <span style="color:#6bc76b;">Shipped</span> <span style="color:#888;">| SR.ship() 发货确认</span><br>
+              <span style="color:#98c379;">Pending</span> → <span style="color:#e06c75;">Cancelled</span> <span style="color:#888;">| cancel_line()</span>
+            </div>
+
+            <div style="font-family: monospace; background: #1a1a2e; padding: 10px; border-radius: 6px; font-size: 11.5px;">
+              <h4 style="margin: 0 0 6px 0; color: #56b6c2; font-size: 12px;">FulfillmentLineStatus</h4>
+              <span style="color:#98c379;">Pending</span> → <span style="color:#56b6c2;">Allocated</span> <span style="color:#888;">| 库存硬预留成功</span><br>
+              <span style="color:#98c379;">Pending</span> → <span style="color:#c678dd;">Producing</span> <span style="color:#888;">| 生产订单创建</span><br>
+              <span style="color:#98c379;">Pending</span> → <span style="color:#c678dd;">Purchasing</span> <span style="color:#888;">| 采购单创建</span><br>
+              <span style="color:#56b6c2;">Allocated</span> / <span style="color:#c678dd;">Producing</span> / <span style="color:#c678dd;">Purchasing</span> → <span style="color:#6bc76b;">Fulfilled</span> <span style="color:#888;">| 下游单据完成</span>
+            </div>
           </div>
         </div>
 
@@ -750,8 +922,10 @@ classDiagram
                 <li><code style="color:#e5c07b;">create_from_quotation</code>: 报价单状态必须为 <span style="color:#6bc76b;">Accepted</span></li>
                 <li><code style="color:#e5c07b;">create_from_quotation</code>: 报价单 <code>valid_until</code> 不得已过期</li>
                 <li><code style="color:#e5c07b;">update_header</code>: 仅 Draft 状态可修改</li>
-                <li><code style="color:#e5c07b;">confirm</code>: 触发 <code>InventoryReservation.reserve(Soft)</code></li>
-                <li><code style="color:#e5c07b;">complete</code>: 所有行 <code>shipped_qty &ge; quantity</code></li>
+                <li><code style="color:#e5c07b;">confirm</code>: 触发 <code>InventoryReservation.reserve(Soft)</code> + <code>create_fulfillment_plan</code> + <code>DemandCreated事件</code></li>
+                <li><code style="color:#e5c07b;">complete</code>: <code>open_qty = quantity - shipped_qty - cancelled_qty = 0</code> 防御 cancelled_qty</li>
+                <li><code style="color:#e5c07b;">cancel_line</code>: 仅 Pending 状态行可取消，自动 recalc_header_status</li>
+                <li><code style="color:#e5c07b;">recalc_header_status</code>: 幂等重算，根据行状态聚合推导头状态</li>
               </ul>
             </div>
 

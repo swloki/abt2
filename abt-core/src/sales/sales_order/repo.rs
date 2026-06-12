@@ -1,6 +1,7 @@
 use crate::shared::types::PgExecutor;
 use rust_decimal::Decimal;
 use crate::shared::types::{DomainError, Result};
+use sqlx::Row;
 
 use super::model::*;
 use crate::shared::types::{DataScope, PageParams, PaginatedResult};
@@ -261,6 +262,21 @@ impl SalesOrderRepo {
         let items = data_q.fetch_all(executor).await?;
 
         Ok(PaginatedResult::new(items, total, page.page, page.page_size))
+    }
+
+    /// 按 ID 查询订单号（供跨模块 Event Handler 使用）
+    pub async fn find_doc_number_by_id(
+        executor: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<Option<String>> {
+        let row = sqlx::query(
+            "SELECT doc_number FROM sales_orders WHERE id = $1 AND deleted_at IS NULL",
+        )
+        .bind(id)
+        .fetch_optional(executor)
+        .await?;
+
+        Ok(row.map(|r| r.try_get::<String, _>("doc_number")).transpose()?)
     }
 }
 

@@ -76,7 +76,7 @@ impl PurchaseDemandRepo {
         if query.product_id.is_some() { data_q = data_q.bind(product_param); }
         if query.order_id.is_some() { data_q = data_q.bind(order_param); }
         data_q = data_q.bind(limit).bind(offset);
-        let rows = data_q.fetch_all(db).await?;
+        let rows = data_q.fetch_all(&mut *db).await?;
 
         let items: Vec<DemandSummary> = rows.iter().map(|r| DemandSummary {
             id: r.try_get("id").unwrap_or(0),
@@ -144,7 +144,7 @@ impl PurchaseDemandRepo {
         let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
         if query.product_id.is_some() { data_q = data_q.bind(product_param); }
         data_q = data_q.bind(limit).bind(offset);
-        let rows = data_q.fetch_all(db).await?;
+        let rows = data_q.fetch_all(&mut *db).await?;
 
         let items: Vec<MaterialAggSummary> = rows.iter().map(|r| MaterialAggSummary {
             product_id: r.try_get("product_id").unwrap_or(0),

@@ -85,6 +85,13 @@ pub async fn release_order(
     } = ctx;
     let svc = state.work_order_service();
     let order = svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
+
+    // 幂等检查：已处于目标状态时直接重定向，防止双重提交报错
+    if order.status == WorkOrderStatus::Released {
+        let redirect = OrderDetailPath { id: path.order_id }.to_string();
+        return Ok(([("HX-Redirect", redirect)], Html(String::new())));
+    }
+
     svc.release(&service_ctx, &mut conn, path.order_id, order.version).await?;
 
     let redirect = OrderDetailPath {
@@ -107,6 +114,13 @@ pub async fn close_order(
     } = ctx;
     let svc = state.work_order_service();
     let order = svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
+
+    // 幂等检查：已处于目标状态时直接重定向
+    if order.status == WorkOrderStatus::Closed {
+        let redirect = OrderDetailPath { id: path.order_id }.to_string();
+        return Ok(([("HX-Redirect", redirect)], Html(String::new())));
+    }
+
     svc.close(&service_ctx, &mut conn, path.order_id, order.version).await?;
 
     let redirect = OrderDetailPath {
@@ -129,6 +143,13 @@ pub async fn cancel_order(
     } = ctx;
     let svc = state.work_order_service();
     let order = svc.find_by_id(&service_ctx, &mut conn, path.order_id).await?;
+
+    // 幂等检查：已处于目标状态时直接重定向
+    if order.status == WorkOrderStatus::Cancelled {
+        let redirect = OrderDetailPath { id: path.order_id }.to_string();
+        return Ok(([("HX-Redirect", redirect)], Html(String::new())));
+    }
+
     svc.cancel(&service_ctx, &mut conn, path.order_id, order.version).await?;
 
     let redirect = OrderDetailPath {
@@ -163,7 +184,8 @@ fn order_detail_page(order: &abt_core::mes::work_order::WorkOrder, product_name:
                     @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned) {
                         button class="btn btn-primary"
                             hx-post=(OrderReleasePath { order_id: order.id }.to_string())
-                            hx-confirm="确认下达此工单？下达后将开始生产。" {
+                            hx-confirm="确认下达此工单？下达后将开始生产。"
+                            hx-disabled-elt="this" {
                             (icon::rocket_icon("w-4 h-4"))
                             "下达工单"
                         }
@@ -171,7 +193,8 @@ fn order_detail_page(order: &abt_core::mes::work_order::WorkOrder, product_name:
                     @if matches!(order.status, WorkOrderStatus::Released) {
                         button class="btn btn-default"
                             hx-post=(OrderClosePath { order_id: order.id }.to_string())
-                            hx-confirm="确认关闭此工单？" {
+                            hx-confirm="确认关闭此工单？"
+                            hx-disabled-elt="this" {
                             (icon::check_circle_icon("w-4 h-4"))
                             "关闭工单"
                         }
@@ -179,7 +202,8 @@ fn order_detail_page(order: &abt_core::mes::work_order::WorkOrder, product_name:
                     @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned | WorkOrderStatus::Released) {
                         button class="btn btn-danger"
                             hx-post=(OrderCancelPath { order_id: order.id }.to_string())
-                            hx-confirm="确认取消此工单？取消后不可恢复。" {
+                            hx-confirm="确认取消此工单？取消后不可恢复。"
+                            hx-disabled-elt="this" {
                             (icon::x_icon("w-4 h-4"))
                             "取消工单"
                         }

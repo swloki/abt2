@@ -91,6 +91,8 @@ pub enum DomainEventType {
     DemandCreated = 64,
     DemandConfirmed = 65,
     DemandRejected = 66,
+    // MES — Work Order lifecycle
+    WOUnreleased = 67,
 }
 
 impl DomainEventType {
@@ -138,6 +140,7 @@ impl DomainEventType {
             64 => Some(Self::DemandCreated),
             65 => Some(Self::DemandConfirmed),
             66 => Some(Self::DemandRejected),
+            67 => Some(Self::WOUnreleased),
             _ => None,
         }
     }

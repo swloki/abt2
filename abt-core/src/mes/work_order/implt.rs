@@ -14,6 +14,7 @@ use crate::mes::production_batch::model::WorkOrderRouting;
 use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
+use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus};
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::{AuditAction, DocumentType};
 use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
@@ -280,6 +281,25 @@ impl WorkOrderService for WorkOrderServiceImpl {
             }
         }
 
+        // 发布领域事件
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx, db,
+                crate::shared::event_bus::EventPublishRequest {
+                    event_type: crate::shared::enums::event::DomainEventType::WOReleased,
+                    aggregate_type: "WorkOrder".to_string(),
+                    aggregate_id: id,
+                    payload: serde_json::json!({
+                        "product_id": work_order.product_id,
+                        "planned_qty": work_order.planned_qty,
+                        "bom_snapshot_id": bom_snapshot_id,
+                        "has_routing": routing_detail.is_some(),
+                    }),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
         // 审计日志
         new_audit_log_service(self.pool.clone())
             .record(
@@ -402,7 +422,23 @@ impl WorkOrderService for WorkOrderServiceImpl {
             // PlanItem 状态回滚失败不影响反下达主流程
         }
 
-        // 10. 审计日志
+        // 10. 发布领域事件
+        new_domain_event_bus(self.pool.clone())
+            .publish(
+                ctx, db,
+                crate::shared::event_bus::EventPublishRequest {
+                    event_type: crate::shared::enums::event::DomainEventType::WOUnreleased,
+                    aggregate_type: "WorkOrder".to_string(),
+                    aggregate_id: id,
+                    payload: serde_json::json!({
+                        "product_id": work_order.product_id,
+                    }),
+                    idempotency_key: None,
+                },
+            )
+            .await?;
+
+        // 11. 审计日志
         new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,

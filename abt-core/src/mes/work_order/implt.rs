@@ -9,6 +9,7 @@ use super::service::WorkOrderService;
 use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::master_data::product::{new_product_service, service::ProductService};
+use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::mes::production_batch::model::WorkOrderRouting;
 use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
@@ -228,6 +229,128 @@ impl WorkOrderService for WorkOrderServiceImpl {
         // （阶段 2 引入 picking 模式时在此处分流）
 
         // 审计日志
+        new_audit_log_service(self.pool.clone())
+            .record(
+                ctx, db,
+                RecordAuditLogReq::new("WorkOrder", id, AuditAction::Transition),
+            )
+            .await?;
+
+        Ok(())
+    }
+
+    /// 反下达工单：Released -> Draft
+    /// 安全网操作：仅在工单未开工时允许
+    async fn unrelease(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        id: i64,
+        expected_version: i32,
+    ) -> Result<()> {
+        // 1. 加载工单，校验状态
+        let work_order = WorkOrderRepo::get_by_id(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?
+            .ok_or_else(|| DomainError::not_found("WorkOrder"))?;
+
+        if work_order.status != WorkOrderStatus::Released {
+            return Err(DomainError::BusinessRule(
+                "只有已下达状态的工单才能反下达".to_string(),
+            ));
+        }
+
+        // 2. 校验未开工（所有批次 current_step == 0）
+        let batches = ProductionBatchRepo::list_by_work_order(&mut *db, id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        let has_started = batches.iter().any(|b| b.current_step > 0);
+        if has_started {
+            return Err(DomainError::BusinessRule(
+                "工单已开工，无法反下达".to_string(),
+            ));
+        }
+
+        // 3. 取消关联的领料单（通过 document_links 双向查找）
+        //    WorkOrder=10, MaterialRequisition=17
+        let requisition_ids: Vec<i64> = sqlx::query_scalar(
+            r#"SELECT source_id FROM document_links
+               WHERE target_type = 10 AND target_id = $1 AND source_type = 17
+               UNION
+               SELECT target_id FROM document_links
+               WHERE source_type = 10 AND source_id = $1 AND target_type = 17"#,
+        )
+        .bind(id)
+        .fetch_all(&mut *db)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        for req_id in requisition_ids {
+            // 领料单取消失败（已取消/已完成）不阻断反下达主流程
+            if let Err(_e) = new_material_requisition_service(self.pool.clone())
+                .cancel(ctx, db, req_id).await
+            {
+                // 已取消或已完成的领料单会报错，继续执行
+            }
+        }
+
+        // 4. 释放库存 HARD 预留（可能没有预留，忽略错误）
+        if let Err(_e) = new_inventory_reservation_service(self.pool.clone())
+            .cancel_by_source(ctx, db, DocumentType::WorkOrder, id).await
+        {
+            // backflush 模式无预留，忽略
+        }
+
+        // 5. 删除 ProductionBatch
+        sqlx::query("DELETE FROM production_batches WHERE work_order_id = $1")
+            .bind(id)
+            .execute(&mut *db)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 6. 删除 WorkOrderRouting
+        sqlx::query("DELETE FROM work_order_routings WHERE work_order_id = $1")
+            .bind(id)
+            .execute(&mut *db)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 7. 清除 bom_snapshot_id 和 routing_id（快照记录保留）
+        sqlx::query(
+            "UPDATE work_orders SET bom_snapshot_id = NULL, routing_id = NULL, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(id)
+        .execute(&mut *db)
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 8. 工单状态 → Draft
+        let updated = WorkOrderRepo::update_status_with_version(
+            &mut *db,
+            id,
+            WorkOrderStatus::Draft,
+            expected_version,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        if !updated {
+            return Err(DomainError::ConcurrentConflict);
+        }
+
+        // 9. 回滚关联 PlanItem 状态：Released(2) → Planned(1)
+        if let Some(plan_item_id) = work_order.plan_item_id
+            && let Err(_e) = sqlx::query(
+                "UPDATE production_plan_items SET status = 1 WHERE id = $1 AND status = 2",
+            )
+            .bind(plan_item_id)
+            .execute(&mut *db)
+            .await
+        {
+            // PlanItem 状态回滚失败不影响反下达主流程
+        }
+
+        // 10. 审计日志
         new_audit_log_service(self.pool.clone())
             .record(
                 ctx, db,

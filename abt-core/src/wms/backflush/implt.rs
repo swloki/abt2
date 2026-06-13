@@ -70,7 +70,7 @@ impl BackflushService for BackflushServiceImpl {
 
         // 2. 从 BOM 获取组件，计算差异并插入明细
         let bom_components = get_bom_components(&self.pool, ctx, db, &wo).await?;
-        let warehouse_id = resolve_warehouse_id(&self.pool, db).await?;
+        let warehouse_id = resolve_warehouse_id(db).await?;
 
         for component in &bom_components {
             let theoretical_qty = component.required_qty * completed_qty;
@@ -208,7 +208,6 @@ impl BackflushService for BackflushServiceImpl {
 /// 4 级仓库策略：确定倒冲仓库
 /// V1 简化实现：查找系统中第一个活跃仓库
 async fn resolve_warehouse_id(
-    pool: &PgPool,
     db: PgExecutor<'_>,
 ) -> Result<i64> {
     let warehouse_id: Option<i64> = sqlx::query_scalar(

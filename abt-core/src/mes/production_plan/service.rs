@@ -34,4 +34,11 @@ pub trait ProductionPlanService: Send + Sync {
         page_size: u32,
     ) -> Result<PaginatedResult<ProductionPlan>>;
     async fn get_plan_stats(&self, ctx: &ServiceContext, db: PgExecutor<'_>, plan_ids: &[i64]) -> Result<HashMap<i64, PlanExtraStats>>;
+    /// 排程 V1：按交期倒推排程日期，标记紧急项
+    async fn schedule_v1(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        plan_id: i64,
+    ) -> Result<()>;
 }

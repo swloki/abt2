@@ -273,4 +273,20 @@ impl ProductionPlanRepo {
         .await?;
         Ok(())
     }
+
+    /// 更新计划行优先级
+    pub async fn update_item_priority(
+        executor: &mut sqlx::postgres::PgConnection,
+        item_id: i64,
+        priority: i32,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE production_plan_items SET priority = $2 WHERE id = $1",
+        )
+        .bind(item_id)
+        .bind(priority)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
 }

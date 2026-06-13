@@ -352,4 +352,38 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }
+
+    /// 排程 V1：按交期倒推排程日期，标记紧急项
+    /// - 按优先级排序（priority 越小越优先）
+    /// - 交期早的排在前面
+    /// - scheduled_start < today() → 标记紧急（priority = 0）
+    async fn schedule_v1(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        plan_id: i64,
+    ) -> Result<()> {
+        let mut items = ProductionPlanRepo::get_items_by_plan_id(&mut *db, plan_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        let today = chrono::Local::now().date_naive();
+
+        // 按优先级排序，交期早的排在前面
+        items.sort_by(|a, b| {
+            a.priority.cmp(&b.priority)
+                .then_with(|| a.scheduled_end.cmp(&b.scheduled_end))
+        });
+
+        // 标记紧急项
+        for item in &items {
+            if item.scheduled_start < today && item.priority > 0 {
+                ProductionPlanRepo::update_item_priority(
+                    &mut *db, item.id, 0,
+                ).await.map_err(|e| DomainError::Internal(e.into()))?;
+            }
+        }
+
+        Ok(())
+    }
 }

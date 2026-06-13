@@ -584,13 +584,10 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
     html! {
         div class="material-row" {
             // Click row to expand/collapse detail
-            (PreEscaped(format!(r#"<script>me().on('click',function(){{
+            (PreEscaped(format!(r#"<script>me().on('click',function(e){{
+                if(e.target.closest('button')||e.target.closest('form'))return;
                 var el=document.getElementById('expand-mat-{pid}');
                 el.classList.toggle('open');
-                if(el.classList.contains('open')&&!el.dataset.loaded){{
-                    htmx.ajax('GET','/admin/purchase/demand-pool/demand-rows?product_id={pid}','#expand-tbody-{pid}');
-                    el.dataset.loaded='1';
-                }}
             }})</script>"#)))
 
             div class="material-info" {
@@ -622,18 +619,19 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
             }
 
             div class="material-actions" {
-                // "Create PO" button — uses form with hidden inputs (no URL encoding needed)
                 form method="get" action=(PurchaseDemandPoolCreatePath::PATH)
                     style="display:inline"
                     onclick="event.stopPropagation()" {
                     input type="hidden" name="product_id" value=(pid) {}
                     button type="submit" class="btn btn-primary btn-sm" { "创建采购单" }
                 }
-                button class="btn btn-default btn-sm" onclick="event.stopPropagation()" {
+                button class="btn btn-default btn-sm"
+                    onclick="event.stopPropagation()"
+                    hx-get=(format!("/admin/purchase/demand-pool/demand-rows?product_id={pid}"))
+                    hx-target=(format!("#expand-tbody-{pid}"))
+                    hx-swap="innerHTML"
+                {
                     "展开明细"
-                    (PreEscaped(format!(r#"<script>me().on('click',function(){{
-                        document.getElementById('expand-mat-{pid}').classList.toggle('open');
-                    }})</script>"#)))
                 }
             }
         }
@@ -656,7 +654,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                     tbody id=(format!("expand-tbody-{pid}")) {
                         tr {
                             td colspan="7" style="text-align:center;padding:var(--space-3);color:var(--muted);" {
-                                "加载中..."
+                                "点击「展开明细」加载..."
                             }
                         }
                     }

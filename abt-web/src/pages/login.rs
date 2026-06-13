@@ -61,7 +61,11 @@ pub async fn post_logout(
     session: Session,
 ) -> impl IntoResponse {
     let _ = session.remove::<abt_core::shared::identity::model::Claims>(CURRENT_USER_KEY).await;
-    Redirect::to(LoginPath::PATH)
+    (
+        StatusCode::OK,
+        [("HX-Redirect", LoginPath::PATH), ("HX-Refresh", "true")],
+        "",
+    )
 }
 
 // ── Refresh Token (API endpoint, no session required) ──

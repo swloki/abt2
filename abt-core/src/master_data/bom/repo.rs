@@ -275,6 +275,31 @@ impl BomRepo {
         .await?;
         Ok(codes)
     }
+
+    /// 查找产品关联的已发布 BOM（通过根节点的 product_code 匹配）
+    pub async fn find_published_by_product_code(
+        &self,
+        executor: PgExecutor<'_>,
+        product_code: &str,
+    ) -> Result<Option<i64>> {
+        let bom_id = sqlx::query_scalar::<sqlx::Postgres, i64>(
+            r#"
+            SELECT b.bom_id
+            FROM boms b
+            JOIN bom_nodes bn ON bn.bom_id = b.bom_id
+            WHERE bn.product_code = $1
+              AND bn.parent_id = 0
+              AND b.status = 2
+              AND b.deleted_at IS NULL
+            ORDER BY b.bom_id DESC
+            LIMIT 1
+            "#,
+        )
+        .bind(product_code)
+        .fetch_optional(executor)
+        .await?;
+        Ok(bom_id)
+    }
 }
 
 // ── BomNodeRepo ──────────────────────────────────────────────────────────────
@@ -646,6 +671,23 @@ impl BomSnapshotRepo {
         )
         .bind(bom_id)
         .bind(version)
+        .fetch_optional(executor)
+        .await?;
+        Ok(snapshot)
+    }
+
+    /// 按 snapshot_id 加载单个快照
+    pub async fn find_by_snapshot_id(
+        &self,
+        executor: PgExecutor<'_>,
+        snapshot_id: i64,
+    ) -> Result<Option<BomSnapshot>> {
+        let snapshot = sqlx::query_as::<sqlx::Postgres, BomSnapshot>(
+            sqlx::AssertSqlSafe(format!(
+                "SELECT {SNAPSHOT_COLUMNS} FROM bom_snapshots WHERE snapshot_id = $1"
+            )),
+        )
+        .bind(snapshot_id)
         .fetch_optional(executor)
         .await?;
         Ok(snapshot)

@@ -257,4 +257,20 @@ impl ProductionPlanRepo {
             (pid, PlanExtraStats { item_count: cnt, sales_orders: so.unwrap_or_default() })
         }).collect())
     }
+
+    /// 更新计划行状态
+    pub async fn update_item_status(
+        executor: &mut sqlx::postgres::PgConnection,
+        item_id: i64,
+        status: PlanItemStatus,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE production_plan_items SET status = $2 WHERE id = $1",
+        )
+        .bind(item_id)
+        .bind(status)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
 }

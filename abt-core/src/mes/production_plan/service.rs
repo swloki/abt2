@@ -14,6 +14,13 @@ pub trait ProductionPlanService: Send + Sync {
     async fn find_by_id(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<ProductionPlan>;
     async fn list_items(&self, ctx: &ServiceContext, db: PgExecutor<'_>, plan_id: i64) -> Result<Vec<ProductionPlanItem>>;
     async fn confirm(&self, ctx: &ServiceContext, db: PgExecutor<'_>, id: i64) -> Result<()>;
+    /// 预校验：检查 Routing、BOM、物料可用性
+    async fn pre_validate(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        plan_id: i64,
+    ) -> Result<Vec<ReleaseValidation>>;
     async fn release_to_work_orders(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

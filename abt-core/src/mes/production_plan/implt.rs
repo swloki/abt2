@@ -1,10 +1,15 @@
 use async_trait::async_trait;
+use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
+use super::super::enums::PlanItemStatus;
 use super::super::enums::PlanStatus;
 use super::model::*;
 use super::repo::ProductionPlanRepo;
 use super::service::ProductionPlanService;
+use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
+use crate::master_data::product::{new_product_service, service::ProductService};
+use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
@@ -100,6 +105,130 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         Ok(())
     }
 
+    /// 预校验：检查 Routing、BOM、物料可用性
+    async fn pre_validate(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        plan_id: i64,
+    ) -> Result<Vec<ReleaseValidation>> {
+        let items = ProductionPlanRepo::get_items_by_plan_id(&mut *db, plan_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        let mut validations = Vec::new();
+
+        for item in &items {
+            let mut warnings = Vec::new();
+            let mut material_shortages = Vec::new();
+
+            // 检查产品
+            let product = match new_product_service(self.pool.clone())
+                .get(ctx, db, item.product_id).await
+            {
+                Ok(p) => p,
+                Err(_) => {
+                    warnings.push(format!("产品 ID {} 不存在", item.product_id));
+                    validations.push(ReleaseValidation {
+                        plan_item_id: item.id,
+                        product_id: item.product_id,
+                        has_routing: false,
+                        has_published_bom: false,
+                        routing_id: None,
+                        warnings,
+                        material_shortages,
+                    });
+                    continue;
+                }
+            };
+
+            // 检查 Routing
+            let routing_detail = new_routing_service(self.pool.clone())
+                .get_bom_routing(ctx, db, product.product_code.clone())
+                .await
+                .ok()
+                .flatten();
+
+            let has_routing = routing_detail.is_some();
+            if !has_routing {
+                warnings.push("该产品无关联工艺路线，将使用虚拟默认工序".to_string());
+            }
+
+            // 检查已发布 BOM
+            let bom_id = new_bom_query_service(self.pool.clone())
+                .find_published_bom_by_product_code(ctx, db, &product.product_code)
+                .await
+                .ok()
+                .flatten();
+
+            let has_published_bom = bom_id.is_some();
+            if !has_published_bom {
+                warnings.push("该产品无已发布 BOM，将跳过快照和物料预检".to_string());
+            }
+
+            // 物料可用性预检（仅当有 BOM 快照时）
+            if let Some(snapshot_id) = item.bom_snapshot_id {
+                let snapshot_opt = new_bom_query_service(self.pool.clone())
+                    .get_snapshot_by_id(ctx, db, snapshot_id).await
+                    .ok()
+                    .flatten();
+
+                if let Some(snapshot) = snapshot_opt {
+                    let all_nodes = &snapshot.bom_detail.nodes;
+                    let parent_ids: std::collections::HashSet<i64> =
+                        all_nodes.iter().map(|n| n.parent_id).collect();
+                    let leaf_nodes: Vec<_> = all_nodes
+                        .iter()
+                        .filter(|n| !parent_ids.contains(&n.id))
+                        .collect();
+
+                    for node in &leaf_nodes {
+                        let required_qty = node.quantity * item.planned_qty;
+                        // 查询可用库存：stock_ledger SUM(available_qty)
+                        let available_qty: Decimal = sqlx::query_scalar(
+                            r#"SELECT COALESCE(SUM(available_qty), 0)
+                               FROM stock_ledger
+                               WHERE product_id = $1"#,
+                        )
+                        .bind(node.product_id)
+                        .fetch_one(&mut *db)
+                        .await
+                        .map_err(|e| DomainError::Internal(e.into()))?;
+
+                        if available_qty < required_qty {
+                            material_shortages.push(MaterialShortage {
+                                product_id: node.product_id,
+                                required_qty,
+                                available_qty,
+                                shortage_qty: required_qty - available_qty,
+                            });
+                        }
+                    }
+                }
+            }
+
+            if !material_shortages.is_empty() {
+                warnings.push(format!(
+                    "物料不足：{} 种组件短缺",
+                    material_shortages.len()
+                ));
+            }
+
+            validations.push(ReleaseValidation {
+                plan_item_id: item.id,
+                product_id: item.product_id,
+                has_routing,
+                has_published_bom,
+                routing_id: routing_detail.map(|rd| rd.routing.id),
+                warnings,
+                material_shortages,
+            });
+        }
+
+        Ok(validations)
+    }
+
+    /// 一键下达：预校验 → 逐个创建+release → 失败隔离
     async fn release_to_work_orders(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -109,16 +238,21 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
             .await
             .map_err(|e| DomainError::Internal(e.into()))?;
 
+        // 1. 预校验
+        let validations = self.pre_validate(ctx, db, plan_id).await?;
+
         let mut successful = Vec::new();
         let mut failed = Vec::new();
 
         let work_order_svc = new_work_order_service(self.pool.clone());
 
+        // 2. 逐个创建 + release（单工单失败不影响其余）
         for item in &items {
-            let scheduled_start = chrono::Local::now().date_naive();
-            let scheduled_end = scheduled_start + chrono::Duration::days(7);
+            let scheduled_start = item.scheduled_start;
+            let scheduled_end = item.scheduled_end;
 
-            match work_order_svc.create(
+            // 创建工单
+            let create_result = work_order_svc.create(
                 ctx, db,
                 CreateWorkOrderReq {
                     plan_item_id: Some(item.id),
@@ -132,19 +266,55 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
                     sales_order_id: item.sales_order_id,
                     remark: None,
                 },
-            ).await {
-                Ok(wo_id) => {
-                    if let Ok(wo) = work_order_svc.find_by_id(ctx, db, wo_id).await {
-                        successful.push(wo);
+            ).await;
+
+            let wo_id = match create_result {
+                Ok(id) => id,
+                Err(e) => {
+                    failed.push(BatchFailure {
+                        index: item.id as i32,
+                        error: e,
+                    });
+                    continue;
+                }
+            };
+
+            // 立即 release
+            let wo = match work_order_svc.find_by_id(ctx, db, wo_id).await {
+                Ok(wo) => wo,
+                Err(e) => {
+                    failed.push(BatchFailure {
+                        index: item.id as i32,
+                        error: e,
+                    });
+                    continue;
+                }
+            };
+
+            match work_order_svc.release(ctx, db, wo_id, wo.version).await {
+                Ok(()) => {
+                    // 更新 PlanItem 状态 → Released
+                    if let Err(_e) = ProductionPlanRepo::update_item_status(
+                        &mut *db, item.id,
+                        PlanItemStatus::Released,
+                    ).await {
+                        // PlanItem 状态更新失败不影响主流程
+                    }
+
+                    if let Ok(released_wo) = work_order_svc.find_by_id(ctx, db, wo_id).await {
+                        successful.push(released_wo);
                     }
                 }
-                Err(e) => failed.push(BatchFailure {
-                    index: item.id as i32,
-                    error: e,
-                }),
+                Err(e) => {
+                    failed.push(BatchFailure {
+                        index: item.id as i32,
+                        error: e,
+                    });
+                }
             }
         }
-        // Update plan status to InProgress after successful release
+
+        // 3. 更新计划状态
         if !successful.is_empty() {
             ProductionPlanRepo::update_status(&mut *db, plan_id, PlanStatus::InProgress)
                 .await
@@ -152,7 +322,13 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
         }
 
         let total = items.len() as i32;
-        Ok(BatchReleaseResult { plan_id, successful_work_orders: successful, failed_items: failed, total })
+        Ok(BatchReleaseResult {
+            plan_id,
+            successful_work_orders: successful,
+            failed_items: failed,
+            validations,
+            total,
+        })
     }
 
     async fn list(

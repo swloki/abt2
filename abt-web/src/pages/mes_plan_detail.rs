@@ -6,7 +6,9 @@ use maud::{html, Markup};
 
 use abt_core::master_data::product::ProductService;
 use abt_core::mes::enums::{PlanItemStatus, PlanStatus};
-use abt_core::mes::production_plan::ProductionPlanService;
+use abt_core::mes::production_plan::{
+    BatchReleaseResult, ProductionPlanService, ProductionPlan, ProductionPlanItem,
+};
 use abt_core::shared::identity::UserService;
 
 use crate::components::icon;
@@ -88,7 +90,7 @@ pub async fn get_plan_detail(
             .unwrap_or_default()
     };
 
-    let content = plan_detail_page(&plan, &items, &op_name, &product_names);
+    let content = plan_detail_page(&plan, &items, &op_name, &product_names, None);
     let page_html = admin_page(
         is_htmx,
         "生产计划详情",
@@ -117,24 +119,63 @@ pub async fn confirm_plan(
 pub async fn release_plan(
     path: PlanReleasePath,
     ctx: RequestContext,
-) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    state
+) -> Result<Html<String>> {
+    let nav_filter = ctx.nav_filter().await;
+    let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
+    let result = state
         .production_plan_service()
         .release_to_work_orders(&service_ctx, &mut conn, path.plan_id)
         .await?;
 
-    let redirect = PlanDetailPath { id: path.plan_id }.to_string();
-    Ok(([("HX-Redirect", redirect)], Html(String::new())))
+    // Re-render detail page with release result banner
+    let svc = state.production_plan_service();
+    let user_svc = state.user_service();
+    let product_svc = state.product_service();
+
+    let plan = svc.find_by_id(&service_ctx, &mut conn, path.plan_id).await?;
+    let items = svc.list_items(&service_ctx, &mut conn, path.plan_id).await.unwrap_or_default();
+
+    let op_name = user_svc
+        .get_user(&service_ctx, &mut conn, plan.operator_id)
+        .await
+        .ok()
+        .and_then(|u| u.display_name)
+        .unwrap_or_default();
+
+    let product_names: HashMap<i64, String> = if items.is_empty() {
+        HashMap::new()
+    } else {
+        let product_ids: Vec<i64> = items.iter().map(|i| i.product_id).collect();
+        product_svc
+            .get_by_ids(&service_ctx, &mut conn, product_ids)
+            .await
+            .map(|ps| ps.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect())
+            .unwrap_or_default()
+    };
+
+    let content = plan_detail_page(&plan, &items, &op_name, &product_names, Some(&result));
+    let page_html = admin_page(
+        false,
+        "生产计划详情",
+        &claims,
+        "production",
+        &format!("/admin/mes/plans/{}", path.plan_id),
+        "生产管理",
+        Some("生产计划"),
+        content,
+        &nav_filter,
+    );
+    Ok(Html(page_html.into_string()))
 }
 
 // ── Components ──
 
 fn plan_detail_page(
-    plan: &abt_core::mes::production_plan::ProductionPlan,
-    items: &[abt_core::mes::production_plan::ProductionPlanItem],
+    plan: &ProductionPlan,
+    items: &[ProductionPlanItem],
     op_name: &str,
     product_names: &HashMap<i64, String>,
+    release_result: Option<&BatchReleaseResult>,
 ) -> Markup {
     let (status_label, status_bg, status_color) = plan_status_label(&plan.status);
     let type_label = plan_type_label(&plan.plan_type);
@@ -145,6 +186,11 @@ fn plan_detail_page(
             a class="back-link" href=(PlanListPath::PATH) {
                 (icon::chevron_left_icon("w-4 h-4"))
                 "返回生产计划列表"
+            }
+
+            // ── Release Result Banner ──
+            @if let Some(result) = release_result {
+                (release_result_banner(result))
             }
 
             // ── Detail Header ──
@@ -250,6 +296,109 @@ fn plan_detail_page(
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// 彩色横幅，展示下达结果：成功数、失败项、校验警告
+fn release_result_banner(result: &BatchReleaseResult) -> Markup {
+    let success_count = result.successful_work_orders.len();
+    let fail_count = result.failed_items.len();
+
+    // Collect all warnings from validations
+    let all_warnings: Vec<&str> = result
+        .validations
+        .iter()
+        .flat_map(|v| v.warnings.iter().map(|w| w.as_str()))
+        .collect();
+
+    // Collect material shortages as warning messages
+    let shortage_warnings: Vec<String> = result
+        .validations
+        .iter()
+        .flat_map(|v| {
+            v.material_shortages.iter().map(|s| {
+                format!(
+                    "物料短缺：需求 {}，库存 {}，缺口 {}",
+                    crate::utils::fmt_qty(s.required_qty),
+                    crate::utils::fmt_qty(s.available_qty),
+                    crate::utils::fmt_qty(s.shortage_qty),
+                )
+            })
+        })
+        .collect();
+
+    let has_failures = fail_count > 0;
+    let has_warnings = !all_warnings.is_empty() || !shortage_warnings.is_empty();
+
+    // Determine banner style based on outcome
+    let (banner_bg, banner_border, icon_markup) = if has_failures {
+        (
+            "rgba(245,63,63,0.06)",
+            "#f53f3f",
+            icon::circle_alert_icon("w-5 h-5"),
+        )
+    } else if has_warnings {
+        (
+            "rgba(250,140,22,0.08)",
+            "#fa8c16",
+            icon::alert_triangle_icon("w-5 h-5"),
+        )
+    } else {
+        (
+            "rgba(82,196,26,0.08)",
+            "var(--success)",
+            icon::check_circle_icon("w-5 h-5"),
+        )
+    };
+
+    html! {
+        div class="release-result-banner" style=(format!(
+            "margin-bottom:var(--space-4);padding:var(--space-4) var(--space-5);border-radius:var(--radius-lg);border-left:3px solid {banner_border};background:{banner_bg}"
+        )) {
+            // Summary line
+            div style="display:flex;align-items:center;gap:var(--space-2);font-weight:600;font-size:var(--text-sm)" {
+                (icon_markup)
+                span {
+                    (format!("{success_count} 个工单下达成功"))
+                }
+                @if has_failures {
+                    span style=(format!("margin-left:var(--space-2);color:{banner_border}")) {
+                        (format!("{fail_count} 个工单下达失败"))
+                    }
+                }
+            }
+
+            // Failure details
+            @if has_failures {
+                div style="margin-top:var(--space-2)" {
+                    @for fail in &result.failed_items {
+                        div style="font-size:var(--text-xs);color:#f53f3f;margin-top:var(--space-1)" {
+                            (format!("第 {} 项失败：{}", fail.index + 1, fail.error))
+                        }
+                    }
+                }
+            }
+
+            // Warnings
+            @if has_warnings {
+                div style="margin-top:var(--space-2)" {
+                    @for w in &all_warnings {
+                        div style="font-size:var(--text-xs);color:#fa8c16;margin-top:var(--space-1)" {
+                            (icon::alert_triangle_icon("w-3-5 h-3-5"))
+                            " "
+                            (w)
+                        }
+                    }
+                    @for sw in &shortage_warnings {
+                        div style="font-size:var(--text-xs);color:#fa8c16;margin-top:var(--space-1)" {
+                            (icon::alert_triangle_icon("w-3-5 h-3-5"))
+                            " "
+                            (sw)
                         }
                     }
                 }

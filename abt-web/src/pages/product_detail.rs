@@ -3,7 +3,7 @@ use maud::{Markup, html};
 use serde::Deserialize;
 
 use abt_core::master_data::product::ProductService;
-use abt_core::master_data::product::model::{*, AcquireChannel};
+use abt_core::master_data::product::model::{*, AcquireChannel, MaterialConsumptionMode};
 
 use abt_macros::require_permission;
 
@@ -80,6 +80,7 @@ pub struct ProductEditForm {
     pub owner_department_id: Option<String>,
     pub old_code: Option<String>,
     pub remark: Option<String>,
+    pub material_consumption_mode: Option<String>,
 }
 
 #[require_permission("PRODUCT", "update")]
@@ -104,6 +105,11 @@ pub async fn update_product(
         _ => None, // 不修改，保持原值
     };
 
+    let material_consumption_mode = match form.material_consumption_mode.as_deref() {
+        Some("picking") => MaterialConsumptionMode::Picking,
+        _ => MaterialConsumptionMode::Backflush,
+    };
+
     let req = UpdateProductReq {
         name: Some(form.name),
         unit: Some(form.unit),
@@ -114,7 +120,7 @@ pub async fn update_product(
             specification: form.specification,
             old_code: form.old_code.filter(|s| !s.is_empty()),
             remark: form.remark.filter(|s| !s.is_empty()),
-            material_consumption_mode: Default::default(),
+            material_consumption_mode,
             over_completion_tolerance: None,
         }),
     };
@@ -187,6 +193,12 @@ fn product_detail_page(product: &Product) -> Markup {
                             AcquireChannel::Outsourced => "委外",
                             AcquireChannel::NonInventory => "非库存",
                             AcquireChannel::Legacy => "历史遗留",
+                        })
+                    }))
+                    (detail_row("物料消耗模式", html! {
+                        (match product.meta.material_consumption_mode {
+                            MaterialConsumptionMode::Backflush => "倒冲 (backflush)",
+                            MaterialConsumptionMode::Picking => "领料 (picking)",
                         })
                     }))
                     (detail_row("状态", html! {
@@ -263,6 +275,10 @@ fn product_edit_page(product: &Product) -> Markup {
     let external_code_val = product.external_code.as_deref().unwrap_or("");
     let old_code_val = product.meta.old_code.as_deref().unwrap_or("");
     let remark_val = product.meta.remark.as_deref().unwrap_or("");
+    let mcm_val = match product.meta.material_consumption_mode {
+        MaterialConsumptionMode::Backflush => "backflush",
+        MaterialConsumptionMode::Picking => "picking",
+    };
 
     html! {
         div {
@@ -306,6 +322,13 @@ fn product_edit_page(product: &Product) -> Markup {
                                 option value="采购" selected[acquire_val == "采购"] { "采购" }
                                 option value="自制" selected[acquire_val == "自制"] { "自制" }
                                 option value="委外" selected[acquire_val == "委外"] { "委外" }
+                            }
+                        }
+                        div class="form-field" {
+                            label { "物料消耗模式" }
+                            select name="material_consumption_mode" {
+                                option value="backflush" selected[mcm_val == "backflush"] { "倒冲 (backflush)" }
+                                option value="picking" selected[mcm_val == "picking"] { "领料 (picking)" }
                             }
                         }
                         div class="form-field" {

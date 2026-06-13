@@ -16,6 +16,14 @@ pub trait WorkOrderService: Send + Sync {
         id: i64,
         expected_version: i32,
     ) -> Result<()>;
+    /// 标记工单为生产中：Released → InProduction
+    /// 条件 UPDATE，幂等。用于批次首次报工时自动传播。
+    async fn mark_in_production(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()>;
     /// 反下达工单：Released -> Draft
     /// 安全网操作：取消领料单、释放库存预留、删除批次和工序
     async fn unrelease(

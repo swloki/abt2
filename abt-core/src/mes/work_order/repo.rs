@@ -307,4 +307,28 @@ impl WorkOrderRepo {
             .map(|r| WorkOrder::from_row(r).map_err(Into::into))
             .collect()
     }
+
+    /// 条件状态更新（无乐观锁，用于事务内传播）。
+    /// 仅当当前状态匹配 from 时才更新为 to，返回是否实际更新。
+    pub async fn update_status_conditional(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        from: WorkOrderStatus,
+        to: WorkOrderStatus,
+    ) -> Result<bool> {
+        let result = sqlx::query(
+            r#"
+            UPDATE work_orders
+            SET status = $3, version = version + 1, updated_at = NOW()
+            WHERE id = $1 AND status = $2 AND deleted_at IS NULL
+            "#,
+        )
+        .bind(id)
+        .bind(from)
+        .bind(to)
+        .execute(&mut *executor)
+        .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
 }

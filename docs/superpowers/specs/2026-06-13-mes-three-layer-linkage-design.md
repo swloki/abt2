@@ -115,14 +115,19 @@ Batch:    Pending → InProgress → PendingReceipt → Completed
 ```
 fn recalculate_plan_status(plan_id):
   items = SELECT status FROM production_plan_items WHERE plan_id = $1
-  terminal_count = items.filter(status in [Completed, Cancelled]).count
-  if terminal_count == items.count:
+
+  // 分支 A：全部 Cancelled → Plan = Cancelled
+  if items.all(status == Cancelled):
+    UPDATE production_plans SET status = Cancelled WHERE id = $1 AND status = InProgress
+
+  // 分支 B：全部终态（Completed/Cancelled）且至少有一个 Completed → Plan = Completed
+  elif items.all(status in [Completed, Cancelled]) and items.any(status == Completed):
     UPDATE production_plans SET status = Completed WHERE id = $1 AND status = InProgress
 ```
 
 幂等：条件 `WHERE status = InProgress` 保证只推进一次。
 
-### 2.5 多工单场景
+**SQL 实现注意**：`production_plan_items.status` 列是 PlanItemStatus 类型，`production_plans.status` 是 PlanStatus 类型。NOT IN 子句必须用 PlanItemStatus 值（Completed=4, Cancelled=5），不能用 PlanStatus::Completed 复用——两者值碰巧相同但语义不同。
 
 当前 `split_work_order()` 存在（可一个工单拆多个批次），但 `release_to_work_orders()` 是每个 PlanItem 创建一个工单。
 
@@ -174,6 +179,8 @@ smallint 存储，无需数据库 migration。
 
 所有状态更新使用条件 UPDATE（`WHERE status = $expected`），重复调用不会出错。`mark_in_production` 和 `recalculate_plan_status` 均为幂等操作。
 
+**关键修正**：`update_item_status_by_work_order` 的 SQL **必须**增加前向状态守卫 `AND ppi.status IN (2, 3)`（Released, InProduction），防止将已终态（Cancelled=5）的 PlanItem 回退为 Completed。WorkOrder 的 `update_status_conditional` 已有 `WHERE status = $from` 条件，天然幂等。
+
 ### 3.5 依赖关系
 
 ```
@@ -193,37 +200,35 @@ work_order/implt.rs
 
 无循环依赖：Repo 层调用是单向的（batch/receipt → work_order/plan repo），不经过 Service trait 回调。
 
-## 4. 详情页关联信息
-
 ### 4.1 计划详情页 (`mes_plan_detail.rs`)
 
-新增 **"下达结果" Tab**：
+**"下达结果" Tab 已存在**——`mes_plan_detail.rs:337` 已注册 Tab、`:342` 已渲染面板、`:481-527` 已有 `tab_result()` 函数。Tab 切换使用现有 `detail_tabs()` + `tab_panel()` 机制。
 
-数据来源：`WorkOrderService::list_by_plan(plan_id)`（已有）
+唯一改进：`tab_result()` 的 `:511-512` 当前仅显示 `total_steps`，补充 `completed_steps` 进度显示：
 
-展示内容：
-| 列 | 数据来源 |
-|----|---------|
-| 工单编号 | `WorkOrder.doc_number` |
-| 产品名称 | JOIN products |
-| 计划数量 | `WorkOrder.planned_qty` |
-| 工单状态 | `WorkOrder.status`（含新增 InProduction） |
-| 批次进度 | `completed_steps / total_steps`（WorkOrder 已有聚合字段） |
+```rust
+@if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
+    span { "工序: " (done) "/" (total) "步" }
+}
+```
 
-Tab 切换使用 Surreal.js `me().on('click')` 内联，遵循组件三原则。
+**禁止引入 Surreal.js `me().on('click')`**——AGENTS.md 明令禁止，且会与现有 Tab 系统冲突。
+
 
 ### 4.2 工单详情页 (`mes_order_detail.rs`)
 
-新增两个 section：
+新增两个 section（纯模板渲染，**无需新增查询**）：
+- `order.source_plan_doc` / `order.source_plan_id` / `order.source_so_doc` / `order.source_customer` 已由 `WorkOrderRepo::get_by_id` SQL JOIN 填充（repo.rs:64-65）
+- `batches`（handler line 123）和 `routings`（handler line 117）已在 handler 中加载
 
-**来源追溯 section**：
+**来源追溯 section**（直接读 `order` 字段）：
 | 字段 | 数据来源 |
 |------|---------|
-| 计划编号 | `WorkOrder.plan_item_id` → JOIN `production_plan_items.plan_id` → `production_plans.doc_number` |
-| 销售订单 | `WorkOrder.sales_order_id` → `sales_orders.doc_number` |
-| 客户名称 | JOIN `customers` |
+| 计划编号 | `order.source_plan_doc` + 链接到 `/admin/mes/plans/{source_plan_id}` |
+| 销售订单 | `order.source_so_doc` |
+| 客户名称 | `order.source_customer` |
 
-**批次执行状态 section**：
+**批次执行状态 section**（直接读已加载的 `batches` 数组）：
 | 字段 | 数据来源 |
 |------|---------|
 | 批次编号 | `ProductionBatch.batch_no`（`list_by_work_order` 已有） |
@@ -231,13 +236,26 @@ Tab 切换使用 Surreal.js `me().on('click')` 内联，遵循组件三原则。
 | 批次状态 | `ProductionBatch.status` |
 | 当前工序 | `ProductionBatch.current_step` |
 | 完成量/报废量 | `ProductionBatch.completed_qty / scrap_qty` |
-| 工序进度 | `completed_steps / total_steps`（JOIN `work_order_routings`） |
+| 工序进度 | `order.completed_steps / order.total_steps`（`get_by_id` 已填充） |
+
+**禁止**：abt-web 中使用 `sqlx::query_as` 直接查询（AGENTS.md 数据访问禁令）。
 
 ### 4.3 批次详情页 (`mes_batch_detail.rs`)
 
-当前已显示 `work_order_id`，补全：
-- 工单编号 + 链接跳转（`<a href="/admin/mes/orders/{wo_id}">WO-xxx</a>`）
-- 计划编号 + 链接跳转（通过 `plan_item_id` → `plan_id`）
+**工单编号链接已存在**——`mes_batch_detail.rs:196` 已有 `a href="/admin/mes/orders/{wo.id}"`。`wo` 已在 handler line 40 加载。
+
+唯一补充：计划编号链接（`wo.source_plan_doc` + `wo.source_plan_id` 已由 `get_by_id` 填充）：
+
+```rust
+@if let (Some(pid), Some(pdoc)) = (wo.source_plan_id, &wo.source_plan_doc) {
+    div class="detail-info-item" {
+        span class="detail-info-label" { "计划" }
+        span class="detail-info-value" {
+            a href=(format!("/admin/mes/plans/{}", pid)) class="link-cell" { (pdoc) }
+        }
+    }
+}
+```
 
 ### 4.4 页面导航
 
@@ -248,11 +266,14 @@ Tab 切换使用 Surreal.js `me().on('click')` 内联，遵循组件三原则。
 | 场景 | 处理 |
 |------|------|
 | 一个 PlanItem 对应多个工单 | PlanItem 在所有关联工单 Closed/Cancelled 后才→Completed（`recalculate_item_status`） |
-| 工单 unrelease 后重新 release | PlanItem 回退→Planned，重新 release 后→Released，符合状态机 |
+| **一个工单有多个批次**（split_work_order） | `confirm()` 传播 WO→Closed 前必须检查 `list_by_work_order` 所有批次是否终态。有活跃批次则不关闭 WO，仅更新已完工批次状态 |
+| 工单 unrelease 后重新 release | PlanItem 回退→Planned（条件 `status IN (Released, InProduction)`），重新 release 后→Released |
 | 批次 scrap | 仅标记批次 Cancelled，不自动关闭工单（工单可建新批次重做） |
 | `recalculate_plan_status` 并发 | 条件 UPDATE（`WHERE status = InProgress`），无需全局锁 |
 | 完工入库 receipt 无 batch_id | 跳过 batch 传播，仍更新 WO→Closed + PlanItem→Completed（通过 work_order_id） |
 | 报工后 inspection 触发批次 Suspended | 不影响传播——Suspended 是 InProgress 的子态，WO 保持 InProduction |
+| **事务原子性** | web handler 必须用 `pool.begin()` 包裹 `confirm_routing_step` / `confirm` 调用，传播用 `?` 传播错误。裸 `&mut conn` 是 autocommit，不构成事务 |
+| **全部 PlanItem 被 Cancelled** | Plan 应标记 Cancelled 而非 Completed（`recalculate_plan_status` 分支 A） |
 | 历史数据修复 | 独立 SQL 脚本：根据已有 batch 状态回填 WO 和 PlanItem 状态 |
 
 ## 6. 实施范围
@@ -262,11 +283,12 @@ Tab 切换使用 Surreal.js `me().on('click')` 内联，遵循组件三原则。
 | 文件 | 变更类型 |
 |------|---------|
 | `mes/enums.rs` | 新增 `WorkOrderStatus::InProduction = 6` |
+| `mes/dashboard/repo.rs` | 修改：`status IN (2,3)` → `IN (2,3,6)`（评审 P0） |
 | `mes/work_order/service.rs` | 新增 `mark_in_production` 方法 |
-| `mes/work_order/implt.rs` | 实现 `mark_in_production`；修改 `cancel`、`unrelease` 追加传播 |
+| `mes/work_order/implt.rs` | 实现 `mark_in_production`；修改 `cancel`、`unrelease` 追加传播 + 回退条件扩展 |
 | `mes/production_batch/implt.rs` | 修改 `confirm_routing_step` 追加传播 |
-| `mes/production_receipt/implt.rs` | 修改 `confirm` 追加传播 |
-| `mes/production_plan/repo.rs` | 新增 `update_item_status_by_work_order`、`recalculate_plan_status`、`find_plan_id_by_item` |
+| `mes/production_receipt/implt.rs` | 修改 `confirm` 追加传播（含多批次守卫） |
+| `mes/production_plan/repo.rs` | 新增 `update_item_status_by_work_order`（含状态守卫）、`recalculate_plan_status`（含 Cancelled 分支）、`find_plan_id_by_work_order` |
 | `mes/production_plan/service.rs` | 新增 `recalculate_plan_status` 方法（暴露给 web 层历史数据修复用） |
 | `mes/production_plan/implt.rs` | 实现 `recalculate_plan_status` |
 
@@ -274,9 +296,12 @@ Tab 切换使用 Surreal.js `me().on('click')` 内联，遵循组件三原则。
 
 | 文件 | 变更类型 |
 |------|---------|
-| `pages/mes_plan_detail.rs` | 新增"下达结果"Tab |
-| `pages/mes_order_detail.rs` | 新增来源追溯 + 批次执行状态 section |
-| `pages/mes_batch_detail.rs` | 补全工单/计划编号链接 |
+| `pages/mes_plan_detail.rs` | 修改：`wo_status_label` 增 InProduction 臂 + `tab_result` 补 `completed_steps`（Tab 已存在） |
+| `pages/mes_order_detail.rs` | 修改：`wo_status_label` + 取消按钮条件 + 新增来源追溯/批次状态 section（数据已加载） |
+| `pages/mes_order_list.rs` | 修改：`wo_status_label` + `parse_wo_status` 增 InProduction（评审 P0） |
+| `pages/mes_batch_detail.rs` | 修改：补设计划编号链接（工单链接已存在） |
+| `pages/mes_report_create.rs` | 修改：报工 handler 包显式事务（评审 P0） |
+| `pages/mes_receipt_detail.rs` | 修改：入库确认 handler 包显式事务（评审 P0） |
 
 ### 6.3 数据同步脚本
 
@@ -295,15 +320,41 @@ Tab 切换使用 Surreal.js `me().on('click')` 内联，遵循组件三原则。
 
 | 风险 | 缓解 |
 |------|------|
-| InProduction 值=6 打破 UI 状态映射硬编码 | 搜索所有 `WorkOrderStatus` 的 match/display 代码，确保新变体有分支 |
+| InProduction 值=6 打破 UI 状态映射硬编码 | 搜索所有 `WorkOrderStatus` 的 exhaustive match，确保新变体有分支。已确认 3 处 `wo_status_label()` 无 `_ =>` 通配臂，必须同步更新：`mes_order_detail.rs:27`、`mes_order_list.rs:32`、`mes_plan_detail.rs:57` |
+| Dashboard 硬编码 `status IN (2,3)` 漏掉 InProduction | `dashboard/repo.rs:53` 改为 `IN (2,3,6)` |
 | 历史数据状态不一致 | 上线前执行 `mes-status-backfill.sql` |
-| 传播失败导致状态不一致 | 所有传播在同一事务（PgExecutor）内，事务回滚则全部回滚 |
-| unrelease 后 PlanItem 回退但工单仍有残留 | unrelease 已删除批次和工序，回退 PlanItem→Planned 是安全的 |
+| 传播失败导致状态不一致 | **必须**在 web handler 中用显式事务包裹 `confirm_routing_step` 和 `confirm` 调用（`pool.begin()` / `tx.commit()`），传播代码用 `?` 传播错误。裸 `&mut conn` 是 autocommit，不构成事务——设计原先"同一事务回滚"的承诺在当前代码中无法兑现，已修正 |
+| 多批次 WO 被提前关闭 | `confirm()` 传播 WO→Closed 前必须检查该 WO 下所有批次是否终态（Completed/Cancelled），否则不关闭 |
+| unrelease 后 PlanItem 回退但工单仍有残留 | unrelease 已删除批次和工序，回退 PlanItem→Planned 是安全的。但回退条件需同时接受 Released 和 InProduction（`status IN (2,3)`） |
+| `update_item_status_by_work_order` 状态回退 | SQL 必须增加 `AND ppi.status IN (2,3)` 前向守卫，防止 Cancelled→Completed 回退 |
 
 ## 8. 验收标准
 
 1. **状态传播**：批次首次报工后，工单列表中该工单显示"生产中"；完工入库后，工单显示"已关闭"；所有工单完成后，计划显示"已完成"
-2. **UI 可见性**：计划详情"下达结果"Tab 显示工单列表+进度；工单详情显示来源计划+批次执行状态
+2. **UI 可见性**：计划详情"下达结果"Tab 显示工单列表+进度（**Tab 已存在**，仅需补 `completed_steps` 显示）；工单详情显示来源计划+批次执行状态（数据已通过 `get_by_id` JOIN 加载，无需新查询）
 3. **幂等性**：重复调用 `confirm_routing_step`（幂等报工）不会重复传播状态
-4. **边界**：批次报废不关闭工单；工单反下达后 PlanItem 回退
+4. **边界**：批次报废不关闭工单；工单反下达后 PlanItem 回退；多批次工单仅在全终态后关闭
 5. **编译**：`cargo clippy` 无 warning
+
+## 9. 评审修订记录（2026-06-13）
+
+> 以下为 feature-review 六角色评审后的修订项，与原文冲突处以本节为准。
+
+### P0 修订（不改会出 Bug / 编译失败）
+
+1. **枚举爆破半径**：新增 InProduction=6 会导致 `mes_order_detail.rs:27`、`mes_order_list.rs:32`、`mes_plan_detail.rs:57` 的 `wo_status_label()` exhaustive match 编译失败。必须在加枚举变体的同一 commit 中更新这 3 处。
+2. **Dashboard 遗漏**：`dashboard/repo.rs:53` 的 `status IN (2,3)` 必须改为 `IN (2,3,6)`。
+3. **事务策略修正**：web handler 传 `&mut conn`（裸连接 autocommit），不构成事务。必须在 `mes_report_create.rs:101` 和 `mes_receipt_detail.rs:71` 中用 `pool.begin()` 包裹，传播代码用 `?` 而非 `tracing::warn!`。
+4. **`recalculate_plan_status` 枚举类型混淆**：原设计用 `PlanStatus::Completed` 绑定到 `production_plan_items.status` 列（PlanItemStatus 类型），靠巧合（值同为 4）不出错。必须用独立 bind 参数区分。
+5. **`update_item_status_by_work_order` 缺状态守卫**：SQL 无 `AND ppi.status IN (...)` 条件，可将 Cancelled 回退为 Completed。必须增加前向守卫。
+6. **计划详情 Tab 已存在**：`mes_plan_detail.rs` 已有完整的 `tab_result()` 函数和 Tab 注册。Task 9 大幅缩减——仅补 `completed_steps` 显示，**禁止引入 Surreal.js `me().on('click')`**（AGENTS.md 明令禁止）。
+7. **工单详情数据已加载**：`order.source_plan_doc` 等字段已由 `get_by_id` SQL JOIN 填充。Task 10 纯模板渲染，**禁止 abt-web 直接 SQL**。
+
+### P1 修订（正确性/健壮性）
+
+8. **多批次 WO 提前关闭**：`confirm()` 传播 WO→Closed 前需检查 `list_by_work_order` 所有批次终态。
+9. **审计日志误触发**：Task 6 审计 `else` 分支在 `Ok(false)` 时也触发。改为 `Ok(true)` 才记录。
+10. **unrelease PlanItem 回退**：`implt.rs:414-419` 回退条件需同时接受 `Released(2)` 和 `InProduction(3)`。
+11. **recalculate_plan_status 全 Cancelled 分支**：所有 PlanItem 都 Cancelled 时 Plan 应标 Cancelled 而非 Completed。
+12. **UI 取消按钮**：`mes_order_detail.rs:343` 的 cancel 按钮条件需增加 InProduction。
+13. **领域事件**：`mark_in_production` 和自动关闭应发布领域事件。

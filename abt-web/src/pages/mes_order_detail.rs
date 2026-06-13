@@ -28,6 +28,7 @@ fn wo_status_label(s: &WorkOrderStatus) -> (&'static str, &'static str, &'static
         Draft => ("待计划", "rgba(0,0,0,0.04)", "var(--muted)"),
         Planned => ("已计划", "rgba(22,119,255,0.08)", "var(--accent)"),
         Released => ("已下达", "rgba(82,196,26,0.08)", "var(--success)"),
+        InProduction => ("生产中", "rgba(250,173,20,0.08)", "#faad14"),
         Closed => ("已关闭", "rgba(114,46,209,0.08)", "#722ed1"),
         Cancelled => ("已取消", "rgba(245,63,63,0.06)", "#f53f3f"),
     }
@@ -340,7 +341,7 @@ fn order_detail_page(
                                 "下达工单"
                             }
                         }
-                        @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned | WorkOrderStatus::Released) {
+                        @if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
                             button class="btn btn-danger"
                                 hx-post=(OrderCancelPath { order_id: order.id }.to_string())
                                 hx-confirm="确认取消此工单？取消后不可恢复。"

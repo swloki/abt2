@@ -85,7 +85,7 @@ pub async fn get_report_create(
 pub async fn create_report(
     _path: ReportCreatePath, ctx: RequestContext, axum::Form(form): axum::Form<ReportCreateForm>,
 ) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let RequestContext { state, service_ctx, .. } = ctx;
     let svc = state.production_batch_service();
     let req = abt_core::mes::production_batch::StepConfirmationReq {
         step_no: form.step_no,
@@ -98,7 +98,11 @@ pub async fn create_report(
         report_date: form.report_date,
         remark: form.remark,
     };
-    svc.confirm_routing_step(&service_ctx, &mut conn, form.batch_id, form.step_no, req).await?;
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    svc.confirm_routing_step(&service_ctx, &mut tx, form.batch_id, form.step_no, req).await?;
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
     Ok(axum::response::Response::builder().header("HX-Redirect", ReportListPath::PATH).body(axum::body::Body::empty()).unwrap())
 }
 

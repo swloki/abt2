@@ -12,6 +12,7 @@ use super::repo::{ProductionBatchRepo, WorkOrderRoutingRepo, WorkReportRepo};
 use super::service::ProductionBatchService;
 use crate::mes::enums::*;
 use crate::mes::work_order::repo::WorkOrderRepo;
+use crate::mes::production_plan::repo::ProductionPlanRepo;
 use crate::mes::production_inspection::model::CreateInspectionReq;
 use crate::mes::production_inspection::repo::ProductionInspectionRepo;
 use crate::master_data::product::{new_product_service, service::ProductService};
@@ -358,6 +359,23 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
                 .map_err(|e| DomainError::Internal(e.into()))?
                 .ok_or_else(|| DomainError::not_found("ProductionBatch"))?;
             batch_status = updated_batch.status;
+        }
+
+        // --- k2. 状态传播：首次报工时推进上游工单和计划行状态 ---
+        // batch.status 是步骤 a 读取的原始值（Pending 表示首次报工）
+        if was_inserted && batch.status == BatchStatus::Pending {
+            // WorkOrder: Released → InProduction
+            new_work_order_service(self.pool.clone())
+                .mark_in_production(ctx, db, batch.work_order_id)
+                .await?;
+
+            // PlanItem: Released → InProduction
+            ProductionPlanRepo::update_item_status_by_work_order(
+                &mut *db,
+                batch.work_order_id,
+                PlanItemStatus::InProduction,
+            )
+            .await?;
         }
 
         // --- l. 返回结果 ---

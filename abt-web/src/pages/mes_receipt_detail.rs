@@ -67,7 +67,11 @@ pub async fn get_receipt_detail(path: ReceiptDetailPath, ctx: RequestContext) ->
 
 #[require_permission("WORK_ORDER", "update")]
 pub async fn confirm_receipt(path: ReceiptConfirmPath, ctx: RequestContext) -> Result<impl IntoResponse> {
-    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
-    state.production_receipt_service().confirm(&service_ctx, &mut conn, path.receipt_id).await?;
+    let RequestContext { state, service_ctx, .. } = ctx;
+    let mut tx = state.pool.begin().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
+    state.production_receipt_service().confirm(&service_ctx, &mut tx, path.receipt_id).await?;
+    tx.commit().await
+        .map_err(|e| abt_core::shared::types::error::DomainError::Internal(e.into()))?;
     Ok(axum::response::Response::builder().header("HX-Redirect", &format!("/admin/mes/receipts/{}", path.receipt_id)).body(axum::body::Body::empty()).unwrap())
 }

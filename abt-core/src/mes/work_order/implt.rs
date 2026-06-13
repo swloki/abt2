@@ -6,6 +6,7 @@ use super::super::enums::{PlanItemStatus, WorkOrderStatus};
 use super::model::*;
 use super::repo::WorkOrderRepo;
 use super::service::WorkOrderService;
+use crate::mes::production_plan::repo::ProductionPlanRepo;
 use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
 use crate::master_data::routing::{new_routing_service, service::RoutingService};
 use crate::master_data::product::{new_product_service, service::ProductService};
@@ -309,6 +310,33 @@ impl WorkOrderService for WorkOrderServiceImpl {
         Ok(())
     }
 
+    async fn mark_in_production(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+    ) -> Result<()> {
+        let updated = WorkOrderRepo::update_status_conditional(
+            &mut *db,
+            id,
+            WorkOrderStatus::Released,
+            WorkOrderStatus::InProduction,
+        )
+        .await
+        .map_err(|e| DomainError::Internal(e.into()))?;
+
+        if updated {
+            new_audit_log_service(self.pool.clone())
+                .record(
+                    ctx, db,
+                    RecordAuditLogReq::new("WorkOrder", id, AuditAction::Transition),
+                )
+                .await?;
+        }
+
+        Ok(())
+    }
+
     /// 反下达工单：Released -> Draft
     /// 安全网操作：仅在工单未开工时允许
     async fn unrelease(
@@ -412,11 +440,12 @@ impl WorkOrderService for WorkOrderServiceImpl {
         // 9. 回滚关联 PlanItem 状态：Released → Planned
         if let Some(plan_item_id) = work_order.plan_item_id
             && let Err(_e) = sqlx::query(
-                "UPDATE production_plan_items SET status = $2 WHERE id = $1 AND status = $3",
+                "UPDATE production_plan_items SET status = $2 WHERE id = $1 AND status IN ($3, $4)",
             )
             .bind(plan_item_id)
             .bind(PlanItemStatus::Planned)
             .bind(PlanItemStatus::Released)
+            .bind(PlanItemStatus::InProduction)
             .execute(&mut *db)
             .await
         {
@@ -462,7 +491,9 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?
             .ok_or_else(|| DomainError::not_found("WorkOrder"))?;
 
-        if work_order.status != WorkOrderStatus::Released {
+        if work_order.status != WorkOrderStatus::Released
+            && work_order.status != WorkOrderStatus::InProduction
+        {
             return Err(DomainError::InvalidStateTransition {
                 from: work_order.status.to_string(),
                 to: WorkOrderStatus::Closed.to_string(),
@@ -528,6 +559,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         if work_order.status != WorkOrderStatus::Draft
             && work_order.status != WorkOrderStatus::Planned
             && work_order.status != WorkOrderStatus::Released
+            && work_order.status != WorkOrderStatus::InProduction
         {
             return Err(DomainError::InvalidStateTransition {
                 from: work_order.status.to_string(),
@@ -560,6 +592,21 @@ impl WorkOrderService for WorkOrderServiceImpl {
                 RecordAuditLogReq::new("WorkOrder", id, AuditAction::Delete),
             )
             .await?;
+
+        // 状态传播：PlanItem → Cancelled + 重新计算 Plan 状态
+        ProductionPlanRepo::update_item_status_by_work_order(
+            &mut *db,
+            id,
+            PlanItemStatus::Cancelled,
+        ).await?;
+
+        if let Some(plan_id) = ProductionPlanRepo::find_plan_id_by_work_order(
+            &mut *db, id,
+        ).await? {
+            ProductionPlanRepo::recalculate_plan_status(
+                &mut *db, plan_id,
+            ).await?;
+        }
 
         Ok(())
     }

@@ -33,6 +33,7 @@ fn wo_status_label(s: &abt_core::mes::enums::WorkOrderStatus) -> (&'static str, 
         Draft => ("待计划", "rgba(0,0,0,0.04)", "var(--muted)"),
         Planned => ("已计划", "rgba(22,119,255,0.08)", "var(--accent)"),
         Released => ("已下达", "rgba(82,196,26,0.08)", "var(--success)"),
+        InProduction => ("生产中", "rgba(250,173,20,0.08)", "#faad14"),
         Closed => ("已关闭", "rgba(114,46,209,0.08)", "#722ed1"),
         Cancelled => ("已取消", "rgba(245,63,63,0.06)", "#f53f3f"),
     }
@@ -40,7 +41,7 @@ fn wo_status_label(s: &abt_core::mes::enums::WorkOrderStatus) -> (&'static str, 
 
 fn parse_wo_status(s: &str) -> Option<abt_core::mes::enums::WorkOrderStatus> {
     use abt_core::mes::enums::WorkOrderStatus::*;
-    match s { "Draft" => Some(Draft), "Planned" => Some(Planned), "Released" => Some(Released), "Closed" => Some(Closed), "Cancelled" => Some(Cancelled), _ => None }
+    match s { "Draft" => Some(Draft), "Planned" => Some(Planned), "Released" => Some(Released), "InProduction" => Some(InProduction), "Closed" => Some(Closed), "Cancelled" => Some(Cancelled), _ => None }
 }
 
 #[require_permission("WORK_ORDER", "read")]

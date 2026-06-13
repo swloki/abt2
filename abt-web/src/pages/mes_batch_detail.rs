@@ -194,6 +194,9 @@ fn batch_detail_page(
             // 10 fields matching prototype order
             div class="detail-info-grid-5" {
                 div class="detail-info-item" { span class="detail-info-label" { "工单" } span class="detail-info-value" { a href=(format!("/admin/mes/orders/{}", wo.id)) class="link-cell" { (wo.doc_number) } } }
+                @if let (Some(pid), Some(pdoc)) = (wo.source_plan_id, wo.source_plan_doc.as_ref()) {
+                    div class="detail-info-item" { span class="detail-info-label" { "计划" } span class="detail-info-value" { a href=(format!("/admin/mes/plans/{}", pid)) class="link-cell" { (pdoc) } } }
+                }
                 div class="detail-info-item" { span class="detail-info-label" { "产品" } span class="detail-info-value" { (product_name) } }
                 div class="detail-info-item" { span class="detail-info-label" { "班组" } span class="detail-info-value" { "—" } }
                 div class="detail-info-item" { span class="detail-info-label" { "批次数量" } span class="detail-info-value" { (crate::utils::fmt_qty(batch.batch_qty)) } }

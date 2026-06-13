@@ -289,4 +289,105 @@ impl ProductionPlanRepo {
         .await?;
         Ok(())
     }
+
+    /// 通过工单 ID 反查并更新关联 PlanItem 状态。
+    /// 前向守卫：仅当 PlanItem 当前状态为 Released(2) 或 InProduction(3) 时才更新，
+    /// 防止将已终态（Cancelled=5）的 PlanItem 回退。
+    pub async fn update_item_status_by_work_order(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+        status: PlanItemStatus,
+    ) -> Result<()> {
+        sqlx::query(
+            r#"
+            UPDATE production_plan_items ppi
+            SET status = $2
+            WHERE ppi.id = (
+                SELECT wo.plan_item_id FROM work_orders wo
+                WHERE wo.id = $1 AND wo.plan_item_id IS NOT NULL
+            )
+            AND ppi.status IN (2, 3)
+            "#,
+        )
+        .bind(work_order_id)
+        .bind(status)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 通过工单 ID 查找关联的 Plan ID。
+    pub async fn find_plan_id_by_work_order(
+        executor: &mut sqlx::postgres::PgConnection,
+        work_order_id: i64,
+    ) -> Result<Option<i64>> {
+        let row: Option<(i64,)> = sqlx::query_as(
+            r#"
+            SELECT ppi.plan_id
+            FROM work_orders wo
+            JOIN production_plan_items ppi ON ppi.id = wo.plan_item_id
+            WHERE wo.id = $1
+            "#,
+        )
+        .bind(work_order_id)
+        .fetch_optional(&mut *executor)
+        .await?;
+        Ok(row.map(|r| r.0))
+    }
+
+    /// 重新计算计划状态：
+    /// - 全部 PlanItem 为 Cancelled → Plan = Cancelled
+    /// - 全部 PlanItem 为终态（Completed/Cancelled）且至少一个 Completed → Plan = Completed
+    /// 条件 UPDATE，幂等（WHERE status = InProgress 保证只推进一次）。
+    pub async fn recalculate_plan_status(
+        executor: &mut sqlx::postgres::PgConnection,
+        plan_id: i64,
+    ) -> Result<()> {
+        // 分支 A：全部 Cancelled → Plan = Cancelled
+        sqlx::query(
+            r#"
+            UPDATE production_plans
+            SET status = $2, updated_at = NOW()
+            WHERE id = $1
+              AND status = $3
+              AND NOT EXISTS (
+                SELECT 1 FROM production_plan_items
+                WHERE plan_id = $1 AND status != $4
+              )
+            "#,
+        )
+        .bind(plan_id)
+        .bind(PlanStatus::Cancelled)
+        .bind(PlanStatus::InProgress)
+        .bind(PlanItemStatus::Cancelled)
+        .execute(&mut *executor)
+        .await?;
+
+        // 分支 B：全部终态且至少一个 Completed → Plan = Completed
+        sqlx::query(
+            r#"
+            UPDATE production_plans
+            SET status = $2, updated_at = NOW()
+            WHERE id = $1
+              AND status = $3
+              AND NOT EXISTS (
+                SELECT 1 FROM production_plan_items
+                WHERE plan_id = $1
+                  AND status NOT IN ($4, $5)
+              )
+              AND EXISTS (
+                SELECT 1 FROM production_plan_items
+                WHERE plan_id = $1 AND status = $4
+              )
+            "#,
+        )
+        .bind(plan_id)
+        .bind(PlanStatus::Completed)
+        .bind(PlanStatus::InProgress)
+        .bind(PlanItemStatus::Completed)
+        .bind(PlanItemStatus::Cancelled)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
 }

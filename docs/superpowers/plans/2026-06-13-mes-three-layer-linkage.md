@@ -10,22 +10,26 @@
 
 **Design Spec:** `docs/superpowers/specs/2026-06-13-mes-three-layer-linkage-design.md`
 
----
 
-## File Structure
-
+> **⚠️ 评审修订（2026-06-13）**：本计划已经过 feature-review 六角色评审。多处 Task 有重要修订——
+> - Task 1 必须同步更新 3 处 `wo_status_label()` match 臂 + Dashboard SQL（否则编译失败）
+> - Task 3 修复了 `--` 语法错误、枚举类型混淆、缺失状态守卫
 | 文件 | 职责 | 变更类型 |
 |------|------|---------|
 | `abt-core/src/mes/enums.rs` | MES 枚举定义 | 修改：新增 InProduction |
+| `abt-core/src/mes/dashboard/repo.rs` | Dashboard 统计 | 修改：`status IN (2,3)` → `IN (2,3,6)`（评审 P0） |
 | `abt-core/src/mes/work_order/repo.rs` | 工单 DB 操作 | 修改：新增 update_status_conditional |
 | `abt-core/src/mes/work_order/service.rs` | 工单 Service trait | 修改：新增 mark_in_production |
-| `abt-core/src/mes/work_order/implt.rs` | 工单 Service 实现 | 修改：传播 + 状态条件放宽 |
-| `abt-core/src/mes/production_plan/repo.rs` | 计划 DB 操作 | 修改：新增 3 个方法 |
+| `abt-core/src/mes/work_order/implt.rs` | 工单 Service 实现 | 修改：传播 + 状态条件放宽 + unrelease 回退扩展 |
+| `abt-core/src/mes/production_plan/repo.rs` | 计划 DB 操作 | 修改：新增 3 个方法（含状态守卫修正） |
 | `abt-core/src/mes/production_batch/implt.rs` | 批次 Service 实现 | 修改：confirm_routing_step 传播 |
-| `abt-core/src/mes/production_receipt/implt.rs` | 完工入库 Service 实现 | 修改：confirm 传播 |
-| `abt-web/src/pages/mes_plan_detail.rs` | 计划详情页 | 修改：新增下达结果 Tab |
-| `abt-web/src/pages/mes_order_detail.rs` | 工单详情页 | 修改：新增来源追溯+批次状态 |
-| `abt-web/src/pages/mes_batch_detail.rs` | 批次详情页 | 修改：补全上下游链接 |
+| `abt-core/src/mes/production_receipt/implt.rs` | 完工入库 Service 实现 | 修改：confirm 传播（含多批次守卫） |
+| `abt-web/src/pages/mes_report_create.rs` | 报工 handler | 修改：包显式事务（评审 P0） |
+| `abt-web/src/pages/mes_receipt_detail.rs` | 入库确认 handler | 修改：包显式事务（评审 P0） |
+| `abt-web/src/pages/mes_order_detail.rs` | 工单详情页 | 修改：wo_status_label + 取消按钮 + 来源追溯/批次状态 section |
+| `abt-web/src/pages/mes_order_list.rs` | 工单列表页 | 修改：wo_status_label + parse_wo_status（评审 P0） |
+| `abt-web/src/pages/mes_plan_detail.rs` | 计划详情页 | 修改：wo_status_label + tab_result 补 completed_steps |
+| `abt-web/src/pages/mes_batch_detail.rs` | 批次详情页 | 修改：补设计划编号链接 |
 | `scripts/mes-status-backfill.sql` | 历史数据修复 | 新建 |
 
 ---
@@ -47,25 +51,51 @@ define_mes_enum!(WorkOrderStatus {
     Planned = 2,
     Released = 3,
     InProduction = 6,
-    Closed = 4,
-    Cancelled = 5,
-});
+- [ ] **Step 2: 同步更新 3 处 `wo_status_label()` exhaustive match（P0 编译失败）**
+
+新增枚举变体会导致以下 3 个无 `_ =>` 通配臂的 match 编译失败。在 `abt-core` 和 `abt-web` 各加一臂：
+
+1. `abt-web/src/pages/mes_order_detail.rs:27-33` — `wo_status_label()`:
+```rust
+InProduction => ("生产中", "rgba(250,173,20,0.08)", "#faad14"),
 ```
 
-值=6 而非重排序（4→5），避免影响存量 smallint 数据。
+2. `abt-web/src/pages/mes_order_list.rs:32-40` — `wo_status_label()`:
+```rust
+InProduction => ("生产中", "rgba(250,173,20,0.08)", "#faad14"),
+```
 
-- [ ] **Step 2: 验证编译**
+3. `abt-web/src/pages/mes_plan_detail.rs:57-63` — `wo_status_label()`:
+```rust
+WorkOrderStatus::InProduction => ("生产中", "rgba(250,173,20,0.08)", "#faad14"),
+```
 
-Run: `cargo clippy -p abt-core 2>&1 | findstr "error"`
-Expected: 无 error（可能有 warning 关于未使用变体，属正常）
+4. `abt-web/src/pages/mes_order_list.rs:42-43` — `parse_wo_status()`:
+```rust
+"InProduction" => Some(InProduction),
+```
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 3: 修复 Dashboard 硬编码状态列表（P0 数据失真）**
+
+`abt-core/src/mes/dashboard/repo.rs:53` — `status IN (2,3)` 漏掉 InProduction(6)：
+```sql
+-- 改为：
+(SELECT COUNT(*) FROM work_orders WHERE status IN (2,3,6)) AS active_orders
+```
+
+- [ ] **Step 4: 验证编译**
+
+Run: `cargo clippy 2>&1 | findstr "error"`
+Expected: 无 error
+
+- [ ] **Step 5: Commit**
 
 ```bash
-git add abt-core/src/mes/enums.rs
-git commit -m "feat(mes): add WorkOrderStatus::InProduction enum variant"
+git add abt-core/src/mes/enums.rs abt-core/src/mes/dashboard/repo.rs \
+  abt-web/src/pages/mes_order_detail.rs abt-web/src/pages/mes_order_list.rs \
+  abt-web/src/pages/mes_plan_detail.rs
+git commit -m "feat(mes): add WorkOrderStatus::InProduction + update all match arms and dashboard"
 ```
-
 ---
 
 ### Task 2: WorkOrderRepo 新增条件状态更新方法
@@ -128,7 +158,8 @@ git commit -m "feat(mes): add WorkOrderRepo::update_status_conditional for state
 
 ```rust
     /// 通过工单 ID 反查并更新关联 PlanItem 状态。
-    /// 条件更新：仅当 plan_item_id 匹配时更新。
+    /// 前向守卫：仅当 PlanItem 当前状态为 Released(2) 或 InProduction(3) 时才更新，
+    /// 防止将已终态（Cancelled=5）的 PlanItem 回退。
     pub async fn update_item_status_by_work_order(
         executor: &mut sqlx::postgres::PgConnection,
         work_order_id: i64,
@@ -136,12 +167,13 @@ git commit -m "feat(mes): add WorkOrderRepo::update_status_conditional for state
     ) -> Result<()> {
         sqlx::query(
             r#"
-            UPDATE production_plan_items
+            UPDATE production_plan_items ppi
             SET status = $2
-            WHERE id = (
-                SELECT plan_item_id FROM work_orders
-                WHERE id = $1 AND plan_item_id IS NOT NULL
+            WHERE ppi.id = (
+                SELECT wo.plan_item_id FROM work_orders wo
+                WHERE wo.id = $1 AND wo.plan_item_id IS NOT NULL
             )
+            AND ppi.status IN (2, 3)
             "#,
         )
         .bind(work_order_id)
@@ -170,12 +202,35 @@ git commit -m "feat(mes): add WorkOrderRepo::update_status_conditional for state
         Ok(row.map(|r| r.0))
     }
 
-    /// 重新计算计划状态：所有 PlanItem 终态 → Plan Completed。
-    /// 条件 UPDATE，幂等。
+    /// 重新计算计划状态：
+    /// - 全部 PlanItem 为 Cancelled → Plan = Cancelled
+    /// - 全部 PlanItem 为终态（Completed/Cancelled）且至少一个 Completed → Plan = Completed
+    /// 条件 UPDATE，幂等（WHERE status = InProgress 保证只推进一次）。
     pub async fn recalculate_plan_status(
         executor: &mut sqlx::postgres::PgConnection,
         plan_id: i64,
     ) -> Result<()> {
+        // 分支 A：全部 Cancelled → Plan = Cancelled
+        sqlx::query(
+            r#"
+            UPDATE production_plans
+            SET status = $2, updated_at = NOW()
+            WHERE id = $1
+              AND status = $3
+              AND NOT EXISTS (
+                SELECT 1 FROM production_plan_items
+                WHERE plan_id = $1 AND status != $4
+              )
+            "#,
+        )
+        .bind(plan_id)                           // $1
+        .bind(PlanStatus::Cancelled)             // $2: Plan 目标状态
+        .bind(PlanStatus::InProgress)            // $3: Plan 当前状态条件
+        .bind(PlanItemStatus::Cancelled)         // $4: PlanItemStatus
+        .execute(&mut *executor)
+        .await?;
+
+        // 分支 B：全部终态且至少一个 Completed → Plan = Completed
         sqlx::query(
             r#"
             UPDATE production_plans
@@ -185,21 +240,30 @@ git commit -m "feat(mes): add WorkOrderRepo::update_status_conditional for state
               AND NOT EXISTS (
                 SELECT 1 FROM production_plan_items
                 WHERE plan_id = $1
-                  AND status NOT IN ($2, $4)
+                  AND status NOT IN ($4, $5)
+              )
+              AND EXISTS (
+                SELECT 1 FROM production_plan_items
+                WHERE plan_id = $1 AND status = $4
               )
             "#,
         )
-        .bind(plan_id)
-        .bind(PlanStatus::Completed)        -- $2: 目标状态
-        .bind(PlanStatus::InProgress)        -- $3: 当前状态条件
-        .bind(PlanItemStatus::Cancelled)     -- $4: 终态之一
+        .bind(plan_id)                           // $1
+        .bind(PlanStatus::Completed)             // $2: Plan 目标状态
+        .bind(PlanStatus::InProgress)            // $3: Plan 当前状态条件
+        .bind(PlanItemStatus::Completed)         // $4: PlanItemStatus 终态
+        .bind(PlanItemStatus::Cancelled)         // $5: PlanItemStatus 终态
         .execute(&mut *executor)
         .await?;
         Ok(())
     }
 ```
 
-注意：`recalculate_plan_status` 的 SQL 逻辑——当 Plan 处于 InProgress 且不存在非终态（非 Completed/非 Cancelled）的 PlanItem 时，将 Plan 推进为 Completed。
+**评审修正说明**：
+- `update_item_status_by_work_order` 增加了 `AND ppi.status IN (2, 3)` 前向守卫（原版无此条件，会将 Cancelled 回退为 Completed）
+- `recalculate_plan_status` 修正了 `--` 注释语法错误（Rust 中 `--` 不是注释）和枚举类型混淆（原版用 `PlanStatus::Completed` 绑定到 PlanItemStatus 列）
+- 新增"全 Cancelled → Plan Cancelled"分支
+```
 
 - [ ] **Step 2: 验证编译**
 
@@ -288,198 +352,152 @@ git commit -m "feat(mes): add WorkOrderService::mark_in_production"
 ### Task 5: confirm_routing_step 追加首次报工传播
 
 **Files:**
-- Modify: `abt-core/src/mes/production_batch/implt.rs`
+- Modify: `abt-web/src/pages/mes_report_create.rs`（事务包裹）
+- Modify: `abt-core/src/mes/production_batch/implt.rs`（传播逻辑）
+
+- [ ] **Step 0（P0 前置）：web handler 包显式事务**
+
+当前 `mes_report_create.rs:101` 传 `&mut conn`（裸连接 autocommit），传播失败无法回滚报工。
+必须改为显式事务：
+
+```rust
+// mes_report_create.rs — 原:
+// svc.confirm_routing_step(&service_ctx, &mut conn, form.batch_id, form.step_no, req).await?;
+
+// 改为:
+let mut tx = state.pool().begin().await?;
+svc.confirm_routing_step(&service_ctx, &mut *tx, form.batch_id, form.step_no, req).await?;
+tx.commit().await?;
+```
+
+确认 `AppState` 是否暴露 `pool()` 方法；如无，新增 `pub fn pool(&self) -> &PgPool`。
 
 - [ ] **Step 1: 在 confirm_routing_step 末尾追加传播逻辑**
 
 在 `confirm_routing_step` 方法中，步骤 l（返回 StepConfirmationResult）之前，新增传播逻辑。
-
 找到方法末尾的 `// --- l. 返回结果 ---` 注释行，在其 **之前** 插入：
-
-```rust
-        // --- k2. 状态传播：首次报工时推进上游工单和计划行状态 ---
-        if was_inserted && batch.status == BatchStatus::Pending && step_no == 1 {
-            // Batch: Pending → InProgress（此时已在上方步骤 k 中更新）
-            // WorkOrder: Released → InProduction
-            if let Err(e) = new_work_order_service(self.pool.clone())
-                .mark_in_production(ctx, db, batch.work_order_id)
-                .await
-            {
-                tracing::warn!(
-                    work_order_id = batch.work_order_id,
-                    error = %e,
-                    "failed to propagate batch in-progress to work order"
-                );
-            }
-
-            // PlanItem: Released → InProduction
-            if let Err(e) = crate::mes::production_plan::repo::ProductionPlanRepo::update_item_status_by_work_order(
-                &mut *db,
-                batch.work_order_id,
-                PlanItemStatus::InProduction,
-            )
-            .await
-            {
-                tracing::warn!(
-                    work_order_id = batch.work_order_id,
-                    error = %e,
-                    "failed to propagate batch in-progress to plan item"
-                );
-            }
-        }
-```
-
-**注意事项**：
-- 传播失败使用 `tracing::warn!` 记录但不阻断报工主流程（报工是车间操作，不应因状态传播失败而失败）
-- 需要确认 `batch.status` 在此处已经是更新后的值。查看代码：如果 step_no==1 且 batch 从 Pending 进入，步骤 k 中可能更新了状态（PendingReceipt 如果是最后一道工序）。对于单工序场景（step_no==1 == max_step），状态会变为 PendingReceipt。因此条件应改为检查 **原始 batch.status == Pending**（在步骤 a 获取的值），而非可能已被修改的当前值。
-
-修正：传播条件应使用 `batch.status`（步骤 a 获取的原始值），而非可能被步骤 k 修改后的值：
 
 ```rust
         // --- k2. 状态传播：首次报工时推进上游工单和计划行状态 ---
         // batch.status 是步骤 a 读取的原始值（Pending 表示首次报工）
         if was_inserted && batch.status == BatchStatus::Pending {
             // WorkOrder: Released → InProduction
-            if let Err(e) = new_work_order_service(self.pool.clone())
+            new_work_order_service(self.pool.clone())
                 .mark_in_production(ctx, db, batch.work_order_id)
-                .await
-            {
-                tracing::warn!(
-                    work_order_id = batch.work_order_id,
-                    error = %e,
-                    "failed to propagate batch in-progress to work order"
-                );
-            }
+                .await?;
 
             // PlanItem: Released → InProduction
-            if let Err(e) = crate::mes::production_plan::repo::ProductionPlanRepo::update_item_status_by_work_order(
+            crate::mes::production_plan::repo::ProductionPlanRepo::update_item_status_by_work_order(
                 &mut *db,
                 batch.work_order_id,
                 PlanItemStatus::InProduction,
             )
-            .await
-            {
-                tracing::warn!(
-                    work_order_id = batch.work_order_id,
-                    error = %e,
-                    "failed to propagate batch in-progress to plan item"
-                );
-            }
+            .await?;
         }
 ```
 
+**评审修正（P0）**：
+- **传播错误必须用 `?` 而非 `tracing::warn!`**。报工 handler 已包事务（Step 0），传播失败会回滚整个事务——车间工人看到错误后重试即可。非阻塞 `warn!` 会导致三层状态静默漂移。
+- `batch.status` 是步骤 a 读取的原始值，不会被步骤 k 修改（变量从未重新赋值）。用原始 `Pending` 值判断首次报工是正确的。
+
 - [ ] **Step 2: 验证编译**
 
-Run: `cargo clippy -p abt-core 2>&1 | findstr "error"`
+Run: `cargo clippy 2>&1 | findstr "error"`
 Expected: 无 error
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add abt-core/src/mes/production_batch/implt.rs
+git add abt-web/src/pages/mes_report_create.rs abt-core/src/mes/production_batch/implt.rs
 git commit -m "feat(mes): propagate batch in-progress to work order and plan item on first report"
 ```
-
 ---
 
 ### Task 6: ProductionReceipt::confirm 追加完工传播
 
 **Files:**
-- Modify: `abt-core/src/mes/production_receipt/implt.rs`
+- Modify: `abt-web/src/pages/mes_receipt_detail.rs`（事务包裹）
+- Modify: `abt-core/src/mes/production_receipt/implt.rs`（传播逻辑）
+
+- [ ] **Step 0（P0 前置）：web handler 包显式事务**
+
+当前 `mes_receipt_detail.rs:71` 传 `&mut conn`（裸连接 autocommit）。改为显式事务：
+
+```rust
+// mes_receipt_detail.rs confirm_receipt() — 原:
+// state.production_receipt_service().confirm(&service_ctx, &mut conn, path.receipt_id).await?;
+
+// 改为:
+let mut tx = state.pool().begin().await?;
+state.production_receipt_service().confirm(&service_ctx, &mut *tx, path.receipt_id).await?;
+tx.commit().await?;
+```
 
 - [ ] **Step 1: 在 confirm 方法步骤 6 之后追加传播**
 
 找到 confirm 方法中步骤 6（`Update batch status to Completed`）之后的 `Ok(())` 之前，插入传播逻辑。
-
-需要新增 import（文件顶部已有的 import 区域）：
-
-```rust
-use crate::mes::work_order::repo::WorkOrderRepo;
-use crate::mes::work_order::enums::WorkOrderStatus;
-use crate::mes::production_plan::repo::ProductionPlanRepo;
-use crate::mes::production_plan::enums::PlanItemStatus;
-```
-
-注意：当前文件已 `use super::super::enums::*`，因此 `WorkOrderStatus` 和 `PlanItemStatus` 已在作用域内（它们定义在 `mes/enums.rs` 中，通过 `super::super::enums::*` 导入）。需要确认这一点。
-
-在步骤 6 的 `}` 之后、`Ok(())` 之前插入：
+当前文件已 `use super::super::enums::*`，`WorkOrderStatus` 和 `PlanItemStatus` 已在作用域内。
 
 ```rust
         // --- 7. 状态传播：完工入库后推进上游工单和计划行状态 ---
-        // WorkOrder: InProduction → Closed（repo 级条件 UPDATE，不需要 version）
-        if let Err(e) = WorkOrderRepo::update_status_conditional(
-            &mut *db,
-            receipt.work_order_id,
-            WorkOrderStatus::InProduction,
-            WorkOrderStatus::Closed,
-        )
-        .await
-        {
-            tracing::warn!(
-                work_order_id = receipt.work_order_id,
-                error = %e,
-                "failed to propagate receipt confirm to work order close"
-            );
-        } else {
-            // 审计日志
-            if let Err(e) = new_audit_log_service(self.pool.clone())
-                .record(
-                    ctx, db,
-                    RecordAuditLogReq::new("WorkOrder", receipt.work_order_id, AuditAction::Transition),
-                )
-                .await
-            {
-                tracing::warn!(error = %e, "failed to audit work order close on receipt");
+
+        // 7a. 多批次守卫：检查该 WO 下是否所有批次都已终态
+        let all_batches = ProductionBatchRepo::list_by_work_order(
+            &mut *db, receipt.work_order_id,
+        ).await.map_err(|e| DomainError::Internal(e.into()))?;
+        let has_active_batch = all_batches.iter().any(|b| {
+            b.status != BatchStatus::Completed && b.status != BatchStatus::Cancelled
+        });
+
+        // 7b. WorkOrder: InProduction → Closed（仅当所有批次终态时）
+        if !has_active_batch {
+            match WorkOrderRepo::update_status_conditional(
+                &mut *db,
+                receipt.work_order_id,
+                WorkOrderStatus::InProduction,
+                WorkOrderStatus::Closed,
+            ).await {
+                Ok(true) => {
+                    // 仅在实际更新时记审计
+                    new_audit_log_service(self.pool.clone())
+                        .record(ctx, db,
+                            RecordAuditLogReq::new("WorkOrder", receipt.work_order_id, AuditAction::Transition),
+                        ).await?;
+                }
+                Ok(false) => {} // 状态不匹配（可能已 Closed），跳过
+                Err(e) => return Err(DomainError::Internal(e.into())),
             }
         }
 
-        // PlanItem: InProduction → Completed
-        if let Err(e) = ProductionPlanRepo::update_item_status_by_work_order(
+        // 7c. PlanItem: InProduction → Completed
+        ProductionPlanRepo::update_item_status_by_work_order(
             &mut *db,
             receipt.work_order_id,
             PlanItemStatus::Completed,
-        )
-        .await
-        {
-            tracing::warn!(
-                work_order_id = receipt.work_order_id,
-                error = %e,
-                "failed to propagate receipt confirm to plan item completed"
-            );
-        }
+        ).await?;
 
-        // Plan: 如果所有 PlanItem 终态 → Completed
+        // 7d. Plan: 重新计算状态
         if let Some(plan_id) = ProductionPlanRepo::find_plan_id_by_work_order(
-            &mut *db,
-            receipt.work_order_id,
-        )
-        .await
-        .unwrap_or(None)
-        {
-            if let Err(e) = ProductionPlanRepo::recalculate_plan_status(
-                &mut *db,
-                plan_id,
-            )
-            .await
-            {
-                tracing::warn!(
-                    plan_id,
-                    error = %e,
-                    "failed to recalculate plan status after receipt confirm"
-                );
-            }
+            &mut *db, receipt.work_order_id,
+        ).await? {
+            ProductionPlanRepo::recalculate_plan_status(&mut *db, plan_id).await?;
         }
 ```
 
+**评审修正（P0/P1）**：
+- **多批次守卫**（P1）：新增 7a 检查 `list_by_work_order` 所有批次终态。有活跃批次则不关闭 WO，避免 split_work_order 多批次场景下提前关闭。
+- **审计日志修正**（P1）：原版 `else` 分支在 `Ok(false)` 时也触发审计。改为 `Ok(true)` 才记录。
+- **传播用 `?`**（P0）：原版 `tracing::warn!` 吞错误导致状态漂移。handler 已包事务，`?` 传播可回滚。
+
 - [ ] **Step 2: 验证编译**
 
-Run: `cargo clippy -p abt-core 2>&1 | findstr "error"`
+Run: `cargo clippy 2>&1 | findstr "error"`
 Expected: 无 error
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add abt-core/src/mes/production_receipt/implt.rs
+git add abt-web/src/pages/mes_receipt_detail.rs abt-core/src/mes/production_receipt/implt.rs
 git commit -m "feat(mes): propagate receipt confirm to work order close and plan item completed"
 ```
 
@@ -492,37 +510,26 @@ git commit -m "feat(mes): propagate receipt confirm to work order close and plan
 
 - [ ] **Step 1: 在 cancel 方法中追加传播**
 
-在 `cancel()` 方法中，审计日志之后、`Ok(())` 之前，追加：
+在 `cancel()` 方法中，审计日志之后、`Ok(())` 之前，追加（用 `?` 传播错误）：
 
 ```rust
         // 状态传播：PlanItem → Cancelled + 重新计算 Plan 状态
-        if let Err(e) = crate::mes::production_plan::repo::ProductionPlanRepo::update_item_status_by_work_order(
+        crate::mes::production_plan::repo::ProductionPlanRepo::update_item_status_by_work_order(
             &mut *db,
             id,
             crate::mes::enums::PlanItemStatus::Cancelled,
-        )
-        .await
-        {
-            tracing::warn!(work_order_id = id, error = %e, "failed to propagate cancel to plan item");
-        }
+        ).await?;
 
         if let Some(plan_id) = crate::mes::production_plan::repo::ProductionPlanRepo::find_plan_id_by_work_order(
-            &mut *db,
-            id,
-        )
-        .await
-        .unwrap_or(None)
-        {
-            if let Err(e) = crate::mes::production_plan::repo::ProductionPlanRepo::recalculate_plan_status(
-                &mut *db,
-                plan_id,
-            )
-            .await
-            {
-                tracing::warn!(plan_id, error = %e, "failed to recalculate plan status after cancel");
-            }
+            &mut *db, id,
+        ).await? {
+            crate::mes::production_plan::repo::ProductionPlanRepo::recalculate_plan_status(
+                &mut *db, plan_id,
+            ).await?;
         }
 ```
+
+**评审修正（P0）**：原版 `tracing::warn!` 吞错误。改为 `?` 传播。cancel handler (`mes_order_detail.rs:255`) 传 `&mut conn`——建议同样包事务，但 cancel 操作的风险较低（WO 已标记 Cancelled + soft_delete），可作为 P1 后续处理。
 
 - [ ] **Step 2: 验证编译**
 
@@ -538,10 +545,12 @@ git commit -m "feat(mes): propagate work order cancel to plan item and recalcula
 
 ---
 
-### Task 8: 放宽 close() 和 cancel() 状态接受条件
+### Task 8: 放宽 close() 和 cancel() 状态接受条件 + UI 按钮更新
 
 **Files:**
 - Modify: `abt-core/src/mes/work_order/implt.rs`
+- Modify: `abt-web/src/pages/mes_order_detail.rs`
+- Modify: `abt-core/src/mes/work_order/implt.rs`（unrelease 回退条件）
 
 - [ ] **Step 1: close() 接受 InProduction 状态**
 
@@ -580,189 +589,160 @@ git commit -m "feat(mes): propagate work order cancel to plan item and recalcula
         {
 ```
 
-- [ ] **Step 3: 验证编译**
+- [ ] **Step 3（评审新增 P1）：unrelease() PlanItem 回退条件扩展**
 
-Run: `cargo clippy -p abt-core 2>&1 | findstr "error"`
-Expected: 无 error
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add abt-core/src/mes/work_order/implt.rs
-git commit -m "fix(mes): close() and cancel() now accept InProduction status"
-```
-
----
-
-## Phase 3: 详情页关联信息
-
-### Task 9: 计划详情页 — 新增"下达结果"Tab
-
-**Files:**
-- Modify: `abt-web/src/pages/mes_plan_detail.rs`
-
-- [ ] **Step 1: 读取现有计划详情页结构**
-
-Run: `read abt-web/src/pages/mes_plan_detail.rs` — 理解现有 Tab 布局和数据加载方式
-
-- [ ] **Step 2: 在 handler 中加载工单列表**
-
-在计划详情页 handler 中，调用 `state.work_order_service().list_by_plan(ctx, db, plan_id)` 获取该计划下所有工单。对每个工单，其 `completed_steps` / `total_steps` 字段已有（WorkOrderRepo::list_by_plan 的 SQL 应包含这些聚合字段）。
-
-确认 `list_by_plan` 返回的 WorkOrder 是否包含进度聚合字段。如不包含，在 `WorkOrderRepo::list_by_plan` 的 SQL 中补充 completed_steps/total_steps 子查询。
-
-- [ ] **Step 3: 渲染"下达结果"Tab**
-
-在计划详情页的 Tab 区域新增一个 Tab，内容为工单列表表格：
-
-列结构：工单编号 | 产品名称 | 计划数量 | 工单状态 | 批次进度（completed_steps/total_steps）
-
-Tab 切换使用 Surreal.js 内联：
-```rust
-(maud::PreEscaped(r#"<script>
-me('.plan-tab').on('click', function() {
-    me('.plan-tab').classRemove('tab-active')
-    me(this).classAdd('tab-active')
-    me('.plan-tab-panel').classAdd('hidden')
-    me('#' + me(this).attribute('data-panel')).classRemove('hidden')
-})
-</script>"#))
-```
-
-- [ ] **Step 4: 验证编译**
-
-Run: `cargo clippy -p abt-web 2>&1 | findstr "error"`
-Expected: 无 error
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add abt-web/src/pages/mes_plan_detail.rs
-git commit -m "feat(mes-ui): plan detail - add released work orders tab"
-```
-
----
-
-### Task 10: 工单详情页 — 新增来源追溯 + 批次执行状态
-
-**Files:**
-- Modify: `abt-web/src/pages/mes_order_detail.rs`
-
-- [ ] **Step 1: 读取现有工单详情页结构**
-
-Run: `read abt-web/src/pages/mes_order_detail.rs` — 理解现有数据加载和 section 布局
-
-- [ ] **Step 2: handler 加载来源计划和批次数据**
-
-在工单详情页 handler 中新增数据加载：
+`implt.rs:414-419` 当前回退条件仅接受 `status = Released(2)`。如果传播成功后 PlanItem 已是 InProduction(3)，
+回退不命中。虽然 unrelease 在 WO 非 Released 时被拦截（line 326），但传播失败时 WO 仍为 Released 而 PlanItem 可能已是 InProduction。
+扩展回退条件同时接受 Released 和 InProduction：
 
 ```rust
-// 来源计划信息（通过 plan_item_id → plan_id）
-let source_plan: Option<(String,)> = if let Some(plan_item_id) = work_order.plan_item_id {
-    sqlx::query_as(
-        "SELECT pp.doc_number FROM production_plan_items ppi
-         JOIN production_plans pp ON pp.id = ppi.plan_id
-         WHERE ppi.id = $1"
-    ).bind(plan_item_id).fetch_optional(&mut *db).await.ok().flatten()
-} else { None };
+// 原（line 414-419）:
+// "UPDATE production_plan_items SET status = $2 WHERE id = $1 AND status = $3"
+// .bind(PlanItemStatus::Released)  // $3
 
-// 批次列表
-let batches = state.production_batch_service()
-    .list_by_work_order(ctx, db, work_order.id).await.unwrap_or_default();
-
-// 工序进度
-let routings = state.production_batch_service()
-    .list_routings(ctx, db, work_order.id).await.unwrap_or_default();
+// 改为:
+"UPDATE production_plan_items SET status = $2 WHERE id = $1 AND status IN ($3, $4)"
+.bind(plan_item_id)
+.bind(PlanItemStatus::Planned)       // $2
+.bind(PlanItemStatus::Released)      // $3
+.bind(PlanItemStatus::InProduction)  // $4
 ```
 
-注意：abt-web 禁止直接 SQL 查询。来源计划信息应通过 service 获取。如果当前没有合适的 service 方法，在 abt-core 中新增一个轻量查询方法。
+- [ ] **Step 4（评审新增 P0）：UI 取消按钮增加 InProduction**
 
-替代方案：利用 WorkOrder 已有的 `source_plan_doc` 字段（在 list 查询中已填充），在 `find_by_id` 中也填充这些字段（修改 get_by_id SQL 添加 JOIN）。
-
-- [ ] **Step 3: 渲染来源追溯 section**
-
+`mes_order_detail.rs:343` — cancel 按钮条件需增加 InProduction：
 ```rust
-section class="info-card" {
-    h3 class="info-card-title" { "来源追溯" }
-    div class="info-grid" {
-        div class="info-item" {
-            span class="info-label" { "计划编号" }
-            span class="info-value" {
-                if let Some(ref plan_doc) = source_plan_doc {
-                    a href=(format!("/admin/mes/plans/{}", source_plan_id.unwrap_or(0))) { (plan_doc) }
-                } else {
-                    "—"
-                }
-            }
-        }
-        // 销售订单、客户同理（使用已有 source_so_doc / source_customer 字段）
-    }
-}
-```
-
-- [ ] **Step 4: 渲染批次执行状态 section**
-
-```rust
-section class="info-card" {
-    h3 class="info-card-title" { "批次执行状态" }
-    div class="info-grid" {
-        // 批次编号、流转卡号、批次状态
-        // 完成量/报废量
-        // 工序进度条
-    }
-}
-```
-
-进度条渲染：
-```rust
-let progress_pct = if total_steps > 0 {
-    (completed_steps as f64 / total_steps as f64 * 100.0) as u32
-} else { 0 };
-div class="wo-progress" {
-    div class="wo-progress-bar" style=(format!("width: {}%", progress_pct)) {}
-    span { (format!("{} / {} 工序", completed_steps, total_steps)) }
-}
+// 原:
+@if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned | WorkOrderStatus::Released) {
+// 改为:
+@if matches!(order.status, WorkOrderStatus::Draft | WorkOrderStatus::Planned
+            | WorkOrderStatus::Released | WorkOrderStatus::InProduction) {
 ```
 
 - [ ] **Step 5: 验证编译**
 
-Run: `cargo clippy -p abt-web 2>&1 | findstr "error"`
+Run: `cargo clippy 2>&1 | findstr "error"`
 Expected: 无 error
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add abt-web/src/pages/mes_order_detail.rs
-git commit -m "feat(mes-ui): work order detail - add source tracing and batch execution status"
+git add abt-core/src/mes/work_order/implt.rs abt-web/src/pages/mes_order_detail.rs
+git commit -m "fix(mes): close/cancel/unrelease accept InProduction + UI cancel button"
+```
+## Phase 3: 详情页关联信息
+
+> **评审结论**：经代码核实，Task 9/10/11 的工作量被高估约 70%——Tab、链接、关联数据**均已存在**。
+> 以下为精简后的实际改动。
+
+### Task 9: 计划详情页 — 补充 completed_steps 显示
+
+**评审发现**："下达结果" Tab **已存在**——`mes_plan_detail.rs:337` 已注册 Tab、`:342` 已渲染面板、`:481-527` 已有 `tab_result()` 函数、`:206` 已加载 `work_orders`。Tab 切换使用现有 `detail_tabs()` + `tab_panel()` 机制。**禁止引入 Surreal.js `me().on('click')`**。
+
+**唯一改动**：`tab_result()` 的 `:511-512` 当前仅显示 `total_steps`，补充 `completed_steps`：
+
+**Files:**
+- Modify: `abt-web/src/pages/mes_plan_detail.rs:511-512`
+
+- [ ] **Step 1: 补充 completed_steps 显示**
+
+找到 `tab_result()` 函数中的工序显示（约 line 511-512），将：
+```rust
+@if let Some(steps) = wo.total_steps {
+    span { "工序: " (steps) "步" }
+}
+```
+改为：
+```rust
+@if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
+    span { "工序: " (done) "/" (total) "步" }
+}
+```
+
+- [ ] **Step 2: 验证编译**
+
+Run: `cargo clippy -p abt-web 2>&1 | findstr "error"`
+Expected: 无 error
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add abt-web/src/pages/mes_plan_detail.rs
+git commit -m "feat(mes-ui): plan detail tab_result - show completed/total steps"
 ```
 
 ---
 
-### Task 11: 批次详情页 — 补全上下游链接
+### Task 10: 工单详情页 — 渲染来源追溯 + 批次执行状态
+
+**评审发现**：数据**全部已加载**——`order.source_plan_doc`、`order.source_so_doc`、`order.source_customer` 已由 `WorkOrderRepo::get_by_id` SQL JOIN 填充（repo.rs:64-65）。`batches`（handler line 123）和 `routings`（handler line 117）也已在 handler 中加载。**无需任何新增查询，禁止 abt-web 直接 SQL。**
 
 **Files:**
-- Modify: `abt-web/src/pages/mes_batch_detail.rs`
+- Modify: `abt-web/src/pages/mes_order_detail.rs`
 
-- [ ] **Step 1: 读取现有批次详情页结构**
+- [ ] **Step 1: 在 `order_detail_page` 中新增"来源追溯" section**
 
-Run: `read abt-web/src/pages/mes_batch_detail.rs` — 理解现有布局
-
-- [ ] **Step 2: 补全工单和计划编号链接**
-
-在批次详情的信息区域，将 `work_order_id` 替换为可点击链接：
+在 `tab_info()` 函数（:503）中或单独新增一个 section，渲染已有的 `order` 字段：
 
 ```rust
-div class="info-item" {
-    span class="info-label" { "工单编号" }
-    span class="info-value" {
-        a href=(format!("/admin/mes/orders/{}", batch.work_order_id)) {
-            (wo_doc_number.as_deref().unwrap_or("—"))
+section class="sub-section" {
+    div class="sub-section-title" { "来源追溯" }
+    div class="detail-info-grid" {
+        @if let (Some(pid), Some(pdoc)) = (order.source_plan_id, &order.source_plan_doc) {
+            div class="detail-info-item" {
+                span class="detail-info-label" { "计划编号" }
+                span class="detail-info-value" {
+                    a href=(format!("/admin/mes/plans/{}", pid)) class="link-cell" { (pdoc) }
+                }
+            }
+        }
+        @if let Some(so_doc) = &order.source_so_doc {
+            div class="detail-info-item" {
+                span class="detail-info-label" { "销售订单" }
+                span class="detail-info-value" { (so_doc) }
+            }
+        }
+        @if let Some(customer) = &order.source_customer {
+            div class="detail-info-item" {
+                span class="detail-info-label" { "客户" }
+                span class="detail-info-value" { (customer) }
+            }
         }
     }
 }
 ```
 
-如需计划编号，通过 `work_order_id` → `plan_item_id` → `plan_id` → `plan.doc_number` 反查。由于 abt-web 禁止直接 SQL，在 handler 中通过 service 调用获取。
+**注意**：`order_detail_page` 函数签名已接收 `order: &WorkOrder`（:283），`batches: &[ProductionBatch]`（:286），`routings: &[WorkOrderRouting]`（:285）——所有数据已传入，无需修改 handler。
+
+- [ ] **Step 2: 新增"批次执行状态" section**
+
+在同一页面新增批次概览 section，遍历已传入的 `batches`：
+
+```rust
+section class="sub-section" {
+    div class="sub-section-title" { "批次执行状态" }
+    @if batches.is_empty() {
+        div style="color:var(--muted)" { "暂无批次" }
+    } @else {
+        div class="data-card-scroll" {
+            table class="data-table" {
+                thead { tr { th {"批次"} th {"流转卡"} th {"状态"} th {"当前工序"} th {"完成/报废"} } }
+                tbody {
+                    @for b in batches {
+                        tr {
+                            td { a href=(format!("/admin/mes/batches/{}", b.id)) class="link-cell mono" { (b.batch_no) } }
+                            td class="mono" { (b.card_sn) }
+                            td { (batch_status_pill(b.status)) }
+                            td { (b.current_step) }
+                            td class="mono" { (crate::utils::fmt_qty(b.completed_qty)) " / " (crate::utils::fmt_qty(b.scrap_qty)) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+```
 
 - [ ] **Step 3: 验证编译**
 
@@ -772,10 +752,45 @@ Expected: 无 error
 - [ ] **Step 4: Commit**
 
 ```bash
-git add abt-web/src/pages/mes_batch_detail.rs
-git commit -m "feat(mes-ui): batch detail - add work order and plan navigation links"
+git add abt-web/src/pages/mes_order_detail.rs
+git commit -m "feat(mes-ui): work order detail - add source tracing and batch status sections"
 ```
 
+---
+
+### Task 11: 批次详情页 — 补充计划编号链接
+
+**评审发现**：工单编号链接**已存在**——`mes_batch_detail.rs:196` 已有 `a href="/admin/mes/orders/{wo.id}"`。`wo` 已在 handler line 40 通过 `find_by_id` 加载，`source_plan_doc`/`source_plan_id` 已由 `get_by_id` SQL 填充。**唯一缺失：计划编号链接。**
+
+**Files:**
+- Modify: `abt-web/src/pages/mes_batch_detail.rs:196` 之后
+
+- [ ] **Step 1: 在工单 info-item 之后新增计划 info-item**
+
+在 `:196`（工单链接行）之后插入：
+
+```rust
+@if let (Some(pid), Some(pdoc)) = (wo.source_plan_id, &wo.source_plan_doc) {
+    div class="detail-info-item" {
+        span class="detail-info-label" { "计划" }
+        span class="detail-info-value" {
+            a href=(format!("/admin/mes/plans/{}", pid)) class="link-cell" { (pdoc) }
+        }
+    }
+}
+```
+
+- [ ] **Step 2: 验证编译**
+
+Run: `cargo clippy -p abt-web 2>&1 | findstr "error"`
+Expected: 无 error
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add abt-web/src/pages/mes_batch_detail.rs
+git commit -m "feat(mes-ui): batch detail - add plan navigation link"
+```
 ---
 
 ## Phase 4: 数据迁移 + 设计同步
@@ -941,8 +956,23 @@ git commit -m "test: MES three-layer state linkage verification complete"
 
 ## Self-Review Checklist
 
+### 原始检查项
 - [x] **Spec coverage**: 设计文档中的每个传播点（首次报工、完工入库、取消、反下达）都有对应 Task
 - [x] **Placeholder scan**: 无 TBD/TODO，每个 step 有具体代码
 - [x] **Type consistency**: `WorkOrderStatus::InProduction = 6`、`PlanItemStatus::InProduction = 3`（已有枚举值，无需新增）、`update_status_conditional` 签名一致
-- [x] **unrelease 已有 PlanItem 回退**（代码 line 412-424），无需重复实现
 - [x] **close()/cancel() 接受 InProduction** — Task 8 覆盖
+
+### 评审修订检查项（2026-06-13 feature-review）
+- [x] **P0 枚举爆破**：3 处 `wo_status_label()` match 臂 + `parse_wo_status` + Dashboard SQL — Task 1 Step 2/3 覆盖
+- [x] **P0 语法错误**：`recalculate_plan_status` 的 `--` 注释 → `//` — Task 3 修复
+- [x] **P0 枚举类型混淆**：PlanStatus / PlanItemStatus 独立 bind 参数 — Task 3 修复
+- [x] **P0 缺状态守卫**：`update_item_status_by_work_order` 增加 `AND ppi.status IN (2,3)` — Task 3 修复
+- [x] **P0 事务策略**：web handler 包显式事务，传播用 `?` — Task 5 Step 0 / Task 6 Step 0 修复
+- [x] **P0 Surreal.js 违规**：Task 9 已删除 Surreal.js 代码，改为现有 Tab 机制
+- [x] **P0 abt-web SQL 违规**：Task 10 已删除 `sqlx::query_as`，改用已有 `order` 字段
+- [x] **P1 多批次守卫**：Task 6 增加 7a 批次终态检查
+- [x] **P1 审计误触发**：Task 6 改为 `Ok(true)` 才记审计
+- [x] **P1 unrelease 回退**：Task 8 Step 3 扩展 PlanItem 回退条件
+- [x] **P1 UI 取消按钮**：Task 8 Step 4 增加 InProduction
+- [x] **P1 全 Cancelled → Plan Cancelled**：Task 3 `recalculate_plan_status` 分支 A
+- [x] **Task 9/10/11 精简**：Tab/链接/数据均已存在，工作量缩减约 70%

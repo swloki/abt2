@@ -50,7 +50,7 @@ impl DashboardRepo {
     ) -> Result<ScheduleStats> {
         let stats = sqlx::query_as::<_, ScheduleStats>(
             "SELECT \
-             (SELECT COUNT(*) FROM work_orders WHERE status IN (2,3)) AS active_orders, \
+             (SELECT COUNT(*) FROM work_orders WHERE status IN (2,3,6)) AS active_orders, \
              (SELECT COUNT(*) FROM production_batches WHERE status = 1) AS pending_batches, \
              (SELECT COUNT(*) FROM production_batches WHERE status IN (2,3)) AS in_progress_batches, \
              (SELECT COUNT(*) FROM production_batches WHERE status = 4) AS pending_receipt_batches, \

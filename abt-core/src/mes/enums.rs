@@ -98,6 +98,7 @@ define_mes_enum!(WorkOrderStatus {
     Draft = 1,
     Planned = 2,
     Released = 3,
+    InProduction = 6,
     Closed = 4,
     Cancelled = 5,
 });

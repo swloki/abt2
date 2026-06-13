@@ -6,6 +6,8 @@ use super::model::*;
 use super::repo::ProductionReceiptRepo;
 use super::service::ProductionReceiptService;
 use crate::mes::production_batch::repo::ProductionBatchRepo;
+use crate::mes::work_order::repo::WorkOrderRepo;
+use crate::mes::production_plan::repo::ProductionPlanRepo;
 use crate::qms::enums::{InspectionResultType, InspectionSourceType, InspectionStatus};
 use crate::qms::inspection_result::{new_inspection_result_service, model::InspectionResultFilter, service::InspectionResultService};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
@@ -243,6 +245,49 @@ impl ProductionReceiptService for ProductionReceiptServiceImpl {
             .map_err(|e| DomainError::Internal(e.into()))?;
         }
 
+
+        // --- 7. 状态传播：完工入库后推进上游工单和计划行状态 ---
+
+        // 7a. 多批次守卫：检查该 WO 下是否所有批次都已终态
+        let all_batches = ProductionBatchRepo::list_by_work_order(
+            &mut *db, receipt.work_order_id,
+        ).await.map_err(|e| DomainError::Internal(e.into()))?;
+        let has_active_batch = all_batches.iter().any(|b| {
+            b.status != BatchStatus::Completed && b.status != BatchStatus::Cancelled
+        });
+
+        // 7b. WorkOrder: InProduction → Closed（仅当所有批次终态时）
+        if !has_active_batch {
+            match WorkOrderRepo::update_status_conditional(
+                &mut *db,
+                receipt.work_order_id,
+                WorkOrderStatus::InProduction,
+                WorkOrderStatus::Closed,
+            ).await {
+                Ok(true) => {
+                    new_audit_log_service(self.pool.clone())
+                        .record(ctx, db,
+                            RecordAuditLogReq::new("WorkOrder", receipt.work_order_id, AuditAction::Transition),
+                        ).await?;
+                }
+                Ok(false) => {}
+                Err(e) => return Err(DomainError::Internal(e.into())),
+            }
+        }
+
+        // 7c. PlanItem: InProduction → Completed
+        ProductionPlanRepo::update_item_status_by_work_order(
+            &mut *db,
+            receipt.work_order_id,
+            PlanItemStatus::Completed,
+        ).await?;
+
+        // 7d. Plan: 重新计算状态
+        if let Some(plan_id) = ProductionPlanRepo::find_plan_id_by_work_order(
+            &mut *db, receipt.work_order_id,
+        ).await? {
+            ProductionPlanRepo::recalculate_plan_status(&mut *db, plan_id).await?;
+        }
         Ok(())
     }
 

@@ -58,6 +58,7 @@ fn wo_status_label(s: &WorkOrderStatus) -> (&'static str, &'static str, &'static
         WorkOrderStatus::Draft => ("草稿", "rgba(0,0,0,0.04)", "var(--muted)"),
         WorkOrderStatus::Planned => ("已计划", "rgba(0,0,0,0.04)", "var(--muted)"),
         WorkOrderStatus::Released => ("已下达", "rgba(22,119,255,0.08)", "var(--accent)"),
+        WorkOrderStatus::InProduction => ("生产中", "rgba(250,173,20,0.08)", "#faad14"),
         WorkOrderStatus::Closed => ("已完工", "rgba(82,196,26,0.08)", "var(--success)"),
         WorkOrderStatus::Cancelled => ("已取消", "rgba(245,63,63,0.06)", "#f53f3f"),
     }
@@ -508,8 +509,8 @@ fn tab_result(
                         }
                         div class="ri-detail" {
                             span { "工单: " (wo.doc_number) }
-                            @if let Some(steps) = wo.total_steps {
-                                span { "工序: " (steps) "步" }
+                            @if let (Some(done), Some(total)) = (wo.completed_steps, wo.total_steps) {
+                                span { "工序: " (done) "/" (total) "步" }
                             }
                             span { "排程: " (wo.scheduled_start.format("%m-%d")) " 至 " (wo.scheduled_end.format("%m-%d")) }
                         }

@@ -7,17 +7,18 @@ use super::model::*;
 use super::repo::WorkOrderRepo;
 use super::service::WorkOrderService;
 use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
+use crate::master_data::routing::{new_routing_service, service::RoutingService};
+use crate::master_data::product::{new_product_service, service::ProductService};
 use crate::mes::production_batch::model::WorkOrderRouting;
 use crate::mes::production_batch::repo::{ProductionBatchRepo, WorkOrderRoutingRepo};
 use crate::shared::audit_log::{new_audit_log_service, service::AuditLogService, RecordAuditLogReq};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::types::PgExecutor;
-use crate::shared::enums::{AuditAction, DocumentType, ReservationType};
-use crate::shared::inventory_reservation::{new_inventory_reservation_service, model::ReserveRequest, service::InventoryReservationService};
+use crate::shared::enums::{AuditAction, DocumentType};
+use crate::shared::inventory_reservation::{new_inventory_reservation_service, service::InventoryReservationService};
 use crate::shared::types::context::ServiceContext;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
-use crate::wms::material_requisition::{new_material_requisition_service, service::MaterialRequisitionService};
 use crate::shared::types::error::DomainError;
 
 pub struct WorkOrderServiceImpl {
@@ -75,10 +76,10 @@ impl WorkOrderService for WorkOrderServiceImpl {
     }
 
     /// 下达工单：Draft/Planned -> Released
-    /// - 获取 BOM 快照 → 创建 WorkOrderRouting（工单级）
-    /// - 创建至少 1 个 ProductionBatch
-    /// - 库存 HARD 预留
-    /// - 创建领料单
+    /// - BOM 快照（冻结用料清单）
+    /// - 从 Routing 创建工序（或虚拟默认工序）
+    /// - 创建 ProductionBatch
+    /// - backflush 模式：不预留、不创建领料单
     async fn release(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,
@@ -115,44 +116,87 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // 3. 获取 BOM 叶子节点（组件）
-        let bom_nodes = if let Some(bom_id) = work_order.bom_snapshot_id {
-            new_bom_query_service(self.pool.clone())
-                .get_leaf_nodes(ctx, db, bom_id).await?
+        // 3. 获取产品信息（用于查找 BOM 和 Routing）
+        let product = new_product_service(self.pool.clone())
+            .get(ctx, db, work_order.product_id).await?;
+        let product_code = &product.product_code;
+
+        // 4. BOM 快照：查找产品已发布 BOM → 获取最新快照 → 写入 work_order.bom_snapshot_id
+        let _bom_snapshot_id = if let Some(bom_id) = new_bom_query_service(self.pool.clone())
+            .find_published_bom_by_product_code(ctx, db, product_code)
+            .await?
+        {
+            // 获取该 BOM 的最新快照
+            let snapshots = new_bom_query_service(self.pool.clone())
+                .get_snapshots(ctx, db, bom_id, None, Some(1))
+                .await?;
+
+            if let Some(latest_snapshot) = snapshots.into_iter().next() {
+                WorkOrderRepo::update_bom_snapshot_id(&mut *db, id, latest_snapshot.snapshot_id)
+                    .await
+                    .map_err(|e| DomainError::Internal(e.into()))?;
+                Some(latest_snapshot.snapshot_id)
+            } else {
+                None
+            }
         } else {
-            vec![]
+            None
         };
 
-        // 4. 从 BOM 节点创建 WorkOrderRouting
-        if !bom_nodes.is_empty() {
-            let routing_steps: Vec<WorkOrderRouting> = bom_nodes
-                .iter()
-                .enumerate()
-                .map(|(i, node)| WorkOrderRouting {
-                    id: 0,
-                    work_order_id: id,
-                    step_no: (i + 1) as i32,
-                    process_name: node.product_code.clone().unwrap_or_default(),
-                    work_center_id: None,
-                    standard_time: None,
-                    standard_cost: None,
-                    unit_price: None,
-                    allowed_loss_rate: Some(node.loss_rate),
-                    planned_qty: node.quantity,
-                    completed_qty: Decimal::ZERO,
-                    defect_qty: Decimal::ZERO,
-                    status: super::super::enums::RoutingStatus::Pending,
-                    is_outsourced: false,
-                    is_inspection_point: false,
-                })
-                .collect();
+        // 5. 工序创建：从 Routing 映射，或虚拟默认工序
+        let routing_detail = new_routing_service(self.pool.clone())
+            .get_bom_routing(ctx, db, product_code.to_string())
+            .await?;
 
-            WorkOrderRoutingRepo::insert_for_work_order(&mut *db, &routing_steps)
+        let routing_steps: Vec<WorkOrderRouting> = if let Some(ref detail) = routing_detail {
+            detail.steps.iter().map(|step| WorkOrderRouting {
+                id: 0,
+                work_order_id: id,
+                step_no: step.step_order,
+                process_name: step.process_name.clone().unwrap_or_else(|| step.process_code.clone()),
+                work_center_id: None,
+                standard_time: None,
+                standard_cost: None,
+                unit_price: None,
+                allowed_loss_rate: None,
+                planned_qty: work_order.planned_qty,
+                completed_qty: Decimal::ZERO,
+                defect_qty: Decimal::ZERO,
+                status: super::super::enums::RoutingStatus::Pending,
+                is_outsourced: false,
+                is_inspection_point: false,
+            }).collect()
+        } else {
+            vec![WorkOrderRouting {
+                id: 0,
+                work_order_id: id,
+                step_no: 1,
+                process_name: "生产".to_string(),
+                work_center_id: None,
+                standard_time: None,
+                standard_cost: None,
+                unit_price: None,
+                allowed_loss_rate: None,
+                planned_qty: work_order.planned_qty,
+                completed_qty: Decimal::ZERO,
+                defect_qty: Decimal::ZERO,
+                status: super::super::enums::RoutingStatus::Pending,
+                is_outsourced: false,
+                is_inspection_point: false,
+            }]
+        };
+
+        WorkOrderRoutingRepo::insert_for_work_order(&mut *db, &routing_steps)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))?;
+
+        if let Some(ref detail) = routing_detail {
+            WorkOrderRepo::update_routing_id(&mut *db, id, detail.routing.id)
                 .await
                 .map_err(|e| DomainError::Internal(e.into()))?;
         }
 
-        // 5. 创建至少 1 个 ProductionBatch
+        // 6. 创建至少 1 个 ProductionBatch
         let batch_req = crate::mes::production_batch::model::CreateBatchReq {
             work_order_id: id,
             product_id: work_order.product_id,
@@ -180,27 +224,8 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 6. 库存 HARD 预留（planned_qty）
-        new_inventory_reservation_service(self.pool.clone())
-            .reserve(
-                ctx, db,
-                vec![ReserveRequest {
-                    product_id: work_order.product_id,
-                    warehouse_id: 0,
-                    reserved_qty: work_order.planned_qty,
-                    reservation_type: ReservationType::Hard,
-                    source_type: DocumentType::WorkOrder,
-                    source_id: id,
-                    source_line_id: None,
-                    priority: 0,
-                    expires_at: None,
-                }],
-            )
-            .await?;
-
-        // 7. 创建领料单
-        new_material_requisition_service(self.pool.clone())
-            .create_for_work_order(ctx, db, id).await?;
+        // 7. backflush 模式：不预留、不创建领料单
+        // （阶段 2 引入 picking 模式时在此处分流）
 
         // 审计日志
         new_audit_log_service(self.pool.clone())

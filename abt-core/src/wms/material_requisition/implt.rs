@@ -70,13 +70,7 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
                 .get_snapshot_by_id(ctx, db, snapshot_id).await?;
 
             if let Some(snapshot) = snapshot_opt {
-                let all_nodes = &snapshot.bom_detail.nodes;
-                let parent_ids: std::collections::HashSet<i64> =
-                    all_nodes.iter().map(|n| n.parent_id).collect();
-                let leaf_nodes: Vec<&crate::master_data::bom::model::BomNode> = all_nodes
-                    .iter()
-                    .filter(|n| !parent_ids.contains(&n.id))
-                    .collect();
+                let leaf_nodes = snapshot.bom_detail.leaf_nodes();
 
                 for node in &leaf_nodes {
                     let required_qty = node.quantity * wo.planned_qty;

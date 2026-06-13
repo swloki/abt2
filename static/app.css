@@ -4726,7 +4726,6 @@ input:where([type='button'], [type='reset'], [type='submit']),
 .accent-red{accent-color:color-mix(in srgb, var(--colors-red-DEFAULT) var(--un-accent-opacity), transparent) /* oklch(70.4% 0.191 22.216) */;}
 .b,
 .border{border-width:1px;}
-.rd,
 .rounded{border-radius:var(--radius-DEFAULT);}
 .rounded-md{border-radius:var(--radius-md);}
 .bg-\[color-mix\(in_srgb\,var\(--accent\)_10\%\,transparent\)\]{background-color:color-mix(in oklab, color-mix(in srgb,var(--accent) 10%,transparent) var(--un-bg-opacity), transparent) /* color-mix(in srgb,var(--accent) 10%,transparent) */;}

@@ -81,6 +81,18 @@ pub struct BomDetail {
     pub nodes: Vec<BomNode>,
 }
 
+impl BomDetail {
+    /// 提取叶子节点（没有子节点的节点）
+    pub fn leaf_nodes(&self) -> Vec<&BomNode> {
+        let parent_ids: std::collections::HashSet<i64> =
+            self.nodes.iter().map(|n| n.parent_id).collect();
+        self.nodes
+            .iter()
+            .filter(|n| !parent_ids.contains(&n.id))
+            .collect()
+    }
+}
+
 impl sqlx::Type<sqlx::Postgres> for BomDetail {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
         <serde_json::Value as sqlx::Type<sqlx::Postgres>>::type_info()

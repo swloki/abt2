@@ -233,14 +233,7 @@ async fn get_bom_components(
             .get_snapshot_by_id(ctx, db, snapshot_id).await?;
 
         if let Some(snap) = snapshot {
-            let all_nodes = &snap.bom_detail.nodes;
-            // 叶子节点 = 没有任何节点的 parent_id 等于它的 node_id
-            let parent_ids: std::collections::HashSet<i64> =
-                all_nodes.iter().map(|n| n.parent_id).collect();
-            let leaf_nodes: Vec<&crate::master_data::bom::model::BomNode> = all_nodes
-                .iter()
-                .filter(|n| !parent_ids.contains(&n.id))
-                .collect();
+            let leaf_nodes = snap.bom_detail.leaf_nodes();
 
             Ok(leaf_nodes.into_iter().map(|n| BomComponent {
                 product_id: n.product_id,

@@ -174,13 +174,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
                     .flatten();
 
                 if let Some(snapshot) = snapshot_opt {
-                    let all_nodes = &snapshot.bom_detail.nodes;
-                    let parent_ids: std::collections::HashSet<i64> =
-                        all_nodes.iter().map(|n| n.parent_id).collect();
-                    let leaf_nodes: Vec<_> = all_nodes
-                        .iter()
-                        .filter(|n| !parent_ids.contains(&n.id))
-                        .collect();
+                    let leaf_nodes = snapshot.bom_detail.leaf_nodes();
 
                     for node in &leaf_nodes {
                         let required_qty = node.quantity * item.planned_qty;

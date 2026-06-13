@@ -131,11 +131,13 @@ struct ShippingItemWeb {
 
 #[derive(Debug, Deserialize)]
 pub struct CustomerContactsQuery {
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub customer_id: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct OrderSearchQuery {
+    #[serde(default, deserialize_with = "crate::utils::empty_as_none")]
     pub customer_id: Option<i64>,
     pub keyword: Option<String>,
 }

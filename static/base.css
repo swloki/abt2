@@ -268,6 +268,46 @@ p { margin: 0; }
   display: grid; place-items: center; font-size: 12px; font-weight: 700;
   color: #fff; letter-spacing: 0.02em;
 }
+/* ─── User Menu Dropdown ─── */
+.user-menu { position: relative; }
+.user-menu-trigger {
+  display: flex; align-items: center; gap: var(--space-2);
+  border: none; background: transparent; cursor: pointer; padding: 4px;
+  border-radius: var(--radius-sm); transition: background var(--motion-fast) var(--ease-standard);
+}
+.user-menu-trigger:hover { background: var(--surface); }
+.user-menu-trigger .avatar { width: 32px; height: 32px; font-size: 11px; }
+.user-menu-dropdown {
+  position: absolute; top: calc(100% + 8px); right: 0;
+  min-width: 240px; background: var(--bg); border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-lg);
+  padding: var(--space-2); z-index: 100;
+  opacity: 0; visibility: hidden; transform: translateY(-4px);
+  transition: all var(--motion-fast) var(--ease-standard);
+}
+.user-menu.is-open .user-menu-dropdown {
+  opacity: 1; visibility: visible; transform: translateY(0);
+}
+.user-menu-header {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-2); margin-bottom: var(--space-2);
+}
+.user-menu-header .avatar { width: 40px; height: 40px; font-size: 14px; }
+.user-menu-info { display: flex; flex-direction: column; min-width: 0; }
+.user-menu-name { font-size: var(--text-sm); font-weight: 600; color: var(--fg); }
+.user-menu-email { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.user-menu-item {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm);
+  font-size: var(--text-sm); color: var(--fg); text-decoration: none;
+  transition: background var(--motion-fast) var(--ease-standard); cursor: pointer;
+}
+.user-menu-item:hover { background: var(--surface); }
+.user-menu-item svg { width: 16px; height: 16px; color: var(--muted); }
+.user-menu-item:hover svg { color: var(--accent); }
+.user-menu-divider { height: 1px; background: var(--border-soft); margin: var(--space-2) 0; }
+.user-menu-logout { color: var(--danger); }
+.user-menu-logout svg { color: var(--danger); }
 
 /* ─── Page Content ─── */
 .page-content { flex: 1; padding: var(--space-8); min-width: 0; overflow-x: hidden; }

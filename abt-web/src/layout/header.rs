@@ -22,9 +22,6 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
                 }
             }
             div class="top-header-right" {
-                span class="text-muted" style="font-size:13px" {
-                    "操作员：" (claims.display_name.as_str())
-                }
                 button class="header-icon-btn" title="通知" {
                     (icon::bell_icon(""))
                     div class="header-dot" {}
@@ -32,8 +29,44 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
                 button class="header-icon-btn" title="帮助" {
                     (icon::question_icon(""))
                 }
-                div class="avatar" { (initials) }
+                div class="user-menu" {
+                    button class="user-menu-trigger" aria-label="用户菜单" {
+                        div class="avatar" { (initials) }
+                        (maud::PreEscaped(r#"<script>me().on('click',function(){me().closest('.user-menu').classToggle('is-open')})</script>"#))
+                    }
+                    div class="user-menu-dropdown" {
+                        div class="user-menu-header" {
+                            div class="avatar" { (initials) }
+                            div class="user-menu-info" {
+                                div class="user-menu-name" { (claims.display_name.as_str()) }
+                                div class="user-menu-email" { (claims.username.as_str()) }
+                            }
+                        }
+                        a class="user-menu-item" href="/admin/users" {
+                            (icon::user_icon("w-4 h-4"))
+                            "个人中心"
+                        }
+                        a class="user-menu-item" href="/admin/users" {
+                            (icon::tool_icon("w-4 h-4"))
+                            "账号设置"
+                        }
+                        a class="user-menu-item" href="/admin/notifications" {
+                            (icon::bell_icon("w-4 h-4"))
+                            "通知中心"
+                        }
+                        div class="user-menu-divider" {}
+                        a class="user-menu-item user-menu-logout" href="/logout" {
+                            (icon::log_out_icon("w-4 h-4"))
+                            "退出登录"
+                        }
+                    }
+                }
             }
         }
+        (maud::PreEscaped(r#"<script>
+            document.addEventListener('click',function(e){
+                if(!e.target.closest('.user-menu')){any('.user-menu').forEach(function(m){m.classList.remove('is-open')})}
+            });
+        </script>"#))
     }
 }

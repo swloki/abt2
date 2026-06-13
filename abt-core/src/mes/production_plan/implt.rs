@@ -129,7 +129,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
                     scheduled_start,
                     scheduled_end,
                     work_center_id: None,
-                    sales_order_id: None,
+                    sales_order_id: item.sales_order_id,
                     remark: None,
                 },
             ).await {

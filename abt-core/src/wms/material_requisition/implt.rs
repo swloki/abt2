@@ -6,6 +6,8 @@ use super::model::{CreateManualReq, IssueMaterialReq, MaterialRequisition, Requi
 use super::repo::MaterialRequisitionRepo;
 use super::service::MaterialRequisitionService;
 use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
+use crate::master_data::bom::{new_bom_query_service, service::BomQueryService};
+use crate::wms::backflush::resolve_warehouse_id;
 use crate::shared::document_link::model::LinkRequest;
 use crate::shared::types::PgExecutor;
 use crate::shared::document_link::{new_document_link_service, service::DocumentLinkService};
@@ -47,7 +49,9 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
 
         let wo = new_work_order_service(self.pool.clone())
             .find_by_id(ctx, db, work_order_id).await?;
-        let warehouse_id = wo.work_center_id.unwrap_or(0);
+
+        // 确定仓库（V1：回退到第一个活跃仓库）
+        let warehouse_id = resolve_warehouse_id(db).await?;
 
         let requisition = MaterialRequisitionRepo::insert(
             &mut *db,
@@ -59,6 +63,34 @@ impl MaterialRequisitionService for MaterialRequisitionServiceImpl {
         )
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
+
+        // 从 BOM 快照展开叶子组件 → 生成领料单明细行
+        if let Some(snapshot_id) = wo.bom_snapshot_id {
+            let snapshot_opt = new_bom_query_service(self.pool.clone())
+                .get_snapshot_by_id(ctx, db, snapshot_id).await?;
+
+            if let Some(snapshot) = snapshot_opt {
+                let all_nodes = &snapshot.bom_detail.nodes;
+                let parent_ids: std::collections::HashSet<i64> =
+                    all_nodes.iter().map(|n| n.parent_id).collect();
+                let leaf_nodes: Vec<&crate::master_data::bom::model::BomNode> = all_nodes
+                    .iter()
+                    .filter(|n| !parent_ids.contains(&n.id))
+                    .collect();
+
+                for node in &leaf_nodes {
+                    let required_qty = node.quantity * wo.planned_qty;
+                    MaterialRequisitionRepo::insert_item(
+                        &mut *db,
+                        requisition.id,
+                        node.product_id,
+                        required_qty,
+                    )
+                    .await
+                    .map_err(|e| DomainError::Internal(e.into()))?;
+                }
+            }
+        }
 
         new_document_link_service(self.pool.clone())
         .create_links(

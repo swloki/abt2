@@ -16,6 +16,15 @@ pub trait WorkOrderService: Send + Sync {
         id: i64,
         expected_version: i32,
     ) -> Result<()>;
+    /// 反下达工单：Released -> Draft
+    /// 安全网操作：取消领料单、释放库存预留、删除批次和工序
+    async fn unrelease(
+        &self,
+        ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        id: i64,
+        expected_version: i32,
+    ) -> Result<()>;
     async fn close(
         &self,
         ctx: &ServiceContext, db: PgExecutor<'_>,

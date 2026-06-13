@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # --- 应用配置 ---
-ABT_URL="${ABT_URL:-http://localhost:8000}"
+ABT_URL="${ABT_URL:-https://localhost:8000}"
 ABT_HOST="${ABT_HOST:-localhost}"
 ABT_PORT="${ABT_PORT:-8000}"
 

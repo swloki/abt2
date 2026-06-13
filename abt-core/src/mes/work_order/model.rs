@@ -23,6 +23,13 @@ pub struct WorkOrder {
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub updated_at: chrono::DateTime<chrono::Utc>,
     pub deleted_at: Option<chrono::DateTime<chrono::Utc>>,
+    // 列表展示用聚合/关联字段：list 查询通过子查询/JOIN 填充；insert/get_by_id 为 None
+    pub completed_steps: Option<i32>,
+    pub total_steps: Option<i32>,
+    pub source_plan_id: Option<i64>,
+    pub source_plan_doc: Option<String>,
+    pub source_so_doc: Option<String>,
+    pub source_customer: Option<String>,
 }
 
 #[derive(Debug, Clone)]

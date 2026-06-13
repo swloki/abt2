@@ -8,15 +8,18 @@ use crate::shared::enums::{DocumentType, ReservationStatus};
 pub struct InventoryReservationRepo;
 
 impl InventoryReservationRepo {
-    /// 获取事务级 advisory lock，序列化同一 product+warehouse 的并发预留
+    /// 获取事务级 advisory lock，序列化同一 product 的所有并发预留（跨仓库）。
+    ///
+    /// 单 key bigint：双 key 版本只接受 `(int4,int4)`，与 i64 推断的 bigint 类型
+    /// 不兼容（PostgreSQL 无 `pg_advisory_xact_lock(bigint,bigint)` 重载）。跨仓库
+    /// 预留下也无法用 product+warehouse 双 key（warehouse 为 None）。锁 product 串行化
+    /// 同产品所有预留，防超卖的正确性由 `available_atp` 校验保证。
     pub async fn lock_for_reserve(
         executor: &mut sqlx::postgres::PgConnection,
         product_id: i64,
-        warehouse_id: i64,
     ) -> Result<()> {
-        sqlx::query("SELECT pg_advisory_xact_lock($1, $2)")
+        sqlx::query("SELECT pg_advisory_xact_lock($1)")
             .bind(product_id)
-            .bind(warehouse_id)
             .execute(&mut *executor)
             .await?;
         Ok(())
@@ -121,6 +124,83 @@ impl InventoryReservationRepo {
 
         let total: Decimal = row.try_get("total")?;
         Ok(total)
+    }
+
+    /// 按来源单据查询每行的实际 Active 预留总量。
+    /// 返回 HashMap<source_line_id, reserved_qty>，用于 confirm 后计算 shortage。
+    pub async fn reserved_qty_by_source(
+        executor: &mut sqlx::postgres::PgConnection,
+        source_type: DocumentType,
+        source_id: i64,
+    ) -> Result<std::collections::HashMap<i64, Decimal>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT source_line_id, SUM(reserved_qty) AS qty
+            FROM inventory_reservations
+            WHERE source_type = $1 AND source_id = $2 AND status = $3
+            GROUP BY source_line_id
+            "#,
+        )
+        .bind(source_type)
+        .bind(source_id)
+        .bind(ReservationStatus::Active)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        let mut map = std::collections::HashMap::new();
+        for row in rows {
+            let line_id: Option<i64> = row.try_get("source_line_id")?;
+            let qty: Decimal = row.try_get("qty")?;
+            if let Some(id) = line_id {
+                map.insert(id, qty);
+            }
+        }
+        Ok(map)
+    }
+
+    /// 计算跨表综合可用量（ATP）：
+    ///   SUM(stock_ledger.quantity - stock_ledger.reserved_qty)   扣除 inventory_lock 预留
+    ///   - SUM(inventory_reservations.reserved_qty WHERE Active)  扣除本表预留
+    ///
+    /// 双重扣除是防超卖的关键——`stock_ledger.reserved_qty` 由 `wms/inventory_lock`
+    /// 维护，本表预留独立记录，两者并存必须同时扣。warehouse_id 为 None 时跨所有
+    /// 仓库汇总（按 product 维度 ATP）。
+    ///
+    /// 直接 SQL 读 stock_ledger，不 `use crate::wms`（避免 shared→wms 分层倒置）；
+    /// 这是 `wms/stock_ledger/repo.rs` `total_available` 注释指向的设计——
+    /// InventoryReservation 负责成为预留真相源、自行计算 ATP。
+    pub async fn available_atp(
+        executor: &mut sqlx::postgres::PgConnection,
+        product_id: i64,
+        warehouse_id: Option<i64>,
+    ) -> Result<Decimal> {
+        let row = sqlx::query(
+            r#"
+            SELECT
+                COALESCE(
+                    (SELECT SUM(quantity - reserved_qty)
+                     FROM stock_ledger
+                     WHERE product_id = $1 AND ($2::bigint IS NULL OR warehouse_id = $2)
+                    ), 0
+                )
+                - COALESCE(
+                    (SELECT SUM(reserved_qty)
+                     FROM inventory_reservations
+                     WHERE product_id = $1
+                       AND ($2::bigint IS NULL OR warehouse_id = $2)
+                       AND status = $3
+                    ), 0
+                ) AS atp
+            "#,
+        )
+        .bind(product_id)
+        .bind(warehouse_id)
+        .bind(ReservationStatus::Active)
+        .fetch_one(executor)
+        .await?;
+
+        let atp: Decimal = row.try_get("atp")?;
+        Ok(atp)
     }
 
     /// 按来源取消全部 Active 预留

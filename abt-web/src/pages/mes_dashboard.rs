@@ -23,8 +23,9 @@ pub async fn get_mes_dashboard(
     let svc = state.mes_dashboard_service();
     let stats = svc.get_stats(&service_ctx, &mut conn).await?;
     let qs = svc.get_quick_entry_stats(&service_ctx, &mut conn).await?;
+    let dq = svc.get_data_quality_stats(&service_ctx, &mut conn).await.unwrap_or_default();
     let recent = svc.get_recent_ops(&service_ctx, &mut conn, 5).await.unwrap_or_default();
-    let content = mes_dashboard_page(&stats, &qs, &recent);
+    let content = mes_dashboard_page(&stats, &dq, &qs, &recent);
     let page_html = admin_page(
         is_htmx, "生产管理", &claims, "production",
         MesDashboardPath::PATH, "生产管理", None, content, &nav_filter,
@@ -32,7 +33,7 @@ pub async fn get_mes_dashboard(
     Ok(Html(page_html.into_string()))
 }
 
-fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, qs: &abt_core::mes::dashboard::model::QuickEntryStats, recent: &[abt_core::mes::dashboard::model::RecentOp]) -> Markup {
+fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, dq: &abt_core::mes::dashboard::model::DataQualityStats, qs: &abt_core::mes::dashboard::model::QuickEntryStats, recent: &[abt_core::mes::dashboard::model::RecentOp]) -> Markup {
     html! {
         div {
             // ── Page Header ──
@@ -80,6 +81,24 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, q
                     div {
                         div class="stat-value" { (crate::utils::fmt_qty(stats.completed_qty)) }
                         div class="stat-label" { "本月完工数量" }
+                    }
+                }
+            }
+            // ── 数据质量 ──
+            div class="section-block" {
+                h2 class="section-block-title" { "数据质量" }
+                div class="dq-grid" {
+                    a class="dq-card warn" href="/admin/md/products" {
+                        div class="dq-card-value" { (dq.no_routing_count) }
+                        div class="dq-card-label" { "个产品无 Routing" }
+                    }
+                    a class="dq-card warn" href="/admin/md/boms" {
+                        div class="dq-card-value" { (dq.no_bom_count) }
+                        div class="dq-card-label" { "个产品无已发布 BOM" }
+                    }
+                    a class="dq-card ok" href="/admin/md/products" {
+                        div class="dq-card-value" { (dq.complete_count) }
+                        div class="dq-card-label" { "个产品数据完整" }
                     }
                 }
             }

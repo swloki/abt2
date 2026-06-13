@@ -20,6 +20,7 @@ pub struct AuditLog {
 #[derive(Debug, Clone, Default)]
 pub struct AuditLogQuery {
     pub entity_type: Option<String>,
+    pub entity_id: Option<i64>,
     pub operator_id: Option<i64>,
     pub action: Option<AuditAction>,
     pub time_range_start: Option<DateTime<Utc>>,

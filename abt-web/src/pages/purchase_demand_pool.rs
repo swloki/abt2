@@ -583,14 +583,15 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
 
     html! {
         div class="material-row" {
-            // Click row to expand/collapse detail
-            (PreEscaped(format!(r#"<script>me().on('click',function(e){{
-                if(e.target.closest('button')||e.target.closest('form'))return;
-                var el=document.getElementById('expand-mat-{pid}');
-                el.classList.toggle('open');
-            }})</script>"#)))
 
-            div class="material-info" {
+            div class="material-info"
+                hx-get=(format!("/admin/purchase/demand-pool/demand-rows?product_id={pid}"))
+                hx-target=(format!("#expand-tbody-{pid}"))
+                hx-swap="innerHTML"
+                hx-trigger="click once" {
+                (PreEscaped(format!(r#"<script>me().on('click',function(){{
+                    me('#expand-mat-{pid}').classToggle('open');
+                }})</script>"#)))
                 div class="material-icon" style=(format!("background:{icon_bg};color:{icon_color}")) {
                     (icon_svg)
                     (icon::box_icon("w-5 h-5"))
@@ -620,18 +621,9 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
 
             div class="material-actions" {
                 form method="get" action=(PurchaseDemandPoolCreatePath::PATH)
-                    style="display:inline"
-                    onclick="event.stopPropagation()" {
+                    style="display:inline" {
                     input type="hidden" name="product_id" value=(pid) {}
                     button type="submit" class="btn btn-primary btn-sm" { "创建采购单" }
-                }
-                button class="btn btn-default btn-sm"
-                    onclick="event.stopPropagation()"
-                    hx-get=(format!("/admin/purchase/demand-pool/demand-rows?product_id={pid}"))
-                    hx-target=(format!("#expand-tbody-{pid}"))
-                    hx-swap="innerHTML"
-                {
-                    "展开明细"
                 }
             }
         }
@@ -642,7 +634,10 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                 table class="data-table" style="font-size:13px;" {
                     thead {
                         tr {
-                            th style="width:40px;" { input type="checkbox" title="全选"; }
+                            th style="width:40px;" {
+                                input type="checkbox" title="全选";
+                                (PreEscaped(r#"<script>me().on('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
+                            }
                             th { "需求ID" }
                             th { "来源订单" }
                             th class="num-right" { "需求数量" }
@@ -654,7 +649,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                     tbody id=(format!("expand-tbody-{pid}")) {
                         tr {
                             td colspan="7" style="text-align:center;padding:var(--space-3);color:var(--muted);" {
-                                "点击「展开明细」加载..."
+                                "点击物料信息展开加载..."
                             }
                         }
                     }
@@ -724,7 +719,10 @@ fn detail_table_fragment(
                 table class="data-table" {
                     thead {
                         tr {
-                            th style="width:40px;" { input type="checkbox" title="全选"; }
+                            th style="width:40px;" {
+                                input type="checkbox" title="全选";
+                                (PreEscaped(r#"<script>me().on('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
+                            }
                             th { "需求ID" }
                             th { "产品编码" }
                             th { "产品名称" }

@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
@@ -40,9 +40,9 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
         let mut failed_items = Vec::new();
 
         for (i, req) in requests.iter().enumerate() {
-            // 序列化同一 product+warehouse 的并发预留，防止超卖
+            // 1. 序列化同一 product 的并发预留（单 key，跨仓库），防止超卖
             if let Err(e) =
-                InventoryReservationRepo::lock_for_reserve(&mut *db, req.product_id, req.warehouse_id).await
+                InventoryReservationRepo::lock_for_reserve(&mut *db, req.product_id).await
             {
                 failed_items.push(BatchFailure {
                     index: i as i32,
@@ -50,7 +50,30 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
                 });
                 continue;
             }
-            match InventoryReservationRepo::insert(&mut *db, req).await {
+
+            // 2. 部分预留：actual_qty = min(需求量, ATP)。设计提案 §3.2：
+            //    「库存部分满足 → 预占现有库存（Partial Allocation），剩余量触发补货」。
+            //    仅当 ATP <= 0（完全无库存）时才判定 INSUFFICIENT_STOCK 整行失败，
+            //    不创建负库存。available_atp 查询本身的 DB 错误是系统级，用 ? 传播中止整个 reserve。
+            let atp = InventoryReservationRepo::available_atp(
+                &mut *db, req.product_id, req.warehouse_id,
+            ).await?;
+            let actual_qty = req.reserved_qty.min(atp);
+            if actual_qty <= Decimal::ZERO {
+                failed_items.push(BatchFailure {
+                    index: i as i32,
+                    error: DomainError::business_rule(format!(
+                        "INSUFFICIENT_STOCK: product {} need {} but ATP available {}",
+                        req.product_id, req.reserved_qty, atp
+                    )),
+                });
+                continue;
+            }
+
+            // 3. INSERT 预留（部分预留时 actual_qty < req.reserved_qty）
+            let mut partial = req.clone();
+            partial.reserved_qty = actual_qty;
+            match InventoryReservationRepo::insert(&mut *db, &partial).await {
                 Ok(_) => success_count += 1,
                 Err(e) => {
                     failed_items.push(BatchFailure {
@@ -99,6 +122,17 @@ impl InventoryReservationService for InventoryReservationServiceImpl {
         warehouse_id: Option<i64>,
     ) -> Result<Decimal> {
         InventoryReservationRepo::total_reserved(&mut *db, product_id, warehouse_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
+    }
+
+    async fn reserved_qty_by_source(
+        &self,
+        _ctx: &ServiceContext, db: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+    ) -> Result<std::collections::HashMap<i64, Decimal>> {
+        InventoryReservationRepo::reserved_qty_by_source(&mut *db, source_type, source_id)
             .await
             .map_err(|e| DomainError::Internal(e.into()))
     }

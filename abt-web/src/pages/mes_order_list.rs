@@ -8,7 +8,6 @@ use serde::Deserialize;
 
 use abt_core::mes::work_order::{WorkOrderFilter, WorkOrderService};
 use abt_core::master_data::product::ProductService;
-use abt_core::shared::identity::UserService;
 
 use crate::components::icon;
 use crate::components::pagination::pagination;
@@ -39,20 +38,6 @@ fn wo_status_label(s: &abt_core::mes::enums::WorkOrderStatus) -> (&'static str, 
     }
 }
 
-async fn resolve_op_names<S: UserService>(
-    svc: &S, ctx: &abt_core::shared::types::ServiceContext, db: abt_core::shared::types::PgExecutor<'_>,
-    items: &[abt_core::mes::work_order::WorkOrder],
-) -> HashMap<i64, String> {
-    let mut map = HashMap::new();
-    for item in items {
-        if !map.contains_key(&item.operator_id)
-            && let Ok(u) = svc.get_user(ctx, db, item.operator_id).await {
-                map.insert(item.operator_id, u.display_name.unwrap_or_default());
-            }
-    }
-    map
-}
-
 fn parse_wo_status(s: &str) -> Option<abt_core::mes::enums::WorkOrderStatus> {
     use abt_core::mes::enums::WorkOrderStatus::*;
     match s { "Draft" => Some(Draft), "Planned" => Some(Planned), "Released" => Some(Released), "Closed" => Some(Closed), "Cancelled" => Some(Cancelled), _ => None }
@@ -67,27 +52,25 @@ pub async fn get_order_list(
     let can_create = ctx.has_permission("WORK_ORDER", "create").await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
     let svc = state.work_order_service();
-    let user_svc = state.user_service();
     let product_svc = state.product_service();
     let filter = WorkOrderFilter {
         status: params.status.as_deref().and_then(parse_wo_status),
         product_id: None, keyword: params.keyword.clone(), date_from: None, date_to: None,
     };
     let result = svc.list(&service_ctx, &mut conn, filter, params.page.unwrap_or(1), 20).await?;
-    let op_names = resolve_op_names(&user_svc, &service_ctx, &mut conn, &result.items).await;
     let product_names: HashMap<i64, String> = {
         let pids: Vec<i64> = result.items.iter().map(|i| i.product_id).collect();
         product_svc.get_by_ids(&service_ctx, &mut conn, pids).await
             .map(|ps| ps.iter().map(|p| (p.product_id, p.pdt_name.clone())).collect())
             .unwrap_or_default()
     };
-    let content = order_list_page(&result, &op_names, &product_names, &params, can_create);
+    let content = order_list_page(&result, &product_names, &params, can_create);
     Ok(Html(admin_page(is_htmx, "工单管理", &claims, "production", OrderListPath::PATH, "生产管理", None, content, &nav_filter).into_string()))
 }
 
 fn order_list_page(
     result: &abt_core::shared::types::PaginatedResult<abt_core::mes::work_order::WorkOrder>,
-    op_names: &HashMap<i64, String>, product_names: &HashMap<i64, String>, params: &OrderQueryParams,
+    product_names: &HashMap<i64, String>, params: &OrderQueryParams,
     can_create: bool,
 ) -> Markup {
     html! { div {
@@ -96,13 +79,13 @@ fn order_list_page(
                 a class="btn btn-primary" href=(OrderCreatePath::PATH) { (icon::plus_icon("w-4 h-4")) "新建工单" }
             }
         }}
-        (order_table_fragment(result, op_names, product_names, params))
+        (order_table_fragment(result, product_names, params))
     }}
 }
 
 fn order_table_fragment(
     result: &abt_core::shared::types::PaginatedResult<abt_core::mes::work_order::WorkOrder>,
-    op_names: &HashMap<i64, String>, product_names: &HashMap<i64, String>, params: &OrderQueryParams,
+    product_names: &HashMap<i64, String>, params: &OrderQueryParams,
 ) -> Markup {
     let tabs = &[
         TabItem { value: String::new(), label: "全部", count: Some(result.total) },
@@ -123,12 +106,12 @@ fn order_table_fragment(
                 input class="search-input" type="text" name="keyword" style="width:180px" placeholder="搜索工单编号…" value=(params.keyword.as_deref().unwrap_or(""));
             }
         }
-        (order_data_card(result, op_names, product_names, params))
+        (order_data_card(result, product_names, params))
     }}
 }
 fn order_data_card(
     result: &abt_core::shared::types::PaginatedResult<abt_core::mes::work_order::WorkOrder>,
-    op_names: &HashMap<i64, String>, product_names: &HashMap<i64, String>, params: &OrderQueryParams,
+    product_names: &HashMap<i64, String>, params: &OrderQueryParams,
 ) -> Markup {
     let mut qs = vec![];
     if let Some(ref k) = params.keyword { qs.push(format!("keyword={k}")); }
@@ -139,23 +122,62 @@ fn order_data_card(
             div class="data-card-scroll" {
                 table class="data-table" { thead { tr {
                     th { "工单编号" } th { "产品" } th class="num-right" { "计划数量" }
-                    th { "开始日期" } th { "结束日期" } th { "状态" } th { "创建人" }
-                    th { "创建时间" } th { "操作" }
+                    th { "生产进度" } th { "排程" } th { "车间" } th { "来源追溯" }
+                    th { "状态" } th { "操作" }
                 }} tbody {
                     @for item in &result.items {
                         @let (sl, sb, sc) = wo_status_label(&item.status);
-                        @let on = op_names.get(&item.operator_id).map(|s| s.as_str()).unwrap_or("\u{2014}");
                         @let pn = product_names.get(&item.product_id).map(|s| s.as_str()).unwrap_or("\u{2014}");
                         @let dp = format!("/admin/mes/orders/{}", item.id);
+                        @let total = item.total_steps.unwrap_or(0);
+                        @let done = item.completed_steps.unwrap_or(0);
                         tr style="cursor:pointer" onclick=(format!("location.href='{}'", dp)) {
                             td class="link-cell mono" style="color:var(--accent)" { (item.doc_number) }
                             td { (pn) }
                             td class="num-right mono" { (crate::utils::fmt_qty(item.planned_qty)) }
-                            td { (item.scheduled_start) }
-                            td { (item.scheduled_end) }
+                            td {
+                                @if total == 0 {
+                                    span class="wo-progress" style="color:var(--muted)" { "尚未开始" }
+                                } @else if done >= total {
+                                    span class="wo-progress" style="color:var(--success)" { "✓ 完成" }
+                                } @else {
+                                    @let pct = done * 100 / total;
+                                    div class="wo-progress" {
+                                        div class="wo-progress-track" {
+                                            div class="wo-progress-fill" style=(format!("width:{}%", pct)) {}
+                                        }
+                                        span { (format!("{}% ({}/{})", pct, done, total)) }
+                                    }
+                                }
+                            }
+                            td {
+                                div class="cell-stack" {
+                                    span { (item.scheduled_start.format("%m-%d")) }
+                                    span class="sub" { "至 " (item.scheduled_end.format("%m-%d")) }
+                                }
+                            }
+                            td { "—" }
+                            td {
+                                @if item.source_plan_doc.is_none() && item.source_so_doc.is_none() {
+                                    "—"
+                                } @else {
+                                    div class="source-trace" {
+                                        @if let (Some(pid), Some(pdoc)) = (item.source_plan_id, item.source_plan_doc.as_deref()) {
+                                            a class="source-trace-sub" href=(format!("/admin/mes/plans/{}", pid)) onclick="event.stopPropagation()" { (pdoc) }
+                                            span class="source-trace-sub" { " → " }
+                                        }
+                                        @if let Some(soid) = item.sales_order_id {
+                                            @if let Some(sodoc) = item.source_so_doc.as_deref() {
+                                                a class="source-trace-sub" href=(format!("/admin/orders/{}", soid)) onclick="event.stopPropagation()" { (sodoc) }
+                                            }
+                                            @if let Some(cust) = item.source_customer.as_deref() {
+                                                span class="source-trace-sub" { " (" (cust) ")" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             td { span style=(format!("display:inline-flex;padding:2px 8px;border-radius:var(--radius-pill);font-size:var(--text-xs);font-weight:500;background:{};color:{}", sb, sc)) { (sl) } }
-                            td { (on) }
-                            td style="font-size:12px;color:var(--muted)" { (item.created_at.format("%Y-%m-%d %H:%M")) }
                             td { a href=(dp) style="color:var(--accent);font-size:var(--text-xs)" { "查看" } }
                         }
                     }

@@ -25,7 +25,10 @@ impl WorkOrderRepo {
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 1, $12, $13)
             RETURNING id, doc_number, plan_item_id, product_id, bom_snapshot_id, routing_id,
                       planned_qty, scheduled_start, scheduled_end, status, work_center_id,
-                      sales_order_id, version, remark, operator_id, created_at, updated_at, deleted_at
+                      sales_order_id, version, remark, operator_id, created_at, updated_at, deleted_at,
+                      NULL::int AS completed_steps, NULL::int AS total_steps,
+                      NULL::bigint AS source_plan_id, NULL::text AS source_plan_doc,
+                      NULL::text AS source_so_doc, NULL::text AS source_customer
             "#,
         )
         .bind(doc_number)
@@ -53,11 +56,19 @@ impl WorkOrderRepo {
     ) -> Result<Option<WorkOrder>> {
         let row = sqlx::query(
             r#"
-            SELECT id, doc_number, plan_item_id, product_id, bom_snapshot_id, routing_id,
-                   planned_qty, scheduled_start, scheduled_end, status, work_center_id,
-                   sales_order_id, version, remark, operator_id, created_at, updated_at, deleted_at
-            FROM work_orders
-            WHERE id = $1 AND deleted_at IS NULL
+            SELECT wo.id, wo.doc_number, wo.plan_item_id, wo.product_id, wo.bom_snapshot_id, wo.routing_id,
+                   wo.planned_qty, wo.scheduled_start, wo.scheduled_end, wo.status, wo.work_center_id,
+                   wo.sales_order_id, wo.version, wo.remark, wo.operator_id, wo.created_at, wo.updated_at, wo.deleted_at,
+                   (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id) AS total_steps,
+                   (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id AND r.status = 3) AS completed_steps,
+                   pp.id AS source_plan_id, pp.doc_number AS source_plan_doc,
+                   so.doc_number AS source_so_doc, c.customer_name AS source_customer
+            FROM work_orders wo
+            LEFT JOIN production_plan_items ppi ON ppi.id = wo.plan_item_id
+            LEFT JOIN production_plans pp ON pp.id = ppi.plan_id
+            LEFT JOIN sales_orders so ON so.id = wo.sales_order_id
+            LEFT JOIN customers c ON c.customer_id = so.customer_id
+            WHERE wo.id = $1 AND wo.deleted_at IS NULL
             "#,
         )
         .bind(id)
@@ -99,41 +110,50 @@ impl WorkOrderRepo {
     ) -> Result<PaginatedResult<WorkOrder>> {
         let offset = (page.saturating_sub(1)) * page_size;
 
-        let mut where_clauses = vec!["deleted_at IS NULL".to_string()];
+        let mut where_clauses = vec!["wo.deleted_at IS NULL".to_string()];
         let mut param_idx = 0u32;
 
         if filter.status.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("status = ${param_idx}"));
+            where_clauses.push(format!("wo.status = ${param_idx}"));
         }
         if filter.product_id.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("product_id = ${param_idx}"));
+            where_clauses.push(format!("wo.product_id = ${param_idx}"));
         }
         if filter.keyword.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("doc_number ILIKE ${param_idx}"));
+            where_clauses.push(format!("wo.doc_number ILIKE ${param_idx}"));
         }
         if filter.date_from.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("scheduled_start >= ${param_idx}"));
+            where_clauses.push(format!("wo.scheduled_start >= ${param_idx}"));
         }
         if filter.date_to.is_some() {
             param_idx += 1;
-            where_clauses.push(format!("scheduled_end <= ${param_idx}"));
+            where_clauses.push(format!("wo.scheduled_end <= ${param_idx}"));
         }
 
         let where_sql = where_clauses.join(" AND ");
         let limit_idx = param_idx + 1;
         let offset_idx = param_idx + 2;
 
-        let count_sql = format!("SELECT COUNT(*) as total FROM work_orders WHERE {where_sql}");
+        let count_sql = format!("SELECT COUNT(*) as total FROM work_orders wo WHERE {where_sql}");
         let data_sql = format!(
-            "SELECT id, doc_number, plan_item_id, product_id, bom_snapshot_id, routing_id, \
-             planned_qty, scheduled_start, scheduled_end, status, work_center_id, \
-             sales_order_id, version, remark, operator_id, created_at, updated_at, deleted_at \
-             FROM work_orders WHERE {where_sql} \
-             ORDER BY created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
+            "SELECT wo.id, wo.doc_number, wo.plan_item_id, wo.product_id, wo.bom_snapshot_id, wo.routing_id, \
+             wo.planned_qty, wo.scheduled_start, wo.scheduled_end, wo.status, wo.work_center_id, \
+             wo.sales_order_id, wo.version, wo.remark, wo.operator_id, wo.created_at, wo.updated_at, wo.deleted_at, \
+             (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id) AS total_steps, \
+             (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id AND r.status = 3) AS completed_steps, \
+             pp.id AS source_plan_id, pp.doc_number AS source_plan_doc, \
+             so.doc_number AS source_so_doc, c.customer_name AS source_customer \
+             FROM work_orders wo \
+             LEFT JOIN production_plan_items ppi ON ppi.id = wo.plan_item_id \
+             LEFT JOIN production_plans pp ON pp.id = ppi.plan_id \
+             LEFT JOIN sales_orders so ON so.id = wo.sales_order_id \
+             LEFT JOIN customers c ON c.customer_id = so.customer_id \
+             WHERE {where_sql} \
+             ORDER BY wo.created_at DESC LIMIT ${limit_idx} OFFSET ${offset_idx}"
         );
 
         let mut count_q = sqlx::query_scalar::<_, i64>(sqlx::AssertSqlSafe(count_sql));
@@ -254,5 +274,37 @@ impl WorkOrderRepo {
         .execute(&mut *executor)
         .await?;
         Ok(())
+    }
+    /// 按生产计划 ID 查询关联工单（通过 plan_item_id JOIN production_plan_items）
+    pub async fn list_by_plan(
+        executor: &mut sqlx::postgres::PgConnection,
+        plan_id: i64,
+    ) -> Result<Vec<WorkOrder>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT wo.id, wo.doc_number, wo.plan_item_id, wo.product_id, wo.bom_snapshot_id, wo.routing_id,
+                   wo.planned_qty, wo.scheduled_start, wo.scheduled_end, wo.status, wo.work_center_id,
+                   wo.sales_order_id, wo.version, wo.remark, wo.operator_id, wo.created_at, wo.updated_at, wo.deleted_at,
+                   (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id) AS total_steps,
+                   (SELECT COUNT(*)::int FROM work_order_routings r WHERE r.work_order_id = wo.id AND r.status = 3) AS completed_steps,
+                   pp.id AS source_plan_id, pp.doc_number AS source_plan_doc,
+                   so.doc_number AS source_so_doc, c.customer_name AS source_customer
+            FROM work_orders wo
+            LEFT JOIN production_plan_items ppi ON ppi.id = wo.plan_item_id
+            LEFT JOIN production_plans pp ON pp.id = ppi.plan_id
+            LEFT JOIN sales_orders so ON so.id = wo.sales_order_id
+            LEFT JOIN customers c ON c.customer_id = so.customer_id
+            WHERE wo.plan_item_id IN (SELECT id FROM production_plan_items WHERE plan_id = $1)
+              AND wo.deleted_at IS NULL
+            ORDER BY wo.id
+            "#,
+        )
+        .bind(plan_id)
+        .fetch_all(&mut *executor)
+        .await?;
+
+        rows.iter()
+            .map(|r| WorkOrder::from_row(r).map_err(Into::into))
+            .collect()
     }
 }

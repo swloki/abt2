@@ -3,7 +3,7 @@
 > 日期：2026-06-10
 > 测试范围：RBAC 权限系统全量功能测试 + 边界条件测试
 > 测试方法：agent-browser 自动化浏览器测试
-> 测试环境：http://localhost:8000
+> 测试环境：https://localhost:8000
 
 ---
 

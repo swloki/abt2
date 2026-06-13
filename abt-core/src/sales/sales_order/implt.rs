@@ -440,7 +440,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
                     // 库存类：尝试硬预留
                     reserve_requests.push(ReserveRequest {
                         product_id: item.product_id,
-                        warehouse_id: 1,
+                        warehouse_id: None, // 跨仓库 ATP 预留（按 product 维度汇总）
                         reserved_qty: item.quantity,
                         reservation_type: ReservationType::Hard,
                         source_type: DocumentType::SalesOrder,
@@ -453,20 +453,22 @@ impl SalesOrderService for SalesOrderServiceImpl {
             }
         }
 
-        // 5. 执行预留
+        // 5. 执行预留（支持部分预留：reserve 内部按 min(qty, ATP) 预占）
         savepoint(db, "sp_reserve").await.ok();
-        let mut succeeded_reservations: std::collections::HashSet<i64> = std::collections::HashSet::new();
         match new_inventory_reservation_service(self.pool.clone())
             .reserve(ctx, db, reserve_requests.clone())
             .await
         {
             Ok(batch) => {
-                let failed_indices: std::collections::HashSet<i32> = batch.failed_items.iter().map(|f| f.index).collect();
-                for (idx, req) in reserve_requests.iter().enumerate() {
-                    if !failed_indices.contains(&(idx as i32)) {
-                        if let Some(line_id) = req.source_line_id {
-                            succeeded_reservations.insert(line_id);
-                        }
+                // 不静默丢弃失败项：逐条记录错误详情（违反 CLAUDE.md「禁止静默丢弃错误」）
+                if !batch.failed_items.is_empty() {
+                    tracing::warn!(
+                        order_id = id,
+                        failed_count = batch.failed_items.len(),
+                        "inventory reserve partial failure"
+                    );
+                    for f in &batch.failed_items {
+                        tracing::warn!(index = f.index, error = %f.error, "reserve line failed");
                     }
                 }
                 release_savepoint(db, "sp_reserve").await.ok();
@@ -477,7 +479,19 @@ impl SalesOrderService for SalesOrderServiceImpl {
             }
         }
 
-        // 6. 为库存类行生成履行计划（根据预留结果决定状态）
+        // 5.5 查询每行实际预留量（部分预留时 reserved < required，用于精确计算 shortage）
+        let reserved_map = match new_inventory_reservation_service(self.pool.clone())
+            .reserved_qty_by_source(ctx, db, DocumentType::SalesOrder, id)
+            .await
+        {
+            Ok(m) => m,
+            Err(e) => {
+                tracing::warn!(order_id = id, error = %e, "reserved_qty_by_source query failed");
+                std::collections::HashMap::new()
+            }
+        };
+
+        // 6. 为库存类行生成履行计划（根据实际预留量决定状态，支持部分预留）
         for item in &items {
             let ac = product_map.get(&item.product_id)
                 .copied()
@@ -486,11 +500,14 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 continue;
             }
 
-            let fully_reserved = succeeded_reservations.contains(&item.id);
-            let (fp_status, line_status, reserved_qty, shortage_qty) = if fully_reserved {
-                (FulfillmentLineStatus::Allocated, SalesOrderLineStatus::Allocated, item.quantity, Decimal::ZERO)
+            let actual_reserved = reserved_map.get(&item.id).copied().unwrap_or(Decimal::ZERO);
+            let shortage_qty = (item.quantity - actual_reserved).max(Decimal::ZERO);
+            let (fp_status, line_status) = if shortage_qty <= Decimal::ZERO {
+                // 全部预留 → 可直接发货
+                (FulfillmentLineStatus::Allocated, SalesOrderLineStatus::Allocated)
             } else {
-                (FulfillmentLineStatus::Pending, SalesOrderLineStatus::Pending, Decimal::ZERO, item.quantity)
+                // 部分预留或完全缺货 → Pending，shortage 部分触发补货
+                (FulfillmentLineStatus::Pending, SalesOrderLineStatus::Pending)
             };
 
             fp_inputs.push(FulfillmentPlanLineInput {
@@ -499,7 +516,7 @@ impl SalesOrderService for SalesOrderServiceImpl {
                 product_id: item.product_id,
                 acquire_channel: ac,
                 required_qty: item.quantity,
-                reserved_qty,
+                reserved_qty: actual_reserved,
                 shortage_qty,
                 status: fp_status,
                 required_date: item.delivery_date,

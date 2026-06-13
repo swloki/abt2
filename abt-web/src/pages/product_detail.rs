@@ -1,13 +1,26 @@
+use std::collections::HashMap;
+
 use axum::response::{Html, IntoResponse};
 use maud::{Markup, html};
+use rust_decimal::Decimal;
 use serde::Deserialize;
 
+use abt_core::master_data::bom::BomQueryService;
+use abt_core::master_data::bom::model::{Bom, BomNode};
+use abt_core::master_data::price::ProductPriceService;
+use abt_core::master_data::price::model::{PriceLogEntry, PriceQuery, PriceType};
 use abt_core::master_data::product::ProductService;
 use abt_core::master_data::product::model::{*, AcquireChannel, MaterialConsumptionMode};
+use abt_core::master_data::routing::RoutingService;
+use abt_core::master_data::routing::model::RoutingDetail;
+use abt_core::shared::types::PageParams;
+use abt_core::wms::stock_ledger::StockLedgerService;
+use abt_core::wms::stock_ledger::model::{StockFilter, StockLedger};
 
 use abt_macros::require_permission;
 
-use crate::components::{detail::detail_row, icon};
+use crate::components::detail::{detail_row, detail_tabs, tab_panel};
+use crate::components::icon;
 use crate::layout::page::admin_page;
 use crate::routes::product::{ProductDeletePath, ProductDetailPath, ProductEditPath, ProductListPath, ProductUpdatePath};
 use crate::utils::RequestContext;
@@ -22,11 +35,86 @@ pub async fn get_product_detail(
     let is_htmx = ctx.is_htmx();
     let nav_filter = ctx.nav_filter().await;
     let RequestContext { mut conn, state, service_ctx, claims, .. } = ctx;
-    let svc = state.product_service();
 
-    let product = svc.get(&service_ctx, &mut conn, path.id).await?;
+    let prod_svc = state.product_service();
+    let product = prod_svc.get(&service_ctx, &mut conn, path.id).await?;
 
-    let content = product_detail_page(&product);
+    // ── BOM 数据（已发布 BOM + 叶子节点）──
+    let bom_svc = state.bom_query_service();
+    let bom_id = bom_svc
+        .find_published_bom_by_product_code(&service_ctx, &mut conn, &product.product_code)
+        .await?;
+    let bom = match bom_id {
+        Some(id) => bom_svc.get(&service_ctx, &mut conn, id).await.ok(),
+        None => None,
+    };
+    let bom_nodes = match bom_id {
+        Some(id) => bom_svc.get_leaf_nodes(&service_ctx, &mut conn, id).await.unwrap_or_default(),
+        None => Vec::new(),
+    };
+    // 解析 BOM 组件的产品名称
+    let node_ids: Vec<i64> = bom_nodes.iter().map(|n| n.product_id).collect();
+    let node_names: HashMap<i64, String> = if node_ids.is_empty() {
+        HashMap::new()
+    } else {
+        prod_svc
+            .get_by_ids(&service_ctx, &mut conn, node_ids)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|p| (p.product_id, p.pdt_name))
+            .collect()
+    };
+
+    // ── BOM 引用（使用情况）──
+    let usage = prod_svc
+        .check_product_usage(&service_ctx, &mut conn, path.id, UsageQuery { page: 1, page_size: 50 })
+        .await?;
+
+    // ── 工艺路线 ──
+    let routing = state
+        .routing_service()
+        .get_bom_routing(&service_ctx, &mut conn, product.product_code.clone())
+        .await
+        .ok()
+        .flatten();
+
+    // ── 库存台账 ──
+    let stock = match state
+        .stock_ledger_service()
+        .query(&service_ctx, &mut conn, StockFilter { product_id: Some(path.id), ..Default::default() }, 1, 100)
+        .await
+    {
+        Ok(r) => r.items,
+        Err(_) => Vec::new(),
+    };
+
+    // ── 价格变更记录 ──
+    let price_history = match state
+        .product_price_service()
+        .list_price_history(
+            &service_ctx,
+            &mut conn,
+            PriceQuery { product_id: Some(path.id), price_type: None, keyword: None, date_from: None, date_to: None },
+            PageParams::new(1, 50),
+        )
+        .await
+    {
+        Ok(r) => r.items,
+        Err(_) => Vec::new(),
+    };
+
+    let content = product_detail_page(
+        &product,
+        bom.as_ref(),
+        &bom_nodes,
+        &node_names,
+        &usage.items,
+        usage.total,
+        routing.as_ref(),
+        &stock,
+        &price_history,
+    );
     let detail_path_str = ProductDetailPath { id: path.id }.to_string();
     let page_html = admin_page(
         is_htmx,
@@ -131,9 +219,20 @@ pub async fn update_product(
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
 
-// ── Components ──
+// ── Detail Page (5-Tab) ──
 
-fn product_detail_page(product: &Product) -> Markup {
+#[allow(clippy::too_many_arguments)]
+fn product_detail_page(
+    product: &Product,
+    bom: Option<&Bom>,
+    bom_nodes: &[BomNode],
+    node_names: &HashMap<i64, String>,
+    usage: &[UsageEntry],
+    usage_total: u64,
+    routing: Option<&RoutingDetail>,
+    stock: &[StockLedger],
+    price_history: &[PriceLogEntry],
+) -> Markup {
     let list_path = ProductListPath;
     let edit_path = ProductEditPath { id: product.product_id };
     let delete_path = ProductDeletePath { id: product.product_id };
@@ -145,7 +244,7 @@ fn product_detail_page(product: &Product) -> Markup {
             // ── Detail Top ──
             div class="detail-top" {
                 div class="customer-identity" {
-                    div class="customer-avatar" style="background:var(--color-primary-light,#e0e7ff)" {
+                    div class="customer-avatar" {
                         (icon::box_icon("w-5 h-5"))
                     }
                     div {
@@ -175,86 +274,376 @@ fn product_detail_page(product: &Product) -> Markup {
                 }
             }
 
-            // ── 3-Column Detail Grid ──
-            div class="detail-grid" {
-                // ── Left: 基本信息 ──
-                div class="detail-card" {
-                    div class="detail-card-title" { "基本信息" }
-                    (detail_row("产品编码", html! { span class="mono" { (product.product_code) } }))
-                    (detail_row("产品名称", html! { (product.pdt_name) }))
-                    (detail_row("规格型号", html! {
-                        @if product.meta.specification.is_empty() { "—" } @else { (&product.meta.specification) }
-                    }))
-                    (detail_row("单位", html! { (product.unit) }))
-                    (detail_row("获取途径", html! {
-                        (match product.acquire_channel {
-                            AcquireChannel::SelfProduced => "自制",
-                            AcquireChannel::Purchased => "采购",
-                            AcquireChannel::Outsourced => "委外",
-                            AcquireChannel::NonInventory => "非库存",
-                            AcquireChannel::Legacy => "历史遗留",
-                        })
-                    }))
-                    (detail_row("物料消耗模式", html! {
-                        (match product.meta.material_consumption_mode {
-                            MaterialConsumptionMode::Backflush => "倒冲 (backflush)",
-                            MaterialConsumptionMode::Picking => "领料 (picking)",
-                        })
-                    }))
-                    (detail_row("状态", html! {
-                        span class=(format!("status-pill {status_class}")) { (status_label) }
-                    }))
-                    (detail_row("创建时间", html! {
-                        @if let Some(dt) = product.created_at { (dt.format("%Y-%m-%d %H:%M")) } @else { "—" }
-                    }))
-                    (detail_row("更新时间", html! {
-                        @if let Some(dt) = product.updated_at { (dt.format("%Y-%m-%d %H:%M")) } @else { "—" }
-                    }))
-                }
+            // ── Tab Bar ──
+            (detail_tabs("info", &[
+                ("info", "基本信息"),
+                ("config", "生产配置"),
+                ("bom", "BOM"),
+                ("stock", "库存"),
+                ("history", "变更记录"),
+            ]))
 
-                // ── Center: 分类与归属 ──
-                div class="detail-card" {
-                    div class="detail-card-title" { "分类与归属" }
-                    (detail_row("外部编码", html! {
-                        (product.external_code.as_deref().unwrap_or("—"))
-                    }))
-                    (detail_row("旧编码", html! {
-                        (product.meta.old_code.as_deref().unwrap_or("—"))
-                    }))
-                    (detail_row("归属部门", html! {
-                        @if let Some(_dept_id) = product.owner_department_id { "—" } @else { "—" }
-                    }))
-                    (detail_row("备注", html! {
-                        @if let Some(ref r) = product.meta.remark {
-                            span style="white-space:pre-wrap" { (r) }
-                        } @else {
-                            "—"
-                        }
-                    }))
-                }
+            // ── Tab 1: 基本信息 ──
+            (tab_panel("info", true, tab_basic_info(product, status_label, status_class)))
 
-                // ── Right: 规格参数 ──
-                div class="detail-card" {
-                    div class="detail-card-title" { "规格参数" }
-                    @if product.meta.specification.is_empty() {
-                        div class="empty-state" { "暂无规格参数" }
+            // ── Tab 2: 生产配置 ──
+            (tab_panel("config", false, tab_production_config(
+                product, bom, bom_nodes.len(), routing, usage, usage_total,
+            )))
+
+            // ── Tab 3: BOM ──
+            (tab_panel("bom", false, tab_bom(bom, bom_nodes, node_names)))
+
+            // ── Tab 4: 库存 ──
+            (tab_panel("stock", false, tab_stock(stock)))
+
+            // ── Tab 5: 变更记录 ──
+            (tab_panel("history", false, tab_history(price_history)))
+
+            // ── Delete form (hx-confirm) ──
+            form id="delete-product-form" class="hidden"
+                hx-post=(delete_path.to_string())
+                hx-confirm=(format!("确定要删除产品「{}」吗？此操作不可撤销。", product.pdt_name))
+                hx-target="closest div" {}
+        }
+    }
+}
+
+// ── Tab: 基本信息 ──
+
+fn tab_basic_info(product: &Product, status_label: &'static str, status_class: &'static str) -> Markup {
+    html! {
+        div class="detail-grid" {
+            // 基本信息
+            div class="detail-card" {
+                div class="detail-card-title" { "基本信息" }
+                (detail_row("产品编码", html! { span class="mono" { (product.product_code) } }))
+                (detail_row("产品名称", html! { (product.pdt_name) }))
+                (detail_row("规格型号", html! {
+                    @if product.meta.specification.is_empty() { "—" } @else { (&product.meta.specification) }
+                }))
+                (detail_row("计量单位", html! { (product.unit) }))
+                (detail_row("获取途径", html! { (acquire_channel_label(product.acquire_channel)) }))
+                (detail_row("产品状态", html! {
+                    span class=(format!("status-pill {status_class}")) { (status_label) }
+                }))
+                (detail_row("创建时间", html! {
+                    @if let Some(dt) = product.created_at { (dt.format("%Y-%m-%d %H:%M")) } @else { "—" }
+                }))
+                (detail_row("更新时间", html! {
+                    @if let Some(dt) = product.updated_at { (dt.format("%Y-%m-%d %H:%M")) } @else { "—" }
+                }))
+            }
+
+            // 分类与归属
+            div class="detail-card" {
+                div class="detail-card-title" { "分类与归属" }
+                (detail_row("外部编码", html! {
+                    (product.external_code.as_deref().unwrap_or("—"))
+                }))
+                (detail_row("旧编码", html! {
+                    (product.meta.old_code.as_deref().unwrap_or("—"))
+                }))
+                (detail_row("归属部门", html! { "—" }))
+                (detail_row("备注", html! {
+                    @if let Some(r) = &product.meta.remark {
+                        (r)
                     } @else {
-                        @for line in product.meta.specification.lines() {
-                            div class="detail-row" {
-                                span class="detail-value" style="white-space:pre-wrap;word-break:break-all" {
-                                    (line)
+                        "—"
+                    }
+                }))
+            }
+
+            // 规格参数
+            div class="detail-card" {
+                div class="detail-card-title" { "规格参数" }
+                @if product.meta.specification.is_empty() {
+                    div class="empty-state" { "暂无规格参数" }
+                } @else {
+                    @for line in product.meta.specification.lines() {
+                        div class="detail-row" {
+                            span class="detail-value" { (line) }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Tab: 生产配置 ──
+
+#[allow(clippy::too_many_arguments)]
+fn tab_production_config(
+    product: &Product,
+    bom: Option<&Bom>,
+    bom_node_count: usize,
+    routing: Option<&RoutingDetail>,
+    usage: &[UsageEntry],
+    usage_total: u64,
+) -> Markup {
+    let mode = product.meta.material_consumption_mode;
+    html! {
+        // ── Section: BOM 与工艺路线 ──
+        div class="info-section" {
+            div class="info-section-title" { "BOM 与工艺路线" }
+            div class="config-grid" {
+                div class="config-item" {
+                    span class="config-label" { "当前 BOM" }
+                    span class="config-value" {
+                        @if let Some(b) = bom {
+                            span class="status-pill status-accepted" { (b.bom_name) " V"(b.version) }
+                        } @else {
+                            span class="status-pill status-draft" { "未关联" }
+                        }
+                    }
+                }
+                div class="config-item" {
+                    span class="config-label" { "工艺路线" }
+                    span class="config-value" {
+                        @if let Some(rd) = routing {
+                            (rd.routing.name)
+                            " "
+                            span class="status-pill status-accepted" { (rd.steps.len()) " 工序" }
+                        } @else {
+                            span class="status-pill status-draft" { "未关联" }
+                        }
+                    }
+                }
+                div class="config-item" {
+                    span class="config-label" { "工作中心" }
+                    span class="config-value" { "—" }
+                }
+            }
+        }
+
+        // ── Section: 物料消耗配置 ──
+        div class="info-section" {
+            div class="info-section-title" { "物料消耗配置" }
+            div class="config-grid" {
+                div class="config-item" {
+                    span class="config-label" { "物料消耗模式" }
+                    div class="config-value" {
+                        div class="toggle-display" {
+                            span class=(if mode == MaterialConsumptionMode::Backflush { "toggle-option active" } else { "toggle-option" }) { "倒冲" }
+                            span class=(if mode == MaterialConsumptionMode::Picking { "toggle-option active" } else { "toggle-option" }) { "领料" }
+                        }
+                    }
+                }
+                div class="config-item" {
+                    span class="config-label" { "超额完工容差" }
+                    span class="config-value" {
+                        span class="mono" {
+                            @if let Some(t) = &product.meta.over_completion_tolerance {
+                                (*t * Decimal::from(100)) "%"
+                            } @else {
+                                "5%（默认）"
+                            }
+                        }
+                    }
+                }
+                div class="config-item" {
+                    span class="config-label" { "模式说明" }
+                    span class="config-value" {
+                        @match mode {
+                            MaterialConsumptionMode::Backflush => { "倒冲模式：完工入库时按 BOM 自动扣减原材料，不生成领料单" }
+                            MaterialConsumptionMode::Picking => { "领料模式：下达时生成领料单，手动领料出库" }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Section: 生产参数 ──
+        div class="info-section" {
+            div class="info-section-title" { "生产参数" }
+            div class="config-grid" {
+                div class="config-item" {
+                    span class="config-label" { "默认仓库" }
+                    span class="config-value" { "—" }
+                }
+                div class="config-item" {
+                    span class="config-label" { "BOM 组件数" }
+                    span class="config-value mono" { (bom_node_count) }
+                }
+                div class="config-item" {
+                    span class="config-label" { "工序总数" }
+                    span class="config-value mono" { (routing.map_or(0, |rd| rd.steps.len())) }
+                }
+            }
+        }
+
+        // ── 使用情况（BOM 引用）──
+        div class="detail-card" {
+            div class="detail-card-title" {
+                span { "使用情况（BOM 引用）" }
+                " "
+                span class="config-label" { "该产品被以下 BOM 引用" }
+            }
+            @if usage.is_empty() {
+                div class="empty-state" { "该产品暂未被任何 BOM 引用" }
+            } @else {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "父件产品" }
+                            th { "BOM 名称" }
+                            th { "版本" }
+                            th { "用量" }
+                            th { "BOM 状态" }
+                        }
+                    }
+                    tbody {
+                        @for entry in usage {
+                            tr {
+                                td { (entry.parent_product_name.as_deref().unwrap_or("—")) }
+                                td { (entry.source_name) }
+                                td {
+                                    @if let Some(v) = entry.bom_version { "V"(v) } @else { "—" }
+                                }
+                                td {
+                                    @if let Some(q) = entry.quantity {
+                                        (q)
+                                        @if let Some(u) = &entry.node_unit { " " (u) }
+                                    } @else {
+                                        "—"
+                                    }
+                                }
+                                td {
+                                    @if entry.bom_status == Some(2) {
+                                        span class="status-pill status-accepted" { "已发布" }
+                                    } @else if entry.bom_status == Some(1) {
+                                        span class="status-pill status-draft" { "草稿" }
+                                    } @else {
+                                        "—"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                @if (usage_total as usize) > usage.len() {
+                    div class="config-label" { "共 " (usage_total) " 条引用记录" }
+                }
+            }
+        }
+    }
+}
+
+// ── Tab: BOM ──
+
+fn tab_bom(bom: Option<&Bom>, bom_nodes: &[BomNode], node_names: &HashMap<i64, String>) -> Markup {
+    html! {
+        div class="detail-card" {
+            div class="detail-card-title" {
+                span { "BOM 组件清单" }
+                @if let Some(b) = bom {
+                    span class="status-pill status-accepted" { "已发布 V"(b.version) }
+                }
+            }
+            @if bom_nodes.is_empty() {
+                div class="empty-state" {
+                    p { "该产品暂无已发布 BOM 组件" }
+                    a class="btn btn-default" href="/admin/md/boms" { "前往维护 BOM" }
+                }
+            } @else {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "物料编码" }
+                            th { "物料名称" }
+                            th { "用量" }
+                            th { "单位" }
+                        }
+                    }
+                    tbody {
+                        @for node in bom_nodes {
+                            tr {
+                                td { span class="mono" { (node.product_code.as_deref().unwrap_or("—")) } }
+                                td { (node_names.get(&node.product_id).map(|s| s.as_str()).unwrap_or("—")) }
+                                td class="mono" { (node.quantity) }
+                                td { (node.unit.as_deref().unwrap_or("—")) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Tab: 库存 ──
+
+fn tab_stock(stock: &[StockLedger]) -> Markup {
+    html! {
+        div class="detail-card" {
+            div class="detail-card-title" { "库存分布" }
+            @if stock.is_empty() {
+                div class="empty-state" { "该产品暂无库存记录" }
+            } @else {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "仓库" }
+                            th { "库位" }
+                            th { "数量" }
+                            th { "可用" }
+                            th { "预留" }
+                        }
+                    }
+                    tbody {
+                        @for s in stock {
+                            tr {
+                                td class="mono" { "#" (s.warehouse_id) }
+                                td class="mono" { "#" (s.bin_id) }
+                                td class="mono" { (s.quantity) }
+                                td class="mono" { (s.available_qty) }
+                                td class="mono" { (s.reserved_qty) }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── Tab: 变更记录 ──
+
+fn tab_history(price_history: &[PriceLogEntry]) -> Markup {
+    html! {
+        div class="detail-card" {
+            div class="detail-card-title" { "价格变更记录" }
+            @if price_history.is_empty() {
+                div class="empty-state" { "暂无价格变更记录" }
+            } @else {
+                table class="data-table" {
+                    thead {
+                        tr {
+                            th { "时间" }
+                            th { "类型" }
+                            th { "原价" }
+                            th { "新价" }
+                            th { "操作人" }
+                        }
+                    }
+                    tbody {
+                        @for e in price_history {
+                            tr {
+                                td { (e.created_at.format("%Y-%m-%d %H:%M")) }
+                                td { (price_type_label(e.price_type)) }
+                                td class="mono" {
+                                    @if let Some(old) = e.old_price { "¥" (format!("{:.4}", old)) } @else { "—" }
+                                }
+                                td class="mono" { "¥" (format!("{:.4}", e.new_price)) }
+                                td {
+                                    @if let Some(oid) = e.operator_id { "#" (oid) } @else { "—" }
                                 }
                             }
                         }
                     }
                 }
             }
-
-            // ── Delete button (hx-confirm) ──
-            form id="delete-product-form" class="hidden"
-                hx-post=(delete_path.to_string())
-                hx-confirm=(format!("确定要删除产品「{}」吗？此操作不可撤销。", product.pdt_name))
-                hx-target="closest div" {}
         }
     }
 }
@@ -296,7 +685,7 @@ fn product_edit_page(product: &Product) -> Markup {
                   hx-swap="none" {
 
                 // ── Section: 基本信息 ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="form-section" {
                     div class="form-section-title" { "基本信息" }
                     div class="form-grid" {
                         div class="form-field" {
@@ -358,7 +747,7 @@ fn product_edit_page(product: &Product) -> Markup {
                 }
 
                 // ── Section: 分类与归属 ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="form-section" {
                     div class="form-section-title" { "分类与归属" }
                     div class="form-grid" {
                         div class="form-field" {
@@ -375,7 +764,7 @@ fn product_edit_page(product: &Product) -> Markup {
                 }
 
                 // ── Section: 其他信息 ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="form-section" {
                     div class="form-section-title" { "其他信息" }
                     div class="form-grid" {
                         div class="form-field field-full" {
@@ -409,3 +798,20 @@ fn status_display(status: ProductStatus) -> (&'static str, &'static str) {
     }
 }
 
+fn acquire_channel_label(ch: AcquireChannel) -> &'static str {
+    match ch {
+        AcquireChannel::SelfProduced => "自制",
+        AcquireChannel::Purchased => "采购",
+        AcquireChannel::Outsourced => "委外",
+        AcquireChannel::NonInventory => "非库存",
+        AcquireChannel::Legacy => "历史遗留",
+    }
+}
+
+fn price_type_label(pt: PriceType) -> &'static str {
+    match pt {
+        PriceType::Purchase => "采购价",
+        PriceType::Sales => "销售价",
+        PriceType::StandardCost => "标准成本",
+    }
+}

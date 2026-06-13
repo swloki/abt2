@@ -1,4 +1,4 @@
-﻿use async_trait::async_trait;
+use async_trait::async_trait;
 use rust_decimal::Decimal;
 
 use crate::shared::enums::DocumentType;
@@ -47,4 +47,13 @@ pub trait InventoryReservationService: Send + Sync {
         product_id: i64,
         warehouse_id: Option<i64>,
     ) -> Result<Decimal>;
+
+    /// 按来源单据查询每行实际 Active 预留量，返回 HashMap<source_line_id, qty>。
+    /// confirm 预留后调用，用于计算每行 shortage（= required - actual_reserved）。
+    async fn reserved_qty_by_source(
+        &self,
+        ctx: &ServiceContext, db: PgExecutor<'_>,
+        source_type: DocumentType,
+        source_id: i64,
+    ) -> Result<std::collections::HashMap<i64, Decimal>>;
 }

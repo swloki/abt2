@@ -8,7 +8,8 @@ use crate::shared::enums::{DocumentType, ReservationStatus, ReservationType};
 pub struct InventoryReservation {
     pub id: i64,
     pub product_id: i64,
-    pub warehouse_id: i64,
+    /// 仓库 ID；None 表示跨仓库预留（按 product 维度 ATP 汇总）
+    pub warehouse_id: Option<i64>,
     pub reserved_qty: Decimal,
     pub reservation_type: ReservationType,
     pub source_type: DocumentType,
@@ -24,7 +25,8 @@ pub struct InventoryReservation {
 #[derive(Debug, Clone)]
 pub struct ReserveRequest {
     pub product_id: i64,
-    pub warehouse_id: i64,
+    /// 仓库 ID；None 表示跨仓库预留（按 product 维度 ATP 汇总）
+    pub warehouse_id: Option<i64>,
     pub reserved_qty: Decimal,
     pub reservation_type: ReservationType,
     pub source_type: DocumentType,

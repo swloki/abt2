@@ -25,6 +25,10 @@ impl MesDashboardService for MesDashboardServiceImpl {
         DashboardRepo::get_stats(&mut *db).await
     }
 
+    async fn get_data_quality_stats(&self, _ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<DataQualityStats> {
+        DashboardRepo::get_data_quality_stats(&mut *db).await
+    }
+
     async fn get_quick_entry_stats(&self, _ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<QuickEntryStats> {
         DashboardRepo::get_quick_entry_stats(&mut *db).await
     }

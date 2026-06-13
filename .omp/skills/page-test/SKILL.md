@@ -16,7 +16,7 @@ allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*), Bash(psql:*), B
 
 ## 环境信息
 
-- **应用地址**: `http://localhost:8000`
+- **应用地址**: `https://localhost:8000`
 - **测试账号**: `admin` / `chenxi0514`
 - **项目约束**: 使用中文沟通，不要用 `curl` 测试页面
 - **数据库**: PostgreSQL `abt_v2`，连接串在 `.env` 的 `DATABASE_URL`

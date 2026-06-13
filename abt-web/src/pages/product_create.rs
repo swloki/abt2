@@ -170,7 +170,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                   hx-swap="none" {
 
                 // ── Section: 基本信息 ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="form-section" {
                     div class="form-section-title" { "基本信息" }
                     div class="form-grid" {
                         div class="form-field" {
@@ -226,7 +226,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                 }
 
                 // ── Section: 分类与归属 ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="form-section" {
                     div class="form-section-title" { "分类与归属" }
                     div class="form-grid" {
                         div class="form-field" {
@@ -252,7 +252,7 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                 }
 
                 // ── Section: 其他信息 ──
-                div class="data-card" style="margin-bottom:var(--space-4)" {
+                div class="form-section" {
                     div class="form-section-title" { "其他信息" }
                     div class="form-grid" {
                         div class="form-field field-full" {

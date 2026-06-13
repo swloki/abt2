@@ -8,6 +8,7 @@ use super::model::*;
 #[async_trait]
 pub trait MesDashboardService: Send + Sync {
     async fn get_stats(&self, ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<DashboardStats>;
+    async fn get_data_quality_stats(&self, ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<DataQualityStats>;
     async fn get_quick_entry_stats(&self, ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<QuickEntryStats>;
     async fn get_recent_ops(&self, ctx: &ServiceContext, db: PgExecutor<'_>, limit: i64) -> Result<Vec<RecentOp>>;
     async fn get_schedule_stats(&self, ctx: &ServiceContext, db: PgExecutor<'_>) -> Result<ScheduleStats>;

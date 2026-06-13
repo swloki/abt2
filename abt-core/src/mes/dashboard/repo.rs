@@ -18,6 +18,31 @@ impl DashboardRepo {
         Ok(stats)
     }
 
+    pub async fn get_data_quality_stats(executor: &mut sqlx::postgres::PgConnection) -> Result<DataQualityStats> {
+        let stats = sqlx::query_as::<_, DataQualityStats>(
+            r#"WITH has_routing AS (
+                SELECT DISTINCT br.product_code
+                FROM bom_routings br
+                JOIN routings r ON r.id = br.routing_id
+                WHERE r.deleted_at IS NULL
+            ), has_bom AS (
+                SELECT DISTINCT bn.product_code
+                FROM bom_nodes bn
+                JOIN boms b ON b.bom_id = bn.bom_id
+                WHERE bn.parent_id = 0 AND b.status = 2 AND b.deleted_at IS NULL
+            )
+            SELECT
+              (SELECT COUNT(*) FROM products p
+                WHERE NOT EXISTS (SELECT 1 FROM has_routing r WHERE r.product_code = p.product_code)) AS no_routing_count,
+              (SELECT COUNT(*) FROM products p
+                WHERE NOT EXISTS (SELECT 1 FROM has_bom b WHERE b.product_code = p.product_code)) AS no_bom_count,
+              (SELECT COUNT(*) FROM products p
+                WHERE EXISTS (SELECT 1 FROM has_routing r WHERE r.product_code = p.product_code)
+                  AND EXISTS (SELECT 1 FROM has_bom b WHERE b.product_code = p.product_code)) AS complete_count"#,
+        ).fetch_one(&mut *executor).await?;
+        Ok(stats)
+    }
+
     // ── Schedule Board ──
 
     pub async fn get_schedule_stats(

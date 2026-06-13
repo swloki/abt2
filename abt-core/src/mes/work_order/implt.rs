@@ -239,7 +239,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
                                 leaf_nodes.iter().map(|node| {
                                     crate::shared::inventory_reservation::ReserveRequest {
                                         product_id: node.product_id,
-                                        warehouse_id,
+                                        warehouse_id: Some(warehouse_id),
                                         reserved_qty: node.quantity * work_order.planned_qty,
                                         reservation_type: crate::shared::enums::ReservationType::Hard,
                                         source_type: DocumentType::WorkOrder,
@@ -250,9 +250,21 @@ impl WorkOrderService for WorkOrderServiceImpl {
                                     }
                                 }).collect();
 
-                            new_inventory_reservation_service(self.pool.clone())
+                            let batch = new_inventory_reservation_service(self.pool.clone())
                                 .reserve(ctx, db, reserve_requests)
                                 .await?;
+                            // 不静默丢弃失败项（与 confirm 同类修复）：缺货组件记 warn 但不阻断，
+                            // 领料单仍创建（保持现状行为，仅消除静默）
+                            if !batch.failed_items.is_empty() {
+                                for f in &batch.failed_items {
+                                    tracing::warn!(
+                                        work_order_id = id,
+                                        index = f.index,
+                                        error = %f.error,
+                                        "work order component reserve failed, requisition still created"
+                                    );
+                                }
+                            }
                         }
                     }
 
@@ -573,5 +585,15 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
         Ok(row.map(|r| r.0))
+    }
+    async fn list_by_plan(
+        &self,
+        _ctx: &ServiceContext,
+        db: PgExecutor<'_>,
+        plan_id: i64,
+    ) -> Result<Vec<WorkOrder>> {
+        WorkOrderRepo::list_by_plan(&mut *db, plan_id)
+            .await
+            .map_err(|e| DomainError::Internal(e.into()))
     }
 }

@@ -12,7 +12,7 @@
       "customer_code": "CUS-001",
       "product_code": "PRD-FG-001",
       "quantity": 100,
-      "unit_price": 1500.00,
+      "unit_price": 1500.0,
       "discount_rate": 10,
       "tax_rate": 13
     },
@@ -20,7 +20,7 @@
     "next_action": "execute_mrp",
     "quotation_status": "accepted",
     "sales_order_id": "79",
-    "sales_order_url": "http://localhost:8000/admin/orders/79",
+    "sales_order_url": "https://localhost:8000/admin/orders/79",
     "sales_order_doc_number": "\"SO-2026-06-000029\"",
     "so_quantity": "100.000000",
     "so_total_amount": "135000.0000",

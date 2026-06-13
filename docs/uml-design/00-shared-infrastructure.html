@@ -359,6 +359,7 @@ classDiagram
         +fulfill(ctx: &ServiceContext, db: PgExecutor, id: i64) Result
         +cancel(ctx: &ServiceContext, db: PgExecutor, id: i64) Result
         +total_reserved(ctx: &ServiceContext, db: PgExecutor, product_id, warehouse_id?) Result~Decimal~
+        +reserved_qty_by_source(ctx: &ServiceContext, db: PgExecutor, source_type: DocumentType, source_id: i64) Result~HashMap~i64, Decimal~~
     }
 
     class CostEntryService {
@@ -800,8 +801,8 @@ Covers 33 DocumentType across 8 modules (完整列表见 DocumentType note)"
     note for PgExecutor "底层事务连接类型\ntype PgExecutor<'a> = &'a mut PgConnection\n作为 service 方法第二参数单独传入\n替代 common crate，消除额外依赖层"
     note for DomainError "统一错误模型 (thiserror)\n#[error] auto Display\n#[from] anyhow 兼容老代码\nNotFound / Duplicate / PermissionDenied\nBusinessRule / Validation / ConcurrentConflict\nInvalidStateTransition: 状态转换不合法\nInternal: #[from] anyhow 兼容老代码，gRPC 映射时日志记录完整错误链，返回客户端泛化消息\n映射 tonic::Status 语义化错误码\n渐进式迁移：新服务直接用\nServiceError 标记 deprecated，新代码禁止使用"
     note for DocumentLinkService "Directed graph: source -> target\n7 LinkTypes for audit trail\ncreate_links: 批量创建关联（单条传 vec![one]），订单确认时一次性创建多个"
-    note for InventoryReservationService "Available = OnHand - total_reserved()\nHard: WO lock | Soft: Sales TTL\nSafetyStock: permanent\nreserve: 批量预留（单条传 vec![one]），expire_old 改为后台定时任务不暴露\nsource_line_id: 单据行级精确释放（如订单第 N 行的预留）
-并发控制: reserve() 使用 SELECT FOR UPDATE 锁定行\ntotal_reserved() 在事务内加锁保证原子性"
+    note for InventoryReservationService "Available = OnHand - total_reserved()\nHard: WO lock | Soft: Sales TTL\nSafetyStock: permanent\nreserve: 批量预留（单条传 vec![one]），部分预留：qty>ATP 时预占 min(qty,ATP)，仅 ATP<=0 才整行 INSUFFICIENT_STOCK\nexpire_old 改为后台定时任务不暴露\nsource_line_id: 单据行级精确释放（如订单第 N 行的预留）\nreserved_qty_by_source: 按来源单据查每行实际预留量，confirm 后计算 shortage = required - actual_reserved
+并发控制: reserve() 使用 pg_advisory_xact_lock 序列化同 product 预留，防超卖\ntotal_reserved() 在事务内加锁保证原子性"
     note for CostEntryService "Double-entry: debit + credit\nPeriod YYYY-MM\n6 CostTypes across 7 modules\ncreate_entries: 批量写入成本分录（单条传 vec![one]），返回 BatchResult"
     note for DomainEventBus "Hybrid dispatch model:\nSync: inventory reservation, quality gates (in caller tx)\nAsync: cost, doclink, workflow, notifications (Outbox)\npublish writes to DB + NOTIFY\n26 event types (19 original + 7 new from Master Data v5)\nNew: RoutingCreated/Updated/Deleted, BomRoutingChanged, LaborProcessDictCreated/Updated/Deleted\nevent_version: payload 结构版本化，支持向后兼容演化\ntrace_id + request_id: 全链路追踪\npublish 接受 EventPublishRequest（idempotency_key: Option，None 自动生成）防重复发布\nmark_processed 批量确认已处理事件\nfind_events 统一查询（支持 aggregate_type, event_type, since 过滤）"
     note for EventProcessor "Background tokio task\nLISTEN/NOTIFY for low latency\n定期轮询兜底: 每 30s 扫描 PENDING 且超时事件，防止 NOTIFY 丢失\nExponential backoff on failure\nDead letter after max retries\nstart/stop 替代 run(JoinHandle)\nis_running + last_processed_at 健康检查\nprocess_event 为内部方法，不暴露在接口中"

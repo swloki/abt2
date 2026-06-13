@@ -9,6 +9,8 @@ use serde::Deserialize;
 use abt_core::mes::demand_handler::{
     CreatePlanFromDemandsReq, DemandPoolQuery, DemandSummary, MesDemandService, PlanDemandItemReq,
 };
+use abt_core::mes::enums::PlanStatus;
+use abt_core::mes::production_plan::ProductionPlanService;
 use abt_core::shared::types::{DomainError, PageParams};
 
 use crate::components::icon;
@@ -41,6 +43,8 @@ pub struct CreatePlanForm {
     pub default_scheduled_end: Option<String>,
     pub demand_ids: String,         // comma-separated from hidden input
     pub items_json: Option<String>, // JSON array of per-row scheduling params
+    #[serde(default)]
+    pub action: Option<String>, // "draft" (default) or "release"
 }
 
 // ── Handlers ──
@@ -199,6 +203,16 @@ pub async fn create_plan_from_demands(
         .create_plan_from_demands(&service_ctx, &mut conn, create_req)
         .await?;
 
+    // 创建并下达：自动确认 + 下达
+    if form.action.as_deref() == Some("release") {
+        let plan_svc = state.production_plan_service();
+        let plan = plan_svc.find_by_id(&service_ctx, &mut conn, result.doc_id).await?;
+        if plan.status == PlanStatus::Draft {
+            plan_svc.confirm(&service_ctx, &mut conn, result.doc_id).await?;
+        }
+        plan_svc.release_to_work_orders(&service_ctx, &mut conn, result.doc_id).await?;
+    }
+
     let redirect = PlanDetailPath { id: result.doc_id }.to_string();
     Ok(([("HX-Redirect", redirect)], Html(String::new())))
 }
@@ -313,7 +327,7 @@ fn create_page_content(
                     div class="scheduling-hint" {
                         "以下参数将应用于所有未单独配置的需求行。可在需求明细中逐行修改排程日期。"
                     }
-                    div class="form-grid" {
+                    div class="form-grid" style="grid-template-columns:repeat(4,1fr)" {
                         div class="form-field" {
                             label class="form-label" { "默认排程开始" }
                             input class="form-input" type="date"
@@ -328,11 +342,27 @@ fn create_page_content(
                                 name="default_scheduled_end"
                                 value=(default_end) {}
                         }
-                        div class="form-field span-2" {
+                        div class="form-field" {
+                            label class="form-label" { "工作中心" }
+                            select class="form-select" disabled title="待 work_centers 主数据建成" {
+                                option value="" selected { "自动推断" }
+                            }
+                        }
+                        div class="form-field" {
+                            label class="form-label" { "优先级" }
+                            select class="form-select" id="defaultPriority" name="default_priority" {
+                                option value="2" selected { "普通 (2)" }
+                                option value="1" { "高 (1)" }
+                                option value="3" { "低 (3)" }
+                            }
+                        }
+                    }
+                    div class="form-grid" style="margin-top:var(--space-4)" {
+                        div class="form-field" {
                             label class="form-label" { "备注" }
                             textarea class="form-input" name="remark"
                                 placeholder="可选填写生产备注…"
-                                rows="2" {}
+                                rows="1" {}
                         }
                     }
                 }
@@ -423,9 +453,16 @@ fn create_page_content(
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }
-                        button type="submit" class="btn btn-primary" {
+                        button type="submit" name="action" value="draft" class="btn btn-primary" {
                             (icon::send_icon("w-4 h-4"))
-                            "创建生产计划草稿"
+                            "创建草稿"
+                        }
+                        button type="submit" name="action" value="release" class="btn btn-primary"
+                            style="background:linear-gradient(135deg,var(--accent),#6366f1)"
+                            hx-confirm="创建后将自动确认并下达，生成工单（含工序、批次）。继续？"
+                            hx-disabled-elt="this" {
+                            (icon::rocket_icon("w-4 h-4"))
+                            "创建并下达"
                         }
                     }
                 }
@@ -488,7 +525,7 @@ fn create_page_content(
                                 demand_id: parseInt(cb.value),
                                 scheduled_start: startVal,
                                 scheduled_end: endVal,
-                                priority: priEl ? parseInt(priEl.textContent) : 2
+                                priority: priEl ? parseInt(priEl.textContent) : (parseInt((document.getElementById('defaultPriority')||{}).value) || 2)
                             });
                         }
                     });

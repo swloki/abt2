@@ -17,6 +17,13 @@ graphify-out
 sessions/
 backup/
 
+# Server logs
+*.log
+*.err
+server.log
+server.err
+abt-server.log
+
 # TLS certificates
 cert.der
 key.der

@@ -39,6 +39,11 @@ pub struct OrderClosePath {
 pub struct OrderCancelPath {
     pub order_id: i64,
 }
+#[derive(TypedPath, Deserialize, Clone)]
+#[typed_path("/admin/mes/orders/{order_id}/unrelease")]
+pub struct OrderUnreleasePath {
+    pub order_id: i64,
+}
 
 // ── Router ──
 
@@ -53,4 +58,5 @@ pub fn router() -> Router<AppState> {
         .route(OrderReleasePath::PATH, post(mes_order_detail::release_order))
         .route(OrderClosePath::PATH, post(mes_order_detail::close_order))
         .route(OrderCancelPath::PATH, post(mes_order_detail::cancel_order))
+        .route(OrderUnreleasePath::PATH, post(mes_order_detail::unrelease_order))
 }

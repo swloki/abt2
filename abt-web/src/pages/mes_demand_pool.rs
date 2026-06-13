@@ -528,14 +528,13 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
     html! {
         div class="material-row" {
             // Material info (first child so Surreal.js me() binds to parent div)
-            div class="material-info" {
+            div class="material-info"
+                hx-get=(format!("/admin/mes/demand-pool/demand-rows?product_id={pid}"))
+                hx-target=(format!("#expand-tbody-{pid}"))
+                hx-swap="innerHTML"
+                hx-trigger="click once" {
                 (PreEscaped(format!(r#"<script>me().on('click',function(){{
-                    var el=document.getElementById('expand-mat-{pid}');
-                    el.classList.toggle('open');
-                    if(el.classList.contains('open')&&!el.dataset.loaded){{
-                        htmx.ajax('GET','/admin/mes/demand-pool/demand-rows?product_id={pid}','#expand-tbody-{pid}');
-                        el.dataset.loaded='1';
-                    }}
+                    me('#expand-mat-{pid}').classToggle('open');
                 }})</script>"#)))
                 div class="material-icon" style=(format!("background:{};color:{}", icon_bg, icon_color)) {
                     (mat_icon)
@@ -573,13 +572,6 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
                     onclick="event.stopPropagation()" {
                     "创建生产计划"
                 }
-                button class="btn btn-default btn-sm"
-                    onclick="event.stopPropagation()" {
-                    "展开明细"
-                    (PreEscaped(format!(r#"<script>me().on('click',function(){{
-                        document.getElementById('expand-mat-{pid}').classList.toggle('open');
-                    }})</script>"#)))
-                }
             }
         }
 
@@ -588,7 +580,10 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
             div class="demand-expand-inner" {
                 table class="data-table" {
                     thead { tr {
-                        th style="width:40px" { input type="checkbox" title="全选"; }
+                        th style="width:40px" {
+                            input type="checkbox" title="全选" checked;
+                            (PreEscaped(r#"<script>me().on('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
+                        }
                         th { "需求ID" }
                         th { "来源订单" }
                         th class="num-right" { "需求数量" }
@@ -662,7 +657,10 @@ fn detail_table_fragment(
             div class="data-card-scroll" {
                 table class="data-table" {
                     thead { tr {
-                        th style="width:40px" { input type="checkbox" title="全选"; }
+                        th style="width:40px" {
+                            input type="checkbox" title="全选";
+                            (PreEscaped(r#"<script>me().on('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
+                        }
                         th { "需求ID" }
                         th { "产品编码" }
                         th { "产品名称" }

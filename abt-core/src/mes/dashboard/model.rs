@@ -103,3 +103,11 @@ pub struct MaterialUsageSummary {
     pub backflush_qty: Decimal,
     pub variance_qty: Decimal,
 }
+
+/// 数据质量统计（首页数据质量卡片）
+#[derive(Debug, Clone, Default, Serialize, FromRow)]
+pub struct DataQualityStats {
+    pub no_routing_count: i64,
+    pub no_bom_count: i64,
+    pub complete_count: i64,
+}

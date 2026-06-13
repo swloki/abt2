@@ -44,5 +44,5 @@
 
 每项修复后：
 1. `cargo clippy -p abt-web` 编译检查
-2. 刷新页面 `http://localhost:8000/admin/customers/new` 确认渲染
+2. 刷新页面 `https://localhost:8000/admin/customers/new` 确认渲染
 3. `agent-browser snapshot` 确认差异已消除

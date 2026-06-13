@@ -37,7 +37,7 @@ impl AuditLogRepo {
         Ok(row.id)
     }
 
-    /// 动态条件分页查询 — 始终绑定 5 个过滤参数，用 SQL IS NULL OR 模式处理可选条件
+    /// 动态条件分页查询 — 始终绑定 6 个过滤参数，用 SQL IS NULL OR 模式处理可选条件
     pub async fn query(
         executor: &mut sqlx::postgres::PgConnection,
         q: &AuditLogQuery,
@@ -50,6 +50,7 @@ impl AuditLogRepo {
               AND ($3::smallint IS NULL OR action = $3)
               AND ($4::timestamptz IS NULL OR created_at >= $4)
               AND ($5::timestamptz IS NULL OR created_at <= $5)
+              AND ($6::bigint IS NULL OR entity_id = $6)
         ";
 
         // Count
@@ -60,6 +61,7 @@ impl AuditLogRepo {
             .bind(q.action.map(|a| a.as_i16()))
             .bind(q.time_range_start)
             .bind(q.time_range_end)
+            .bind(q.entity_id)
             .fetch_one(&mut *executor)
             .await?;
         let total: i64 = count_row.try_get("cnt")?;
@@ -69,7 +71,7 @@ impl AuditLogRepo {
             "SELECT id, entity_type, entity_id, action, changes, operator_id, context, created_at \
              FROM audit_logs {sql_base} \
              ORDER BY created_at DESC \
-             LIMIT $6 OFFSET $7"
+             LIMIT $7 OFFSET $8"
         );
         let rows = sqlx::query(sqlx::AssertSqlSafe(data_sql))
             .bind(q.entity_type.as_deref())
@@ -77,6 +79,7 @@ impl AuditLogRepo {
             .bind(q.action.map(|a| a.as_i16()))
             .bind(q.time_range_start)
             .bind(q.time_range_end)
+            .bind(q.entity_id)
             .bind(limit)
             .bind(offset)
             .fetch_all(&mut *executor)

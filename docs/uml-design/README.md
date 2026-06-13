@@ -148,7 +148,7 @@ struct BatchResult {
 
 每个 `batch_*` 方法固定语义：
 - `create_links`: **Atomic**（订单确认时关联要么全建要么全不建）
-- `reserve`: **ContinueOnError**（部分行库存不足不影响其他行）
+- `reserve`: **ContinueOnError**（部分行库存不足不影响其他行；单行 qty>ATP 时部分预留 min(qty,ATP)，仅 ATP<=0 整行失败）
 - `create_entries`（CostEntry）: **Atomic**（双层记账必须完整）
 
 #### DeadLetterService — 死信队列

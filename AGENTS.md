@@ -6,7 +6,6 @@
 
 - **Use Chinese (中文)** for all communication
 - **Do not use `cargo run` to start the server** — it's already running. Verify correctness with `cargo clippy`
-- **Code search**: Must use built-in `search` tool; forbidden to call `grep`/`rg` via bash
 - **Code navigation**: Prefer `lsp` (definition / references / hover / type_definition); forbidden to use text search as a substitute for LSP lookups
 - **Before writing `abt-web/` components**, must read `abt-web/CLAUDE.md` first (component three principles, anti-fragmentation practices, etc.)
 

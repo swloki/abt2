@@ -414,6 +414,9 @@ impl AppState {
     pub fn mes_dashboard_service(&self) -> impl abt_core::mes::dashboard::MesDashboardService {
         abt_core::mes::dashboard::new_mes_dashboard_service(self.pool.clone())
     }
+    pub fn audit_log_service(&self) -> impl abt_core::shared::audit_log::AuditLogService {
+        abt_core::shared::audit_log::new_audit_log_service(self.pool.clone())
+    }
 
     pub fn mes_demand_service(
         &self,

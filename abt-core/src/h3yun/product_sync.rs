@@ -277,6 +277,7 @@ mod tests {
                 old_code: None,
                 remark: None,
                 material_consumption_mode: Default::default(),
+                over_completion_tolerance: None,
             },
             created_at: None,
             updated_at: None,

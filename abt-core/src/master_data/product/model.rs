@@ -145,6 +145,10 @@ pub enum MaterialConsumptionMode {
     Picking,
 }
 
+fn default_tolerance() -> Option<rust_decimal::Decimal> {
+    Some(rust_decimal::Decimal::from_str_exact("0.05").unwrap())
+}
+
 /// 产品元数据 (JSONB)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProductMeta {
@@ -156,6 +160,9 @@ pub struct ProductMeta {
     /// 物料消耗策略：backflush（默认）或 picking
     #[serde(default)]
     pub material_consumption_mode: MaterialConsumptionMode,
+    /// 超额完工容差百分比（默认 5%）
+    #[serde(default = "default_tolerance")]
+    pub over_completion_tolerance: Option<rust_decimal::Decimal>,
 }
 
 impl sqlx::Type<sqlx::Postgres> for ProductMeta {

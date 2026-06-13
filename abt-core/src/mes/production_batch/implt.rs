@@ -14,6 +14,8 @@ use crate::mes::enums::*;
 use crate::mes::work_order::repo::WorkOrderRepo;
 use crate::mes::production_inspection::model::CreateInspectionReq;
 use crate::mes::production_inspection::repo::ProductionInspectionRepo;
+use crate::master_data::product::{new_product_service, service::ProductService};
+use crate::mes::work_order::{new_work_order_service, service::WorkOrderService};
 use crate::shared::document_sequence::{new_document_sequence_service, service::DocumentSequenceService};
 use crate::shared::types::PgExecutor;
 use crate::shared::enums::DocumentType;
@@ -216,6 +218,44 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
 
         let work_report_id = report.id;
+
+        // --- e2. 超额生产容差校验（最后工序） ---
+        if was_inserted {
+            let all_routings_for_check = WorkOrderRoutingRepo::get_by_work_order_id(
+                &mut *db, batch.work_order_id,
+            ).await.map_err(|e| DomainError::Internal(e.into()))?;
+
+            let max_step: i32 = all_routings_for_check.iter().map(|r| r.step_no).max().unwrap_or(0);
+            let is_last_step = step_no == max_step;
+
+            if is_last_step {
+                let total_completed: Decimal = all_routings_for_check.iter()
+                    .filter(|r| r.step_no == step_no)
+                    .map(|r| r.completed_qty)
+                    .sum::<Decimal>()
+                    + req.completed_qty;
+                let total_defect: Decimal = all_routings_for_check.iter()
+                    .filter(|r| r.step_no == step_no)
+                    .map(|r| r.defect_qty)
+                    .sum::<Decimal>()
+                    + req.defect_qty;
+                let total_reported = total_completed + total_defect;
+
+                let tolerance = get_over_completion_tolerance(&self.pool, ctx, db, batch.work_order_id).await?;
+                let max_allowed = batch.batch_qty * (Decimal::ONE + tolerance);
+
+                if total_reported > max_allowed {
+                    return Err(DomainError::BusinessRule(
+                        format!(
+                            "报工量 {} 超出计划量 {} 的允许偏差范围（容差 {}%）",
+                            total_reported,
+                            batch.batch_qty,
+                            tolerance * Decimal::ONE_HUNDRED
+                        ),
+                    ));
+                }
+            }
+        }
 
         // --- f. 原子增量 completed_qty / defect_qty ---
         if was_inserted {
@@ -491,4 +531,22 @@ impl ProductionBatchService for ProductionBatchServiceImpl {
         .map_err(|e| DomainError::Internal(e.into()))?;
         Ok(row.map(|r| r.0))
     }
+}
+
+/// 获取超额完工容差（优先级：产品 → 系统默认 5%）
+async fn get_over_completion_tolerance(
+    pool: &PgPool,
+    ctx: &ServiceContext,
+    db: PgExecutor<'_>,
+    work_order_id: i64,
+) -> Result<Decimal> {
+    let default = Decimal::from_str_exact("0.05").unwrap();
+
+    let wo = new_work_order_service(pool.clone())
+        .find_by_id(ctx, db, work_order_id).await?;
+
+    let product = new_product_service(pool.clone())
+        .get(ctx, db, wo.product_id).await?;
+
+    Ok(product.meta.over_completion_tolerance.unwrap_or(default))
 }

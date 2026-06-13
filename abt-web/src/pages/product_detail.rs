@@ -115,6 +115,7 @@ pub async fn update_product(
             old_code: form.old_code.filter(|s| !s.is_empty()),
             remark: form.remark.filter(|s| !s.is_empty()),
             material_consumption_mode: Default::default(),
+            over_completion_tolerance: None,
         }),
     };
 

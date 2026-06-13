@@ -121,6 +121,7 @@ pub async fn post_product_create(
             old_code: form.old_code.filter(|s| !s.is_empty()),
             remark: form.remark.filter(|s| !s.is_empty()),
             material_consumption_mode: Default::default(),
+            over_completion_tolerance: None,
         },
     };
 

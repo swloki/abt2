@@ -1,6 +1,6 @@
 //! 采购需求池 — 请求/响应模型
 
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, DateTime, Utc};
 use rust_decimal::Decimal;
 
 /// 需求查询参数（订单行维度）
@@ -9,6 +9,9 @@ pub struct DemandPoolQuery {
     pub status: Option<i16>,       // DemandStatus 枚举值，默认 Pending(1)
     pub product_id: Option<i64>,
     pub order_id: Option<i64>,
+    pub keyword: Option<String>,              // 模糊搜索物料名称/编码
+    pub required_date_start: Option<NaiveDate>, // 日期范围起点
+    pub required_date_end: Option<NaiveDate>,   // 日期范围终点
 }
 
 /// 需求摘要（订单行维度 — 展示给操作员）
@@ -24,13 +27,16 @@ pub struct DemandSummary {
     pub required_date: Option<NaiveDate>,
     pub priority: i32,
     pub demand_status: i16,
-    pub created_at: NaiveDateTime,
+    pub target_doc_id: Option<i64>,       // 关联下游单据 ID
+    pub target_doc_type: Option<i16>,     // 关联下游单据类型 (7=PO,12=PP,10=WO,11=OM)
+    pub created_at: DateTime<Utc>,
 }
-
-/// 物料聚合查询参数
 #[derive(Debug, Clone, Default)]
 pub struct MaterialAggQuery {
     pub product_id: Option<i64>,
+    pub keyword: Option<String>,              // 模糊搜索物料名称/编码
+    pub required_date_start: Option<NaiveDate>, // 日期范围起点
+    pub required_date_end: Option<NaiveDate>,   // 日期范围终点
 }
 
 /// 物料聚合摘要（物料维度 — 采购员主要操作视图）

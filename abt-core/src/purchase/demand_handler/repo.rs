@@ -1,8 +1,6 @@
 //! 采购需求池 — 数据库查询（基于视图 v_purchase_demands）
 
-#![allow(deprecated)]
-
-use rust_decimal::Decimal;
+use chrono::NaiveDate;
 use sqlx::Row;
 
 use crate::shared::types::{PgExecutor, Result};
@@ -51,6 +49,44 @@ impl PurchaseDemandRepo {
             order_param = -1;
         }
 
+        // keyword 模糊搜索（ILIKE 需要 bind 两次：product_name 和 product_code 各一次）
+        let keyword_param;
+        if let Some(ref kw) = query.keyword {
+            if !kw.trim().is_empty() {
+                keyword_param = format!("%{}%", kw.trim());
+                where_clauses.push(format!(
+                    "(product_name ILIKE ${p1} OR product_code ILIKE ${p2})",
+                    p1 = param_idx,
+                    p2 = param_idx + 1
+                ));
+                param_idx += 2;
+            } else {
+                keyword_param = String::new();
+            }
+        } else {
+            keyword_param = String::new();
+        }
+
+        // required_date_start
+        let date_start_param;
+        if let Some(ds) = query.required_date_start {
+            date_start_param = ds;
+            where_clauses.push(format!("required_date >= ${param_idx}"));
+            param_idx += 1;
+        } else {
+            date_start_param = NaiveDate::from_ymd_opt(1, 1, 1).unwrap();
+        }
+
+        // required_date_end
+        let date_end_param;
+        if let Some(de) = query.required_date_end {
+            date_end_param = de;
+            where_clauses.push(format!("required_date <= ${param_idx}"));
+            param_idx += 1;
+        } else {
+            date_end_param = NaiveDate::from_ymd_opt(9999, 12, 31).unwrap();
+        }
+
         let where_sql = where_clauses.join(" AND ");
 
         // Count
@@ -59,6 +95,9 @@ impl PurchaseDemandRepo {
         if query.status.is_some() { count_q = count_q.bind(status_param); }
         if query.product_id.is_some() { count_q = count_q.bind(product_param); }
         if query.order_id.is_some() { count_q = count_q.bind(order_param); }
+        if !keyword_param.is_empty() { count_q = count_q.bind(&keyword_param).bind(&keyword_param); }
+        if query.required_date_start.is_some() { count_q = count_q.bind(date_start_param); }
+        if query.required_date_end.is_some() { count_q = count_q.bind(date_end_param); }
         let count_row = count_q.fetch_one(&mut *db).await?;
         let total: i64 = count_row.try_get("cnt")?;
 
@@ -71,26 +110,15 @@ impl PurchaseDemandRepo {
              LIMIT ${param_idx} OFFSET ${}",
             param_idx + 1
         );
-        let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
+        let mut data_q = sqlx::query_as::<_, DemandSummary>(sqlx::AssertSqlSafe(data_sql));
         if query.status.is_some() { data_q = data_q.bind(status_param); }
         if query.product_id.is_some() { data_q = data_q.bind(product_param); }
         if query.order_id.is_some() { data_q = data_q.bind(order_param); }
+        if !keyword_param.is_empty() { data_q = data_q.bind(&keyword_param).bind(&keyword_param); }
+        if query.required_date_start.is_some() { data_q = data_q.bind(date_start_param); }
+        if query.required_date_end.is_some() { data_q = data_q.bind(date_end_param); }
         data_q = data_q.bind(limit).bind(offset);
-        let rows = data_q.fetch_all(&mut *db).await?;
-
-        let items: Vec<DemandSummary> = rows.iter().map(|r| DemandSummary {
-            id: r.try_get("id").unwrap_or(0),
-            order_id: r.try_get("order_id").unwrap_or(0),
-            order_no: r.try_get("order_no").unwrap_or_default(),
-            product_id: r.try_get("product_id").unwrap_or(0),
-            product_name: r.try_get("product_name").unwrap_or_default(),
-            product_code: r.try_get("product_code").unwrap_or_default(),
-            quantity: r.try_get("quantity").unwrap_or(Decimal::ZERO),
-            required_date: r.try_get("required_date").unwrap_or(None),
-            priority: r.try_get("priority").unwrap_or(0),
-            demand_status: r.try_get("demand_status").unwrap_or(0),
-            created_at: r.try_get("created_at").unwrap_or(chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap()),
-        }).collect();
+        let items = data_q.fetch_all(&mut *db).await?;
 
         Ok(PaginatedResult::new(items, total as u64, page.page, page.page_size))
     }
@@ -113,6 +141,44 @@ impl PurchaseDemandRepo {
             product_param = -1;
         }
 
+        // keyword 模糊搜索（ILIKE 需要 bind 两次：product_name 和 product_code 各一次）
+        let keyword_param;
+        if let Some(ref kw) = query.keyword {
+            if !kw.trim().is_empty() {
+                keyword_param = format!("%{}%", kw.trim());
+                where_clauses.push(format!(
+                    "(product_name ILIKE ${p1} OR product_code ILIKE ${p2})",
+                    p1 = param_idx,
+                    p2 = param_idx + 1
+                ));
+                param_idx += 2;
+            } else {
+                keyword_param = String::new();
+            }
+        } else {
+            keyword_param = String::new();
+        }
+
+        // required_date_start
+        let date_start_param;
+        if let Some(ds) = query.required_date_start {
+            date_start_param = ds;
+            where_clauses.push(format!("required_date >= ${param_idx}"));
+            param_idx += 1;
+        } else {
+            date_start_param = NaiveDate::from_ymd_opt(1, 1, 1).unwrap();
+        }
+
+        // required_date_end
+        let date_end_param;
+        if let Some(de) = query.required_date_end {
+            date_end_param = de;
+            where_clauses.push(format!("required_date <= ${param_idx}"));
+            param_idx += 1;
+        } else {
+            date_end_param = NaiveDate::from_ymd_opt(9999, 12, 31).unwrap();
+        }
+
         let where_sql = where_clauses.join(" AND ");
 
         // Count
@@ -123,6 +189,9 @@ impl PurchaseDemandRepo {
         );
         let mut count_q = sqlx::query(sqlx::AssertSqlSafe(count_sql));
         if query.product_id.is_some() { count_q = count_q.bind(product_param); }
+        if !keyword_param.is_empty() { count_q = count_q.bind(&keyword_param).bind(&keyword_param); }
+        if query.required_date_start.is_some() { count_q = count_q.bind(date_start_param); }
+        if query.required_date_end.is_some() { count_q = count_q.bind(date_end_param); }
         let count_row = count_q.fetch_one(&mut *db).await?;
         let total: i64 = count_row.try_get("cnt")?;
 
@@ -141,20 +210,13 @@ impl PurchaseDemandRepo {
              LIMIT ${param_idx} OFFSET ${}",
             param_idx + 1
         );
-        let mut data_q = sqlx::query(sqlx::AssertSqlSafe(data_sql));
+        let mut data_q = sqlx::query_as::<_, MaterialAggSummary>(sqlx::AssertSqlSafe(data_sql));
         if query.product_id.is_some() { data_q = data_q.bind(product_param); }
+        if !keyword_param.is_empty() { data_q = data_q.bind(&keyword_param).bind(&keyword_param); }
+        if query.required_date_start.is_some() { data_q = data_q.bind(date_start_param); }
+        if query.required_date_end.is_some() { data_q = data_q.bind(date_end_param); }
         data_q = data_q.bind(limit).bind(offset);
-        let rows = data_q.fetch_all(&mut *db).await?;
-
-        let items: Vec<MaterialAggSummary> = rows.iter().map(|r| MaterialAggSummary {
-            product_id: r.try_get("product_id").unwrap_or(0),
-            product_name: r.try_get("product_name").unwrap_or_default(),
-            product_code: r.try_get("product_code").unwrap_or_default(),
-            total_demand_qty: r.try_get("total_demand_qty").unwrap_or(Decimal::ZERO),
-            demand_count: r.try_get("demand_count").unwrap_or(0),
-            earliest_required_date: r.try_get("earliest_required_date").unwrap_or(None),
-            latest_required_date: r.try_get("latest_required_date").unwrap_or(None),
-        }).collect();
+        let items = data_q.fetch_all(&mut *db).await?;
 
         Ok(PaginatedResult::new(items, total as u64, page.page, page.page_size))
     }
@@ -182,25 +244,13 @@ impl PurchaseDemandRepo {
         db: PgExecutor<'_>,
         id: i64,
     ) -> Result<Option<DemandSummary>> {
-        let row = sqlx::query(
+        let result = sqlx::query_as::<_, DemandSummary>(
             "SELECT * FROM v_purchase_demands WHERE id = $1",
         )
         .bind(id)
         .fetch_optional(db)
         .await?;
 
-        Ok(row.map(|r| DemandSummary {
-            id: r.try_get("id").unwrap_or(0),
-            order_id: r.try_get("order_id").unwrap_or(0),
-            order_no: r.try_get("order_no").unwrap_or_default(),
-            product_id: r.try_get("product_id").unwrap_or(0),
-            product_name: r.try_get("product_name").unwrap_or_default(),
-            product_code: r.try_get("product_code").unwrap_or_default(),
-            quantity: r.try_get("quantity").unwrap_or(Decimal::ZERO),
-            required_date: r.try_get("required_date").unwrap_or(None),
-            priority: r.try_get("priority").unwrap_or(0),
-            demand_status: r.try_get("demand_status").unwrap_or(0),
-            created_at: r.try_get("created_at").unwrap_or(chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap()),
-        }))
+        Ok(result)
     }
 }

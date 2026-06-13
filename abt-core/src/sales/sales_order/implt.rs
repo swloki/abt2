@@ -1136,6 +1136,16 @@ impl DemandService for DemandServiceImpl {
     ) -> Result<Vec<(i64, i64)>> {
         DemandRepo::find_mismatched(db, order_id).await
     }
+
+    async fn update_target_doc(
+        &self,
+        db: PgExecutor<'_>,
+        id: i64,
+        target_doc_type: i16,
+        target_doc_id: i64,
+    ) -> Result<()> {
+        DemandRepo::update_target_doc(db, id, target_doc_type, target_doc_id).await
+    }
 }
 
 // ---------------------------------------------------------------------------

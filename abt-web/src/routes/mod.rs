@@ -12,6 +12,7 @@ pub mod misc_request;
 pub mod order;
 pub mod payment_request;
 pub mod purchase_dashboard;
+pub mod purchase_demand_pool;
 pub mod purchase_order;
 pub mod purchase_quotation;
 pub mod purchase_reconciliation;
@@ -42,6 +43,7 @@ pub mod wms_strategy;
 pub mod wms_transaction_log;
 pub mod wms_cascade;
 pub mod mes_dashboard;
+pub mod mes_demand_pool;
 pub mod mes_plan;
 pub mod mes_order;
 pub mod mes_batch;
@@ -81,6 +83,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(labor_process_dict::router())
                 // ── Purchase (SRM) ──
                 .merge(purchase_dashboard::router())
+                .merge(purchase_demand_pool::router())
                 .merge(purchase_quotation::router())
                 .merge(purchase_order::router())
                 .merge(purchase_return::router())
@@ -106,6 +109,7 @@ pub fn router(state: AppState) -> Router {
                 .merge(wms_cascade::router())
                 // ── MES (Production) ──
                 .merge(mes_dashboard::router())
+                .merge(mes_demand_pool::router())
                 .merge(mes_plan::router())
                 .merge(mes_order::router())
                 .merge(mes_batch::router())

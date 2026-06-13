@@ -1,6 +1,6 @@
 //! MES 需求池 — MesDemandService 实现
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 use rust_decimal::Decimal;
@@ -9,7 +9,7 @@ use sqlx::postgres::PgPool;
 use crate::mes::enums::PlanType;
 use crate::mes::production_plan::{new_production_plan_service, ProductionPlanService};
 use crate::mes::production_plan::model::{CreatePlanItemReq, CreatePlanReq};
-use crate::sales::sales_order::repo::DemandRepo;
+use crate::sales::sales_order::{new_demand_service, DemandService};
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus, model::EventPublishRequest};
@@ -65,7 +65,7 @@ impl MesDemandService for MesDemandServiceImpl {
         let locked = MesDemandRepo::lock_demands_for_production(db, &req.demand_ids).await?;
 
         // 计算被跳过的需求
-        let locked_ids: Vec<i64> = locked.iter().map(|d| d.id).collect();
+        let locked_ids: HashSet<i64> = locked.iter().map(|d| d.id).collect();
         let skipped_demands: Vec<SkippedDemand> = req.demand_ids.iter()
             .filter(|id| !locked_ids.contains(id))
             .map(|id| SkippedDemand {
@@ -89,11 +89,11 @@ impl MesDemandService for MesDemandServiceImpl {
             req.plan_date + chrono::Duration::days(7)
         });
 
-        // 3. 按 product_id 聚合 + 保留第一条需求的 source 信息
-        let mut aggregated: HashMap<i64, (Decimal, &LockedDemand)> = HashMap::new();
+        // 3. 按 (product_id, source_id) 聚合 — 每个销售订单独立计划项，保留可追溯性
+        let mut aggregated: HashMap<(i64, i64), (Decimal, &LockedDemand)> = HashMap::new();
         for d in &locked {
             aggregated
-                .entry(d.product_id)
+                .entry((d.product_id, d.source_id))
                 .and_modify(|(qty, _first)| *qty += d.required_qty)
                 .or_insert((d.required_qty, d));
         }
@@ -133,9 +133,10 @@ impl MesDemandService for MesDemandServiceImpl {
             .await?;
 
         // 5. 关联需求：更新 target_doc + 发布 DemandConfirmed 事件
+        let demand_svc = new_demand_service(self.pool.clone());
         let event_bus = new_domain_event_bus(self.pool.clone());
         for d in &locked {
-            DemandRepo::update_target_doc(db, d.id, DocumentType::ProductionPlan as i16, plan_id).await?;
+            demand_svc.update_target_doc(db, d.id, DocumentType::ProductionPlan as i16, plan_id).await?;
 
             event_bus.publish(ctx, db, EventPublishRequest {
                 event_type: DomainEventType::DemandConfirmed,

@@ -345,20 +345,86 @@ fn fulfillment_workbench(
         return html! {};
     }
 
+    // 需求流转统计
+    let mut demand_open = 0usize;
+    let mut demand_processing = 0usize;
+    let mut demand_done = 0usize;
+    for pl in plan_lines {
+        match pl.status {
+            FulfillmentLineStatus::Pending => demand_open += 1,
+            FulfillmentLineStatus::Allocated | FulfillmentLineStatus::Producing | FulfillmentLineStatus::Purchasing => demand_processing += 1,
+            FulfillmentLineStatus::Fulfilled => demand_done += 1,
+        }
+    }
+    let demand_total = plan_lines.len();
+
     html! {
         div class="fulfill-section" {
             div class="fulfill-header" {
                 div class="fulfill-header-left" {
                     span class="fulfill-title" { "履约工作台" }
-                    span class="fulfill-badge" { (format!("{} 行", plan_lines.len())) }
+                    span class="fulfill-badge" { (format!("{} 行", demand_total)) }
                 }
                 div class="fulfill-actions" {
+                    button class="fulfill-btn" {
+                        (icon::refresh_icon("w-3.5 h-3.5"))
+                        "刷新状态"
+                    }
+                    a class="fulfill-btn" href="/admin/mes/demand-pool" title="生产需求池" {
+                        (icon::grid_icon("w-3.5 h-3.5"))
+                        "生产需求池"
+                    }
+                    a class="fulfill-btn" href="/admin/purchase/demand-pool" title="采购需求池" {
+                        (icon::clipboard_document_icon("w-3.5 h-3.5"))
+                        "采购需求池"
+                    }
                     button class="fulfill-btn primary" {
                         (icon::truck_icon("w-3.5 h-3.5"))
                         "创建发货单"
                     }
                 }
             }
+
+            // ── 需求流转状态卡片 ──
+            div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-3);margin-bottom:var(--space-4);" {
+                div class="stat-mini" {
+                    div class="stat-mini-icon" style="background:#dbeafe;color:var(--accent);" {
+                        (icon::clipboard_list_icon("w-4 h-4"))
+                    }
+                    div {
+                        div class="stat-mini-value" { (demand_total) }
+                        div class="stat-mini-label" { "总需求行" }
+                    }
+                }
+                div class="stat-mini" {
+                    div class="stat-mini-icon" style="background:#fef3c7;color:var(--warn);" {
+                        (icon::clock_icon("w-4 h-4"))
+                    }
+                    div {
+                        div class="stat-mini-value" { (demand_open) }
+                        div class="stat-mini-label" { "待处理" }
+                    }
+                }
+                div class="stat-mini" {
+                    div class="stat-mini-icon" style="background:#ede9fe;color:#7c3aed;" {
+                        (icon::refresh_icon("w-4 h-4"))
+                    }
+                    div {
+                        div class="stat-mini-value" { (demand_processing) }
+                        div class="stat-mini-label" { "处理中" }
+                    }
+                }
+                div class="stat-mini" {
+                    div class="stat-mini-icon" style="background:#dcfce7;color:var(--success);" {
+                        (icon::check_circle_icon("w-4 h-4"))
+                    }
+                    div {
+                        div class="stat-mini-value" { (demand_done) }
+                        div class="stat-mini-label" { "已完成" }
+                    }
+                }
+            }
+
             table class="fulfill-table" {
                 thead {
                     tr {
@@ -368,8 +434,10 @@ fn fulfillment_workbench(
                         th class="num-right" { "已预留" }
                         th class="num-right" { "缺口" }
                         th { "库存满足率" }
+                        th { "需求状态" }
                         th { "履约状态" }
-                        th { "关联单据" }
+                        th { "下游单据" }
+                        th { "操作" }
                     }
                 }
                 tbody {
@@ -392,6 +460,15 @@ fn fulfill_plan_row(
     let (ch_label, ch_class) = acquire_tag(pl.acquire_channel);
     let (st_label, st_class) = fulfill_status_pill(pl.status);
 
+    // 需求状态（映射 fulfill status → demand 语义）
+    let (demand_label, demand_style) = match pl.status {
+        FulfillmentLineStatus::Pending => ("○ 待处理", "background:#e5e7eb;color:#374151;"),
+        FulfillmentLineStatus::Allocated => ("● 已分配", "background:#dbeafe;color:#1e40af;"),
+        FulfillmentLineStatus::Producing => ("◐ 生产中", "background:#fef3c7;color:#92400e;"),
+        FulfillmentLineStatus::Purchasing => ("◐ 采购中", "background:#ede9fe;color:#6b21a8;"),
+        FulfillmentLineStatus::Fulfilled => ("✓ 已完成", "background:#d1fae5;color:#065f46;"),
+    };
+
     // 满足率
     let fill_pct_val = if pl.required_qty > Decimal::ZERO {
         (pl.reserved_qty / pl.required_qty * DECIMAL_100)
@@ -400,23 +477,94 @@ fn fulfill_plan_row(
         Decimal::ZERO
     };
     let fill_bar_pct = format!("width:{}%", fill_pct_val);
+    let fill_pct_str = format!("{}%", fill_pct_val);
 
     // 满足率颜色
     let fill_color = if pl.reserved_qty >= pl.required_qty {
-        "green"
+        "#10b981"
     } else if pl.reserved_qty > Decimal::ZERO {
-        "orange"
+        "#f59e0b"
     } else {
-        "red"
+        "#ef4444"
     };
 
-    // 关联单据
-    let source_doc = match (pl.source_doc_type, pl.source_doc_id) {
-        (Some(_), Some(doc_id)) => {
-            // TODO: 根据 source_doc_type 显示对应单据编号
-            format!("#{}", doc_id)
+    // 下游单据链接
+    let downstream_doc = match (pl.source_doc_type, pl.source_doc_id) {
+        (Some(12), Some(doc_id)) => {
+            // ProductionPlan
+            Some(html! {
+                a href=(format!("/admin/mes/plans/{}", doc_id)) class="link-cell mono" style="font-size:12px;" {
+                    (format!("PP-{}", doc_id))
+                }
+            })
         }
-        _ => "—".into(),
+        (Some(7), Some(doc_id)) => {
+            // PurchaseOrder
+            Some(html! {
+                a href=(format!("/admin/purchase/orders/{}", doc_id)) class="link-cell mono" style="font-size:12px;" {
+                    (format!("PO-{}", doc_id))
+                }
+            })
+        }
+        (Some(10), Some(doc_id)) => {
+            // WorkOrder
+            Some(html! {
+                a href=(format!("/admin/mes/orders/{}", doc_id)) class="link-cell mono" style="font-size:12px;" {
+                    (format!("WO-{}", doc_id))
+                }
+            })
+        }
+        (Some(11), Some(doc_id)) => {
+            // OutsourcingOrder
+            Some(html! {
+                a href=(format!("/admin/om/outsourcing/{}", doc_id)) class="link-cell mono" style="font-size:12px;" {
+                    (format!("OM-{}", doc_id))
+                }
+            })
+        }
+        _ => None,
+    };
+
+    // 操作按钮：根据状态显示不同操作
+    let action_btn = match pl.status {
+        FulfillmentLineStatus::Fulfilled => {
+            html! {
+                a href="#" class="btn btn-default btn-sm" { "查看" }
+            }
+        }
+        FulfillmentLineStatus::Producing => {
+            html! {
+                a href="/admin/mes/demand-pool" class="btn btn-default btn-sm" { "推送需求" }
+            }
+        }
+        FulfillmentLineStatus::Purchasing => {
+            html! {
+                a href="/admin/purchase/demand-pool" class="btn btn-default btn-sm" { "推送需求" }
+            }
+        }
+        _ => {
+            // Pending / Allocated — 根据获取渠道推送到对应需求池
+            match pl.acquire_channel {
+                AcquireChannel::Purchased => {
+                    html! {
+                        a href="/admin/purchase/demand-pool" class="btn btn-primary btn-sm" { "推送需求" }
+                    }
+                }
+                AcquireChannel::SelfProduced | AcquireChannel::Legacy => {
+                    html! {
+                        a href="/admin/mes/demand-pool" class="btn btn-primary btn-sm" { "推送需求" }
+                    }
+                }
+                AcquireChannel::Outsourced => {
+                    html! {
+                        a href="/admin/om/outsourcing/create" class="btn btn-primary btn-sm" { "推送需求" }
+                    }
+                }
+                AcquireChannel::NonInventory => {
+                    html! { span class="text-muted" { "—" } }
+                }
+            }
+        }
     };
 
     html! {
@@ -436,26 +584,32 @@ fn fulfill_plan_row(
                 @if pl.shortage_qty > Decimal::ZERO {
                     span class="text-danger" { (fmt_qty(pl.shortage_qty)) }
                 } @else {
-                    (fmt_qty(pl.shortage_qty))
+                    span style="color:var(--success);" { (fmt_qty(pl.shortage_qty)) }
                 }
             }
             td {
-                div class="qty-bar" {
-                    div class="qty-bar-track" {
-                        div class=(format!("qty-bar-fill {}", fill_color)) style=(fill_bar_pct) {}
+                div style="display:flex;align-items:center;gap:8px;" {
+                    div style="flex:1;background:#e5e7eb;height:6px;border-radius:3px;overflow:hidden;" {
+                        div style=(format!("width:{};background:{};height:100%;", fill_bar_pct, fill_color)) {}
                     }
-                    span class="qty-bar-text" { (fmt_qty(pl.reserved_qty)) " / " (fmt_qty(pl.required_qty)) }
+                    span style="font-size:12px;color:var(--muted);" { (fill_pct_str) }
                 }
+            }
+            td {
+                span style=(format!("padding:2px 8px;border-radius:12px;font-size:12px;{}", demand_style)) { (demand_label) }
             }
             td {
                 span class=(format!("line-status {}", st_class)) { (st_label) }
             }
             td {
-                @if source_doc != "—" {
-                    span class="fulfill-ref-link" { (source_doc) }
+                @if let Some(doc) = downstream_doc {
+                    (doc)
                 } @else {
                     span class="text-muted" { "—" }
                 }
+            }
+            td {
+                (action_btn)
             }
         }
     }

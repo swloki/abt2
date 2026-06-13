@@ -14,11 +14,11 @@ SELECT
     d.target_doc_id,
     d.target_doc_type,
     d.created_at,
-    p.name               AS product_name,
-    p.code               AS product_code,
+    p.pdt_name           AS product_name,
+    p.product_code       AS product_code,
     so.doc_number        AS order_no
 FROM demands d
-JOIN products p   ON p.id = d.product_id
+JOIN products p   ON p.product_id = d.product_id
 JOIN sales_orders so ON so.id = d.source_id
 WHERE d.acquire_channel = 2    -- Purchased
   AND d.deleted_at IS NULL;
@@ -38,20 +38,15 @@ SELECT
     d.target_doc_id,
     d.target_doc_type,
     d.created_at,
-    p.name               AS product_name,
-    p.code               AS product_code,
+    p.pdt_name           AS product_name,
+    p.product_code       AS product_code,
     so.doc_number        AS order_no
 FROM demands d
-JOIN products p   ON p.id = d.product_id
+JOIN products p   ON p.product_id = d.product_id
 JOIN sales_orders so ON so.id = d.source_id
 WHERE d.acquire_channel = 1    -- SelfProduced
   AND d.deleted_at IS NULL;
 
--- 性能索引：demands 表核心查询索引（部分索引，仅覆盖未删除行）
-CREATE INDEX IF NOT EXISTS idx_demands_channel_status
-    ON demands (acquire_channel, status)
-    WHERE deleted_at IS NULL;
-
-CREATE INDEX IF NOT EXISTS idx_demands_product
-    ON demands (product_id)
-    WHERE deleted_at IS NULL;
+-- 注：034_demands.sql 已创建以下索引，此处不再重复：
+--   idx_demands_acquire_status ON (acquire_channel, status) WHERE deleted_at IS NULL
+--   idx_demands_product_status ON (product_id, status) WHERE deleted_at IS NULL

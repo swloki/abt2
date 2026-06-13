@@ -175,6 +175,16 @@ pub trait DemandService: Send + Sync {
         id: i64,
     ) -> Result<()>;
 
+    /// 更新需求的关联下游单据（target_doc_type + target_doc_id）
+    /// 供跨模块（采购/MES）在创建下游单据后关联需求时调用
+    async fn update_target_doc(
+        &self,
+        db: PgExecutor<'_>,
+        id: i64,
+        target_doc_type: i16,
+        target_doc_id: i64,
+    ) -> Result<()>;
+
     /// 对账：查询 fulfillment_plan_lines 与 demands 状态不一致的记录
     async fn find_mismatched(
         &self,

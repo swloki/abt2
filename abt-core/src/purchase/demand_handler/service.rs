@@ -28,6 +28,10 @@ pub trait PurchaseDemandService: Send + Sync {
     ) -> Result<PaginatedResult<MaterialAggSummary>>;
 
     /// 从选中的需求批量创建采购订单草稿
+    ///
+    /// **事务要求：** 调用方必须在事务中调用此方法（`tx.begin()` → 传 `&mut tx`）。
+    /// 内部执行乐观锁 UPDATE → 创建 PO → 更新 target_doc → 发布事件，
+    /// 任一步骤失败需整体回滚以避免需求成为孤儿状态。
     async fn create_order_from_demands(
         &self,
         ctx: &ServiceContext,

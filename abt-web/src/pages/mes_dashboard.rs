@@ -87,6 +87,7 @@ fn mes_dashboard_page(stats: &abt_core::mes::dashboard::model::DashboardStats, q
             div class="section-block" {
                 h2 class="section-block-title" { "快捷入口" }
                 div style="display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-4)" {
+                    (quick_entry_card("/admin/mes/demand-pool", "生产需求池", "销售订单驱动的生产需求", "purple", 0, "条待处理"))
                     (quick_entry_card("/admin/mes/plans", "生产计划", "MTO/MTS 双轨排产", "blue", qs.plan_total, "条计划"))
                     (quick_entry_card("/admin/mes/orders", "工单管理", "BOM展开与工序排程", "green", qs.order_active, "进行中"))
                     (quick_entry_card("/admin/mes/batches", "生产批次", "流转卡与工序进度", "orange", qs.batch_active, "活跃批次"))
@@ -158,6 +159,7 @@ fn quick_entry_card(href: &str, title: &str, desc: &str, color: &str, count: i64
         _ => ("rgba(0,0,0,0.04)", "var(--muted)"),
     };
     let icon_svg = match title {
+        "生产需求池" => icon::grid_icon("w-full h-full"),
         "生产计划" => icon::file_text_icon("w-full h-full"),
         "工单管理" => icon::tool_icon("w-full h-full"),
         "生产批次" => icon::briefcase_icon("w-full h-full"),

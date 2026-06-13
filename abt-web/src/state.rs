@@ -322,6 +322,12 @@ impl AppState {
         abt_core::purchase::misc_request::new_misc_request_service(self.pool.clone())
     }
 
+    pub fn purchase_demand_service(
+        &self,
+    ) -> impl abt_core::purchase::demand_handler::PurchaseDemandService {
+        abt_core::purchase::demand_handler::new_purchase_demand_service(self.pool.clone())
+    }
+
     pub fn department_service(
         &self,
     ) -> impl abt_core::shared::identity::DepartmentService {
@@ -407,6 +413,12 @@ impl AppState {
     }
     pub fn mes_dashboard_service(&self) -> impl abt_core::mes::dashboard::MesDashboardService {
         abt_core::mes::dashboard::new_mes_dashboard_service(self.pool.clone())
+    }
+
+    pub fn mes_demand_service(
+        &self,
+    ) -> impl abt_core::mes::demand_handler::MesDemandService {
+        abt_core::mes::demand_handler::new_mes_demand_service(self.pool.clone())
     }
     pub fn production_exception_service(&self) -> impl abt_core::mes::production_exception::ProductionExceptionService {
         abt_core::mes::production_exception::new_production_exception_service(self.pool.clone())

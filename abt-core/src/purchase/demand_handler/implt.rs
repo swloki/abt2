@@ -1,6 +1,6 @@
 //! 采购需求池 — PurchaseDemandService 实现
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
 use chrono::Local;
@@ -9,7 +9,7 @@ use sqlx::postgres::PgPool;
 
 use crate::purchase::order::{new_purchase_order_service, PurchaseOrderService};
 use crate::purchase::order::model::{CreateOrderItemRequest, CreatePurchaseOrderRequest};
-use crate::sales::sales_order::repo::DemandRepo;
+use crate::sales::sales_order::{new_demand_service, DemandService};
 use crate::shared::enums::document_type::DocumentType;
 use crate::shared::enums::event::DomainEventType;
 use crate::shared::event_bus::{new_domain_event_bus, service::DomainEventBus, model::EventPublishRequest};
@@ -65,7 +65,7 @@ impl PurchaseDemandService for PurchaseDemandServiceImpl {
         let locked = PurchaseDemandRepo::lock_demands_for_purchase(db, &req.demand_ids).await?;
 
         // 计算被跳过的需求
-        let locked_ids: Vec<i64> = locked.iter().map(|d| d.id).collect();
+        let locked_ids: HashSet<i64> = locked.iter().map(|d| d.id).collect();
         let skipped_demands: Vec<SkippedDemand> = req.demand_ids.iter()
             .filter(|id| !locked_ids.contains(id))
             .map(|id| SkippedDemand {
@@ -114,9 +114,10 @@ impl PurchaseDemandService for PurchaseDemandServiceImpl {
             .await?;
 
         // 4. 关联需求：更新 target_doc + 发布 DemandConfirmed 事件
+        let demand_svc = new_demand_service(self.pool.clone());
         let event_bus = new_domain_event_bus(self.pool.clone());
         for d in &locked {
-            DemandRepo::update_target_doc(db, d.id, DocumentType::PurchaseOrder as i16, po_id).await?;
+            demand_svc.update_target_doc(db, d.id, DocumentType::PurchaseOrder as i16, po_id).await?;
 
             event_bus.publish(ctx, db, EventPublishRequest {
                 event_type: DomainEventType::DemandConfirmed,

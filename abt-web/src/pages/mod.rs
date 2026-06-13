@@ -12,6 +12,8 @@ pub mod payment_request_create;
 pub mod payment_request_detail;
 pub mod payment_request_list;
 pub mod purchase_dashboard;
+pub mod purchase_demand_pool;
+pub mod purchase_demand_pool_create;
 pub mod purchase_order_create;
 pub mod purchase_order_detail;
 pub mod purchase_order_list;
@@ -110,6 +112,8 @@ pub mod wms_cascade_list;
 
 // ── MES (Production) ──
 pub mod mes_dashboard;
+pub mod mes_demand_pool;
+pub mod mes_demand_pool_create;
 pub mod mes_plan_list;
 pub mod mes_plan_create;
 pub mod mes_plan_detail;

@@ -248,12 +248,31 @@ pub fn clock_icon(c: &str) -> Markup {
     svg(r#"<path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>"#, c)
 }
 
+pub fn activity_icon(c: &str) -> Markup {
+    svg(r#"<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>"#, c)
+}
+
 pub fn bolt_icon(c: &str) -> Markup {
     svg(r#"<path d="M13 10V3L4 14h7v7l9-11h-7z"/>"#, c)
 }
 
 pub fn rocket_icon(c: &str) -> Markup {
     svg(r#"<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>"#, c)
+}
+
+/// 4-square grid icon (物料汇总 view toggle)
+pub fn grid_4_icon(c: &str) -> Markup {
+    svg(r#"<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>"#, c)
+}
+
+/// Horizontal lines icon (订单行明细 view toggle)
+pub fn rows_icon(c: &str) -> Markup {
+    svg(r#"<path d="M4 6h16M4 10h16M4 14h16M4 18h16"/>"#, c)
+}
+
+/// 3D cube icon
+pub fn cube_icon(c: &str) -> Markup {
+    svg(r#"<path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>"#, c)
 }
 
 pub fn tool_icon(c: &str) -> Markup {

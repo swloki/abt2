@@ -404,6 +404,7 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
                     h2 class="section-title" { "快捷入口" }
                 }
                 div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)" {
+                    (quick_link_card("/admin/purchase/demand-pool", "采购需求池", "外购需求聚合"))
                     (quick_link_card("/admin/purchase/quotations", "采购报价", "报价管理"))
                     (quick_link_card("/admin/purchase/orders", "采购订单", "订单管理"))
                     (quick_link_card("/admin/purchase/returns", "采购退货", "退货管理"))
@@ -434,6 +435,10 @@ fn purchase_dashboard_content(stats: &DashboardStats) -> Markup {
             }
             // Branch links
             div style="display:flex;gap:var(--space-6);margin-top:var(--space-4);justify-content:center" {
+                div style="display:flex;align-items:center;gap:var(--space-2);font-size:12px;color:var(--muted)" {
+                    svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="1.8" { path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" {} }
+                    a href="/admin/purchase/demand-pool" style="color:#7c3aed;font-weight:500" { "采购需求池（销售订单驱动）" }
+                }
                 div style="display:flex;align-items:center;gap:var(--space-2);font-size:12px;color:var(--muted)" {
                     svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.8" { path d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" {} }
                     a href="/admin/purchase/returns" style="color:var(--danger);font-weight:500" { "采购退货（逆向）" }

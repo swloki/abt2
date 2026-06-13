@@ -305,12 +305,12 @@ fn conversion_create_page(
 
         // ── Product Search Modal ──
         div id="product-modal" class="modal-overlay"
-            onclick="hsBackdropClose(this,event,'is-open')" {
+            _="on click[me is event.target] remove .is-open" {
             div class="modal modal-lg" onclick="event.stopPropagation()" {
                 div class="modal-head" {
                     h2 { "选择物料" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                        onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
+                        _="on click remove .is-open from #product-modal" { "×" }
                 }
                 div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
                     div class="product-search-bar" {
@@ -319,6 +319,7 @@ fn conversion_create_page(
                             input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
                                 hx-get=(ConversionProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
+                                hx-sync="this:replace"
                                 hx-target="#conversion-product-results"
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
@@ -328,6 +329,7 @@ fn conversion_create_page(
                             input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
                                 hx-get=(ConversionProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
+                                hx-sync="this:replace"
                                 hx-target="#conversion-product-results"
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
@@ -336,7 +338,7 @@ fn conversion_create_page(
                             hx-get=(ConversionProductsPath::PATH)
                             hx-target="#conversion-product-results"
                             hx-swap="innerHTML"
-                            onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
+                            _="on click set (.product-search-input)'s value to '' then trigger keyup on .product-search-input" {
                             "清除"
                         }
                     }
@@ -356,7 +358,7 @@ fn conversion_create_page(
 
         function conversionOpenModal(target) {
             conversionTarget = target;
-            me('#product-modal').classAdd('is-open');
+            document.querySelector('#product-modal').classList.add('is-open');
         }
 
         function conversionRenumber(tbodyId) {
@@ -409,12 +411,12 @@ fn conversion_create_page(
             while (target.firstChild) {
                 tbody.appendChild(target.firstChild);
             }
-            hsRemove(null, '#product-modal', 'is-open');
+            document.querySelector('#product-modal').classList.remove('is-open');
             conversionRenumber(tbodyId);
         }
 
         function conversionRemoveRow(btn) {
-            hsRemoveClosestEl(btn, 'tr');
+            btn.closest('tr').remove();
             conversionRenumber('consume-item-tbody');
             conversionRenumber('produce-item-tbody');
         }

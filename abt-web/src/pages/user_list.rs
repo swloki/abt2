@@ -377,6 +377,7 @@ fn user_table_fragment(
                         value=(keyword)
                         hx-get=(UserListPath::PATH)
                         hx-trigger="keyup changed delay:300ms"
+                        hx-sync="this:replace"
                         hx-target="closest .user-list-panel"
                         hx-swap="outerHTML"
                         hx-push-url=(UserListPath::PATH)

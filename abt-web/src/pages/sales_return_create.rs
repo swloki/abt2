@@ -230,6 +230,9 @@ pub async fn create_return(
     if form.order_id == 0 {
         return Err(DomainError::validation("请选择来源订单").into());
     }
+    if form.shipping_request_id == 0 {
+        return Err(DomainError::validation("该订单没有发货记录，无法创建退货。请先完成发货后再申请退货").into());
+    }
 
     let web_items: Vec<ReturnItemWeb> = serde_json::from_str(&form.items_json)
         .map_err(|e| DomainError::validation(format!("无效退货明细数据: {e}")))?;
@@ -443,8 +446,7 @@ fn return_create_page(customers: &[abt_core::master_data::customer::model::Custo
                         (icon::save_icon("w-4 h-4"))
                         "保存草稿"
                     }
-                    button type="button" class="btn btn-primary" {
-                        (maud::PreEscaped(r#"<script>me().on('click',function(){if(handleSubmit()){htmx.trigger(document.getElementById('return-form'),'submit')}})</script>"#))
+                    button type="button" class="btn btn-primary" _="on click call handleSubmit() then if it trigger submit on #return-form" {
                         (icon::send_icon("w-4 h-4"))
                         "提交退货"
                     }

@@ -1,6 +1,6 @@
 # abt-web
 
-Rust 全栈前端，Axum + Maud + HTMX + Surreal.js + UnoCSS，直接调用 `abt-core` Service trait。
+Rust 全栈前端，Axum + Maud + HTMX + Hyperscript + UnoCSS，直接调用 `abt-core` Service trait。
 
 ## Constraints（必须遵守）
 
@@ -21,9 +21,9 @@ Rust 全栈前端，Axum + Maud + HTMX + Surreal.js + UnoCSS，直接调用 `abt
 
 **JS 与交互**
 - **禁止 `fetch()` 提交表单**，用 HTMX `hx-post` 原生处理
-- **禁止用 `onclick` 调用自定义 JS 函数做 UI 操作**，用 Surreal.js `<script>me().on(...)` 内联
-- **禁止在 Maud 模板里用 `script { "..." }`**（会被 HTML 转义），必须用 `maud::PreEscaped("<script>...</script>")`
-- **纯前端 UI 状态**（Dropdown 菜单、Modal 显隐、Tab 切换）由 Surreal.js 内联闭环，**禁止通过 htmx 向后端发请求**
+- **禁止用 `onclick`/`<script>me().on(...)` 做 UI 操作**，用 Hyperscript `_="on click ..."` 属性（详见下方参考手册）
+- **禁止在 Maud 模板里用 `script { "..." }`**（会被 HTML 转义），复杂逻辑用 `maud::PreEscaped("<script>...</script>")` 包裹原生 JS
+- **纯前端 UI 状态**（Dropdown 菜单、Modal 显隐、Tab 切换）由 Hyperscript `_=` 属性闭环，**禁止通过 htmx 向后端发请求**
 - **涉及服务端状态**的交互（表单提交、分页、搜索）才用 htmx
 
 ## Architecture
@@ -40,7 +40,7 @@ src/
 │   ├── middleware.rs     # JWT 验证中间件
 │   └── session.rs       # Session 类型
 ├── layout/
-│   ├── base.rs          # HTML 壳（HTMX + Surreal.js + UnoCSS）
+│   ├── base.rs          # HTML 壳（HTMX + Hyperscript + UnoCSS）
 │   ├── admin.rs         # Admin 布局（sidebar + header + content）
 │   ├── sidebar.rs       # 侧边栏
 │   └── header.rs        # 顶部栏
@@ -89,7 +89,7 @@ src/
 - **Axum Handler** 直接调用 `abt-core` Service trait，无 gRPC 中间层
 - **Maud** 编译期 HTML 宏渲染完整页面或局部片段
 - **HTMX 2.0.10** 处理表单提交、分页、搜索等需要服务器状态的交互
-- **Surreal.js** 处理纯前端 UI 状态，通过内联 `<script>me().on(...)</script>` 在 HTML 元素内部闭环
+- **Hyperscript 0.9.91** 处理纯前端 UI 状态，通过元素 `_="on click ..."` 属性声明式闭环（`static/hyperscript.min.js`）
 
 **HTMX 2.x 事件模型**：
 - `htmx:afterRequest` → 触发在 **trigger 元素**（发起请求的元素）上
@@ -272,7 +272,7 @@ pagination(ListPath::PATH, &query_string, total, page, total_pages)
 | 交互类型 | 技术 | 示例 |
 |----------|------|------|
 | 涉及服务器状态 | **HTMX** | 表单提交、动态分页、条件搜索 |
-| 纯前端 UI | **Surreal.js 内联** | Dropdown、Modal 显隐、Tab 切换 |
+| 纯前端 UI | **Hyperscript `_=`** | Dropdown、Modal 显隐、Tab 切换 |
 | 复杂前端逻辑 | **独立 JS 文件** | 拖拽排序（SortableJS）、持久化状态 |
 
 当前独立 JS 文件：
@@ -284,61 +284,58 @@ pagination(ListPath::PATH, &query_string, total, page, total_pages)
 
 ---
 
-## Surreal.js 参考手册
+## Hyperscript 参考手册
 
-### 核心用法
+Hyperscript 写在元素的 `_` 属性里（Maud：`_="on click ..."` 或 `_=(format!(...))`）。完整文档：https://hyperscript.org/reference/
 
-`<script>` 内联在 HTML 元素内部，`me()` 自动返回**父元素**：
-
-```html
-<!-- 打开 modal -->
-button type="button" {
-    "<script>me().on('click',function(){me('#my-modal').classAdd('is-open')})</script>"
-    "打开"
-}
-<!-- 关闭 modal overlay -->
-div id="my-modal" class="modal-overlay" {
-    "<script>me().on('click',function(e){if(e.target===me())me().classRemove('is-open')})</script>"
-}
-<!-- Tab 切换 -->
-button class="tab-btn" {
-    "<script>me().on('click',function(){me('.tab-btn').classRemove('active');me().classAdd('active')})</script>"
-    "Tab 1"
-}
-```
-
-### API 速查
-
-| 用法 | 说明 |
-|------|------|
-| `me()` | `<script>` 的父元素 |
-| `me(selector)` | `document.querySelector(selector)` |
-| `me(selector, start)` | 从 start 元素开始搜索 |
-| `any(selector)` / `any(selector, start)` | 返回匹配元素数组 |
-| `me().on(event, fn)` | `addEventListener` |
-| `me(el).classAdd/Remove/Toggle(cls)` | 操作 class |
-| `me(el).attribute(name)` / `attribute(name, value)` | 读/写属性 |
-| `me(el).remove()` | 移除元素 |
-| `me(el).styles({prop:val})` | 设置样式 |
-
-### HTMX + Surreal.js 联合模式
-
-按钮用 `hx-get` 加载内容到 modal → 成功后自动打开 modal：
+### 核心模式（项目最常用）
 
 ```rust
-// 按钮
-button type="button" hx-get=(path) hx-target="#edit-modal" hx-swap="innerHTML" { "编辑" }
-// modal 容器
-div id="edit-modal" class="modal-overlay" { }
-// script 必须在 modal 容器外面（HTMX swap 会替换 innerHTML 导致内部监听器丢失）
-maud::PreEscaped(r#"<script>
-    me('#edit-modal')
-        .on('htmx:afterSettle',function(){me(this).classAdd('is-open')})
-        .on('click',function(ev){if(ev.target===me('#edit-modal'))me('#edit-modal').classRemove('is-open')});
-</script>"#)
+// 打开 modal
+button _="on click add .is-open to #my-modal" { "打开" }
+// 关闭最近的 overlay
+button _="on click remove .is-open from closest .modal-overlay" { "×" }
+// 背景点击关闭（事件过滤器：只有点 overlay 本身）
+div.modal-overlay _="on click[me is event.target] remove .is-open" { }
+// 下拉菜单点击外部关闭（elsewhere = 本元素之外）
+div.dropdown _="on click from elsewhere remove .is-open" { }
+// Tab 选中（take：移除同组其他元素的 class，加给自己）
+button.tab _="on click take .active from .tab" { "Tab 1" }
+// HTMX 请求成功后打开 drawer（事件名带冒号必须用单引号 + 驼峰）
+button hx-get=(path) hx-target="#d-body" _="on 'htmx:afterRequest'[detail.xhr.status < 400] add .open to #drawer" { }
 ```
 
-**注意**：`afterSettle` 回调用 `function(){}`（不用箭头函数），`this` 才指向触发元素。支持链式调用。
+### 命令速查
+
+| 命令 | 说明 | 示例 |
+|------|------|------|
+| `add .cls to #id` | 加 class | `add .is-open to #modal` |
+| `remove .cls from #id` | 删 class | `remove .active from .tab` |
+| `toggle .cls [on #id]` | 切换 | `toggle .expanded` |
+| `take .cls from <set>` | 抢占（移除同组，加给自己） | `take .active from .tree-node-row` |
+| `closest <sel/>` | 最近祖先（**必须用 query 语法**：`.cls` 或 `<tag/>`，不能裸写 `tr`/`form`） | `remove .is-open from closest .modal-overlay` · `remove closest <tr/>`（删整行） |
+| `next <sel/>` | 下一兄弟 | `toggle .is-open on next <div/>` |
+| `reset #form` | 重置表单 | `then reset #my-form` |
+| `call jsFn()` | 执行 JS | `call quotationSubmit()` |
+| `put val into #id's value` | 写入属性 | `put '1' into #shift's value` |
+| `halt` | 阻止事件 | `on click halt the event then ...` |
+| `trigger evt on #id` | 触发事件 | `trigger submit on #form` |
+| `from elsewhere` | 点击外部（click-away） | `on click from elsewhere remove .open` |
+
+**Magic values**: `me`(当前元素) · `it`(上次结果) · `event`/`target`/`detail`(事件)。
+**HTMX 事件**：事件名含冒号，必须用**单引号字符串**且**驼峰**：`on 'htmx:afterRequest'`、`on 'htmx:afterSettle'`（不是 `htmx:after-request`）。
+**复杂逻辑**（表单行收集/全选）：保留 `<script>` 原生 JS（`document.querySelector`），用 `_="on submit call fn()"` 调用。
+
+### HTMX + Hyperscript 联合模式
+
+按钮用 `hx-get` 加载内容到 modal → 成功后自动打开（`_=` 放在发起请求的元素上）：
+
+```rust
+button type="button" hx-get=(path) hx-target="#edit-modal" hx-swap="innerHTML"
+    _="on 'htmx:afterRequest' add .is-open to #edit-modal" { "编辑" }
+div id="edit-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" { }
+```
+
 
 ### HTMX 表单替代 JS
 
@@ -366,7 +363,7 @@ form onsubmit="lineItemCalc('#order-item-tbody').collectItems()" { ... }
 
 | 层 | 职责 | 技术 |
 |---|---|---|
-| 纯前端 UI | modal 开关、class 切换 | Surreal.js `<script>me().on(...)` 内联 |
+| 纯前端 UI | modal 开关、class 切换 | Hyperscript `_="on click ..."` |
 | 服务端交互 | 表单提交、搜索、分页 | HTMX `hx-post`/`hx-get` |
 | 复杂前端状态 | 拖拽排序、持久化 | 独立 JS 文件 |
 | 数据桥接 | hidden input 传 JSON | JS `lineItemCalc().collectItems()` |

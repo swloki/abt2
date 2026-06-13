@@ -373,7 +373,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                 }
                 div class="add-row-bar" {
                     button type="button" class="btn-add-row"
-                        onclick="hsAdd(null,'#product-modal','is-open')" {
+                        _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
                     }
@@ -424,8 +424,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                         (icon::save_icon("w-4 h-4"))
                         "保存草稿"
                     }
-                    button type="button" class="btn btn-primary" {
-                        (maud::PreEscaped(r#"<script>me().on('click',function(){quotationSubmit();htmx.trigger(me('#quotation-form'),'submit')})</script>"#))
+                    button type="button" class="btn btn-primary" _="on click call quotationSubmit() then trigger submit on #quotation-form" {
                         (icon::send_icon("w-4 h-4"))
                         "提交报价"
                     }
@@ -435,12 +434,12 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
 
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
-                onclick="hsRemove(null,'#product-modal','is-open')" {
+                _="on click[me is event.target] remove .is-open" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button class="modal-close-btn"
-                            onclick="hsRemove(null,'#product-modal','is-open')" {
+                            _="on click remove .is-open from #product-modal" {
                             "×"
                         }
                     }
@@ -451,6 +450,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                                 input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
                                     hx-get=(QuotationProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
+                                    hx-sync="this:replace"
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
@@ -460,6 +460,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                                 input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
                                     hx-get=(QuotationProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
+                                    hx-sync="this:replace"
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
@@ -468,7 +469,7 @@ fn quotation_create_page(customers: &[abt_core::master_data::customer::model::Cu
                                     hx-get=(QuotationProductsPath::PATH)
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
-                                    onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
+                                    _="on click set <.product-search-input/>'s value to '' then trigger keyup on the first <.product-search-input/>" {
                                     "清除"
                                 }
                             }
@@ -514,7 +515,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             hx-get=(format!("{}?product_id={}", QuotationItemRowPath::PATH, p.product_id))
                             hx-target="#quotation-item-tbody"
                             hx-swap="beforeend"
-                            hx-on::after-request="hsRemove(null,'#product-modal','is-open')" {
+                            _="on 'htmx:afterRequest' remove .is-open from #product-modal" {
                             "选择"
                         }
                     }
@@ -537,7 +538,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td { input class="li-input-disc" type="number" min="0" max="100" name="discount_rate" style="width:64px" {} }
             td class="line-total" { "—" }
             td { button type="button" class="btn-remove-row" title="删除行"
-                onclick="hsRemoveClosestEl(this,'tr')" {
+                _="on click remove closest <tr/>" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
             input type="hidden" name="product_id" value=(product.product_id) {}

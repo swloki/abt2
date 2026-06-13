@@ -352,7 +352,7 @@ fn contacts_card(contacts: &[SupplierContact], detail_path: &SupplierDetailPath,
             div class="detail-card-title" {
                 span { "联系人" }
                 button class="btn btn-sm btn-primary"
-                    onclick="hsAdd(null,'#contact-create-modal','is-open')" {
+                    _="on click add .is-open to #contact-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加联系人"
                 }
@@ -393,7 +393,7 @@ fn bank_accounts_card(bank_accounts: &[SupplierBankAccount], detail_path: &Suppl
             div class="detail-card-title" {
                 span { "银行账户" }
                 button class="btn btn-sm btn-primary"
-                    onclick="hsAdd(null,'#bank-account-create-modal','is-open')" {
+                    _="on click add .is-open to #bank-account-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "添加账户"
                 }

@@ -371,8 +371,8 @@ fn create_page_content(
                         div style="display:flex;gap:var(--space-2);align-items:center;" {
                             button type="button" class="btn btn-sm btn-default" id="selectAllBtn" {
                                 "全选"
-                                (PreEscaped(r#"<script>me().on('click',function(){
-                                    var cbs = any('#demand-tbody input[type=checkbox]');
+                                (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('click',function(){
+                                    var cbs = Array.from(document.querySelectorAll('#demand-tbody input[type=checkbox]'));
                                     var allChecked = cbs.every(function(c){return c.checked});
                                     cbs.forEach(function(c){c.checked = !allChecked});
                                     updateDemandSummary();
@@ -452,21 +452,24 @@ fn create_page_content(
             // ── Checkbox & Summary Scripts ──
             (PreEscaped(r#"<script>
                 // Check-all checkbox in header
-                me('#checkAll').on('change', function(){
-                    var checked = this.checked;
-                    any('#demand-tbody input[type=checkbox]').forEach(function(c){
-                        c.checked = checked;
+                var checkAllEl = document.querySelector('#checkAll');
+                if(checkAllEl){
+                    checkAllEl.addEventListener('change', function(){
+                        var checked = this.checked;
+                        document.querySelectorAll('#demand-tbody input[type=checkbox]').forEach(function(c){
+                            c.checked = checked;
+                        });
+                        updateDemandSummary();
                     });
-                    updateDemandSummary();
-                });
+                }
 
                 // Individual checkbox change
                 document.addEventListener('change', function(e){
                     if(e.target.type === 'checkbox' && e.target.closest('#demand-tbody')){
                         updateDemandSummary();
                         // Update check-all state
-                        var all = any('#demand-tbody input[type=checkbox]');
-                        var checked = any('#demand-tbody input[type=checkbox]:checked');
+                        var all = document.querySelectorAll('#demand-tbody input[type=checkbox]');
+                        var checked = document.querySelectorAll('#demand-tbody input[type=checkbox]:checked');
                         var checkAll = document.getElementById('checkAll');
                         if(checkAll){
                             checkAll.checked = all.length > 0 && all.length === checked.length;
@@ -475,7 +478,7 @@ fn create_page_content(
                 });
 
                 function updateDemandSummary(){
-                    var checked = any('#demand-tbody input[type=checkbox]:checked');
+                    var checked = document.querySelectorAll('#demand-tbody input[type=checkbox]:checked');
                     var ids = [];
                     var totalQty = 0;
                     checked.forEach(function(c){
@@ -523,9 +526,8 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
                 span class="tag-chip" style=(pri_style) { (pri_text) }
             }
             td {
-                button type="button" class="btn-remove-row" title="移除" {
+                button type="button" class="btn-remove-row" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
                     (icon::x_icon("w-3.5 h-3.5"))
-                    (PreEscaped(r#"<script>me().on('click',function(){me().closest('tr').remove();updateDemandSummary()})</script>"#))
                 }
             }
         }

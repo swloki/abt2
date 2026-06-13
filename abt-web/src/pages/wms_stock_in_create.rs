@@ -328,17 +328,15 @@ fn stock_in_create_content(
 
             // ── Type Switch ──
             div class="type-switch" {
-                div class="type-btn active" {
+                div class="type-btn active" _="on click take .active from .type-btn then put 'PurchaseReceipt' into #stockin-txn-type's value" {
                     (icon::download_icon("w-7 h-7"))
                     span class="type-label" { "采购入库" }
                     span class="type-desc" { "PURCHASE_RECEIPT" br; "关联来料通知 / 采购订单" }
-                    (maud::PreEscaped(r#"<script>me().on('click',e=>{any('.type-btn').classRemove('active');me(e).classAdd('active');me('#stockin-txn-type').value='PurchaseReceipt'})</script>"#))
                 }
-                div class="type-btn" {
+                div class="type-btn" _="on click take .active from .type-btn then put 'ProductionReceipt' into #stockin-txn-type's value" {
                     (icon::box_icon("w-7 h-7"))
                     span class="type-label" { "生产入库" }
                     span class="type-desc" { "PRODUCTION_RECEIPT" br; "关联工单完工报工" }
-                    (maud::PreEscaped(r#"<script>me().on('click',e=>{any('.type-btn').classRemove('active');me(e).classAdd('active');me('#stockin-txn-type').value='ProductionReceipt'})</script>"#))
                 }
             }
 
@@ -468,7 +466,7 @@ fn stock_in_create_content(
                     }
                     div style="margin-top:var(--space-4)" {
                         button type="button" class="add-row-btn"
-                            onclick="me('#product-modal').classAdd('is-open')" {
+                            _="on click add .is-open to #product-modal" {
                             (icon::plus_icon("w-3.5 h-3.5"))
                             "添加物料"
                         }
@@ -517,12 +515,12 @@ fn stock_in_create_content(
 
         // ── Product Search Modal ──
         div id="product-modal" class="modal-overlay"
-            onclick="hsBackdropClose(this,event,'is-open')" {
+            _="on click[me is event.target] remove .is-open" {
             div class="modal modal-lg" onclick="event.stopPropagation()" {
                 div class="modal-head" {
                     h2 { "选择物料" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                        onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
+                        _="on click remove .is-open from #product-modal" { "×" }
                 }
                 div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
                     div class="product-search-bar" {
@@ -531,6 +529,7 @@ fn stock_in_create_content(
                             input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
                                 hx-get=(StockInProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
+                                hx-sync="this:replace"
                                 hx-target="#stockin-product-results"
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
@@ -540,6 +539,7 @@ fn stock_in_create_content(
                             input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
                                 hx-get=(StockInProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
+                                hx-sync="this:replace"
                                 hx-target="#stockin-product-results"
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
@@ -548,7 +548,7 @@ fn stock_in_create_content(
                             hx-get=(StockInProductsPath::PATH)
                             hx-target="#stockin-product-results"
                             hx-swap="innerHTML"
-                            onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
+                            _="on click set (.product-search-input)'s value to '' then trigger keyup on .product-search-input" {
                             "清除"
                         }
                     }
@@ -564,12 +564,12 @@ fn stock_in_create_content(
 
         // ── Source Pick Modal ──
         div id="source-modal" class="modal-overlay" data-source-path=(StockInSourcePickPath::PATH)
-            onclick="hsBackdropClose(this,event,'is-open')" {
+            _="on click[me is event.target] remove .is-open" {
             div class="modal modal-lg" onclick="event.stopPropagation()" {
                 div class="modal-head" {
                     h2 { "选择来源单据" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                        onclick="hsRemove(null,'#source-modal','is-open')" { "×" }
+                        _="on click remove .is-open from #source-modal" { "×" }
                 }
                 div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
                     input type="hidden" id="source-pick-type" value="arrival" {}
@@ -579,6 +579,7 @@ fn stock_in_create_content(
                             input class="product-search-input" type="text" name="keyword" placeholder="输入单号关键词…"
                                 hx-get=(StockInSourcePickPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
+                                hx-sync="this:replace"
                                 hx-target="#stockin-source-results"
                                 hx-swap="innerHTML"
                                 hx-include="#source-pick-type" {}
@@ -588,7 +589,7 @@ fn stock_in_create_content(
                             hx-target="#stockin-source-results"
                             hx-swap="innerHTML"
                             hx-include="#source-pick-type"
-                            onclick="hsSetAndTrigger('#source-modal .product-search-input','','keyup')" {
+                            _="on click set (#source-modal .product-search-input)'s value to '' then trigger keyup on #source-modal .product-search-input" {
                             "清除"
                         }
                     }
@@ -715,7 +716,7 @@ fn stock_in_create_content(
             var modal = document.getElementById('source-modal');
             var type = document.getElementById('source-type-select').value;
             document.getElementById('source-pick-type').value = type;
-            me(modal).classAdd('is-open');
+            modal.classList.add('is-open');
             var path = modal.dataset.sourcePath;
             htmx.ajax('GET', path + '?source_type=' + encodeURIComponent(type), {target: '#stockin-source-results', swap: 'innerHTML'});
         }
@@ -725,7 +726,7 @@ fn stock_in_create_content(
             document.getElementById('source-ref-input').value = btn.dataset.doc;
             document.getElementById('source-supplier-input').value = btn.dataset.supplier;
             document.getElementById('source-id-input').value = btn.dataset.sourceId;
-            hsRemove(null, '#source-modal', 'is-open');
+            document.querySelector('#source-modal').classList.remove('is-open');
         }
         </script>"#))
     }
@@ -757,7 +758,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             hx-get=(format!("{}?product_id={}", StockInItemRowPath::PATH, p.product_id))
                             hx-target="#stockin-item-tbody"
                             hx-swap="beforeend"
-                            hx-on::after-request="hsRemove(null,'#product-modal','is-open');setTimeout(wmsStockInRenumber,50)" {
+                            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .is-open from #product-modal then wait 50ms then call wmsStockInRenumber()" {
                             "选择"
                         }
                     }
@@ -815,7 +816,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td class="line-subtotal" style="text-align:right;font-family:var(--font-mono);font-weight:600;white-space:nowrap" { "—" }
             td { input class="form-input" type="text" name="item_bin_id" placeholder="自动" style="width:80px;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
-                onclick="hsRemoveClosestEl(this,'tr');setTimeout(wmsStockInRenumber,50)" {
+                _="on click remove closest <tr/> then call wmsStockInRenumber()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
             input type="hidden" name="product_id" value=(product.product_id) {}

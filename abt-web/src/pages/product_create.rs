@@ -232,10 +232,9 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                         div class="form-field" {
                             label { "所属分类 " span style="color:var(--danger)" { "*" } }
                             input type="hidden" name="category_id" id="selected-category-id" {}
-                            button type="button" class="form-input category-select-trigger" id="category-select-btn" {
+                            button type="button" class="form-input category-select-trigger" id="category-select-btn" _="on click add .is-open to #category-modal" {
                                 span id="category-select-label" { "请选择分类" }
                                 (icon::chevron_right_icon("w-4 h-4"))
-                                (PreEscaped(r#"<script>me().on('click',function(){me('#category-modal').classAdd('is-open')})</script>"#))
                             }
                         }
                         div class="form-field" {
@@ -273,13 +272,12 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
             }
 
             // ── Category Select Modal ──
-            div id="category-modal" class="modal-overlay" {
+            div id="category-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" {
                 div class="modal" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择分类" }
-                        button type="button" class="btn-icon" {
+                        button type="button" class="btn-icon" _="on click remove .is-open from #category-modal" {
                             (icon::x_icon("w-4 h-4"))
-                            (PreEscaped(r#"<script>me().on('click',function(){me('#category-modal').classRemove('is-open')})</script>"#))
                         }
                     }
                     div class="modal-body" {
@@ -298,7 +296,6 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                         }
                     }
                 }
-                (PreEscaped(r#"<script>me('#category-modal').on('click',function(e){if(e.target===me('#category-modal'))me('#category-modal').classRemove('is-open')})</script>"#))
             }
 
             // ── Category Select Scripts ──
@@ -362,9 +359,8 @@ fn category_tree_node(node: &CategoryTree, depth: usize) -> Markup {
         div.category-select-item data-name=(name_lower) {
             div class="category-select-info" style=(pad) {
                 @if has_children {
-                    span class="category-tree-toggle" {
+                    span class="category-tree-toggle" _="on click halt the event then toggle .expanded on closest .category-select-item" {
                         (icon::chevron_right_icon("w-3.5 h-3.5"))
-                        (PreEscaped(r#"<script>me().on('click',function(e){e.stopPropagation();me(me(e).closest('.category-select-item')).classToggle('expanded')})</script>"#))
                     }
                 }
                 span class="category-select-name" data-id=(id) data-name=(name) { (name) }

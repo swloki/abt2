@@ -177,8 +177,8 @@ fn report_create_page(
                     div class="form-group" {
                         label class="form-label" { "班次 " span class="required" { "*" } }
                         div class="shift-toggle" {
-                            button type="button" class="shift-btn active" { "白班" script { (maud::PreEscaped("me().on('click',e=>{me(e).classAdd('active');me(me(e).nextElementSibling).classRemove('active');me('input[name=shift]',me(e).parentElement).value='1'})")) } }
-                            button type="button" class="shift-btn" { "夜班" script { (maud::PreEscaped("me().on('click',e=>{me(e).classAdd('active');me(me(e).previousElementSibling).classRemove('active');me('input[name=shift]',me(e).parentElement).value='2'})")) } }
+                            button type="button" class="shift-btn active" _="on click take .active from .shift-btn then put '1' into (closest .shift-toggle)'s first input's value" { "白班" }
+                            button type="button" class="shift-btn" _="on click take .active from .shift-btn then put '2' into (closest .shift-toggle)'s first input's value" { "夜班" }
                             input type="hidden" name="shift" value="1";
                         }
                     }
@@ -251,6 +251,6 @@ fn report_create_page(
             }
         }
         // 预计工资实时计算
-        (maud::PreEscaped(format!("<script>me('input[name=completed_qty]').on('input',e=>{{var q=parseFloat(me(e).value)||0;var p={unit_price};me('#wageAmount').textContent='¥'+(q*p).toFixed(2)}})</script>")))
+        (maud::PreEscaped(format!("<script>document.querySelector('input[name=completed_qty]').addEventListener('input',function(e){{var q=parseFloat(e.target.value)||0;var p={unit_price};document.querySelector('#wageAmount').textContent='¥'+(q*p).toFixed(2)}})</script>")))
     }}
 }

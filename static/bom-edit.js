@@ -11,15 +11,15 @@ function restoreCollapsed() { try { collapsedNodes = JSON.parse(sessionStorage.g
 
 // --- Load products into add modal ---
 window.bomLoadProducts = function () {
-    var bomId = me('[name="bom_id"]')?.value || '0';
+    var bomId = document.querySelector('[name="bom_id"]')?.value || '0';
     htmx.ajax('GET', '/admin/md/boms/products?bom_id=' + bomId, { target: '#bom-edit-product-results', swap: 'innerHTML' });
 };
 
 // --- Collapse / Expand ---
 function applyVisibility() {
-    var tbody = me('#bom-sortable-tbody');
+    var tbody = document.querySelector('#bom-sortable-tbody');
     if (!tbody) return;
-    any('tr[data-node-id]', tbody).forEach(function (tr) {
+    tbody.querySelectorAll('tr[data-node-id]').forEach(function (tr) {
         var level = Number(tr.dataset.level);
         if (layerFilter !== 0 && layerFilter !== level) { tr.style.display = 'none'; return; }
         var ancestors = tr.dataset.ancestors || '';
@@ -31,7 +31,7 @@ function applyVisibility() {
         }
         tr.style.display = '';
     });
-    any('.bom-collapse-btn', tbody).forEach(function (btn) {
+    tbody.querySelectorAll('.bom-collapse-btn').forEach(function (btn) {
         var row = btn.closest('tr');
         if (!row) return;
         btn.classList.toggle('bom-collapsed', !!collapsedNodes[row.dataset.nodeId]);
@@ -46,22 +46,22 @@ window.bomToggleCollapse = function (nodeId) {
 
 window.bomToggleAllCollapse = function () {
     allCollapsed = !allCollapsed;
-    var tbody = me('#bom-sortable-tbody');
+    var tbody = document.querySelector('#bom-sortable-tbody');
     if (!tbody) return;
     var parentIds = [];
-    any('tr[data-node-id]', tbody).forEach(function (r) {
+    tbody.querySelectorAll('tr[data-node-id]').forEach(function (r) {
         var nid = Number(r.dataset.nodeId);
         if (tbody.querySelector('tr[data-parent-id="' + nid + '"]')) parentIds.push(nid);
     });
     parentIds.forEach(function (nid) { collapsedNodes[nid] = allCollapsed; });
     saveCollapsed();
     applyVisibility();
-    me('#bom-collapse-all-btn').textContent = allCollapsed ? '全部展开' : '全部折叠';
+    document.querySelector('#bom-collapse-all-btn').textContent = allCollapsed ? '全部展开' : '全部折叠';
 };
 
 // --- Drag & Drop (SortableJS) ---
 function initSortable() {
-    var tbody = me('#bom-sortable-tbody');
+    var tbody = document.querySelector('#bom-sortable-tbody');
     if (!tbody) return;
     var bomId = location.pathname.split('/')[4];
 
@@ -103,7 +103,7 @@ function init() {
     restoreCollapsed();
     initSortable();
     applyVisibility();
-    var filter = me('#bom-level-filter');
+    var filter = document.querySelector('#bom-level-filter');
     if (filter) filter.addEventListener('change', function () {
         layerFilter = parseInt(this.value) || 0;
         applyVisibility();

@@ -238,7 +238,7 @@ fn wage_list_page(
                     @let toggle_id = format!("w{}", idx);
 
                     // Worker summary row
-                    div class="worker-row" style="cursor:pointer" {
+                    div class="worker-row" style="cursor:pointer" _=(format!("on click if #{0}'s *display is 'none' then show #{0} else hide #{0}", toggle_id)) {
                         div class="worker-name-cell" {
                             div class="worker-avatar" style="background:var(--accent)" { (initial) }
                             div class="worker-info" {
@@ -252,7 +252,6 @@ fn wage_list_page(
                         span {
                             (maud::PreEscaped(r#"<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 9l-7 7-7-7"/></svg>"#))
                         }
-                        script { (maud::PreEscaped(format!("me().on('click',e=>{{var d=me('#{}');d.styles({{display:d.style.display==='none'?'':'none'}})}})", toggle_id))) }
                     }
 
                     // Expandable detail table

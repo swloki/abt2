@@ -686,8 +686,7 @@ fn shipping_edit_page(
             // ── Action Bar ──
             div class="create-action-bar" {
                 a class="btn btn-default" href=(ShippingListPath::PATH) { "取消" }
-                button type="button" class="btn btn-primary" {
-                    (maud::PreEscaped(r#"<script>me().on('click',function(){handleSave()})</script>"#))
+                button type="button" class="btn btn-primary" _="on click call handleSave()" {
                     (icon::save_icon("w-4 h-4"))
                     "保存"
                 }
@@ -695,12 +694,12 @@ fn shipping_edit_page(
 
             // ── Order Picker Modal ──
             div class="modal-overlay" id="order-modal"
-                onclick="hsRemove(null,'#order-modal','is-open')" {
+                _="on click[me is event.target] remove .is-open" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择来源订单" }
                         button class="modal-close-btn"
-                            onclick="hsRemove(null,'#order-modal','is-open')" {
+                            _="on click remove .is-open from #order-modal" {
                             "×"
                         }
                     }
@@ -712,6 +711,7 @@ fn shipping_edit_page(
                                 input class="product-search-input" type="text" name="keyword" placeholder="输入订单号…"
                                     hx-get=(ShippingOrderSearchPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
+                                    hx-sync="this:replace"
                                     hx-target="#shipping-order-results"
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar input" {}
@@ -963,8 +963,7 @@ fn shipping_create_page(
             // ── Action Bar ──
             div class="create-action-bar" {
                 a class="btn btn-default" href=(ShippingListPath::PATH) { "取消" }
-                button type="button" class="btn btn-primary" {
-                    (maud::PreEscaped(r#"<script>me().on('click',function(){handleSave()})</script>"#))
+                button type="button" class="btn btn-primary" _="on click call handleSave()" {
                     (icon::save_icon("w-4 h-4"))
                     "保存"
                 }
@@ -972,12 +971,12 @@ fn shipping_create_page(
 
             // ── Order Picker Modal ──
             div class="modal-overlay" id="order-modal"
-                onclick="hsRemove(null,'#order-modal','is-open')" {
+                _="on click[me is event.target] remove .is-open" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择来源订单" }
                         button class="modal-close-btn"
-                            onclick="hsRemove(null,'#order-modal','is-open')" {
+                            _="on click remove .is-open from #order-modal" {
                             "×"
                         }
                     }
@@ -989,6 +988,7 @@ fn shipping_create_page(
                                 input class="product-search-input" type="text" name="keyword" placeholder="输入订单号…"
                                     hx-get=(ShippingOrderSearchPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
+                                    hx-sync="this:replace"
                                     hx-target="#shipping-order-results"
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar input" {}

@@ -357,7 +357,7 @@ fn stock_list_page(
                 },
                 html! {
                     button type="button" class="btn btn-default"
-                        onclick="hsRemoveClosest(this,'.drawer-overlay','open')" { "关闭" }
+                        _="on click remove .open from closest .drawer-overlay" { "关闭" }
                 },
             ))
         }
@@ -461,7 +461,7 @@ fn stock_data_card(
                                         hx-get=(format!("{}?id={}", StockDetailPath::PATH, item.id))
                                         hx-target="#stock-drawer-content"
                                         hx-swap="innerHTML"
-                                        hx-on::after-request="hsAdd(null,'#stock-drawer','open')" {
+                                        _="on 'htmx:afterRequest' add .open to #stock-drawer" {
                                         "详情"
                                     }
                                 }

@@ -282,8 +282,20 @@ fn role_section(roles: &[Role], selected_ids: &[i64]) -> Markup {
                             span class="sys-badge" { "内置" }
                         }
                     }
-                script { (maud::PreEscaped("any('.pick-item', me()).on('change', ev => { var lbl=ev.target.closest('.pick-item'); lbl.classList.toggle('selected', me('input', lbl).checked); me('#roleIdsInput').value=any('input[name=\"role\"]:checked').map(c=>c.value).join(','); me('#deptIdsInput').value=any('input[name=\"dept\"]:checked').map(c=>c.value).join(',') })")) }
                 }
+                script { (maud::PreEscaped(r#"
+(function(){
+  var grid = document.currentScript.parentElement;
+  grid.querySelectorAll('.pick-item').forEach(function(lbl){
+    lbl.addEventListener('change', function(){
+      var inp = lbl.querySelector('input');
+      lbl.classList.toggle('selected', inp.checked);
+      document.querySelector('#roleIdsInput').value = Array.from(document.querySelectorAll('input[name="role"]:checked')).map(function(c){return c.value}).join(',');
+      document.querySelector('#deptIdsInput').value = Array.from(document.querySelectorAll('input[name="dept"]:checked')).map(function(c){return c.value}).join(',');
+    });
+  });
+})();
+"#)) }
             }
         }
     }
@@ -310,7 +322,19 @@ fn dept_section(departments: &[Department], selected_ids: &[i64]) -> Markup {
                         span { (dept.department_name) }
                     }
                 }
-                script { (maud::PreEscaped("any('.pick-item', me()).on('change', ev => { var lbl=ev.target.closest('.pick-item'); lbl.classList.toggle('selected', me('input', lbl).checked); me('#roleIdsInput').value=any('input[name=\"role\"]:checked').map(c=>c.value).join(','); me('#deptIdsInput').value=any('input[name=\"dept\"]:checked').map(c=>c.value).join(',') })")) }
+                script { (maud::PreEscaped(r#"
+(function(){
+  var grid = document.currentScript.parentElement;
+  grid.querySelectorAll('.pick-item').forEach(function(lbl){
+    lbl.addEventListener('change', function(){
+      var inp = lbl.querySelector('input');
+      lbl.classList.toggle('selected', inp.checked);
+      document.querySelector('#roleIdsInput').value = Array.from(document.querySelectorAll('input[name="role"]:checked')).map(function(c){return c.value}).join(',');
+      document.querySelector('#deptIdsInput').value = Array.from(document.querySelectorAll('input[name="dept"]:checked')).map(function(c){return c.value}).join(',');
+    });
+  });
+})();
+"#)) }
             }
         }
     }

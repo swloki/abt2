@@ -224,7 +224,7 @@ fn order_edit_page(
                 div class="flush-header" {
                     span class="form-section-title" { "产品明细" }
                     button type="button" class="btn btn-sm btn-primary"
-                        onclick="hsAdd(null,'#product-modal','is-open')" {
+                        _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品"
                     }
@@ -261,7 +261,7 @@ fn order_edit_page(
                                     td class="line-total" { "—" }
                                     td { input class="li-input-date" type="date" name="item_delivery_date" value=(item.delivery_date.map(|d| d.format("%Y-%m-%d").to_string()).unwrap_or_default()) {} }
                                     td { button type="button" class="btn-remove-row" title="删除行"
-                                        onclick="hsRemoveClosestEl(this,'tr')" {
+                                        _="on click remove closest <tr/>" {
                                         (icon::x_icon("w-3.5 h-3.5"))
                                     } }
                                     input type="hidden" name="product_id" value=(item.product_id) {}
@@ -272,7 +272,7 @@ fn order_edit_page(
                 }
                 div class="add-row-bar" {
                     button type="button" class="btn-add-row"
-                        onclick="hsAdd(null,'#product-modal','is-open')" {
+                        _="on click add .is-open to #product-modal" {
                         (icon::plus_icon("w-3.5 h-3.5"))
                         "添加产品行"
                     }
@@ -312,12 +312,12 @@ fn order_edit_page(
 
             // ── Product Selection Modal ──
             div class="modal-overlay" id="product-modal"
-                onclick="hsRemove(null,'#product-modal','is-open')" {
+                _="on click[me is event.target] remove .is-open" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "选择产品" }
                         button class="modal-close-plain"
-                            onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
+                            _="on click remove .is-open from #product-modal" { "×" }
                     }
                     div class="modal-body p-0" {
                         div class="product-search-bar" {
@@ -326,6 +326,7 @@ fn order_edit_page(
                                 input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
                                     hx-get=(OrderProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
+                                    hx-sync="this:replace"
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
@@ -335,6 +336,7 @@ fn order_edit_page(
                                 input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
                                     hx-get=(OrderProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
+                                    hx-sync="this:replace"
                                     hx-target="#product-search-results"
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
@@ -343,7 +345,7 @@ fn order_edit_page(
                                 hx-get=(OrderProductsPath::PATH)
                                 hx-target="#product-search-results"
                                 hx-swap="innerHTML"
-                                onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
+                                _="on click set <.product-search-input/>'s value to '' then trigger keyup on the first <.product-search-input/>" {
                                 "清除"
                             }
                         }

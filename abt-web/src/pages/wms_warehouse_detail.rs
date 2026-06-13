@@ -412,8 +412,7 @@ fn warehouse_detail_page(
                         "共 " (zones.len()) " 个库区"
                     }
                 }
-                button type="button" class="btn btn-primary" style="font-size:12px;padding:4px 12px" {
-                    (maud::PreEscaped("<script>me().on('click',function(){me('#zone-create-modal').classAdd('is-open')})</script>"))
+                button type="button" class="btn btn-primary" style="font-size:12px;padding:4px 12px" _="on click add .is-open to #zone-create-modal" {
                     (icon::plus_icon("w-3.5 h-3.5"))
                     "新建库区"
                 }
@@ -484,10 +483,10 @@ fn warehouse_detail_page(
         // ── Zone Edit Modal ──
         div id="zone-edit-modal" class="modal-overlay" { }
         (maud::PreEscaped(r#"<script>
-me('#zone-edit-modal')
-    .on('htmx:afterSettle',function(ev){if(ev.detail.xhr.responseText.length>0)me(this).classAdd('is-open')})
-    .on('click',function(ev){if(ev.target===me('#zone-edit-modal'))me('#zone-edit-modal').classRemove('is-open')});
-document.body.addEventListener('zoneChanged',function(){me('#zone-edit-modal').classRemove('is-open')});
+var zem = document.querySelector('#zone-edit-modal');
+zem.addEventListener('htmx:afterSettle', function(ev){ if(ev.detail.xhr.responseText.length > 0) zem.classList.add('is-open'); });
+zem.addEventListener('click', function(ev){ if(ev.target === zem) zem.classList.remove('is-open'); });
+document.body.addEventListener('zoneChanged', function(){ zem.classList.remove('is-open'); });
 </script>"#))
         }
     }
@@ -508,8 +507,7 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
         form class="modal" hx-put=(put_path) hx-swap="none" {
             div class="modal-head" {
                 h2 { "编辑库区" }
-                button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px" {
-                    (maud::PreEscaped("<script>me().on('click',function(){me('#zone-edit-modal').classRemove('is-open')})</script>"))
+                button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px" _="on click remove .is-open from #zone-edit-modal" {
                     "×"
                 }
             }
@@ -548,8 +546,7 @@ fn zone_edit_form_fragment(zone: &Zone) -> Markup {
                 }
             }
             div class="modal-foot" {
-                button type="button" class="btn btn-default" {
-                    (maud::PreEscaped("<script>me().on('click',function(){me('#zone-edit-modal').classRemove('is-open')})</script>"))
+                button type="button" class="btn btn-default" _="on click remove .is-open from #zone-edit-modal" {
                     "取消"
                 }
                 button type="submit" class="btn btn-primary" { "保存" }

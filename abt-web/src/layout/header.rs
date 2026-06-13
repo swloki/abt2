@@ -8,7 +8,7 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
     html! {
         header class="top-header" {
             div class="top-header-left" {
-                button class="mobile-menu-btn" onclick="hsAdd(null,'.mobile-sidebar-overlay','open')" aria-label="菜单" {
+                button class="mobile-menu-btn" _="on click add .open to .mobile-sidebar-overlay" aria-label="菜单" {
                     (icon::menu_icon(""))
                 }
                 div class="breadcrumb" {
@@ -29,8 +29,8 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
                 button class="header-icon-btn" title="帮助" {
                     (icon::question_icon(""))
                 }
-                div class="user-menu" {
-                    button class="user-menu-trigger" aria-label="用户菜单" {
+                div class="user-menu" _="on click from elsewhere remove .is-open" {
+                    button class="user-menu-trigger" aria-label="用户菜单" _="on click toggle .is-open on .user-menu" {
                         div class="avatar" { (initials) }
                     }
                     div class="user-menu-dropdown" {
@@ -61,17 +61,7 @@ pub fn header(claims: &Claims, module_name: &str, page_name: Option<&str>) -> Ma
                             }
                         }
                     }
-                    (maud::PreEscaped(r#"<script>
-                        me('.user-menu-trigger').on('click', function(e) {
-                            e.stopPropagation();
-                            me('.user-menu').classToggle('is-open');
-                        });
-                        document.addEventListener('click', function(e) {
-                            if (!e.target.closest('.user-menu')) {
-                                me('.user-menu').classRemove('is-open');
-                            }
-                        });
-                    </script>"#))
+
                 }
             }
         }

@@ -504,7 +504,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                                hx-get=(hx_url)
                                hx-target=".sidebar-body"
                                hx-swap="innerHTML"
-                               onclick="hsTake(this,'.rail-item','active')"
+                               _="on click take .active from .rail-item"
                                title=(m.name) {
                                 span class="rail-icon" { (render_module_icon(m.id)) }
                                 span class="rail-label" { (m.name.replace("管理", "")) }
@@ -514,7 +514,7 @@ pub fn sidebar(claims: &Claims, active_module: &str, current_path: &str, filter:
                 }
                 div class="rail-bottom" {
                     button class="rail-item rail-collapse"
-                            onclick="hsToggleSidebar()"
+                            _="on click toggle .sidebar-collapsed on .app-shell then if .app-shell matches .sidebar-collapsed call localStorage.setItem('sidebar-collapsed','true') else call localStorage.removeItem('sidebar-collapsed')"
                             title="收起侧栏" {
                         (icon::sidebar_toggle_icon(""))
                         span class="rail-label" { "收起" }

@@ -293,8 +293,7 @@ fn reconciliation_create_page(
                             (icon::save_icon("w-4 h-4"))
                             "保存草稿"
                         }
-                        button type="button" class="btn btn-primary" {
-                            (maud::PreEscaped(r#"<script>me().on('click',function(){htmx.trigger(document.getElementById('rec-create-form'),'submit')})</script>"#))
+                        button type="button" class="btn btn-primary" _="on click trigger submit on #rec-create-form" {
                             (icon::send_icon("w-4 h-4"))
                             "提交确认"
                         }

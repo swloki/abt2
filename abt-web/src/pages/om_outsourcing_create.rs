@@ -388,12 +388,12 @@ fn create_page(
         }
 
         // ── Material row modal ──
-        div id="material-modal" class="modal-overlay" onclick="hsBackdropClose(this,event,'is-open')" {
+        div id="material-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" {
             div class="modal" onclick="event.stopPropagation()" {
                 div class="modal-head" {
                     h3 { "选择物料" }
                     button type="button" class="btn-remove-row" title="关闭"
-                        onclick="hsRemove(null,'#material-modal','is-open')"
+                        _="on click remove .is-open from #material-modal"
                     {
                         (icon::x_icon("w-4 h-4"))
                     }
@@ -426,7 +426,7 @@ fn create_page(
                 }
                 div class="modal-foot" {
                     button type="button" class="btn btn-default"
-                        onclick="hsRemove(null,'#material-modal','is-open')"
+                        _="on click remove .is-open from #material-modal"
                     { "取消" }
                     button type="button" class="btn btn-primary"
                         onclick="omConfirmMaterial()"
@@ -439,21 +439,21 @@ fn create_page(
         script {
             (maud::PreEscaped(r#"
 function omAddMaterialRow() {
-    me('#modal-product-id').value = '';
-    me('#modal-planned-qty').value = '';
-    me('#modal-unit-cost').value = '';
-    hsToggle(null,'#material-modal','is-open');
+    document.querySelector('#modal-product-id').value = '';
+    document.querySelector('#modal-planned-qty').value = '';
+    document.querySelector('#modal-unit-cost').value = '';
+    document.querySelector('#material-modal').classList.toggle('is-open');
 }
 
 function omConfirmMaterial() {
-    var pid = me('#modal-product-id').value;
-    var sel = me('#modal-product-id');
+    var sel = document.querySelector('#modal-product-id');
+    var pid = sel.value;
     var pname = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].textContent.trim() : '';
-    var qty = parseFloat(me('#modal-planned-qty').value) || 0;
-    var cost = parseFloat(me('#modal-unit-cost').value) || 0;
+    var qty = parseFloat(document.querySelector('#modal-planned-qty').value) || 0;
+    var cost = parseFloat(document.querySelector('#modal-unit-cost').value) || 0;
     if (!pid || qty <= 0) return;
 
-    var tbody = me('#material-tbody');
+    var tbody = document.querySelector('#material-tbody');
     var tr = document.createElement('tr');
     tr.setAttribute('oninput','omUpdateMaterialJson()');
     tr.innerHTML = '<td>' + pname + '<input type="hidden" name="m_product_id" value="' + pid + '"></td>' +
@@ -463,11 +463,11 @@ function omConfirmMaterial() {
         '<td><button type="button" class="btn-remove-row" title="删除" onclick="this.closest(\'tr\').remove();omUpdateMaterialJson()">' + '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>';
     tbody.appendChild(tr);
     omUpdateMaterialJson();
-    hsRemove(null, '#material-modal', 'is-open');
+    document.querySelector('#material-modal').classList.remove('is-open');
 }
 
 function omUpdateMaterialJson() {
-    var rows = any('#material-tbody tr');
+    var rows = Array.from(document.querySelectorAll('#material-tbody tr'));
     var items = [];
     rows.forEach(function(tr) {
         var pid = tr.querySelector('[name=m_product_id]');
@@ -484,7 +484,7 @@ function omUpdateMaterialJson() {
             });
         }
     });
-    me('#materials-json').value = JSON.stringify(items);
+    document.querySelector('#materials-json').value = JSON.stringify(items);
 }
             "#))
         }

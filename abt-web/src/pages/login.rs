@@ -190,9 +190,8 @@ fn login_form_area(error: Option<&str>, username: &str) -> Markup {
                                class="field-input" style="padding-right: 44px"
                                placeholder="请输入密码" autocomplete="current-password";
                         (lock_icon("field-icon"))
-                        button type="button" class="pw-toggle" aria-label="显示密码" {
+                        button type="button" class="pw-toggle" aria-label="显示密码" _="on click toggle .pw-visible on closest <div/> then if (closest <div/>) matches .pw-visible set #password's type to 'text' else set #password's type to 'password'" {
                             (eye_icon("w-[18px] h-[18px]"))
-                            script { (maud::PreEscaped("me().on('click', ev => { var d=me(ev).closest('div'); me(d).classToggle('pw-visible'); me('#password').type=d.classList.contains('pw-visible')?'text':'password' })")) }
                         }
                     }
                 }

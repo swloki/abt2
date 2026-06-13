@@ -348,25 +348,21 @@ fn detail_page(
                         }
                     }
                     div class="detail-actions" {
-                        button class="btn btn-default" {
+                        button class="btn btn-default" _="on click add .is-open to #record-node-modal" {
                             (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>"#))
                             "记录节点"
-                            (maud::PreEscaped(r#"<script>me().on('click',function(){me('#record-node-modal').classAdd('is-open')})</script>"#))
                         }
-                        button class="btn btn-default" {
+                        button class="btn btn-default" _="on click add .is-open to #receive-modal" {
                             (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
                             "收货登记"
-                            (maud::PreEscaped(r#"<script>me().on('click',function(){me('#receive-modal').classAdd('is-open')})</script>"#))
                         }
-                        button class="btn btn-default" {
+                        button class="btn btn-default" _="on click add .is-open to #convert-modal" {
                             (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>"#))
                             "转自制"
-                            (maud::PreEscaped(r#"<script>me().on('click',function(){me('#convert-modal').classAdd('is-open')})</script>"#))
                         }
-                        button class="btn btn-default" style="color:var(--danger);border-color:rgba(220,38,38,0.3)" {
+                        button class="btn btn-default" _="on click add .is-open to #cancel-modal" style="color:var(--danger);border-color:rgba(220,38,38,0.3)" {
                             (maud::PreEscaped(r#"<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
                             "取消"
-                            (maud::PreEscaped(r#"<script>me().on('click',function(){me('#cancel-modal').classAdd('is-open')})</script>"#))
                         }
                     }
                 }
@@ -552,26 +548,24 @@ fn detail_page(
         }
 
         // ═══ Modals ═══
-        // All modals use Surreal.js inline for open/close, matching prototype structure.
-        // Backdrop click: <script> inside modal-overlay div detects e.target===me().
-        // Close buttons: <script> inside button removes is-open from parent overlay.
+        // All modals use hyperscript (`_=`) for open/close, matching prototype structure.
+        // Backdrop click: `_="on click[me is event.target] remove .is-open"` on modal-overlay div.
+        // Close buttons: `_="on click remove .is-open from #X-modal"` on the button.
 
         // ── Record Node Modal ──
-        div id="record-node-modal" class="modal-overlay" {
-            (maud::PreEscaped(r#"<script>me().on('click',function(e){if(e.target===me())me().classRemove('is-open')})</script>"#))
+        div id="record-node-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" {
             div class="modal" style="width:520px" {
                 div class="modal-head" {
                     h2 style="display:flex;align-items:center;gap:var(--space-2)" {
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>"#))
                         "记录追踪节点"
                     }
-                    button class="btn btn-text btn-sm" type="button" {
+                    button class="btn btn-text btn-sm" type="button" _="on click remove .is-open from #record-node-modal" {
                         "✕"
-                        (maud::PreEscaped(r#"<script>me().on('click',function(){me('#record-node-modal').classRemove('is-open')})</script>"#))
                     }
                 }
                 form hx-post=(OmRecordNodePath { id: order.id }.to_string()) hx-swap="none"
-                    hx-on::after-request="if(event.detail.xhr.status<400){me('#record-node-modal').classRemove('is-open');this.reset()}" {
+                    hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#record-node-modal').classList.remove('is-open');this.reset()}" {
                     div class="modal-body" {
                         div style="background:linear-gradient(135deg,rgba(22,163,74,0.04),rgba(22,163,74,0.08));padding:var(--space-4) var(--space-5);border-radius:var(--radius-md);margin-bottom:var(--space-6);font-size:13px;color:var(--fg-2);border:1px solid rgba(22,163,74,0.08)" {
                             "当前已完成节点："
@@ -616,9 +610,8 @@ fn detail_page(
                         }
                     }
                     div class="modal-foot" {
-                        button type="button" class="btn btn-default" {
+                        button type="button" class="btn btn-default" _="on click remove .is-open from #record-node-modal" {
                             "取消"
-                            (maud::PreEscaped(r#"<script>me().on('click',function(){me('#record-node-modal').classRemove('is-open')})</script>"#))
                         }
                         button type="submit" class="btn btn-primary" { "确认记录" }
                     }
@@ -627,21 +620,19 @@ fn detail_page(
         }
 
         // ── Receive Modal ──
-        div id="receive-modal" class="modal-overlay" {
-            (maud::PreEscaped(r#"<script>me().on('click',function(e){if(e.target===me())me().classRemove('is-open')})</script>"#))
+        div id="receive-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" {
             div class="modal" {
                 div class="modal-head" {
                     h2 style="display:flex;align-items:center;gap:var(--space-2)" {
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>"#))
                         "收货登记"
                     }
-                    button class="btn btn-text btn-sm" type="button" {
+                    button class="btn btn-text btn-sm" type="button" _="on click remove .is-open from #receive-modal" {
                         "✕"
-                        (maud::PreEscaped(r#"<script>me().on('click',function(){me('#receive-modal').classRemove('is-open')})</script>"#))
                     }
                 }
                 form hx-post=(OmOutsourcingReceivePath { id: order.id }.to_string()) hx-swap="none"
-                    hx-on::after-request="if(event.detail.xhr.status<400){me('#receive-modal').classRemove('is-open');this.reset()}" {
+                    hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#receive-modal').classList.remove('is-open');this.reset()}" {
                     div class="modal-body" {
                         div style="background:linear-gradient(135deg,var(--accent-bg),rgba(37,99,235,0.06));padding:var(--space-4) var(--space-5);border-radius:var(--radius-md);margin-bottom:var(--space-6);font-size:13px;color:var(--fg-2);border:1px solid rgba(37,99,235,0.08)" {
                             div style="display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap" {
@@ -681,9 +672,8 @@ fn detail_page(
                         }
                     }
                     div class="modal-foot" {
-                        button type="button" class="btn btn-default" {
+                        button type="button" class="btn btn-default" _="on click remove .is-open from #receive-modal" {
                             "取消"
-                            (maud::PreEscaped(r#"<script>me().on('click',function(){me('#receive-modal').classRemove('is-open')})</script>"#))
                         }
                         button type="submit" class="btn btn-primary" { "确认收货" }
                     }
@@ -692,21 +682,19 @@ fn detail_page(
         }
 
         // ── Convert Modal ──
-        div id="convert-modal" class="modal-overlay" {
-            (maud::PreEscaped(r#"<script>me().on('click',function(e){if(e.target===me())me().classRemove('is-open')})</script>"#))
+        div id="convert-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" {
             div class="modal" style="width:520px" {
                 div class="modal-head" {
                     h2 style="display:flex;align-items:center;gap:var(--space-2)" {
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>"#))
                         "转自制确认"
                     }
-                    button class="btn btn-text btn-sm" type="button" {
+                    button class="btn btn-text btn-sm" type="button" _="on click remove .is-open from #convert-modal" {
                         "✕"
-                        (maud::PreEscaped(r#"<script>me().on('click',function(){me('#convert-modal').classRemove('is-open')})</script>"#))
                     }
                 }
                 form hx-post=(OmOutsourcingConvertPath { id: order.id }.to_string()) hx-swap="none"
-                    hx-on::after-request="if(event.detail.xhr.status<400){me('#convert-modal').classRemove('is-open');this.reset()}" {
+                    hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#convert-modal').classList.remove('is-open');this.reset()}" {
                     div class="modal-body" style="text-align:center;padding:var(--space-8)" {
                         div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(217,119,6,0.08),rgba(217,119,6,0.15));display:grid;place-items:center;margin:0 auto var(--space-5)" {
                             (maud::PreEscaped(r#"<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4"/></svg>"#))
@@ -721,9 +709,8 @@ fn detail_page(
                         }
                     }
                     div class="modal-foot" {
-                        button type="button" class="btn btn-default" {
+                        button type="button" class="btn btn-default" _="on click remove .is-open from #convert-modal" {
                             "取消"
-                            (maud::PreEscaped(r#"<script>me().on('click',function(){me('#convert-modal').classRemove('is-open')})</script>"#))
                         }
                         button type="submit" class="btn btn-primary" style="background:linear-gradient(135deg,var(--warn),#f59e0b)" { "确认转自制" }
                     }
@@ -732,21 +719,19 @@ fn detail_page(
         }
 
         // ── Cancel Modal ──
-        div id="cancel-modal" class="modal-overlay" {
-            (maud::PreEscaped(r#"<script>me().on('click',function(e){if(e.target===me())me().classRemove('is-open')})</script>"#))
+        div id="cancel-modal" class="modal-overlay" _="on click[me is event.target] remove .is-open" {
             div class="modal" style="width:480px" {
                 div class="modal-head" {
                     h2 style="display:flex;align-items:center;gap:var(--space-2)" {
                         (maud::PreEscaped(r#"<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
                         "取消委外单"
                     }
-                    button class="btn btn-text btn-sm" type="button" {
+                    button class="btn btn-text btn-sm" type="button" _="on click remove .is-open from #cancel-modal" {
                         "✕"
-                        (maud::PreEscaped(r#"<script>me().on('click',function(){me('#cancel-modal').classRemove('is-open')})</script>"#))
                     }
                 }
                 form hx-post=(OmOutsourcingCancelPath { id: order.id }.to_string()) hx-swap="none"
-                    hx-on::after-request="if(event.detail.xhr.status<400){me('#cancel-modal').classRemove('is-open');this.reset()}" {
+                    hx-on::after-request="if(event.detail.xhr.status<400){document.querySelector('#cancel-modal').classList.remove('is-open');this.reset()}" {
                     div class="modal-body" style="text-align:center;padding:var(--space-8)" {
                         div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,rgba(220,38,38,0.08),rgba(220,38,38,0.15));display:grid;place-items:center;margin:0 auto var(--space-5)" {
                             (maud::PreEscaped(r#"<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg>"#))
@@ -761,9 +746,8 @@ fn detail_page(
                         }
                     }
                     div class="modal-foot" {
-                        button type="button" class="btn btn-default" {
+                        button type="button" class="btn btn-default" _="on click remove .is-open from #cancel-modal" {
                             "返回"
-                            (maud::PreEscaped(r#"<script>me().on('click',function(){me('#cancel-modal').classRemove('is-open')})</script>"#))
                         }
                         button type="submit" class="btn btn-danger" { "确认取消" }
                     }

@@ -403,10 +403,9 @@ fn user_detail_page(
                         (icon::edit_icon("w-3.5 h-3.5"))
                         " 编辑"
                     }
-                    button.btn.btn-default.btn-sm type="button" {
+                    button.btn.btn-default.btn-sm type="button" _="on click add .is-open to #reset-pw-modal" {
                         (icon::lock_icon("w-3.5 h-3.5"))
                         " 重置密码"
-                        script { (maud::PreEscaped("me().on('click',function(){me('#reset-pw-modal').classAdd('is-open')})")) }
                     }
                 }
             }
@@ -623,13 +622,13 @@ fn role_assign_modal(
 ) -> Markup {
     html! {
         div id="role-assign-modal" class="modal-overlay"
-            onclick="hsBackdropClose(this,event,'is-open')" {
+            _="on click[me is event.target] remove .is-open" {
             form id="role-assign-form" class="modal" hx-post=(action) hx-swap="none"
-                onsubmit="hsRemoveClosest(this,'.modal-overlay','is-open');this.reset()" {
+                onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="modal-head" {
                     h2 { "管理角色" }
                     button type="button" class="modal-close-btn"
-                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open');me('#role-assign-form').reset()" { "×" }
+                        _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "×" }
                 }
                 div class="modal-body" {
                     input type="hidden" name="role_ids" id="role-ids-input" {}
@@ -651,10 +650,10 @@ fn role_assign_modal(
                 }
                 div class="modal-foot" {
                     button type="button" class="btn btn-default"
-                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open');me('#role-assign-form').reset()" { "取消" }
-                    button type="submit" class="btn btn-primary" {
+                        _="on click remove .is-open from closest .modal-overlay then reset #role-assign-form" { "取消" }
+                    button type="submit" class="btn btn-primary"
+                        onclick="document.querySelector('#role-ids-input').value=Array.from(document.querySelectorAll('.role-checkbox:checked')).map(function(c){return c.value}).join(',')" {
                         "保存"
-                        script { (maud::PreEscaped("me().on('click', () => { me('#role-ids-input').value=Array.from(any('.role-checkbox:checked')).map(c=>c.value).join(',') })")) }
                     }
                 }
             }
@@ -669,13 +668,13 @@ fn dept_assign_modal(
 ) -> Markup {
     html! {
         div id="dept-assign-modal" class="modal-overlay"
-            onclick="hsBackdropClose(this,event,'is-open')" {
+            _="on click[me is event.target] remove .is-open" {
             form id="dept-assign-form" class="modal" hx-post=(action) hx-swap="none"
-                onsubmit="hsRemoveClosest(this,'.modal-overlay','is-open');this.reset()" {
+                onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="modal-head" {
                     h2 { "管理部门" }
                     button type="button" class="modal-close-btn"
-                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open');me('#dept-assign-form').reset()" { "×" }
+                        _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "×" }
                 }
                 div class="modal-body" {
                     input type="hidden" name="dept_ids" id="dept-ids-input" {}
@@ -695,10 +694,10 @@ fn dept_assign_modal(
                 }
                 div class="modal-foot" {
                     button type="button" class="btn btn-default"
-                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open');me('#dept-assign-form').reset()" { "取消" }
-                    button type="submit" class="btn btn-primary" {
+                        _="on click remove .is-open from closest .modal-overlay then reset #dept-assign-form" { "取消" }
+                    button type="submit" class="btn btn-primary"
+                        onclick="document.querySelector('#dept-ids-input').value=Array.from(document.querySelectorAll('.dept-checkbox:checked')).map(function(c){return c.value}).join(',')" {
                         "保存"
-                        script { (maud::PreEscaped("me().on('click', () => { me('#dept-ids-input').value=Array.from(any('.dept-checkbox:checked')).map(c=>c.value).join(',') })")) }
                     }
                 }
             }
@@ -709,13 +708,13 @@ fn dept_assign_modal(
 fn reset_password_modal(action: &str) -> Markup {
     html! {
         div id="reset-pw-modal" class="modal-overlay"
-            onclick="hsBackdropClose(this,event,'is-open')" {
+            _="on click[me is event.target] remove .is-open" {
             form id="reset-pw-form" class="modal" hx-post=(action) hx-swap="none"
-                onsubmit="hsRemoveClosest(this,'.modal-overlay','is-open');this.reset()" {
+                onsubmit="this.closest('.modal-overlay').classList.remove('is-open');this.reset()" {
                 div class="modal-head" {
                     h2 { "重置密码" }
                     button type="button" class="modal-close-btn"
-                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open');me('#reset-pw-form').reset()" { "×" }
+                        _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "×" }
                 }
                 div class="modal-body" {
                     p style="margin-bottom:16px;color:#6b7280;font-size:14px" { "为该用户设置新密码，重置后立即生效。" }
@@ -732,7 +731,7 @@ fn reset_password_modal(action: &str) -> Markup {
                 }
                 div class="modal-foot" {
                     button type="button" class="btn btn-default"
-                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open');me('#reset-pw-form').reset()" { "取消" }
+                        _="on click remove .is-open from closest .modal-overlay then reset #reset-pw-form" { "取消" }
                     button type="submit" class="btn btn-primary" {
                         (icon::check_circle_icon("w-4 h-4"))
                         "确认重置"

@@ -527,15 +527,13 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
 
     html! {
         div class="material-row" {
-            // Material info (first child so Surreal.js me() binds to parent div)
+            // Material info (click toggles .open on expand panel; HTMX loads rows once)
             div class="material-info"
                 hx-get=(format!("/admin/mes/demand-pool/demand-rows?product_id={pid}"))
                 hx-target=(format!("#expand-tbody-{pid}"))
                 hx-swap="innerHTML"
-                hx-trigger="click once" {
-                (PreEscaped(format!(r#"<script>me().on('click',function(){{
-                    me('#expand-mat-{pid}').classToggle('open');
-                }})</script>"#)))
+                hx-trigger="click once"
+                _=(format!("on click toggle .open on #expand-mat-{pid}")) {
                 div class="material-icon" style=(format!("background:{};color:{}", icon_bg, icon_color)) {
                     (mat_icon)
                 }
@@ -581,8 +579,7 @@ fn material_row(item: &MaterialAggSummary) -> Markup {
                 table class="data-table" {
                     thead { tr {
                         th style="width:40px" {
-                            input type="checkbox" title="全选" checked;
-                            (PreEscaped(r#"<script>me().on('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
+                            input type="checkbox" title="全选" checked onchange="var cb=this;cb.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=cb.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})";
                         }
                         th { "需求ID" }
                         th { "来源订单" }
@@ -658,8 +655,7 @@ fn detail_table_fragment(
                 table class="data-table" {
                     thead { tr {
                         th style="width:40px" {
-                            input type="checkbox" title="全选";
-                            (PreEscaped(r#"<script>me().on('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
+                            input type="checkbox" title="全选" onchange="var cb=this;cb.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=cb.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})";
                         }
                         th { "需求ID" }
                         th { "产品编码" }
@@ -765,15 +761,7 @@ fn batch_action_bar() -> Markup {
                 onclick=(format!("window.location.href='{}'", MesDemandPoolCreatePath::PATH)) {
                 "创建生产计划"
             }
-            button class="btn btn-sm btn-ghost" type="button" {
-                "清除选择"
-                (PreEscaped(r#"<script>me().on('click',function(){
-                    any('input[type=checkbox].demand-cb').forEach(function(c){
-                        if(!c.disabled){c.checked=false;}
-                    });
-                    me('#batchBar').classRemove('show');
-                })</script>"#))
-            }
+            button class="btn btn-sm btn-ghost" type="button" onclick="document.querySelectorAll('input[type=checkbox].demand-cb').forEach(function(c){if(!c.disabled){c.checked=false}});document.getElementById('batchBar').classList.remove('show')" { "清除选择" }
         }
 
         (PreEscaped(r#"<script>

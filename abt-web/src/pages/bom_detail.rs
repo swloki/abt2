@@ -235,7 +235,7 @@ fn bom_detail_page(
                             hx-get=(cost_drawer_path.to_string())
                             hx-target="#cost-drawer-body"
                             hx-swap="innerHTML"
-                            hx-on::after-request="hsAdd(null,'#cost-drawer','open')" {
+                            _="on 'htmx:afterRequest' add .open to #cost-drawer" {
                             (icon::currency_icon("w-4 h-4"))
                             " 查看成本"
                         }
@@ -244,7 +244,7 @@ fn bom_detail_page(
                             hx-get=(labor_drawer_path.to_string())
                             hx-target="#labor-drawer-body"
                             hx-swap="innerHTML"
-                            hx-on::after-request="hsAdd(null,'#labor-drawer','open')" {
+                            _="on 'htmx:afterRequest' add .open to #labor-drawer" {
                             (icon::bolt_icon("w-4 h-4"))
                             " 查看人工成本"
                         }
@@ -325,12 +325,12 @@ fn bom_detail_page(
             @if can_view_cost {
                 // ── Cost Drawer (wider: 1000px) ──
                 div id="cost-drawer" class="drawer-overlay"
-                    onclick="hsRemove(null,'#cost-drawer','open')" {
+                    _="on click remove .open from #cost-drawer" {
                         div class="drawer-panel" style="max-width:1000px;width:100%" onclick="event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::currency_icon("w-5 h-5")) " BOM成本报告" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                                onclick="hsRemove(null,'#cost-drawer','open')" { "×" }
+                                _="on click remove .open from #cost-drawer" { "×" }
                         }
                         div class="drawer-body" {
                             div id="cost-drawer-body" {
@@ -339,19 +339,19 @@ fn bom_detail_page(
                         }
                         div class="drawer-foot" {
                             button type="button" class="btn btn-default"
-                                onclick="hsRemove(null,'#cost-drawer','open')" { "关闭" }
+                                _="on click remove .open from #cost-drawer" { "关闭" }
                         }
                     }
                 }
             } @else if can_view_labor_cost {
                 // ── Labor Cost Drawer (wider: 800px) ──
                 div id="labor-drawer" class="drawer-overlay"
-                    onclick="hsRemove(null,'#labor-drawer','open')" {
+                    _="on click remove .open from #labor-drawer" {
                     div class="drawer-panel" style="max-width:800px;width:100%" onclick="event.stopPropagation()" {
                         div class="drawer-head" {
                             h2 { (icon::bolt_icon("w-5 h-5")) " BOM 人工成本" }
                             button style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--muted);padding:4px;line-height:1"
-                                onclick="hsRemove(null,'#labor-drawer','open')" { "×" }
+                                _="on click remove .open from #labor-drawer" { "×" }
                         }
                         div class="drawer-body" {
                             div id="labor-drawer-body" {
@@ -360,7 +360,7 @@ fn bom_detail_page(
                         }
                         div class="drawer-foot" {
                             button type="button" class="btn btn-default"
-                                onclick="hsRemove(null,'#labor-drawer','open')" { "关闭" }
+                                _="on click remove .open from #labor-drawer" { "关闭" }
                         }
                     }
                 }
@@ -488,7 +488,7 @@ fn cost_drawer_content(report: &BomCostReport, temp_prices: &HashMap<i64, String
             @if !report.warnings.is_empty() {
                 div class="cost-warning-banner" {
                     button type="button" class="cost-warning-toggle"
-                        onclick="me(this.nextElementSibling).classToggle('show')" {
+                        _="on click toggle .show on next <div/>" {
                         div class="warning-left" {
                             (icon::circle_alert_icon("w-4 h-4"))
                             span { "部分材料缺失单价（共 " (report.warnings.len()) " 项）" }

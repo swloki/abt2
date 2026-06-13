@@ -150,7 +150,7 @@ fn warehouse_list_page(
                 h1 class="page-title" { "仓库管理" }
                 div class="page-actions" {
                     button type="button" class="btn btn-default"
-                        onclick=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "warehouse-location", title: "", template_columns: "" })) {
+                        _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "warehouse-location", title: "", template_columns: "" })) {
                         (icon::upload_icon("w-4 h-4"))
                         "导入"
                     }

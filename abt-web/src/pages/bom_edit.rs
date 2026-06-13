@@ -433,7 +433,7 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
             div class="modal-head" {
                 h2 { "编辑节点" }
                 button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                    onclick="hsRemove(null,'#bom-edit-modal','is-open');me('#bom-edit-modal').innerHTML=''" { "×" }
+                    _="on click remove .is-open from #bom-edit-modal then empty #bom-edit-modal" { "×" }
             }
             div class="modal-body" {
                 form hx-post=(action) hx-swap="none" {
@@ -466,7 +466,7 @@ fn node_edit_form_fragment(bom_id: i64, node_id: i64, bom_version: i32, node: &B
                     }
                     div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
                         button type="button" class="btn btn-default"
-                            onclick="hsRemove(null,'#bom-edit-modal','is-open');me('#bom-edit-modal').innerHTML=''" { "取消" }
+                            _="on click remove .is-open from #bom-edit-modal then empty #bom-edit-modal" { "取消" }
                         button type="submit" class="btn btn-primary" { "保存" }
                     }
                 }
@@ -553,13 +553,13 @@ fn bom_edit_page(
                 div class="bom-toolbar-right" {
                     @if !is_draft && is_owner {
                         button class="btn btn-sm btn-warning-ghost" id="bom-publish-btn"
-                            onclick="hsAdd(null,'#bom-publish-dialog','open')" {
+                            _="on click add .open to #bom-publish-dialog" {
                             (icon::return_arrow_icon("w-4 h-4"))
                             " 取消发布"
                         }
                     } @else if is_draft {
                         button class="btn btn-sm btn-success" id="bom-publish-btn"
-                            onclick="hsAdd(null,'#bom-publish-dialog','open')"
+                            _="on click add .open to #bom-publish-dialog"
                             disabled[node_count == 0]
                             title="请先添加物料" {
                             (icon::rocket_icon("w-4 h-4"))
@@ -569,14 +569,14 @@ fn bom_edit_page(
 
                     @if node_count == 0 {
                         button type="button" class="btn btn-sm btn-primary" id="bom-add-root-btn"
-                            onclick="me('[name=parent_id]').value=0;hsAdd(null,'#bom-add-modal','is-open');bomLoadProducts()" {
+                            _="on click put '0' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()" {
                             (icon::plus_icon("w-4 h-4"))
                             " 添加根节点"
                         }
                     } @else {
                         button type="button" class="btn btn-sm btn-success" id="bom-save-as-btn"
                             data-name=(bom.bom_name)
-                            onclick="me('#bom-save-as-modal [name=new_name]').value=this.dataset.name+'_副本';hsAdd(null,'#bom-save-as-modal','is-open')" {
+                            _="on click put (my @data-name + '_副本') into <input[name='new_name']/>'s value then add .is-open to #bom-save-as-modal" {
                             (icon::copy_icon("w-4 h-4"))
                             " 另存为"
                         }
@@ -637,12 +637,12 @@ fn bom_edit_page(
 
             // ── Add Node Modal ──
             div id="bom-add-modal" class="modal-overlay"
-                onclick="hsRemove(null,'#bom-add-modal','is-open')" {
+                _="on click[me is event.target] remove .is-open" {
                 div class="modal modal-lg" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "添加物料" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            onclick="hsRemove(null,'#bom-add-modal','is-open')" { "×" }
+                            _="on click remove .is-open from #bom-add-modal" { "×" }
                     }
                     div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
                         input type="hidden" name="parent_id" value="0" {}
@@ -653,6 +653,7 @@ fn bom_edit_page(
                                 input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
                                     hx-get=(BomProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
+                                    hx-sync="this:replace"
                                     hx-target="#bom-edit-product-results"
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
@@ -662,6 +663,7 @@ fn bom_edit_page(
                                 input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
                                     hx-get=(BomProductsPath::PATH)
                                     hx-trigger="keyup changed delay:300ms"
+                                    hx-sync="this:replace"
                                     hx-target="#bom-edit-product-results"
                                     hx-swap="innerHTML"
                                     hx-include=".product-search-bar" {}
@@ -670,7 +672,7 @@ fn bom_edit_page(
                                 hx-get=(BomProductsPath::PATH)
                                 hx-target="#bom-edit-product-results"
                                 hx-swap="innerHTML"
-                                onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
+                                _="on click set <.product-search-input/>'s value to '' then trigger keyup on the first <.product-search-input/>" {
                                 "清除"
                             }
                         }
@@ -684,12 +686,7 @@ fn bom_edit_page(
             }
 
             // ── Edit Node Modal (content loaded via HTMX) ──
-            div id="bom-edit-modal" class="modal-overlay" { }
-            (maud::PreEscaped(r#"<script>
-                me('#bom-edit-modal')
-                    .on('htmx:afterSettle',function(ev){if(ev.detail.xhr.responseText.length>0)me(this).classAdd('is-open')})
-                    .on('click',function(ev){if(ev.target===me('#bom-edit-modal'))me('#bom-edit-modal').classRemove('is-open')});
-            </script>"#))
+            div id="bom-edit-modal" class="modal-overlay" _="on htmx:afterSettle if detail.xhr.responseText !== '' add .is-open on click[me is event.target] remove .is-open" { }
 
             // ── Delete Confirm ──
             (crate::components::confirm_dialog::confirm_dialog(
@@ -736,12 +733,12 @@ fn bom_edit_page(
 
             // ── Save As Modal ──
             div id="bom-save-as-modal" class="modal-overlay"
-                onclick="hsRemove(null,'#bom-save-as-modal','is-open')" {
+                _="on click[me is event.target] remove .is-open" {
                 div class="modal" onclick="event.stopPropagation()" {
                     div class="modal-head" {
                         h2 { "另存为" }
                         button style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                            onclick="hsRemove(null,'#bom-save-as-modal','is-open')" { "×" }
+                            _="on click remove .is-open from #bom-save-as-modal" { "×" }
                     }
                     div class="modal-body" {
                         form hx-post=(BomSaveAsPath { id: bom.bom_id }.to_string())
@@ -752,7 +749,7 @@ fn bom_edit_page(
                                     placeholder="输入新的 BOM 名称" {}
                             }
                             div class="modal-foot" style="padding:var(--space-4) 0 0;border-top:1px solid var(--border-soft)" {
-                                button type="button" class="btn btn-default" onclick="hsRemove(null,'#bom-save-as-modal','is-open')" { "取消" }
+                                button type="button" class="btn btn-default" _="on click remove .is-open from #bom-save-as-modal" { "取消" }
                                 button type="submit" class="btn btn-success" { "确认另存为" }
                             }
                         }
@@ -823,7 +820,7 @@ fn bom_node_row(
             td {
                 div style="display:flex;gap:var(--space-1)" {
                     button type="button" class="row-action-btn" title="添加子节点"
-                        onclick=(format!("me('[name=parent_id]').value={};hsAdd(null,'#bom-add-modal','is-open');bomLoadProducts()", node.id)) {
+                        _=(format!("on click put '{}' into <input[name='parent_id']/>'s value then add .is-open to #bom-add-modal then call bomLoadProducts()", node.id)) {
                         (icon::plus_icon("w-3.5 h-3.5"))
                     }
                     button type="button" class="row-action-btn" title="编辑"
@@ -832,7 +829,7 @@ fn bom_node_row(
                         (icon::edit_icon("w-3.5 h-3.5"))
                     }
                     button type="button" class="row-action-btn text-danger" title="删除"
-                        onclick=(format!("me('#bom-node-delete-form').attribute('hx-delete','/admin/md/boms/{}/nodes/{}');htmx.process(me('#bom-node-delete-form'));hsAdd(null,'#bom-delete-dialog','open')", bom_id, node.id)) {
+                        _=(format!("on click set #bom-node-delete-form's @hx-delete to '/admin/md/boms/{}/nodes/{}' then call htmx.process(document.querySelector('#bom-node-delete-form')) then add .open to #bom-delete-dialog", bom_id, node.id)) {
                         (icon::trash_icon("w-3.5 h-3.5"))
                     }
                 }

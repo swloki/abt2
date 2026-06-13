@@ -209,6 +209,7 @@ fn process_dict_table_fragment(
                         value=(params.keyword.as_deref().unwrap_or(""))
                         hx-get=(ProcessDictListPath::PATH)
                         hx-trigger="keyup changed delay:300ms, processDictDeleted from:body"
+                        hx-sync="this:replace"
                         hx-target="#process-dict-table"
                         hx-select="#process-dict-table"
                         hx-swap="outerHTML";

@@ -281,8 +281,7 @@ fn department_list_page(
         // ── Drawer container (Surreal.js open/close) ──
         div class="drawer-overlay" id="deptDrawer"
             tabindex="-1"
-            onclick="hsBackdropClose(this,event,'open')"
-            onkeydown="if(event.key==='Escape')me(this).classRemove('open')" {
+            _="on click[me is event.target] remove .open on keydown[event.key is 'Escape'] remove .open" {
             div class="drawer-panel" id="drawerPanel" {
                 // Content loaded via HTMX
             }
@@ -305,7 +304,7 @@ fn tree_panel(departments: &[Department], selected_id: Option<i64>, can_create: 
                         hx-get=(DepartmentCreateDrawerPath::PATH)
                         hx-target="#drawerPanel"
                         hx-swap="innerHTML"
-                        hx-on::after-request="hsAdd(null,'#deptDrawer','open')" {
+                        _="on 'htmx:afterRequest' add .open to #deptDrawer" {
                         (icon::plus_icon("w-[13px] h-[13px]"))
                     }
                 }
@@ -316,18 +315,16 @@ fn tree_panel(departments: &[Department], selected_id: Option<i64>, can_create: 
                 (icon::search_icon("w-[13px] h-[13px]"))
                 input type="text" class="tree-search" placeholder="搜索部门…" {}
                 script {
-                    (maud::PreEscaped(
-                        "me('-').on('input', () => {
-                            var kw=me('-').value.toLowerCase(),
-                                items=any('.tree-item'),n=0;
-                            items.forEach(function(it){
-                                var show=!kw||(it.dataset.name||'').toLowerCase().indexOf(kw)!==-1||(it.dataset.code||'').toLowerCase().indexOf(kw)!==-1;
-                                it.style.display=show?'':'none';if(show)n++
-                            });
-                            var foot=me('#treeFoot');
-                            if(foot)foot.textContent='共 '+(kw?n:items.length)+' 个部门'+(kw?'（筛选中）':'')
-                        })"
-                    ))
+                    (maud::PreEscaped(r#"
+document.querySelector('.tree-search').addEventListener('input', function() {
+    var kw=this.value.toLowerCase(), items=document.querySelectorAll('.tree-item'), n=0;
+    items.forEach(function(it){
+        var show=!kw||(it.dataset.name||'').toLowerCase().indexOf(kw)!==-1||(it.dataset.code||'').toLowerCase().indexOf(kw)!==-1;
+        it.style.display=show?'':'none'; if(show)n++;
+    });
+    var foot=document.querySelector('#treeFoot');
+    if(foot) foot.textContent='共 '+(kw?n:items.length)+' 个部门'+(kw?'（筛选中）':'');
+});"#))
                 }
             }
 
@@ -366,7 +363,8 @@ fn tree_item(dept: &Department, is_active: bool) -> Markup {
             data-code=(dept.department_code)
             hx-get=(detail_path)
             hx-target="#deptDetail"
-            hx-swap="innerHTML" {
+            hx-swap="innerHTML"
+            _="on click take .active from .tree-item" {
             span class={"tree-code " (code_color)} {
                 (dept.department_code.chars().take(2).collect::<String>())
             }
@@ -379,7 +377,7 @@ fn tree_item(dept: &Department, is_active: bool) -> Markup {
             @if !dept.is_active {
                 span class="tree-tag tag-off" { "停用" }
             }
-            script { (maud::PreEscaped("me().on('click', ev => { any('.tree-item.active').classRemove('active'); me(ev).classAdd('active') })")) }
+
         }
     }
 }
@@ -437,7 +435,7 @@ fn detail_content_fragment(dept: &Department, members: &[UserWithRoles], can_cre
                         hx-get=(edit_path)
                         hx-target="#drawerPanel"
                         hx-swap="innerHTML"
-                        hx-on::after-request="hsAdd(null,'#deptDrawer','open')" {
+                        _="on 'htmx:afterRequest' add .open to #deptDrawer" {
                         (icon::edit_icon("w-[13px] h-[13px]"))
                         "编辑"
                     }
@@ -593,7 +591,7 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
     };
 
     html! {
-        form id="deptForm" hx-post=(action_path) hx-swap="none" hx-on::after-request="hsRemove(null,'#deptDrawer','open')" {
+        form id="deptForm" hx-post=(action_path) hx-swap="none" _="on 'htmx:afterRequest' remove .open from #deptDrawer" {
             div class="drawer-head" {
                 div class="drawer-head-left" {
                     div class="drawer-head-icon" {
@@ -604,7 +602,7 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                         p { (subtitle) }
                     }
                 }
-                button class="drawer-close" type="button" onclick="hsRemove(null,'#deptDrawer','open')" {
+                button class="drawer-close" type="button" _="on click remove .open from #deptDrawer" {
                     (icon::x_icon("w-[18px] h-[18px]"))
                 }
             }
@@ -676,7 +674,7 @@ fn dept_drawer_fragment(is_edit: bool, dept: Option<&Department>) -> Markup {
                 }
             }
             div class="drawer-foot" {
-                button class="btn btn-default" type="button" onclick="hsRemove(null,'#deptDrawer','open')" { "取消" }
+                button class="btn btn-default" type="button" _="on click remove .open from #deptDrawer" { "取消" }
                 button class="btn btn-primary" type="submit" {
                     (icon::check_circle_icon("w-[14px] h-[14px]"))
                     "保存"

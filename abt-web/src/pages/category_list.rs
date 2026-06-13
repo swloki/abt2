@@ -643,7 +643,7 @@ fn category_page(tree: &[CategoryTree], initial_panel: Option<&Markup>, first_id
                     @if can_create {
                         div class="tree-footer" {
                             button class="btn btn-primary" style="width: 100%; justify-content: center;"
-                                onclick="hsAdd(null,'#create-modal','is-open')" {
+                                _="on click add .is-open to #create-modal" {
                                 (icon::plus_icon("w-4 h-4"))
                                 "新建分类"
                             }
@@ -680,7 +680,7 @@ fn category_split_view_script() -> Markup {
         r#"
         function filterTree(q) {
             q = (q || '').trim().toLowerCase();
-            var container = me('#category-tree');
+            var container = document.querySelector('#category-tree');
             if (!container) return;
             var allNodes = container.querySelectorAll('.tree-node');
             if (!q) {
@@ -758,16 +758,15 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
                     style=(pad)
                     hx-get=(detail_url)
                     hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
-                    hx-push-url="true" {
-                    span.tree-arrow {
+                    hx-push-url="true"
+                    _="on click take .active from .tree-node-row" {
+                    span.tree-arrow _="on click halt the event then toggle .expanded on closest .tree-node" {
                         (icon::chevron_down_icon(""))
-                        script { (PreEscaped("me().on('click', ev => { halt(ev); me(me(ev).closest('.tree-node')).classToggle('expanded') })")) }
                     }
                     span class="tree-node-name" { (name) }
                     @if count > 0 {
                         span class="tree-node-count" { (count) }
                     }
-                    script { (PreEscaped("me().on('click', ev => { any('.active', me(ev).closest('.tree-scroll')).classRemove('active'); me(ev).classAdd('active') })")) }
                 }
                 div class="tree-children" {
                     @for child in &node.children {
@@ -781,7 +780,8 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
                     style=(pad)
                     hx-get=(detail_url)
                     hx-select="#detail-panel" hx-target="#detail-panel" hx-swap="innerHTML"
-                    hx-push-url="true" {
+                    hx-push-url="true"
+                    _="on click take .active from .tree-node-row" {
                     span class="tree-arrow leaf" {
                         (icon::chevron_down_icon(""))
                     }
@@ -789,7 +789,6 @@ fn tree_node(node: &CategoryTree, depth: usize, selected_id: Option<i64>, expand
                     @if count > 0 {
                         span class="tree-node-count" { (count) }
                     }
-                    script { (PreEscaped("me().on('click', ev => { any('.active', me(ev).closest('.tree-scroll')).classRemove('active'); me(ev).classAdd('active') })")) }
                 }
             }
         }
@@ -828,7 +827,7 @@ fn detail_panel(
                     div class="cat-info-actions" {
                         @if can_update {
                             button class="btn btn-default btn-sm"
-                                onclick="hsAdd(null,'#edit-category-modal','is-open')" {
+                                _="on click add .is-open to #edit-category-modal" {
                                 (icon::edit_icon("w-4 h-4"))
                                 "编辑"
                             }

@@ -822,8 +822,9 @@ p { margin: 0; }
 .bom-ref-qty-label { font-size: 11px; color: var(--muted); }
 .bom-ref-detail {
   border-top: 1px solid var(--border-soft); padding: 14px 16px;
-  background: var(--surface);
+  background: var(--surface); display: none;
 }
+.bom-ref-card.is-expanded .bom-ref-detail { display: block; }
 .bom-ref-detail-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 10px 24px;
 }

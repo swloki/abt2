@@ -247,7 +247,7 @@ fn requisition_create_page(
                     }
                     div class="add-row-bar" {
                         button type="button" class="btn-add-row"
-                            onclick="me('#product-modal').classAdd('is-open')" {
+                            _="on click add .is-open to #product-modal" {
                             (icon::plus_icon("w-4 h-4"))
                             "添加物料"
                         }
@@ -269,12 +269,12 @@ fn requisition_create_page(
 
         // Product Search Modal
         div id="product-modal" class="modal-overlay"
-            onclick="hsBackdropClose(this,event,'is-open')" {
+            _="on click[me is event.target] remove .is-open" {
             div class="modal modal-lg" onclick="event.stopPropagation()" {
                 div class="modal-head" {
                     h2 { "选择物料" }
                     button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
-                        onclick="hsRemove(null,'#product-modal','is-open')" { "×" }
+                        _="on click remove .is-open from #product-modal" { "×" }
                 }
                 div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
                     div class="product-search-bar" {
@@ -283,6 +283,7 @@ fn requisition_create_page(
                             input class="product-search-input" type="text" name="name" placeholder="输入产品名称…"
                                 hx-get=(RequisitionProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
+                                hx-sync="this:replace"
                                 hx-target="#req-product-results"
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
@@ -292,6 +293,7 @@ fn requisition_create_page(
                             input class="product-search-input" type="text" name="code" placeholder="输入产品编码…"
                                 hx-get=(RequisitionProductsPath::PATH)
                                 hx-trigger="keyup changed delay:300ms"
+                                hx-sync="this:replace"
                                 hx-target="#req-product-results"
                                 hx-swap="innerHTML"
                                 hx-include=".product-search-bar" {}
@@ -300,7 +302,7 @@ fn requisition_create_page(
                             hx-get=(RequisitionProductsPath::PATH)
                             hx-target="#req-product-results"
                             hx-swap="innerHTML"
-                            onclick="hsSetAndTrigger('.product-search-input','','keyup')" {
+                            _="on click set (.product-search-input)'s value to '' then trigger keyup on .product-search-input" {
                             "清除"
                         }
                     }
@@ -378,7 +380,7 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             hx-get=(format!("{}?product_id={}", RequisitionItemRowPath::PATH, p.product_id))
                             hx-target="#req-item-tbody"
                             hx-swap="beforeend"
-                            hx-on::after-request="hsRemove(null,'#product-modal','is-open');setTimeout(reqRenumber,50)" {
+                            _="on 'htmx:afterRequest'[detail.xhr.status < 400] remove .is-open from #product-modal then wait 50ms then call reqRenumber()" {
                             "选择"
                         }
                     }
@@ -398,7 +400,7 @@ fn item_row_fragment(product: &abt_core::master_data::product::model::Product) -
             td style="color:var(--fg-2);font-size:var(--text-sm)" { (product.meta.specification) }
             td { input class="form-input num-input" type="number" min="0.01" step="any" name="requested_qty" placeholder="0" style="width:100px;text-align:right;padding:5px 8px;font-size:13px;font-family:var(--font-mono);border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
-                onclick="hsRemoveClosestEl(this,'tr');setTimeout(reqRenumber,50)" {
+                _="on click remove closest <tr/> then call reqRenumber()" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
             input type="hidden" name="product_id" value=(product.product_id) {}

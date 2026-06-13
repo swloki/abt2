@@ -486,11 +486,11 @@ fn batch_action_bar() -> Markup {
             }
             button class="btn btn-sm btn-ghost" type="button" {
                 "清除选择"
-                (PreEscaped(r#"<script>me().on('click',function(){
-                    any('input[type=checkbox].demand-cb').forEach(function(c){
+                (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('click',function(){
+                    document.querySelectorAll('input[type=checkbox].demand-cb').forEach(function(c){
                         if(!c.disabled){c.checked=false;}
                     });
-                    me('#batchBar').classRemove('show');
+                    document.querySelector('#batchBar').classList.remove('show');
                 })</script>"#))
             }
         }
@@ -588,10 +588,8 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                 hx-get=(format!("/admin/purchase/demand-pool/demand-rows?product_id={pid}"))
                 hx-target=(format!("#expand-tbody-{pid}"))
                 hx-swap="innerHTML"
-                hx-trigger="click once" {
-                (PreEscaped(format!(r#"<script>me().on('click',function(){{
-                    me('#expand-mat-{pid}').classToggle('open');
-                }})</script>"#)))
+                hx-trigger="click once"
+                _=(format!("on click toggle .open on #expand-mat-{}", pid)) {
                 div class="material-icon" style=(format!("background:{icon_bg};color:{icon_color}")) {
                     (icon_svg)
                     (icon::box_icon("w-5 h-5"))
@@ -636,7 +634,7 @@ fn material_row(m: &MaterialAggSummary) -> Markup {
                         tr {
                             th style="width:40px;" {
                                 input type="checkbox" title="全选";
-                                (PreEscaped(r#"<script>me().on('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
+                                (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
                             }
                             th { "需求ID" }
                             th { "来源订单" }
@@ -721,7 +719,7 @@ fn detail_table_fragment(
                         tr {
                             th style="width:40px;" {
                                 input type="checkbox" title="全选";
-                                (PreEscaped(r#"<script>me().on('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
+                                (PreEscaped(r#"<script>document.currentScript.parentElement.addEventListener('change',function(e){e.target.closest('table').querySelectorAll('input.demand-cb:not([disabled])').forEach(function(c){c.checked=e.target.checked;c.dispatchEvent(new Event('change',{bubbles:true}))})})</script>"#))
                             }
                             th { "需求ID" }
                             th { "产品编码" }

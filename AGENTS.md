@@ -47,7 +47,7 @@ ABT is a BOM (Bill of Materials) and inventory management system built in Rust. 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  abt-web (Axum + Maud + HTMX + UnoCSS)                  │
-│  SSR pages, HTMX partials, Surreal.js UI interactions   │
+│  SSR pages, HTMX partials, Hyperscript UI interactions │
 │  Calls abt-core Service traits via AppState factory fns  │
 └──────────────────────┬──────────────────────────────────┘
                        │ Service trait calls
@@ -80,7 +80,7 @@ ABT is a BOM (Bill of Materials) and inventory management system built in Rust. 
 | `abt-web/src/routes/` | 51 route modules exposing `router()` functions |
 | `abt-web/src/components/` | Shared UI components (modal, drawer, pagination, tabs, icons, etc.) |
 | `abt-web/src/layout/` | Page shell, admin layout, sidebar, header |
-| `static/` | 静态资源目录（项目根级）：编译后 CSS (`base.css` 手写 + `app.css` 由 UnoCSS 生成), JS 文件 (`app.js`, `surreal.js`, `bom-edit.js`, `htmx.min.js`) |
+| `static/` | 静态资源目录（项目根级）：编译后 CSS (`base.css` 手写 + `app.css` 由 UnoCSS 生成), JS 文件 (`app.js`, `hyperscript.min.js`, `bom-edit.js`, `htmx.min.js`) |
 | `abt-macros/src/` | Proc-macro crate: `#[require_permission("RESOURCE", "action")]` |
 | `docs/uml-design/` | System design documents (HTML UML), authoritative source of truth |
 | `docs/plans/` | Test plans and implementation plans (MES, WMS testing) |
@@ -242,42 +242,85 @@ All interactive components must follow these rules:
 - **One URL, one Handler** — forbidden to create extra handlers for partial refresh
 - When `this` is insufficient, use `closest <selector>` or similar relative positioning
 
-#### HTMX vs Surreal.js Boundary (Hybrid Islands)
+#### HTMX vs Hyperscript Boundary (Hybrid Islands)
 
 | Layer | Responsibility | Technology |
 |-------|---------------|------------|
-| Pure frontend UI | Modal open/close, dropdown, tab switch | Surreal.js `<script>me().on(...)` inline |
+| Pure frontend UI | Modal open/close, dropdown, tab switch, toggle | Hyperscript `_="on click ..."` attribute |
 | Server interaction | Form submit, search, pagination | HTMX `hx-post`/`hx-get` |
-| Complex frontend state | Drag-sort, persistent state | Standalone JS files (SortableJS) |
+| Complex frontend state | Drag-sort, line-item calc, persistent state | Standalone JS files (`app.js`, `bom-edit.js`) |
 | Data bridging | `input type="hidden" name="items_json"` | JS `lineItemCalc().collectItems()` |
 | Success navigation | Server returns `HX-Redirect` | HTMX auto-redirect |
 | Error display | `htmx:responseError` → toast | HTMX + JS |
 
 **Rules**:
 - HTMX for server-state interactions only. Never use HTMX for purely visual changes
-- Surreal.js for pure frontend UI. Never use `fetch()` for server calls
-- Never use `onclick` calling custom JS functions for UI — use Surreal.js inline
+- Hyperscript for pure frontend UI. Never use `fetch()` for server calls
+- **Never use `onclick`/`<script>me().on(...)`/Surreal.js `me()` for UI** — use Hyperscript `_=` attribute
 
-#### Surreal.js Inline Pattern
+#### Hyperscript Pattern (`_` attribute)
 
-`me()` inside `<script>` returns the **parent element**. Wrap with `maud::PreEscaped()`:
+Hyperscript lives in the `_` attribute as a declarative, sentence-like script. No `<script>` tag, no `maud::PreEscaped` wrapper — just a plain string attribute. In Maud:
 
 ```rust
-(maud::PreEscaped(r#"<script>me().on('click',function(){me('#modal').classAdd('is-open')})</script>"#))
+button _="on click add .is-open to #modal" { "打开" }
+button _="on click remove .is-open from closest .modal-overlay" { "关闭" }
 ```
 
-| API | Description |
-|-----|-------------|
-| `me()` | Parent element of `<script>` |
-| `me(selector)` | `document.querySelector(selector)` |
-| `me(selector, start)` | Search from `start` element |
-| `any(selector)` | All matching elements as array |
-| `me(el).on(event, fn)` | `addEventListener` |
-| `me(el).classAdd/Remove/Toggle(cls)` | Class manipulation |
-| `me(el).attribute(name, val?)` | Read/write attribute |
-| `me(el).remove()` | Remove element |
+**Surreal.js / hs\* → Hyperscript 迁移对照表**:
 
-**HTMX + Surreal.js combo**: `<script>` must be placed **outside** the modal container — HTMX swap replaces innerHTML and destroys inner listeners. Use `htmx:afterSettle` (fires on **target element**) to open modal after successful load.
+| 旧 (Surreal / hs\*) | 新 (Hyperscript `_=`) |
+|-----|-----|
+| `onclick="me('#m').classAdd('is-open')"` / `hsAdd(null,'#m','is-open')` | `_="on click add .is-open to #m"` |
+| `onclick="hsRemove(null,'#m','is-open')"` | `_="on click remove .is-open from #m"` |
+| `onclick="hsRemoveClosest(this,'.overlay','is-open')"` | `_="on click remove .is-open from closest .overlay"` |
+| `onclick="hsBackdropClose(this,event,'is-open')"` | `_="on click[me is event.target] remove .is-open"` |
+| `onclick="hsTake(this,'.tab','active')"` | `_="on click take .active from .tab"` |
+| `onclick="hsToggle(null,'#m','is-open')"` | `_="on click toggle .is-open on #m"` |
+| `onclick="hsRemoveClosestEl(this,'tr')"` | `_="on click remove closest tr"` |
+| `hsRemoveClosest(...) + form.reset()` | `_="on click remove .is-open from closest .modal-overlay then reset (closest form)"` |
+| `hx-on::after-request="hsAdd(...)"` 成功后打开 | 放在触发元素上 `_="on htmx:after-request[detail.xhr.status < 400] add .open to #drawer"` |
+| `onkeydown="if(event.key==='Escape')..."` | `_="on keydown[event.key is 'Escape'] remove .open"` |
+
+**核心语法速查**（完整参考 https://hyperscript.org/reference/ ，版本 `hyperscript.org@0.9.91`）:
+
+| 语法 | 含义 | 示例 |
+|-----|------|------|
+| `on <event>` | 事件监听 | `on click` / `on change` / `on input` / `on submit` |
+| `on <event>[filter]` | 带条件的事件过滤器 | `on click[me is event.target]` / `on keydown[event.key is 'Escape']` |
+| `then` | 命令链式（隐式目标 `me`） | `add .a then remove .b` |
+| `me` / `my` / `I` | 当前元素 | `add .active to me` |
+| `it` / `its` / `result` | 上一条命令的结果 | `fetch /x as JSON then put it into #out` |
+| `event` `target` `detail` `sender` | 事件对象（handler 内） | `if event.target is me` / `log detail.xhr.status` |
+| `add .cls to <target>` | 加 class | `add .is-open to #modal` |
+| `remove .cls from <target>` | 删 class | `remove .active from .tab` |
+| `toggle .cls [on <target>]` | 切换 class | `toggle .expanded` / `toggle .open on #drawer` |
+| `take .cls from <set>` | 抢占 class（移除同组其他元素，加给自己） | `take .active from .rail-item` |
+| `closest <sel>` | 最近匹配祖先 | `remove .is-open from closest .modal-overlay` |
+| `next` / `previous` `<sel>` | 相邻兄弟元素 | `toggle .show on next <div/>` |
+| `<button/>` | query 选择器引用 | `add .x to <.active in me.parentElement/>` |
+| `#id` / `.cls` | id / class 引用 | `#modal` / `.active` |
+| `reset <form>` | 重置表单 | `reset #my-form` / `reset (closest form)` |
+| `call <js>` / `get <js>` | 执行 JS 表达式 | `call alert('hi')` / `call myJsFn()` |
+| `set <sym> to <val>` | 赋局部变量 | `set x to 0` |
+| `put <val> into <target>` | 写入属性/变量 | `put '1' into #shift's value` |
+| `if <cond> then ...` | 条件分支 | `if no <.results/> then exit` |
+| `halt` / `halt the event` | 阻止冒泡/默认行为 | `on click halt the event then ...` |
+| `send` / `trigger <event> to <target>` | 触发自定义事件 | `send cartUpdated to body` |
+| `wait <time>` | 等待时间或事件 | `wait 2s then remove me` |
+| `as <Type>` | 类型转换 | `"10" as Int` / 表单 `as Values` |
+| `show` / `hide` | 显示/隐藏元素 | `hide #spinner` |
+| `exit` | 提前退出 handler | `if x is null exit` |
+
+**Magic values**: `me`(当前元素) · `it`(上次结果) · `event`/`target`/`detail`/`sender`(事件) · `body` · `cookies`。
+
+**复杂逻辑的处理**：表单行收集（`lineItemCalc`）、拖拽排序、checkbox 全选/反选等**仍用 `static/app.js` 中的全局 JS 函数**，Hyperscript 通过 `call` 调用，避免在 `_` 里写大段逻辑：
+
+```rust
+form _="on submit call collectItems() then put it into #items_json" hx-post=(path) { ... }
+```
+
+**HTMX + Hyperscript combo**: HTMX swap 进来的新内容，其中的 `_` 属性会被 hyperscript 自动处理（它在 DOM 变化后扫描 `[_]` 节点并初始化）。需要靠 HTMX 结果驱动打开弹窗时，把 `_="on htmx:after-request ..."` 放在发起请求的元素上，或用 `on htmx:afterSettle`。
 
 #### HX-Trigger Event-Driven Decoupling
 
@@ -289,8 +332,8 @@ When one interaction needs to refresh multiple independent components, avoid "ag
 #### Form Development
 
 - **Forbidden**: `fetch()` to submit forms — use HTMX `hx-post`
-- **Forbidden**: `onclick` custom JS for UI — use Surreal.js `<script>me().on(...)`
-- **Forbidden**: `script { "..." }` in Maud (HTML-escaped) — use `maud::PreEscaped("<script>...</script>")`
+- **Forbidden**: `onclick` custom JS for UI — use Hyperscript `_="on click ..."` attribute
+- **Forbidden**: `<script>me().on(...)` / Surreal.js `me()` — 已废弃，改用 Hyperscript `_=`
 - Use `<form hx-post>` instead of `onclick="htmx.ajax(...)"` — no JS needed
 - `hx-include="[name='parent_id']"` to auto-include hidden inputs from page
 
@@ -298,7 +341,7 @@ When one interaction needs to refresh multiple independent components, avoid "ag
 
 Only for interactions that cannot be expressed inline:
 - `static/bom-edit.js` — SortableJS drag-sort + collapse/expand state persistence
-- `static/app.js` — `lineItemCalc` row calculator, `hs*` compatibility helpers, category tree
+- `static/app.js` — `lineItemCalc` row calculator, toast/export/confirm helpers, category tree
 
 #### HTMX 2.x Event Model
 
@@ -352,7 +395,7 @@ All shared enums are `#[repr(i16)]` stored as PostgreSQL `smallint`. They implem
 - **Async runtime**: tokio (full features)
 - **HTML templating**: Maud (compile-time macros, not string templates)
 - **CSS framework**: UnoCSS with Tailwind v4 preset (`presetWind4`)
-- **Frontend interactivity**: HTMX 2.x (server-state) + Surreal.js (pure UI)
+- **Frontend interactivity**: HTMX 2.x (server-state) + Hyperscript 0.9.91 (pure UI, `_` attribute)
 - **Session storage**: File-based via `tower-sessions` + `file-store`
 - **Linting**: `cargo clippy` — primary verification
 - **Environment** (`.env` file): `DATABASE_URL` (required, points to `abt_v2`), `JWT_SECRET` (required), `WEB_PORT` (default `8000`), `WEB_HOST` (default `0.0.0.0`), `MAX_CONNECTION` (default `20`)

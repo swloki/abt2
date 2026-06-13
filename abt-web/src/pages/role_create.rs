@@ -420,7 +420,7 @@ fn group_icon_svg(cls: &str) -> Markup {
 fn raw_perm_script() -> &'static str {
     r#"
 function toggleGroup(g) {
-    var body = me('#groupBody' + g);
+    var body = document.querySelector('#groupBody' + g);
     var group = body.parentElement;
     var arrow = group.querySelector('.perm-group-arrow');
     body.classList.toggle('collapsed');
@@ -428,37 +428,37 @@ function toggleGroup(g) {
 }
 
 function toggleGroupAction(g, action, checked) {
-    var body = me('#groupBody' + g);
+    var body = document.querySelector('#groupBody' + g);
     var cbs = body.querySelectorAll('input[data-action="' + action + '"]');
     for (var i = 0; i < cbs.length; i++) { cbs[i].checked = checked; }
     updateCount();
 }
 
 function setAll(checked) {
-    var cbs = any('#permGroups input[data-resource]');
+    var cbs = document.querySelectorAll('#permGroups input[data-resource]');
     for (var i = 0; i < cbs.length; i++) { if (!cbs[i].disabled) cbs[i].checked = checked; }
-    var gToggles = any('input[data-group-action]');
+    var gToggles = document.querySelectorAll('input[data-group-action]');
     for (var i = 0; i < gToggles.length; i++) { if (!gToggles[i].disabled) gToggles[i].checked = checked; }
     updateCount();
 }
 
 function updateCount() {
-    var total = any('#permGroups input[data-resource]').length;
-    var checked = any('#permGroups input[data-resource]:checked').length;
-    me('#permCount').textContent = checked;
-    me('#permTotal').textContent = total;
-    var groupCount = any('.perm-group').length;
+    var total = document.querySelectorAll('#permGroups input[data-resource]').length;
+    var checked = document.querySelectorAll('#permGroups input[data-resource]:checked').length;
+    document.querySelector('#permCount').textContent = checked;
+    document.querySelector('#permTotal').textContent = total;
+    var groupCount = document.querySelectorAll('.perm-group').length;
     var ACTIONS = ['create','read','update','delete'];
     for (var g = 0; g < groupCount; g++) {
         for (var a = 0; a < ACTIONS.length; a++) {
-            var allCbs = any('#groupBody' + g + ' input[data-action="' + ACTIONS[a] + '"]');
+            var allCbs = document.querySelectorAll('#groupBody' + g + ' input[data-action="' + ACTIONS[a] + '"]');
             var allChecked = true;
             var anyChecked = false;
             for (var i = 0; i < allCbs.length; i++) {
                 if (!allCbs[i].checked) allChecked = false;
                 if (allCbs[i].checked) anyChecked = true;
             }
-            var toggle = me('input[data-group-action="' + ACTIONS[a] + '"][data-group-idx="' + g + '"]');
+            var toggle = document.querySelector('input[data-group-action="' + ACTIONS[a] + '"][data-group-idx="' + g + '"]');
             if (toggle) {
                 toggle.checked = allChecked && allCbs.length > 0;
                 toggle.indeterminate = anyChecked && !allChecked;

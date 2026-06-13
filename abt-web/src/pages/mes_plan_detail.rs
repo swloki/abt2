@@ -281,10 +281,9 @@ fn plan_detail_page(
                     }
                     div class="page-actions" {
                         @if plan.status == PlanStatus::Confirmed {
-                            button class="btn btn-primary" type="button" {
+                            button class="btn btn-primary" type="button" _="on click add .is-open to #release-dialog" {
                                 (icon::rocket_icon("w-4 h-4"))
                                 "确认并下达"
-                                (maud::PreEscaped(r#"<script>me().on('click',function(){me('#release-dialog').classAdd('is-open')})</script>"#))
                             }
                         }
                         @if plan.status == PlanStatus::Draft {
@@ -390,9 +389,8 @@ fn plan_detail_page(
                             }
                         }
                         div class="modal-foot" {
-                            button class="btn btn-default" type="button" {
+                            button class="btn btn-default" type="button" _="on click remove .is-open from #release-dialog" {
                                 "取消"
-                                (maud::PreEscaped(r#"<script>me().on('click',function(){me('#release-dialog').classRemove('is-open')})</script>"#))
                             }
                             button class="btn btn-primary"
                                 hx-post=(PlanReleasePath { plan_id: plan.id }.to_string())

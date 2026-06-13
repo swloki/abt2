@@ -208,9 +208,8 @@ fn basic_info_section() -> Markup {
                     label class="form-label" { "密码 " span class="required" { "*" } }
                     div class="password-wrap" {
                         input class="form-input" type="password" id="password" name="password" required placeholder="8-32位，含字母和数字" {}
-                        button class="password-toggle" type="button" {
+                        button class="password-toggle" type="button" _="on click if previous <input/>'s type is 'password' set previous <input/>'s type to 'text' else set previous <input/>'s type to 'password'" {
                             (icon::eye_icon("w-4 h-4"))
-                            script { (maud::PreEscaped("me().on('click', ev => { var i=me(ev).previousElementSibling; i.type=i.type==='password'?'text':'password' })")) }
                         }
                     }
                 }
@@ -260,7 +259,19 @@ fn role_section(roles: &[Role]) -> Markup {
                         }
                     }
                 }
-                script { (maud::PreEscaped("any('.pick-item', me()).on('change', ev => { var lbl=ev.target.closest('.pick-item'); lbl.classList.toggle('selected', me('input', lbl).checked); me('#roleIdsInput').value=any('input[name=\"role\"]:checked').map(c=>c.value).join(','); me('#deptIdsInput').value=any('input[name=\"dept\"]:checked').map(c=>c.value).join(',') })")) }
+                script { (maud::PreEscaped(r#"
+(function(){
+  var grid = document.currentScript.parentElement;
+  grid.querySelectorAll('.pick-item').forEach(function(lbl){
+    lbl.addEventListener('change', function(){
+      var inp = lbl.querySelector('input');
+      lbl.classList.toggle('selected', inp.checked);
+      document.querySelector('#roleIdsInput').value = Array.from(document.querySelectorAll('input[name="role"]:checked')).map(function(c){return c.value}).join(',');
+      document.querySelector('#deptIdsInput').value = Array.from(document.querySelectorAll('input[name="dept"]:checked')).map(function(c){return c.value}).join(',');
+    });
+  });
+})();
+"#)) }
             }
         }
     }
@@ -282,7 +293,19 @@ fn dept_section(departments: &[Department]) -> Markup {
                         span { (dept.department_name) }
                     }
                 }
-                script { (maud::PreEscaped("any('.pick-item', me()).on('change', ev => { var lbl=ev.target.closest('.pick-item'); lbl.classList.toggle('selected', me('input', lbl).checked); me('#roleIdsInput').value=any('input[name=\"role\"]:checked').map(c=>c.value).join(','); me('#deptIdsInput').value=any('input[name=\"dept\"]:checked').map(c=>c.value).join(',') })")) }
+                script { (maud::PreEscaped(r#"
+(function(){
+  var grid = document.currentScript.parentElement;
+  grid.querySelectorAll('.pick-item').forEach(function(lbl){
+    lbl.addEventListener('change', function(){
+      var inp = lbl.querySelector('input');
+      lbl.classList.toggle('selected', inp.checked);
+      document.querySelector('#roleIdsInput').value = Array.from(document.querySelectorAll('input[name="role"]:checked')).map(function(c){return c.value}).join(',');
+      document.querySelector('#deptIdsInput').value = Array.from(document.querySelectorAll('input[name="dept"]:checked')).map(function(c){return c.value}).join(',');
+    });
+  });
+})();
+"#)) }
             }
         }
     }
@@ -298,7 +321,7 @@ fn data_scope_section() -> Markup {
             p class="section-desc" { "控制用户在系统中可查看的数据范围。超级管理员默认为 All。" }
             div class="scope-options" {
                 // All
-                div class="scope-option" data-value="All" {
+                div class="scope-option" data-value="All" _="on click take .selected from .scope-option then put my @data-value into #dataScopeInput's value" {
                     div class="scope-option-icon si-all" {
                         svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
                             path d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" {}
@@ -309,7 +332,7 @@ fn data_scope_section() -> Markup {
                     div class="scope-option-desc" { "可查看系统中所有数据，通常授予管理层" }
                 }
                 // Department (default selected)
-                div class="scope-option selected" data-value="Department" {
+                div class="scope-option selected" data-value="Department" _="on click take .selected from .scope-option then put my @data-value into #dataScopeInput's value" {
                     div class="scope-option-icon si-dept" {
                         svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
                             path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5" {}
@@ -319,7 +342,7 @@ fn data_scope_section() -> Markup {
                     div class="scope-option-desc" { "仅可查看所属部门的数据" }
                 }
                 // Self
-                div class="scope-option" data-value="Self" {
+                div class="scope-option" data-value="Self" _="on click take .selected from .scope-option then put my @data-value into #dataScopeInput's value" {
                     div class="scope-option-icon si-self" {
                         svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" {
                             path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" {}
@@ -328,7 +351,6 @@ fn data_scope_section() -> Markup {
                     div class="scope-option-title" { "Self — 仅本人" }
                     div class="scope-option-desc" { "仅可查看自己创建的数据" }
                 }
-                script { (maud::PreEscaped("any('.scope-option').on('click', ev => { var opt=ev.target.closest('.scope-option'); any('.scope-option').classRemove('selected'); me(opt).classAdd('selected'); me('#dataScopeInput').value=opt.dataset.value })")) }
             }
         }
     }

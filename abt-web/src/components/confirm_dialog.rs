@@ -20,7 +20,7 @@ pub fn confirm_dialog(
 ) -> Markup {
     html! {
         div id=(dialog_id) class="dialog-overlay"
-            onclick=(format!("hsRemove(null,'#{}','open')", dialog_id)) {
+            _=(format!("on click[me is event.target] remove .open")) {
             div class="dialog" onclick="event.stopPropagation()" {
                 div class="dialog-body" {
                     div class="dialog-icon-wrap" {
@@ -31,9 +31,9 @@ pub fn confirm_dialog(
                 }
                 div class="dialog-foot" {
                     button type="button" class="btn btn-default"
-                        onclick=(format!("hsRemove(null,'#{}','open')", dialog_id)) { "取消" }
+                        _="on click remove .open from closest .dialog-overlay" { "取消" }
                     button type="button" class="btn btn-danger"
-                        onclick=(format!("hsRemove(null,'#{}','open');htmx.trigger(me('#{}'),'submit')", dialog_id, form_id))
+                        _=(format!("on click remove .open from closest .dialog-overlay then trigger submit on #{}", form_id))
                         { (confirm_label) }
                 }
             }

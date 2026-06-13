@@ -320,9 +320,8 @@ fn order_detail_page(
                     }
                     div class="page-actions" {
                         @if matches!(order.status, WorkOrderStatus::Released) {
-                            button class="btn btn-default" type="button" {
+                            button class="btn btn-default" type="button" _="on click add .is-open to #unrelease-dialog" {
                                 "反下达"
-                                (maud::PreEscaped(r#"<script>me().on('click',function(){me('#unrelease-dialog').classAdd('is-open')})</script>"#))
                             }
                             button class="btn btn-default"
                                 hx-post=(OrderClosePath { order_id: order.id }.to_string())
@@ -411,9 +410,8 @@ fn order_detail_page(
                             }
                         }
                         div class="modal-foot" {
-                            button class="btn btn-default" type="button" {
+                            button class="btn btn-default" type="button" _="on click remove .is-open from #unrelease-dialog" {
                                 "取消"
-                                (maud::PreEscaped(r#"<script>me().on('click',function(){me('#unrelease-dialog').classRemove('is-open')})</script>"#))
                             }
                             button class="btn btn-danger"
                                 hx-post=(OrderUnreleasePath { order_id: order.id }.to_string())

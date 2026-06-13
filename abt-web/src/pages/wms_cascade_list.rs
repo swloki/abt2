@@ -53,6 +53,7 @@ fn cascade_page(result: Option<&CascadeInventoryResult>) -> Markup {
                         placeholder="输入产品编码或产品名称"
                         hx-get=(CascadeListPath::PATH)
                         hx-trigger="keyup changed delay:500ms"
+                        hx-sync="this:replace"
                         hx-target=".cascade-results"
                         hx-swap="innerHTML";
                 }

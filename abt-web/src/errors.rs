@@ -49,14 +49,14 @@ impl IntoResponse for WebError {
             }
         };
 
-        // For 403/404 errors, return a styled HTML error page so the user sees
+        // For 403 errors, return a styled HTML error page so the user sees
         // a proper page with navigation instead of raw text.
-        if status == StatusCode::FORBIDDEN || status == StatusCode::NOT_FOUND {
-            let (title, icon_svg) = if status == StatusCode::FORBIDDEN {
-                ("无权访问", r#"<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>"#)
-            } else {
-                ("页面未找到", r#"<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>"#)
-            };
+        // NOTE: NotFound (404) is excluded — for HTMX form submissions, the
+        // global error handler reads responseText as a toast message. Returning
+        // a full HTML page breaks the toast. Plain text is consumed correctly.
+        if status == StatusCode::FORBIDDEN {
+            let title = "无权访问";
+            let icon_svg = r#"<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>"#;
             let html_page = format!(r#"<!DOCTYPE html>
 <html lang="zh-CN">
 <head>

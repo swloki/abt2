@@ -44,6 +44,8 @@ document.addEventListener('htmx:afterRequest', function (e) {
     if (e.detail.successful) return;
     var xhr = e.detail.xhr;
     if (!xhr) return;
+    // status===0：请求被 abort（通常是表单提交成功后页面跳转，或用户离开页面），非真实错误，不弹 toast
+    if (xhr.status === 0) return;
 
     if (xhr.status === 401) {
         window.location.href = '/login';
@@ -80,13 +82,13 @@ document.addEventListener('animationend', function (e) {
 document.addEventListener('htmx:confirm', function (e) {
     if (!e.detail.question) return;
     e.preventDefault();
-    var dialog = me('#global-confirm-dialog');
+    var dialog = document.querySelector('#global-confirm-dialog');
     if (!dialog) {
         if (confirm(e.detail.question)) e.detail.issueRequest(true);
         return;
     }
     var overlay = dialog.querySelector('.dialog-overlay');
-    var msg = me('#global-confirm-message');
+    var msg = document.querySelector('#global-confirm-message');
     if (!overlay || !msg) {
         if (confirm(e.detail.question)) e.detail.issueRequest(true);
         return;
@@ -96,76 +98,9 @@ document.addEventListener('htmx:confirm', function (e) {
     overlay.classList.add('open');
 });
 
-// ── Surreal.js helpers (replaces hyperscript _= attributes) ──
-// These wrap surreal.js me() API for use in onclick/onsubmit handlers from Maud templates.
+// ── UI interactions now use hyperscript _= attributes (see AGENTS.md) ──
+// All former surreal.js hs* helpers have been removed; callers migrated to _="on click ..."
 
-// Toggle class on self
-window.hsToggleSelf = function(el, cls) {
-    me(el).classToggle(cls);
-};
-
-// Add class to target (selector or element)
-window.hsAdd = function(el, selector, cls) {
-    me(selector || el).classAdd(cls);
-};
-
-// Remove class from target
-window.hsRemove = function(el, selector, cls) {
-    me(selector || el).classRemove(cls);
-};
-
-// Remove class from closest ancestor matching selector
-window.hsRemoveClosest = function(el, ancestorSelector, cls) {
-    var ancestor = el.closest(ancestorSelector);
-    if (ancestor) me(ancestor).classRemove(cls);
-};
-
-// Add class to target, remove from siblings (tab-style)
-window.hsTake = function(el, siblingSelector, cls) {
-    var parent = el.parentElement;
-    if (parent) {
-        parent.querySelectorAll(siblingSelector).forEach(function(s) {
-            me(s).classRemove(cls);
-        });
-    }
-    me(el).classAdd(cls);
-};
-
-// Close overlay on backdrop click (only if click target IS the overlay itself)
-window.hsBackdropClose = function(el, e, cls) {
-    if (e.target === el) me(el).classRemove(cls);
-};
-
-// Toggle class on target
-window.hsToggle = function(el, selector, cls) {
-    me(selector).classToggle(cls);
-};
-
-// Toggle sidebar collapsed + persist to localStorage
-window.hsToggleSidebar = function() {
-    var shell = me('.app-shell');
-    me(shell).classToggle('sidebar-collapsed');
-    if (shell.classList.contains('sidebar-collapsed')) {
-        localStorage.setItem('sidebar-collapsed', 'true');
-    } else {
-        localStorage.removeItem('sidebar-collapsed');
-    }
-};
-
-// Set value of input and trigger event
-window.hsSetAndTrigger = function(selector, value, eventName) {
-    var input = me(selector);
-    if (input) {
-        input.value = value;
-        input.send(eventName || 'keyup');
-    }
-};
-
-// Remove closest ancestor element of given tag
-window.hsRemoveClosestEl = function(el, ancestorSelector) {
-    var ancestor = el.closest(ancestorSelector);
-    if (ancestor) ancestor.remove();
-};
 
 // ── Generic Line Item Calculator ──
 // Usage: var calc = lineItemCalc('#order-item-tbody');
@@ -173,43 +108,43 @@ window.hsRemoveClosestEl = function(el, ancestorSelector) {
 // Or in HTML: oninput="lineItemCalc('#quotation-item-tbody').calcRow(this)"
 window.lineItemCalc = function(tbodyId) {
     function calcRow(row) {
-        var q = parseFloat(me('[name="quantity"]', row).value) || 0;
-        var p = parseFloat(me('[name="unit_price"]', row).value) || 0;
-        var d = parseFloat(me('[name="discount_rate"]', row).value) || 0;
-        var cell = me('.line-total', row);
+        var q = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
+        var p = parseFloat(row.querySelector('[name="unit_price"]').value) || 0;
+        var d = parseFloat(row.querySelector('[name="discount_rate"]').value) || 0;
+        var cell = row.querySelector('.line-total');
         if (cell) cell.textContent = (q * p * (1 - d / 100)).toFixed(2);
         recalcTotals();
     }
     function recalcTotals() {
-        var tbody = me(tbodyId);
+        var tbody = document.querySelector(tbodyId);
         if (!tbody) return;
         var subtotal = 0, disc = 0;
-        any('tr', tbody).forEach(function (row) {
-            var q = parseFloat(me('[name="quantity"]', row).value) || 0;
-            var p = parseFloat(me('[name="unit_price"]', row).value) || 0;
-            var d = parseFloat(me('[name="discount_rate"]', row).value) || 0;
+        tbody.querySelectorAll('tr').forEach(function (row) {
+            var q = parseFloat(row.querySelector('[name="quantity"]').value) || 0;
+            var p = parseFloat(row.querySelector('[name="unit_price"]').value) || 0;
+            var d = parseFloat(row.querySelector('[name="discount_rate"]').value) || 0;
             subtotal += q * p;
             disc += q * p * (d / 100);
-            var cell = me('.line-total', row);
+            var cell = row.querySelector('.line-total');
             if (cell) cell.textContent = (q * p * (1 - d / 100)).toFixed(2);
         });
-        me('#subtotal-value').textContent = '¥ ' + subtotal.toFixed(2);
-        me('#discount-value').textContent = '- ¥ ' + disc.toFixed(2);
-        me('#grand-value').textContent = '¥ ' + (subtotal - disc).toFixed(2);
+        document.querySelector('#subtotal-value').textContent = '¥ ' + subtotal.toFixed(2);
+        document.querySelector('#discount-value').textContent = '- ¥ ' + disc.toFixed(2);
+        document.querySelector('#grand-value').textContent = '¥ ' + (subtotal - disc).toFixed(2);
     }
     function collectItems() {
-        var tbody = me(tbodyId);
+        var tbody = document.querySelector(tbodyId);
         if (!tbody) return;
         var items = [];
-        any('tr', tbody).forEach(function (row) {
+        tbody.querySelectorAll('tr').forEach(function (row) {
             var obj = {};
-            any('input, select, textarea', row).forEach(function (el) {
-                var name = el.attribute('name');
+            row.querySelectorAll('input, select, textarea').forEach(function (el) {
+                var name = el.getAttribute('name');
                 if (name) obj[name] = el.value;
             });
             items.push(obj);
         });
-        me('#items-json').value = JSON.stringify(items);
+        document.querySelector('#items-json').value = JSON.stringify(items);
     }
     return { calcRow: calcRow, recalcTotals: recalcTotals, collectItems: collectItems };
 };

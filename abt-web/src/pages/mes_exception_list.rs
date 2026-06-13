@@ -62,6 +62,7 @@ fn exception_list_page(
                 hx-get=(ExceptionListPath::PATH)
                 hx-target="#exception-table"
                 hx-trigger="keyup changed delay:300ms"
+                hx-sync="this:replace"
                 hx-swap="innerHTML" {}
             select class="form-select" name="exception_type"
                 hx-get=(ExceptionListPath::PATH)

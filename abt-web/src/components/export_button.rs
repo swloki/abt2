@@ -25,8 +25,8 @@ pub fn export_button(label: &str, export_type: &str) -> Markup {
 pub fn export_dropdown(items: &[ExportItem]) -> Markup {
     html! {
         div class="export-dropdown" {
-            button type="button" class="btn btn-default" {
-                (maud::PreEscaped("<script>me().on('click',function(ev){me(ev).nextElementSibling.classList.toggle('is-open')})</script>"))
+            button type="button" class="btn btn-default"
+                _="on click toggle .is-open on next <div/>" {
                 (crate::components::icon::download_icon("w-4 h-4"))
                 " 导出"
             }
@@ -48,7 +48,7 @@ fn export_menu_item(item: &ExportItem) -> Markup {
             hx-post=(path)
             hx-confirm=(confirm_msg)
             hx-swap="none"
-            onclick="hsRemoveClosest(this,'.export-dropdown-menu','is-open')" {
+            _="on click remove .is-open from closest .export-dropdown-menu" {
             (item.label)
         }
     }

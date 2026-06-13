@@ -321,6 +321,7 @@ fn role_table_fragment(
                         value=(params.keyword.as_deref().unwrap_or(""))
                         hx-get=(RoleListPath::PATH)
                         hx-trigger="keyup changed delay:300ms"
+                        hx-sync="this:replace"
                         hx-target="closest .role-list-panel"
                         hx-swap="outerHTML"
                         hx-include="select[name='role_type']";

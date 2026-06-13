@@ -379,19 +379,16 @@ fn create_page_content(
                                 }
                             }
                         }
-                        button type="button" class="btn btn-sm btn-default" id="applyDefaultBtn" {
-                            "应用默认排程"
-                            (PreEscaped(r#"<script>me().on('click',function(){
-                                var start = document.getElementById('defaultStart').value;
-                                var end = document.getElementById('defaultEnd').value;
-                                var rows = document.querySelectorAll('#demand-tbody tr');
-                                rows.forEach(function(row){
-                                    var inputs = row.querySelectorAll('input[type=date]');
-                                    if(inputs[0] && start) inputs[0].value = start;
-                                    if(inputs[1] && end) inputs[1].value = end;
-                                });
-                            })</script>"#))
-                        }
+                        button type="button" class="btn btn-sm btn-default" id="applyDefaultBtn" { "应用默认排程" }
+                        (PreEscaped(r#"<script>document.getElementById('applyDefaultBtn').addEventListener('click',function(){
+                            var start=document.getElementById('defaultStart').value;
+                            var end=document.getElementById('defaultEnd').value;
+                            document.querySelectorAll('#demand-tbody tr').forEach(function(row){
+                                var inputs=row.querySelectorAll('input[type=date]');
+                                if(inputs[0]&&start) inputs[0].value=start;
+                                if(inputs[1]&&end) inputs[1].value=end;
+                            });
+                        });</script>"#))
                     }
 
                     div class="data-card-scroll" {
@@ -471,14 +468,17 @@ fn create_page_content(
             // ── Checkbox, Summary & Form Collection Scripts ──
             (PreEscaped(r#"<script>
                 // Check-all checkbox in header
-                me('#checkAll').on('change', function(){
-                    var checked = this.checked;
-                    any('#demand-tbody input[type=checkbox]').forEach(function(c){
-                        c.checked = checked;
-                        c.closest('tr').classList.toggle('demand-row-selected', checked);
+                var checkAllEl = document.getElementById('checkAll');
+                if(checkAllEl){
+                    checkAllEl.addEventListener('change', function(){
+                        var checked = this.checked;
+                        document.querySelectorAll('#demand-tbody input[type=checkbox]').forEach(function(c){
+                            c.checked = checked;
+                            c.closest('tr').classList.toggle('demand-row-selected', checked);
+                        });
+                        updateDemandSummary();
                     });
-                    updateDemandSummary();
-                });
+                }
 
                 // Individual checkbox change
                 document.addEventListener('change', function(e){
@@ -486,17 +486,17 @@ fn create_page_content(
                         e.target.closest('tr').classList.toggle('demand-row-selected', e.target.checked);
                         updateDemandSummary();
                         // Update check-all state
-                        var all = any('#demand-tbody input[type=checkbox]');
-                        var checked = any('#demand-tbody input[type=checkbox]:checked');
-                        var checkAll = document.getElementById('checkAll');
-                        if(checkAll){
-                            checkAll.checked = all.length > 0 && all.length === checked.length;
+                        var all = document.querySelectorAll('#demand-tbody input[type=checkbox]');
+                        var checkedOnes = document.querySelectorAll('#demand-tbody input[type=checkbox]:checked');
+                        var ca = document.getElementById('checkAll');
+                        if(ca){
+                            ca.checked = all.length > 0 && all.length === checkedOnes.length;
                         }
                     }
                 });
 
                 function updateDemandSummary(){
-                    var checked = any('#demand-tbody input[type=checkbox]:checked');
+                    var checked = document.querySelectorAll('#demand-tbody input[type=checkbox]:checked');
                     var ids = [];
                     var totalQty = 0;
                     checked.forEach(function(c){
@@ -510,27 +510,30 @@ fn create_page_content(
                 }
 
                 // Collect per-row scheduling items on form submit
-                document.getElementById('demand-create-form').addEventListener('submit', function(){
-                    var rows = document.querySelectorAll('#demand-tbody tr');
-                    var items = [];
-                    rows.forEach(function(row){
-                        var cb = row.querySelector('input[type=checkbox]');
-                        if(!cb || !cb.checked) return;
-                        var inputs = row.querySelectorAll('input[type=date]');
-                        var startVal = inputs[0] ? inputs[0].value : '';
-                        var endVal = inputs[1] ? inputs[1].value : '';
-                        var priEl = row.querySelector('.priority-val');
-                        if(startVal && endVal){
-                            items.push({
-                                demand_id: parseInt(cb.value),
-                                scheduled_start: startVal,
-                                scheduled_end: endVal,
-                                priority: priEl ? parseInt(priEl.textContent) : (parseInt((document.getElementById('defaultPriority')||{}).value) || 2)
-                            });
-                        }
+                var dcf = document.getElementById('demand-create-form');
+                if(dcf){
+                    dcf.addEventListener('submit', function(){
+                        var rows = document.querySelectorAll('#demand-tbody tr');
+                        var items = [];
+                        rows.forEach(function(row){
+                            var cb = row.querySelector('input[type=checkbox]');
+                            if(!cb || !cb.checked) return;
+                            var inputs = row.querySelectorAll('input[type=date]');
+                            var startVal = inputs[0] ? inputs[0].value : '';
+                            var endVal = inputs[1] ? inputs[1].value : '';
+                            var priEl = row.querySelector('.priority-val');
+                            if(startVal && endVal){
+                                items.push({
+                                    demand_id: parseInt(cb.value),
+                                    scheduled_start: startVal,
+                                    scheduled_end: endVal,
+                                    priority: priEl ? parseInt(priEl.textContent) : (parseInt((document.getElementById('defaultPriority')||{}).value) || 2)
+                                });
+                            }
+                        });
+                        document.getElementById('items-json-input').value = items.length > 0 ? JSON.stringify(items) : '';
                     });
-                    document.getElementById('items-json-input').value = items.length > 0 ? JSON.stringify(items) : '';
-                });
+                }
             </script>"#))
         }
     }
@@ -585,9 +588,8 @@ fn demand_row(d: &DemandSummary, preselected_ids: &[i64]) -> Markup {
                     style="width:130px;font-size:12px;padding:4px 6px;" {}
             }
             td {
-                button type="button" class="btn-remove-row" title="移除" {
+                button type="button" class="btn-remove-row" title="移除" _="on click remove closest <tr/> then call updateDemandSummary()" {
                     (icon::x_icon("w-3.5 h-3.5"))
-                    (PreEscaped(r#"<script>me().on('click',function(){me().closest('tr').remove();updateDemandSummary()})</script>"#))
                 }
             }
         }

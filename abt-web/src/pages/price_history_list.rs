@@ -242,11 +242,11 @@ fn price_history_page(rows: &[PriceHistoryRow], total: u64, page: u32, total_pag
 
             // ── Detail Drawer Overlay ──
             div class="detail-overlay" id="detail-drawer"
-                onclick="hsBackdropClose(this,event,'open')" {
+                _="on click[me is event.target] remove .open" {
                 div class="detail-drawer" onclick="event.stopPropagation()" {
                     div class="detail-head" {
                         h2 { "变更详情" }
-                        button class="detail-close" onclick="hsRemove(null,'#detail-drawer','open')" {
+                        button class="detail-close" _="on click remove .open from #detail-drawer" {
                             (icon::x_icon("w-4.5 h-4.5"))
                         }
                     }
@@ -313,7 +313,7 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
             hx-get=(detail_path.to_string())
             hx-target="#detail-body"
             hx-swap="innerHTML"
-            hx-on::after-request="hsAdd(null,'#detail-drawer','open')" {
+            _="on 'htmx:afterRequest' add .open to #detail-drawer" {
             td style="color:var(--muted)" { (index + 1) }
             td class="mono" { (row.product_code) }
             td style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title=(row.product_name) {
@@ -335,11 +335,10 @@ fn price_history_row(index: usize, row: &PriceHistoryRow) -> Markup {
             }
             td {
                 button class="btn btn-default" style="padding:4px 10px;font-size:12px"
-                    onclick="event.stopPropagation()"
+                    _="on click halt the event on 'htmx:afterRequest' add .open to #detail-drawer"
                     hx-get=(detail_path.to_string())
                     hx-target="#detail-body"
-                    hx-swap="innerHTML"
-                    onclick="halt(event)" hx-on::after-request="hsAdd(null,'#detail-drawer','open')" { "详情" }
+                    hx-swap="innerHTML" { "详情" }
             }
         }
     }

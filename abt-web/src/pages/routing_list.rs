@@ -106,7 +106,7 @@ fn routing_list_page(
                 h1 class="page-title" { "工艺路线管理" }
                 div class="page-actions" {
                     button type="button" class="btn btn-default"
-                        onclick=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "labor-process", title: "", template_columns: "" })) {
+                        _=(import_modal::import_modal_onclick(&ImportModalConfig { import_type: "labor-process", title: "", template_columns: "" })) {
                         (icon::upload_icon("w-4 h-4"))
                         "导入"
                     }
@@ -154,6 +154,7 @@ fn routing_table_fragment(
                         value=(params.keyword.as_deref().unwrap_or(""))
                         hx-get=(RoutingListPath::PATH)
                         hx-trigger="keyup changed delay:300ms"
+                        hx-sync="this:replace"
                         hx-target="closest .customer-list-panel"
                         hx-swap="outerHTML";
                 }

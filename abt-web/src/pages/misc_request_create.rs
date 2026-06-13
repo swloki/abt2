@@ -231,14 +231,14 @@ fn misc_create_page() -> Markup {
                 }
             }
             script {
-                (maud::PreEscaped("me().on('submit', ev => {
+                (maud::PreEscaped("document.currentScript.parentElement.addEventListener('submit', function(ev){
                     var items=[];
-                    any('#misc-item-tbody tr').forEach(function(r){
+                    document.querySelectorAll('#misc-item-tbody tr').forEach(function(r){
                         var o={};
                         r.querySelectorAll('input,select,textarea').forEach(function(e){if(e.name)o[e.name]=e.value});
                         items.push(o)
                     });
-                    me('#items-json').value=JSON.stringify(items)
+                    document.querySelector('#items-json').value=JSON.stringify(items)
                 })"))
             }
             }
@@ -259,7 +259,7 @@ fn empty_row_fragment() -> Markup {
             td class="line-subtotal mono" style="text-align:right" { "0.00" }
             td { input class="form-input" type="text" name="item_remark" placeholder="备注" style="width:100%;padding:5px 8px;font-size:13px;border:1px solid var(--border);border-radius:var(--radius-sm)" {} }
             td { button type="button" class="btn-remove-row" title="删除行"
-                onclick="hsRemoveClosestEl(this,'tr')" {
+                _="on click remove closest <tr/>" {
                 (icon::x_icon("w-3.5 h-3.5"))
             } }
         }

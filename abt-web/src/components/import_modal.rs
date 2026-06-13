@@ -12,12 +12,12 @@ pub struct ImportModalConfig {
 pub fn import_modal(config: &ImportModalConfig) -> Markup {
     let modal_id = format!("import-modal-{}", config.import_type);
     html! {
-        div id=(modal_id) class="modal-overlay" onclick="hsBackdropClose(this,event,'is-open')" {
+        div id=(modal_id) class="modal-overlay" _="on click[me is event.target] remove .is-open" {
             div class="modal modal-import" {
                 div class="modal-head" {
                     h2 { (config.title) }
                     button type="button" class="modal-close-btn"
-                        onclick="hsRemoveClosest(this,'.modal-overlay','is-open')" { "×" }
+                        _="on click remove .is-open from closest .modal-overlay" { "×" }
                 }
                 div class="modal-body" {
                     div id=(format!("import-content-{}", config.import_type)) {
@@ -29,9 +29,9 @@ pub fn import_modal(config: &ImportModalConfig) -> Markup {
     }
 }
 
-/// 生成导入按钮的 onclick 属性值（供页面文件使用）
+/// 生成导入按钮的 Hyperscript `_` 属性值（供页面文件使用）
 pub fn import_modal_onclick(config: &ImportModalConfig) -> String {
-    format!("hsAdd(null,'#import-modal-{}','is-open')", config.import_type)
+    format!("on click add .is-open to #import-modal-{}", config.import_type)
 }
 
 /// 初始状态：文件选择区 + 模板下载
@@ -129,7 +129,7 @@ pub fn render_import_result(result: &abt_core::shared::excel::ImportResult) -> M
             }
             div class="import-footer-actions" {
                 button type="button" class="btn btn-default"
-                    onclick="hsRemoveClosest(this,'.modal-overlay','is-open')" { "关闭" }
+                    _="on click remove .is-open from closest .modal-overlay" { "关闭" }
             }
         }
     }

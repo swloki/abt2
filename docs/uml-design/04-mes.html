@@ -282,7 +282,9 @@ classDiagram
     +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
     +find_by_id(id) Result~ProductionPlan~
     +confirm(ctx: &ServiceContext, db: PgExecutor, id) Result~Unit~
+    +pre_validate(ctx: &ServiceContext, db: PgExecutor, plan_id) Result~Vec~ReleaseValidation~~
     +release_to_work_orders(ctx: &ServiceContext, db: PgExecutor, plan_id) Result~BatchReleaseResult~
+    +schedule_v1(ctx: &ServiceContext, db: PgExecutor, plan_id) Result~Unit~
     +list(filter) PaginatedResult~ProductionPlan~
   }
   class WorkOrderService {
@@ -290,6 +292,7 @@ classDiagram
     +create(ctx: &ServiceContext, db: PgExecutor, req) Result~i64~
     +find_by_id(id) Result~WorkOrder~
     +release(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
+    +unrelease(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +close(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +cancel(ctx: &ServiceContext, db: PgExecutor, id, expected_version i32) Result~Unit~
     +list(filter) PaginatedResult~WorkOrder~
@@ -336,12 +339,30 @@ classDiagram
     WorkOrderService ..> MasterData.BomService : BOM explosion
     WorkOrderService ..> MasterData.ProductService : product info
     ProductionPlanService ..> MasterData.ProductService : product info
+    BatchReleaseResult *-- ReleaseValidation
+    ReleaseValidation *-- MaterialShortage
     ProductionReceiptService ..> MasterData.ProductService : product info
   class BatchReleaseResult {
     +plan_id: i64
     +successful_work_orders: Vec~WorkOrder~
     +failed_items: Vec~BatchFailure~
+    +validations: Vec~ReleaseValidation~
     +total: i32
+  }
+  class ReleaseValidation {
+    +plan_item_id: i64
+    +product_id: i64
+    +has_routing: bool
+    +has_published_bom: bool
+    +routing_id: Option~i64~
+    +warnings: Vec~String~
+    +material_shortages: Vec~MaterialShortage~
+  }
+  class MaterialShortage {
+    +product_id: i64
+    +required_qty: Decimal
+    +available_qty: Decimal
+    +shortage_qty: Decimal
   }
   class WageSummary {
     +worker_id: i64
@@ -372,7 +393,7 @@ classDiagram
     +inspection_triggered: bool
     +wage_amount: Decimal
   }
-  note for WorkOrderService "PLANNING LAYER: release -> create ProductionBatch(min 1) InvRes.reserve(Hard) WMS.MaterialRequisitionService.create_for_work_order() close -> all batches completed InvRes.fulfill/cancel(release remaining) 乐观锁 expected_version 校验 冲突返回 ConcurrentConflict completed_qty/scrap_qty = read-only aggregate from ProductionBatch"
+  note for WorkOrderService "PLANNING LAYER: release -> BOM snapshot + Routing工序 + ProductionBatch(min 1) + picking/backflush分流 unrelease -> Released→Draft 安全网(取消领料单+释放预留+删批次/工序) close -> all batches completed InvRes.fulfill/cancel(release remaining) 乐观锁 expected_version 校验 冲突返回 ConcurrentConflict"
   note for WorkReportService "READ-ONLY QUERY SERVICE: WorkReport creation is handled atomically by ProductionBatchService.confirm_routing_step find/list methods for reporting and auditing calculate_wage: (completed_qty + non_operator_defect_qty) * unit_price DefectReason.affect_wage: MaterialDefect/EquipmentFault/ProcessIssue=true OperatorError=false"
   note for OutsourcingOrder "Entity owned by OM module. MES references via OM.OutsourcingOrderService. send -> WMS.InventoryTransferService(to virtual) receive -> WMS.InventoryTransferService(from virtual) receive -> QMS.InspectionResultService.create(IQC) Event: MES subscribes OutsourcingReceived handler -> update WorkOrderRouting.completed_qty for outsourced step -> publish BatchStepCompleted event -> advance ProductionBatch.current_step"
   note for ProductionInspectionService "QMS: MES-specific production inspection QMS module provides unified InspectionResultService IPQC: auto-triggered by WorkOrderRouting.is_inspection_point FQC: triggered before ProductionReceipt"

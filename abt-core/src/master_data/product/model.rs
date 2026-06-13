@@ -133,14 +133,29 @@ impl<'de> serde::Deserialize<'de> for AcquireChannel {
     }
 }
 
+/// 物料消耗策略
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum MaterialConsumptionMode {
+    /// 倒冲模式（默认）：完工时按 BOM 自动扣减原材料
+    #[default]
+    #[serde(rename = "backflush")]
+    Backflush,
+    /// 领料模式：release 时生成领料单，手动领料出库
+    #[serde(rename = "picking")]
+    Picking,
+}
+
 /// 产品元数据 (JSONB)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProductMeta {
     pub specification: String,
-    // acquire_channel 已迁移为 Product 独立列
+    /// acquire_channel 已迁移为 Product 独立列
     pub old_code: Option<String>,
     #[serde(default)]
     pub remark: Option<String>,
+    /// 物料消耗策略：backflush（默认）或 picking
+    #[serde(default)]
+    pub material_consumption_mode: MaterialConsumptionMode,
 }
 
 impl sqlx::Type<sqlx::Postgres> for ProductMeta {

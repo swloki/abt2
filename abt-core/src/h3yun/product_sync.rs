@@ -276,6 +276,7 @@ mod tests {
                 specification: "100x200".to_string(),
                 old_code: None,
                 remark: None,
+                material_consumption_mode: Default::default(),
             },
             created_at: None,
             updated_at: None,

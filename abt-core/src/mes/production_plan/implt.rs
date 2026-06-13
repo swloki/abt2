@@ -123,12 +123,12 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
                 CreateWorkOrderReq {
                     plan_item_id: Some(item.id),
                     product_id: item.product_id,
-                    bom_snapshot_id: None,
-                    routing_id: None,
+                    bom_snapshot_id: None, // release() 中动态创建
+                    routing_id: item.routing_id,
                     planned_qty: item.planned_qty,
                     scheduled_start,
                     scheduled_end,
-                    work_center_id: None,
+                    work_center_id: item.work_center_id,
                     sales_order_id: item.sales_order_id,
                     remark: None,
                 },

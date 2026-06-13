@@ -70,6 +70,7 @@ impl BackflushService for BackflushServiceImpl {
 
         // 2. 从 BOM 获取组件，计算差异并插入明细
         let bom_components = get_bom_components(&self.pool, ctx, db, &wo).await?;
+        let warehouse_id = resolve_warehouse_id(&self.pool, db).await?;
 
         for component in &bom_components {
             let theoretical_qty = component.required_qty * completed_qty;
@@ -127,7 +128,7 @@ impl BackflushService for BackflushServiceImpl {
                     doc_number: None,
                     transaction_type: crate::wms::enums::TransactionType::Backflush,
                     product_id: component.product_id,
-                    warehouse_id: 0,
+                    warehouse_id,
                     zone_id: None,
                     bin_id: None,
                     batch_no: None,
@@ -204,20 +205,51 @@ impl BackflushService for BackflushServiceImpl {
     }
 }
 
-/// 从工单的 BOM snapshot 获取组件列表
+/// 4 级仓库策略：确定倒冲仓库
+/// V1 简化实现：查找系统中第一个活跃仓库
+async fn resolve_warehouse_id(
+    pool: &PgPool,
+    db: PgExecutor<'_>,
+) -> Result<i64> {
+    let warehouse_id: Option<i64> = sqlx::query_scalar(
+        "SELECT warehouse_id FROM warehouses WHERE deleted_at IS NULL ORDER BY warehouse_id LIMIT 1",
+    )
+    .fetch_optional(&mut *db)
+    .await
+    .map_err(|e| DomainError::Internal(e.into()))?;
+
+    Ok(warehouse_id.unwrap_or(0))
+}
+
+/// 从工单的 BOM 快照获取叶子组件列表
 async fn get_bom_components(
     pool: &PgPool,
     ctx: &ServiceContext, db: PgExecutor<'_>,
     wo: &crate::mes::work_order::model::WorkOrder,
 ) -> Result<Vec<BomComponent>> {
-    let bom_id = wo.bom_snapshot_id;
-    if let Some(bom_id) = bom_id {
-        let nodes = new_bom_query_service(pool.clone())
-            .get_leaf_nodes(ctx, db, bom_id).await?;
-        Ok(nodes.into_iter().map(|n| BomComponent {
-            product_id: n.product_id,
-            required_qty: n.quantity,
-        }).collect())
+    let snapshot_id = wo.bom_snapshot_id;
+    if let Some(snapshot_id) = snapshot_id {
+        // 从快照的 bom_detail 中提取叶子节点
+        let snapshot = new_bom_query_service(pool.clone())
+            .get_snapshot_by_id(ctx, db, snapshot_id).await?;
+
+        if let Some(snap) = snapshot {
+            let all_nodes = &snap.bom_detail.nodes;
+            // 叶子节点 = 没有任何节点的 parent_id 等于它的 node_id
+            let parent_ids: std::collections::HashSet<i64> =
+                all_nodes.iter().map(|n| n.parent_id).collect();
+            let leaf_nodes: Vec<&crate::master_data::bom::model::BomNode> = all_nodes
+                .iter()
+                .filter(|n| !parent_ids.contains(&n.id))
+                .collect();
+
+            Ok(leaf_nodes.into_iter().map(|n| BomComponent {
+                product_id: n.product_id,
+                required_qty: n.quantity,
+            }).collect())
+        } else {
+            Ok(vec![])
+        }
     } else {
         Ok(vec![])
     }

@@ -396,14 +396,16 @@ When available in `docs/solutions/`, consult existing solutions (organized with 
 
 Use `agent-browser` CLI for end-to-end page testing. **Never use `curl`** for page verification.
 
+> **⚠ HTTPS 自签名证书**：服务器使用 HTTPS + 自签名证书，必须在 agent-browser 命令中加 `--ignore-https-errors`（或设环境变量 `AGENT_BROWSER_IGNORE_HTTPS_ERRORS=true`）。该标志在 daemon **首次启动时**（即第一个 `open` 命令）生效；daemon 已在运行时传入会被忽略，需先 `agent-browser close --all` 再重启。
+
 #### Login & Session Setup
 
 ```bash
 # First-time login — save auth profile
 agent-browser auth save abt --url https://localhost:8000/login --username admin --password chenxi0514
 
-# Start browser and login
-agent-browser --session-name abt open https://localhost:8000/login
+# Start browser and login (daemon 首次启动需带 --ignore-https-errors)
+agent-browser --session-name abt --ignore-https-errors open https://localhost:8000/login
 agent-browser snapshot -i
 agent-browser fill @e<username_input> "admin"
 agent-browser fill @e<password_input> "chenxi0514"
@@ -417,7 +419,7 @@ The `--session-name abt` flag auto-saves/restores cookies so subsequent opens re
 
 ```bash
 # Navigate to target page
-agent-browser open https://localhost:8000/admin/md/products
+agent-browser --ignore-https-errors open https://localhost:8000/admin/md/products
 agent-browser snapshot -i              # Get interactive elements with @eN refs
 agent-browser screenshot --full        # Full page screenshot for visual verification
 
@@ -466,7 +468,7 @@ agent-browser errors
 Add `--headed` flag to watch the browser in real time during debugging:
 
 ```bash
-agent-browser --headed open https://localhost:8000/admin/md/products
+agent-browser --headed --ignore-https-errors open https://localhost:8000/admin/md/products
 agent-browser --headed snapshot -i
 ```
 

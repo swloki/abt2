@@ -16,9 +16,10 @@ allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*), Bash(psql:*), B
 
 ## 环境信息
 
-- **应用地址**: `https://localhost:8000`
+- **应用地址**: `https://localhost:8000`（HTTPS 自签名证书）
 - **测试账号**: `admin` / `chenxi0514`
 - **项目约束**: 使用中文沟通，不要用 `curl` 测试页面
+- **HTTPS**: 服务器使用自签名证书，agent-browser 命令必须带 `--ignore-https-errors`（daemon 首次 `open` 时生效；已在运行时需先 `close --all` 再重启）
 - **数据库**: PostgreSQL `abt_v2`，连接串在 `.env` 的 `DATABASE_URL`
 
 ## 核心流程
@@ -48,8 +49,7 @@ allowed-tools: Bash(agent-browser:*), Bash(npx agent-browser:*), Bash(psql:*), B
 # 1. 准备数据（如需要）
 psql "$DATABASE_URL" -f scripts/sales-test-data.sql
 
-# 2. 登录
-agent-browser open https://localhost:8000/login
+agent-browser --ignore-https-errors open https://localhost:8000/login
 agent-browser fill @e1 "admin" && agent-browser fill @e2 "chenxi0514"
 agent-browser click @e3 && sleep 2
 

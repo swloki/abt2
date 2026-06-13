@@ -240,13 +240,13 @@ fn stock_in_create_content(
                     (icon::download_icon("w-7 h-7"))
                     span class="type-label" { "采购入库" }
                     span class="type-desc" { "PURCHASE_RECEIPT" br; "关联来料通知 / 采购订单" }
-                    (maud::PreEscaped(r#"<script>me().on('click',()=>{me('.type-btn').classRemove('active');me().classAdd('active');me('#stockin-txn-type').value='PurchaseReceipt'})</script>"#))
+                    (maud::PreEscaped(r#"<script>me().on('click',e=>{any('.type-btn').classRemove('active');me(e).classAdd('active');me('#stockin-txn-type').value='PurchaseReceipt'})</script>"#))
                 }
                 div class="type-btn" {
                     (icon::box_icon("w-7 h-7"))
                     span class="type-label" { "生产入库" }
                     span class="type-desc" { "PRODUCTION_RECEIPT" br; "关联工单完工报工" }
-                    (maud::PreEscaped(r#"<script>me().on('click',()=>{me('.type-btn').classRemove('active');me().classAdd('active');me('#stockin-txn-type').value='ProductionReceipt'})</script>"#))
+                    (maud::PreEscaped(r#"<script>me().on('click',e=>{any('.type-btn').classRemove('active');me(e).classAdd('active');me('#stockin-txn-type').value='ProductionReceipt'})</script>"#))
                 }
             }
 

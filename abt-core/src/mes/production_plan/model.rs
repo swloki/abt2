@@ -73,6 +73,7 @@ pub struct BatchReleaseResult {
     pub plan_id: i64,
     pub successful_work_orders: Vec<WorkOrder>,
     pub failed_items: Vec<BatchFailure>,
+    pub validations: Vec<ReleaseValidation>,
     pub total: i32,
 }
 
@@ -86,4 +87,25 @@ pub struct BatchFailure {
 pub struct PlanExtraStats {
     pub item_count: i64,
     pub sales_orders: String,
+}
+
+/// 下达预校验结果
+#[derive(Debug, Clone)]
+pub struct ReleaseValidation {
+    pub plan_item_id: i64,
+    pub product_id: i64,
+    pub has_routing: bool,
+    pub has_published_bom: bool,
+    pub routing_id: Option<i64>,
+    pub warnings: Vec<String>,
+    pub material_shortages: Vec<MaterialShortage>,
+}
+
+/// 物料短缺信息
+#[derive(Debug, Clone)]
+pub struct MaterialShortage {
+    pub product_id: i64,
+    pub required_qty: Decimal,
+    pub available_qty: Decimal,
+    pub shortage_qty: Decimal,
 }

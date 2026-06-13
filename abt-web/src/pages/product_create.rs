@@ -188,7 +188,27 @@ fn product_create_page(source: Option<&Product>, categories: &[CategoryTree]) ->
                         }
                         div class="form-field" {
                             label { "计量单位 " span style="color:var(--danger)" { "*" } }
-                            input type="text" name="unit" required placeholder="请输入计量单位" value=(unit_val) {}
+                            select name="unit" required {
+                                option value="" disabled selected[unit_val.is_empty()] { "请选择" }
+                                option value="个" selected[unit_val == "个"] { "个" }
+                                option value="件" selected[unit_val == "件"] { "件" }
+                                option value="台" selected[unit_val == "台"] { "台" }
+                                option value="套" selected[unit_val == "套"] { "套" }
+                                option value="批" selected[unit_val == "批"] { "批" }
+                                option value="kg" selected[unit_val == "kg" || unit_val == "千克"] { "千克 (kg)" }
+                                option value="g" selected[unit_val == "g" || unit_val == "克"] { "克 (g)" }
+                                option value="m" selected[unit_val == "m" || unit_val == "米"] { "米 (m)" }
+                                option value="cm" selected[unit_val == "cm" || unit_val == "厘米"] { "厘米 (cm)" }
+                                option value="L" selected[unit_val == "L" || unit_val == "升"] { "升 (L)" }
+                                option value="卷" selected[unit_val == "卷"] { "卷" }
+                                option value="包" selected[unit_val == "包"] { "包" }
+                                option value="箱" selected[unit_val == "箱"] { "箱" }
+                                option value="根" selected[unit_val == "根"] { "根" }
+                                option value="块" selected[unit_val == "块"] { "块" }
+                                option value="片" selected[unit_val == "片"] { "片" }
+                                option value="张" selected[unit_val == "张"] { "张" }
+                                option value="条" selected[unit_val == "条"] { "条" }
+                            }
                         }
                         div class="form-field" {
                             label { "获取途径" }

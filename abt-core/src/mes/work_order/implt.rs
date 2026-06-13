@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use rust_decimal::Decimal;
 use sqlx::postgres::PgPool;
 
-use super::super::enums::WorkOrderStatus;
+use super::super::enums::{PlanItemStatus, WorkOrderStatus};
 use super::model::*;
 use super::repo::WorkOrderRepo;
 use super::service::WorkOrderService;
@@ -150,43 +150,35 @@ impl WorkOrderService for WorkOrderServiceImpl {
             .get_bom_routing(ctx, db, product_code.to_string())
             .await?;
 
-        let routing_steps: Vec<WorkOrderRouting> = if let Some(ref detail) = routing_detail {
-            detail.steps.iter().map(|step| WorkOrderRouting {
-                id: 0,
-                work_order_id: id,
-                step_no: step.step_order,
-                process_name: step.process_name.clone().unwrap_or_else(|| step.process_code.clone()),
-                work_center_id: None,
-                standard_time: None,
-                standard_cost: None,
-                unit_price: None,
-                allowed_loss_rate: None,
-                planned_qty: work_order.planned_qty,
-                completed_qty: Decimal::ZERO,
-                defect_qty: Decimal::ZERO,
-                status: super::super::enums::RoutingStatus::Pending,
-                is_outsourced: false,
-                is_inspection_point: false,
-            }).collect()
-        } else {
-            vec![WorkOrderRouting {
-                id: 0,
-                work_order_id: id,
-                step_no: 1,
-                process_name: "生产".to_string(),
-                work_center_id: None,
-                standard_time: None,
-                standard_cost: None,
-                unit_price: None,
-                allowed_loss_rate: None,
-                planned_qty: work_order.planned_qty,
-                completed_qty: Decimal::ZERO,
-                defect_qty: Decimal::ZERO,
-                status: super::super::enums::RoutingStatus::Pending,
-                is_outsourced: false,
-                is_inspection_point: false,
-            }]
+        // 先确定每道工序的 (step_no, process_name)：有工艺则映射各工序，否则用单道虚拟默认工序
+        let steps: Vec<(i32, String)> = match routing_detail.as_ref() {
+            Some(detail) => detail.steps.iter().map(|step| (
+                step.step_order,
+                step.process_name.clone().unwrap_or_else(|| step.process_code.clone()),
+            )).collect(),
+            None => vec![(1, "生产".to_string())],
         };
+
+        let routing_steps: Vec<WorkOrderRouting> = steps
+            .into_iter()
+            .map(|(step_no, process_name)| WorkOrderRouting {
+                id: 0,
+                work_order_id: id,
+                step_no,
+                process_name,
+                work_center_id: None,
+                standard_time: None,
+                standard_cost: None,
+                unit_price: None,
+                allowed_loss_rate: None,
+                planned_qty: work_order.planned_qty,
+                completed_qty: Decimal::ZERO,
+                defect_qty: Decimal::ZERO,
+                status: super::super::enums::RoutingStatus::Pending,
+                is_outsourced: false,
+                is_inspection_point: false,
+            })
+            .collect();
 
         WorkOrderRoutingRepo::insert_for_work_order(&mut *db, &routing_steps)
             .await
@@ -338,15 +330,16 @@ impl WorkOrderService for WorkOrderServiceImpl {
         }
 
         // 3. 取消关联的领料单（通过 document_links 双向查找）
-        //    WorkOrder=10, MaterialRequisition=17
         let requisition_ids: Vec<i64> = sqlx::query_scalar(
             r#"SELECT source_id FROM document_links
-               WHERE target_type = 10 AND target_id = $1 AND source_type = 17
+               WHERE target_type = $2 AND target_id = $1 AND source_type = $3
                UNION
                SELECT target_id FROM document_links
-               WHERE source_type = 10 AND source_id = $1 AND target_type = 17"#,
+               WHERE source_type = $2 AND source_id = $1 AND target_type = $3"#,
         )
         .bind(id)
+        .bind(DocumentType::WorkOrder)
+        .bind(DocumentType::MaterialRequisition)
         .fetch_all(&mut *db)
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
@@ -404,12 +397,14 @@ impl WorkOrderService for WorkOrderServiceImpl {
             return Err(DomainError::ConcurrentConflict);
         }
 
-        // 9. 回滚关联 PlanItem 状态：Released(2) → Planned(1)
+        // 9. 回滚关联 PlanItem 状态：Released → Planned
         if let Some(plan_item_id) = work_order.plan_item_id
             && let Err(_e) = sqlx::query(
-                "UPDATE production_plan_items SET status = 1 WHERE id = $1 AND status = 2",
+                "UPDATE production_plan_items SET status = $2 WHERE id = $1 AND status = $3",
             )
             .bind(plan_item_id)
+            .bind(PlanItemStatus::Planned)
+            .bind(PlanItemStatus::Released)
             .execute(&mut *db)
             .await
         {

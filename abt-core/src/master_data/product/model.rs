@@ -145,8 +145,14 @@ pub enum MaterialConsumptionMode {
     Picking,
 }
 
+/// 超额完工容差默认值（5%）—— 单一事实来源，供 serde 默认与运行时回退共用
+pub fn default_over_completion_tolerance() -> rust_decimal::Decimal {
+    rust_decimal::Decimal::from_str_exact("0.05")
+        .expect("0.05 is a valid decimal literal")
+}
+
 fn default_tolerance() -> Option<rust_decimal::Decimal> {
-    Some(rust_decimal::Decimal::from_str_exact("0.05").unwrap())
+    Some(default_over_completion_tolerance())
 }
 
 /// 产品元数据 (JSONB)

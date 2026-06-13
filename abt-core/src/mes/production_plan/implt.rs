@@ -19,6 +19,11 @@ use crate::shared::types::error::DomainError;
 use crate::shared::types::Result;
 use crate::shared::types::pagination::PaginatedResult;
 
+/// 构造批量下达失败项（统一 index 转换，避免多处重复字面量）
+fn batch_failure(item_id: i64, err: DomainError) -> BatchFailure {
+    BatchFailure { index: item_id as i32, error: err }
+}
+
 pub struct ProductionPlanServiceImpl {
     #[allow(dead_code)]
     pool: PgPool,
@@ -265,10 +270,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
             let wo_id = match create_result {
                 Ok(id) => id,
                 Err(e) => {
-                    failed.push(BatchFailure {
-                        index: item.id as i32,
-                        error: e,
-                    });
+                    failed.push(batch_failure(item.id, e));
                     continue;
                 }
             };
@@ -277,10 +279,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
             let wo = match work_order_svc.find_by_id(ctx, db, wo_id).await {
                 Ok(wo) => wo,
                 Err(e) => {
-                    failed.push(BatchFailure {
-                        index: item.id as i32,
-                        error: e,
-                    });
+                    failed.push(batch_failure(item.id, e));
                     continue;
                 }
             };
@@ -300,10 +299,7 @@ impl ProductionPlanService for ProductionPlanServiceImpl {
                     }
                 }
                 Err(e) => {
-                    failed.push(BatchFailure {
-                        index: item.id as i32,
-                        error: e,
-                    });
+                    failed.push(batch_failure(item.id, e));
                 }
             }
         }

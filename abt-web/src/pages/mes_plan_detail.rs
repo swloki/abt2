@@ -387,18 +387,11 @@ fn release_result_banner(result: &BatchReleaseResult) -> Markup {
             // Warnings
             @if has_warnings {
                 div style="margin-top:var(--space-2)" {
-                    @for w in &all_warnings {
+                    @for w in all_warnings.iter().copied().chain(shortage_warnings.iter().map(String::as_str)) {
                         div style="font-size:var(--text-xs);color:#fa8c16;margin-top:var(--space-1)" {
                             (icon::alert_triangle_icon("w-3-5 h-3-5"))
                             " "
                             (w)
-                        }
-                    }
-                    @for sw in &shortage_warnings {
-                        div style="font-size:var(--text-xs);color:#fa8c16;margin-top:var(--space-1)" {
-                            (icon::alert_triangle_icon("w-3-5 h-3-5"))
-                            " "
-                            (sw)
                         }
                     }
                 }

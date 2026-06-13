@@ -540,13 +540,14 @@ async fn get_over_completion_tolerance(
     db: PgExecutor<'_>,
     work_order_id: i64,
 ) -> Result<Decimal> {
-    let default = Decimal::from_str_exact("0.05").unwrap();
-
     let wo = new_work_order_service(pool.clone())
         .find_by_id(ctx, db, work_order_id).await?;
 
     let product = new_product_service(pool.clone())
         .get(ctx, db, wo.product_id).await?;
 
-    Ok(product.meta.over_completion_tolerance.unwrap_or(default))
+    Ok(product
+        .meta
+        .over_completion_tolerance
+        .unwrap_or_else(crate::master_data::product::default_over_completion_tolerance))
 }

@@ -123,7 +123,7 @@ impl WorkOrderService for WorkOrderServiceImpl {
         let product_code = &product.product_code;
 
         // 4. BOM 快照：查找产品已发布 BOM → 获取最新快照 → 写入 work_order.bom_snapshot_id
-        let _bom_snapshot_id = if let Some(bom_id) = new_bom_query_service(self.pool.clone())
+        let bom_snapshot_id = if let Some(bom_id) = new_bom_query_service(self.pool.clone())
             .find_published_bom_by_product_code(ctx, db, product_code)
             .await?
         {
@@ -225,8 +225,60 @@ impl WorkOrderService for WorkOrderServiceImpl {
         .await
         .map_err(|e| DomainError::Internal(e.into()))?;
 
-        // 7. backflush 模式：不预留、不创建领料单
-        // （阶段 2 引入 picking 模式时在此处分流）
+        // 7. 根据产品 material_consumption_mode 分流
+        let consumption_mode = product.meta.material_consumption_mode;
+
+        match consumption_mode {
+            crate::master_data::product::model::MaterialConsumptionMode::Picking => {
+                // picking 模式：HARD 预留组件 + 生成领料单明细行
+                if let Some(snap_id) = bom_snapshot_id {
+                    let snapshot_opt = new_bom_query_service(self.pool.clone())
+                        .get_snapshot_by_id(ctx, db, snap_id).await?;
+
+                    if let Some(snapshot) = snapshot_opt {
+                        let all_nodes = &snapshot.bom_detail.nodes;
+                        let parent_ids: std::collections::HashSet<i64> =
+                            all_nodes.iter().map(|n| n.parent_id).collect();
+                        let leaf_nodes: Vec<&crate::master_data::bom::model::BomNode> = all_nodes
+                            .iter()
+                            .filter(|n| !parent_ids.contains(&n.id))
+                            .collect();
+
+                        if !leaf_nodes.is_empty() {
+                            let warehouse_id = crate::wms::backflush::resolve_warehouse_id(db).await?;
+
+                            // HARD 预留每个组件
+                            let reserve_requests: Vec<crate::shared::inventory_reservation::ReserveRequest> =
+                                leaf_nodes.iter().map(|node| {
+                                    crate::shared::inventory_reservation::ReserveRequest {
+                                        product_id: node.product_id,
+                                        warehouse_id,
+                                        reserved_qty: node.quantity * work_order.planned_qty,
+                                        reservation_type: crate::shared::enums::ReservationType::Hard,
+                                        source_type: DocumentType::WorkOrder,
+                                        source_id: id,
+                                        source_line_id: None,
+                                        priority: 0,
+                                        expires_at: None,
+                                    }
+                                }).collect();
+
+                            new_inventory_reservation_service(self.pool.clone())
+                                .reserve(ctx, db, reserve_requests)
+                                .await?;
+                        }
+                    }
+
+                    // 创建领料单（含明细行）
+                    new_material_requisition_service(self.pool.clone())
+                        .create_for_work_order(ctx, db, id).await?;
+                }
+            }
+            crate::master_data::product::model::MaterialConsumptionMode::Backflush => {
+                // backflush 模式：不预留、不创建领料单
+                // 倒冲在完工时按实际量自动扣减
+            }
+        }
 
         // 审计日志
         new_audit_log_service(self.pool.clone())

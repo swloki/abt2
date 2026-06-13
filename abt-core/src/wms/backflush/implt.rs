@@ -207,7 +207,7 @@ impl BackflushService for BackflushServiceImpl {
 
 /// 4 级仓库策略：确定倒冲仓库
 /// V1 简化实现：查找系统中第一个活跃仓库
-async fn resolve_warehouse_id(
+pub async fn resolve_warehouse_id(
     db: PgExecutor<'_>,
 ) -> Result<i64> {
     let warehouse_id: Option<i64> = sqlx::query_scalar(

@@ -223,4 +223,36 @@ impl WorkOrderRepo {
 
         Ok(result.rows_affected())
     }
+
+    /// 更新工单的 BOM 快照 ID
+    pub async fn update_bom_snapshot_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        bom_snapshot_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE work_orders SET bom_snapshot_id = $2, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(id)
+        .bind(bom_snapshot_id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
+
+    /// 更新工单的工艺路线 ID
+    pub async fn update_routing_id(
+        executor: &mut sqlx::postgres::PgConnection,
+        id: i64,
+        routing_id: i64,
+    ) -> Result<()> {
+        sqlx::query(
+            "UPDATE work_orders SET routing_id = $2, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(id)
+        .bind(routing_id)
+        .execute(&mut *executor)
+        .await?;
+        Ok(())
+    }
 }

@@ -4,6 +4,13 @@ use axum_extra::routing::TypedPath;
 use maud::{html, Markup};
 use serde::Deserialize;
 use rust_decimal::Decimal;
+use std::collections::HashMap;
+
+use abt_core::wms::arrival_notice::ArrivalNoticeService;
+use abt_core::wms::arrival_notice::model::ArrivalNoticeFilter;
+use abt_core::purchase::order::PurchaseOrderService;
+use abt_core::purchase::order::model::PurchaseOrderQuery;
+use abt_core::master_data::supplier::SupplierService;
 use abt_core::wms::warehouse::WarehouseService;
 use abt_core::wms::inventory_transaction::InventoryTransactionService;
 use abt_core::wms::inventory_transaction::model::RecordTransactionReq;
@@ -15,7 +22,7 @@ use abt_core::shared::types::{DomainError, PageParams};
 use crate::components::icon;
 use crate::errors::Result;
 use crate::layout::page::admin_page;
-use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath, StockInProductsPath, StockInItemRowPath};
+use crate::routes::wms_stock_in::{StockInCreatePath, StockInListPath, StockInProductsPath, StockInItemRowPath, StockInSourcePickPath};
 use crate::utils::{RequestContext, empty_as_none};
 use abt_macros::require_permission;
 
@@ -108,6 +115,89 @@ pub async fn get_item_row(
     Ok(Html(item_row_fragment(&product).into_string()))
 }
 
+// ── Source Pick (来料通知 / 采购订单 来源选择) ──
+
+#[derive(Debug, Deserialize)]
+pub struct SourcePickParams {
+    pub source_type: String,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub keyword: Option<String>,
+}
+
+struct SourceOption {
+    id: i64,
+    doc_number: String,
+    supplier_name: String,
+    extra: String,
+}
+
+/// HTMX: list arrival notices or purchase orders for source selection
+#[require_permission("INVENTORY", "create")]
+pub async fn get_source_pick(
+    ctx: RequestContext,
+    Query(params): Query<SourcePickParams>,
+) -> Result<Html<String>> {
+    let RequestContext { mut conn, state, service_ctx, .. } = ctx;
+    let kw = params.keyword.as_deref().unwrap_or("").trim().to_string();
+    let supplier_svc = state.supplier_service();
+
+    let options: Vec<SourceOption> = if params.source_type == "arrival" {
+        let svc = state.arrival_notice_service();
+        let filter = ArrivalNoticeFilter {
+            doc_number: if kw.is_empty() { None } else { Some(kw.clone()) },
+            ..Default::default()
+        };
+        let notices = svc
+            .list(&service_ctx, &mut conn, filter, 1, 50)
+            .await
+            .map(|r| r.items)
+            .unwrap_or_default();
+        let names = resolve_supplier_names_map(
+            &supplier_svc, &service_ctx, &mut conn,
+            notices.iter().map(|n| n.supplier_id).collect(),
+        ).await;
+        notices.into_iter().map(|n| SourceOption {
+            id: n.id,
+            doc_number: n.doc_number,
+            supplier_name: names.get(&n.supplier_id).cloned().unwrap_or_else(|| "-".into()),
+            extra: n.arrival_date.to_string(),
+        }).collect()
+    } else {
+        let svc = state.purchase_order_service();
+        let result = svc
+            .list(&service_ctx, &mut conn, PurchaseOrderQuery::default(), PageParams::new(1, 50))
+            .await
+            .map(|r| r.items)
+            .unwrap_or_default();
+        let names = resolve_supplier_names_map(
+            &supplier_svc, &service_ctx, &mut conn,
+            result.iter().map(|o| o.supplier_id).collect(),
+        ).await;
+        result.into_iter().map(|o| SourceOption {
+            id: o.id,
+            doc_number: o.doc_number,
+            supplier_name: names.get(&o.supplier_id).cloned().unwrap_or_else(|| "-".into()),
+            extra: o.order_date.to_string(),
+        }).collect()
+    };
+
+    Ok(Html(source_pick_fragment(&options).into_string()))
+}
+
+async fn resolve_supplier_names_map<S: SupplierService>(
+    svc: &S,
+    ctx: &abt_core::shared::types::ServiceContext,
+    db: abt_core::shared::types::PgExecutor<'_>,
+    ids: Vec<i64>,
+) -> HashMap<i64, String> {
+    if ids.is_empty() {
+        return HashMap::new();
+    }
+    svc.list(ctx, db, abt_core::master_data::supplier::model::SupplierQuery::default(), PageParams::new(1, 500))
+        .await
+        .map(|r| r.items.into_iter().filter(|s| ids.contains(&s.id)).map(|s| (s.id, s.name)).collect())
+        .unwrap_or_default()
+}
 // ── Form Data ──
 
 #[allow(dead_code)]
@@ -116,6 +206,8 @@ pub struct StockInCreateForm {
     pub transaction_type: String,
     pub source_type: String,
     pub source_ref: Option<String>,
+    #[serde(default, deserialize_with = "empty_as_none")]
+    pub source_id: Option<i64>,
     pub delivery_no: Option<String>,
     #[serde(default, deserialize_with = "empty_as_none")]
     pub warehouse_id: Option<i64>,
@@ -166,7 +258,7 @@ pub async fn create_stock_in(
         other => other,
     };
 
-    let source_id: i64 = 0;
+    let source_id: i64 = form.source_id.unwrap_or(0);
     let remark = form.remark.filter(|s| !s.is_empty());
 
     // Record one transaction per line item
@@ -262,23 +354,31 @@ fn stock_in_create_content(
                     div class="wms-form-grid" {
                         div class="form-group" {
                             label class="form-label" { "来源类型" }
-                            select class="form-select" name="source_type" {
-                                option value="arrival" { "来料通知 (AN)" }
+                            select class="form-select" name="source_type" id="source-type-select"
+                                onchange="wmsUpdateSourceType()" {
+                                option value="arrival" selected { "来料通知 (AN)" }
                                 option value="purchase" { "采购订单 (PO)" }
                                 option value="manual" { "手工录入" }
                             }
                         }
-                        div class="form-group" {
+                        div class="form-group" id="source-ref-group" {
                             label class="form-label" { "来源单号 " span class="required" { "*" } }
-                            input class="form-input" type="text" name="source_ref" placeholder="选择来源单号" readonly;
+                            div style="display:flex;gap:var(--space-2)" {
+                                input class="form-input" type="text" id="source-ref-input" name="source_ref"
+                                    placeholder="点击右侧选择来源单号" readonly style="flex:1;background:var(--surface)" {};
+                                input type="hidden" id="source-id-input" name="source_id" {};
+                                button type="button" class="btn btn-default"
+                                    onclick="wmsOpenSourceModal()" { "选择" }
+                            }
                         }
                         div class="form-group" {
                             label class="form-label" { "送货单号" }
                             input class="form-input" type="text" name="delivery_no" placeholder="输入送货单号";
                         }
-                        div class="form-group" {
+                        div class="form-group" id="source-supplier-group" {
                             label class="form-label" { "供应商" }
-                            input class="form-input" type="text" placeholder="选择来源后自动填充" readonly style="background:var(--surface)";
+                            input class="form-input" type="text" id="source-supplier-input"
+                                placeholder="选择来源后自动填充" readonly style="background:var(--surface)";
                         }
                     }
                 }
@@ -462,6 +562,46 @@ fn stock_in_create_content(
             }
         }
 
+        // ── Source Pick Modal ──
+        div id="source-modal" class="modal-overlay" data-source-path=(StockInSourcePickPath::PATH)
+            onclick="hsBackdropClose(this,event,'is-open')" {
+            div class="modal modal-lg" onclick="event.stopPropagation()" {
+                div class="modal-head" {
+                    h2 { "选择来源单据" }
+                    button type="button" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--muted);padding:4px"
+                        onclick="hsRemove(null,'#source-modal','is-open')" { "×" }
+                }
+                div class="modal-body" style="padding:0" hx-disinherit="hx-select" {
+                    input type="hidden" id="source-pick-type" value="arrival" {}
+                    div class="product-search-bar" {
+                        div class="product-search-field" {
+                            label class="product-search-label" { "来源单号" }
+                            input class="product-search-input" type="text" name="keyword" placeholder="输入单号关键词…"
+                                hx-get=(StockInSourcePickPath::PATH)
+                                hx-trigger="keyup changed delay:300ms"
+                                hx-target="#stockin-source-results"
+                                hx-swap="innerHTML"
+                                hx-include="#source-pick-type" {}
+                        }
+                        button type="button" class="product-search-clear"
+                            hx-get=(StockInSourcePickPath::PATH)
+                            hx-target="#stockin-source-results"
+                            hx-swap="innerHTML"
+                            hx-include="#source-pick-type"
+                            onclick="hsSetAndTrigger('#source-modal .product-search-input','','keyup')" {
+                            "清除"
+                        }
+                    }
+                    div id="stockin-source-results" {
+                        div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                            (icon::link_icon("w-8 h-8"))
+                            p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "输入关键词搜索来源单据" }
+                        }
+                    }
+                }
+            }
+        }
+
         // ── Cascade + Line Item JS ──
         (maud::PreEscaped(r#"<script>
         // Warehouse → Zone cascade
@@ -552,6 +692,41 @@ fn stock_in_create_content(
             });
             wmsStockInCalcSummary();
         }
+
+        // Source type cascade: 手工录入隐藏来源单号+供应商
+        function wmsUpdateSourceType() {
+            var type = document.getElementById('source-type-select').value;
+            var refGroup = document.getElementById('source-ref-group');
+            var supplierGroup = document.getElementById('source-supplier-group');
+            if (type === 'manual') {
+                refGroup.style.display = 'none';
+                supplierGroup.style.display = 'none';
+                document.getElementById('source-ref-input').value = '';
+                document.getElementById('source-supplier-input').value = '';
+                document.getElementById('source-id-input').value = '';
+            } else {
+                refGroup.style.display = '';
+                supplierGroup.style.display = '';
+            }
+        }
+
+        // Open source pick modal — capture current source_type and load list
+        function wmsOpenSourceModal() {
+            var modal = document.getElementById('source-modal');
+            var type = document.getElementById('source-type-select').value;
+            document.getElementById('source-pick-type').value = type;
+            me(modal).classAdd('is-open');
+            var path = modal.dataset.sourcePath;
+            htmx.ajax('GET', path + '?source_type=' + encodeURIComponent(type), {target: '#stockin-source-results', swap: 'innerHTML'});
+        }
+
+        // Pick a source row — backfill ref / supplier / source_id
+        function wmsStockInPickSource(btn) {
+            document.getElementById('source-ref-input').value = btn.dataset.doc;
+            document.getElementById('source-supplier-input').value = btn.dataset.supplier;
+            document.getElementById('source-id-input').value = btn.dataset.sourceId;
+            hsRemove(null, '#source-modal', 'is-open');
+        }
         </script>"#))
     }
 }
@@ -583,6 +758,40 @@ fn product_list_fragment(products: &[abt_core::master_data::product::model::Prod
                             hx-target="#stockin-item-tbody"
                             hx-swap="beforeend"
                             hx-on::after-request="hsRemove(null,'#product-modal','is-open');setTimeout(wmsStockInRenumber,50)" {
+                            "选择"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Source pick (来料通知/采购订单) results fragment
+fn source_pick_fragment(options: &[SourceOption]) -> Markup {
+    html! {
+        @if options.is_empty() {
+            div style="text-align:center;padding:var(--space-12);color:var(--muted)" {
+                (icon::link_icon("w-8 h-8"))
+                p style="margin:var(--space-2) 0 0;font-size:var(--text-sm)" { "未找到匹配的来源单据" }
+            }
+        } @else {
+            div class="product-select-list" {
+                @for o in options {
+                    div class="product-select-item" {
+                        div class="product-select-info" {
+                            div class="product-select-name" { (o.doc_number) }
+                            div class="product-select-meta" {
+                                span { (o.supplier_name) }
+                                span class="product-select-sep" { "·" }
+                                span { (o.extra) }
+                            }
+                        }
+                        button type="button" class="btn btn-sm btn-primary"
+                            data-doc=(o.doc_number)
+                            data-supplier=(o.supplier_name)
+                            data-source-id=(o.id)
+                            onclick="wmsStockInPickSource(this)" {
                             "选择"
                         }
                     }
